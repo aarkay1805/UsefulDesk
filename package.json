@@ -81,5 +81,9 @@
     "hono": "^4.12.25",
     "js-yaml": "^4.2.0",
     "@babel/core": "^7.29.6"
+  },
+  "allowScripts": {
+    "sharp@0.34.5": true,
+    "unrs-resolver@1.11.1": true
   }
 }
