@@ -18,12 +18,13 @@ interface ConversationsChartProps {
 }
 
 // ------------------------------------------------------------
-// Layout constants. The SVG renders into a fixed viewBox and scales
-// via CSS (preserveAspectRatio default). Everything inside uses
-// viewBox coordinates so the drawing math stays simple even as the
-// container resizes.
+// Layout constants. The SVG's viewBox WIDTH tracks the container's
+// real pixel width (measured via ResizeObserver) so the coordinate
+// system maps 1:1 to rendered pixels — no letterboxing from
+// preserveAspectRatio, crisp text, and exact hover mapping. Height
+// stays fixed. VB_W_FALLBACK is only the pre-measure first paint.
 // ------------------------------------------------------------
-const VB_W = 760
+const VB_W_FALLBACK = 760
 const VB_H = 240
 const PADDING = { top: 16, right: 16, bottom: 28, left: 40 }
 
@@ -115,7 +116,21 @@ function LineSvg({
   const svgRef = useRef<SVGSVGElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  const chartW = VB_W - PADDING.left - PADDING.right
+  // viewBox width follows the container's rendered width so the SVG
+  // fills its box exactly instead of letterboxing at a fixed 760.
+  const [vbW, setVbW] = useState(VB_W_FALLBACK)
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width
+      if (w && w > 0) setVbW(w)
+    })
+    ro.observe(wrap)
+    return () => ro.disconnect()
+  }, [])
+
+  const chartW = vbW - PADDING.left - PADDING.right
   const chartH = VB_H - PADDING.top - PADDING.bottom
 
   // x step can be fractional for 90-day views; points are positioned
@@ -149,7 +164,7 @@ function LineSvg({
       pt.y = e.clientY
       const local = pt.matrixTransform(ctm.inverse())
       const xVb = local.x
-      if (xVb < PADDING.left - 8 || xVb > VB_W - PADDING.right + 8) {
+      if (xVb < PADDING.left - 8 || xVb > vbW - PADDING.right + 8) {
         setHover(null)
         return
       }
@@ -178,8 +193,10 @@ function LineSvg({
       svg.removeEventListener('mousemove', onMove)
       svg.removeEventListener('mouseleave', onLeave)
     }
-    // xFor + yFor close over stepX, so stepX covers them.
-  }, [data, stepX])
+    // xFor + yFor close over stepX, so stepX covers them. vbW is
+    // listed too because the bounds check reads it directly and
+    // stepX can be 0 (single point), which wouldn't otherwise re-run.
+  }, [data, stepX, vbW])
 
   const hovered = hover !== null ? data[hover.idx] : null
   const hoverX = hover !== null ? xFor(hover.idx) : 0
@@ -192,7 +209,7 @@ function LineSvg({
     <div ref={wrapRef} className="relative w-full">
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${VB_W} ${VB_H}`}
+        viewBox={`0 0 ${vbW} ${VB_H}`}
         className="h-[240px] w-full"
         role="img"
         aria-label="Conversations per day"
@@ -204,7 +221,7 @@ function LineSvg({
             <g key={t}>
               <line
                 x1={PADDING.left}
-                x2={VB_W - PADDING.right}
+                x2={vbW - PADDING.right}
                 y1={y}
                 y2={y}
                 stroke="var(--border)"
