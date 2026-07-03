@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -35,7 +35,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
-  Search,
   Plus,
   Upload,
   MoreHorizontal,
@@ -45,8 +44,16 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   SlidersHorizontal,
+  Columns3,
+  Columns2,
+  Settings,
+  Eye,
+  List,
   Filter,
+  Tag as TagIcon,
+  SquarePen,
   X,
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
@@ -68,9 +75,13 @@ export default function ContactsPage() {
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
 
+  // Search is driven by the shared header's global search via the `?search=`
+  // query param — there's no page-level search input anymore.
+  const searchParams = useSearchParams();
+  const search = searchParams.get('search') ?? '';
+
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   // Tag filter — contacts shown must have ANY of these tags (OR).
@@ -221,6 +232,13 @@ export default function ContactsPage() {
     fetchContacts();
   }, [fetchContacts]);
 
+  // A new global-search term shrinks/grows the result set, so page N may no
+  // longer be valid — reset to the first page whenever the term changes.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(0);
+  }, [search]);
+
   function openAddForm() {
     setEditContact(null);
     setEditContactTags([]);
@@ -339,25 +357,183 @@ export default function ContactsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your contact list. {totalCount > 0 && `${totalCount} total contacts.`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {canEditSettings && (
-            <Button
-              variant="outline"
-              onClick={() => setCustomFieldsOpen(true)}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              <SlidersHorizontal className="size-4" />
-              Custom fields
-            </Button>
+      {/* Toolbar — left cluster swaps between browse and selection modes;
+          the right cluster (Import / Add) is constant. */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {selected.size > 0 ? (
+            <>
+              <div className="flex items-center gap-1">
+                <span className="text-base font-semibold text-foreground whitespace-nowrap">
+                  {selected.size} record{selected.size === 1 ? '' : 's'} selected
+                </span>
+                <ChevronDown className="size-4 text-muted-foreground" />
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Placeholder — no backing feature yet */}
+                <Button
+                  variant="outline"
+                  disabled
+                  className="border-border text-muted-foreground hover:bg-muted"
+                >
+                  <SquarePen className="size-4" />
+                  Mass update
+                </Button>
+                {/* Placeholder — no backing feature yet */}
+                <Button
+                  variant="outline"
+                  disabled
+                  className="border-border text-muted-foreground hover:bg-muted"
+                >
+                  <TagIcon className="size-4" />
+                  Tags
+                </Button>
+                <GatedButton
+                  variant="outline"
+                  canAct={canEdit}
+                  gateReason="delete contacts"
+                  onClick={() => setBulkDeleteOpen(true)}
+                  className="border-border text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="size-4" />
+                  Delete selected
+                </GatedButton>
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => setSelected(new Set())}
+                className="text-foreground hover:bg-muted"
+              >
+                Clear
+              </Button>
+            </>
+          ) : (
+            <>
+              <span className="text-base font-semibold text-foreground whitespace-nowrap">
+                All contacts
+              </span>
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        className="border-border text-muted-foreground hover:bg-muted shrink-0"
+                      />
+                    }
+                  >
+                    <Filter className="size-4" />
+                    Filter
+                    {selectedTagIds.length > 0 && (
+                      <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                        {selectedTagIds.length}
+                      </span>
+                    )}
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-64 p-0">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                      <span className="text-sm font-medium text-popover-foreground">
+                        Filter by tags
+                      </span>
+                      {selectedTagIds.length > 0 && (
+                        <button
+                          onClick={clearTagFilters}
+                          className="text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          Clear all
+                        </button>
+                      )}
+                    </div>
+                    {allTags.length === 0 ? (
+                      <p className="px-3 py-4 text-sm text-muted-foreground text-center">
+                        No tags yet.
+                      </p>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto py-1">
+                        {allTags.map((tag) => (
+                          <label
+                            key={tag.id}
+                            className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer hover:bg-muted/50"
+                          >
+                            <Checkbox
+                              checked={selectedTagIds.includes(tag.id)}
+                              onCheckedChange={() => toggleTagFilter(tag.id)}
+                              aria-label={`Filter by ${tag.name}`}
+                            />
+                            <span
+                              className="size-2.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: tag.color }}
+                            />
+                            <span className="text-sm text-popover-foreground truncate">
+                              {tag.name}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+                {canEditSettings && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setCustomFieldsOpen(true)}
+                    className="border-border text-muted-foreground hover:bg-muted"
+                  >
+                    <SlidersHorizontal className="size-4" />
+                    Custom fields
+                  </Button>
+                )}
+                {/* Display — column/view settings menu (Zoho-style). Item
+                    behaviours are wired up as their follow-up specs land. */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        className="border-border text-muted-foreground hover:bg-muted"
+                      />
+                    }
+                  >
+                    <Columns3 className="size-4" />
+                    Display
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="min-w-60 bg-popover border-border"
+                  >
+                    <DropdownMenuItem className="text-popover-foreground focus:bg-muted focus:text-foreground">
+                      <Settings className="size-4" />
+                      Manage Columns
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-popover-foreground focus:bg-muted focus:text-foreground">
+                      <Columns2 className="size-4" />
+                      Reset Column Size
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-border" />
+                    <DropdownMenuItem className="text-popover-foreground focus:bg-muted focus:text-foreground">
+                      <List className="size-4" />
+                      Records Per Page
+                      <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+                        30
+                        <ChevronRight className="size-3.5" />
+                      </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-popover-foreground focus:bg-muted focus:text-foreground">
+                      <Eye className="size-4" />
+                      View Mode
+                      <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+                        Wrap Text
+                        <ChevronRight className="size-3.5" />
+                      </span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </>
           )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
           <GatedButton
             variant="outline"
             canAct={canEdit}
@@ -380,154 +556,43 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {/* Search + tag filter */}
-      <div className="space-y-2">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                // Reset pagination when the query changes — the result
-                // set shrinks/grows, page N may no longer be valid.
-                setPage(0);
-              }}
-              placeholder="Search by name, phone, or email..."
-              className="pl-8 bg-card border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
-
-          <Popover>
-            <PopoverTrigger
-              render={
-                <Button
-                  variant="outline"
-                  className="border-border text-muted-foreground hover:bg-muted shrink-0"
-                />
-              }
-            >
-              <Filter className="size-4" />
-              Filter by tags
-              {selectedTagIds.length > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-                  {selectedTagIds.length}
-                </span>
-              )}
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 p-0">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                <span className="text-sm font-medium text-popover-foreground">
-                  Filter by tags
-                </span>
-                {selectedTagIds.length > 0 && (
-                  <button
-                    onClick={clearTagFilters}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    Clear all
-                  </button>
-                )}
-              </div>
-              {allTags.length === 0 ? (
-                <p className="px-3 py-4 text-sm text-muted-foreground text-center">
-                  No tags yet.
-                </p>
-              ) : (
-                <div className="max-h-64 overflow-y-auto py-1">
-                  {allTags.map((tag) => (
-                    <label
-                      key={tag.id}
-                      className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer hover:bg-muted/50"
-                    >
-                      <Checkbox
-                        checked={selectedTagIds.includes(tag.id)}
-                        onCheckedChange={() => toggleTagFilter(tag.id)}
-                        aria-label={`Filter by ${tag.name}`}
-                      />
-                      <span
-                        className="size-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: tag.color }}
-                      />
-                      <span className="text-sm text-popover-foreground truncate">
-                        {tag.name}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {/* Active tag-filter chips */}
-        {selectedTagIds.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {selectedTagIds.map((id) => {
-              const tag = tagsMap[id];
-              if (!tag) return null;
-              return (
-                <span
-                  key={id}
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                  style={{
-                    backgroundColor: tag.color + '20',
-                    color: tag.color,
-                  }}
+      {/* Active tag-filter chips */}
+      {selectedTagIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {selectedTagIds.map((id) => {
+            const tag = tagsMap[id];
+            if (!tag) return null;
+            return (
+              <span
+                key={id}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                style={{
+                  backgroundColor: tag.color + '20',
+                  color: tag.color,
+                }}
+              >
+                {tag.name}
+                <button
+                  onClick={() => toggleTagFilter(id)}
+                  aria-label={`Remove ${tag.name} filter`}
+                  className="hover:opacity-70"
                 >
-                  {tag.name}
-                  <button
-                    onClick={() => toggleTagFilter(id)}
-                    aria-label={`Remove ${tag.name} filter`}
-                    className="hover:opacity-70"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </span>
-              );
-            })}
-            <button
-              onClick={clearTagFilters}
-              className="text-xs text-muted-foreground hover:text-foreground px-1"
-            >
-              Clear all
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Bulk action bar */}
-      {selected.size > 0 && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 px-4 py-2">
-          <p className="text-sm text-foreground">
-            <span className="font-medium">{selected.size}</span>{' '}
-            {selected.size === 1 ? 'contact' : 'contacts'} selected
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelected(new Set())}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Clear
-            </Button>
-            <GatedButton
-              variant="destructive"
-              size="sm"
-              canAct={canEdit}
-              gateReason="delete contacts"
-              onClick={() => setBulkDeleteOpen(true)}
-            >
-              <Trash2 className="size-4" />
-              Delete selected
-            </GatedButton>
-          </div>
+                  <X className="size-3" />
+                </button>
+              </span>
+            );
+          })}
+          <button
+            onClick={clearTagFilters}
+            className="text-xs text-muted-foreground hover:text-foreground px-1"
+          >
+            Clear all
+          </button>
         </div>
       )}
 
       {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
