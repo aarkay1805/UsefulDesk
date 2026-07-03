@@ -31,8 +31,8 @@ function SignupPageInner() {
   // When the user lands here from `/join/<token>` we carry the
   // invite token in the query so it survives the signup → email
   // verification → redirect round-trip. `emailRedirectTo` below
-  // points back at /join/<token> so the user lands on the redeem
-  // step after verifying instead of being dropped on /dashboard.
+  // points at /auth/callback with next=/join/<token> so the user
+  // lands on the redeem step after verifying instead of /dashboard.
   const inviteToken = searchParams.get("invite");
 
   const [fullName, setFullName] = useState("");
@@ -60,13 +60,17 @@ function SignupPageInner() {
 
     setLoading(true);
 
-    // If we have an invite token, point Supabase's verification
-    // email back at the join page so the user can accept after
-    // verifying. Without a token, Supabase uses its default
-    // redirect (the app root).
-    const emailRedirectTo = inviteToken
-      ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
-      : undefined;
+    // Always send the verification email through /auth/callback —
+    // it exchanges the ?code / token_hash for a session and then
+    // forwards to `next`. Without an explicit emailRedirectTo,
+    // Supabase falls back to the project Site URL, and the root
+    // page's redirect('/dashboard') strips the ?code param before
+    // the client can exchange it, so the user lands on /login with
+    // no session despite being verified.
+    const next = inviteToken
+      ? `/join/${encodeURIComponent(inviteToken)}`
+      : "/dashboard";
+    const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -75,7 +79,7 @@ function SignupPageInner() {
         data: {
           full_name: fullName,
         },
-        ...(emailRedirectTo ? { emailRedirectTo } : {}),
+        emailRedirectTo,
       },
     });
 

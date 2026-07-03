@@ -35,10 +35,14 @@ function LoginPageInner() {
   // account. After a successful sign-in we send them to the join
   // page to accept rather than to /dashboard.
   const inviteToken = searchParams.get("invite");
+  // /auth/callback bounces here with a human-readable ?error= when
+  // an email verification / recovery link fails (expired, reused,
+  // opened in a different browser). Seed the banner with it.
+  const callbackError = searchParams.get("error");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(callbackError);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
