@@ -65,6 +65,8 @@ import {
   Download,
   Wand2,
   RotateCcw,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 
 type ImportMode = 'add' | 'update' | 'both';
@@ -100,6 +102,7 @@ interface ImportResult {
   failed: number;
   tagsAssigned: number;
   customValues: number;
+  invalidValues: number;
 }
 
 interface ImportWizardProps {
@@ -146,13 +149,20 @@ export function ImportWizard({
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
 
-  // Inline "create custom field" flow, keyed by the column that triggered it.
+  // Inline custom-field editor. `createCol` set → creating for that column;
+  // `editFieldId` set → editing that existing field. At most one at a time.
   const [createCol, setCreateCol] = useState<number | null>(null);
+  const [editFieldId, setEditFieldId] = useState<string | null>(null);
   const [newFieldName, setNewFieldName] = useState('');
   const [newFieldType, setNewFieldType] = useState('text');
-  const [creatingField, setCreatingField] = useState(false);
+  const [savingField, setSavingField] = useState(false);
 
   const targets = useMemo(() => buildTargets(customFields), [customFields]);
+  const fieldTypeById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const f of customFields) map.set(f.id, f.field_type ?? 'text');
+    return map;
+  }, [customFields]);
 
   // Load the account's custom fields once the dialog opens so they show up as
   // mapping targets. Cheap, and keeps the wizard self-contained.
@@ -162,7 +172,7 @@ export function ImportWizard({
     (async () => {
       const { data } = await supabase
         .from('custom_fields')
-        .select('id, field_name')
+        .select('id, field_name, field_type')
         .eq('account_id', accountId)
         .order('created_at', { ascending: true });
       if (!cancelled) setCustomFields((data as CustomFieldRef[]) ?? []);
@@ -182,7 +192,13 @@ export function ImportWizard({
     setCompliance(false);
     setResult(null);
     setCreateCol(null);
+    setEditFieldId(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  function closeFieldDialog() {
+    setCreateCol(null);
+    setEditFieldId(null);
   }
 
   function handleOpenChange(next: boolean) {
@@ -228,9 +244,14 @@ export function ImportWizard({
   }, [raw]);
 
   const mappedPreview = useMemo(() => {
-    if (!raw) return { rows: [] as MappedRow[], droppedNoPhone: 0 };
-    return applyMapping(raw, mapping);
-  }, [raw, mapping]);
+    if (!raw)
+      return {
+        rows: [] as MappedRow[],
+        droppedNoPhone: 0,
+        invalidCustomValues: 0,
+      };
+    return applyMapping(raw, mapping, fieldTypeById);
+  }, [raw, mapping, fieldTypeById]);
 
   function setColumn(col: number, key: string) {
     setMapping((prev) => {
@@ -251,14 +272,25 @@ export function ImportWizard({
   }
 
   function requestCreateField(col: number) {
+    setEditFieldId(null);
     setCreateCol(col);
     setNewFieldName(raw?.headers[col]?.trim() ?? '');
     setNewFieldType('text');
   }
 
-  async function handleCreateField() {
+  function requestEditField(fieldId: string) {
+    const field = customFields.find((f) => f.id === fieldId);
+    if (!field) return;
+    setCreateCol(null);
+    setEditFieldId(fieldId);
+    setNewFieldName(field.field_name);
+    setNewFieldType(field.field_type ?? 'text');
+  }
+
+  async function handleSaveField() {
     const name = newFieldName.trim();
-    if (!name || createCol === null) return;
+    const isEdit = editFieldId !== null;
+    if (!name || (!isEdit && createCol === null)) return;
     if (!accountId || !user) {
       toast.error('Your profile is not linked to an account.');
       return;
@@ -267,13 +299,37 @@ export function ImportWizard({
     const lower = name.toLowerCase();
     const clash =
       RESERVED_FIELD_NAMES.includes(lower) ||
-      customFields.some((f) => f.field_name.trim().toLowerCase() === lower);
+      customFields.some(
+        (f) => f.id !== editFieldId && f.field_name.trim().toLowerCase() === lower
+      );
     if (clash) {
       toast.error(`A field named "${name}" already exists.`);
       return;
     }
 
-    setCreatingField(true);
+    setSavingField(true);
+
+    if (isEdit) {
+      const { data, error } = await supabase
+        .from('custom_fields')
+        .update({ field_name: name, field_type: newFieldType })
+        .eq('id', editFieldId)
+        .select('id, field_name, field_type')
+        .single();
+      setSavingField(false);
+      if (error || !data) {
+        toast.error('Could not update field. You may not have permission.');
+        return;
+      }
+      const updated = data as CustomFieldRef;
+      setCustomFields((prev) =>
+        prev.map((f) => (f.id === updated.id ? updated : f))
+      );
+      toast.success(`Updated "${updated.field_name}".`);
+      setEditFieldId(null);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('custom_fields')
       .insert({
@@ -282,9 +338,9 @@ export function ImportWizard({
         user_id: user.id,
         account_id: accountId,
       })
-      .select('id, field_name')
+      .select('id, field_name, field_type')
       .single();
-    setCreatingField(false);
+    setSavingField(false);
 
     if (error || !data) {
       toast.error('Could not create field. You may not have permission.');
@@ -293,9 +349,36 @@ export function ImportWizard({
 
     const created = data as CustomFieldRef;
     setCustomFields((prev) => [...prev, created]);
-    setColumn(createCol, `custom:${created.id}`);
+    if (createCol !== null) setColumn(createCol, `custom:${created.id}`);
     toast.success(`Created "${created.field_name}".`);
     setCreateCol(null);
+  }
+
+  async function handleDeleteField(fieldId: string) {
+    const field = customFields.find((f) => f.id === fieldId);
+    if (!field) return;
+    if (
+      !window.confirm(
+        `Delete "${field.field_name}"? This removes its stored value on every contact and cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from('custom_fields')
+      .delete()
+      .eq('id', fieldId);
+    if (error) {
+      toast.error('Could not delete field. You may not have permission.');
+      return;
+    }
+
+    setCustomFields((prev) => prev.filter((f) => f.id !== fieldId));
+    // Unmap any column that pointed at the deleted field.
+    const key = `custom:${fieldId}`;
+    setMapping((prev) => prev.map((k) => (k === key ? IGNORE_KEY : k)));
+    toast.success(`Deleted "${field.field_name}".`);
   }
 
   async function handleImport() {
@@ -317,7 +400,11 @@ export function ImportWizard({
       let failed = 0;
 
       // Structure rows via the chosen mapping, then de-dupe within the file.
-      const { rows: mappedAll, droppedNoPhone } = applyMapping(raw, mapping);
+      const {
+        rows: mappedAll,
+        droppedNoPhone,
+        invalidCustomValues,
+      } = applyMapping(raw, mapping, fieldTypeById);
       skipped += droppedNoPhone;
       const { unique, duplicates } = dedupeByPhone(mappedAll);
       skipped += duplicates;
@@ -491,6 +578,7 @@ export function ImportWizard({
         failed,
         tagsAssigned,
         customValues,
+        invalidValues: invalidCustomValues,
       });
       setStep(3);
 
@@ -558,6 +646,8 @@ export function ImportWizard({
               onAutoMap={handleAutoMap}
               onReset={handleReset}
               onRequestCreateField={requestCreateField}
+              onRequestEditField={requestEditField}
+              onDeleteField={handleDeleteField}
             />
           )}
 
@@ -651,16 +741,18 @@ export function ImportWizard({
     </Dialog>
 
     <Dialog
-      open={createCol !== null}
-      onOpenChange={(o) => !o && setCreateCol(null)}
+      open={createCol !== null || editFieldId !== null}
+      onOpenChange={(o) => !o && closeFieldDialog()}
     >
       <DialogContent className="border-border bg-popover text-popover-foreground sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
-            Create custom field
+            {editFieldId !== null ? 'Edit custom field' : 'Create custom field'}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Adds a new field to every contact, then maps this column to it.
+            {editFieldId !== null
+              ? 'Rename or change the type. Existing stored values are not re-validated.'
+              : 'Adds a new field to every contact, then maps this column to it.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -672,9 +764,9 @@ export function ImportWizard({
               autoFocus
               onChange={(e) => setNewFieldName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !creatingField) {
+                if (e.key === 'Enter' && !savingField) {
                   e.preventDefault();
-                  void handleCreateField();
+                  void handleSaveField();
                 }
               }}
               placeholder="e.g. Lead Source"
@@ -710,19 +802,19 @@ export function ImportWizard({
           <Button
             type="button"
             variant="outline"
-            onClick={() => setCreateCol(null)}
+            onClick={closeFieldDialog}
             className="border-border text-muted-foreground hover:bg-muted"
           >
             Cancel
           </Button>
           <Button
             type="button"
-            disabled={!newFieldName.trim() || creatingField}
-            onClick={handleCreateField}
+            disabled={!newFieldName.trim() || savingField}
+            onClick={handleSaveField}
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
-            {creatingField && <Loader2 className="size-4 animate-spin" />}
-            Create &amp; map
+            {savingField && <Loader2 className="size-4 animate-spin" />}
+            {editFieldId !== null ? 'Save changes' : 'Create & map'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -854,6 +946,8 @@ function MapStep({
   onAutoMap,
   onReset,
   onRequestCreateField,
+  onRequestEditField,
+  onDeleteField,
 }: {
   raw: RawCsv;
   targets: TargetField[];
@@ -869,10 +963,17 @@ function MapStep({
   onAutoMap: () => void;
   onReset: () => void;
   onRequestCreateField: (col: number) => void;
+  onRequestEditField: (fieldId: string) => void;
+  onDeleteField: (fieldId: string) => void;
 }) {
   const standardTargets = targets.filter((t) => t.kind !== 'custom');
   const customTargets = targets.filter((t) => t.kind === 'custom');
   const showEmptyToggle = mode === 'update' || mode === 'both';
+
+  const labelForKey = (key: string): string => {
+    if (key === IGNORE_KEY) return "Don't import";
+    return targets.find((t) => t.key === key)?.label ?? key;
+  };
 
   return (
     <div className="space-y-5">
@@ -991,6 +1092,7 @@ function MapStep({
                       </span>
                     </td>
                     <td className="px-3 py-2">
+                      <div className="flex items-center gap-1">
                       <Select
                         value={mapping[col] ?? IGNORE_KEY}
                         onValueChange={(v) => {
@@ -1006,7 +1108,18 @@ function MapStep({
                           size="sm"
                           className="w-full min-w-[9rem] bg-background/60"
                         >
-                          <SelectValue />
+                          <SelectValue>
+                            {(value) => (
+                              <span
+                                className={cn(
+                                  (value ?? IGNORE_KEY) === IGNORE_KEY &&
+                                    'text-muted-foreground'
+                                )}
+                              >
+                                {labelForKey((value as string) ?? IGNORE_KEY)}
+                              </span>
+                            )}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value={IGNORE_KEY}>
@@ -1048,6 +1161,36 @@ function MapStep({
                           )}
                         </SelectContent>
                       </Select>
+
+                      {(() => {
+                        const cfId = customFieldId(mapping[col] ?? '');
+                        if (!cfId || !canCreateFields) return null;
+                        return (
+                          <>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              title="Edit field"
+                              onClick={() => onRequestEditField(cfId)}
+                              className="shrink-0 text-muted-foreground hover:text-foreground"
+                            >
+                              <Pencil className="size-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              title="Delete field"
+                              onClick={() => onDeleteField(cfId)}
+                              className="shrink-0 text-muted-foreground hover:text-red-400"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </>
+                        );
+                      })()}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1088,7 +1231,11 @@ function ReviewStep({
 }: {
   result: ImportResult | null;
   mode: ImportMode;
-  mappedPreview: { rows: MappedRow[]; droppedNoPhone: number };
+  mappedPreview: {
+    rows: MappedRow[];
+    droppedNoPhone: number;
+    invalidCustomValues: number;
+  };
   compliance: boolean;
   onSetCompliance: (v: boolean) => void;
 }) {
@@ -1133,6 +1280,14 @@ function ReviewStep({
             applied.
           </p>
         )}
+        {result.invalidValues > 0 && (
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-400">
+            <AlertTriangle className="size-3.5 shrink-0" />
+            {result.invalidValues} value
+            {result.invalidValues !== 1 ? 's' : ''} skipped — wrong format for
+            the field type.
+          </p>
+        )}
       </div>
     );
   }
@@ -1158,6 +1313,16 @@ function ReviewStep({
               <span className="text-muted-foreground">Rows without phone: </span>
               <span className="font-medium text-amber-400">
                 {mappedPreview.droppedNoPhone} skipped
+              </span>
+            </div>
+          )}
+          {mappedPreview.invalidCustomValues > 0 && (
+            <div>
+              <span className="text-muted-foreground">
+                Wrong-format values:{' '}
+              </span>
+              <span className="font-medium text-amber-400">
+                {mappedPreview.invalidCustomValues} will be skipped
               </span>
             </div>
           )}

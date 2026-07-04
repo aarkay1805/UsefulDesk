@@ -72,6 +72,67 @@ const HEADER_SYNONYMS: Record<string, string[]> = {
 export interface CustomFieldRef {
   id: string;
   field_name: string;
+  /** One of CUSTOM_FIELD_TYPES; defaults to 'text' when absent. */
+  field_type?: string;
+}
+
+/**
+ * Validate + normalize a raw cell for a typed custom field. Returns the
+ * canonical string to store, or null when the value is invalid for the type
+ * (the caller drops it and counts it). Kept deliberately light — no locale
+ * pattern library; ambiguous slash dates use JS Date interpretation.
+ */
+export function coerceCustomValue(rawValue: string, type: string): string | null {
+  const value = rawValue.trim();
+  if (!value) return null;
+
+  switch (type) {
+    case 'number': {
+      // Drop spaces + thousands commas; keep a single dot decimal.
+      const cleaned = value.replace(/[\s,]/g, '');
+      if (!/^[-+]?(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null;
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? String(n) : null;
+    }
+    case 'email': {
+      const lower = value.toLowerCase();
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lower) ? lower : null;
+    }
+    case 'url': {
+      const withScheme = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+      try {
+        const u = new URL(withScheme);
+        return u.hostname.includes('.') ? u.toString() : null;
+      } catch {
+        return null;
+      }
+    }
+    case 'phone': {
+      const digits = value.replace(/\D/g, '');
+      return digits.length >= 7 ? value : null;
+    }
+    case 'date':
+      return coerceDate(value);
+    case 'text':
+    default:
+      return value;
+  }
+}
+
+/** Normalize a date string to ISO `YYYY-MM-DD`, or null if unparseable. */
+function coerceDate(value: string): string | null {
+  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const d = new Date(`${iso[1]}-${iso[2]}-${iso[3]}T00:00:00Z`);
+    return Number.isNaN(d.getTime()) ? null : `${iso[1]}-${iso[2]}-${iso[3]}`;
+  }
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return null;
+  const d = new Date(parsed);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 /** Build the full target list for a module's mapping dropdowns. */
@@ -227,14 +288,24 @@ export interface ApplyMappingResult {
   rows: MappedRow[];
   /** Rows dropped because the mapped phone column was empty. */
   droppedNoPhone: number;
+  /** Custom values dropped because they failed their field's type check. */
+  invalidCustomValues: number;
 }
 
 /**
  * Turn raw CSV rows into structured contact rows using `mapping` (aligned to
  * `raw.headers`). Rows with an empty phone are dropped and counted — phone is
  * the required field and the match key for update/upsert.
+ *
+ * `fieldTypeById` maps a custom field id to its `field_type`; each custom
+ * value is validated/normalized against it, and values failing the check are
+ * dropped and counted in `invalidCustomValues`.
  */
-export function applyMapping(raw: RawCsv, mapping: string[]): ApplyMappingResult {
+export function applyMapping(
+  raw: RawCsv,
+  mapping: string[],
+  fieldTypeById?: Map<string, string>
+): ApplyMappingResult {
   // Precompute column indexes per target so we scan the mapping once.
   const phoneCols: number[] = [];
   const nameCols: number[] = [];
@@ -261,6 +332,7 @@ export function applyMapping(raw: RawCsv, mapping: string[]): ApplyMappingResult
 
   const rows: MappedRow[] = [];
   let droppedNoPhone = 0;
+  let invalidCustomValues = 0;
 
   for (const row of raw.rows) {
     const phone = first(row, phoneCols);
@@ -276,8 +348,15 @@ export function applyMapping(raw: RawCsv, mapping: string[]): ApplyMappingResult
 
     const customValues: MappedCustomValue[] = [];
     for (const { col, fieldId } of customCols) {
-      const value = row[col]?.trim();
-      if (value) customValues.push({ fieldId, value });
+      const rawValue = row[col]?.trim();
+      if (!rawValue) continue;
+      const type = fieldTypeById?.get(fieldId) ?? 'text';
+      const value = coerceCustomValue(rawValue, type);
+      if (value === null) {
+        invalidCustomValues++;
+        continue;
+      }
+      customValues.push({ fieldId, value });
     }
 
     rows.push({
@@ -290,5 +369,5 @@ export function applyMapping(raw: RawCsv, mapping: string[]): ApplyMappingResult
     });
   }
 
-  return { rows, droppedNoPhone };
+  return { rows, droppedNoPhone, invalidCustomValues };
 }

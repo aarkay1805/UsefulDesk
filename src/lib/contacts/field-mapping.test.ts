@@ -3,6 +3,7 @@ import {
   applyMapping,
   autoMapColumns,
   buildTargets,
+  coerceCustomValue,
   customFieldId,
   IGNORE_KEY,
   parseCsvRaw,
@@ -113,6 +114,63 @@ describe('applyMapping', () => {
     const mapping = ['phone', IGNORE_KEY, IGNORE_KEY, IGNORE_KEY];
     const { rows } = applyMapping(raw, mapping);
     expect(rows[0]).toMatchObject({ phone: '+111', name: undefined });
+  });
+});
+
+describe('coerceCustomValue', () => {
+  it('text passes through trimmed', () => {
+    expect(coerceCustomValue('  hi  ', 'text')).toBe('hi');
+    expect(coerceCustomValue('', 'text')).toBeNull();
+  });
+
+  it('number strips separators and normalizes', () => {
+    expect(coerceCustomValue('1,234.50', 'number')).toBe('1234.5');
+    expect(coerceCustomValue('-42', 'number')).toBe('-42');
+    expect(coerceCustomValue('abc', 'number')).toBeNull();
+  });
+
+  it('email validates and lowercases', () => {
+    expect(coerceCustomValue('Foo@Bar.COM', 'email')).toBe('foo@bar.com');
+    expect(coerceCustomValue('nope', 'email')).toBeNull();
+  });
+
+  it('url adds scheme and validates host', () => {
+    expect(coerceCustomValue('example.com', 'url')).toBe('https://example.com/');
+    expect(coerceCustomValue('http://a.io/x', 'url')).toBe('http://a.io/x');
+    expect(coerceCustomValue('notaurl', 'url')).toBeNull();
+  });
+
+  it('phone requires enough digits, keeps input', () => {
+    expect(coerceCustomValue('+1 (555) 123-4567', 'phone')).toBe(
+      '+1 (555) 123-4567'
+    );
+    expect(coerceCustomValue('123', 'phone')).toBeNull();
+  });
+
+  it('date normalizes to ISO', () => {
+    expect(coerceCustomValue('2024-03-04', 'date')).toBe('2024-03-04');
+    expect(coerceCustomValue('garbage', 'date')).toBeNull();
+  });
+});
+
+describe('applyMapping with types', () => {
+  it('drops values that fail their field type and counts them', () => {
+    const raw = {
+      headers: ['Phone', 'Score'],
+      rows: [
+        ['+111', '42'],
+        ['+222', 'oops'],
+      ],
+    };
+    const types = new Map([['cf1', 'number']]);
+    const { rows, invalidCustomValues } = applyMapping(
+      raw,
+      ['phone', 'custom:cf1'],
+      types
+    );
+    expect(rows[0].customValues).toEqual([{ fieldId: 'cf1', value: '42' }]);
+    expect(rows[1].customValues).toEqual([]);
+    expect(invalidCustomValues).toBe(1);
   });
 });
 
