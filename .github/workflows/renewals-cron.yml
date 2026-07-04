@@ -1,0 +1,33 @@
+name: renewals-cron
+
+# Fires the auto renewal-reminder job once a day. The route
+# (GET /api/renewals/cron) is idempotent + self-dedupes via the
+# renewal_reminders_sent ledger, so an occasional double-run is harmless.
+#
+# Native Vercel Cron can't send a custom header, and the route
+# authenticates on `x-cron-secret` — so this GitHub Action is the pinger.
+# Add the matching value as a repo secret named AUTOMATION_CRON_SECRET
+# (Settings → Secrets and variables → Actions).
+
+on:
+  schedule:
+    # 03:30 UTC = 09:00 IST, daily. Reminders key off the IST calendar
+    # day, so once a day covers every configured offset.
+    - cron: "30 3 * * *"
+  # Lets you trigger a run by hand from the Actions tab (for testing).
+  workflow_dispatch:
+
+# If a run is somehow still going when the next fires, don't stack them.
+concurrency:
+  group: renewals-cron
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger renewal reminders
+        run: |
+          curl --fail --silent --show-error \
+            -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
+            https://desk.usefulmade.com/api/renewals/cron
