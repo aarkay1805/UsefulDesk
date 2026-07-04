@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag, CustomField } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -702,11 +701,12 @@ export default function ContactsPage() {
   const totalCols = visibleColumns.length + 3;
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full flex-col gap-4">
       {/* Toolbar — left cluster swaps between browse and selection modes;
-          the right cluster (Import / Add) is constant. */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+          the right cluster (Import / Add) is constant. Stacks to its own row
+          on mobile; button groups wrap rather than overflow. */}
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           {selected.size > 0 ? (
             <>
               <DropdownMenu>
@@ -741,7 +741,7 @@ export default function ContactsPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {/* Placeholder — no backing feature yet */}
                 <Button
                   variant="outline"
@@ -783,7 +783,7 @@ export default function ContactsPage() {
               <span className="text-base font-semibold text-foreground whitespace-nowrap">
                 All contacts
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Popover>
                   <PopoverTrigger
                     render={
@@ -936,7 +936,7 @@ export default function ContactsPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <GatedButton
             variant="outline"
             canAct={canEdit}
@@ -961,7 +961,7 @@ export default function ContactsPage() {
 
       {/* Active tag-filter chips */}
       {selectedTagIds.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           {selectedTagIds.map((id) => {
             const tag = tagsMap[id];
             if (!tag) return null;
@@ -994,12 +994,18 @@ export default function ContactsPage() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        {/* Table fills the container (rows span edge-to-edge); columns keep
-            their fixed widths and a trailing spacer col absorbs any leftover
-            width. min-width forces horizontal scroll when columns overflow. */}
-        <Table className="table-fixed" style={{ minWidth: totalWidth }}>
+      {/* Table — this is the single bounded scroll region. It fills the
+          remaining height (flex-1) so its horizontal scrollbar stays in view
+          at the bottom edge and the header sticks while the body scrolls.
+          The footer below stays pinned. The table itself fills the width
+          (rows span edge-to-edge); columns keep their fixed widths and a
+          trailing spacer col absorbs any leftover width; min-width forces
+          horizontal scroll when columns overflow. */}
+      <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card">
+        <table
+          className="w-full caption-bottom text-sm table-fixed"
+          style={{ minWidth: totalWidth }}
+        >
           <colgroup>
             <col style={{ width: CHECKBOX_COL_WIDTH }} />
             {visibleColumns.map((col) => (
@@ -1008,7 +1014,7 @@ export default function ContactsPage() {
             <col style={{ width: ACTIONS_COL_WIDTH }} />
             <col />
           </colgroup>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow className="border-border hover:bg-transparent">
               <TableHead>
                 <Checkbox
@@ -1135,17 +1141,18 @@ export default function ContactsPage() {
               ))
             )}
           </TableBody>
-        </Table>
+        </table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            Showing {page * pageSize + 1}-{Math.min((page + 1) * pageSize, totalCount)} of{' '}
-            {totalCount}
-          </p>
-          <div className="flex items-center gap-1">
+      {/* Footer — pinned below the scroll region (Zoho-style): record count
+          left, pager right. Always visible. */}
+      <div className="flex shrink-0 items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          {totalCount > 0
+            ? `Showing ${page * pageSize + 1}-${Math.min((page + 1) * pageSize, totalCount)} of ${totalCount}`
+            : 'No records'}
+        </p>
+        <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="icon-sm"
@@ -1156,7 +1163,7 @@ export default function ContactsPage() {
               <ChevronLeft className="size-4" />
             </Button>
             <span className="text-xs text-muted-foreground px-2">
-              Page {page + 1} of {totalPages}
+              Page {page + 1} of {Math.max(totalPages, 1)}
             </span>
             <Button
               variant="outline"
@@ -1169,7 +1176,6 @@ export default function ContactsPage() {
             </Button>
           </div>
         </div>
-      )}
 
       {/* Manage Columns Dialog */}
       <ManageColumnsDialog
