@@ -63,7 +63,7 @@ import {
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
-import { ImportModal } from '@/components/contacts/import-modal';
+import { ImportWizard } from '@/components/contacts/import-wizard';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
 import {
   ManageColumnsDialog,
@@ -1210,8 +1210,8 @@ export default function ContactsPage() {
         onUpdated={fetchContacts}
       />
 
-      {/* Import Modal */}
-      <ImportModal
+      {/* Import Wizard */}
+      <ImportWizard
         open={importOpen}
         onOpenChange={setImportOpen}
         onImported={fetchContacts}
