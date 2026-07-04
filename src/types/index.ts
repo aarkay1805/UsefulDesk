@@ -567,3 +567,111 @@ export interface AutomationLog {
   created_at: string;
   contact?: Contact;
 }
+
+// ============================================================
+// Gym domain — memberships, plans, payments (migration 031)
+//
+// A "member" is a `contacts` row that also has a `memberships` row.
+// "expired" is derived at read time (see src/lib/memberships/expiry.ts),
+// so the stored `status` only ever holds active | frozen | cancelled.
+// ============================================================
+
+export type MembershipStatus = 'active' | 'frozen' | 'cancelled' | 'expired';
+export type MembershipFeeStatus = 'paid' | 'due';
+export type PaymentMethod = 'cash' | 'upi' | 'card' | 'bank' | 'other';
+export type PaymentStatus = 'paid' | 'due';
+
+export interface MembershipPlan {
+  id: string;
+  account_id: string;
+  name: string;
+  price: number;
+  /** Length of one membership period in days (30 = monthly, 365 = yearly). */
+  duration_days: number;
+  description?: string;
+  /** Soft-archive flag — a plan in use can't be hard-deleted (FK RESTRICT),
+   *  so the UI sets this false to hide it from new-membership selects. */
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Membership {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  /** Creator/audit — never used for tenancy. */
+  user_id: string;
+  plan_id: string | null;
+  /** 'YYYY-MM-DD' — no timezone; compared against IST "today". */
+  start_date: string;
+  /** 'YYYY-MM-DD' expiry — the hot column the renewal action lists scan. */
+  end_date: string;
+  /** Stored lifecycle: active | frozen | cancelled. 'expired' is derived. */
+  status: MembershipStatus;
+  /** Fee agreed for the current period (seeded from the plan price). */
+  fee_amount: number;
+  fee_status: MembershipFeeStatus;
+  /** Set to the freeze date while status='frozen'. */
+  frozen_at?: string | null;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  /** Hydrated by queries that embed `contacts(*)` / `membership_plans(*)`. */
+  contact?: Contact;
+  plan?: MembershipPlan;
+}
+
+export interface Payment {
+  id: string;
+  account_id: string;
+  membership_id: string | null;
+  contact_id: string | null;
+  /** Snapshot of the plan billed at pay time. */
+  plan_id: string | null;
+  /** Who recorded the payment. */
+  user_id: string;
+  amount: number;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  /** Real instant (timestamptz); rendered in IST. */
+  paid_at: string;
+  period_start?: string | null;
+  period_end?: string | null;
+  /** Payment proof in the chat-media bucket. */
+  screenshot_url?: string | null;
+  screenshot_path?: string | null;
+  note?: string;
+  created_at: string;
+}
+
+/**
+ * A membership row hydrated for a renewal action list. The two
+ * derived fields are computed client-side from `end_date` against
+ * IST "today" (see src/lib/memberships/expiry.ts) — they are never
+ * stored.
+ */
+export interface RenewalRow extends Membership {
+  effectiveStatus?: MembershipStatus;
+  daysToExpiry?: number;
+}
+
+// ============================================================
+// Attendance / check-ins (migration 032)
+// ============================================================
+
+export type AttendanceMethod = 'manual' | 'qr' | 'self';
+
+export interface Attendance {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  membership_id?: string | null;
+  /** Who recorded the check-in — audit only. */
+  user_id: string;
+  /** Real instant; rendered in IST. */
+  checked_in_at: string;
+  method: AttendanceMethod;
+  note?: string;
+  created_at: string;
+}

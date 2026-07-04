@@ -13,6 +13,7 @@ import {
   Zap,
   AlertTriangle,
   RotateCcw,
+  Wand2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -369,6 +370,26 @@ export function WhatsAppConfig() {
     toast.success('Webhook URL copied to clipboard');
   }
 
+  // The verify token is a shared secret the user invents, then pastes
+  // identically into Meta's webhook settings. Most people either reuse
+  // a weak string or get stuck on "what do I even put here?" — so we
+  // mint a strong random one for them. crypto.getRandomValues gives
+  // cryptographically-secure bytes (unlike Math.random). 16 bytes =
+  // 128 bits of entropy, rendered as hex with a readable prefix so
+  // it's recognisable in Meta's dashboard.
+  function handleGenerateVerifyToken() {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    const token = `usefuldesk_${hex}`;
+    setVerifyToken(token);
+    navigator.clipboard.writeText(token).catch(() => {
+      // Clipboard can reject without a user gesture / on insecure
+      // origin — the token is already in the field either way.
+    });
+    toast.success('Verify token generated and copied. Paste the same value into Meta.');
+  }
+
   if (loading) {
     return (
       <section className="animate-in fade-in-50 duration-200">
@@ -622,14 +643,26 @@ export function WhatsAppConfig() {
 
             <div className="space-y-2">
               <Label className="text-muted-foreground">Webhook Verify Token</Label>
-              <Input
-                placeholder="Create a custom verify token"
-                value={verifyToken}
-                onChange={(e) => setVerifyToken(e.target.value)}
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-              />
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Create a custom verify token"
+                  value={verifyToken}
+                  onChange={(e) => setVerifyToken(e.target.value)}
+                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleGenerateVerifyToken}
+                  className="shrink-0 border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                >
+                  <Wand2 className="size-4" />
+                  Generate
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
                 A custom string you create. Must match the token you set in Meta webhook settings.
+                Click <strong className="text-muted-foreground">Generate</strong> for a strong random one.
               </p>
             </div>
 
