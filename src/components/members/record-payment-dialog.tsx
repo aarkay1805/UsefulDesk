@@ -6,6 +6,7 @@ import { Loader2, Upload, X } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { formatCurrency } from "@/lib/currency";
 import {
   uploadAccountMedia,
   deleteAccountMedia,
@@ -47,7 +48,7 @@ export function RecordPaymentDialog({
   onSaved,
 }: RecordPaymentDialogProps) {
   const supabase = createClient();
-  const { accountId, user } = useAuth();
+  const { accountId, user, defaultCurrency } = useAuth();
 
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("cash");
@@ -56,15 +57,38 @@ export function RecordPaymentDialog({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [shot, setShot] = useState<{ url: string; path: string } | null>(null);
+  // Outstanding balance for the current period, pulled from the
+  // membership_dues view so a payment settles a balance (supports
+  // partials) instead of a blind paid/due flip.
+  const [dues, setDues] = useState<{ balance: number; collected: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setAmount(String(membership.fee_amount ?? ""));
+    let cancelled = false;
     setMethod("cash");
     setPaidOn(istToday());
     setNote("");
     setShot(null);
-  }, [open, membership]);
+    setDues(null);
+    (async () => {
+      const { data } = await supabase
+        .from("membership_dues")
+        .select("balance, collected_current")
+        .eq("membership_id", membership.id)
+        .maybeSingle();
+      if (cancelled) return;
+      const fee = Number(membership.fee_amount ?? 0);
+      const balance = data ? Number(data.balance) : fee;
+      const collected = data ? Number(data.collected_current) : 0;
+      setDues({ balance, collected });
+      // Prefill with the remaining balance so one tap settles the member;
+      // fall back to the full fee when nothing is outstanding.
+      setAmount(String(balance > 0 ? balance : (membership.fee_amount ?? "")));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, membership, supabase]);
 
   async function handleUpload(file: File) {
     if (file.size > MEDIA_MAX_BYTES_BY_KIND.image) {
@@ -119,13 +143,17 @@ export function RecordPaymentDialog({
       });
       if (pErr) throw pErr;
 
+      // Settle the balance: mark paid only once the period's collected
+      // total covers the fee — a partial payment leaves it 'due'.
+      const collectedAfter = (dues?.collected ?? 0) + amt;
+      const feeStatus = collectedAfter >= Number(membership.fee_amount ?? 0) ? "paid" : "due";
       const { error: mErr } = await supabase
         .from("memberships")
-        .update({ fee_status: "paid" })
+        .update({ fee_status: feeStatus })
         .eq("id", membership.id);
       if (mErr) throw mErr;
 
-      toast.success("Payment recorded");
+      toast.success(feeStatus === "paid" ? "Payment recorded" : "Partial payment recorded");
       onOpenChange(false);
       onSaved();
     } catch (err) {
@@ -144,6 +172,19 @@ export function RecordPaymentDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {dues && dues.balance > 0 && (
+            <div className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Balance due</span>
+              <span className="font-medium text-amber-400">
+                {formatCurrency(dues.balance, defaultCurrency)}
+                {dues.collected > 0 && (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    of {formatCurrency(membership.fee_amount, defaultCurrency)}
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="rp-amount" className="text-muted-foreground">Amount</Label>

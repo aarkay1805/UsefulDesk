@@ -54,6 +54,7 @@ export function RenewMembershipDialog({
   const [planId, setPlanId] = useState(membership.plan_id ?? "");
   const [feeAmount, setFeeAmount] = useState(String(membership.fee_amount ?? ""));
   const [collectPayment, setCollectPayment] = useState(true);
+  const [collectAmount, setCollectAmount] = useState(String(membership.fee_amount ?? ""));
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [saving, setSaving] = useState(false);
 
@@ -64,12 +65,16 @@ export function RenewMembershipDialog({
     setPlanId(membership.plan_id ?? "");
     setFeeAmount(String(membership.fee_amount ?? ""));
     setCollectPayment(true);
+    setCollectAmount(String(membership.fee_amount ?? ""));
     setMethod("cash");
   }, [open, membership]);
 
-  // Seed the fee from the picked plan when the plan changes.
+  // Seed the fee (and the amount to collect) from the picked plan.
   useEffect(() => {
-    if (selectedPlan) setFeeAmount(String(selectedPlan.price));
+    if (selectedPlan) {
+      setFeeAmount(String(selectedPlan.price));
+      setCollectAmount(String(selectedPlan.price));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId]);
 
@@ -88,9 +93,19 @@ export function RenewMembershipDialog({
     const fee = feeAmount === "" ? selectedPlan.price : Number(feeAmount);
     if (!Number.isFinite(fee) || fee < 0) return toast.error("Enter a valid fee");
 
+    // Collected now; a partial amount leaves the new period 'due'.
+    const collected = collectPayment
+      ? collectAmount === ""
+        ? fee
+        : Number(collectAmount)
+      : 0;
+    if (collectPayment && (!Number.isFinite(collected) || collected < 0)) {
+      return toast.error("Enter a valid amount");
+    }
+
     setSaving(true);
     try {
-      const feeStatus = collectPayment ? "paid" : "due";
+      const feeStatus = collected >= fee ? "paid" : "due";
       const { error: mErr } = await supabase
         .from("memberships")
         .update({
@@ -105,14 +120,14 @@ export function RenewMembershipDialog({
         .eq("id", membership.id);
       if (mErr) throw mErr;
 
-      if (collectPayment) {
+      if (collectPayment && collected > 0) {
         const { error: pErr } = await supabase.from("payments").insert({
           account_id: accountId,
           membership_id: membership.id,
           contact_id: membership.contact_id,
           plan_id: planId,
           user_id: user.id,
-          amount: fee,
+          amount: collected,
           method,
           status: "paid",
           period_start: base,
@@ -192,15 +207,25 @@ export function RenewMembershipDialog({
               Record payment for this renewal
             </label>
             {collectPayment && (
-              <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value as PaymentMethod)}
-                className="h-8 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              >
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  value={collectAmount}
+                  onChange={(e) => setCollectAmount(e.target.value)}
+                  placeholder="Amount"
+                  className="h-8 bg-muted"
+                />
+                <select
+                  value={method}
+                  onChange={(e) => setMethod(e.target.value as PaymentMethod)}
+                  className="h-8 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                >
+                  {PAYMENT_METHODS.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
             )}
           </div>
         </div>

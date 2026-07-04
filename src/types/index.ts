@@ -656,6 +656,27 @@ export interface RenewalRow extends Membership {
   daysToExpiry?: number;
 }
 
+/**
+ * A row from the `membership_dues` view (migration 034): the current
+ * period's outstanding balance, derived from the payments ledger
+ * (fee_amount − Σ payments for the current period). Never stored —
+ * `balance` recomputes as payments land, so a partial payment shrinks
+ * it instead of a one-shot paid/due flip.
+ */
+export interface MembershipDue {
+  membership_id: string;
+  account_id: string;
+  contact_id: string;
+  plan_id: string | null;
+  start_date: string;
+  end_date: string;
+  status: MembershipStatus;
+  fee_status: MembershipFeeStatus;
+  fee_amount: number;
+  collected_current: number;
+  balance: number;
+}
+
 // ============================================================
 // Attendance / check-ins (migration 032)
 // ============================================================

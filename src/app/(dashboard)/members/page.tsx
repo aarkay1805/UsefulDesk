@@ -12,12 +12,16 @@ import { MembersTable } from "@/components/members/members-table";
 import { MemberForm } from "@/components/members/member-form";
 import { MemberDetailView } from "@/components/members/member-detail-view";
 import { CheckInView } from "@/components/members/check-in-view";
+import { PaymentSummaryTiles } from "@/components/members/payment-summary-tiles";
+import { PaymentDueBuckets } from "@/components/members/payment-due-buckets";
+import { PaymentsLedger } from "@/components/members/payments-ledger";
 import { useReminderReadiness } from "@/components/members/send-reminder-button";
 
-type View = "renewals" | "all" | "checkin";
+type View = "renewals" | "payments" | "all" | "checkin";
 
 const VIEW_LABEL: Record<View, string> = {
   renewals: "Renewals",
+  payments: "Payments",
   all: "All members",
   checkin: "Check-in",
 };
@@ -71,7 +75,7 @@ export default function MembersPage() {
 
       {/* View toggle */}
       <div className="mt-5 inline-flex rounded-lg border border-border bg-muted/40 p-0.5">
-        {(["renewals", "all", "checkin"] as const).map((v) => (
+        {(["renewals", "payments", "all", "checkin"] as const).map((v) => (
           <button
             key={v}
             type="button"
@@ -95,6 +99,23 @@ export default function MembersPage() {
             onSelect={openDetail}
             reloadKey={reloadKey}
           />
+        ) : view === "payments" ? (
+          <div className="space-y-6">
+            <PaymentSummaryTiles reloadKey={reloadKey} />
+            <div className="space-y-3">
+              <h2 className="text-sm font-medium text-foreground">Payment due</h2>
+              <PaymentDueBuckets
+                readiness={readiness}
+                onSelect={openDetail}
+                reloadKey={reloadKey}
+                onChanged={reload}
+              />
+            </div>
+            <div className="space-y-3">
+              <h2 className="text-sm font-medium text-foreground">Recent payments</h2>
+              <PaymentsLedger reloadKey={reloadKey} />
+            </div>
+          </div>
         ) : view === "all" ? (
           <MembersTable
             readiness={readiness}

@@ -165,6 +165,18 @@ export function MemberDetailView({
   const eff = membership ? effectiveStatus(membership) : null;
   const days = membership ? daysUntil(membership.end_date) : 0;
 
+  // Outstanding balance for the current period, derived from the loaded
+  // ledger (payments stamped with this period's end_date). Matches the
+  // membership_dues view so a partial payment shows a remaining balance.
+  const collectedCurrent = membership
+    ? payments
+        .filter((p) => p.status === "paid" && p.period_end === membership.end_date)
+        .reduce((s, p) => s + (Number(p.amount) || 0), 0)
+    : 0;
+  const balance = membership
+    ? Math.max(Number(membership.fee_amount) - collectedCurrent, 0)
+    : 0;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-md">
@@ -199,6 +211,11 @@ export function MemberDetailView({
                   <dt className="text-xs text-muted-foreground">Fee</dt>
                   <dd className="font-medium text-foreground">
                     {formatCurrency(membership.fee_amount, defaultCurrency)}
+                    {balance > 0 && (
+                      <span className="ml-1 text-xs font-medium text-amber-400">
+                        ({formatCurrency(balance, defaultCurrency)} due)
+                      </span>
+                    )}
                   </dd>
                 </div>
                 <div>
