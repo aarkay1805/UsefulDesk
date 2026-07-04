@@ -1,4 +1,5 @@
 import {
+  BellRing,
   Coins,
   Dumbbell,
   FileText,
@@ -30,6 +31,7 @@ export const SETTINGS_SECTIONS = [
   'templates',
   'fields',
   'plans',
+  'reminders',
   'deals',
   'members',
   'api',
@@ -56,6 +58,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },
   fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'workspace' },
   plans: { id: 'plans', label: 'Membership plans', icon: Dumbbell, group: 'workspace' },
+  reminders: { id: 'reminders', label: 'Renewal reminders', icon: BellRing, group: 'workspace' },
   deals: { id: 'deals', label: 'Deals & currency', icon: Coins, group: 'workspace' },
   members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
   api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },

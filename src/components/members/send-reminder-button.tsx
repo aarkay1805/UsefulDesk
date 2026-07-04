@@ -9,9 +9,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency } from "@/lib/currency";
 import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
+import { RENEWAL_TEMPLATE_NAME } from "@/lib/memberships/renewal-reminders";
 
-/** The Utility template a gym creates + submits in Settings → Templates. */
-export const RENEWAL_TEMPLATE_NAME = "gym_renewal_reminder";
+// RENEWAL_TEMPLATE_NAME now lives in the server-safe lib so the cron can
+// share it; re-exported here to keep existing import sites working.
+export { RENEWAL_TEMPLATE_NAME };
 
 export interface ReminderReadiness {
   loading: boolean;

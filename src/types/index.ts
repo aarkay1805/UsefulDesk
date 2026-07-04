@@ -675,3 +675,30 @@ export interface Attendance {
   note?: string;
   created_at: string;
 }
+
+// ============================================================
+// Automated renewal reminders (migration 033)
+// ============================================================
+
+/** Per-account opt-in + offsets for the auto renewal-reminder cron. */
+export interface RenewalReminderSettings {
+  account_id: string;
+  enabled: boolean;
+  /** Whole days before end_date to fire on, e.g. [7,3,1]. */
+  days_before: number[];
+  updated_at: string;
+}
+
+/** Append-only dedupe ledger — one row per reminder the cron sent. */
+export interface RenewalReminderSent {
+  id: string;
+  account_id: string;
+  membership_id: string;
+  contact_id: string;
+  /** The membership expiry this reminder was for ('YYYY-MM-DD'). */
+  end_date: string;
+  days_before: number;
+  /** Meta message id once delivered; null for an unclaimed pre-send row. */
+  wa_message_id?: string | null;
+  sent_at: string;
+}
