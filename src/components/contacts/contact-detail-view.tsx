@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactTag, ContactNote, CustomField, ContactCustomValue, Deal, MessageTemplate } from '@/types';
+import type { Contact, Tag, ContactNote, CustomField, Deal, MessageTemplate } from '@/types';
 import {
   TemplatePicker,
   type TemplateSendValues,
@@ -17,14 +17,11 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Phone,
   Mail,
@@ -38,7 +35,15 @@ import {
   X,
   DollarSign,
   LayoutTemplate,
+  Pencil,
 } from 'lucide-react';
+
+const SECTIONS = [
+  { id: 'details', label: 'Details' },
+  { id: 'tags', label: 'Tags' },
+  { id: 'notes', label: 'Notes' },
+  { id: 'deals', label: 'Deals' },
+] as const;
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -66,12 +71,19 @@ export function ContactDetailView({
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [sendingTemplate, setSendingTemplate] = useState(false);
 
-  // Details tab
+  // Details — read-only by default, toggled into edit mode on demand.
+  const [editMode, setEditMode] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editCompany, setEditCompany] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
+
+  // Scrollspy — a single scrollable page; the nav bar highlights whichever
+  // section currently sits under the fold.
+  const [activeSection, setActiveSection] = useState<string>('details');
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   // Tags tab
   const [allTags, setAllTags] = useState<Tag[]>([]);
@@ -84,11 +96,9 @@ export function ContactDetailView({
   const [savingNote, setSavingNote] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(false);
 
-  // Custom fields tab
+  // Custom fields — folded into the Details section (values keyed by field id).
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
-  const [savingCustom, setSavingCustom] = useState(false);
-  const [loadingCustom, setLoadingCustom] = useState(false);
 
   // Deals tab
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -144,7 +154,6 @@ export function ContactDetailView({
 
   const fetchCustomFields = useCallback(async () => {
     if (!contactId) return;
-    setLoadingCustom(true);
 
     const [fieldsRes, valuesRes] = await Promise.all([
       supabase.from('custom_fields').select('*').order('field_name'),
@@ -162,7 +171,6 @@ export function ContactDetailView({
       });
       setCustomValues(map);
     }
-    setLoadingCustom(false);
   }, [contactId, supabase]);
 
   const fetchDeals = useCallback(async () => {
@@ -179,6 +187,8 @@ export function ContactDetailView({
 
   useEffect(() => {
     if (open && contactId) {
+      setEditMode(false);
+      setActiveSection('details');
       fetchContact();
       fetchTags();
       fetchNotes();
@@ -194,33 +204,102 @@ export function ContactDetailView({
     setTimeout(() => setCopiedPhone(false), 2000);
   }
 
-  async function saveDetails() {
+  // Persist the Details section — core contact fields and custom field
+  // values are edited together, so they save together.
+  async function saveAll() {
     if (!contactId || !editPhone.trim()) {
       toast.error('Phone number is required');
       return;
     }
 
     setSavingDetails(true);
-    const { error } = await supabase
-      .from('contacts')
-      .update({
-        name: editName.trim() || null,
-        phone: editPhone.trim(),
-        email: editEmail.trim() || null,
-        company: editCompany.trim() || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', contactId);
+    try {
+      const { error } = await supabase
+        .from('contacts')
+        .update({
+          name: editName.trim() || null,
+          phone: editPhone.trim(),
+          email: editEmail.trim() || null,
+          company: editCompany.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', contactId);
+      if (error) throw error;
 
-    if (error) {
-      toast.error('Failed to update contact');
-    } else {
+      // Custom values: delete + re-insert the non-empty ones.
+      await supabase
+        .from('contact_custom_values')
+        .delete()
+        .eq('contact_id', contactId);
+
+      const rows = Object.entries(customValues)
+        .filter(([, val]) => val.trim())
+        .map(([fieldId, val]) => ({
+          contact_id: contactId,
+          custom_field_id: fieldId,
+          value: val.trim(),
+        }));
+
+      if (rows.length > 0) {
+        const { error: cvError } = await supabase
+          .from('contact_custom_values')
+          .insert(rows);
+        if (cvError) throw cvError;
+      }
+
       toast.success('Contact updated');
+      setEditMode(false);
       fetchContact();
+      fetchCustomFields();
       onUpdated();
+    } catch {
+      toast.error('Failed to update contact');
+    } finally {
+      setSavingDetails(false);
     }
-    setSavingDetails(false);
   }
+
+  // Discard edits — restore field state from the last fetched values.
+  function cancelEdit() {
+    if (contact) {
+      setEditName(contact.name ?? '');
+      setEditPhone(contact.phone);
+      setEditEmail(contact.email ?? '');
+      setEditCompany(contact.company ?? '');
+    }
+    fetchCustomFields();
+    setEditMode(false);
+  }
+
+  function scrollToSection(id: string) {
+    setActiveSection(id);
+    sectionRefs.current[id]?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }
+
+  // Highlight the nav item for whichever section is under the fold.
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!open || !contact || !root) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveSection(visible[0].target.id);
+      },
+      { root, rootMargin: '-15% 0px -70% 0px', threshold: 0 },
+    );
+
+    SECTIONS.forEach(({ id }) => {
+      const el = sectionRefs.current[id];
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [open, contact]);
 
   async function toggleTag(tagId: string) {
     if (!contactId) return;
@@ -293,39 +372,6 @@ export function ContactDetailView({
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
       toast.success('Note deleted');
     }
-  }
-
-  async function saveCustomFields() {
-    if (!contactId) return;
-    setSavingCustom(true);
-
-    try {
-      // Delete existing values and re-insert
-      await supabase
-        .from('contact_custom_values')
-        .delete()
-        .eq('contact_id', contactId);
-
-      const rows = Object.entries(customValues)
-        .filter(([, val]) => val.trim())
-        .map(([fieldId, val]) => ({
-          contact_id: contactId,
-          custom_field_id: fieldId,
-          value: val.trim(),
-        }));
-
-      if (rows.length > 0) {
-        const { error } = await supabase
-          .from('contact_custom_values')
-          .insert(rows);
-        if (error) throw error;
-      }
-
-      toast.success('Custom fields saved');
-    } catch {
-      toast.error('Failed to save custom fields');
-    }
-    setSavingCustom(false);
   }
 
   async function handleSendTemplate(
@@ -453,110 +499,207 @@ export function ContactDetailView({
               </div>
             </SheetHeader>
 
-            {/* Tabs */}
-            <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0">
-              <TabsList className="bg-muted/50 border-b border-border mx-4 mt-3">
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="tags">Tags</TabsTrigger>
-                <TabsTrigger value="notes">Notes</TabsTrigger>
-                <TabsTrigger value="custom">Custom Fields</TabsTrigger>
-                <TabsTrigger value="deals">Deals</TabsTrigger>
-              </TabsList>
-
-              {/* Details Tab */}
-              <TabsContent value="details" className="flex-1 overflow-y-auto px-4 py-3">
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">Name</Label>
-                    <Input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">
-                      Phone <span className="text-red-400">*</span>
-                    </Label>
-                    <Input
-                      value={editPhone}
-                      onChange={(e) => setEditPhone(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">Email</Label>
-                    <Input
-                      value={editEmail}
-                      onChange={(e) => setEditEmail(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">Company</Label>
-                    <Input
-                      value={editCompany}
-                      onChange={(e) => setEditCompany(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                  <Button
-                    onClick={saveDetails}
-                    disabled={savingDetails}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
-                    size="sm"
+            {/* Navigation bar — highlights the section under the fold */}
+            <nav className="flex shrink-0 items-center gap-1 border-b border-border px-3">
+              {SECTIONS.map((s) => {
+                const active = activeSection === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => scrollToSection(s.id)}
+                    className={`relative px-2.5 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
+                      active
+                        ? 'text-primary'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
                   >
-                    {savingDetails ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Save className="size-3.5" />
+                    {s.label}
+                    {active && (
+                      <span className="absolute inset-x-2.5 -bottom-px h-0.5 rounded-full bg-primary" />
                     )}
-                    Save Changes
-                  </Button>
-                </div>
-              </TabsContent>
+                  </button>
+                );
+              })}
+            </nav>
 
-              {/* Tags Tab */}
-              <TabsContent value="tags" className="flex-1 overflow-y-auto px-4 py-3">
-                <div className="space-y-3">
-                  <p className="text-xs text-muted-foreground">
-                    Click a tag to add or remove it from this contact.
-                  </p>
-                  {allTags.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No tags available. Create tags in Settings.
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {allTags.map((tag) => {
-                        const selected = contactTagIds.includes(tag.id);
-                        return (
-                          <button
-                            key={tag.id}
-                            onClick={() => toggleTag(tag.id)}
-                            disabled={savingTags}
-                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all cursor-pointer ${
-                              selected
-                                ? 'ring-2 ring-primary ring-offset-1 ring-offset-border'
-                                : 'opacity-50 hover:opacity-80'
-                            }`}
-                            style={{
-                              backgroundColor: tag.color + '20',
-                              color: tag.color,
-                            }}
-                          >
-                            {selected && <Check className="size-3 mr-1" />}
-                            {tag.name}
-                          </button>
-                        );
-                      })}
+            {/* Single scrollable page — every section stacked */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto">
+              {/* Details */}
+              <section
+                id="details"
+                ref={(el) => {
+                  sectionRefs.current.details = el;
+                }}
+                className="scroll-mt-2 border-b border-border/50 px-4 py-4"
+              >
+                <div className="mb-2.5 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground">Details</h3>
+                  {editMode ? (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={cancelEdit}
+                        disabled={savingDetails}
+                        className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="size-3.5" />
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={saveAll}
+                        disabled={savingDetails}
+                        className="h-7 bg-primary px-2 text-primary-foreground hover:bg-primary/90"
+                      >
+                        {savingDetails ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Save className="size-3.5" />
+                        )}
+                        Save
+                      </Button>
                     </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditMode(true)}
+                      className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                    >
+                      <Pencil className="size-3.5" />
+                      Edit
+                    </Button>
                   )}
                 </div>
-              </TabsContent>
 
-              {/* Notes Tab */}
-              <TabsContent value="notes" className="flex-1 flex flex-col min-h-0 px-4 py-3">
+                {editMode ? (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-muted-foreground text-xs">Name</Label>
+                      <Input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="bg-muted border-border text-foreground h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-muted-foreground text-xs">
+                        Phone <span className="text-red-400">*</span>
+                      </Label>
+                      <Input
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        className="bg-muted border-border text-foreground h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-muted-foreground text-xs">Email</Label>
+                      <Input
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        className="bg-muted border-border text-foreground h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-muted-foreground text-xs">Company</Label>
+                      <Input
+                        value={editCompany}
+                        onChange={(e) => setEditCompany(e.target.value)}
+                        className="bg-muted border-border text-foreground h-8 text-sm"
+                      />
+                    </div>
+                    {customFields.map((field) => (
+                      <div key={field.id} className="space-y-1.5">
+                        <Label className="text-muted-foreground text-xs capitalize">
+                          {field.field_name}
+                        </Label>
+                        <Input
+                          value={customValues[field.id] ?? ''}
+                          onChange={(e) =>
+                            setCustomValues((prev) => ({
+                              ...prev,
+                              [field.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={`Enter ${field.field_name}...`}
+                          className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-muted-foreground"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <dl className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50">
+                    <DetailRow label="Name" value={contact.name} />
+                    <DetailRow label="Phone" value={contact.phone} />
+                    <DetailRow label="Email" value={contact.email} />
+                    <DetailRow label="Company" value={contact.company} />
+                    {customFields.map((field) => (
+                      <DetailRow
+                        key={field.id}
+                        label={field.field_name}
+                        value={customValues[field.id]}
+                      />
+                    ))}
+                  </dl>
+                )}
+              </section>
+
+              {/* Tags */}
+              <section
+                id="tags"
+                ref={(el) => {
+                  sectionRefs.current.tags = el;
+                }}
+                className="scroll-mt-2 border-b border-border/50 px-4 py-4"
+              >
+                <h3 className="mb-2.5 text-sm font-semibold text-foreground">Tags</h3>
+                {allTags.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No tags available. Create tags in Settings.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {allTags.map((tag) => {
+                      const selected = contactTagIds.includes(tag.id);
+                      return (
+                        <button
+                          key={tag.id}
+                          onClick={() => toggleTag(tag.id)}
+                          disabled={savingTags}
+                          className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all cursor-pointer disabled:opacity-60"
+                          style={
+                            selected
+                              ? {
+                                  backgroundColor: tag.color + '20',
+                                  borderColor: 'transparent',
+                                  color: tag.color,
+                                }
+                              : {
+                                  backgroundColor: 'transparent',
+                                  borderColor: tag.color + '40',
+                                  color: tag.color,
+                                }
+                          }
+                        >
+                          {selected && <Check className="size-3.5" />}
+                          {tag.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              {/* Notes */}
+              <section
+                id="notes"
+                ref={(el) => {
+                  sectionRefs.current.notes = el;
+                }}
+                className="scroll-mt-2 border-b border-border/50 px-4 py-4"
+              >
+                <h3 className="mb-2.5 text-sm font-semibold text-foreground">Notes</h3>
                 <div className="space-y-2 mb-3">
                   <Textarea
                     value={newNote}
@@ -579,13 +722,13 @@ export function ContactDetailView({
                   </Button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-2">
+                <div className="space-y-2">
                   {loadingNotes ? (
-                    <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center justify-center py-6">
                       <Loader2 className="size-5 animate-spin text-muted-foreground" />
                     </div>
                   ) : notes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
+                    <p className="text-sm text-muted-foreground text-center py-6">
                       No notes yet.
                     </p>
                   ) : (
@@ -618,59 +761,19 @@ export function ContactDetailView({
                     ))
                   )}
                 </div>
-              </TabsContent>
+              </section>
 
-              {/* Custom Fields Tab */}
-              <TabsContent value="custom" className="flex-1 overflow-y-auto px-4 py-3">
-                {loadingCustom ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : customFields.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    No custom fields defined. Create them in Settings.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {customFields.map((field) => (
-                      <div key={field.id} className="space-y-1.5">
-                        <Label className="text-muted-foreground text-xs capitalize">
-                          {field.field_name}
-                        </Label>
-                        <Input
-                          value={customValues[field.id] ?? ''}
-                          onChange={(e) =>
-                            setCustomValues((prev) => ({
-                              ...prev,
-                              [field.id]: e.target.value,
-                            }))
-                          }
-                          placeholder={`Enter ${field.field_name}...`}
-                          className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-muted-foreground"
-                        />
-                      </div>
-                    ))}
-                    <Button
-                      onClick={saveCustomFields}
-                      disabled={savingCustom}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
-                      size="sm"
-                    >
-                      {savingCustom ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : (
-                        <Save className="size-3.5" />
-                      )}
-                      Save Custom Fields
-                    </Button>
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* Deals Tab */}
-              <TabsContent value="deals" className="flex-1 overflow-y-auto px-4 py-3">
+              {/* Deals */}
+              <section
+                id="deals"
+                ref={(el) => {
+                  sectionRefs.current.deals = el;
+                }}
+                className="scroll-mt-2 px-4 py-4"
+              >
+                <h3 className="mb-2.5 text-sm font-semibold text-foreground">Deals</h3>
                 {loadingDeals ? (
-                  <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center justify-center py-6">
                     <Loader2 className="size-5 animate-spin text-primary" />
                   </div>
                 ) : deals.length === 0 ? (
@@ -722,8 +825,8 @@ export function ContactDetailView({
                     ))}
                   </div>
                 )}
-              </TabsContent>
-            </Tabs>
+              </section>
+            </div>
           </div>
         )}
       </SheetContent>
@@ -734,5 +837,31 @@ export function ContactDetailView({
       onSelect={handleSendTemplate}
     />
     </>
+  );
+}
+
+// Dense read-only row: label on the left, value on the right. Empty values
+// collapse to an em-dash so the layout stays aligned.
+function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) {
+  const shown = value && value.trim() ? value : '—';
+  return (
+    <div className="grid grid-cols-[100px_1fr] gap-3 px-3 py-2">
+      <dt className="text-xs text-muted-foreground capitalize leading-5">
+        {label}
+      </dt>
+      <dd
+        className={`text-sm leading-5 break-words ${
+          shown === '—' ? 'text-muted-foreground/60' : 'text-foreground'
+        }`}
+      >
+        {shown}
+      </dd>
+    </div>
   );
 }
