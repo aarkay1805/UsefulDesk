@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -31,7 +30,6 @@ import {
   Loader2,
   Plus,
   Trash2,
-  Save,
   X,
   DollarSign,
   LayoutTemplate,
@@ -71,14 +69,6 @@ export function ContactDetailView({
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [sendingTemplate, setSendingTemplate] = useState(false);
 
-  // Details — read-only by default, toggled into edit mode on demand.
-  const [editMode, setEditMode] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editPhone, setEditPhone] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editCompany, setEditCompany] = useState('');
-  const [savingDetails, setSavingDetails] = useState(false);
-
   // Scrollspy — a single scrollable page; the nav bar highlights whichever
   // section currently sits under the fold.
   const [activeSection, setActiveSection] = useState<string>('details');
@@ -114,13 +104,7 @@ export function ContactDetailView({
       .eq('id', contactId)
       .single();
 
-    if (data) {
-      setContact(data);
-      setEditName(data.name ?? '');
-      setEditPhone(data.phone);
-      setEditEmail(data.email ?? '');
-      setEditCompany(data.company ?? '');
-    }
+    if (data) setContact(data);
     setLoading(false);
   }, [contactId, supabase]);
 
@@ -187,7 +171,6 @@ export function ContactDetailView({
 
   useEffect(() => {
     if (open && contactId) {
-      setEditMode(false);
       setActiveSection('details');
       fetchContact();
       fetchTags();
@@ -204,71 +187,61 @@ export function ContactDetailView({
     setTimeout(() => setCopiedPhone(false), 2000);
   }
 
-  // Persist the Details section — core contact fields and custom field
-  // values are edited together, so they save together.
-  async function saveAll() {
-    if (!contactId || !editPhone.trim()) {
-      toast.error('Phone number is required');
-      return;
+  // Save one core contact column inline (Zoho-style per-field edit).
+  // Returns whether the write succeeded so the row can exit edit mode.
+  async function saveField(
+    column: 'name' | 'phone' | 'email' | 'company',
+    val: string,
+  ): Promise<boolean> {
+    if (!contactId) return false;
+    const next = val.trim() || null;
+    const { error } = await supabase
+      .from('contacts')
+      .update({ [column]: next, updated_at: new Date().toISOString() })
+      .eq('id', contactId);
+    if (error) {
+      toast.error('Failed to update');
+      return false;
     }
-
-    setSavingDetails(true);
-    try {
-      const { error } = await supabase
-        .from('contacts')
-        .update({
-          name: editName.trim() || null,
-          phone: editPhone.trim(),
-          email: editEmail.trim() || null,
-          company: editCompany.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', contactId);
-      if (error) throw error;
-
-      // Custom values: delete + re-insert the non-empty ones.
-      await supabase
-        .from('contact_custom_values')
-        .delete()
-        .eq('contact_id', contactId);
-
-      const rows = Object.entries(customValues)
-        .filter(([, val]) => val.trim())
-        .map(([fieldId, val]) => ({
-          contact_id: contactId,
-          custom_field_id: fieldId,
-          value: val.trim(),
-        }));
-
-      if (rows.length > 0) {
-        const { error: cvError } = await supabase
-          .from('contact_custom_values')
-          .insert(rows);
-        if (cvError) throw cvError;
-      }
-
-      toast.success('Contact updated');
-      setEditMode(false);
-      fetchContact();
-      fetchCustomFields();
-      onUpdated();
-    } catch {
-      toast.error('Failed to update contact');
-    } finally {
-      setSavingDetails(false);
-    }
+    setContact((c) => (c ? { ...c, [column]: next } : c));
+    onUpdated();
+    return true;
   }
 
-  // Discard edits — restore field state from the last fetched values.
-  function cancelEdit() {
-    if (contact) {
-      setEditName(contact.name ?? '');
-      setEditPhone(contact.phone);
-      setEditEmail(contact.email ?? '');
-      setEditCompany(contact.company ?? '');
+  // Save one custom field value inline — delete + re-insert for that field
+  // only, so no unique constraint on the value table is assumed.
+  async function saveCustomField(
+    fieldId: string,
+    val: string,
+  ): Promise<boolean> {
+    if (!contactId) return false;
+    const trimmed = val.trim();
+
+    const del = await supabase
+      .from('contact_custom_values')
+      .delete()
+      .eq('contact_id', contactId)
+      .eq('custom_field_id', fieldId);
+    if (del.error) {
+      toast.error('Failed to update');
+      return false;
     }
-    fetchCustomFields();
-    setEditMode(false);
+
+    if (trimmed) {
+      const { error } = await supabase.from('contact_custom_values').insert({
+        contact_id: contactId,
+        custom_field_id: fieldId,
+        value: trimmed,
+      });
+      if (error) {
+        toast.error('Failed to update');
+        return false;
+      }
+    }
+
+    setCustomValues((prev) => ({ ...prev, [fieldId]: trimmed }));
+    onUpdated();
+    return true;
   }
 
   function scrollToSection(id: string) {
@@ -532,117 +505,43 @@ export function ContactDetailView({
                 }}
                 className="scroll-mt-2 border-b border-border/50 px-4 py-4"
               >
-                <div className="mb-2.5 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-foreground">Details</h3>
-                  {editMode ? (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={cancelEdit}
-                        disabled={savingDetails}
-                        className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="size-3.5" />
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={saveAll}
-                        disabled={savingDetails}
-                        className="h-7 bg-primary px-2 text-primary-foreground hover:bg-primary/90"
-                      >
-                        {savingDetails ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <Save className="size-3.5" />
-                        )}
-                        Save
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setEditMode(true)}
-                      className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                    >
-                      <Pencil className="size-3.5" />
-                      Edit
-                    </Button>
-                  )}
-                </div>
-
-                {editMode ? (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">Name</Label>
-                      <Input
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="bg-muted border-border text-foreground h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">
-                        Phone <span className="text-red-400">*</span>
-                      </Label>
-                      <Input
-                        value={editPhone}
-                        onChange={(e) => setEditPhone(e.target.value)}
-                        className="bg-muted border-border text-foreground h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">Email</Label>
-                      <Input
-                        value={editEmail}
-                        onChange={(e) => setEditEmail(e.target.value)}
-                        className="bg-muted border-border text-foreground h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">Company</Label>
-                      <Input
-                        value={editCompany}
-                        onChange={(e) => setEditCompany(e.target.value)}
-                        className="bg-muted border-border text-foreground h-8 text-sm"
-                      />
-                    </div>
-                    {customFields.map((field) => (
-                      <div key={field.id} className="space-y-1.5">
-                        <Label className="text-muted-foreground text-xs capitalize">
-                          {field.field_name}
-                        </Label>
-                        <Input
-                          value={customValues[field.id] ?? ''}
-                          onChange={(e) =>
-                            setCustomValues((prev) => ({
-                              ...prev,
-                              [field.id]: e.target.value,
-                            }))
-                          }
-                          placeholder={`Enter ${field.field_name}...`}
-                          className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-muted-foreground"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <dl className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50">
-                    <DetailRow label="Name" value={contact.name} />
-                    <DetailRow label="Phone" value={contact.phone} />
-                    <DetailRow label="Email" value={contact.email} />
-                    <DetailRow label="Company" value={contact.company} />
-                    {customFields.map((field) => (
-                      <DetailRow
-                        key={field.id}
-                        label={field.field_name}
-                        value={customValues[field.id]}
-                      />
-                    ))}
-                  </dl>
-                )}
+                <h3 className="mb-2.5 text-sm font-semibold text-foreground">Details</h3>
+                <dl className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50">
+                  <InlineField
+                    label="Name"
+                    value={contact.name}
+                    placeholder="Add name"
+                    onSave={(v) => saveField('name', v)}
+                  />
+                  <InlineField
+                    label="Phone"
+                    value={contact.phone}
+                    placeholder="Add phone"
+                    required
+                    onSave={(v) => saveField('phone', v)}
+                  />
+                  <InlineField
+                    label="Email"
+                    value={contact.email}
+                    placeholder="Add email"
+                    onSave={(v) => saveField('email', v)}
+                  />
+                  <InlineField
+                    label="Company"
+                    value={contact.company}
+                    placeholder="Add company"
+                    onSave={(v) => saveField('company', v)}
+                  />
+                  {customFields.map((field) => (
+                    <InlineField
+                      key={field.id}
+                      label={field.field_name}
+                      value={customValues[field.id]}
+                      placeholder={`Add ${field.field_name}`}
+                      onSave={(v) => saveCustomField(field.id, v)}
+                    />
+                  ))}
+                </dl>
               </section>
 
               {/* Tags */}
@@ -840,28 +739,110 @@ export function ContactDetailView({
   );
 }
 
-// Dense read-only row: label on the left, value on the right. Empty values
-// collapse to an em-dash so the layout stays aligned.
-function DetailRow({
+// Zoho-style inline-editable row: label left, value right. Hovering reveals a
+// pencil; clicking the value swaps it for an input with confirm/cancel. Enter
+// confirms, Escape cancels. Saves only this one field via `onSave`.
+function InlineField({
   label,
   value,
+  placeholder,
+  required,
+  onSave,
 }: {
   label: string;
   value?: string | null;
+  placeholder?: string;
+  required?: boolean;
+  onSave: (val: string) => Promise<boolean>;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  function begin() {
+    setDraft(value ?? '');
+    setEditing(true);
+  }
+
+  async function confirm() {
+    if (required && !draft.trim()) {
+      toast.error(`${label} is required`);
+      return;
+    }
+    setSaving(true);
+    const ok = await onSave(draft);
+    setSaving(false);
+    if (ok) setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div className="grid min-h-10 grid-cols-[100px_1fr] items-center gap-3 px-3">
+        <span className="text-xs text-muted-foreground capitalize">{label}</span>
+        <div className="flex items-center gap-1">
+          <Input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                confirm();
+              } else if (e.key === 'Escape') {
+                setEditing(false);
+              }
+            }}
+            placeholder={placeholder}
+            disabled={saving}
+            className="bg-muted border-border text-foreground h-7 text-sm placeholder:text-muted-foreground"
+          />
+          <button
+            type="button"
+            onClick={confirm}
+            disabled={saving}
+            className="flex size-6 shrink-0 items-center justify-center rounded-full text-primary hover:bg-primary/10 disabled:opacity-50 cursor-pointer"
+            aria-label="Save"
+          >
+            {saving ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Check className="size-4" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            disabled={saving}
+            className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted disabled:opacity-50 cursor-pointer"
+            aria-label="Cancel"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const shown = value && value.trim() ? value : '—';
   return (
-    <div className="grid grid-cols-[100px_1fr] gap-3 px-3 py-2">
-      <dt className="text-xs text-muted-foreground capitalize leading-5">
+    <button
+      type="button"
+      onClick={begin}
+      className="group grid min-h-10 w-full grid-cols-[100px_1fr] items-center gap-3 px-3 text-left transition-colors hover:bg-muted/40 cursor-pointer"
+    >
+      <span className="text-xs text-muted-foreground capitalize leading-5">
         {label}
-      </dt>
-      <dd
-        className={`text-sm leading-5 break-words ${
-          shown === '—' ? 'text-muted-foreground/60' : 'text-foreground'
-        }`}
-      >
-        {shown}
-      </dd>
-    </div>
+      </span>
+      <span className="flex min-w-0 items-center gap-2">
+        <span
+          className={`truncate text-sm leading-5 ${
+            shown === '—' ? 'text-muted-foreground/60' : 'text-foreground'
+          }`}
+        >
+          {shown}
+        </span>
+        <Pencil className="ml-auto size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+      </span>
+    </button>
   );
 }
