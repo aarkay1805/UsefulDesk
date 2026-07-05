@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -513,6 +514,7 @@ export function ContactDetailView({
             {/* Single scrollable page — every section an accordion, open by default */}
             <div className="flex-1 overflow-y-auto">
               <Accordion
+                multiple
                 value={openSections}
                 onValueChange={(v) => setOpenSections(v as string[])}
                 className="px-4"
@@ -570,7 +572,15 @@ export function ContactDetailView({
                   <AccordionContent>
                     {allTags.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        No tags available. Create tags in Settings.
+                        No tags available.{' '}
+                        <Link
+                          href="/settings?tab=fields"
+                          onClick={() => onOpenChange(false)}
+                          className="text-primary underline underline-offset-3 hover:text-primary/80"
+                        >
+                          Create tags in Settings
+                        </Link>
+                        .
                       </p>
                     ) : (
                       <div className="flex flex-wrap gap-2">
