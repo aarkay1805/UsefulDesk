@@ -51,17 +51,20 @@ export async function loadGymStats(db: SupabaseClient): Promise<GymStats> {
     db
       .from("memberships")
       .select("contact_id")
+      .eq("is_trial", false)
       .eq("status", "active")
       .gte("end_date", today),
     db
       .from("memberships")
       .select("id", head)
+      .eq("is_trial", false)
       .eq("status", "active")
       .gte("end_date", today)
       .lte("end_date", in7),
     db
       .from("memberships")
       .select("id", head)
+      .eq("is_trial", false)
       .eq("status", "active")
       .lt("end_date", today),
     // Fee amounts for due memberships — one query yields both the count

@@ -39,6 +39,11 @@ interface RenewMembershipDialogProps {
   onOpenChange: (open: boolean) => void;
   membership: Membership;
   onSaved: () => void;
+  /** 'convert' reuses this flow for the trial→paid conversion: the new
+   *  paid period starts today (a trial's remaining days aren't carried
+   *  forward), and the row is flipped off trial with converted_at
+   *  stamped. Defaults to the plain 'renew' behaviour. */
+  variant?: "renew" | "convert";
 }
 
 export function RenewMembershipDialog({
@@ -46,10 +51,12 @@ export function RenewMembershipDialog({
   onOpenChange,
   membership,
   onSaved,
+  variant = "renew",
 }: RenewMembershipDialogProps) {
   const supabase = createClient();
   const { accountId, user, defaultCurrency } = useAuth();
   const { plans } = useMembershipPlans(true);
+  const isConvert = variant === "convert";
 
   const [planId, setPlanId] = useState(membership.plan_id ?? "");
   const [feeAmount, setFeeAmount] = useState(String(membership.fee_amount ?? ""));
@@ -79,10 +86,11 @@ export function RenewMembershipDialog({
   }, [planId]);
 
   // New period extends from the later of current expiry or today, so a
-  // member who renews early keeps their unexpired days.
+  // member who renews early keeps their unexpired days. A conversion
+  // always starts today — a trial's leftover days aren't paid time.
   const today = istToday();
   const base =
-    membership.end_date && daysBetween(today, membership.end_date) > 0
+    !isConvert && membership.end_date && daysBetween(today, membership.end_date) > 0
       ? membership.end_date
       : today;
   const newEnd = selectedPlan ? istAddDays(base, selectedPlan.duration_days) : null;
@@ -116,6 +124,11 @@ export function RenewMembershipDialog({
           fee_amount: fee,
           fee_status: feeStatus,
           frozen_at: null,
+          // Converting flips the row off trial and records when — the
+          // renewal path leaves both untouched.
+          ...(isConvert
+            ? { is_trial: false, converted_at: new Date().toISOString() }
+            : {}),
         })
         .eq("id", membership.id);
       if (mErr) throw mErr;
@@ -134,14 +147,18 @@ export function RenewMembershipDialog({
           period_end: newEnd,
         });
         if (pErr) {
-          toast.warning("Renewed, but the payment couldn't be recorded.");
+          toast.warning(
+            isConvert
+              ? "Converted, but the payment couldn't be recorded."
+              : "Renewed, but the payment couldn't be recorded.",
+          );
           onOpenChange(false);
           onSaved();
           return;
         }
       }
 
-      toast.success("Membership renewed");
+      toast.success(isConvert ? "Trial converted to member" : "Membership renewed");
       onOpenChange(false);
       onSaved();
     } catch (err) {
@@ -155,8 +172,12 @@ export function RenewMembershipDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Renew membership</DialogTitle>
-          <DialogDescription>Extend this member&apos;s plan and record the renewal.</DialogDescription>
+          <DialogTitle>{isConvert ? "Convert trial to member" : "Renew membership"}</DialogTitle>
+          <DialogDescription>
+            {isConvert
+              ? "Start this trial on a paid plan and record the first payment."
+              : "Extend this member's plan and record the renewal."}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -204,7 +225,7 @@ export function RenewMembershipDialog({
                 onChange={(e) => setCollectPayment(e.target.checked)}
                 className="size-4 accent-primary"
               />
-              Record payment for this renewal
+              {isConvert ? "Record the first payment" : "Record payment for this renewal"}
             </label>
             {collectPayment && (
               <div className="grid grid-cols-2 gap-2">
@@ -241,7 +262,7 @@ export function RenewMembershipDialog({
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}
-            Renew
+            {isConvert ? "Convert" : "Renew"}
           </Button>
         </DialogFooter>
       </DialogContent>

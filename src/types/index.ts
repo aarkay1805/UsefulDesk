@@ -614,6 +614,14 @@ export interface Membership {
   fee_status: MembershipFeeStatus;
   /** Set to the freeze date while status='frozen'. */
   frozen_at?: string | null;
+  /** True while this row is a trial/lead (migration 035), before it
+   *  converts to a paid membership. Trials are kept out of the renewal
+   *  action lists + active-member KPI; they drive the Trials lists. */
+  is_trial?: boolean;
+  /** Stamped when a trial converts to a paid member; null on an
+   *  unconverted trial (the win-back lead) or a row that was never a
+   *  trial. */
+  converted_at?: string | null;
   notes?: string;
   created_at: string;
   updated_at: string;

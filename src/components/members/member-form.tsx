@@ -12,7 +12,7 @@ import {
   isUniqueViolation,
   type ExistingContact,
 } from "@/lib/contacts/dedupe";
-import { istToday, istAddDays } from "@/lib/memberships/expiry";
+import { istToday, istAddDays, daysBetween } from "@/lib/memberships/expiry";
 import type { Membership, PaymentMethod } from "@/types";
 import { useMembershipPlans } from "./use-membership-plans";
 import {
@@ -70,6 +70,12 @@ export function MemberForm({
   const [collectPayment, setCollectPayment] = useState(false);
   const [payMethod, setPayMethod] = useState<PaymentMethod>("cash");
 
+  // Trial / lead: a free pass with its own length instead of a plan's
+  // duration. Plan optional, no fee, no payment. Convert-to-member
+  // happens later from the Trials list.
+  const [isTrial, setIsTrial] = useState(false);
+  const [trialDays, setTrialDays] = useState("7");
+
   const [dupMatch, setDupMatch] = useState<
     { contact: ExistingContact; exact: boolean } | null
   >(null);
@@ -89,6 +95,12 @@ export function MemberForm({
     setCollectPayment(false);
     setPayMethod("cash");
     setDupMatch(null);
+    setIsTrial(member?.is_trial ?? false);
+    // Seed trial length from the existing trial's span, else a 7-day default.
+    const td = member?.is_trial
+      ? daysBetween(member.start_date, member.end_date)
+      : NaN;
+    setTrialDays(Number.isFinite(td) && td > 0 ? String(td) : "7");
   }, [open, member]);
 
   // When a plan is picked, seed the fee from its price (unless the user
@@ -117,20 +129,31 @@ export function MemberForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!phone.trim()) return toast.error("Phone number is required");
-    if (!planId) return toast.error("Pick a membership plan");
     if (!accountId || !user) return toast.error("Your profile is not linked to an account.");
 
-    const plan = plans.find((p) => p.id === planId);
-    if (!plan) return toast.error("Selected plan is unavailable");
+    const trialLen = Number(trialDays);
+    if (isTrial) {
+      if (!Number.isFinite(trialLen) || trialLen <= 0)
+        return toast.error("Enter a valid trial length in days");
+    } else if (!planId) {
+      return toast.error("Pick a membership plan");
+    }
 
-    const fee = feeAmount === "" ? plan.price : Number(feeAmount);
+    // Plan is required for a paid member, optional for a trial.
+    const plan = plans.find((p) => p.id === planId);
+    if (!isTrial && !plan) return toast.error("Selected plan is unavailable");
+
+    // Trials are free; a paid member's fee seeds from the plan price.
+    const fee = isTrial ? 0 : feeAmount === "" ? plan!.price : Number(feeAmount);
     if (!Number.isFinite(fee) || fee < 0) return toast.error("Enter a valid fee");
 
     setSaving(true);
     try {
       // ---- EDIT: update contact + membership in place ----
       if (isEdit && member) {
-        const endDate = istAddDays(startDate, plan.duration_days);
+        const endDate = isTrial
+          ? istAddDays(startDate, trialLen)
+          : istAddDays(startDate, plan!.duration_days);
         const { error: cErr } = await supabase
           .from("contacts")
           .update({
@@ -144,10 +167,11 @@ export function MemberForm({
         const { error: mErr } = await supabase
           .from("memberships")
           .update({
-            plan_id: planId,
+            plan_id: isTrial ? planId || null : planId,
             start_date: startDate,
             end_date: endDate,
             fee_amount: fee,
+            is_trial: isTrial,
             notes: notes.trim() || null,
           })
           .eq("id", member.id);
@@ -180,8 +204,12 @@ export function MemberForm({
         contactId = data.id;
       }
 
-      const endDate = istAddDays(startDate, plan.duration_days);
-      const feeStatus = collectPayment ? "paid" : "due";
+      const endDate = isTrial
+        ? istAddDays(startDate, trialLen)
+        : istAddDays(startDate, plan!.duration_days);
+      // Trials are free → 'paid' (nothing owed). A paid member is 'paid'
+      // only when the first payment is collected up front.
+      const feeStatus = isTrial ? "paid" : collectPayment ? "paid" : "due";
 
       const { data: mRow, error: mErr } = await supabase
         .from("memberships")
@@ -189,12 +217,13 @@ export function MemberForm({
           account_id: accountId,
           contact_id: contactId,
           user_id: user.id,
-          plan_id: planId,
+          plan_id: isTrial ? planId || null : planId,
           start_date: startDate,
           end_date: endDate,
           status: "active",
           fee_amount: fee,
           fee_status: feeStatus,
+          is_trial: isTrial,
           notes: notes.trim() || null,
         })
         .select("id")
@@ -211,8 +240,8 @@ export function MemberForm({
         throw mErr;
       }
 
-      // Optional first payment.
-      if (collectPayment) {
+      // Optional first payment (never for a free trial).
+      if (collectPayment && !isTrial) {
         const { error: pErr } = await supabase.from("payments").insert({
           account_id: accountId,
           membership_id: mRow.id,
@@ -234,7 +263,7 @@ export function MemberForm({
         }
       }
 
-      toast.success("Member added");
+      toast.success(isTrial ? "Trial added" : "Member added");
       onOpenChange(false);
       onSaved();
     } catch (err) {
@@ -327,10 +356,25 @@ export function MemberForm({
               />
             </div>
 
+            <label className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={isTrial}
+                onChange={(e) => setIsTrial(e.target.checked)}
+                className="mt-0.5 size-4 accent-primary"
+              />
+              <span>
+                This is a trial / free pass
+                <span className="block text-xs text-muted-foreground">
+                  A free pass with its own length — convert to a paid plan later.
+                </span>
+              </span>
+            </label>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="mf-plan" className="text-muted-foreground">
-                  Plan <span className="text-red-400">*</span>
+                  Plan {!isTrial && <span className="text-red-400">*</span>}
                 </Label>
                 <select
                   id="mf-plan"
@@ -364,26 +408,47 @@ export function MemberForm({
               </div>
             </div>
 
-            {selectedPlan && (
-              <p className="text-xs text-muted-foreground">
-                Expires {istAddDays(startDate, selectedPlan.duration_days)} ({selectedPlan.duration_days} days).
-              </p>
+            {isTrial ? (
+              <div className="space-y-2">
+                <Label htmlFor="mf-trial-days" className="text-muted-foreground">
+                  Trial length (days)
+                </Label>
+                <Input
+                  id="mf-trial-days"
+                  type="number"
+                  min={1}
+                  value={trialDays}
+                  onChange={(e) => setTrialDays(e.target.value)}
+                  className="bg-muted"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Ends {istAddDays(startDate, Number(trialDays) || 0)} · free pass, no fee.
+                </p>
+              </div>
+            ) : (
+              <>
+                {selectedPlan && (
+                  <p className="text-xs text-muted-foreground">
+                    Expires {istAddDays(startDate, selectedPlan.duration_days)} ({selectedPlan.duration_days} days).
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="mf-fee" className="text-muted-foreground">Fee for this period</Label>
+                  <Input
+                    id="mf-fee"
+                    type="number"
+                    min={0}
+                    value={feeAmount}
+                    onChange={(e) => setFeeAmount(e.target.value)}
+                    placeholder={selectedPlan ? String(selectedPlan.price) : "0"}
+                    className="bg-muted"
+                  />
+                </div>
+              </>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="mf-fee" className="text-muted-foreground">Fee for this period</Label>
-              <Input
-                id="mf-fee"
-                type="number"
-                min={0}
-                value={feeAmount}
-                onChange={(e) => setFeeAmount(e.target.value)}
-                placeholder={selectedPlan ? String(selectedPlan.price) : "0"}
-                className="bg-muted"
-              />
-            </div>
-
-            {!isEdit && (
+            {!isEdit && !isTrial && (
               <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
                 <label className="flex items-center gap-2 text-sm text-foreground">
                   <input

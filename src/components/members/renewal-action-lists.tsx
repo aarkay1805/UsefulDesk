@@ -41,6 +41,7 @@ export function RenewalActionLists({
         supabase
           .from("memberships")
           .select(SELECT)
+          .eq("is_trial", false)
           .eq("status", "active")
           .gte("end_date", today)
           .lte("end_date", in7)
@@ -48,12 +49,14 @@ export function RenewalActionLists({
         supabase
           .from("memberships")
           .select(SELECT)
+          .eq("is_trial", false)
           .eq("status", "active")
           .lt("end_date", today)
           .order("end_date", { ascending: true }),
         supabase
           .from("memberships")
           .select(SELECT)
+          .eq("is_trial", false)
           .eq("fee_status", "due")
           .neq("status", "cancelled")
           .order("end_date", { ascending: true }),

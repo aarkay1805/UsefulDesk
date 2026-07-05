@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
@@ -17,6 +18,12 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,14 +41,11 @@ import {
   DollarSign,
   LayoutTemplate,
   Pencil,
+  StickyNote,
+  MessageCircle,
 } from 'lucide-react';
 
-const SECTIONS = [
-  { id: 'details', label: 'Details' },
-  { id: 'tags', label: 'Tags' },
-  { id: 'notes', label: 'Notes' },
-  { id: 'deals', label: 'Deals' },
-] as const;
+const SECTION_IDS = ['details', 'tags', 'notes', 'deals'];
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -57,6 +61,7 @@ export function ContactDetailView({
   onUpdated,
 }: ContactDetailViewProps) {
   const supabase = createClient();
+  const router = useRouter();
   const { accountId, defaultCurrency } = useAuth();
 
   const [contact, setContact] = useState<Contact | null>(null);
@@ -69,11 +74,12 @@ export function ContactDetailView({
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [sendingTemplate, setSendingTemplate] = useState(false);
 
-  // Scrollspy — a single scrollable page; the nav bar highlights whichever
-  // section currently sits under the fold.
-  const [activeSection, setActiveSection] = useState<string>('details');
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  // Existing WhatsApp thread for this contact — powers the Chat quick action.
+  const [conversationId, setConversationId] = useState<string | null>(null);
+
+  // Accordion sections — all expanded by default, user can collapse.
+  const [openSections, setOpenSections] = useState<string[]>(SECTION_IDS);
+  const noteInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Tags tab
   const [allTags, setAllTags] = useState<Tag[]>([]);
@@ -106,6 +112,18 @@ export function ContactDetailView({
 
     if (data) setContact(data);
     setLoading(false);
+  }, [contactId, supabase]);
+
+  const fetchConversation = useCallback(async () => {
+    if (!contactId) return;
+    const { data } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', contactId)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    setConversationId(data?.id ?? null);
   }, [contactId, supabase]);
 
   const fetchTags = useCallback(async () => {
@@ -171,20 +189,40 @@ export function ContactDetailView({
 
   useEffect(() => {
     if (open && contactId) {
-      setActiveSection('details');
+      setOpenSections(SECTION_IDS);
       fetchContact();
+      fetchConversation();
       fetchTags();
       fetchNotes();
       fetchCustomFields();
       fetchDeals();
     }
-  }, [open, contactId, fetchContact, fetchTags, fetchNotes, fetchCustomFields, fetchDeals]);
+  }, [open, contactId, fetchContact, fetchConversation, fetchTags, fetchNotes, fetchCustomFields, fetchDeals]);
 
   async function copyPhone() {
     if (!contact) return;
     await navigator.clipboard.writeText(contact.phone);
     setCopiedPhone(true);
     setTimeout(() => setCopiedPhone(false), 2000);
+  }
+
+  // Quick action: make sure the Notes section is open, then focus the composer.
+  function startNote() {
+    setOpenSections((prev) =>
+      prev.includes('notes') ? prev : [...prev, 'notes'],
+    );
+    // Wait a tick so the accordion panel is mounted/expanded before focusing.
+    setTimeout(() => {
+      noteInputRef.current?.focus();
+      noteInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  }
+
+  // Quick action: jump to this contact's WhatsApp thread in the inbox.
+  function openChat() {
+    if (!conversationId) return;
+    onOpenChange(false);
+    router.push(`/inbox?c=${conversationId}`);
   }
 
   // Save one core contact column inline (Zoho-style per-field edit).
@@ -243,36 +281,6 @@ export function ContactDetailView({
     onUpdated();
     return true;
   }
-
-  function scrollToSection(id: string) {
-    setActiveSection(id);
-    sectionRefs.current[id]?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    });
-  }
-
-  // Highlight the nav item for whichever section is under the fold.
-  useEffect(() => {
-    const root = scrollRef.current;
-    if (!open || !contact || !root) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActiveSection(visible[0].target.id);
-      },
-      { root, rootMargin: '-15% 0px -70% 0px', threshold: 0 },
-    );
-
-    SECTIONS.forEach(({ id }) => {
-      const el = sectionRefs.current[id];
-      if (el) observer.observe(el);
-    });
-    return () => observer.disconnect();
-  }, [open, contact]);
 
   async function toggleTag(tagId: string) {
     if (!contactId) return;
@@ -381,6 +389,8 @@ export function ContactDetailView({
       }
 
       toast.success(`Template "${template.name}" sent`);
+      // The send may have just created the thread — refresh the Chat action.
+      fetchConversation();
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'network error';
       toast.error(`Failed to send template: ${reason}`);
@@ -455,276 +465,280 @@ export function ContactDetailView({
                   </div>
                 </div>
               </div>
-              <div className="mt-3">
-                <Button
-                  size="sm"
+
+              {/* Quick actions — HubSpot-style icon row */}
+              <div className="mt-3 flex items-start gap-4">
+                <QuickAction
+                  icon={LayoutTemplate}
+                  label="Template"
+                  title="Send a WhatsApp template"
+                  loading={sendingTemplate}
                   onClick={() => setTemplatePickerOpen(true)}
-                  disabled={sendingTemplate}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  {sendingTemplate ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <LayoutTemplate className="size-4" />
-                  )}
-                  Send template
-                </Button>
+                />
+                <QuickAction
+                  icon={MessageCircle}
+                  label="Chat"
+                  title={
+                    conversationId
+                      ? 'Open conversation in inbox'
+                      : 'No conversation yet — send a template to start one'
+                  }
+                  disabled={!conversationId}
+                  onClick={openChat}
+                />
+                <QuickAction
+                  icon={Phone}
+                  label="Call"
+                  title={`Call ${contact.phone}`}
+                  href={`tel:${contact.phone}`}
+                />
+                <QuickAction
+                  icon={StickyNote}
+                  label="Note"
+                  title="Add a note"
+                  onClick={startNote}
+                />
+                <QuickAction
+                  icon={Mail}
+                  label="Email"
+                  title={
+                    contact.email ? `Email ${contact.email}` : 'No email on file'
+                  }
+                  disabled={!contact.email}
+                  href={contact.email ? `mailto:${contact.email}` : undefined}
+                />
               </div>
             </SheetHeader>
 
-            {/* Navigation bar — highlights the section under the fold */}
-            <nav className="flex shrink-0 items-center gap-1 border-b border-border px-3">
-              {SECTIONS.map((s) => {
-                const active = activeSection === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => scrollToSection(s.id)}
-                    className={`relative px-2.5 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
-                      active
-                        ? 'text-primary'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {s.label}
-                    {active && (
-                      <span className="absolute inset-x-2.5 -bottom-px h-0.5 rounded-full bg-primary" />
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-
-            {/* Single scrollable page — every section stacked */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto">
-              {/* Details */}
-              <section
-                id="details"
-                ref={(el) => {
-                  sectionRefs.current.details = el;
-                }}
-                className="scroll-mt-2 border-b border-border/50 px-4 py-4"
+            {/* Single scrollable page — every section an accordion, open by default */}
+            <div className="flex-1 overflow-y-auto">
+              <Accordion
+                value={openSections}
+                onValueChange={(v) => setOpenSections(v as string[])}
+                className="px-4"
               >
-                <h3 className="mb-2.5 text-sm font-semibold text-foreground">Details</h3>
-                <dl className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50">
-                  <InlineField
-                    label="Name"
-                    value={contact.name}
-                    placeholder="Add name"
-                    onSave={(v) => saveField('name', v)}
-                  />
-                  <InlineField
-                    label="Phone"
-                    value={contact.phone}
-                    placeholder="Add phone"
-                    required
-                    onSave={(v) => saveField('phone', v)}
-                  />
-                  <InlineField
-                    label="Email"
-                    value={contact.email}
-                    placeholder="Add email"
-                    onSave={(v) => saveField('email', v)}
-                  />
-                  <InlineField
-                    label="Company"
-                    value={contact.company}
-                    placeholder="Add company"
-                    onSave={(v) => saveField('company', v)}
-                  />
-                  {customFields.map((field) => (
-                    <InlineField
-                      key={field.id}
-                      label={field.field_name}
-                      value={customValues[field.id]}
-                      placeholder={`Add ${field.field_name}`}
-                      onSave={(v) => saveCustomField(field.id, v)}
-                    />
-                  ))}
-                </dl>
-              </section>
+                {/* Details */}
+                <AccordionItem value="details" className="border-b border-border/50">
+                  <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline">
+                    Details
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <dl className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50">
+                      <InlineField
+                        label="Name"
+                        value={contact.name}
+                        placeholder="Add name"
+                        onSave={(v) => saveField('name', v)}
+                      />
+                      <InlineField
+                        label="Phone"
+                        value={contact.phone}
+                        placeholder="Add phone"
+                        required
+                        onSave={(v) => saveField('phone', v)}
+                      />
+                      <InlineField
+                        label="Email"
+                        value={contact.email}
+                        placeholder="Add email"
+                        onSave={(v) => saveField('email', v)}
+                      />
+                      <InlineField
+                        label="Company"
+                        value={contact.company}
+                        placeholder="Add company"
+                        onSave={(v) => saveField('company', v)}
+                      />
+                      {customFields.map((field) => (
+                        <InlineField
+                          key={field.id}
+                          label={field.field_name}
+                          value={customValues[field.id]}
+                          placeholder={`Add ${field.field_name}`}
+                          onSave={(v) => saveCustomField(field.id, v)}
+                        />
+                      ))}
+                    </dl>
+                  </AccordionContent>
+                </AccordionItem>
 
-              {/* Tags */}
-              <section
-                id="tags"
-                ref={(el) => {
-                  sectionRefs.current.tags = el;
-                }}
-                className="scroll-mt-2 border-b border-border/50 px-4 py-4"
-              >
-                <h3 className="mb-2.5 text-sm font-semibold text-foreground">Tags</h3>
-                {allTags.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No tags available. Create tags in Settings.
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {allTags.map((tag) => {
-                      const selected = contactTagIds.includes(tag.id);
-                      return (
-                        <button
-                          key={tag.id}
-                          onClick={() => toggleTag(tag.id)}
-                          disabled={savingTags}
-                          className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all cursor-pointer disabled:opacity-60"
-                          style={
-                            selected
-                              ? {
-                                  backgroundColor: tag.color + '20',
-                                  borderColor: 'transparent',
-                                  color: tag.color,
-                                }
-                              : {
-                                  backgroundColor: 'transparent',
-                                  borderColor: tag.color + '40',
-                                  color: tag.color,
-                                }
-                          }
-                        >
-                          {selected && <Check className="size-3.5" />}
-                          {tag.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-
-              {/* Notes */}
-              <section
-                id="notes"
-                ref={(el) => {
-                  sectionRefs.current.notes = el;
-                }}
-                className="scroll-mt-2 border-b border-border/50 px-4 py-4"
-              >
-                <h3 className="mb-2.5 text-sm font-semibold text-foreground">Notes</h3>
-                <div className="space-y-2 mb-3">
-                  <Textarea
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    placeholder="Write a note..."
-                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground min-h-[60px] text-sm resize-none"
-                  />
-                  <Button
-                    onClick={addNote}
-                    disabled={!newNote.trim() || savingNote}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                    size="sm"
-                  >
-                    {savingNote ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                {/* Tags */}
+                <AccordionItem value="tags" className="border-b border-border/50">
+                  <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline">
+                    Tags
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    {allTags.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No tags available. Create tags in Settings.
+                      </p>
                     ) : (
-                      <Plus className="size-3.5" />
-                    )}
-                    Add Note
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  {loadingNotes ? (
-                    <div className="flex items-center justify-center py-6">
-                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : notes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-6">
-                      No notes yet.
-                    </p>
-                  ) : (
-                    notes.map((note) => (
-                      <div
-                        key={note.id}
-                        className="rounded-lg bg-muted/50 border border-border/50 p-3 group"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap flex-1">
-                            {note.note_text}
-                          </p>
-                          <button
-                            onClick={() => deleteNote(note.id)}
-                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all cursor-pointer shrink-0"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1.5">
-                          {new Date(note.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </section>
-
-              {/* Deals */}
-              <section
-                id="deals"
-                ref={(el) => {
-                  sectionRefs.current.deals = el;
-                }}
-                className="scroll-mt-2 px-4 py-4"
-              >
-                <h3 className="mb-2.5 text-sm font-semibold text-foreground">Deals</h3>
-                {loadingDeals ? (
-                  <div className="flex items-center justify-center py-6">
-                    <Loader2 className="size-5 animate-spin text-primary" />
-                  </div>
-                ) : deals.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No deals yet</p>
-                ) : (
-                  <div className="space-y-2">
-                    {deals.map((deal) => (
-                      <div
-                        key={deal.id}
-                        className="rounded-lg border border-border bg-muted/50 p-3"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium text-foreground">
-                            {deal.title}
-                          </p>
-                          {deal.stage && (
-                            <span
-                              className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-                              style={{
-                                backgroundColor: `${deal.stage.color}20`,
-                                color: deal.stage.color,
-                              }}
-                            >
-                              {deal.stage.name}
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <DollarSign className="size-3" />
-                            {formatCurrency(
-                              deal.value ?? 0,
-                              deal.currency || defaultCurrency,
-                            )}
-                          </span>
-                          {deal.status && deal.status !== 'open' && (
-                            <span
-                              className={
-                                deal.status === 'won'
-                                  ? 'text-primary'
-                                  : 'text-red-400'
+                      <div className="flex flex-wrap gap-2">
+                        {allTags.map((tag) => {
+                          const selected = contactTagIds.includes(tag.id);
+                          return (
+                            <button
+                              key={tag.id}
+                              onClick={() => toggleTag(tag.id)}
+                              disabled={savingTags}
+                              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all cursor-pointer disabled:opacity-60"
+                              style={
+                                selected
+                                  ? {
+                                      backgroundColor: tag.color + '20',
+                                      borderColor: 'transparent',
+                                      color: tag.color,
+                                    }
+                                  : {
+                                      backgroundColor: 'transparent',
+                                      borderColor: tag.color + '40',
+                                      color: tag.color,
+                                    }
                               }
                             >
-                              {deal.status}
-                            </span>
-                          )}
-                        </div>
+                              {selected && <Check className="size-3.5" />}
+                              {tag.name}
+                            </button>
+                          );
+                        })}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </section>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* Notes */}
+                <AccordionItem value="notes" className="border-b border-border/50">
+                  <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline">
+                    Notes
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-2 mb-3">
+                      <Textarea
+                        ref={noteInputRef}
+                        value={newNote}
+                        onChange={(e) => setNewNote(e.target.value)}
+                        placeholder="Write a note..."
+                        className="bg-muted border-border text-foreground placeholder:text-muted-foreground min-h-[60px] text-sm resize-none"
+                      />
+                      <Button
+                        onClick={addNote}
+                        disabled={!newNote.trim() || savingNote}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                        size="sm"
+                      >
+                        {savingNote ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Plus className="size-3.5" />
+                        )}
+                        Add Note
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {loadingNotes ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : notes.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-6">
+                          No notes yet.
+                        </p>
+                      ) : (
+                        notes.map((note) => (
+                          <div
+                            key={note.id}
+                            className="rounded-lg bg-muted/50 border border-border/50 p-3 group"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm text-muted-foreground whitespace-pre-wrap flex-1">
+                                {note.note_text}
+                              </p>
+                              <button
+                                onClick={() => deleteNote(note.id)}
+                                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all cursor-pointer shrink-0"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1.5">
+                              {new Date(note.created_at).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* Deals */}
+                <AccordionItem value="deals" className="border-b-0">
+                  <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline">
+                    Deals
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    {loadingDeals ? (
+                      <div className="flex items-center justify-center py-6">
+                        <Loader2 className="size-5 animate-spin text-primary" />
+                      </div>
+                    ) : deals.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No deals yet</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {deals.map((deal) => (
+                          <div
+                            key={deal.id}
+                            className="rounded-lg border border-border bg-muted/50 p-3"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-medium text-foreground">
+                                {deal.title}
+                              </p>
+                              {deal.stage && (
+                                <span
+                                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                  style={{
+                                    backgroundColor: `${deal.stage.color}20`,
+                                    color: deal.stage.color,
+                                  }}
+                                >
+                                  {deal.stage.name}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <DollarSign className="size-3" />
+                                {formatCurrency(
+                                  deal.value ?? 0,
+                                  deal.currency || defaultCurrency,
+                                )}
+                              </span>
+                              {deal.status && deal.status !== 'open' && (
+                                <span
+                                  className={
+                                    deal.status === 'won'
+                                      ? 'text-primary'
+                                      : 'text-red-400'
+                                  }
+                                >
+                                  {deal.status}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </div>
           </div>
         )}
@@ -736,6 +750,62 @@ export function ContactDetailView({
       onSelect={handleSendTemplate}
     />
     </>
+  );
+}
+
+// HubSpot-style quick action: circular icon button with a tiny label under it.
+// Renders an anchor when `href` is given (tel:/mailto:), a button otherwise.
+function QuickAction({
+  icon: Icon,
+  label,
+  title,
+  onClick,
+  href,
+  disabled,
+  loading,
+}: {
+  icon: typeof Phone;
+  label: string;
+  title?: string;
+  onClick?: () => void;
+  href?: string;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  const circle =
+    'flex size-9 items-center justify-center rounded-full border border-border bg-transparent text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary cursor-pointer';
+  const inner = loading ? (
+    <Loader2 className="size-4 animate-spin" />
+  ) : (
+    <Icon className="size-4" />
+  );
+
+  return (
+    <div
+      className={`flex w-11 flex-col items-center gap-1 ${
+        disabled ? 'opacity-40' : ''
+      }`}
+      title={title}
+    >
+      {href && !disabled ? (
+        <a href={href} className={circle} aria-label={label}>
+          {inner}
+        </a>
+      ) : (
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled || loading}
+          className={`${circle} disabled:pointer-events-none`}
+          aria-label={label}
+        >
+          {inner}
+        </button>
+      )}
+      <span className="text-[10px] leading-none text-muted-foreground">
+        {label}
+      </span>
+    </div>
   );
 }
 

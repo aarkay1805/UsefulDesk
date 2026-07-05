@@ -8,6 +8,7 @@ import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RenewalActionLists } from "@/components/members/renewal-action-lists";
+import { TrialActionLists } from "@/components/members/trial-action-lists";
 import { MembersTable } from "@/components/members/members-table";
 import { MemberForm } from "@/components/members/member-form";
 import { MemberDetailView } from "@/components/members/member-detail-view";
@@ -17,10 +18,11 @@ import { PaymentDueBuckets } from "@/components/members/payment-due-buckets";
 import { PaymentsLedger } from "@/components/members/payments-ledger";
 import { useReminderReadiness } from "@/components/members/send-reminder-button";
 
-type View = "renewals" | "payments" | "all" | "checkin";
+type View = "renewals" | "trials" | "payments" | "all" | "checkin";
 
 const VIEW_LABEL: Record<View, string> = {
   renewals: "Renewals",
+  trials: "Trials",
   payments: "Payments",
   all: "All members",
   checkin: "Check-in",
@@ -75,7 +77,7 @@ export default function MembersPage() {
 
       {/* View toggle */}
       <div className="mt-5 inline-flex rounded-lg border border-border bg-muted/40 p-0.5">
-        {(["renewals", "payments", "all", "checkin"] as const).map((v) => (
+        {(["renewals", "trials", "payments", "all", "checkin"] as const).map((v) => (
           <button
             key={v}
             type="button"
@@ -95,6 +97,12 @@ export default function MembersPage() {
       <div className="mt-4">
         {view === "renewals" ? (
           <RenewalActionLists
+            readiness={readiness}
+            onSelect={openDetail}
+            reloadKey={reloadKey}
+          />
+        ) : view === "trials" ? (
+          <TrialActionLists
             readiness={readiness}
             onSelect={openDetail}
             reloadKey={reloadKey}

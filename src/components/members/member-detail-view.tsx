@@ -12,6 +12,7 @@ import {
   Play,
   ExternalLink,
   UserCheck,
+  UserPlus,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -35,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import {
   MembershipStatusBadge,
   FeeStatusBadge,
+  TrialBadge,
 } from "./membership-status-badge";
 import { RenewMembershipDialog } from "./renew-membership-dialog";
 import { RecordPaymentDialog } from "./record-payment-dialog";
@@ -77,6 +79,7 @@ export function MemberDetailView({
   const [visits, setVisits] = useState<Attendance[]>([]);
   const [busy, setBusy] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   // Bumped to re-pull this sheet after a mutation (renew/payment/freeze/check-in).
   const [nonce, setNonce] = useState(0);
@@ -193,8 +196,9 @@ export function MemberDetailView({
                 {membership.contact?.phone || "No phone"}
               </SheetDescription>
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                {membership.is_trial && <TrialBadge />}
                 {eff && <MembershipStatusBadge status={eff} daysToExpiry={days} />}
-                <FeeStatusBadge status={membership.fee_status} />
+                {!membership.is_trial && <FeeStatusBadge status={membership.fee_status} />}
               </div>
             </SheetHeader>
 
@@ -243,15 +247,26 @@ export function MemberDetailView({
 
               {/* Actions */}
               <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={() => setRenewOpen(true)}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  <RefreshCw className="size-4" /> Renew
-                </Button>
-                <Button variant="outline" onClick={() => setPayOpen(true)}>
-                  <Wallet className="size-4" /> Record payment
-                </Button>
+                {membership.is_trial ? (
+                  <Button
+                    onClick={() => setConvertOpen(true)}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    <UserPlus className="size-4" /> Convert to member
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => setRenewOpen(true)}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    <RefreshCw className="size-4" /> Renew
+                  </Button>
+                )}
+                {!membership.is_trial && (
+                  <Button variant="outline" onClick={() => setPayOpen(true)}>
+                    <Wallet className="size-4" /> Record payment
+                  </Button>
+                )}
                 <Button variant="outline" onClick={checkIn} disabled={busy}>
                   <UserCheck className="size-4" /> Check in
                 </Button>
@@ -345,6 +360,13 @@ export function MemberDetailView({
               open={renewOpen}
               onOpenChange={setRenewOpen}
               membership={membership}
+              onSaved={refreshAll}
+            />
+            <RenewMembershipDialog
+              open={convertOpen}
+              onOpenChange={setConvertOpen}
+              membership={membership}
+              variant="convert"
               onSaved={refreshAll}
             />
             <RecordPaymentDialog

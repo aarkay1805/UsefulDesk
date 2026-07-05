@@ -70,3 +70,15 @@ export function FeeStatusBadge({ status }: { status: MembershipFeeStatus }) {
     ? pill("border-emerald-500/40 bg-emerald-500/10 text-emerald-400", "Paid")
     : pill("border-amber-500/40 bg-amber-500/10 text-amber-400", "Fee due");
 }
+
+/**
+ * Marks a membership row as a trial/lead (not a paying member yet).
+ * Orthogonal to the status pill — a trial is `is_trial=true` on top of
+ * an active/expired status — so it renders as its own violet pill.
+ */
+export function TrialBadge() {
+  return pill(
+    "border-violet-500/40 bg-violet-500/10 text-violet-400",
+    "Trial",
+  );
+}
