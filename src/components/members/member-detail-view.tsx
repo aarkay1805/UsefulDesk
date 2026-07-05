@@ -13,6 +13,8 @@ import {
   ExternalLink,
   UserCheck,
   UserPlus,
+  UserRoundPlus,
+  CircleCheck,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -24,7 +26,8 @@ import {
   istToday,
   unfreezeEndDate,
 } from "@/lib/memberships/expiry";
-import type { Membership, Payment, PaymentMethod, Attendance } from "@/types";
+import type { FollowUp, Membership, Payment, PaymentMethod, Attendance } from "@/types";
+import { REASON_LABEL } from "@/lib/memberships/follow-ups";
 import {
   Sheet,
   SheetContent,
@@ -40,6 +43,8 @@ import {
 } from "./membership-status-badge";
 import { RenewMembershipDialog } from "./renew-membership-dialog";
 import { RecordPaymentDialog } from "./record-payment-dialog";
+import { FollowUpDialog, CompleteFollowUpDialog } from "./follow-up-dialog";
+import { useAccountStaff } from "./use-account-staff";
 import {
   SendReminderButton,
   type ReminderReadiness,
@@ -74,13 +79,19 @@ export function MemberDetailView({
   const supabase = createClient();
   const { defaultCurrency, user } = useAuth();
 
+  const { nameById } = useAccountStaff();
+
   const [membership, setMembership] = useState<Membership | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [visits, setVisits] = useState<Attendance[]>([]);
+  // This member's single open follow-up task (if any).
+  const [followUp, setFollowUp] = useState<FollowUp | null>(null);
   const [busy, setBusy] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
   // Bumped to re-pull this sheet after a mutation (renew/payment/freeze/check-in).
   const [nonce, setNonce] = useState(0);
 
@@ -88,12 +99,20 @@ export function MemberDetailView({
     if (!open || !membershipId) return;
     let cancelled = false;
     (async () => {
-      const [{ data: m }, { data: pays }, { data: atts }] = await Promise.all([
-        supabase
-          .from("memberships")
-          .select("*, contact:contacts(*), plan:membership_plans(*)")
-          .eq("id", membershipId)
-          .maybeSingle(),
+      // Membership first — the open follow-up is keyed by contact, which
+      // we only know once the row loads.
+      const { data: m } = await supabase
+        .from("memberships")
+        .select("*, contact:contacts(*), plan:membership_plans(*)")
+        .eq("id", membershipId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (!m) {
+        setMembership(null);
+        return;
+      }
+
+      const [{ data: pays }, { data: atts }, { data: fu }] = await Promise.all([
         supabase
           .from("payments")
           .select("*")
@@ -105,11 +124,18 @@ export function MemberDetailView({
           .eq("membership_id", membershipId)
           .order("checked_in_at", { ascending: false })
           .limit(20),
+        supabase
+          .from("follow_ups")
+          .select("*")
+          .eq("contact_id", (m as Membership).contact_id)
+          .eq("status", "open")
+          .maybeSingle(),
       ]);
       if (cancelled) return;
-      setMembership((m as Membership) ?? null);
+      setMembership(m as Membership);
       setPayments((pays as Payment[]) ?? []);
       setVisits((atts as Attendance[]) ?? []);
+      setFollowUp((fu as FollowUp) ?? null);
     })();
     return () => {
       cancelled = true;
@@ -287,10 +313,40 @@ export function MemberDetailView({
                     </Button>
                   )
                 )}
+                {!followUp && (
+                  <Button variant="outline" onClick={() => setAssignOpen(true)}>
+                    <UserRoundPlus className="size-4" /> Assign follow-up
+                  </Button>
+                )}
                 <Button variant="ghost" onClick={() => onEdit(membership)}>
                   <Pencil className="size-4" /> Edit
                 </Button>
               </div>
+
+              {/* Open follow-up — owner, reason, due, one-tap close */}
+              {followUp && (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+                  <div className="min-w-0 flex-1 text-sm">
+                    <p className="font-medium text-foreground">
+                      {REASON_LABEL[followUp.reason]} follow-up · due {followUp.due_date}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {followUp.assigned_to
+                        ? `Owner: ${nameById.get(followUp.assigned_to) ?? "Teammate"}`
+                        : "Unassigned"}
+                      {followUp.note ? ` · ${followUp.note}` : ""}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => setCompleteOpen(true)}
+                  >
+                    <CircleCheck className="size-3.5" /> Done
+                  </Button>
+                </div>
+              )}
 
               {/* Payment history */}
               <div>
@@ -375,6 +431,20 @@ export function MemberDetailView({
               membership={membership}
               onSaved={refreshAll}
             />
+            <FollowUpDialog
+              open={assignOpen}
+              onOpenChange={setAssignOpen}
+              membership={membership}
+              onSaved={refreshAll}
+            />
+            {followUp && (
+              <CompleteFollowUpDialog
+                open={completeOpen}
+                onOpenChange={setCompleteOpen}
+                followUp={followUp}
+                onSaved={refreshAll}
+              />
+            )}
           </>
         )}
       </SheetContent>

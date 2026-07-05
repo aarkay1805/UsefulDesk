@@ -706,6 +706,49 @@ export interface Attendance {
 }
 
 // ============================================================
+// Follow-up tasks (migration 036)
+// ============================================================
+
+export type FollowUpReason = "renewal" | "payment" | "trial" | "inactive" | "other";
+export type FollowUpStatus = "open" | "done" | "cancelled";
+export type FollowUpOutcome =
+  | "renewed"
+  | "paid"
+  | "promised"
+  | "no_answer"
+  | "not_interested"
+  | "other";
+
+/**
+ * One staff task: chase this member for this reason, owned by one
+ * teammate, due on an IST date. At most one OPEN row per contact
+ * (partial unique index) — "one owner, one next action".
+ */
+export interface FollowUp {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  /** Context only; survives membership deletion (SET NULL). */
+  membership_id?: string | null;
+  /** Staff owner; null = unassigned (assignee left the account). */
+  assigned_to?: string | null;
+  /** Who created the task — audit only. */
+  created_by: string;
+  reason: FollowUpReason;
+  /** 'YYYY-MM-DD' — IST semantics, same as memberships.end_date. */
+  due_date: string;
+  status: FollowUpStatus;
+  /** Recorded when the task closes; null while open. */
+  outcome?: FollowUpOutcome | null;
+  note?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  /** Hydrated by queries that embed `contacts(*)`. */
+  contact?: Contact;
+}
+
+// ============================================================
 // Automated renewal reminders (migration 033)
 // ============================================================
 

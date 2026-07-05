@@ -1,13 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarClock, CircleAlert, Wallet, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  CalendarClock,
+  CircleAlert,
+  Wallet,
+  CheckCircle2,
+  Loader2,
+  UserRoundPlus,
+} from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { istToday, istAddDays, daysUntil, effectiveStatus } from "@/lib/memberships/expiry";
 import type { Membership } from "@/types";
+import { Button } from "@/components/ui/button";
 import { MembershipStatusBadge, FeeStatusBadge } from "./membership-status-badge";
 import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
+import { FollowUpDialog } from "./follow-up-dialog";
 
 interface RenewalActionListsProps {
   readiness: ReminderReadiness;
@@ -22,6 +32,8 @@ export function RenewalActionLists({
   onSelect,
   reloadKey,
 }: RenewalActionListsProps) {
+  const { canSendMessages } = useAuth();
+
   const [expiring, setExpiring] = useState<Membership[]>([]);
   const [expired, setExpired] = useState<Membership[]>([]);
   const [due, setDue] = useState<Membership[]>([]);
@@ -29,6 +41,9 @@ export function RenewalActionLists({
   // Bumped after a reminder send to re-pull the buckets.
   const [nonce, setNonce] = useState(0);
   const reload = useCallback(() => setNonce((n) => n + 1), []);
+
+  // Member being handed to a staff owner via the assign dialog.
+  const [assigning, setAssigning] = useState<Membership | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -82,35 +97,51 @@ export function RenewalActionLists({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <ActionList
-        title="Expiring in 7 days"
-        icon={<CalendarClock className="size-4 text-amber-400" />}
-        rows={expiring}
-        readiness={readiness}
-        onSelect={onSelect}
-        onChanged={reload}
-        emptyLabel="No memberships expiring soon."
-      />
-      <ActionList
-        title="Expired"
-        icon={<CircleAlert className="size-4 text-red-400" />}
-        rows={expired}
-        readiness={readiness}
-        onSelect={onSelect}
-        onChanged={reload}
-        emptyLabel="No expired memberships."
-      />
-      <ActionList
-        title="Payment due"
-        icon={<Wallet className="size-4 text-amber-400" />}
-        rows={due}
-        readiness={readiness}
-        onSelect={onSelect}
-        onChanged={reload}
-        emptyLabel="No pending fees."
-      />
-    </div>
+    <>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <ActionList
+          title="Expiring in 7 days"
+          icon={<CalendarClock className="size-4 text-amber-400" />}
+          rows={expiring}
+          readiness={readiness}
+          onSelect={onSelect}
+          onChanged={reload}
+          onAssign={canSendMessages ? setAssigning : undefined}
+          emptyLabel="No memberships expiring soon."
+        />
+        <ActionList
+          title="Expired"
+          icon={<CircleAlert className="size-4 text-red-400" />}
+          rows={expired}
+          readiness={readiness}
+          onSelect={onSelect}
+          onChanged={reload}
+          onAssign={canSendMessages ? setAssigning : undefined}
+          emptyLabel="No expired memberships."
+        />
+        <ActionList
+          title="Payment due"
+          icon={<Wallet className="size-4 text-amber-400" />}
+          rows={due}
+          readiness={readiness}
+          onSelect={onSelect}
+          onChanged={reload}
+          onAssign={canSendMessages ? setAssigning : undefined}
+          emptyLabel="No pending fees."
+        />
+      </div>
+
+      {assigning && (
+        <FollowUpDialog
+          open={!!assigning}
+          onOpenChange={(o) => {
+            if (!o) setAssigning(null);
+          }}
+          membership={assigning}
+          onSaved={reload}
+        />
+      )}
+    </>
   );
 }
 
@@ -121,6 +152,7 @@ function ActionList({
   readiness,
   onSelect,
   onChanged,
+  onAssign,
   emptyLabel,
 }: {
   title: string;
@@ -129,6 +161,8 @@ function ActionList({
   readiness: ReminderReadiness;
   onSelect: (id: string) => void;
   onChanged: () => void;
+  /** Present for agent+ — opens the assign-follow-up dialog. */
+  onAssign?: (m: Membership) => void;
   emptyLabel: string;
 }) {
   return (
@@ -172,9 +206,14 @@ function ActionList({
                   </div>
                 </div>
                 <div
-                  className="mt-2 flex justify-end"
+                  className="mt-2 flex justify-end gap-2"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {onAssign && (
+                    <Button size="sm" variant="ghost" onClick={() => onAssign(m)}>
+                      <UserRoundPlus className="size-3.5" /> Assign
+                    </Button>
+                  )}
                   <SendReminderButton
                     membership={m}
                     readiness={readiness}

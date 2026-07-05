@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, UserRoundSearch } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
 import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RenewalActionLists } from "@/components/members/renewal-action-lists";
+import { FollowUpLists } from "@/components/members/follow-up-lists";
 import { TrialActionLists } from "@/components/members/trial-action-lists";
 import { MembersTable } from "@/components/members/members-table";
 import { MemberForm } from "@/components/members/member-form";
+import { ImportMembersDialog } from "@/components/members/import-members-dialog";
 import { MemberDetailView } from "@/components/members/member-detail-view";
 import { CheckInView } from "@/components/members/check-in-view";
 import { PaymentSummaryTiles } from "@/components/members/payment-summary-tiles";
@@ -18,10 +20,11 @@ import { PaymentDueBuckets } from "@/components/members/payment-due-buckets";
 import { PaymentsLedger } from "@/components/members/payments-ledger";
 import { useReminderReadiness } from "@/components/members/send-reminder-button";
 
-type View = "renewals" | "trials" | "payments" | "all" | "checkin";
+type View = "renewals" | "followups" | "trials" | "payments" | "all" | "checkin";
 
 const VIEW_LABEL: Record<View, string> = {
   renewals: "Renewals",
+  followups: "Follow-ups",
   trials: "Trials",
   payments: "Payments",
   all: "All members",
@@ -37,6 +40,7 @@ export default function MembersPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Membership | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -69,15 +73,20 @@ export default function MembersPage() {
           </p>
         </div>
         {canSendMessages && (
-          <Button onClick={openAdd} className="bg-primary text-primary-foreground hover:bg-primary/90">
-            <Plus className="size-4" /> Add member
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <UserRoundSearch className="size-4" /> Import from contacts
+            </Button>
+            <Button onClick={openAdd} className="bg-primary text-primary-foreground hover:bg-primary/90">
+              <Plus className="size-4" /> Add member
+            </Button>
+          </div>
         )}
       </div>
 
       {/* View toggle */}
       <div className="mt-5 inline-flex rounded-lg border border-border bg-muted/40 p-0.5">
-        {(["renewals", "trials", "payments", "all", "checkin"] as const).map((v) => (
+        {(["renewals", "followups", "trials", "payments", "all", "checkin"] as const).map((v) => (
           <button
             key={v}
             type="button"
@@ -101,6 +110,8 @@ export default function MembersPage() {
             onSelect={openDetail}
             reloadKey={reloadKey}
           />
+        ) : view === "followups" ? (
+          <FollowUpLists onSelect={openDetail} reloadKey={reloadKey} />
         ) : view === "trials" ? (
           <TrialActionLists
             readiness={readiness}
@@ -148,6 +159,12 @@ export default function MembersPage() {
           void contactId;
           reload();
         }}
+      />
+
+      <ImportMembersDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onSaved={reload}
       />
 
       <MemberDetailView
