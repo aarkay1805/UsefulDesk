@@ -45,6 +45,7 @@ import { RenewMembershipDialog } from "./renew-membership-dialog";
 import { RecordPaymentDialog } from "./record-payment-dialog";
 import { FollowUpDialog, CompleteFollowUpDialog } from "./follow-up-dialog";
 import { useAccountStaff } from "./use-account-staff";
+import { CopyUpiLinkButton, useUpiConfig } from "./copy-upi-link-button";
 import {
   SendReminderButton,
   type ReminderReadiness,
@@ -80,6 +81,7 @@ export function MemberDetailView({
   const { defaultCurrency, user } = useAuth();
 
   const { nameById } = useAccountStaff();
+  const upi = useUpiConfig();
 
   const [membership, setMembership] = useState<Membership | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -292,6 +294,14 @@ export function MemberDetailView({
                   <Button variant="outline" onClick={() => setPayOpen(true)}>
                     <Wallet className="size-4" /> Record payment
                   </Button>
+                )}
+                {!membership.is_trial && balance > 0 && (
+                  <CopyUpiLinkButton
+                    upi={upi}
+                    amount={balance}
+                    note={`${membership.plan?.name ?? "Membership"} fee`}
+                    size="default"
+                  />
                 )}
                 <Button variant="outline" onClick={checkIn} disabled={busy}>
                   <UserCheck className="size-4" /> Check in

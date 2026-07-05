@@ -706,6 +706,31 @@ export interface Attendance {
 }
 
 // ============================================================
+// Member activity read model (migration 037 — view over
+// memberships × attendance; powers the retention action lists)
+// ============================================================
+
+export interface MemberActivity {
+  membership_id: string;
+  account_id: string;
+  contact_id: string;
+  plan_id: string | null;
+  start_date: string;
+  end_date: string;
+  status: MembershipStatus;
+  fee_status: MembershipFeeStatus;
+  fee_amount: number;
+  is_trial: boolean;
+  /** Flattened for display — a view exposes no FKs to embed through. */
+  contact_name: string | null;
+  contact_phone: string;
+  plan_name: string | null;
+  /** Instant of the newest check-in; null = never visited. */
+  last_visit_at: string | null;
+  visit_count: number;
+}
+
+// ============================================================
 // Follow-up tasks (migration 036)
 // ============================================================
 

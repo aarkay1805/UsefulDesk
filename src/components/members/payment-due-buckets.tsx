@@ -11,6 +11,7 @@ import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
 import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
 import { RecordPaymentDialog } from "./record-payment-dialog";
+import { CopyUpiLinkButton, useUpiConfig, type UpiConfig } from "./copy-upi-link-button";
 
 interface PaymentDueBucketsProps {
   readiness: ReminderReadiness;
@@ -32,6 +33,7 @@ export function PaymentDueBuckets({
   onChanged,
 }: PaymentDueBucketsProps) {
   const { defaultCurrency } = useAuth();
+  const upi = useUpiConfig();
   const [rows, setRows] = useState<DueMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [nonce, setNonce] = useState(0);
@@ -100,6 +102,7 @@ export function PaymentDueBuckets({
             rows={grouped[key]}
             currency={defaultCurrency}
             readiness={readiness}
+            upi={upi}
             onSelect={onSelect}
             onRecord={setPayFor}
             onSent={reload}
@@ -124,6 +127,7 @@ function BucketCard({
   rows,
   currency,
   readiness,
+  upi,
   onSelect,
   onRecord,
   onSent,
@@ -132,6 +136,7 @@ function BucketCard({
   rows: DueMember[];
   currency: string;
   readiness: ReminderReadiness;
+  upi: UpiConfig | null;
   onSelect: (id: string) => void;
   onRecord: (m: Membership) => void;
   onSent: () => void;
@@ -184,6 +189,11 @@ function BucketCard({
                     className="mt-2 flex justify-end gap-2"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    <CopyUpiLinkButton
+                      upi={upi}
+                      amount={m.balance}
+                      note={`${m.plan?.name ?? "Membership"} fee`}
+                    />
                     <Button
                       type="button"
                       variant="outline"

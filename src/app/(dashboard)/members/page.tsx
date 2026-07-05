@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RenewalActionLists } from "@/components/members/renewal-action-lists";
 import { FollowUpLists } from "@/components/members/follow-up-lists";
+import { InactiveActionLists } from "@/components/members/inactive-action-lists";
 import { TrialActionLists } from "@/components/members/trial-action-lists";
 import { MembersTable } from "@/components/members/members-table";
 import { MemberForm } from "@/components/members/member-form";
@@ -20,11 +21,19 @@ import { PaymentDueBuckets } from "@/components/members/payment-due-buckets";
 import { PaymentsLedger } from "@/components/members/payments-ledger";
 import { useReminderReadiness } from "@/components/members/send-reminder-button";
 
-type View = "renewals" | "followups" | "trials" | "payments" | "all" | "checkin";
+type View =
+  | "renewals"
+  | "followups"
+  | "inactive"
+  | "trials"
+  | "payments"
+  | "all"
+  | "checkin";
 
 const VIEW_LABEL: Record<View, string> = {
   renewals: "Renewals",
   followups: "Follow-ups",
+  inactive: "Inactive",
   trials: "Trials",
   payments: "Payments",
   all: "All members",
@@ -86,7 +95,7 @@ export default function MembersPage() {
 
       {/* View toggle */}
       <div className="mt-5 inline-flex rounded-lg border border-border bg-muted/40 p-0.5">
-        {(["renewals", "followups", "trials", "payments", "all", "checkin"] as const).map((v) => (
+        {(["renewals", "followups", "inactive", "trials", "payments", "all", "checkin"] as const).map((v) => (
           <button
             key={v}
             type="button"
@@ -112,6 +121,8 @@ export default function MembersPage() {
           />
         ) : view === "followups" ? (
           <FollowUpLists onSelect={openDetail} reloadKey={reloadKey} />
+        ) : view === "inactive" ? (
+          <InactiveActionLists onSelect={openDetail} reloadKey={reloadKey} />
         ) : view === "trials" ? (
           <TrialActionLists
             readiness={readiness}

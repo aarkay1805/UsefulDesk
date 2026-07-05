@@ -44,6 +44,9 @@ interface FollowUpDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Member the task chases — supplies contact/membership context. */
   membership: Membership;
+  /** Pre-select a reason (e.g. 'inactive' from the retention lists);
+   *  defaults to one derived from the membership's state. */
+  initialReason?: FollowUpReason;
   onSaved: () => void;
 }
 
@@ -57,6 +60,7 @@ export function FollowUpDialog({
   open,
   onOpenChange,
   membership,
+  initialReason,
   onSaved,
 }: FollowUpDialogProps) {
   return (
@@ -65,6 +69,7 @@ export function FollowUpDialog({
         {open && (
           <AssignForm
             membership={membership}
+            initialReason={initialReason}
             onClose={() => onOpenChange(false)}
             onSaved={onSaved}
           />
@@ -76,10 +81,12 @@ export function FollowUpDialog({
 
 function AssignForm({
   membership,
+  initialReason,
   onClose,
   onSaved,
 }: {
   membership: Membership;
+  initialReason?: FollowUpReason;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -90,8 +97,8 @@ function AssignForm({
   // Default owner = whoever is assigning; due tomorrow (chase lists
   // are worked in the morning, so "today" would be instantly overdue).
   const [assignedTo, setAssignedTo] = useState(user?.id ?? "");
-  const [reason, setReason] = useState<FollowUpReason>(() =>
-    defaultReason(membership),
+  const [reason, setReason] = useState<FollowUpReason>(
+    () => initialReason ?? defaultReason(membership),
   );
   const [dueDate, setDueDate] = useState(() => istAddDays(istToday(), 1));
   const [note, setNote] = useState("");
