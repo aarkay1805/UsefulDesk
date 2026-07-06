@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import type { Contact, LeadStatus, Tag, ContactTag, CustomField } from '@/types';
 import { LEAD_COLUMNS } from '@/lib/leads/status';
+import { SOURCE_OPTIONS, GENDER_OPTIONS } from '@/lib/leads/attributes';
 import {
   findExistingContact,
   isExactMatch,
@@ -55,6 +56,9 @@ export function ContactForm({
   const [company, setCompany] = useState('');
   // '' represents the "New" column — stored as NULL (migration 039).
   const [leadStatus, setLeadStatus] = useState<'' | LeadStatus>('');
+  // Free-text attributes with preset lists (migration 041). '' = unset (NULL).
+  const [source, setSource] = useState('');
+  const [gender, setGender] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Duplicate-phone detection for NEW contacts. `exact` (same digits)
@@ -81,6 +85,8 @@ export function ContactForm({
       setEmail(contact?.email ?? '');
       setCompany(contact?.company ?? '');
       setLeadStatus(contact?.lead_status ?? '');
+      setSource(contact?.source ?? '');
+      setGender(contact?.gender ?? '');
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
       setDupMatch(null);
       fetchTags();
@@ -186,6 +192,8 @@ export function ContactForm({
             email: email.trim() || null,
             company: company.trim() || null,
             lead_status: leadStatus || null,
+            source: source || null,
+            gender: gender || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', contactId);
@@ -201,6 +209,8 @@ export function ContactForm({
             email: email.trim() || null,
             company: company.trim() || null,
             lead_status: leadStatus || null,
+            source: source || null,
+            gender: gender || null,
           })
           .select('id')
           .single();
@@ -397,6 +407,45 @@ export function ContactForm({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="cf-source" className="text-muted-foreground">
+                Source
+              </Label>
+              <select
+                id="cf-source"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              >
+                <option value="">—</option>
+                {SOURCE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cf-gender" className="text-muted-foreground">
+                Gender
+              </Label>
+              <select
+                id="cf-gender"
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              >
+                <option value="">—</option>
+                {GENDER_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="space-y-2">

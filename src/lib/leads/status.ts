@@ -21,11 +21,11 @@ export interface LeadColumn {
 }
 
 export const LEAD_COLUMNS: LeadColumn[] = [
-  { key: 'new', label: 'New', color: '#3b82f6' }, // blue
-  { key: 'interested', label: 'Interested', color: '#eab308' }, // yellow
-  { key: 'high_opportunity', label: 'High Opportunity', color: '#22c55e' }, // green
-  { key: 'low_opportunity', label: 'Low Opportunity', color: '#f97316' }, // orange
-  { key: 'not_interested', label: 'Not Interested', color: '#64748b' }, // slate
+  { key: 'new', label: 'New', color: '#3b82f6' }, // blue — captured, not contacted
+  { key: 'contacted', label: 'Contacted', color: '#eab308' }, // yellow — reached, awaiting reply
+  { key: 'interested', label: 'Interested', color: '#f97316' }, // orange — replied, wants to join
+  { key: 'trial_booked', label: 'Trial Booked', color: '#22c55e' }, // green — visit/trial scheduled
+  { key: 'lost', label: 'Lost', color: '#64748b' }, // slate — not converting / cold
 ];
 
 export const LEAD_COLUMN_BY_KEY: Record<LeadColumnKey, LeadColumn> =

@@ -125,10 +125,10 @@ describe("validateStepsForActivation", () => {
     // which the engine stores as NULL.
     for (const status of [
       "new",
+      "contacted",
       "interested",
-      "not_interested",
-      "high_opportunity",
-      "low_opportunity",
+      "trial_booked",
+      "lost",
     ]) {
       expect(
         validateStepsForActivation([

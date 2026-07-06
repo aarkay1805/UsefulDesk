@@ -1,0 +1,235 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { Check, ChevronDown, Loader2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+
+// Read and edit states share ONE box model so switching between them
+// never changes a cell's height (and so the row can't resize on click):
+//   OUTER — the fixed 36px cell slot (matches a p-2 non-editable cell).
+//   INNER — the 28px content/field box; the hover ring and the focus
+//           ring both draw on this identical box as inset shadows.
+// OUTER stays 36px (h-9) so the row never resizes; py-0.5 leaves the
+// INNER box room to grow to 32px (h-8), which sits ~4px off the tag top
+// and bottom for an optically balanced outline.
+const OUTER = "flex h-9 w-full items-center px-2 py-0.5";
+const INNER =
+  "flex h-8 min-w-0 flex-1 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-2.5 outline-none";
+
+// HubSpot-style inline cell editing for the Leads table. A cell shows
+// its normal rendered value until clicked; clicking swaps in an inline
+// editor: a text/email input, or — for status — a dropdown whose
+// options render as coloured status tags (matching the read display).
+// Commit on Enter/blur/select, cancel on Escape or outside-click. A
+// no-op edit (value unchanged) cancels without a write.
+//
+// Text/email editors are uncontrolled — the input seeds from `value`
+// via defaultValue and is read through a ref on commit. That keeps us
+// clear of the repo's react-hooks/set-state-in-effect rule (no draft
+// state to sync in an effect) while re-seeding correctly, since the
+// input mounts fresh each time `editing` flips true.
+//
+// The click-to-edit button stops propagation so it never triggers the
+// row's "open detail" handler. Non-editable columns (name link, tags,
+// created) don't use this component — they fall through to the row click.
+
+export interface CellOption {
+  value: string;
+  label: string;
+  /** Tag colour for `kind: 'status'` options. */
+  color?: string;
+}
+
+function StatusPill({ label, color }: { label: string; color: string }) {
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-sm font-semibold"
+      style={{ backgroundColor: color + "20", color }}
+    >
+      {label}
+    </span>
+  );
+}
+
+interface EditableCellProps {
+  editing: boolean;
+  /** True while the parent's async write is in flight. */
+  saving: boolean;
+  kind: "text" | "email" | "status";
+  /** Current committed value (seed + baseline for the no-op check). */
+  value: string;
+  /** Options for `kind: 'status'`. Ignored otherwise. */
+  options?: CellOption[];
+  /** The normal, read-mode rendering of the cell. */
+  display: React.ReactNode;
+  onStart: () => void;
+  onCommit: (value: string) => void;
+  onCancel: () => void;
+}
+
+export function EditableCell({
+  editing,
+  saving,
+  kind,
+  value,
+  options,
+  display,
+  onStart,
+  onCommit,
+  onCancel,
+}: EditableCellProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Guards double-settle: Enter fires settle, then the ensuing blur
+  // would fire it again. Escape / outside-click set it too so the
+  // dismiss path stays inert once a value is chosen.
+  const settledRef = useRef(false);
+
+  useEffect(() => {
+    if (!editing) return;
+    settledRef.current = false;
+    // Focus the text editor after it mounts (the status dropdown manages
+    // its own focus). Ref-only work — no state writes, so this stays
+    // clear of set-state-in-effect.
+    if (kind === "status") return;
+    const id = window.setTimeout(() => inputRef.current?.focus(), 0);
+    return () => window.clearTimeout(id);
+  }, [editing, kind]);
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onStart();
+        }}
+        // `group` is what the inner span's group-hover:* outline keys off.
+        className={cn(OUTER, "group text-left")}
+      >
+        {/* Same box as the editors (INNER): flex + items-center centres
+            the content by its box, not its text baseline (a short pill
+            would otherwise sit high in the inherited 20px line box). The
+            hover outline is an inset ring — a box-shadow, so it adds zero
+            layout height and can't resize the row. */}
+        <span
+          className={cn(
+            INNER,
+            "group-hover:bg-muted/70 group-hover:ring-1 group-hover:ring-inset group-hover:ring-border",
+          )}
+        >
+          {display}
+        </span>
+      </button>
+    );
+  }
+
+  function settle(next: string) {
+    if (settledRef.current) return;
+    settledRef.current = true;
+    if (next === value) {
+      onCancel();
+      return;
+    }
+    onCommit(next);
+  }
+
+  function cancel() {
+    if (settledRef.current) return;
+    settledRef.current = true;
+    onCancel();
+  }
+
+  // The active-state outline: an inset ring (box-shadow) so it matches
+  // the hover ring's dimensions exactly and never changes the box height.
+  const EDIT_INNER = cn(INNER, "ring-2 ring-inset ring-primary bg-card");
+
+  if (kind === "status") {
+    const current = options?.find((o) => o.value === value);
+    return (
+      <div className={OUTER} onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu
+          open
+          onOpenChange={(open) => {
+            // Outside-click / Escape closes without a pick.
+            if (!open) cancel();
+          }}
+        >
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                disabled={saving}
+                className={cn(EDIT_INNER, "justify-between disabled:opacity-60")}
+              />
+            }
+          >
+            {current ? (
+              <StatusPill label={current.label} color={current.color ?? "#64748b"} />
+            ) : (
+              <span className="text-sm text-muted-foreground">Select…</span>
+            )}
+            {saving ? (
+              <Loader2 className="size-4 animate-spin text-primary" />
+            ) : (
+              <ChevronDown className="size-4 text-muted-foreground" />
+            )}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="min-w-44 bg-popover border-border"
+          >
+            {options?.map((o) => (
+              <DropdownMenuItem
+                key={o.value}
+                onClick={() => settle(o.value)}
+                className="flex items-center justify-between gap-3 text-popover-foreground focus:bg-muted"
+              >
+                <StatusPill label={o.label} color={o.color ?? "#64748b"} />
+                {o.value === value && <Check className="size-3.5 text-primary" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(OUTER, "relative")}
+      // Keep clicks inside the editor from bubbling to the row.
+      onClick={(e) => e.stopPropagation()}
+    >
+      <input
+        ref={inputRef}
+        type={kind === "email" ? "email" : "text"}
+        defaultValue={value}
+        disabled={saving}
+        onBlur={() => settle(inputRef.current?.value ?? "")}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            settle(inputRef.current?.value ?? "");
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            cancel();
+          }
+        }}
+        // Same box dimensions as INNER (h-7, px-1.5, rounded, inset
+        // ring) but without flex — display:flex on an <input> can break
+        // caret/text rendering. Height/padding still match exactly, so
+        // no row shift.
+        className="h-8 w-full rounded-md bg-card px-2.5 text-sm text-foreground outline-none ring-2 ring-inset ring-primary disabled:opacity-60"
+      />
+      {saving && (
+        <Loader2 className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 animate-spin text-primary" />
+      )}
+    </div>
+  );
+}

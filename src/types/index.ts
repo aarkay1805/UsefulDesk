@@ -90,10 +90,10 @@ export interface AccountInvitation {
  *  (not yet assessed). A contact IS a lead — there is no separate
  *  lead entity; contacts with a membership are members instead. */
 export type LeadStatus =
+  | 'contacted'
   | 'interested'
-  | 'not_interested'
-  | 'high_opportunity'
-  | 'low_opportunity';
+  | 'trial_booked'
+  | 'lost';
 
 export interface Contact {
   id: string;
@@ -109,6 +109,10 @@ export interface Contact {
   avatar_url?: string;
   /** Kanban column on the Leads board. NULL = "New". */
   lead_status?: LeadStatus | null;
+  /** How the lead was acquired (free-text; see SOURCE_OPTIONS). Migration 041. */
+  source?: string | null;
+  /** Free-text gender (see GENDER_OPTIONS). Migration 041. */
+  gender?: string | null;
   /** Staff member who owns this lead's follow-up (profiles.id). */
   assigned_to?: string | null;
   created_at: string;

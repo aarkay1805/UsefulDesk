@@ -502,13 +502,13 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       if (!args.contactId) throw new Error('set_lead_status needs a contact')
       // 'new' clears the stored value (NULL = the "New" board column);
       // anything else must satisfy the contacts_lead_status_check
-      // constraint (migration 039) — reject unknowns here for a clear
+      // constraint (migration 040) — reject unknowns here for a clear
       // log message instead of a raw constraint violation.
       const allowed = new Set([
+        'contacted',
         'interested',
-        'not_interested',
-        'high_opportunity',
-        'low_opportunity',
+        'trial_booked',
+        'lost',
       ])
       if (cfg.status !== 'new' && !allowed.has(cfg.status)) {
         throw new Error(`set_lead_status got unknown status: ${cfg.status}`)

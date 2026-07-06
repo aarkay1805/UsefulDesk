@@ -12,8 +12,17 @@ import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, LeadStatus, Tag, ContactTag, CustomField } from '@/types';
-import { LEAD_COLUMN_BY_KEY, leadColumnKey } from '@/lib/leads/status';
+import {
+  LEAD_COLUMNS,
+  LEAD_COLUMN_BY_KEY,
+  columnToStatus,
+  leadColumnKey,
+  type LeadColumnKey,
+} from '@/lib/leads/status';
+import { isUniqueViolation } from '@/lib/contacts/dedupe';
+import { sourceLabel, genderLabel } from '@/lib/leads/attributes';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   TableBody,
   TableCell,
@@ -27,11 +36,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -42,14 +46,10 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
   Plus,
   Upload,
   MoreHorizontal,
+  MoreVertical,
   Pencil,
   Trash2,
   Loader2,
@@ -58,27 +58,37 @@ import {
   ChevronRight,
   ChevronDown,
   ListChecks,
-  SlidersHorizontal,
-  Columns3,
-  Columns2,
   Settings,
-  Eye,
   LayoutGrid,
   List,
-  Filter,
-  Tag as TagIcon,
   SquarePen,
+  Search,
+  Columns3,
+  ArrowUp,
+  ArrowDown,
+  Sparkles,
+  Pin,
   X,
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportWizard } from '@/components/contacts/import-wizard';
-import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
+import { ViewSettingsSheet } from '@/components/leads/view-settings-sheet';
+import {
+  LeadsFilters,
+  EMPTY_FILTERS,
+  activeFilterCount,
+  UNASSIGNED,
+  type LeadFilters,
+} from '@/components/leads/leads-filters';
+import { LeadsSort } from '@/components/leads/leads-sort';
+import { useAccountStaff } from '@/components/members/use-account-staff';
 import {
   ManageColumnsDialog,
   type ManageColumn,
 } from '@/components/contacts/manage-columns-dialog';
 import { LeadsBoard } from '@/components/leads/leads-board';
+import { EditableCell } from '@/components/leads/editable-cell';
 import { useCan } from '@/hooks/use-can';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { GatedButton } from '@/components/ui/gated-button';
@@ -107,6 +117,10 @@ interface TablePrefs {
   pageSize: number;
   viewMode: ViewMode;
   view: LeadsView;
+  // Active column sort (null = default created_at desc).
+  sort: SortState | null;
+  // Number of leading visible columns pinned to the left (sticky).
+  frozenCount: number;
 }
 
 const DEFAULT_PREFS: TablePrefs = {
@@ -116,12 +130,24 @@ const DEFAULT_PREFS: TablePrefs = {
   pageSize: DEFAULT_PAGE_SIZE,
   viewMode: 'clip',
   view: 'table',
+  sort: null,
+  frozenCount: 0,
 };
 
 interface ContactWithData extends Contact {
   tags?: Tag[];
   customValues?: Record<string, string>;
 }
+
+// How a cell edits inline. `column` writes a contacts row column;
+// 'status' writes lead_status; 'custom' upserts a contact_custom_values
+// row. Columns without an `edit` spec (name link, created) stay
+// read-only and fall through to the row's open-detail click.
+type EditSpec =
+  | { kind: 'text'; column: 'name' | 'company' | 'phone' }
+  | { kind: 'email'; column: 'email' }
+  | { kind: 'status' }
+  | { kind: 'custom'; fieldId: string };
 
 interface ColumnDef {
   key: string;
@@ -131,6 +157,19 @@ interface ColumnDef {
   defaultWidth: number;
   minWidth: number;
   render: (c: ContactWithData) => React.ReactNode;
+  edit?: EditSpec;
+  // The `contacts` column this maps to for server-side sorting. Columns
+  // without one (custom fields — values live in a join table) can't
+  // be sorted and hide their sort controls.
+  sortColumn?: string;
+  // For custom columns: the field's stored data type (see CUSTOM_FIELD_TYPES).
+  customType?: string;
+}
+
+type SortDir = 'asc' | 'desc';
+interface SortState {
+  key: string;
+  dir: SortDir;
 }
 
 function formatDate(iso: string) {
@@ -169,7 +208,7 @@ function renderLeadStatus(c: ContactWithData) {
   const col = LEAD_COLUMN_BY_KEY[leadColumnKey(c.lead_status)];
   return (
     <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-sm font-semibold"
       style={{ backgroundColor: col.color + '20', color: col.color }}
     >
       {col.label}
@@ -184,6 +223,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     required: true,
     defaultWidth: 220,
     minWidth: 120,
+    sortColumn: 'name',
     render: (c) =>
       c.name ? (
         <span className="font-medium text-foreground">{c.name}</span>
@@ -196,33 +236,61 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     label: 'Status',
     defaultWidth: 150,
     minWidth: 110,
+    sortColumn: 'lead_status',
     render: renderLeadStatus,
+    edit: { kind: 'status' },
   },
   {
     key: 'phone',
     label: 'Phone',
     defaultWidth: 150,
     minWidth: 110,
+    sortColumn: 'phone',
     render: (c) => (
-      <span className="font-mono text-xs text-muted-foreground">{c.phone}</span>
+      <span className="font-mono text-sm text-muted-foreground">{c.phone}</span>
     ),
+    edit: { kind: 'text', column: 'phone' },
   },
   {
     key: 'email',
     label: 'Email',
     defaultWidth: 240,
     minWidth: 140,
+    sortColumn: 'email',
     render: (c) => (
       <span className="text-sm text-muted-foreground">{c.email || '-'}</span>
     ),
+    edit: { kind: 'email', column: 'email' },
   },
   {
     key: 'company',
     label: 'Company',
     defaultWidth: 160,
     minWidth: 120,
+    sortColumn: 'company',
     render: (c) => (
       <span className="text-sm text-muted-foreground">{c.company || '-'}</span>
+    ),
+    edit: { kind: 'text', column: 'company' },
+  },
+  {
+    key: 'source',
+    label: 'Source',
+    defaultWidth: 130,
+    minWidth: 100,
+    sortColumn: 'source',
+    render: (c) => (
+      <span className="text-sm text-muted-foreground">{sourceLabel(c.source)}</span>
+    ),
+  },
+  {
+    key: 'gender',
+    label: 'Gender',
+    defaultWidth: 110,
+    minWidth: 90,
+    sortColumn: 'gender',
+    render: (c) => (
+      <span className="text-sm text-muted-foreground">{genderLabel(c.gender)}</span>
     ),
   },
   {
@@ -237,8 +305,9 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     label: 'Created',
     defaultWidth: 120,
     minWidth: 100,
+    sortColumn: 'created_at',
     render: (c) => (
-      <span className="text-xs text-muted-foreground">
+      <span className="text-sm text-muted-foreground">
         {formatDate(c.created_at)}
       </span>
     ),
@@ -250,6 +319,7 @@ function customColumn(field: CustomField): ColumnDef {
     key: `cf:${field.id}`,
     label: field.field_name,
     isCustom: true,
+    customType: field.field_type,
     defaultWidth: 160,
     minWidth: 120,
     render: (c) => (
@@ -257,7 +327,233 @@ function customColumn(field: CustomField): ColumnDef {
         {c.customValues?.[field.id] || '-'}
       </span>
     ),
+    edit: { kind: 'custom', fieldId: field.id },
   };
+}
+
+// Per-column header (HubSpot-style). At rest shows just the label; on
+// hover it reveals inline sort arrows and an overflow trigger. The
+// overflow menu carries the full column actions (sort / freeze / add /
+// remove). The active sort direction stays lit even without hover.
+function HeaderCell({
+  col,
+  sortDir,
+  frozen,
+  onSort,
+  onToggleFreeze,
+  onAddColumn,
+  onRemoveColumn,
+}: {
+  col: ColumnDef;
+  sortDir: SortDir | null;
+  frozen: boolean;
+  onSort: (dir: SortDir) => void;
+  onToggleFreeze: () => void;
+  onAddColumn: () => void;
+  onRemoveColumn: () => void;
+}) {
+  const sortable = Boolean(col.sortColumn);
+  return (
+    <div className="group/th flex items-center gap-0.5 pr-2">
+      <span className="min-w-0 flex-1 truncate">{col.label}</span>
+
+      {/* Inline sort toggles — hidden until hover, but the active one
+          stays visible so the current sort is always legible. */}
+      {sortable && (
+        <div
+          className={cn(
+            'flex items-center transition-opacity',
+            sortDir ? 'opacity-100' : 'opacity-0 group-hover/th:opacity-100'
+          )}
+        >
+          <button
+            type="button"
+            aria-label={`Sort ${col.label} ascending`}
+            onClick={() => onSort('asc')}
+            className={cn(
+              'flex size-5 items-center justify-center rounded hover:bg-muted',
+              sortDir === 'asc' ? 'text-primary' : 'text-muted-foreground'
+            )}
+          >
+            <ArrowUp className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            aria-label={`Sort ${col.label} descending`}
+            onClick={() => onSort('desc')}
+            className={cn(
+              'flex size-5 items-center justify-center rounded hover:bg-muted',
+              sortDir === 'desc' ? 'text-primary' : 'text-muted-foreground'
+            )}
+          >
+            <ArrowDown className="size-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Overflow menu */}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              aria-label={`${col.label} column options`}
+              className="flex size-5 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover/th:opacity-100 data-[popup-open]:bg-muted data-[popup-open]:opacity-100"
+            />
+          }
+        >
+          <MoreVertical className="size-3.5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="min-w-52 bg-popover border-border"
+        >
+          <DropdownMenuItem
+            disabled={!sortable}
+            onClick={() => onSort('asc')}
+            className="text-popover-foreground focus:bg-muted focus:text-foreground"
+          >
+            <ArrowUp className="size-4" />
+            Sort ascending
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!sortable}
+            onClick={() => onSort('desc')}
+            className="text-popover-foreground focus:bg-muted focus:text-foreground"
+          >
+            <ArrowDown className="size-4" />
+            Sort descending
+          </DropdownMenuItem>
+          {/* Placeholder — no backing feature yet, matches HubSpot's greyed row */}
+          <DropdownMenuItem
+            disabled
+            className="text-popover-foreground focus:bg-muted focus:text-foreground"
+          >
+            <Sparkles className="size-4" />
+            Set up smart property
+          </DropdownMenuItem>
+          <DropdownMenuSeparator className="bg-border" />
+          <DropdownMenuItem
+            onClick={onToggleFreeze}
+            className="text-popover-foreground focus:bg-muted focus:text-foreground"
+          >
+            <Pin className="size-4" />
+            {frozen ? 'Unfreeze column' : 'Freeze column'}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={onAddColumn}
+            className="text-popover-foreground focus:bg-muted focus:text-foreground"
+          >
+            <Plus className="size-4" />
+            Add column
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={col.required}
+            onClick={onRemoveColumn}
+            className="text-popover-foreground focus:bg-muted focus:text-foreground"
+          >
+            <X className="size-4" />
+            Remove column
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+// Debounce a rapidly-changing value (e.g. the search input) so the fetch
+// fires on a pause, not every keystroke.
+function useDebounced<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return debounced;
+}
+
+// Resolve a create-date preset to an ISO lower bound (or null for "any").
+function createdRangeSince(range: LeadFilters['createdRange']): string | null {
+  if (!range) return null;
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  switch (range) {
+    case 'today':
+      return start.toISOString();
+    case '7d':
+      start.setDate(start.getDate() - 6);
+      return start.toISOString();
+    case '30d':
+      start.setDate(start.getDate() - 29);
+      return start.toISOString();
+    case 'month':
+      return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  }
+}
+
+// Resolve the Tags filter to the contact ids carrying any of the selected
+// tags (null = no tag filter, [] = filter active but nothing matches).
+async function resolveTagContactIds(
+  supabase: ReturnType<typeof createClient>,
+  tagIds: string[]
+): Promise<string[] | null> {
+  if (tagIds.length === 0) return null;
+  const { data } = await supabase
+    .from('contact_tags')
+    .select('contact_id')
+    .in('tag_id', tagIds);
+  return [...new Set((data ?? []).map((r) => r.contact_id))];
+}
+
+// Minimal chainable shape shared by the PostgREST filter builders we
+// use — lets one helper apply the lead filters to any of them.
+interface FilterableQuery<Q> {
+  in(column: string, values: readonly string[]): Q;
+  or(filters: string): Q;
+  is(column: string, value: null): Q;
+  gte(column: string, value: string): Q;
+}
+
+// Apply the Filters panel selections to a contacts query. `tagIds` is the
+// pre-resolved tag → contact-id constraint (see resolveTagContactIds).
+function applyLeadFilters<Q extends FilterableQuery<Q>>(
+  query: Q,
+  filters: LeadFilters,
+  tagIds: string[] | null
+): Q {
+  let q = query;
+  if (tagIds) q = q.in('id', tagIds);
+
+  if (filters.leadStatus.length) {
+    const hasNew = filters.leadStatus.includes('new');
+    const statuses = filters.leadStatus.filter((k) => k !== 'new');
+    if (hasNew && statuses.length) {
+      q = q.or(`lead_status.is.null,lead_status.in.(${statuses.join(',')})`);
+    } else if (hasNew) {
+      q = q.is('lead_status', null);
+    } else {
+      q = q.in('lead_status', statuses);
+    }
+  }
+  if (filters.source.length) q = q.in('source', filters.source);
+  if (filters.gender.length) q = q.in('gender', filters.gender);
+  if (filters.owner.length) q = q.in('user_id', filters.owner);
+
+  if (filters.assigned.length) {
+    const hasUnassigned = filters.assigned.includes(UNASSIGNED);
+    const ids = filters.assigned.filter((a) => a !== UNASSIGNED);
+    if (hasUnassigned && ids.length) {
+      q = q.or(`assigned_to.is.null,assigned_to.in.(${ids.join(',')})`);
+    } else if (hasUnassigned) {
+      q = q.is('assigned_to', null);
+    } else {
+      q = q.in('assigned_to', ids);
+    }
+  }
+
+  const since = createdRangeSince(filters.createdRange);
+  if (since) q = q.gte('created_at', since);
+  return q;
 }
 
 export default function LeadsPage() {
@@ -265,17 +561,29 @@ export default function LeadsPage() {
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
 
-  // Search is driven by the shared header's global search via the `?search=`
-  // query param — there's no page-level search input anymore.
+  // Search — a page-level input in the toolbar. Seeded from the shared
+  // header's global search (`?search=`) so deep links / global-search
+  // navigations still land here, then owned locally and debounced.
   const searchParams = useSearchParams();
-  const search = searchParams.get('search') ?? '';
+  const urlSearch = searchParams.get('search') ?? '';
+  const [searchInput, setSearchInput] = useState(urlSearch);
+  const search = useDebounced(searchInput, 250);
+  // Mirror external navigations (global search / deep link) into the input.
+  useEffect(() => {
+    setSearchInput(urlSearch);
+  }, [urlSearch]);
+
+  // Filters (Filters panel) + teammate list for owner/assignee filters.
+  const [filters, setFilters] = useState<LeadFilters>(EMPTY_FILTERS);
+  const { staff } = useAccountStaff();
 
   const [contacts, setContacts] = useState<ContactWithData[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
-  // Tag filter — leads shown must have ANY of these tags (OR).
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+
+  // All tags (for the tags column render + Filters panel).
+  const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
 
   // Board view data — fetched independently of the paginated table so
   // switching views doesn't fight the table's pagination window.
@@ -302,7 +610,7 @@ export default function LeadsPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContactId, setDetailContactId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
-  const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
+  const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
   const [manageColumnsOpen, setManageColumnsOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
@@ -312,18 +620,24 @@ export default function LeadsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
-  // All tags for display
-  const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
+  // Inline cell editing (HubSpot-style). Only one cell edits at a time.
+  const [editingCell, setEditingCell] = useState<{ id: string; key: string } | null>(
+    null
+  );
+  const [savingCell, setSavingCell] = useState(false);
 
   // Guards against out-of-order fetch responses: each fetchContacts run
   // claims a sequence number and only the latest is allowed to commit its
-  // results. Without this, rapidly toggling tag filters could let a slower
-  // earlier request resolve last and render stale rows.
+  // results. Without this, rapidly changing the search/page could let a
+  // slower earlier request resolve last and render stale rows.
   const fetchSeq = useRef(0);
 
   const pageSize = prefs.pageSize;
   const viewMode = prefs.viewMode;
   const view = prefs.view ?? 'table';
+  // Defensive reads — prefs saved before these fields existed omit them.
+  const sort = prefs.sort ?? null;
+  const frozenCountPref = prefs.frozenCount ?? 0;
 
   // ---- Column resolution --------------------------------------------------
   // Live columns = built-ins + one per custom field. Effective order applies
@@ -363,6 +677,22 @@ export default function LeadsPage() {
     [orderedKeys, isVisible, colByKey]
   );
 
+  // Freeze uses a count: the leading N visible columns are pinned
+  // sticky-left. No reordering needed — they already lead the order.
+  const frozenCount = Math.min(frozenCountPref, visibleColumns.length);
+  const arrangedColumns = visibleColumns;
+  const frozenKeySet = useMemo(
+    () => new Set(visibleColumns.slice(0, frozenCount).map((c) => c.key)),
+    [visibleColumns, frozenCount]
+  );
+
+  // The DB column the current sort maps to (null when the sorted column
+  // isn't server-sortable, e.g. tags — falls back to created_at desc).
+  const sortColumn = useMemo(
+    () => (sort ? colByKey[sort.key]?.sortColumn ?? null : null),
+    [sort, colByKey]
+  );
+
   // Custom field ids whose column is currently shown — only these need their
   // per-contact values fetched. Joined to a stable string for fetch deps.
   const activeCustomFieldIds = useMemo(
@@ -384,20 +714,23 @@ export default function LeadsPage() {
     ACTIONS_COL_WIDTH +
     visibleColumns.reduce((sum, c) => sum + widthOf(c), 0);
 
-  const fetchTags = useCallback(async () => {
-    const { data } = await supabase.from('tags').select('*');
-    if (data) {
-      const map: Record<string, Tag> = {};
-      data.forEach((t) => (map[t.id] = t));
-      setTagsMap(map);
-      // Drop any filter selections whose tag no longer exists (e.g. a tag
-      // deleted elsewhere) so it can't linger invisibly in the query.
-      setSelectedTagIds((prev) => {
-        const pruned = prev.filter((id) => map[id]);
-        return pruned.length === prev.length ? prev : pruned;
-      });
+  // Left offset (px) for each frozen column's sticky position — walk the
+  // leading N columns left-to-right, past the (also-sticky) checkbox
+  // column. Recomputed each render so live resizes track.
+  const hasFrozen = frozenCount > 0;
+  const frozenLeft: Record<string, number> = {};
+  {
+    let acc = CHECKBOX_COL_WIDTH;
+    for (const c of visibleColumns.slice(0, frozenCount)) {
+      frozenLeft[c.key] = acc;
+      acc += widthOf(c);
     }
-  }, [supabase]);
+  }
+  // Sticky positioning for a frozen header/body cell (undefined otherwise).
+  function frozenCellStyle(key: string): React.CSSProperties | undefined {
+    if (!frozenKeySet.has(key)) return undefined;
+    return { position: 'sticky', left: frozenLeft[key] };
+  }
 
   const fetchCustomFields = useCallback(async () => {
     const { data } = await supabase
@@ -405,6 +738,15 @@ export default function LeadsPage() {
       .select('*')
       .order('field_name');
     if (data) setCustomFields(data);
+  }, [supabase]);
+
+  const fetchTags = useCallback(async () => {
+    const { data } = await supabase.from('tags').select('*');
+    if (data) {
+      const map: Record<string, Tag> = {};
+      data.forEach((t) => (map[t.id] = t));
+      setTagsMap(map);
+    }
   }, [supabase]);
 
   const fetchContacts = useCallback(async () => {
@@ -419,57 +761,45 @@ export default function LeadsPage() {
     const to = from + pageSize - 1;
     const term = search.trim();
 
-    let contactRows: Contact[];
-    let count: number;
-
-    if (selectedTagIds.length > 0) {
-      // Tag filter active — resolve it server-side (join + distinct +
-      // windowed total count + pagination) so a tag covering many
-      // leads can't silently truncate the result or overflow an IN
-      // clause. See migrations 025 + 039 (p_exclude_members).
-      const { data, error } = await supabase.rpc('filter_contacts_by_tags', {
-        p_tag_ids: selectedTagIds,
-        p_search: term || null,
-        p_limit: pageSize,
-        p_offset: from,
-        p_exclude_members: true,
-      });
-      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
-      if (error) {
-        toast.error('Failed to load leads');
-        setLoading(false);
-        return;
-      }
-      const rows = (data ?? []) as { contact: Contact; total_count: number }[];
-      contactRows = rows.map((r) => r.contact);
-      count = rows.length > 0 ? Number(rows[0].total_count) : 0;
-    } else {
-      // Leads = contacts without a membership: PostgREST anti-join via
-      // a left embed filtered to null.
-      let query = supabase
-        .from('contacts')
-        .select('*, memberships!left(id)', { count: 'exact' })
-        .is('memberships', null)
-        .order('created_at', { ascending: false })
-        .range(from, to);
-
-      if (term) {
-        const like = `%${term}%`;
-        query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
-      }
-
-      const { data, count: exactCount, error } = await query;
-      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
-      if (error) {
-        toast.error('Failed to load leads');
-        setLoading(false);
-        return;
-      }
-      contactRows = data ?? [];
-      count = exactCount ?? 0;
+    // Tag filter → contact ids. An active filter that matches nothing
+    // short-circuits to an empty result (skips the main query).
+    const tagIds = await resolveTagContactIds(supabase, filters.tags);
+    if (seq !== fetchSeq.current) return;
+    if (tagIds && tagIds.length === 0) {
+      setTotalCount(0);
+      setContacts([]);
+      setLoading(false);
+      return;
     }
 
-    setTotalCount(count);
+    // Leads = contacts without a membership: PostgREST anti-join via a
+    // left embed filtered to null. Filters apply before order/range
+    // (transform stage drops the filter methods).
+    let query = supabase
+      .from('contacts')
+      .select('*, memberships!left(id)', { count: 'exact' })
+      .is('memberships', null);
+    if (term) {
+      const like = `%${term}%`;
+      query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+    }
+    query = applyLeadFilters(query, filters, tagIds);
+
+    const { data, count: exactCount, error } = await query
+      // Sorted column when set + server-sortable, else newest first.
+      .order(sortColumn ?? 'created_at', {
+        ascending: sortColumn ? sort!.dir === 'asc' : false,
+      })
+      .range(from, to);
+    if (seq !== fetchSeq.current) return; // superseded by a newer fetch
+    if (error) {
+      toast.error('Failed to load leads');
+      setLoading(false);
+      return;
+    }
+    const contactRows: Contact[] = data ?? [];
+
+    setTotalCount(exactCount ?? 0);
 
     if (contactRows.length === 0) {
       setContacts([]);
@@ -480,7 +810,7 @@ export default function LeadsPage() {
     const contactIds = contactRows.map((c) => c.id);
 
     // Tags + (optionally) custom-field values for the loaded rows, in
-    // parallel. Custom values are only fetched when a custom column is shown.
+    // parallel. Custom values are only fetched when a custom column shows.
     const activeIds = activeCustomKey ? activeCustomKey.split(',') : [];
     const [contactTagsRes, customValuesRes] = await Promise.all([
       supabase
@@ -499,8 +829,7 @@ export default function LeadsPage() {
 
     const tagsByContact: Record<string, string[]> = {};
     contactTagsRes.data?.forEach((ct) => {
-      if (!tagsByContact[ct.contact_id]) tagsByContact[ct.contact_id] = [];
-      tagsByContact[ct.contact_id].push(ct.tag_id);
+      (tagsByContact[ct.contact_id] ??= []).push(ct.tag_id);
     });
 
     const valuesByContact: Record<string, Record<string, string>> = {};
@@ -518,11 +847,10 @@ export default function LeadsPage() {
 
     setContacts(enriched);
     setLoading(false);
-  }, [supabase, page, pageSize, search, selectedTagIds, tagsMap, activeCustomKey]);
+  }, [supabase, page, pageSize, search, filters, tagsMap, activeCustomKey, sortColumn, sort]);
 
   // Board data — all statuses at once, capped at BOARD_LIMIT most
-  // recent. Respects the header search but not tag filters (the board
-  // is a triage surface; tag slicing stays a table concern for now).
+  // recent. Respects the header search.
   const fetchBoard = useCallback(async () => {
     void boardNonce; // manual refetch trigger — bump to reload
     setBoardLoading(true);
@@ -555,12 +883,12 @@ export default function LeadsPage() {
   // synchronously in the effect body, so the cascade the lint rule
   // warns about doesn't apply here.
   useEffect(() => {
-    fetchTags();
-  }, [fetchTags]);
-
-  useEffect(() => {
     fetchCustomFields();
   }, [fetchCustomFields]);
+
+  useEffect(() => {
+    fetchTags();
+  }, [fetchTags]);
 
   useEffect(() => {
     fetchContacts();
@@ -570,11 +898,11 @@ export default function LeadsPage() {
     if (view === 'board') fetchBoard();
   }, [view, fetchBoard]);
 
-  // A new global-search term shrinks/grows the result set, so page N may no
-  // longer be valid — reset to the first page whenever the term changes.
+  // A new search term / filter set shrinks/grows the result set, so page N
+  // may no longer be valid — reset to the first page whenever they change.
   useEffect(() => {
     setPage(0);
-  }, [search]);
+  }, [search, filters]);
 
   /** Refresh whichever views hold data after any mutation. */
   const refreshAll = useCallback(() => {
@@ -601,6 +929,99 @@ export default function LeadsPage() {
         setContacts((prev) =>
           prev.map((c) => (c.id === contactId ? { ...c, lead_status: status } : c))
         );
+      }
+    },
+    [supabase]
+  );
+
+  // Current committed value for an editable cell — the editor's baseline.
+  function readEditValue(c: ContactWithData, edit: EditSpec): string {
+    switch (edit.kind) {
+      case 'status':
+        return leadColumnKey(c.lead_status);
+      case 'custom':
+        return c.customValues?.[edit.fieldId] ?? '';
+      case 'email':
+        return c.email ?? '';
+      case 'text':
+        return (c[edit.column] as string | undefined) ?? '';
+    }
+  }
+
+  // Persist one inline cell edit. Optimistically patches the table (and
+  // the board, for status) after a successful write; leaves the row
+  // untouched on failure so the displayed value stays truthful.
+  const commitCell = useCallback(
+    async (contact: ContactWithData, edit: EditSpec, rawValue: string) => {
+      setSavingCell(true);
+      try {
+        if (edit.kind === 'status') {
+          const status = columnToStatus(rawValue as LeadColumnKey);
+          const { error } = await supabase
+            .from('contacts')
+            .update({ lead_status: status, updated_at: new Date().toISOString() })
+            .eq('id', contact.id);
+          if (error) {
+            toast.error('Failed to update status');
+            return;
+          }
+          setContacts((prev) =>
+            prev.map((c) => (c.id === contact.id ? { ...c, lead_status: status } : c))
+          );
+          setBoardLeads((prev) =>
+            prev.map((l) => (l.id === contact.id ? { ...l, lead_status: status } : l))
+          );
+        } else if (edit.kind === 'custom') {
+          const trimmed = rawValue.trim();
+          const { error } = trimmed
+            ? await supabase.from('contact_custom_values').upsert(
+                { contact_id: contact.id, custom_field_id: edit.fieldId, value: trimmed },
+                { onConflict: 'contact_id,custom_field_id' }
+              )
+            : await supabase
+                .from('contact_custom_values')
+                .delete()
+                .eq('contact_id', contact.id)
+                .eq('custom_field_id', edit.fieldId);
+          if (error) {
+            toast.error('Failed to save');
+            return;
+          }
+          setContacts((prev) =>
+            prev.map((c) =>
+              c.id === contact.id
+                ? { ...c, customValues: { ...c.customValues, [edit.fieldId]: trimmed } }
+                : c
+            )
+          );
+        } else {
+          // Built-in text/email column.
+          const trimmed = rawValue.trim();
+          if (edit.column === 'phone' && !trimmed) {
+            toast.error('Phone number is required');
+            return;
+          }
+          const { error } = await supabase
+            .from('contacts')
+            .update({ [edit.column]: trimmed || null, updated_at: new Date().toISOString() })
+            .eq('id', contact.id);
+          if (error) {
+            if (isUniqueViolation(error)) {
+              toast.error('A lead with this phone number already exists');
+            } else {
+              toast.error('Failed to save');
+            }
+            return;
+          }
+          setContacts((prev) =>
+            prev.map((c) =>
+              c.id === contact.id ? { ...c, [edit.column]: trimmed || undefined } : c
+            )
+          );
+        }
+      } finally {
+        setSavingCell(false);
+        setEditingCell(null);
       }
     },
     [supabase]
@@ -678,45 +1099,31 @@ export default function LeadsPage() {
     });
   }
 
-  // Select every lead matching the current search/tag filter — including
-  // rows on other pages that aren't loaded. Reuses the same filter logic as
-  // fetchContacts but pulls only ids (no pagination window).
+  // Select every lead matching the current search + filters — including
+  // rows on other pages that aren't loaded. Mirrors fetchContacts' filter
+  // logic but pulls only ids (no pagination window).
   async function selectAllMatching() {
     const term = search.trim();
-    let ids: string[] = [];
-
-    if (selectedTagIds.length > 0) {
-      const { data, error } = await supabase.rpc('filter_contacts_by_tags', {
-        p_tag_ids: selectedTagIds,
-        p_search: term || null,
-        p_limit: totalCount || 100000,
-        p_offset: 0,
-        p_exclude_members: true,
-      });
-      if (error) {
-        toast.error('Failed to select all leads');
-        return;
-      }
-      const rows = (data ?? []) as { contact: Contact }[];
-      ids = rows.map((r) => r.contact.id);
-    } else {
-      let query = supabase
-        .from('contacts')
-        .select('id, memberships!left(id)')
-        .is('memberships', null);
-      if (term) {
-        const like = `%${term}%`;
-        query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
-      }
-      const { data, error } = await query;
-      if (error) {
-        toast.error('Failed to select all leads');
-        return;
-      }
-      ids = (data ?? []).map((c) => c.id);
+    const tagIds = await resolveTagContactIds(supabase, filters.tags);
+    if (tagIds && tagIds.length === 0) {
+      setSelected(new Set());
+      return;
     }
-
-    setSelected(new Set(ids));
+    let query = supabase
+      .from('contacts')
+      .select('id, memberships!left(id)')
+      .is('memberships', null);
+    if (term) {
+      const like = `%${term}%`;
+      query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+    }
+    query = applyLeadFilters(query, filters, tagIds);
+    const { data, error } = await query;
+    if (error) {
+      toast.error('Failed to select all leads');
+      return;
+    }
+    setSelected(new Set((data ?? []).map((c) => c.id)));
   }
 
   async function handleBulkDelete() {
@@ -742,26 +1149,23 @@ export default function LeadsPage() {
   const hasNext = page < totalPages - 1;
   const hasPrev = page > 0;
 
-  // Tag filter helpers. Every change resets to page 0 — the result set
-  // shrinks/grows so page N may no longer be valid (mirrors the search box).
-  const allTags = Object.values(tagsMap).sort((a, b) =>
-    a.name.localeCompare(b.name)
+  const filterCount = activeFilterCount(filters);
+  const hasActiveFilters = search.trim().length > 0 || filterCount > 0;
+
+  // Tags sorted for the Filters panel.
+  const allTags = useMemo(
+    () => Object.values(tagsMap).sort((a, b) => a.name.localeCompare(b.name)),
+    [tagsMap]
   );
-  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0;
 
-  function toggleTagFilter(tagId: string) {
-    setSelectedTagIds((prev) =>
-      prev.includes(tagId)
-        ? prev.filter((id) => id !== tagId)
-        : [...prev, tagId]
-    );
-    setPage(0);
-  }
-
-  function clearTagFilters() {
-    setSelectedTagIds([]);
-    setPage(0);
-  }
+  // Sortable columns (have a DB mapping) for the Sort panel, in display order.
+  const sortableColumns = useMemo(
+    () =>
+      visibleColumns
+        .filter((c) => c.sortColumn)
+        .map((c) => ({ key: c.key, label: c.label })),
+    [visibleColumns]
+  );
 
   // ---- Display-menu actions ----------------------------------------------
   function setPageSize(n: number) {
@@ -781,8 +1185,33 @@ export default function LeadsPage() {
     setPrefs((p) => ({ ...p, widths: {} }));
   }
 
-  function saveColumns(order: string[], hidden: string[]) {
-    setPrefs((p) => ({ ...p, order, hidden }));
+  // ---- Column header actions ---------------------------------------------
+  // Sort on a column. Re-picking the active direction clears the sort
+  // (back to newest-first); page resets since the ordering changed.
+  function sortByColumn(key: string, dir: SortDir) {
+    setPrefs((p) => {
+      const current = p.sort ?? null;
+      const same = current?.key === key && current?.dir === dir;
+      return { ...p, sort: same ? null : { key, dir } };
+    });
+    setPage(0);
+  }
+
+  // Freeze the leading `n` visible columns (count model). The header menu
+  // toggles between "freeze up to here" (index + 1) and "unfreeze" (index).
+  function setFrozenColumnCount(n: number) {
+    setPrefs((p) => ({ ...p, frozenCount: Math.max(0, n) }));
+  }
+
+  function hideColumn(key: string) {
+    setPrefs((p) => ({
+      ...p,
+      hidden: p.hidden.includes(key) ? p.hidden : [...p.hidden, key],
+    }));
+  }
+
+  function saveColumns(order: string[], hidden: string[], nextFrozen: number) {
+    setPrefs((p) => ({ ...p, order, hidden, frozenCount: nextFrozen }));
   }
 
   // Column resize — drag the header's right edge. Width tracks the pointer
@@ -811,7 +1240,13 @@ export default function LeadsPage() {
   const manageColumns: ManageColumn[] = orderedKeys
     .map((k) => colByKey[k])
     .filter(Boolean)
-    .map((c) => ({ key: c.key, label: c.label, required: c.required }));
+    .map((c) => ({
+      key: c.key,
+      label: c.label,
+      required: c.required,
+      isCustom: c.isCustom,
+      fieldType: c.customType,
+    }));
   const hiddenForDialog = orderedKeys.filter((k) => !isVisible(k));
 
   const cellClamp =
@@ -820,9 +1255,8 @@ export default function LeadsPage() {
   const totalCols = visibleColumns.length + 3;
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      {/* Toolbar — left cluster swaps between browse and selection modes;
-          the right cluster (view toggle / Import / Add) is constant. */}
+    <div className="flex h-full flex-col gap-3">
+      {/* Row 1 — title / selection on the left, primary actions on the right. */}
       <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           {view === 'table' && selected.size > 0 ? (
@@ -869,15 +1303,6 @@ export default function LeadsPage() {
                   <SquarePen className="size-4" />
                   Mass update
                 </Button>
-                {/* Placeholder — no backing feature yet */}
-                <Button
-                  variant="outline"
-                  disabled
-                  className="border-border text-muted-foreground hover:bg-muted"
-                >
-                  <TagIcon className="size-4" />
-                  Tags
-                </Button>
                 <GatedButton
                   variant="destructive"
                   canAct={canEdit}
@@ -897,197 +1322,13 @@ export default function LeadsPage() {
               </Button>
             </>
           ) : (
-            <>
-              <span className="text-base font-semibold text-foreground whitespace-nowrap">
-                All leads
-              </span>
-              {view === 'table' && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Popover>
-                    <PopoverTrigger
-                      render={
-                        <Button
-                          variant="outline"
-                          className="border-border text-muted-foreground hover:bg-muted shrink-0"
-                        />
-                      }
-                    >
-                      <Filter className="size-4" />
-                      Filter
-                      {selectedTagIds.length > 0 && (
-                        <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-                          {selectedTagIds.length}
-                        </span>
-                      )}
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-64 p-0">
-                      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                        <span className="text-sm font-medium text-popover-foreground">
-                          Filter by tags
-                        </span>
-                        {selectedTagIds.length > 0 && (
-                          <button
-                            onClick={clearTagFilters}
-                            className="text-xs text-muted-foreground hover:text-foreground"
-                          >
-                            Clear all
-                          </button>
-                        )}
-                      </div>
-                      {allTags.length === 0 ? (
-                        <p className="px-3 py-4 text-sm text-muted-foreground text-center">
-                          No tags yet.
-                        </p>
-                      ) : (
-                        <div className="max-h-64 overflow-y-auto py-1">
-                          {allTags.map((tag) => (
-                            <label
-                              key={tag.id}
-                              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer hover:bg-muted/50"
-                            >
-                              <Checkbox
-                                checked={selectedTagIds.includes(tag.id)}
-                                onCheckedChange={() => toggleTagFilter(tag.id)}
-                                aria-label={`Filter by ${tag.name}`}
-                              />
-                              <span
-                                className="size-2.5 shrink-0 rounded-full"
-                                style={{ backgroundColor: tag.color }}
-                              />
-                              <span className="text-sm text-popover-foreground truncate">
-                                {tag.name}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-                  {canEditSettings && (
-                    <Button
-                      variant="outline"
-                      onClick={() => setCustomFieldsOpen(true)}
-                      className="border-border text-muted-foreground hover:bg-muted"
-                    >
-                      <SlidersHorizontal className="size-4" />
-                      Custom fields
-                    </Button>
-                  )}
-                  {/* Display — column/view settings menu (Zoho-style). */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button
-                          variant="outline"
-                          className="border-border text-muted-foreground hover:bg-muted"
-                        />
-                      }
-                    >
-                      <Columns3 className="size-4" />
-                      Display
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="min-w-60 bg-popover border-border"
-                    >
-                      <DropdownMenuItem
-                        onClick={() => setManageColumnsOpen(true)}
-                        className="text-popover-foreground focus:bg-muted focus:text-foreground"
-                      >
-                        <Settings className="size-4" />
-                        Manage Columns
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={resetColumnSizes}
-                        className="text-popover-foreground focus:bg-muted focus:text-foreground"
-                      >
-                        <Columns2 className="size-4" />
-                        Reset Column Size
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-border" />
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="text-popover-foreground">
-                          <List className="size-4" />
-                          Records Per Page
-                          <span className="ml-auto text-xs text-muted-foreground">
-                            {pageSize}
-                          </span>
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent>
-                          <DropdownMenuRadioGroup
-                            value={String(pageSize)}
-                            onValueChange={(v) => setPageSize(Number(v))}
-                          >
-                            {PAGE_SIZE_OPTIONS.map((n) => (
-                              <DropdownMenuRadioItem key={n} value={String(n)}>
-                                {n}
-                              </DropdownMenuRadioItem>
-                            ))}
-                          </DropdownMenuRadioGroup>
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="text-popover-foreground">
-                          <Eye className="size-4" />
-                          View Mode
-                          <span className="ml-auto text-xs text-muted-foreground">
-                            {viewMode === 'clip' ? 'Clip Text' : 'Wrap Text'}
-                          </span>
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent>
-                          <DropdownMenuRadioGroup
-                            value={viewMode}
-                            onValueChange={(v) => setViewMode(v as ViewMode)}
-                          >
-                            <DropdownMenuRadioItem value="wrap">
-                              Wrap Text
-                            </DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="clip">
-                              Clip Text
-                            </DropdownMenuRadioItem>
-                          </DropdownMenuRadioGroup>
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )}
-            </>
+            <span className="text-base font-semibold text-foreground whitespace-nowrap">
+              All leads
+            </span>
           )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-          {/* Table / Board view toggle */}
-          <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
-            <button
-              type="button"
-              onClick={() => setLeadsView('table')}
-              aria-label="Table view"
-              aria-pressed={view === 'table'}
-              className={cn(
-                'flex h-7 w-8 items-center justify-center rounded-md transition-colors',
-                view === 'table'
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <List className="size-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setLeadsView('board')}
-              aria-label="Board view"
-              aria-pressed={view === 'board'}
-              className={cn(
-                'flex h-7 w-8 items-center justify-center rounded-md transition-colors',
-                view === 'board'
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <LayoutGrid className="size-4" />
-            </button>
-          </div>
           <GatedButton
             variant="outline"
             canAct={canEdit}
@@ -1110,40 +1351,101 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* Active tag-filter chips (table view only) */}
-      {view === 'table' && selectedTagIds.length > 0 && (
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-          {selectedTagIds.map((id) => {
-            const tag = tagsMap[id];
-            if (!tag) return null;
-            return (
-              <span
-                key={id}
-                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                style={{
-                  backgroundColor: tag.color + '20',
-                  color: tag.color,
-                }}
-              >
-                {tag.name}
-                <button
-                  onClick={() => toggleTagFilter(id)}
-                  aria-label={`Remove ${tag.name} filter`}
-                  className="hover:opacity-70"
-                >
-                  <X className="size-3" />
-                </button>
-              </span>
-            );
-          })}
-          <button
-            onClick={clearTagFilters}
-            className="text-xs text-muted-foreground hover:text-foreground px-1"
-          >
-            Clear all
-          </button>
+      {/* Row 2 — search grows on the left; view / settings / columns /
+          filters / sort cluster trails on the right (HubSpot-style). */}
+      <div className="flex shrink-0 items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search leads…"
+            className="rounded-full border-border bg-card pl-9 text-foreground placeholder:text-muted-foreground"
+          />
         </div>
-      )}
+
+        {/* View type */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="outline"
+                className="border-border text-muted-foreground hover:bg-muted"
+              />
+            }
+          >
+            {view === 'table' ? (
+              <List className="size-4" />
+            ) : (
+              <LayoutGrid className="size-4" />
+            )}
+            <span className="hidden sm:inline">
+              {view === 'table' ? 'Table view' : 'Board view'}
+            </span>
+            <ChevronDown className="size-4 text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-44 bg-popover border-border">
+            <DropdownMenuItem
+              onClick={() => setLeadsView('table')}
+              className={cn(
+                'focus:bg-muted focus:text-foreground',
+                view === 'table' ? 'text-primary' : 'text-popover-foreground'
+              )}
+            >
+              <List className="size-4" />
+              Table view
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setLeadsView('board')}
+              className={cn(
+                'focus:bg-muted focus:text-foreground',
+                view === 'board' ? 'text-primary' : 'text-popover-foreground'
+              )}
+            >
+              <LayoutGrid className="size-4" />
+              Board view
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {view === 'table' && (
+          <>
+            {/* Table settings (pagination, cell text, custom fields) */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setViewSettingsOpen(true)}
+              aria-label="Table settings"
+              title="Table settings"
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              <Settings className="size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setManageColumnsOpen(true)}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              <Columns3 className="size-4" />
+              <span className="hidden sm:inline">Edit columns</span>
+            </Button>
+            <LeadsFilters
+              value={filters}
+              onChange={setFilters}
+              staff={staff}
+              tags={allTags}
+            />
+            <LeadsSort
+              value={sort}
+              onChange={(next) => {
+                setPrefs((p) => ({ ...p, sort: next }));
+                setPage(0);
+              }}
+              columns={sortableColumns}
+            />
+          </>
+        )}
+      </div>
 
       {view === 'board' ? (
         <div className="min-h-0 flex-1">
@@ -1185,7 +1487,7 @@ export default function LeadsPage() {
             >
               <colgroup>
                 <col style={{ width: CHECKBOX_COL_WIDTH }} />
-                {visibleColumns.map((col) => (
+                {arrangedColumns.map((col) => (
                   <col key={col.key} style={{ width: widthOf(col) }} />
                 ))}
                 <col style={{ width: ACTIONS_COL_WIDTH }} />
@@ -1193,7 +1495,9 @@ export default function LeadsPage() {
               </colgroup>
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow className="border-border hover:bg-transparent">
-                  <TableHead>
+                  <TableHead
+                    className={cn(hasFrozen && 'sticky left-0 z-20 bg-card')}
+                  >
                     <Checkbox
                       checked={allOnPageSelected}
                       indeterminate={!allOnPageSelected && someOnPageSelected}
@@ -1202,21 +1506,42 @@ export default function LeadsPage() {
                       aria-label="Select all leads on this page"
                     />
                   </TableHead>
-                  {visibleColumns.map((col) => (
-                    <TableHead
-                      key={col.key}
-                      className="relative text-muted-foreground select-none"
-                    >
-                      <span className="block truncate pr-2">{col.label}</span>
-                      {/* Resize grip on the right edge */}
-                      <span
-                        role="separator"
-                        aria-orientation="vertical"
-                        onMouseDown={(e) => startResize(e, col)}
-                        className="absolute top-2 bottom-2 right-0 w-1.5 cursor-col-resize border-r border-border hover:border-r-2 hover:border-primary"
-                      />
-                    </TableHead>
-                  ))}
+                  {arrangedColumns.map((col, i) => {
+                    const isFrozen = frozenKeySet.has(col.key);
+                    return (
+                      <TableHead
+                        key={col.key}
+                        style={frozenCellStyle(col.key)}
+                        className={cn(
+                          'text-muted-foreground select-none',
+                          // Positioned ancestor for the resize grip — sticky
+                          // frozen cells already establish one.
+                          isFrozen ? 'z-20 bg-card' : 'relative'
+                        )}
+                      >
+                        <HeaderCell
+                          col={col}
+                          sortDir={sort?.key === col.key ? sort.dir : null}
+                          frozen={isFrozen}
+                          onSort={(dir) => sortByColumn(col.key, dir)}
+                          // Count model: freeze up to this column (i + 1), or
+                          // unfreeze back to just before it (i).
+                          onToggleFreeze={() =>
+                            setFrozenColumnCount(isFrozen ? i : i + 1)
+                          }
+                          onAddColumn={() => setManageColumnsOpen(true)}
+                          onRemoveColumn={() => hideColumn(col.key)}
+                        />
+                        {/* Resize grip on the right edge */}
+                        <span
+                          role="separator"
+                          aria-orientation="vertical"
+                          onMouseDown={(e) => startResize(e, col)}
+                          className="absolute top-2 bottom-2 right-0 w-1.5 cursor-col-resize border-r border-border hover:border-r-2 hover:border-primary"
+                        />
+                      </TableHead>
+                    );
+                  })}
                   <TableHead />
                   <TableHead aria-hidden />
                 </TableRow>
@@ -1261,21 +1586,71 @@ export default function LeadsPage() {
                   contacts.map((contact) => (
                     <TableRow
                       key={contact.id}
-                      className="border-border hover:bg-muted/50 cursor-pointer"
+                      className="group border-border hover:bg-muted/50 cursor-pointer"
                       onClick={() => openDetail(contact.id)}
                     >
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn(
+                          hasFrozen &&
+                            'sticky left-0 z-10 bg-card group-hover:bg-muted/50'
+                        )}
+                      >
                         <Checkbox
                           checked={selected.has(contact.id)}
                           onCheckedChange={() => toggleSelect(contact.id)}
                           aria-label={`Select ${contact.name || contact.phone}`}
                         />
                       </TableCell>
-                      {visibleColumns.map((col) => (
-                        <TableCell key={col.key} className="align-middle">
-                          <div className={cn('min-w-0', cellClamp)}>
-                            {col.render(contact)}
-                          </div>
+                      {arrangedColumns.map((col) => (
+                        <TableCell
+                          key={col.key}
+                          style={frozenCellStyle(col.key)}
+                          className={cn(
+                            'align-middle',
+                            // The editor supplies its own padding so the
+                            // input fills the cell edge-to-edge.
+                            col.edit && canEdit && 'p-0',
+                            // Frozen cells need an opaque base so scrolled
+                            // content can't bleed through; the layered
+                            // hover tint matches the row's own hover.
+                            frozenKeySet.has(col.key) &&
+                              'z-10 bg-card group-hover:bg-muted/50'
+                          )}
+                        >
+                          {col.edit && canEdit ? (
+                            <EditableCell
+                              editing={
+                                editingCell?.id === contact.id &&
+                                editingCell?.key === col.key
+                              }
+                              saving={savingCell}
+                              kind={col.edit.kind === 'custom' ? 'text' : col.edit.kind}
+                              value={readEditValue(contact, col.edit)}
+                              options={
+                                col.edit.kind === 'status'
+                                  ? LEAD_COLUMNS.map((c) => ({
+                                      value: c.key,
+                                      label: c.label,
+                                      color: c.color,
+                                    }))
+                                  : undefined
+                              }
+                              // Render mode content sits directly in the
+                              // editor's flex-centred slot — no line-box
+                              // wrapper, so the hover ring stays symmetric.
+                              display={col.render(contact)}
+                              onStart={() =>
+                                setEditingCell({ id: contact.id, key: col.key })
+                              }
+                              onCommit={(v) => commitCell(contact, col.edit!, v)}
+                              onCancel={() => setEditingCell(null)}
+                            />
+                          ) : (
+                            <div className={cn('min-w-0', cellClamp)}>
+                              {col.render(contact)}
+                            </div>
+                          )}
                         </TableCell>
                       ))}
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -1356,13 +1731,29 @@ export default function LeadsPage() {
         </>
       )}
 
-      {/* Manage Columns Dialog */}
+      {/* Table settings side sheet — pagination, cell text. */}
+      <ViewSettingsSheet
+        open={viewSettingsOpen}
+        onOpenChange={setViewSettingsOpen}
+        pageSize={pageSize}
+        pageSizeOptions={PAGE_SIZE_OPTIONS}
+        onPageSizeChange={setPageSize}
+        cellText={viewMode}
+        onCellTextChange={setViewMode}
+      />
+
+      {/* Edit columns — split-view picker (catalogue + custom fields on the
+          left, ordered selection + freeze count on the right). */}
       <ManageColumnsDialog
         open={manageColumnsOpen}
         onOpenChange={setManageColumnsOpen}
         columns={manageColumns}
         hidden={hiddenForDialog}
+        frozenCount={frozenCount}
         onSave={saveColumns}
+        onResetWidths={resetColumnSizes}
+        canManageFields={canEditSettings}
+        onFieldsChanged={fetchCustomFields}
       />
 
       {/* Lead Form Dialog */}
@@ -1395,18 +1786,6 @@ export default function LeadsPage() {
         onOpenChange={setImportOpen}
         onImported={refreshAll}
       />
-
-      {/* Custom Fields Manager (admin+) */}
-      {canEditSettings && (
-        <CustomFieldsManager
-          open={customFieldsOpen}
-          onOpenChange={(open) => {
-            setCustomFieldsOpen(open);
-            // Field defs may have changed — refresh the column list.
-            if (!open) fetchCustomFields();
-          }}
-        />
-      )}
 
       {/* Delete Confirmation */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>

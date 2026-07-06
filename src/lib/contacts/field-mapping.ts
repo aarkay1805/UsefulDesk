@@ -33,6 +33,7 @@ export interface CustomFieldType {
 export const CUSTOM_FIELD_TYPES: CustomFieldType[] = [
   { value: 'text', label: 'Text' },
   { value: 'number', label: 'Number' },
+  { value: 'currency', label: 'Currency' },
   { value: 'date', label: 'Date' },
   { value: 'email', label: 'Email' },
   { value: 'phone', label: 'Phone' },
