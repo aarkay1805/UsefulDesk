@@ -21,6 +21,7 @@ import {
 } from '@/lib/leads/status';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
 import { sourceLabel, genderLabel } from '@/lib/leads/attributes';
+import { formatCurrency } from '@/lib/currency';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -314,6 +315,45 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
   },
 ];
 
+// Display a stored custom value according to its field's data type.
+// Values are stored as free text, so every branch falls back to the raw
+// string when it can't be parsed (e.g. legacy/imported junk).
+function formatCustomValue(value: string, type?: string): string {
+  switch (type) {
+    case 'currency': {
+      const n = Number(value);
+      return Number.isFinite(n) ? formatCurrency(n) : value;
+    }
+    case 'number': {
+      const n = Number(value);
+      return Number.isFinite(n) ? new Intl.NumberFormat().format(n) : value;
+    }
+    case 'date': {
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? value : formatDate(value);
+    }
+    default:
+      return value; // text, email, phone, url
+  }
+}
+
+// Map a custom field's data type to the inline editor's input kind.
+function customEditKind(
+  type?: string
+): 'text' | 'email' | 'number' | 'date' {
+  switch (type) {
+    case 'currency':
+    case 'number':
+      return 'number';
+    case 'date':
+      return 'date';
+    case 'email':
+      return 'email';
+    default:
+      return 'text'; // text, phone, url
+  }
+}
+
 function customColumn(field: CustomField): ColumnDef {
   return {
     key: `cf:${field.id}`,
@@ -322,11 +362,14 @@ function customColumn(field: CustomField): ColumnDef {
     customType: field.field_type,
     defaultWidth: 160,
     minWidth: 120,
-    render: (c) => (
-      <span className="text-sm text-muted-foreground">
-        {c.customValues?.[field.id] || '-'}
-      </span>
-    ),
+    render: (c) => {
+      const raw = c.customValues?.[field.id];
+      return (
+        <span className="text-sm text-muted-foreground">
+          {raw ? formatCustomValue(raw, field.field_type) : '-'}
+        </span>
+      );
+    },
     edit: { kind: 'custom', fieldId: field.id },
   };
 }
@@ -1625,7 +1668,11 @@ export default function LeadsPage() {
                                 editingCell?.key === col.key
                               }
                               saving={savingCell}
-                              kind={col.edit.kind === 'custom' ? 'text' : col.edit.kind}
+                              kind={
+                                col.edit.kind === 'custom'
+                                  ? customEditKind(col.customType)
+                                  : col.edit.kind
+                              }
                               value={readEditValue(contact, col.edit)}
                               options={
                                 col.edit.kind === 'status'

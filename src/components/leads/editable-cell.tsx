@@ -61,7 +61,7 @@ interface EditableCellProps {
   editing: boolean;
   /** True while the parent's async write is in flight. */
   saving: boolean;
-  kind: "text" | "email" | "status";
+  kind: "text" | "email" | "number" | "date" | "status";
   /** Current committed value (seed + baseline for the no-op check). */
   value: string;
   /** Options for `kind: 'status'`. Ignored otherwise. */
@@ -208,7 +208,15 @@ export function EditableCell({
     >
       <input
         ref={inputRef}
-        type={kind === "email" ? "email" : "text"}
+        type={
+          kind === "email"
+            ? "email"
+            : kind === "number"
+              ? "number"
+              : kind === "date"
+                ? "date"
+                : "text"
+        }
         defaultValue={value}
         disabled={saving}
         onBlur={() => settle(inputRef.current?.value ?? "")}
