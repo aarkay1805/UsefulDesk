@@ -2,12 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/hooks/use-auth'
-import { formatCurrency } from '@/lib/currency'
 import {
   MessageSquare,
   UserPlus,
-  DollarSign,
+  Users,
   Send,
 } from 'lucide-react'
 
@@ -15,14 +13,14 @@ import {
   loadActivity,
   loadConversationsSeries,
   loadMetrics,
-  loadPipelineDonut,
+  loadLeadsDonut,
   loadResponseTime,
 } from '@/lib/dashboard/queries'
 import type {
   ActivityItem,
   ConversationsSeriesPoint,
   MetricsBundle,
-  PipelineDonutData,
+  LeadsDonutData,
   ResponseTimeSummary,
 } from '@/lib/dashboard/types'
 
@@ -31,14 +29,13 @@ import { GymMetrics } from '@/components/dashboard/gym-metrics'
 import { SkeletonCard } from '@/components/dashboard/skeleton'
 import { QuickActions } from '@/components/dashboard/quick-actions'
 import { ConversationsChart } from '@/components/dashboard/conversations-chart'
-import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
+import { LeadsDonut } from '@/components/dashboard/leads-donut'
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
 import { ActivityFeed } from '@/components/dashboard/activity-feed'
 
 type RangeDays = 7 | 30 | 90
 
 export default function DashboardPage() {
-  const { defaultCurrency } = useAuth()
   const [metrics, setMetrics] = useState<MetricsBundle | null>(null)
   const [metricsLoading, setMetricsLoading] = useState(true)
 
@@ -53,8 +50,8 @@ export default function DashboardPage() {
   })
   const [seriesLoading, setSeriesLoading] = useState(true)
 
-  const [pipeline, setPipeline] = useState<PipelineDonutData | null>(null)
-  const [pipelineLoading, setPipelineLoading] = useState(true)
+  const [leadsDonut, setLeadsDonut] = useState<LeadsDonutData | null>(null)
+  const [leadsDonutLoading, setLeadsDonutLoading] = useState(true)
 
   const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(null)
   const [responseTimeLoading, setResponseTimeLoading] = useState(true)
@@ -78,10 +75,10 @@ export default function DashboardPage() {
       .catch((err) => console.error('[dashboard] series failed:', err))
       .finally(() => setSeriesLoading(false))
 
-    void loadPipelineDonut(db)
-      .then((p) => setPipeline(p))
-      .catch((err) => console.error('[dashboard] pipeline failed:', err))
-      .finally(() => setPipelineLoading(false))
+    void loadLeadsDonut(db)
+      .then((p) => setLeadsDonut(p))
+      .catch((err) => console.error('[dashboard] leads donut failed:', err))
+      .finally(() => setLeadsDonutLoading(false))
 
     void loadResponseTime(db)
       .then((r) => setResponseTime(r))
@@ -161,10 +158,10 @@ export default function DashboardPage() {
               }}
             />
             <MetricCard
-              title="Open Deals Value"
-              value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
-              icon={DollarSign}
-              subtitle={`${metrics.openDealsCount} open deal${metrics.openDealsCount === 1 ? '' : 's'}`}
+              title="Open Leads"
+              value={metrics.openLeads.toLocaleString()}
+              icon={Users}
+              subtitle="not yet members"
             />
             <MetricCard
               title="Messages Sent Today"
@@ -203,11 +200,7 @@ export default function DashboardPage() {
           />
         </div>
         <div className="h-full lg:col-span-2">
-          <PipelineDonut
-            data={pipeline}
-            loading={pipelineLoading}
-            currency={defaultCurrency}
-          />
+          <LeadsDonut data={leadsDonut} loading={leadsDonutLoading} />
         </div>
       </div>
 

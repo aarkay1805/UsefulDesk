@@ -101,6 +101,10 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
   close_conversation: { label: "Close Conversation", icon: CircleSlash, border: "border-l-primary" },
 }
 
+// create_deal is intentionally absent: Pipelines was retired when it
+// merged into Leads. Existing automations that already contain a
+// create_deal step keep rendering (STEP_META still knows it) and the
+// engine still executes it — you just can't add new ones.
 const ADDABLE_STEPS: AutomationStepType[] = [
   "send_message",
   "send_template",
@@ -108,7 +112,6 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   "remove_tag",
   "assign_conversation",
   "update_contact_field",
-  "create_deal",
   "wait",
   "condition",
   "send_webhook",

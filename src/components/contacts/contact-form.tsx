@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactTag, CustomField } from '@/types';
+import type { Contact, LeadStatus, Tag, ContactTag, CustomField } from '@/types';
+import { LEAD_COLUMNS } from '@/lib/leads/status';
 import {
   findExistingContact,
   isExactMatch,
@@ -52,6 +53,8 @@ export function ContactForm({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
+  // '' represents the "New" column — stored as NULL (migration 039).
+  const [leadStatus, setLeadStatus] = useState<'' | LeadStatus>('');
   const [saving, setSaving] = useState(false);
 
   // Duplicate-phone detection for NEW contacts. `exact` (same digits)
@@ -77,6 +80,7 @@ export function ContactForm({
       setPhone(contact?.phone ?? '');
       setEmail(contact?.email ?? '');
       setCompany(contact?.company ?? '');
+      setLeadStatus(contact?.lead_status ?? '');
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
       setDupMatch(null);
       fetchTags();
@@ -181,6 +185,7 @@ export function ContactForm({
             phone: phone.trim(),
             email: email.trim() || null,
             company: company.trim() || null,
+            lead_status: leadStatus || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', contactId);
@@ -195,6 +200,7 @@ export function ContactForm({
             phone: phone.trim(),
             email: email.trim() || null,
             company: company.trim() || null,
+            lead_status: leadStatus || null,
           })
           .select('id')
           .single();
@@ -373,6 +379,24 @@ export function ContactForm({
               placeholder="Acme Inc."
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cf-lead-status" className="text-muted-foreground">
+              Lead status
+            </Label>
+            <select
+              id="cf-lead-status"
+              value={leadStatus}
+              onChange={(e) => setLeadStatus(e.target.value as '' | LeadStatus)}
+              className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            >
+              {LEAD_COLUMNS.map((col) => (
+                <option key={col.key} value={col.key === 'new' ? '' : col.key}>
+                  {col.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-2">

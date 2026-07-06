@@ -15,15 +15,14 @@ import { cn } from "@/lib/utils";
 // in SEARCHABLE currently support the `?search=` query on their list page;
 // the rest just navigate to the section (search wiring comes later).
 const MODULES = [
-  { label: "All Modules", href: "/contacts" },
-  { label: "Contacts", href: "/contacts" },
+  { label: "All Modules", href: "/leads" },
+  { label: "Leads", href: "/leads" },
   { label: "Inbox", href: "/inbox" },
-  { label: "Pipelines", href: "/pipelines" },
   { label: "Broadcasts", href: "/broadcasts" },
   { label: "Automations", href: "/automations" },
 ] as const;
 
-const SEARCHABLE = new Set<string>(["All Modules", "Contacts"]);
+const SEARCHABLE = new Set<string>(["All Modules", "Leads"]);
 
 export function GlobalSearch() {
   const router = useRouter();
@@ -65,7 +64,7 @@ export function GlobalSearch() {
     const q = query.trim();
     const target = MODULES.find((m) => m.label === module) ?? MODULES[0];
     if (SEARCHABLE.has(module)) {
-      router.push(`/contacts${q ? `?search=${encodeURIComponent(q)}` : ""}`);
+      router.push(`/leads${q ? `?search=${encodeURIComponent(q)}` : ""}`);
     } else {
       router.push(target.href);
     }

@@ -21,13 +21,17 @@ import {
 import { SettingsPanelHead } from "./settings-panel-head";
 
 /**
- * Deals settings — account-wide default currency.
+ * Payments & currency settings — account-wide default currency + UPI.
  *
- * One currency per account (issue #218): the chosen code seeds new
- * deals and formats every aggregated total. Existing deals keep their
- * own saved currency. Writes go straight to `accounts.default_currency`;
- * the `accounts_update` RLS policy (017) already restricts that to
+ * One currency per account (issue #218): the chosen code formats
+ * membership fees, payment amounts, and every aggregated total.
+ * Writes go straight to `accounts.default_currency`; the
+ * `accounts_update` RLS policy (017) already restricts that to
  * admins+, so non-admins see a disabled, read-only control.
+ *
+ * (Filename/section id still say "deals" for URL back-compat —
+ * the deals feature itself was retired when Pipelines merged
+ * into Leads.)
  */
 export function DealsSettings() {
   const supabase = createClient();
@@ -72,8 +76,8 @@ export function DealsSettings() {
   return (
     <section className="max-w-2xl animate-in fade-in-50 duration-200">
       <SettingsPanelHead
-        title="Deals & currency"
-        description="The currency used for new deals and for pipeline and dashboard totals."
+        title="Payments & currency"
+        description="The currency used for membership fees, payments, and dashboard totals — plus your UPI collection details."
       />
       <Card>
         <CardHeader>
@@ -82,9 +86,8 @@ export function DealsSettings() {
             Default currency
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            New deals default to this currency, and pipeline and
-            dashboard totals are shown in it. Existing deals keep the
-            currency they were saved with.
+            Membership fees, recorded payments, and dashboard totals
+            are shown in this currency.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

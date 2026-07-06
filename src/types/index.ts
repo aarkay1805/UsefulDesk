@@ -86,6 +86,15 @@ export interface AccountInvitation {
   accepted_by_user_id: string | null;
 }
 
+/** Lead qualification state (migration 039). NULL/undefined = "New"
+ *  (not yet assessed). A contact IS a lead — there is no separate
+ *  lead entity; contacts with a membership are members instead. */
+export type LeadStatus =
+  | 'interested'
+  | 'not_interested'
+  | 'high_opportunity'
+  | 'low_opportunity';
+
 export interface Contact {
   id: string;
   user_id: string;
@@ -98,6 +107,10 @@ export interface Contact {
   email?: string;
   company?: string;
   avatar_url?: string;
+  /** Kanban column on the Leads board. NULL = "New". */
+  lead_status?: LeadStatus | null;
+  /** Staff member who owns this lead's follow-up (profiles.id). */
+  assigned_to?: string | null;
   created_at: string;
   updated_at: string;
   /** Hydrated by queries that embed `contact_tags(tags(*))` (e.g. the

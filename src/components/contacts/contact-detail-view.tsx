@@ -5,9 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactNote, CustomField, Deal, MessageTemplate } from '@/types';
+import type { Contact, Tag, ContactNote, CustomField, MessageTemplate } from '@/types';
 import {
   TemplatePicker,
   type TemplateSendValues,
@@ -39,14 +38,13 @@ import {
   Plus,
   Trash2,
   X,
-  DollarSign,
   LayoutTemplate,
   Pencil,
   StickyNote,
   MessageCircle,
 } from 'lucide-react';
 
-const SECTION_IDS = ['details', 'tags', 'notes', 'deals'];
+const SECTION_IDS = ['details', 'tags', 'notes'];
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -63,7 +61,7 @@ export function ContactDetailView({
 }: ContactDetailViewProps) {
   const supabase = createClient();
   const router = useRouter();
-  const { accountId, defaultCurrency } = useAuth();
+  const { accountId } = useAuth();
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(false);
@@ -96,10 +94,6 @@ export function ContactDetailView({
   // Custom fields — folded into the Details section (values keyed by field id).
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
-
-  // Deals tab
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [loadingDeals, setLoadingDeals] = useState(false);
 
   const fetchContact = useCallback(async () => {
     if (!contactId) return;
@@ -176,18 +170,6 @@ export function ContactDetailView({
     }
   }, [contactId, supabase]);
 
-  const fetchDeals = useCallback(async () => {
-    if (!contactId) return;
-    setLoadingDeals(true);
-    const { data } = await supabase
-      .from('deals')
-      .select('*, stage:pipeline_stages(*)')
-      .eq('contact_id', contactId)
-      .order('created_at', { ascending: false });
-    setDeals((data ?? []) as Deal[]);
-    setLoadingDeals(false);
-  }, [contactId, supabase]);
-
   useEffect(() => {
     if (open && contactId) {
       setOpenSections(SECTION_IDS);
@@ -196,9 +178,8 @@ export function ContactDetailView({
       fetchTags();
       fetchNotes();
       fetchCustomFields();
-      fetchDeals();
     }
-  }, [open, contactId, fetchContact, fetchConversation, fetchTags, fetchNotes, fetchCustomFields, fetchDeals]);
+  }, [open, contactId, fetchContact, fetchConversation, fetchTags, fetchNotes, fetchCustomFields]);
 
   async function copyPhone() {
     if (!contact) return;
@@ -617,7 +598,7 @@ export function ContactDetailView({
                 </AccordionItem>
 
                 {/* Notes */}
-                <AccordionItem value="notes" className="border-b border-border/50">
+                <AccordionItem value="notes" className="border-b-0">
                   <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline">
                     Notes
                   </AccordionTrigger>
@@ -684,68 +665,6 @@ export function ContactDetailView({
                         ))
                       )}
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* Deals */}
-                <AccordionItem value="deals" className="border-b-0">
-                  <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline">
-                    Deals
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    {loadingDeals ? (
-                      <div className="flex items-center justify-center py-6">
-                        <Loader2 className="size-5 animate-spin text-primary" />
-                      </div>
-                    ) : deals.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No deals yet</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {deals.map((deal) => (
-                          <div
-                            key={deal.id}
-                            className="rounded-lg border border-border bg-muted/50 p-3"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm font-medium text-foreground">
-                                {deal.title}
-                              </p>
-                              {deal.stage && (
-                                <span
-                                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-                                  style={{
-                                    backgroundColor: `${deal.stage.color}20`,
-                                    color: deal.stage.color,
-                                  }}
-                                >
-                                  {deal.stage.name}
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <DollarSign className="size-3" />
-                                {formatCurrency(
-                                  deal.value ?? 0,
-                                  deal.currency || defaultCurrency,
-                                )}
-                              </span>
-                              {deal.status && deal.status !== 'open' && (
-                                <span
-                                  className={
-                                    deal.status === 'won'
-                                      ? 'text-primary'
-                                      : 'text-red-400'
-                                  }
-                                >
-                                  {deal.status}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>

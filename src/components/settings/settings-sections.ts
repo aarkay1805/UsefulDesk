@@ -59,7 +59,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'workspace' },
   plans: { id: 'plans', label: 'Membership plans', icon: Dumbbell, group: 'workspace' },
   reminders: { id: 'reminders', label: 'Renewal reminders', icon: BellRing, group: 'workspace' },
-  deals: { id: 'deals', label: 'Deals & currency', icon: Coins, group: 'workspace' },
+  deals: { id: 'deals', label: 'Payments & currency', icon: Coins, group: 'workspace' },
   members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
   api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },
 };

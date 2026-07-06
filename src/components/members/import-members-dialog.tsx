@@ -201,7 +201,7 @@ function ImportForm({
   return (
     <>
       <DialogHeader className="shrink-0 p-4 pb-2">
-        <DialogTitle>Import members from contacts</DialogTitle>
+        <DialogTitle>Import members from leads</DialogTitle>
         <DialogDescription>
           Turn existing contacts into members — one plan and start date for
           everyone selected. Fees are marked due; record payments per member

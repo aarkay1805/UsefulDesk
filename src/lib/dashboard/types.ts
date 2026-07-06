@@ -10,8 +10,8 @@ export interface MetricDelta {
 export interface MetricsBundle {
   activeConversations: MetricDelta
   newContactsToday: MetricDelta
-  openDealsValue: number
-  openDealsCount: number
+  /** Contacts without a membership — the current lead pool. */
+  openLeads: number
   messagesSentToday: MetricDelta
 }
 
@@ -21,17 +21,16 @@ export interface ConversationsSeriesPoint {
   outgoing: number
 }
 
-export interface PipelineStageSlice {
-  id: string
-  name: string
+export interface LeadStatusSlice {
+  key: string
+  label: string
   color: string
-  dealCount: number
-  totalValue: number
+  count: number
 }
 
-export interface PipelineDonutData {
-  stages: PipelineStageSlice[]
-  totalValue: number
+export interface LeadsDonutData {
+  slices: LeadStatusSlice[]
+  total: number
 }
 
 export interface ResponseTimeBucket {
@@ -50,7 +49,6 @@ export interface ResponseTimeSummary {
 
 export type ActivityKind =
   | 'message'
-  | 'deal'
   | 'broadcast'
   | 'automation'
   | 'contact'

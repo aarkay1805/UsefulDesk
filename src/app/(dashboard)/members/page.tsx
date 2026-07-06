@@ -84,7 +84,7 @@ export default function MembersPage() {
         {canSendMessages && (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <UserRoundSearch className="size-4" /> Import from contacts
+              <UserRoundSearch className="size-4" /> Import from leads
             </Button>
             <Button onClick={openAdd} className="bg-primary text-primary-foreground hover:bg-primary/90">
               <Plus className="size-4" /> Add member
