@@ -492,6 +492,18 @@ export function ManageColumnsDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Edit custom field — nested over the columns dialog. */}
+    {editField && (
+      <CustomFieldEditDialog
+        key={editField.id}
+        field={editField}
+        saving={savingEdit}
+        onCancel={() => setEditField(null)}
+        onSave={saveEditField}
+      />
+    )}
+    </>
   );
 }
 
@@ -542,15 +554,15 @@ function CatalogueRow({
   );
 }
 
-// Left-pane row for a custom field: checkbox + inline-editable name (admins)
-// + delete. Non-admins get a plain checkbox row.
+// Left-pane row for a custom field: checkbox + label + edit (pencil) +
+// delete. Non-admins get a plain checkbox row (no field management).
 function CustomCatalogueRow({
   column,
   checked,
   onToggle,
   canManage,
   busy,
-  onRename,
+  onEdit,
   onDelete,
 }: {
   column: ManageColumn;
@@ -558,21 +570,9 @@ function CustomCatalogueRow({
   onToggle: () => void;
   canManage: boolean;
   busy: boolean;
-  onRename: (name: string) => Promise<boolean>;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
-  const [name, setName] = useState(column.label);
-
-  async function commit() {
-    const next = name.trim();
-    if (!next || next === column.label) {
-      setName(column.label);
-      return;
-    }
-    const ok = await onRename(next);
-    if (!ok) setName(column.label);
-  }
-
   if (!canManage) {
     return (
       <CatalogueRow label={column.label} checked={checked} onToggle={onToggle} />
@@ -580,30 +580,36 @@ function CustomCatalogueRow({
   }
 
   return (
-    <li className="flex items-center gap-2.5 rounded-md px-1 py-1 hover:bg-muted/60">
+    <li className="group flex items-center gap-2.5 rounded-md px-1 py-1 hover:bg-muted/60">
       <Checkbox
         checked={checked}
         onCheckedChange={onToggle}
         aria-label={`Toggle ${column.label} column`}
       />
-      <Input
-        value={name}
+      <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+        {column.label}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon-sm"
         disabled={busy}
-        onChange={(e) => setName(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur();
-        }}
-        aria-label={`Rename ${column.label}`}
-        className="h-7 flex-1 border-transparent bg-transparent text-foreground hover:border-border focus:border-primary"
-      />
+        onClick={onEdit}
+        title="Edit field"
+        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+      >
+        <Pencil className="size-4" />
+      </Button>
       <Button
         variant="ghost"
         size="icon-sm"
         disabled={busy}
         onClick={onDelete}
         title="Delete field"
-        className="shrink-0 text-muted-foreground hover:text-destructive"
+        className={cn(
+          'shrink-0 text-muted-foreground transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100',
+          // Stay visible while the delete is in flight.
+          busy ? 'opacity-100' : 'opacity-0'
+        )}
       >
         {busy ? (
           <Loader2 className="size-4 animate-spin" />
@@ -612,6 +618,84 @@ function CustomCatalogueRow({
         )}
       </Button>
     </li>
+  );
+}
+
+// Nested dialog for editing a custom field's label + data type.
+function CustomFieldEditDialog({
+  field,
+  saving,
+  onCancel,
+  onSave,
+}: {
+  field: { id: string; name: string; type: string };
+  saving: boolean;
+  onCancel: () => void;
+  onSave: (name: string, type: string) => void;
+}) {
+  const [name, setName] = useState(field.name);
+  const [type, setType] = useState(field.type);
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onCancel()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Edit field</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-field-name" className="text-muted-foreground">
+              Field name
+            </Label>
+            <Input
+              id="edit-field-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  onSave(name, type);
+                }
+              }}
+              placeholder="Field name…"
+              className="bg-card"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-muted-foreground">Data type</Label>
+            <Select value={type} onValueChange={(v) => setType(v ?? 'text')}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CUSTOM_FIELD_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            className="border-border text-muted-foreground hover:bg-muted"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => onSave(name, type)}
+            disabled={saving || !name.trim()}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            {saving && <Loader2 className="size-4 animate-spin" />}
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
