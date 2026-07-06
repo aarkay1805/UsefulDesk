@@ -9,7 +9,11 @@ const h = vi.hoisted(() => ({
     automations: [] as Record<string, unknown>[],
     steps: [] as Record<string, unknown>[],
     fromCalls: [] as string[],
-    updateCalls: [] as { table: string; filters: [string, string, unknown][] }[],
+    updateCalls: [] as {
+      table: string;
+      filters: [string, string, unknown][];
+      payload?: unknown;
+    }[],
     upsertCalls: [] as { table: string; payload: unknown }[],
   },
 }));
@@ -26,7 +30,7 @@ vi.mock("./admin-client", () => {
     const { table, type } = ops;
     if (table === "contacts") {
       if (type === "update") {
-        state.updateCalls.push({ table, filters: ops.filters });
+        state.updateCalls.push({ table, filters: ops.filters, payload: ops.payload });
         return { data: null, error: null };
       }
       // ownership guard / condition read
@@ -224,6 +228,64 @@ describe("update_contact_field — custom fields", () => {
   });
 });
 
+describe("set_lead_status", () => {
+  it("writes the status to contacts scoped to the automation's account", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [leadStatusStep("interested")];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect(h.state.updateCalls).toHaveLength(1);
+    const call = h.state.updateCalls[0];
+    expect(call.filters).toContainEqual(["eq", "id", "c1"]);
+    expect(call.filters).toContainEqual(["eq", "account_id", ACCOUNT]);
+    expect((call.payload as { lead_status: string }).lead_status).toBe(
+      "interested",
+    );
+  });
+
+  it("stores 'new' as NULL (back to the New board column)", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [leadStatusStep("new")];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect(h.state.updateCalls).toHaveLength(1);
+    expect(
+      (h.state.updateCalls[0].payload as { lead_status: string | null })
+        .lead_status,
+    ).toBeNull();
+  });
+
+  it("rejects an unknown status without writing", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [leadStatusStep("won")];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    // The step throws (logged as failed) — no contacts write happens.
+    expect(h.state.updateCalls).toHaveLength(0);
+  });
+});
+
 function automationWithUpdateStep() {
   return {
     id: "a1",
@@ -243,6 +305,17 @@ function updateStep() {
     position: 0,
     parent_step_id: null,
     step_config: { field: "company", value: "pwned-by-automation" },
+  };
+}
+
+function leadStatusStep(status: string) {
+  return {
+    id: "s1",
+    automation_id: "a1",
+    step_type: "set_lead_status",
+    position: 0,
+    parent_step_id: null,
+    step_config: { status },
   };
 }
 

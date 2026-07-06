@@ -120,6 +120,34 @@ describe("validateStepsForActivation", () => {
     ]);
   });
 
+  it("validates set_lead_status against the known status values", () => {
+    // Every board column key is a valid target — including 'new',
+    // which the engine stores as NULL.
+    for (const status of [
+      "new",
+      "interested",
+      "not_interested",
+      "high_opportunity",
+      "low_opportunity",
+    ]) {
+      expect(
+        validateStepsForActivation([
+          { step_type: "set_lead_status", step_config: { status } },
+        ]),
+      ).toEqual([]);
+    }
+
+    const missing = validateStepsForActivation([
+      { step_type: "set_lead_status", step_config: {} },
+    ]);
+    expect(missing.map((i) => i.path)).toEqual(["steps[0].status"]);
+
+    const unknown = validateStepsForActivation([
+      { step_type: "set_lead_status", step_config: { status: "won" } },
+    ]);
+    expect(unknown.map((i) => i.path)).toEqual(["steps[0].status"]);
+  });
+
   it("flags update_contact_field when field or value is missing", () => {
     const issues = validateStepsForActivation([
       { step_type: "update_contact_field", step_config: { field: "name" } },

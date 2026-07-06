@@ -10,6 +10,7 @@ import type {
   SendWebhookStepConfig,
   TagStepConfig,
   UpdateContactFieldStepConfig,
+  SetLeadStatusStepConfig,
   WaitStepConfig,
   CreateDealStepConfig,
   AssignConversationStepConfig,
@@ -494,6 +495,35 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         .eq('id', args.contactId)
         .eq('account_id', args.automation.account_id)
       return `${cfg.field} updated`
+    }
+
+    case 'set_lead_status': {
+      const cfg = step.step_config as SetLeadStatusStepConfig
+      if (!args.contactId) throw new Error('set_lead_status needs a contact')
+      // 'new' clears the stored value (NULL = the "New" board column);
+      // anything else must satisfy the contacts_lead_status_check
+      // constraint (migration 039) — reject unknowns here for a clear
+      // log message instead of a raw constraint violation.
+      const allowed = new Set([
+        'interested',
+        'not_interested',
+        'high_opportunity',
+        'low_opportunity',
+      ])
+      if (cfg.status !== 'new' && !allowed.has(cfg.status)) {
+        throw new Error(`set_lead_status got unknown status: ${cfg.status}`)
+      }
+      // Defense in depth: scope the service-role write to the account,
+      // same as update_contact_field above.
+      await db
+        .from('contacts')
+        .update({
+          lead_status: cfg.status === 'new' ? null : cfg.status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', args.contactId)
+        .eq('account_id', args.automation.account_id)
+      return `lead status set to ${cfg.status}`
     }
 
     case 'create_deal': {

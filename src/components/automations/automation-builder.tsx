@@ -20,6 +20,7 @@ import {
   Tag,
   TagIcon,
   UserCheck,
+  UserPlus,
   PencilLine,
   Briefcase,
   Hourglass,
@@ -52,6 +53,7 @@ import type {
   Tag as TagRecord,
 } from "@/types"
 import { createClient } from "@/lib/supabase/client"
+import { LEAD_COLUMNS } from "@/lib/leads/status"
 import { cn } from "@/lib/utils"
 
 // ------------------------------------------------------------
@@ -94,6 +96,9 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
   remove_tag: { label: "Remove Tag", icon: TagIcon, border: "border-l-primary" },
   assign_conversation: { label: "Assign Conversation", icon: UserCheck, border: "border-l-primary" },
   update_contact_field: { label: "Update Contact Field", icon: PencilLine, border: "border-l-primary" },
+  set_lead_status: { label: "Set Lead Status", icon: UserPlus, border: "border-l-primary" },
+  // Legacy — Pipelines merged into Leads. Existing automations with this
+  // step still render/execute; it's just not in ADDABLE_STEPS anymore.
   create_deal: { label: "Create Deal", icon: Briefcase, border: "border-l-primary" },
   wait: { label: "Wait", icon: Hourglass, border: "border-l-border" },
   condition: { label: "Condition (If/Else)", icon: GitBranch, border: "border-l-amber-500" },
@@ -112,6 +117,7 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   "remove_tag",
   "assign_conversation",
   "update_contact_field",
+  "set_lead_status",
   "wait",
   "condition",
   "send_webhook",
@@ -154,6 +160,8 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
       return { mode: "round_robin" }
     case "update_contact_field":
       return { field: "name", value: "" }
+    case "set_lead_status":
+      return { status: "interested" }
     case "create_deal":
       return { pipeline_id: "", stage_id: "", title: "", value: 0 }
     case "wait":
@@ -1248,6 +1256,22 @@ function StepEditor({
             />
           </FieldBlock>
         </>
+      )
+    case "set_lead_status":
+      return (
+        <FieldBlock label="Status">
+          <select
+            value={(cfg.status as string) ?? "interested"}
+            onChange={(e) => set({ status: e.target.value })}
+            className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground"
+          >
+            {LEAD_COLUMNS.map((col) => (
+              <option key={col.key} value={col.key}>
+                {col.label}
+              </option>
+            ))}
+          </select>
+        </FieldBlock>
       )
     case "create_deal":
       return (

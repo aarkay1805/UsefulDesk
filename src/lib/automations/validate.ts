@@ -85,6 +85,17 @@ function validateOne(step: StepLike, path: string, issues: ValidationIssue[]): v
         issues.push({ path: `${path}.value`, message: 'field value is required' })
       }
       break
+    case 'set_lead_status':
+      // 'new' clears the status (NULL); the rest map onto the
+      // contacts_lead_status_check constraint (migration 039).
+      if (
+        !['new', 'interested', 'not_interested', 'high_opportunity', 'low_opportunity'].includes(
+          String(c.status),
+        )
+      ) {
+        issues.push({ path: `${path}.status`, message: 'a valid lead status is required' })
+      }
+      break
     case 'create_deal':
       if (!nonEmpty(c.pipeline_id)) {
         issues.push({ path: `${path}.pipeline_id`, message: 'pipeline is required' })

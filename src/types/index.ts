@@ -422,6 +422,7 @@ export type AutomationStepType =
   | 'remove_tag'
   | 'assign_conversation'
   | 'update_contact_field'
+  | 'set_lead_status'
   | 'create_deal'
   | 'wait'
   | 'condition'
@@ -485,6 +486,17 @@ export interface UpdateContactFieldStepConfig {
   value: string;
 }
 
+export interface SetLeadStatusStepConfig {
+  /**
+   * Target lead status for the triggering contact. 'new' clears the
+   * stored value (NULL — back to the "New" board column); the rest
+   * map 1:1 onto contacts.lead_status (migration 039).
+   */
+  status: 'new' | LeadStatus;
+}
+
+/** @deprecated Pipelines merged into Leads — kept so pre-merge
+ *  automations still type-check and execute. Not addable in the builder. */
 export interface CreateDealStepConfig {
   pipeline_id: string;
   stage_id: string;
@@ -523,6 +535,7 @@ export type AutomationStepConfig =
   | TagStepConfig
   | AssignConversationStepConfig
   | UpdateContactFieldStepConfig
+  | SetLeadStatusStepConfig
   | CreateDealStepConfig
   | WaitStepConfig
   | ConditionStepConfig
