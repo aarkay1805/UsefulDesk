@@ -5,8 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import type { Contact, LeadStatus, Tag, ContactTag, CustomField } from '@/types';
-import { LEAD_COLUMNS } from '@/lib/leads/status';
-import { SOURCE_OPTIONS, GENDER_OPTIONS } from '@/lib/leads/attributes';
+import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
 import { customFieldInputType } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
 import {
@@ -51,6 +50,7 @@ export function ContactForm({
 }: ContactFormProps) {
   const supabase = createClient();
   const { accountId, defaultCurrency } = useAuth();
+  const { statuses, sources, genders } = useLeadFieldOptions();
   const isEdit = !!contact;
 
   const [name, setName] = useState('');
@@ -404,7 +404,7 @@ export function ContactForm({
               onChange={(e) => setLeadStatus(e.target.value as '' | LeadStatus)}
               className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             >
-              {LEAD_COLUMNS.map((col) => (
+              {statuses.map((col) => (
                 <option key={col.key} value={col.key === 'new' ? '' : col.key}>
                   {col.label}
                 </option>
@@ -424,8 +424,8 @@ export function ContactForm({
                 className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               >
                 <option value="">—</option>
-                {SOURCE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
+                {sources.map((o) => (
+                  <option key={o.key} value={o.key}>
                     {o.label}
                   </option>
                 ))}
@@ -442,8 +442,8 @@ export function ContactForm({
                 className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               >
                 <option value="">—</option>
-                {GENDER_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
+                {genders.map((o) => (
+                  <option key={o.key} value={o.key}>
                     {o.label}
                   </option>
                 ))}

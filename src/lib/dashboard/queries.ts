@@ -7,7 +7,7 @@ import {
   mondayIndex,
   startOfLocalDay,
 } from './date-utils'
-import { LEAD_COLUMNS } from '@/lib/leads/status'
+import { resolveFieldOptions, statusColumns } from '@/lib/leads/field-options'
 import type {
   ActivityItem,
   ConversationsSeriesPoint,
@@ -133,11 +133,21 @@ export async function loadConversationsSeries(
 // --- 3. Leads donut ----------------------------------------------------
 
 export async function loadLeadsDonut(db: DB): Promise<LeadsDonutData> {
+  // Status buckets are per-account editable (migration 042) — RLS
+  // scopes the option rows to the caller's account; no rows = the
+  // built-in defaults.
+  const { data: optionRows } = await db
+    .from('lead_field_options')
+    .select('key, label, color')
+    .eq('field', 'status')
+    .order('sort_order', { ascending: true })
+  const columns = statusColumns(resolveFieldOptions('status', optionRows ?? []))
+
   // One head-count query per status bucket instead of pulling rows —
-  // counts stay exact past PostgREST's row cap. Five small queries in
-  // parallel is fine at this scale.
+  // counts stay exact past PostgREST's row cap. A handful of small
+  // queries in parallel is fine at this scale.
   const counts = await Promise.all(
-    LEAD_COLUMNS.map((col) => {
+    columns.map((col) => {
       let q = db
         .from('contacts')
         .select('id, memberships!left(id)', { count: 'exact', head: true })
@@ -147,7 +157,7 @@ export async function loadLeadsDonut(db: DB): Promise<LeadsDonutData> {
     }),
   )
 
-  const slices: LeadStatusSlice[] = LEAD_COLUMNS.map((col, i) => ({
+  const slices: LeadStatusSlice[] = columns.map((col, i) => ({
     key: col.key,
     label: col.label,
     color: col.color,

@@ -16,17 +16,23 @@ import {
 } from "@dnd-kit/core";
 import type { Contact, LeadStatus } from "@/types";
 import {
-  LEAD_COLUMNS,
   columnToStatus,
   leadColumnKey,
   type LeadColumn,
   type LeadColumnKey,
 } from "@/lib/leads/status";
+import {
+  humaniseKey,
+  UNKNOWN_STATUS_COLOR,
+} from "@/lib/leads/field-options";
 import { Building2, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface LeadsBoardProps {
   leads: Contact[];
+  /** Board columns — the fixed "New" bucket + the account's statuses
+   *  (useLeadFieldOptions().statuses). */
+  columns: LeadColumn[];
   /** Persist a drag: `status` is already NULL for the "New" column. */
   onStatusChange: (contactId: string, status: LeadStatus | null) => void;
   /** Open the lead's detail slide-over (card click). */
@@ -35,26 +41,39 @@ interface LeadsBoardProps {
   canEdit: boolean;
 }
 
-// Kanban view of the Leads list. Columns are the fixed lead statuses
-// (see src/lib/leads/status.ts), not user-defined pipeline stages —
-// dragging a card between columns rewrites contacts.lead_status.
+// Kanban view of the Leads list. Columns are the account's lead
+// statuses (per-account editable, migration 042) — dragging a card
+// between columns rewrites contacts.lead_status. Leads holding a key
+// that's no longer in the account list (legacy imports) get their own
+// muted trailing column instead of silently vanishing.
 // Layout/scroll behaviour mirrors the old pipeline board.
 export function LeadsBoard({
   leads,
+  columns,
   onStatusChange,
   onOpenLead,
   canEdit,
 }: LeadsBoardProps) {
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
 
-  const leadsByColumn = useMemo(() => {
+  const { allColumns, leadsByColumn } = useMemo(() => {
     const map = new Map<LeadColumnKey, Contact[]>();
-    for (const col of LEAD_COLUMNS) map.set(col.key, []);
+    for (const col of columns) map.set(col.key, []);
+    const extras: LeadColumn[] = [];
     for (const lead of leads) {
-      map.get(leadColumnKey(lead.lead_status))?.push(lead);
+      const key = leadColumnKey(lead.lead_status);
+      if (!map.has(key)) {
+        extras.push({
+          key,
+          label: humaniseKey(key),
+          color: UNKNOWN_STATUS_COLOR,
+        });
+        map.set(key, []);
+      }
+      map.get(key)!.push(lead);
     }
-    return map;
-  }, [leads]);
+    return { allColumns: [...columns, ...extras], leadsByColumn: map };
+  }, [leads, columns]);
 
   const sensors = useSensors(
     // 5px activation distance avoids clicks being interpreted as drags.
@@ -81,7 +100,7 @@ export function LeadsBoard({
 
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) return;
-    if (!LEAD_COLUMNS.some((c) => c.key === targetKey)) return;
+    if (!allColumns.some((c) => c.key === targetKey)) return;
     if (leadColumnKey(lead.lead_status) === targetKey) return;
 
     onStatusChange(leadId, columnToStatus(targetKey));
@@ -104,7 +123,7 @@ export function LeadsBoard({
           Disabled on lg+ where snapping would interfere with the
           natural layout. */}
       <div className="leads-scroll flex h-full snap-x snap-mandatory gap-3 overflow-x-auto pb-4 lg:snap-none">
-        {LEAD_COLUMNS.map((col) => (
+        {allColumns.map((col) => (
           <StatusColumn
             key={col.key}
             column={col}

@@ -120,16 +120,11 @@ describe("validateStepsForActivation", () => {
     ]);
   });
 
-  it("validates set_lead_status against the known status values", () => {
-    // Every board column key is a valid target — including 'new',
-    // which the engine stores as NULL.
-    for (const status of [
-      "new",
-      "contacted",
-      "interested",
-      "trial_booked",
-      "lost",
-    ]) {
+  it("requires a status key for set_lead_status (accounts define their own lists)", () => {
+    // Statuses are per-account editable (migration 042), so any
+    // non-empty key passes — including 'new' (stored as NULL) and
+    // custom keys like 'won'. Only a missing/empty key fails.
+    for (const status of ["new", "contacted", "trial_booked", "won"]) {
       expect(
         validateStepsForActivation([
           { step_type: "set_lead_status", step_config: { status } },
@@ -141,11 +136,6 @@ describe("validateStepsForActivation", () => {
       { step_type: "set_lead_status", step_config: {} },
     ]);
     expect(missing.map((i) => i.path)).toEqual(["steps[0].status"]);
-
-    const unknown = validateStepsForActivation([
-      { step_type: "set_lead_status", step_config: { status: "won" } },
-    ]);
-    expect(unknown.map((i) => i.path)).toEqual(["steps[0].status"]);
   });
 
   it("flags update_contact_field when field or value is missing", () => {

@@ -8,7 +8,7 @@
 //   board — kanban by lead_status (the former pipeline board's role)
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type {
@@ -19,19 +19,20 @@ import type {
   CustomField,
 } from '@/types';
 import {
-  LEAD_COLUMNS,
-  LEAD_COLUMN_BY_KEY,
   columnToStatus,
   leadColumnKey,
   type LeadColumnKey,
 } from '@/lib/leads/status';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
+import { sourceLabel, genderLabel } from '@/lib/leads/attributes';
 import {
-  sourceLabel,
-  genderLabel,
-  SOURCE_OPTIONS,
-  GENDER_OPTIONS,
-} from '@/lib/leads/attributes';
+  DEFAULT_FIELD_OPTIONS,
+  statusColumn,
+  statusColumns,
+  type LeadFieldKind,
+} from '@/lib/leads/field-options';
+import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
+import { EditFieldOptionsDialog } from '@/components/leads/edit-field-options-dialog';
 import { formatCustomFieldValue } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
 import { Badge } from '@/components/ui/badge';
@@ -185,6 +186,10 @@ interface ColumnDef {
   sortColumn?: string;
   // For custom columns: the field's stored data type (see CUSTOM_FIELD_TYPES).
   customType?: string;
+  // Option-backed columns: which editable option list feeds this
+  // column. Drives the header menu's "Edit options" item ('tags'
+  // routes to the tag manager in Settings).
+  optionsField?: LeadFieldKind | 'tags';
 }
 
 type SortDir = 'asc' | 'desc';
@@ -221,8 +226,12 @@ function renderTags(c: ContactWithData) {
   );
 }
 
+// Default-status fallback render — liveColumns overrides it with the
+// account's list; this keeps the static defs crash-safe for any key.
+const DEFAULT_STATUS_COLUMNS = statusColumns(DEFAULT_FIELD_OPTIONS.status);
+
 function renderLeadStatus(c: ContactWithData) {
-  const col = LEAD_COLUMN_BY_KEY[leadColumnKey(c.lead_status)];
+  const col = statusColumn(DEFAULT_STATUS_COLUMNS, c.lead_status);
   return <Badge color={col.color}>{col.label}</Badge>;
 }
 
@@ -249,6 +258,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     sortColumn: 'lead_status',
     render: renderLeadStatus,
     edit: { kind: 'status' },
+    optionsField: 'status',
   },
   {
     key: 'phone',
@@ -295,6 +305,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
       </span>
     ),
     edit: { kind: 'select', column: 'source' },
+    optionsField: 'source',
   },
   {
     key: 'gender',
@@ -308,6 +319,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
       </span>
     ),
     edit: { kind: 'select', column: 'gender' },
+    optionsField: 'gender',
   },
   {
     key: 'tags',
@@ -316,6 +328,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     minWidth: 120,
     render: renderTags,
     edit: { kind: 'tags' },
+    optionsField: 'tags',
   },
   {
     key: 'created',
@@ -378,6 +391,7 @@ function HeaderCell({
   onToggleFreeze,
   onAddColumn,
   onRemoveColumn,
+  onEditOptions,
 }: {
   col: ColumnDef;
   sortDir: SortDir | null;
@@ -386,6 +400,8 @@ function HeaderCell({
   onToggleFreeze: () => void;
   onAddColumn: () => void;
   onRemoveColumn: () => void;
+  /** Option-backed columns only (admins): edit the column's choices. */
+  onEditOptions?: () => void;
 }) {
   const sortable = Boolean(col.sortColumn);
   return (
@@ -467,6 +483,15 @@ function HeaderCell({
             <Sparkles className="size-4" />
             Set up smart property
           </DropdownMenuItem>
+          {onEditOptions && (
+            <DropdownMenuItem
+              onClick={onEditOptions}
+              className="text-popover-foreground focus:bg-muted focus:text-foreground"
+            >
+              <ListChecks className="size-4" />
+              Edit options
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator className="bg-border" />
           <DropdownMenuItem
             onClick={onToggleFreeze}
@@ -593,9 +618,18 @@ function applyLeadFilters<Q extends FilterableQuery<Q>>(
 
 export default function LeadsPage() {
   const supabase = createClient();
+  const router = useRouter();
   const { defaultCurrency } = useAuth();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
+
+  // Account-editable option lists (status/source/gender) — drive the
+  // status pills, board columns, cell editors, filters and the header
+  // menus' "Edit options" dialog.
+  const fieldOptions = useLeadFieldOptions();
+  const [editOptionsKind, setEditOptionsKind] = useState<LeadFieldKind | null>(
+    null
+  );
 
   // Search — a page-level input in the toolbar. Seeded from `?search=`
   // so deep links still land here, then owned locally and debounced.
@@ -684,13 +718,47 @@ export default function LeadsPage() {
   // saved order for keys that still exist and appends any new columns; dead
   // keys are dropped. Custom columns default to hidden until the user saves
   // them via Manage Columns (i.e. their key appears in prefs.order).
-  const liveColumns = useMemo<ColumnDef[]>(
-    () => [
-      ...BUILTIN_COLUMNS,
+  // The option-backed built-ins (status/source/gender) re-render with
+  // the ACCOUNT's option lists here — their static defs only know the
+  // built-in defaults.
+  const liveColumns = useMemo<ColumnDef[]>(() => {
+    const builtins = BUILTIN_COLUMNS.map((col): ColumnDef => {
+      if (col.key === 'status') {
+        return {
+          ...col,
+          render: (c) => {
+            const s = fieldOptions.statusFor(c.lead_status);
+            return <Badge color={s.color}>{s.label}</Badge>;
+          },
+        };
+      }
+      if (col.key === 'source') {
+        return {
+          ...col,
+          render: (c) => (
+            <span className="text-muted-foreground text-sm">
+              {fieldOptions.sourceLabel(c.source)}
+            </span>
+          ),
+        };
+      }
+      if (col.key === 'gender') {
+        return {
+          ...col,
+          render: (c) => (
+            <span className="text-muted-foreground text-sm">
+              {fieldOptions.genderLabel(c.gender)}
+            </span>
+          ),
+        };
+      }
+      return col;
+    });
+    return [
+      ...builtins,
       ...customFields.map((f) => customColumn(f, defaultCurrency)),
-    ],
-    [customFields, defaultCurrency]
-  );
+    ];
+  }, [customFields, defaultCurrency, fieldOptions]);
 
   const colByKey = useMemo(() => {
     const map: Record<string, ColumnDef> = {};
@@ -1503,66 +1571,76 @@ export default function LeadsPage() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {/* View type */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="outline"
-                  className="border-border text-muted-foreground hover:bg-muted"
-                />
-              }
-            >
-              {view === 'table' ? (
-                <List className="size-4" />
-              ) : (
-                <LayoutGrid className="size-4" />
-              )}
-              <span className="hidden sm:inline">
-                {view === 'table' ? 'Table view' : 'Board view'}
-              </span>
-              <ChevronDown className="text-muted-foreground size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="bg-popover border-border min-w-44"
-            >
-              <DropdownMenuItem
-                onClick={() => setLeadsView('table')}
-                className={cn(
-                  'focus:bg-muted focus:text-foreground',
-                  view === 'table' ? 'text-primary' : 'text-popover-foreground'
-                )}
+          {/* View type + table settings — one split button group
+              (HubSpot-style): the view picker is the main segment, the
+              gear a fused right segment. Segments share the middle
+              border via -ml-px; focus rings pop above it with z-10. */}
+          <div className="flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'border-border text-muted-foreground hover:bg-muted focus-visible:z-10',
+                      view === 'table' && 'rounded-r-none'
+                    )}
+                  />
+                }
               >
-                <List className="size-4" />
-                Table view
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setLeadsView('board')}
-                className={cn(
-                  'focus:bg-muted focus:text-foreground',
-                  view === 'board' ? 'text-primary' : 'text-popover-foreground'
+                {view === 'table' ? (
+                  <List className="size-4" />
+                ) : (
+                  <LayoutGrid className="size-4" />
                 )}
+                <span className="hidden sm:inline">
+                  {view === 'table' ? 'Table view' : 'Board view'}
+                </span>
+                <ChevronDown className="text-muted-foreground size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="bg-popover border-border min-w-44"
               >
-                <LayoutGrid className="size-4" />
-                Board view
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {view === 'table' && (
-            <>
-              {/* Table settings (pagination, cell text, custom fields) */}
+                <DropdownMenuItem
+                  onClick={() => setLeadsView('table')}
+                  className={cn(
+                    'focus:bg-muted focus:text-foreground',
+                    view === 'table' ? 'text-primary' : 'text-popover-foreground'
+                  )}
+                >
+                  <List className="size-4" />
+                  Table view
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setLeadsView('board')}
+                  className={cn(
+                    'focus:bg-muted focus:text-foreground',
+                    view === 'board' ? 'text-primary' : 'text-popover-foreground'
+                  )}
+                >
+                  <LayoutGrid className="size-4" />
+                  Board view
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {view === 'table' && (
+              /* Table settings (pagination, cell text, custom fields) */
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => setViewSettingsOpen(true)}
                 aria-label="Table settings"
                 title="Table settings"
-                className="border-border text-muted-foreground hover:bg-muted"
+                className="border-border text-muted-foreground hover:bg-muted -ml-px rounded-l-none focus-visible:z-10"
               >
                 <Settings className="size-4" />
               </Button>
+            )}
+          </div>
+
+          {view === 'table' && (
+            <>
               <Button
                 variant="outline"
                 onClick={() => setManageColumnsOpen(true)}
@@ -1576,6 +1654,9 @@ export default function LeadsPage() {
                 onChange={setFilters}
                 staff={staff}
                 tags={allTags}
+                statuses={fieldOptions.statuses}
+                sources={fieldOptions.sources}
+                genders={fieldOptions.genders}
               />
               <LeadsSort
                 value={sort}
@@ -1611,6 +1692,7 @@ export default function LeadsPage() {
               )}
               <LeadsBoard
                 leads={boardLeads}
+                columns={fieldOptions.statuses}
                 onStatusChange={handleStatusChange}
                 onOpenLead={openDetail}
                 canEdit={canEdit}
@@ -1674,6 +1756,16 @@ export default function LeadsPage() {
                           }
                           onAddColumn={() => setManageColumnsOpen(true)}
                           onRemoveColumn={() => hideColumn(col.key)}
+                          onEditOptions={
+                            col.optionsField && canEditSettings
+                              ? col.optionsField === 'tags'
+                                ? () => router.push('/settings?tab=fields')
+                                : () =>
+                                    setEditOptionsKind(
+                                      col.optionsField as LeadFieldKind
+                                    )
+                              : undefined
+                          }
                         />
                         {/* Resize grip on the right edge */}
                         <span
@@ -1784,15 +1876,19 @@ export default function LeadsPage() {
                               value={readEditValue(contact, col.edit)}
                               options={
                                 col.edit.kind === 'status'
-                                  ? LEAD_COLUMNS.map((c) => ({
+                                  ? fieldOptions.statuses.map((c) => ({
                                       value: c.key,
                                       label: c.label,
                                       color: c.color,
                                     }))
                                   : col.edit.kind === 'select'
-                                    ? col.edit.column === 'source'
-                                      ? SOURCE_OPTIONS
-                                      : GENDER_OPTIONS
+                                    ? (col.edit.column === 'source'
+                                        ? fieldOptions.sources
+                                        : fieldOptions.genders
+                                      ).map((o) => ({
+                                        value: o.key,
+                                        label: o.label,
+                                      }))
                                     : col.edit.kind === 'tags'
                                       ? allTagOptions
                                       : undefined
@@ -1963,6 +2059,23 @@ export default function LeadsPage() {
         onOpenChange={setDetailOpen}
         contactId={detailContactId}
         onUpdated={refreshAll}
+      />
+
+      {/* "Edit options" — per-account option lists for the status /
+          source / gender columns (opened from a column header menu). */}
+      <EditFieldOptionsDialog
+        kind={editOptionsKind}
+        current={
+          editOptionsKind === 'status'
+            ? fieldOptions.statusOptions
+            : editOptionsKind === 'source'
+              ? fieldOptions.sources
+              : fieldOptions.genders
+        }
+        onOpenChange={(open) => {
+          if (!open) setEditOptionsKind(null);
+        }}
+        onSaved={fieldOptions.refetch}
       />
 
       {/* Import Wizard */}

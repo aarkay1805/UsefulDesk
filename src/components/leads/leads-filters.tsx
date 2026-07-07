@@ -8,8 +8,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { LEAD_COLUMNS } from '@/lib/leads/status';
-import { SOURCE_OPTIONS, GENDER_OPTIONS } from '@/lib/leads/attributes';
+import type { LeadColumn } from '@/lib/leads/status';
+import type { LeadFieldOption } from '@/lib/leads/field-options';
 import type { StaffMember } from '@/components/members/use-account-staff';
 import type { Tag } from '@/types';
 import { Filter } from 'lucide-react';
@@ -67,9 +67,21 @@ interface LeadsFiltersProps {
   onChange: (next: LeadFilters) => void;
   staff: StaffMember[];
   tags: Tag[];
+  /** Account status columns (incl. 'new') — useLeadFieldOptions().statuses. */
+  statuses: LeadColumn[];
+  sources: LeadFieldOption[];
+  genders: LeadFieldOption[];
 }
 
-export function LeadsFilters({ value, onChange, staff, tags }: LeadsFiltersProps) {
+export function LeadsFilters({
+  value,
+  onChange,
+  staff,
+  tags,
+  statuses,
+  sources,
+  genders,
+}: LeadsFiltersProps) {
   const count = activeFilterCount(value);
 
   function toggle(key: keyof Omit<LeadFilters, 'createdRange'>, v: string) {
@@ -127,7 +139,7 @@ export function LeadsFilters({ value, onChange, staff, tags }: LeadsFiltersProps
           <Divider />
           <CheckGroup
             label="Lead status"
-            options={LEAD_COLUMNS.map((c) => ({ value: c.key, label: c.label }))}
+            options={statuses.map((c) => ({ value: c.key, label: c.label }))}
             selected={value.leadStatus}
             onToggle={(v) => toggle('leadStatus', v)}
           />
@@ -135,7 +147,7 @@ export function LeadsFilters({ value, onChange, staff, tags }: LeadsFiltersProps
           <Divider />
           <CheckGroup
             label="Source"
-            options={SOURCE_OPTIONS}
+            options={sources.map((o) => ({ value: o.key, label: o.label }))}
             selected={value.source}
             onToggle={(v) => toggle('source', v)}
           />
@@ -152,7 +164,7 @@ export function LeadsFilters({ value, onChange, staff, tags }: LeadsFiltersProps
           <Divider />
           <CheckGroup
             label="Gender"
-            options={GENDER_OPTIONS}
+            options={genders.map((o) => ({ value: o.key, label: o.label }))}
             selected={value.gender}
             onToggle={(v) => toggle('gender', v)}
           />

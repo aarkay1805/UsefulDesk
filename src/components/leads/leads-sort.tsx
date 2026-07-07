@@ -25,10 +25,6 @@ interface LeadsSortProps {
 // Explicit sort picker — the same `prefs.sort` the column-header menus
 // drive, surfaced as a toolbar control (HubSpot-style "Sort" button).
 export function LeadsSort({ value, onChange, columns }: LeadsSortProps) {
-  const active = value
-    ? columns.find((c) => c.key === value.key)?.label ?? null
-    : null;
-
   function pick(key: string) {
     // New column defaults to ascending; re-picking the active column
     // flips direction.
@@ -51,11 +47,6 @@ export function LeadsSort({ value, onChange, columns }: LeadsSortProps) {
       >
         <ArrowUpDown className="size-4" />
         Sort
-        {active && (
-          <span className="ml-0.5 max-w-[7rem] truncate text-xs text-foreground">
-            · {active}
-          </span>
-        )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-60 p-0">
         <div className="flex items-center justify-between border-b border-border px-3 py-2.5">

@@ -86,12 +86,12 @@ function validateOne(step: StepLike, path: string, issues: ValidationIssue[]): v
       }
       break
     case 'set_lead_status':
-      // 'new' clears the status (NULL); the rest map onto the
-      // contacts_lead_status_check constraint (migration 040).
-      if (
-        !['new', 'contacted', 'interested', 'trial_booked', 'lost'].includes(String(c.status))
-      ) {
-        issues.push({ path: `${path}.status`, message: 'a valid lead status is required' })
+      // 'new' clears the status (NULL); anything else is an account
+      // status key (per-account editable since migration 042 — this
+      // pure validator can't see the account's list, so it only
+      // requires a non-empty key; the builder offers valid ones).
+      if (!nonEmpty(c.status)) {
+        issues.push({ path: `${path}.status`, message: 'a lead status is required' })
       }
       break
     case 'create_deal':

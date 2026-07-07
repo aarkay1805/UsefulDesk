@@ -53,7 +53,7 @@ import type {
   Tag as TagRecord,
 } from "@/types"
 import { createClient } from "@/lib/supabase/client"
-import { LEAD_COLUMNS } from "@/lib/leads/status"
+import { useLeadFieldOptions } from "@/hooks/use-lead-field-options"
 import { cn } from "@/lib/utils"
 
 // ------------------------------------------------------------
@@ -1181,6 +1181,8 @@ function StepEditor({
   step: BuilderStep
   onChange: (s: BuilderStep) => void
 }) {
+  // Account-editable status list (migration 042) for set_lead_status.
+  const { statuses } = useLeadFieldOptions()
   const cfg = step.step_config
   const set = (patch: Record<string, unknown>) =>
     onChange({ ...step, step_config: { ...cfg, ...patch } })
@@ -1265,7 +1267,7 @@ function StepEditor({
             onChange={(e) => set({ status: e.target.value })}
             className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground"
           >
-            {LEAD_COLUMNS.map((col) => (
+            {statuses.map((col) => (
               <option key={col.key} value={col.key}>
                 {col.label}
               </option>

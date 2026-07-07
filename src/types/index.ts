@@ -89,11 +89,10 @@ export interface AccountInvitation {
 /** Lead qualification state (migration 039). NULL/undefined = "New"
  *  (not yet assessed). A contact IS a lead — there is no separate
  *  lead entity; contacts with a membership are members instead. */
-export type LeadStatus =
-  | 'contacted'
-  | 'interested'
-  | 'trial_booked'
-  | 'lost';
+/** A lead-status key. Was a fixed union; statuses are per-account
+ *  editable since migration 042 (lead_field_options), so any slug is
+ *  valid. Built-in defaults live in src/lib/leads/status.ts. */
+export type LeadStatus = string;
 
 export interface Contact {
   id: string;
