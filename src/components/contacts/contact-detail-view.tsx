@@ -572,20 +572,11 @@ export function ContactDetailView({
                               key={tag.id}
                               onClick={() => toggleTag(tag.id)}
                               disabled={savingTags}
-                              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all cursor-pointer disabled:opacity-60"
-                              style={
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all cursor-pointer disabled:opacity-60 ${
                                 selected
-                                  ? {
-                                      backgroundColor: tag.color + '20',
-                                      borderColor: 'transparent',
-                                      color: tag.color,
-                                    }
-                                  : {
-                                      backgroundColor: 'transparent',
-                                      borderColor: tag.color + '40',
-                                      color: tag.color,
-                                    }
-                              }
+                                  ? 'border-transparent bg-muted text-foreground'
+                                  : 'border-border bg-transparent text-muted-foreground hover:bg-muted/50'
+                              }`}
                             >
                               {selected && <Check className="size-3.5" />}
                               {tag.name}

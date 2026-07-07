@@ -22,24 +22,17 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
 import type { Tag } from '@/types';
 
-const PRESET_COLORS = [
-  { name: 'Red', value: '#ef4444' },
-  { name: 'Orange', value: '#f97316' },
-  { name: 'Amber', value: '#f59e0b' },
-  { name: 'Emerald', value: '#10b981' },
-  { name: 'Cyan', value: '#06b6d4' },
-  { name: 'Blue', value: '#3b82f6' },
-  { name: 'Violet', value: '#8b5cf6' },
-  { name: 'Pink', value: '#ec4899' },
-];
+// Tags render as neutral gray badges everywhere (see CLAUDE.md badge
+// canon), so there's no colour picker. The DB `color` column is NOT
+// NULL, so inserts stamp this fixed slate value.
+const DEFAULT_TAG_COLOR = '#64748b';
 
 /**
- * Tags card — colour-coded contact labels. Creation is an inline row
- * (name + colour swatch + Add); deletion goes through a confirmation
- * dialog since it detaches the tag from every contact.
+ * Tags card — contact labels. Creation is an inline row (name + Add);
+ * deletion goes through a confirmation dialog since it detaches the
+ * tag from every contact.
  */
 export function TagManager() {
   const supabase = createClient();
@@ -52,7 +45,6 @@ export function TagManager() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [newTagName, setNewTagName] = useState('');
-  const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[3].value);
 
   useEffect(() => {
     if (authLoading) return;
@@ -102,14 +94,13 @@ export function TagManager() {
         user_id: user.id,
         account_id: accountId,
         name: newTagName.trim(),
-        color: selectedColor,
+        color: DEFAULT_TAG_COLOR,
       });
 
       if (error) throw error;
 
       toast.success('Tag created');
       setNewTagName('');
-      setSelectedColor(PRESET_COLORS[3].value);
       await fetchTags(user.id);
     } catch (err) {
       console.error('Create error:', err);
@@ -156,7 +147,7 @@ export function TagManager() {
           Tags
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Colour-coded labels for grouping and filtering contacts.
+          Labels for grouping and filtering contacts.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -171,17 +162,8 @@ export function TagManager() {
                 {tags.map((tag) => (
                   <span
                     key={tag.id}
-                    className="group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-                    style={{
-                      backgroundColor: `${tag.color}20`,
-                      color: tag.color,
-                      border: `1px solid ${tag.color}40`,
-                    }}
+                    className="group inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-sm font-medium text-foreground transition-colors"
                   >
-                    <span
-                      className="size-2 rounded-full"
-                      style={{ backgroundColor: tag.color }}
-                    />
                     {tag.name}
                     <button
                       type="button"
@@ -213,24 +195,6 @@ export function TagManager() {
                 maxLength={40}
                 className="min-w-[180px] flex-1"
               />
-              <div className="flex gap-1.5">
-                {PRESET_COLORS.map((color) => (
-                  <button
-                    key={color.value}
-                    type="button"
-                    onClick={() => setSelectedColor(color.value)}
-                    aria-label={`Use ${color.name}`}
-                    aria-pressed={selectedColor === color.value}
-                    className={cn(
-                      'size-6 rounded-md transition-transform hover:scale-110',
-                      selectedColor === color.value &&
-                        'outline outline-2 outline-offset-2 outline-primary',
-                    )}
-                    style={{ backgroundColor: color.value }}
-                    title={color.name}
-                  />
-                ))}
-              </div>
               <Button
                 variant="outline"
                 size="sm"

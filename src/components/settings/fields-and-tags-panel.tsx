@@ -20,7 +20,7 @@ export function FieldsAndTagsPanel() {
     <section className="max-w-3xl animate-in fade-in-50 space-y-4 duration-200">
       <SettingsPanelHead
         title="Fields & tags"
-        description="Two ways to organize contacts: colour-coded tags for quick grouping, and custom fields for structured data."
+        description="Two ways to organize contacts: tags for quick grouping, and custom fields for structured data."
       />
       <TagManager />
       {canEditSettings ? <CustomFieldsSettings /> : null}

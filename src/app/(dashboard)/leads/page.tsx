@@ -11,7 +11,13 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-import type { Contact, LeadStatus, Tag, ContactTag, CustomField } from '@/types';
+import type {
+  Contact,
+  LeadStatus,
+  Tag,
+  ContactTag,
+  CustomField,
+} from '@/types';
 import {
   LEAD_COLUMNS,
   LEAD_COLUMN_BY_KEY,
@@ -72,6 +78,7 @@ import {
   Pin,
   X,
 } from 'lucide-react';
+import { PageHeaderActions } from '@/components/layout/page-header-actions';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportWizard } from '@/components/contacts/import-wizard';
@@ -184,17 +191,17 @@ function formatDate(iso: string) {
 
 function renderTags(c: ContactWithData) {
   if (!c.tags || c.tags.length === 0) {
-    return <span className="text-xs text-muted-foreground">-</span>;
+    return <span className="text-muted-foreground text-xs">-</span>;
   }
   return (
     <div className="flex flex-wrap gap-1">
       {c.tags.slice(0, 3).map((tag) => (
-        <Badge key={tag.id} color={tag.color}>
+        <Badge key={tag.id} variant="neutral">
           {tag.name}
         </Badge>
       ))}
       {c.tags.length > 3 && (
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-muted-foreground text-[10px]">
           +{c.tags.length - 3}
         </span>
       )}
@@ -217,9 +224,9 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     sortColumn: 'name',
     render: (c) =>
       c.name ? (
-        <span className="font-medium text-foreground">{c.name}</span>
+        <span className="text-foreground font-medium">{c.name}</span>
       ) : (
-        <span className="italic text-muted-foreground">Unnamed</span>
+        <span className="text-muted-foreground italic">Unnamed</span>
       ),
   },
   {
@@ -238,7 +245,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     minWidth: 110,
     sortColumn: 'phone',
     render: (c) => (
-      <span className="font-mono text-sm text-muted-foreground">{c.phone}</span>
+      <span className="text-muted-foreground font-mono text-sm">{c.phone}</span>
     ),
     edit: { kind: 'text', column: 'phone' },
   },
@@ -249,7 +256,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     minWidth: 140,
     sortColumn: 'email',
     render: (c) => (
-      <span className="text-sm text-muted-foreground">{c.email || '-'}</span>
+      <span className="text-muted-foreground text-sm">{c.email || '-'}</span>
     ),
     edit: { kind: 'email', column: 'email' },
   },
@@ -260,7 +267,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     minWidth: 120,
     sortColumn: 'company',
     render: (c) => (
-      <span className="text-sm text-muted-foreground">{c.company || '-'}</span>
+      <span className="text-muted-foreground text-sm">{c.company || '-'}</span>
     ),
     edit: { kind: 'text', column: 'company' },
   },
@@ -271,7 +278,9 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     minWidth: 100,
     sortColumn: 'source',
     render: (c) => (
-      <span className="text-sm text-muted-foreground">{sourceLabel(c.source)}</span>
+      <span className="text-muted-foreground text-sm">
+        {sourceLabel(c.source)}
+      </span>
     ),
   },
   {
@@ -281,7 +290,9 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     minWidth: 90,
     sortColumn: 'gender',
     render: (c) => (
-      <span className="text-sm text-muted-foreground">{genderLabel(c.gender)}</span>
+      <span className="text-muted-foreground text-sm">
+        {genderLabel(c.gender)}
+      </span>
     ),
   },
   {
@@ -298,7 +309,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     minWidth: 100,
     sortColumn: 'created_at',
     render: (c) => (
-      <span className="text-sm text-muted-foreground">
+      <span className="text-muted-foreground text-sm">
         {formatDate(c.created_at)}
       </span>
     ),
@@ -328,9 +339,7 @@ function formatCustomValue(value: string, type?: string): string {
 }
 
 // Map a custom field's data type to the inline editor's input kind.
-function customEditKind(
-  type?: string
-): 'text' | 'email' | 'number' | 'date' {
+function customEditKind(type?: string): 'text' | 'email' | 'number' | 'date' {
   switch (type) {
     case 'currency':
     case 'number':
@@ -355,7 +364,7 @@ function customColumn(field: CustomField): ColumnDef {
     render: (c) => {
       const raw = c.customValues?.[field.id];
       return (
-        <span className="text-sm text-muted-foreground">
+        <span className="text-muted-foreground text-sm">
           {raw ? formatCustomValue(raw, field.field_type) : '-'}
         </span>
       );
@@ -404,7 +413,7 @@ function HeaderCell({
             aria-label={`Sort ${col.label} ascending`}
             onClick={() => onSort('asc')}
             className={cn(
-              'flex size-5 items-center justify-center rounded hover:bg-muted',
+              'hover:bg-muted flex size-5 items-center justify-center rounded',
               sortDir === 'asc' ? 'text-primary' : 'text-muted-foreground'
             )}
           >
@@ -415,7 +424,7 @@ function HeaderCell({
             aria-label={`Sort ${col.label} descending`}
             onClick={() => onSort('desc')}
             className={cn(
-              'flex size-5 items-center justify-center rounded hover:bg-muted',
+              'hover:bg-muted flex size-5 items-center justify-center rounded',
               sortDir === 'desc' ? 'text-primary' : 'text-muted-foreground'
             )}
           >
@@ -431,7 +440,7 @@ function HeaderCell({
             <button
               type="button"
               aria-label={`${col.label} column options`}
-              className="flex size-5 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover/th:opacity-100 data-[popup-open]:bg-muted data-[popup-open]:opacity-100"
+              className="text-muted-foreground hover:bg-muted data-[popup-open]:bg-muted flex size-5 items-center justify-center rounded opacity-0 transition-opacity group-hover/th:opacity-100 data-[popup-open]:opacity-100"
             />
           }
         >
@@ -439,7 +448,7 @@ function HeaderCell({
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
-          className="min-w-52 bg-popover border-border"
+          className="bg-popover border-border min-w-52"
         >
           <DropdownMenuItem
             disabled={!sortable}
@@ -594,14 +603,13 @@ export default function LeadsPage() {
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
 
-  // Search — a page-level input in the toolbar. Seeded from the shared
-  // header's global search (`?search=`) so deep links / global-search
-  // navigations still land here, then owned locally and debounced.
+  // Search — a page-level input in the toolbar. Seeded from `?search=`
+  // so deep links still land here, then owned locally and debounced.
   const searchParams = useSearchParams();
   const urlSearch = searchParams.get('search') ?? '';
   const [searchInput, setSearchInput] = useState(urlSearch);
   const search = useDebounced(searchInput, 250);
-  // Mirror external navigations (global search / deep link) into the input.
+  // Mirror external navigations (deep links) into the input.
   useEffect(() => {
     setSearchInput(urlSearch);
   }, [urlSearch]);
@@ -629,12 +637,16 @@ export default function LeadsPage() {
 
   // Table preferences (visibility, order, widths, page size, view mode),
   // persisted per-browser in localStorage.
-  const [prefs, setPrefs] = useLocalStorage<TablePrefs>(PREFS_KEY, DEFAULT_PREFS);
+  const [prefs, setPrefs] = useLocalStorage<TablePrefs>(
+    PREFS_KEY,
+    DEFAULT_PREFS
+  );
 
   // Transient width during an active column drag (committed to prefs on drop).
-  const [resizing, setResizing] = useState<{ key: string; width: number } | null>(
-    null
-  );
+  const [resizing, setResizing] = useState<{
+    key: string;
+    width: number;
+  } | null>(null);
 
   // Modals
   const [formOpen, setFormOpen] = useState(false);
@@ -654,9 +666,10 @@ export default function LeadsPage() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   // Inline cell editing (HubSpot-style). Only one cell edits at a time.
-  const [editingCell, setEditingCell] = useState<{ id: string; key: string } | null>(
-    null
-  );
+  const [editingCell, setEditingCell] = useState<{
+    id: string;
+    key: string;
+  } | null>(null);
   const [savingCell, setSavingCell] = useState(false);
 
   // Guards against out-of-order fetch responses: each fetchContacts run
@@ -722,17 +735,14 @@ export default function LeadsPage() {
   // The DB column the current sort maps to (null when the sorted column
   // isn't server-sortable, e.g. tags — falls back to created_at desc).
   const sortColumn = useMemo(
-    () => (sort ? colByKey[sort.key]?.sortColumn ?? null : null),
+    () => (sort ? (colByKey[sort.key]?.sortColumn ?? null) : null),
     [sort, colByKey]
   );
 
   // Custom field ids whose column is currently shown — only these need their
   // per-contact values fetched. Joined to a stable string for fetch deps.
   const activeCustomFieldIds = useMemo(
-    () =>
-      visibleColumns
-        .filter((c) => c.isCustom)
-        .map((c) => c.key.slice(3)), // strip "cf:"
+    () => visibleColumns.filter((c) => c.isCustom).map((c) => c.key.slice(3)), // strip "cf:"
     [visibleColumns]
   );
   const activeCustomKey = activeCustomFieldIds.join(',');
@@ -814,11 +824,17 @@ export default function LeadsPage() {
       .is('memberships', null);
     if (term) {
       const like = `%${term}%`;
-      query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+      query = query.or(
+        `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
+      );
     }
     query = applyLeadFilters(query, filters, tagIds);
 
-    const { data, count: exactCount, error } = await query
+    const {
+      data,
+      count: exactCount,
+      error,
+    } = await query
       // Sorted column when set + server-sortable, else newest first.
       .order(sortColumn ?? 'created_at', {
         ascending: sortColumn ? sort!.dir === 'asc' : false,
@@ -856,7 +872,13 @@ export default function LeadsPage() {
             .select('contact_id, custom_field_id, value')
             .in('contact_id', contactIds)
             .in('custom_field_id', activeIds)
-        : Promise.resolve({ data: [] as { contact_id: string; custom_field_id: string; value: string | null }[] }),
+        : Promise.resolve({
+            data: [] as {
+              contact_id: string;
+              custom_field_id: string;
+              value: string | null;
+            }[],
+          }),
     ]);
     if (seq !== fetchSeq.current) return; // superseded by a newer fetch
 
@@ -880,7 +902,17 @@ export default function LeadsPage() {
 
     setContacts(enriched);
     setLoading(false);
-  }, [supabase, page, pageSize, search, filters, tagsMap, activeCustomKey, sortColumn, sort]);
+  }, [
+    supabase,
+    page,
+    pageSize,
+    search,
+    filters,
+    tagsMap,
+    activeCustomKey,
+    sortColumn,
+    sort,
+  ]);
 
   // Board data — all statuses at once, capped at BOARD_LIMIT most
   // recent. Respects the header search.
@@ -898,7 +930,9 @@ export default function LeadsPage() {
 
     if (term) {
       const like = `%${term}%`;
-      query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+      query = query.or(
+        `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
+      );
     }
 
     const { data, error } = await query;
@@ -948,7 +982,9 @@ export default function LeadsPage() {
   const handleStatusChange = useCallback(
     async (contactId: string, status: LeadStatus | null) => {
       setBoardLeads((prev) =>
-        prev.map((l) => (l.id === contactId ? { ...l, lead_status: status } : l))
+        prev.map((l) =>
+          l.id === contactId ? { ...l, lead_status: status } : l
+        )
       );
       const { error } = await supabase
         .from('contacts')
@@ -960,7 +996,9 @@ export default function LeadsPage() {
       } else {
         // Keep the table's Status column in sync for the next visit.
         setContacts((prev) =>
-          prev.map((c) => (c.id === contactId ? { ...c, lead_status: status } : c))
+          prev.map((c) =>
+            c.id === contactId ? { ...c, lead_status: status } : c
+          )
         );
       }
     },
@@ -992,23 +1030,34 @@ export default function LeadsPage() {
           const status = columnToStatus(rawValue as LeadColumnKey);
           const { error } = await supabase
             .from('contacts')
-            .update({ lead_status: status, updated_at: new Date().toISOString() })
+            .update({
+              lead_status: status,
+              updated_at: new Date().toISOString(),
+            })
             .eq('id', contact.id);
           if (error) {
             toast.error('Failed to update status');
             return;
           }
           setContacts((prev) =>
-            prev.map((c) => (c.id === contact.id ? { ...c, lead_status: status } : c))
+            prev.map((c) =>
+              c.id === contact.id ? { ...c, lead_status: status } : c
+            )
           );
           setBoardLeads((prev) =>
-            prev.map((l) => (l.id === contact.id ? { ...l, lead_status: status } : l))
+            prev.map((l) =>
+              l.id === contact.id ? { ...l, lead_status: status } : l
+            )
           );
         } else if (edit.kind === 'custom') {
           const trimmed = rawValue.trim();
           const { error } = trimmed
             ? await supabase.from('contact_custom_values').upsert(
-                { contact_id: contact.id, custom_field_id: edit.fieldId, value: trimmed },
+                {
+                  contact_id: contact.id,
+                  custom_field_id: edit.fieldId,
+                  value: trimmed,
+                },
                 { onConflict: 'contact_id,custom_field_id' }
               )
             : await supabase
@@ -1023,7 +1072,13 @@ export default function LeadsPage() {
           setContacts((prev) =>
             prev.map((c) =>
               c.id === contact.id
-                ? { ...c, customValues: { ...c.customValues, [edit.fieldId]: trimmed } }
+                ? {
+                    ...c,
+                    customValues: {
+                      ...c.customValues,
+                      [edit.fieldId]: trimmed,
+                    },
+                  }
                 : c
             )
           );
@@ -1036,7 +1091,10 @@ export default function LeadsPage() {
           }
           const { error } = await supabase
             .from('contacts')
-            .update({ [edit.column]: trimmed || null, updated_at: new Date().toISOString() })
+            .update({
+              [edit.column]: trimmed || null,
+              updated_at: new Date().toISOString(),
+            })
             .eq('id', contact.id);
           if (error) {
             if (isUniqueViolation(error)) {
@@ -1048,7 +1106,9 @@ export default function LeadsPage() {
           }
           setContacts((prev) =>
             prev.map((c) =>
-              c.id === contact.id ? { ...c, [edit.column]: trimmed || undefined } : c
+              c.id === contact.id
+                ? { ...c, [edit.column]: trimmed || undefined }
+                : c
             )
           );
         }
@@ -1148,7 +1208,9 @@ export default function LeadsPage() {
       .is('memberships', null);
     if (term) {
       const like = `%${term}%`;
-      query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+      query = query.or(
+        `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
+      );
     }
     query = applyLeadFilters(query, filters, tagIds);
     const { data, error } = await query;
@@ -1289,195 +1351,195 @@ export default function LeadsPage() {
 
   return (
     <div className="flex h-full flex-col gap-3">
-      {/* Row 1 — title / selection on the left, primary actions on the right. */}
-      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-          {view === 'table' && selected.size > 0 ? (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <button
-                      type="button"
-                      className="group -ml-2.5 flex h-8 items-center gap-1.5 rounded-md px-2.5 text-base font-semibold whitespace-nowrap text-foreground hover:bg-muted"
-                    />
-                  }
-                >
-                  {selected.size} record{selected.size === 1 ? '' : 's'} selected
-                  <ChevronDown className="size-4 text-muted-foreground transition-transform duration-150 group-data-[popup-open]:rotate-180" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  className="min-w-56 bg-popover border-border"
-                >
-                  <DropdownMenuItem
-                    onClick={() => setSelected(new Set())}
-                    className="text-popover-foreground focus:bg-muted focus:text-foreground"
-                  >
-                    <X className="size-4" />
-                    None
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={selectAllMatching}
-                    className="text-popover-foreground focus:bg-muted focus:text-foreground"
-                  >
-                    <ListChecks className="size-4" />
-                    All {totalCount} in Leads
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Placeholder — no backing feature yet */}
-                <Button
-                  variant="outline"
-                  disabled
-                  className="border-border text-muted-foreground hover:bg-muted"
-                >
-                  <SquarePen className="size-4" />
-                  Mass update
-                </Button>
-                <GatedButton
-                  variant="destructive"
-                  canAct={canEdit}
-                  gateReason="delete leads"
-                  onClick={() => setBulkDeleteOpen(true)}
-                >
-                  <Trash2 className="size-4" />
-                  Delete selected
-                </GatedButton>
-              </div>
-              <Button
-                variant="ghost"
+      {/* App-bar actions — portalled into the shared header next to the
+          page title, so the page doesn't own a second title row. */}
+      <PageHeaderActions>
+        <GatedButton
+          variant="outline"
+          canAct={canEdit}
+          gateReason="add or import leads"
+          onClick={() => setImportOpen(true)}
+          className="border-border text-muted-foreground hover:bg-muted"
+        >
+          <Upload className="size-4" />
+          Import
+        </GatedButton>
+        <GatedButton
+          canAct={canEdit}
+          gateReason="add or import leads"
+          onClick={openAddForm}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+        >
+          <Plus className="size-4" />
+          Add Lead
+        </GatedButton>
+      </PageHeaderActions>
+
+      {/* Bulk-selection bar — appears only while table rows are selected. */}
+      {view === 'table' && selected.size > 0 && (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <button
+                  type="button"
+                  className="group text-foreground hover:bg-muted -ml-2.5 flex h-8 items-center gap-1.5 rounded-md px-2.5 text-base font-semibold whitespace-nowrap"
+                />
+              }
+            >
+              {selected.size} record{selected.size === 1 ? '' : 's'} selected
+              <ChevronDown className="text-muted-foreground size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="bg-popover border-border min-w-56"
+            >
+              <DropdownMenuItem
                 onClick={() => setSelected(new Set())}
-                className="text-foreground hover:bg-muted"
+                className="text-popover-foreground focus:bg-muted focus:text-foreground"
               >
-                Clear
-              </Button>
-            </>
-          ) : (
-            <span className="text-base font-semibold text-foreground whitespace-nowrap">
-              All leads
-            </span>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-          <GatedButton
-            variant="outline"
-            canAct={canEdit}
-            gateReason="add or import leads"
-            onClick={() => setImportOpen(true)}
-            className="border-border text-muted-foreground hover:bg-muted"
+                <X className="size-4" />
+                None
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={selectAllMatching}
+                className="text-popover-foreground focus:bg-muted focus:text-foreground"
+              >
+                <ListChecks className="size-4" />
+                All {totalCount} in Leads
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Placeholder — no backing feature yet */}
+            <Button
+              variant="outline"
+              disabled
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              <SquarePen className="size-4" />
+              Mass update
+            </Button>
+            <GatedButton
+              variant="destructive"
+              canAct={canEdit}
+              gateReason="delete leads"
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              <Trash2 className="size-4" />
+              Delete selected
+            </GatedButton>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={() => setSelected(new Set())}
+            className="text-foreground hover:bg-muted"
           >
-            <Upload className="size-4" />
-            Import
-          </GatedButton>
-          <GatedButton
-            canAct={canEdit}
-            gateReason="add or import leads"
-            onClick={openAddForm}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            <Plus className="size-4" />
-            Add Lead
-          </GatedButton>
+            Clear
+          </Button>
         </div>
-      </div>
+      )}
 
-      {/* Row 2 — search grows on the left; view / settings / columns /
-          filters / sort cluster trails on the right (HubSpot-style). */}
-      <div className="flex shrink-0 items-center gap-2">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      {/* Row 2 — search capped on the left; view / settings / columns /
+          filters / sort cluster trails on the right (HubSpot-style),
+          with the leftover space opening up between the two groups. */}
+      <div className="flex shrink-0 items-center justify-between gap-2">
+        <div className="relative max-w-[560px] min-w-0 flex-1">
+          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search leads…"
-            className="rounded-full border-border bg-card pl-9 text-foreground placeholder:text-muted-foreground"
+            className="border-border bg-card text-foreground placeholder:text-muted-foreground rounded-full pl-9"
           />
         </div>
 
-        {/* View type */}
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
+        <div className="flex shrink-0 items-center gap-2">
+          {/* View type */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  className="border-border text-muted-foreground hover:bg-muted"
+                />
+              }
+            >
+              {view === 'table' ? (
+                <List className="size-4" />
+              ) : (
+                <LayoutGrid className="size-4" />
+              )}
+              <span className="hidden sm:inline">
+                {view === 'table' ? 'Table view' : 'Board view'}
+              </span>
+              <ChevronDown className="text-muted-foreground size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="bg-popover border-border min-w-44"
+            >
+              <DropdownMenuItem
+                onClick={() => setLeadsView('table')}
+                className={cn(
+                  'focus:bg-muted focus:text-foreground',
+                  view === 'table' ? 'text-primary' : 'text-popover-foreground'
+                )}
+              >
+                <List className="size-4" />
+                Table view
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setLeadsView('board')}
+                className={cn(
+                  'focus:bg-muted focus:text-foreground',
+                  view === 'board' ? 'text-primary' : 'text-popover-foreground'
+                )}
+              >
+                <LayoutGrid className="size-4" />
+                Board view
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {view === 'table' && (
+            <>
+              {/* Table settings (pagination, cell text, custom fields) */}
               <Button
                 variant="outline"
+                size="icon"
+                onClick={() => setViewSettingsOpen(true)}
+                aria-label="Table settings"
+                title="Table settings"
                 className="border-border text-muted-foreground hover:bg-muted"
+              >
+                <Settings className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setManageColumnsOpen(true)}
+                className="border-border text-muted-foreground hover:bg-muted"
+              >
+                <Columns3 className="size-4" />
+                <span className="hidden sm:inline">Edit columns</span>
+              </Button>
+              <LeadsFilters
+                value={filters}
+                onChange={setFilters}
+                staff={staff}
+                tags={allTags}
               />
-            }
-          >
-            {view === 'table' ? (
-              <List className="size-4" />
-            ) : (
-              <LayoutGrid className="size-4" />
-            )}
-            <span className="hidden sm:inline">
-              {view === 'table' ? 'Table view' : 'Board view'}
-            </span>
-            <ChevronDown className="size-4 text-muted-foreground" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-44 bg-popover border-border">
-            <DropdownMenuItem
-              onClick={() => setLeadsView('table')}
-              className={cn(
-                'focus:bg-muted focus:text-foreground',
-                view === 'table' ? 'text-primary' : 'text-popover-foreground'
-              )}
-            >
-              <List className="size-4" />
-              Table view
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setLeadsView('board')}
-              className={cn(
-                'focus:bg-muted focus:text-foreground',
-                view === 'board' ? 'text-primary' : 'text-popover-foreground'
-              )}
-            >
-              <LayoutGrid className="size-4" />
-              Board view
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {view === 'table' && (
-          <>
-            {/* Table settings (pagination, cell text, custom fields) */}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setViewSettingsOpen(true)}
-              aria-label="Table settings"
-              title="Table settings"
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              <Settings className="size-4" />
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setManageColumnsOpen(true)}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              <Columns3 className="size-4" />
-              <span className="hidden sm:inline">Edit columns</span>
-            </Button>
-            <LeadsFilters
-              value={filters}
-              onChange={setFilters}
-              staff={staff}
-              tags={allTags}
-            />
-            <LeadsSort
-              value={sort}
-              onChange={(next) => {
-                setPrefs((p) => ({ ...p, sort: next }));
-                setPage(0);
-              }}
-              columns={sortableColumns}
-            />
-          </>
-        )}
+              <LeadsSort
+                value={sort}
+                onChange={(next) => {
+                  setPrefs((p) => ({ ...p, sort: next }));
+                  setPage(0);
+                }}
+                columns={sortableColumns}
+              />
+            </>
+          )}
+        </div>
       </div>
 
       {view === 'board' ? (
@@ -1487,14 +1549,14 @@ export default function LeadsPage() {
               {[1, 2, 3, 4, 5].map((i) => (
                 <div
                   key={i}
-                  className="h-96 flex-1 animate-pulse rounded-xl bg-muted/50"
+                  className="bg-muted/50 h-96 flex-1 animate-pulse rounded-xl"
                 />
               ))}
             </div>
           ) : (
             <>
               {boardLeads.length >= BOARD_LIMIT && (
-                <p className="mb-2 text-xs text-muted-foreground">
+                <p className="text-muted-foreground mb-2 text-xs">
                   Showing the {BOARD_LIMIT} most recent leads — use the table
                   view to reach the rest.
                 </p>
@@ -1513,9 +1575,9 @@ export default function LeadsPage() {
           {/* Table — this is the single bounded scroll region. It fills the
               remaining height (flex-1) so its horizontal scrollbar stays in view
               at the bottom edge and the header sticks while the body scrolls. */}
-          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card">
+          <div className="border-border bg-card min-h-0 flex-1 overflow-auto rounded-lg border">
             <table
-              className="w-full caption-bottom text-sm table-fixed"
+              className="w-full table-fixed caption-bottom text-sm"
               style={{ minWidth: totalWidth }}
             >
               <colgroup>
@@ -1526,10 +1588,10 @@ export default function LeadsPage() {
                 <col style={{ width: ACTIONS_COL_WIDTH }} />
                 <col />
               </colgroup>
-              <TableHeader className="sticky top-0 z-10 bg-card">
+              <TableHeader className="bg-card sticky top-0 z-10">
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead
-                    className={cn(hasFrozen && 'sticky left-0 z-20 bg-card')}
+                    className={cn(hasFrozen && 'bg-card sticky left-0 z-20')}
                   >
                     <Checkbox
                       checked={allOnPageSelected}
@@ -1549,7 +1611,7 @@ export default function LeadsPage() {
                           'text-muted-foreground select-none',
                           // Positioned ancestor for the resize grip — sticky
                           // frozen cells already establish one.
-                          isFrozen ? 'z-20 bg-card' : 'relative'
+                          isFrozen ? 'bg-card z-20' : 'relative'
                         )}
                       >
                         <HeaderCell
@@ -1570,7 +1632,7 @@ export default function LeadsPage() {
                           role="separator"
                           aria-orientation="vertical"
                           onMouseDown={(e) => startResize(e, col)}
-                          className="absolute top-2 bottom-2 right-0 w-1.5 cursor-col-resize border-r border-border hover:border-r-2 hover:border-primary"
+                          className="border-border hover:border-primary absolute top-2 right-0 bottom-2 w-1.5 cursor-col-resize border-r hover:border-r-2"
                         />
                       </TableHead>
                     );
@@ -1582,19 +1644,27 @@ export default function LeadsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow className="border-border">
-                    <TableCell colSpan={totalCols} className="text-center py-12">
+                    <TableCell
+                      colSpan={totalCols}
+                      className="py-12 text-center"
+                    >
                       <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="size-6 animate-spin text-primary" />
-                        <p className="text-sm text-muted-foreground">Loading leads...</p>
+                        <Loader2 className="text-primary size-6 animate-spin" />
+                        <p className="text-muted-foreground text-sm">
+                          Loading leads...
+                        </p>
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : contacts.length === 0 ? (
                   <TableRow className="border-border">
-                    <TableCell colSpan={totalCols} className="text-center py-12">
+                    <TableCell
+                      colSpan={totalCols}
+                      className="py-12 text-center"
+                    >
                       <div className="flex flex-col items-center gap-2">
-                        <Users className="size-8 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">
+                        <Users className="text-muted-foreground size-8" />
+                        <p className="text-muted-foreground text-sm">
                           {hasActiveFilters
                             ? 'No leads match your filters.'
                             : 'No leads yet.'}
@@ -1606,7 +1676,7 @@ export default function LeadsPage() {
                             variant="outline"
                             size="sm"
                             onClick={openAddForm}
-                            className="mt-2 border-border text-muted-foreground hover:bg-muted"
+                            className="border-border text-muted-foreground hover:bg-muted mt-2"
                           >
                             <Plus className="size-3.5" />
                             Add your first lead
@@ -1626,7 +1696,7 @@ export default function LeadsPage() {
                         onClick={(e) => e.stopPropagation()}
                         className={cn(
                           hasFrozen &&
-                            'sticky left-0 z-10 bg-card group-hover:bg-muted/50'
+                            'bg-card group-hover:bg-muted/50 sticky left-0 z-10'
                         )}
                       >
                         <Checkbox
@@ -1648,7 +1718,7 @@ export default function LeadsPage() {
                             // content can't bleed through; the layered
                             // hover tint matches the row's own hover.
                             frozenKeySet.has(col.key) &&
-                              'z-10 bg-card group-hover:bg-muted/50'
+                              'bg-card group-hover:bg-muted/50 z-10'
                           )}
                         >
                           {col.edit && canEdit ? (
@@ -1680,7 +1750,9 @@ export default function LeadsPage() {
                               onStart={() =>
                                 setEditingCell({ id: contact.id, key: col.key })
                               }
-                              onCommit={(v) => commitCell(contact, col.edit!, v)}
+                              onCommit={(v) =>
+                                commitCell(contact, col.edit!, v)
+                              }
                               onCancel={() => setEditingCell(null)}
                             />
                           ) : (
@@ -1736,7 +1808,7 @@ export default function LeadsPage() {
           {/* Footer — pinned below the scroll region: record count left,
               pager right. Always visible. */}
           <div className="flex shrink-0 items-center justify-between">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {totalCount > 0
                 ? `Showing ${page * pageSize + 1}-${Math.min((page + 1) * pageSize, totalCount)} of ${totalCount}`
                 : 'No records'}
@@ -1751,7 +1823,7 @@ export default function LeadsPage() {
               >
                 <ChevronLeft className="size-4" />
               </Button>
-              <span className="text-xs text-muted-foreground px-2">
+              <span className="text-muted-foreground px-2 text-xs">
                 Page {page + 1} of {Math.max(totalPages, 1)}
               </span>
               <Button
@@ -1828,7 +1900,9 @@ export default function LeadsPage() {
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-popover-foreground">Delete Lead</DialogTitle>
+            <DialogTitle className="text-popover-foreground">
+              Delete Lead
+            </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Are you sure you want to delete{' '}
               <span className="text-popover-foreground font-medium">

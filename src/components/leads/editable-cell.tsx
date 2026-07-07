@@ -103,8 +103,11 @@ export function EditableCell({
           e.stopPropagation();
           onStart();
         }}
-        // `group` is what the inner span's group-hover:* outline keys off.
-        className={cn(OUTER, "group text-left")}
+        // Named group (`group/cell`) so the hover outline keys off THIS
+        // cell only — the table row is itself a generic `group`, and an
+        // unnamed group-hover here would light up every editable cell
+        // whenever the row is hovered.
+        className={cn(OUTER, "group/cell text-left")}
       >
         {/* Same box as the editors (INNER): flex + items-center centres
             the content by its box, not its text baseline (a short pill
@@ -114,10 +117,15 @@ export function EditableCell({
         <span
           className={cn(
             INNER,
-            "group-hover:bg-muted/70 group-hover:ring-1 group-hover:ring-inset group-hover:ring-border",
+            "group-hover/cell:bg-muted/70 group-hover/cell:ring-1 group-hover/cell:ring-inset group-hover/cell:ring-border",
           )}
         >
           {display}
+          {/* Cells that open a menu advertise it: chevron fades in on
+              cell hover, mirroring the open-state trigger's chevron. */}
+          {kind === "status" && (
+            <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/cell:opacity-100" />
+          )}
         </span>
       </button>
     );

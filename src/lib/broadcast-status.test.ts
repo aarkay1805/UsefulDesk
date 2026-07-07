@@ -25,14 +25,16 @@ describe("getBroadcastStatus", () => {
     expect(getBroadcastStatus("")).toBe(broadcastStatusConfig.draft);
   });
 
-  it("each variant has the dark-theme class triple", () => {
+  it("each variant is a fill-only class pair (bg tint + text)", () => {
     // Accept both fixed-shade Tailwind names (bg-red-500/10) and
     // token-backed names without a shade number (bg-primary/10) since
     // the brand-accent statuses now ride the active color theme.
+    // Fill-only by design: the Badge primitive's tinted variants carry
+    // no border (matches upstream shadcn `destructive` recipe).
     for (const v of Object.values(broadcastStatusConfig)) {
       expect(v.classes).toMatch(/bg-[a-z]+(-\d+)?\/10/);
       expect(v.classes).toMatch(/text-[a-z]+(-\d+)?/);
-      expect(v.classes).toMatch(/border-[a-z]+(-\d+)?\/20/);
+      expect(v.classes).not.toMatch(/border-/);
     }
   });
 });

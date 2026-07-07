@@ -326,10 +326,6 @@ export function Step2SelectAudience({
                         : 'border-border bg-muted text-muted-foreground hover:border-border'
                     }`}
                   >
-                    <span
-                      className="mr-1.5 h-2 w-2 rounded-full"
-                      style={{ backgroundColor: tag.color }}
-                    />
                     {tag.name}
                   </button>
                 );
@@ -414,10 +410,6 @@ export function Step2SelectAudience({
                       : 'border-border bg-muted text-muted-foreground hover:border-border'
                   }`}
                 >
-                  <span
-                    className="mr-1.5 h-2 w-2 rounded-full"
-                    style={{ backgroundColor: tag.color }}
-                  />
                   {tag.name}
                 </button>
               );

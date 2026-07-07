@@ -16,6 +16,7 @@ import {
   StickyNote,
   Plus,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
@@ -188,16 +189,9 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 <p className="px-1 text-xs text-muted-foreground">No tags</p>
               ) : (
                 tags.map((tag) => (
-                  <span
-                    key={tag.contact_tag_id}
-                    className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                    style={{
-                      backgroundColor: `${tag.color}20`,
-                      color: tag.color,
-                    }}
-                  >
+                  <Badge key={tag.contact_tag_id} variant="neutral">
                     {tag.name}
-                  </span>
+                  </Badge>
                 ))
               )}
             </div>

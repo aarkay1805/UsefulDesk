@@ -143,7 +143,7 @@ export function LeadsFilters({ value, onChange, staff, tags }: LeadsFiltersProps
           <Divider />
           <CheckGroup
             label="Tags"
-            options={tags.map((t) => ({ value: t.id, label: t.name, color: t.color }))}
+            options={tags.map((t) => ({ value: t.id, label: t.name }))}
             selected={value.tags}
             onToggle={(v) => toggle('tags', v)}
             emptyHint="No tags yet."
@@ -202,7 +202,7 @@ function CheckGroup({
   emptyHint,
 }: {
   label: string;
-  options: { value: string; label: string; color?: string }[];
+  options: { value: string; label: string }[];
   selected: string[];
   onToggle: (value: string) => void;
   emptyHint?: string;
@@ -224,12 +224,6 @@ function CheckGroup({
                 onCheckedChange={() => onToggle(o.value)}
                 aria-label={`Filter by ${o.label}`}
               />
-              {o.color && (
-                <span
-                  className="size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: o.color }}
-                />
-              )}
               <span className="truncate text-sm text-popover-foreground">
                 {o.label}
               </span>
