@@ -81,6 +81,7 @@ import {
   StickyNote,
   MessageCircle,
   UserPlus,
+  Calendar,
 } from 'lucide-react';
 
 const SECTION_IDS = ['details', 'tags', 'notes'];
@@ -1670,16 +1671,22 @@ function NoteCard({
         {followUp && (
           <div className="border-t border-border/50 px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
-              {/* 2px title→due gap per the Figma spec. Spans, not <p> —
-                  the accordion content styles descendant <p>s with mb-4,
-                  which would defeat the gap. */}
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-sm font-medium text-foreground">
-                  Follow up
+              <div className="flex min-w-0 items-center gap-2.5">
+                {/* Leading calendar avatar — flags the strip as a task,
+                    mirroring the author avatar's size/gap so the two
+                    rows read as a set. */}
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <Calendar className="size-4" />
                 </span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {followUpDueLabel(followUp.task_type, followUp.due_date)}
-                </span>
+                {/* 2px title→due gap per the Figma spec. Spans, not <p> —
+                    the accordion content styles descendant <p>s with mb-4,
+                    which would defeat the gap. */}
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-sm text-foreground">Follow up</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {followUpDueLabel(followUp.task_type, followUp.due_date)}
+                  </span>
+                </div>
               </div>
               {followUp.status === 'done' ? (
                 <span
