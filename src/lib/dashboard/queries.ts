@@ -7,10 +7,18 @@ import {
   mondayIndex,
   startOfLocalDay,
 } from './date-utils'
-import { resolveFieldOptions, statusColumns } from '@/lib/leads/field-options'
+import {
+  humaniseKey,
+  optionLabel,
+  resolveFieldOptions,
+  statusColumns,
+  UNKNOWN_STATUS_COLOR,
+} from '@/lib/leads/field-options'
 import type {
   ActivityItem,
   ConversationsSeriesPoint,
+  LeadFunnelData,
+  LeadFunnelStage,
   LeadsDonutData,
   LeadStatusSlice,
   MetricsBundle,
@@ -170,6 +178,111 @@ export async function loadLeadsDonut(db: DB): Promise<LeadsDonutData> {
   return {
     slices,
     total: slices.reduce((sum, s) => sum + s.count, 0),
+  }
+}
+
+// --- 3b. Lead funnel + conversion --------------------------------------
+
+export async function loadLeadFunnel(db: DB): Promise<LeadFunnelData> {
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
+
+  const [statusRows, sourceRows, funnelRes, sourceConvRes, convertedRes] =
+    await Promise.all([
+      db
+        .from('lead_field_options')
+        .select('key, label, color')
+        .eq('field', 'status')
+        .order('sort_order', { ascending: true }),
+      db
+        .from('lead_field_options')
+        .select('key, label')
+        .eq('field', 'source')
+        .order('sort_order', { ascending: true }),
+      // SQL-side aggregates (047) — exact counts + stage aging under RLS.
+      db.rpc('lead_funnel_stats'),
+      db.rpc('lead_source_conversion'),
+      db
+        .from('memberships')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', monthStart.toISOString()),
+    ])
+
+  const columns = statusColumns(
+    resolveFieldOptions('status', statusRows.data ?? []),
+  )
+  const funnelRows = (funnelRes.data ?? []) as {
+    lead_status: string | null
+    lead_count: number | string
+    avg_days_in_stage: number | string | null
+  }[]
+  const byKey = new Map(funnelRows.map((r) => [r.lead_status ?? 'new', r]))
+
+  const stages: LeadFunnelStage[] = columns.map((col) => {
+    const row = byKey.get(col.key)
+    return {
+      key: col.key,
+      label: col.label,
+      color: col.color,
+      count: Number(row?.lead_count ?? 0),
+      avgDays:
+        row?.avg_days_in_stage == null ? null : Number(row.avg_days_in_stage),
+    }
+  })
+  // Legacy/deleted status keys still on rows — keep their counts visible.
+  for (const r of funnelRows) {
+    const key = r.lead_status ?? 'new'
+    if (!columns.some((c) => c.key === key)) {
+      stages.push({
+        key,
+        label: humaniseKey(key),
+        color: UNKNOWN_STATUS_COLOR,
+        count: Number(r.lead_count),
+        avgDays:
+          r.avg_days_in_stage == null ? null : Number(r.avg_days_in_stage),
+      })
+    }
+  }
+
+  const totalLeads = stages.reduce((sum, s) => sum + s.count, 0)
+
+  const sourceOptions = resolveFieldOptions('source', sourceRows.data ?? [])
+  const convRows = (sourceConvRes.data ?? []) as {
+    source: string
+    leads: number | string
+    members: number | string
+  }[]
+  const topSources = convRows
+    .map((r) => {
+      const leads = Number(r.leads)
+      const members = Number(r.members)
+      return {
+        key: r.source,
+        label:
+          r.source === 'unknown'
+            ? 'Unknown'
+            : optionLabel(sourceOptions, r.source),
+        leads,
+        members,
+        rate: leads + members > 0 ? members / (leads + members) : null,
+      }
+    })
+    // Sources that actually convert first; then by lead volume.
+    .sort((a, b) => b.members - a.members || b.leads - a.leads)
+    .slice(0, 5)
+
+  const totalMembers = convRows.reduce((sum, r) => sum + Number(r.members), 0)
+
+  return {
+    stages,
+    totalLeads,
+    convertedThisMonth: convertedRes.count ?? 0,
+    conversionRate:
+      totalLeads + totalMembers > 0
+        ? totalMembers / (totalLeads + totalMembers)
+        : null,
+    topSources,
   }
 }
 

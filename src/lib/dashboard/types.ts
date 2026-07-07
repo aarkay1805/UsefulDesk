@@ -33,6 +33,34 @@ export interface LeadsDonutData {
   total: number
 }
 
+export interface LeadFunnelStage {
+  key: string
+  label: string
+  color: string
+  count: number
+  /** Average days leads have sat in this status. Null = no leads. */
+  avgDays: number | null
+}
+
+export interface LeadSourcePerf {
+  key: string
+  label: string
+  leads: number
+  members: number
+  /** members / (leads + members), 0–1. Null when the source has no rows. */
+  rate: number | null
+}
+
+export interface LeadFunnelData {
+  stages: LeadFunnelStage[]
+  totalLeads: number
+  /** Memberships created this calendar month = leads converted. */
+  convertedThisMonth: number
+  /** All-time members / (leads + members). Null when no contacts. */
+  conversionRate: number | null
+  topSources: LeadSourcePerf[]
+}
+
 export interface ResponseTimeBucket {
   /** 0 = Mon … 6 = Sun (Monday-first). */
   dow: number

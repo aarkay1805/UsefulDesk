@@ -36,6 +36,7 @@ import { EditFieldOptionsDialog } from '@/components/leads/edit-field-options-di
 import { formatCustomFieldValue } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
 import { Badge } from '@/components/ui/badge';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -168,6 +169,8 @@ type EditSpec =
   | { kind: 'email'; column: 'email' }
   | { kind: 'select'; column: 'source' | 'gender' }
   | { kind: 'status' }
+  // Lead owner — writes contacts.assigned_to (profiles user_id, '' = unassigned).
+  | { kind: 'assignee' }
   | { kind: 'tags' }
   | { kind: 'custom'; fieldId: string };
 
@@ -320,6 +323,22 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     ),
     edit: { kind: 'select', column: 'gender' },
     optionsField: 'gender',
+  },
+  {
+    key: 'assignee',
+    label: 'Assigned to',
+    defaultWidth: 170,
+    minWidth: 130,
+    // No sortColumn — assigned_to is a uuid; ordering by it is noise.
+    // Static fallback; liveColumns overrides with the staff roster
+    // (names + avatars) once useAccountStaff resolves.
+    render: (c) =>
+      c.assigned_to ? (
+        <span className="text-muted-foreground text-sm">Assigned</span>
+      ) : (
+        <span className="text-muted-foreground text-sm">Unassigned</span>
+      ),
+    edit: { kind: 'assignee' },
   },
   {
     key: 'tags',
@@ -642,9 +661,10 @@ export default function LeadsPage() {
     setSearchInput(urlSearch);
   }, [urlSearch]);
 
-  // Filters (Filters panel) + teammate list for owner/assignee filters.
+  // Filters (Filters panel) + teammate list for owner/assignee filters,
+  // the Assigned-to column render, and its inline picker.
   const [filters, setFilters] = useState<LeadFilters>(EMPTY_FILTERS);
-  const { staff } = useAccountStaff();
+  const { staff, nameById, avatarById } = useAccountStaff();
 
   const [contacts, setContacts] = useState<ContactWithData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -752,13 +772,37 @@ export default function LeadsPage() {
           ),
         };
       }
+      if (col.key === 'assignee') {
+        return {
+          ...col,
+          render: (c) => {
+            if (!c.assigned_to) {
+              return (
+                <span className="text-muted-foreground text-sm">Unassigned</span>
+              );
+            }
+            const name = nameById.get(c.assigned_to) ?? 'Teammate';
+            return (
+              <span className="flex min-w-0 items-center gap-1.5">
+                <UserAvatar
+                  name={name}
+                  src={avatarById.get(c.assigned_to) ?? null}
+                  className="size-5 shrink-0"
+                  fallbackClassName="text-[10px]"
+                />
+                <span className="text-foreground truncate text-sm">{name}</span>
+              </span>
+            );
+          },
+        };
+      }
       return col;
     });
     return [
       ...builtins,
       ...customFields.map((f) => customColumn(f, defaultCurrency)),
     ];
-  }, [customFields, defaultCurrency, fieldOptions]);
+  }, [customFields, defaultCurrency, fieldOptions, nameById, avatarById]);
 
   const colByKey = useMemo(() => {
     const map: Record<string, ColumnDef> = {};
@@ -1084,6 +1128,8 @@ export default function LeadsPage() {
     switch (edit.kind) {
       case 'status':
         return leadColumnKey(c.lead_status);
+      case 'assignee':
+        return c.assigned_to ?? '';
       case 'custom':
         return c.customValues?.[edit.fieldId] ?? '';
       case 'email':
@@ -1128,6 +1174,32 @@ export default function LeadsPage() {
           setBoardLeads((prev) =>
             prev.map((l) =>
               l.id === contact.id ? { ...l, lead_status: status } : l
+            )
+          );
+        } else if (edit.kind === 'assignee') {
+          // '' = Unassigned. assigned_to references profiles(user_id)
+          // within the account; options come from the staff roster so
+          // an arbitrary id can't be picked.
+          const assignedTo = rawValue || null;
+          const { error } = await supabase
+            .from('contacts')
+            .update({
+              assigned_to: assignedTo,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', contact.id);
+          if (error) {
+            toast.error('Failed to update assignee');
+            return;
+          }
+          setContacts((prev) =>
+            prev.map((c) =>
+              c.id === contact.id ? { ...c, assigned_to: assignedTo } : c
+            )
+          );
+          setBoardLeads((prev) =>
+            prev.map((l) =>
+              l.id === contact.id ? { ...l, assigned_to: assignedTo } : l
             )
           );
         } else if (edit.kind === 'custom') {
@@ -1871,7 +1943,9 @@ export default function LeadsPage() {
                               kind={
                                 col.edit.kind === 'custom'
                                   ? customEditKind(col.customType)
-                                  : col.edit.kind
+                                  : col.edit.kind === 'assignee'
+                                    ? 'select'
+                                    : col.edit.kind
                               }
                               value={readEditValue(contact, col.edit)}
                               options={
@@ -1889,9 +1963,17 @@ export default function LeadsPage() {
                                         value: o.key,
                                         label: o.label,
                                       }))
-                                    : col.edit.kind === 'tags'
-                                      ? allTagOptions
-                                      : undefined
+                                    : col.edit.kind === 'assignee'
+                                      ? [
+                                          { value: '', label: 'Unassigned' },
+                                          ...staff.map((s) => ({
+                                            value: s.user_id,
+                                            label: s.full_name,
+                                          })),
+                                        ]
+                                      : col.edit.kind === 'tags'
+                                        ? allTagOptions
+                                        : undefined
                               }
                               multiValue={
                                 col.edit.kind === 'tags'

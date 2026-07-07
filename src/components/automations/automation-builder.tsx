@@ -20,7 +20,9 @@ import {
   Tag,
   TagIcon,
   UserCheck,
+  UserCog,
   UserPlus,
+  ClipboardList,
   PencilLine,
   Briefcase,
   Hourglass,
@@ -97,6 +99,8 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
   assign_conversation: { label: "Assign Conversation", icon: UserCheck, border: "border-l-primary" },
   update_contact_field: { label: "Update Contact Field", icon: PencilLine, border: "border-l-primary" },
   set_lead_status: { label: "Set Lead Status", icon: UserPlus, border: "border-l-primary" },
+  assign_lead: { label: "Assign Lead", icon: UserCog, border: "border-l-primary" },
+  create_follow_up: { label: "Create Follow-up Task", icon: ClipboardList, border: "border-l-primary" },
   // Legacy — Pipelines merged into Leads. Existing automations with this
   // step still render/execute; it's just not in ADDABLE_STEPS anymore.
   create_deal: { label: "Create Deal", icon: Briefcase, border: "border-l-primary" },
@@ -118,6 +122,8 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   "assign_conversation",
   "update_contact_field",
   "set_lead_status",
+  "assign_lead",
+  "create_follow_up",
   "wait",
   "condition",
   "send_webhook",
@@ -162,6 +168,10 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
       return { field: "name", value: "" }
     case "set_lead_status":
       return { status: "interested" }
+    case "assign_lead":
+      return { mode: "round_robin", only_if_unassigned: true }
+    case "create_follow_up":
+      return { task_type: "call", due_in_days: 1, assign_mode: "lead_owner", note: "" }
     case "create_deal":
       return { pipeline_id: "", stage_id: "", title: "", value: 0 }
     case "wait":
@@ -1274,6 +1284,93 @@ function StepEditor({
             ))}
           </select>
         </FieldBlock>
+      )
+    case "assign_lead":
+      return (
+        <>
+          <FieldBlock label="Mode">
+            <select
+              value={(cfg.mode as string) ?? "round_robin"}
+              onChange={(e) => set({ mode: e.target.value })}
+              className={SELECT_CLASS}
+            >
+              <option value="round_robin">Round-robin</option>
+              <option value="specific">Specific teammate</option>
+            </select>
+          </FieldBlock>
+          {cfg.mode === "specific" && (
+            <FieldBlock label="Teammate">
+              <AgentSelect
+                value={(cfg.agent_id as string) ?? ""}
+                onChange={(v) => set({ agent_id: v })}
+              />
+            </FieldBlock>
+          )}
+          <label className="flex items-center justify-between gap-2 pt-1">
+            <span className="text-sm text-muted-foreground">
+              Only when the lead has no owner yet
+            </span>
+            <Switch
+              checked={(cfg.only_if_unassigned as boolean) ?? true}
+              onCheckedChange={(v) => set({ only_if_unassigned: v })}
+            />
+          </label>
+        </>
+      )
+    case "create_follow_up":
+      return (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <FieldBlock label="Task type">
+              <select
+                value={(cfg.task_type as string) ?? "call"}
+                onChange={(e) => set({ task_type: e.target.value })}
+                className={SELECT_CLASS}
+              >
+                <option value="call">Call</option>
+                <option value="email">Email</option>
+                <option value="todo">To-do</option>
+              </select>
+            </FieldBlock>
+            <FieldBlock label="Due in (days)">
+              <Input
+                type="number"
+                min={0}
+                value={(cfg.due_in_days as number) ?? 1}
+                onChange={(e) =>
+                  set({ due_in_days: Math.max(0, Number(e.target.value)) })
+                }
+                className="bg-muted text-foreground"
+              />
+            </FieldBlock>
+          </div>
+          <FieldBlock label="Assign to">
+            <select
+              value={(cfg.assign_mode as string) ?? "lead_owner"}
+              onChange={(e) => set({ assign_mode: e.target.value })}
+              className={SELECT_CLASS}
+            >
+              <option value="lead_owner">Lead&apos;s owner</option>
+              <option value="specific">Specific teammate</option>
+            </select>
+          </FieldBlock>
+          {cfg.assign_mode === "specific" && (
+            <FieldBlock label="Teammate">
+              <AgentSelect
+                value={(cfg.agent_id as string) ?? ""}
+                onChange={(v) => set({ agent_id: v })}
+              />
+            </FieldBlock>
+          )}
+          <FieldBlock label="Note (optional)">
+            <Input
+              value={(cfg.note as string) ?? ""}
+              onChange={(e) => set({ note: e.target.value })}
+              placeholder="Why chase — supports {{ vars.x }}"
+              className="bg-muted text-foreground"
+            />
+          </FieldBlock>
+        </>
       )
     case "create_deal":
       return (

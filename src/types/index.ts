@@ -112,8 +112,11 @@ export interface Contact {
   source?: string | null;
   /** Free-text gender (see GENDER_OPTIONS). Migration 041. */
   gender?: string | null;
-  /** Staff member who owns this lead's follow-up (profiles.id). */
+  /** Staff owner of this lead (auth user id — see migration 047). */
   assigned_to?: string | null;
+  /** When lead_status last changed (DB trigger, migration 047).
+   *  NULL = unchanged since creation; readers fall back to created_at. */
+  lead_status_changed_at?: string | null;
   created_at: string;
   updated_at: string;
   /** Hydrated by queries that embed `contact_tags(tags(*))` (e.g. the
@@ -181,7 +184,12 @@ export interface Conversation {
 // Notifications (migration 027)
 // ============================================================
 
-export type NotificationType = 'conversation_assigned';
+export type NotificationType =
+  | 'conversation_assigned'
+  /** A lead's owner changed to you (contacts.assigned_to, migration 047). */
+  | 'lead_assigned'
+  /** A follow-up task's remind_at slot arrived (delivered by the cron runner). */
+  | 'follow_up_reminder';
 
 export interface Notification {
   id: string;
@@ -426,6 +434,8 @@ export type AutomationStepType =
   | 'assign_conversation'
   | 'update_contact_field'
   | 'set_lead_status'
+  | 'assign_lead'
+  | 'create_follow_up'
   | 'create_deal'
   | 'wait'
   | 'condition'
@@ -498,6 +508,30 @@ export interface SetLeadStatusStepConfig {
   status: 'new' | LeadStatus;
 }
 
+export interface AssignLeadStepConfig {
+  /** 'round_robin' spreads across the account's staff deterministically. */
+  mode: 'specific' | 'round_robin';
+  /** Required when mode = 'specific' — a teammate's auth user id. */
+  agent_id?: string;
+  /** Skip when the lead already has an owner (don't steal ownership). */
+  only_if_unassigned?: boolean;
+}
+
+export interface CreateFollowUpStepConfig {
+  task_type: 'call' | 'email' | 'todo';
+  /** Days from today (IST) to the due date. 0 = due today. */
+  due_in_days: number;
+  /**
+   * Who owns the task: 'lead_owner' = the contact's assigned_to
+   * (falling back to the automation's author when unassigned), or a
+   * specific teammate.
+   */
+  assign_mode: 'lead_owner' | 'specific';
+  agent_id?: string;
+  /** Optional note copied onto the task. Supports {{ vars.* }}. */
+  note?: string;
+}
+
 /** @deprecated Pipelines merged into Leads — kept so pre-merge
  *  automations still type-check and execute. Not addable in the builder. */
 export interface CreateDealStepConfig {
@@ -539,6 +573,8 @@ export type AutomationStepConfig =
   | AssignConversationStepConfig
   | UpdateContactFieldStepConfig
   | SetLeadStatusStepConfig
+  | AssignLeadStepConfig
+  | CreateFollowUpStepConfig
   | CreateDealStepConfig
   | WaitStepConfig
   | ConditionStepConfig

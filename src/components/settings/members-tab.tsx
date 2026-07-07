@@ -33,12 +33,8 @@ import {
   UsersRound,
 } from 'lucide-react';
 
-import {
-  Avatar,
-  AvatarBadge,
-  AvatarFallback,
-  AvatarImage,
-} from '@/components/ui/avatar';
+import { AvatarBadge } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import {
   Tooltip,
@@ -351,18 +347,11 @@ export function MembersTab() {
                     <Tooltip>
                       <TooltipTrigger
                         render={
-                          <Avatar className="size-9 shrink-0">
-                            {member.avatar_url ? (
-                              <AvatarImage
-                                src={member.avatar_url}
-                                alt={member.full_name || 'Member'}
-                              />
-                            ) : null}
-                            <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
-                              {(member.full_name || member.email || 'U')
-                                .charAt(0)
-                                .toUpperCase()}
-                            </AvatarFallback>
+                          <UserAvatar
+                            className="size-9 shrink-0"
+                            name={member.full_name || member.email || 'U'}
+                            src={member.avatar_url}
+                          >
                             {/* role+label so screen readers announce
                                 presence — the hover tooltip alone isn't
                                 reachable by keyboard/AT on a non-focusable
@@ -372,7 +361,7 @@ export function MembersTab() {
                               aria-label={presenceText}
                               className={PRESENCE_DOT_CLASS[presence]}
                             />
-                          </Avatar>
+                          </UserAvatar>
                         }
                       />
                       <TooltipContent>{presenceText}</TooltipContent>

@@ -486,6 +486,9 @@ export function ImportWizard({
           name: row.name || null,
           email: row.email || null,
           company: row.company || null,
+          // Imported leads default to the importer as owner (PRD:
+          // every new lead has an owner) — bulk-reassign later.
+          assigned_to: user.id,
         }));
 
         const { data, error } = await supabase

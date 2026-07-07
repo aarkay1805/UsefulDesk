@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { THEMES } from '@/lib/themes';
 import { CURRENCIES } from '@/lib/currency';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -138,7 +138,6 @@ export function SettingsOverview({
   }, [user?.id, accountId, canManageMembers]);
 
   const displayName = profile?.full_name || profile?.email || 'Your account';
-  const initial = (profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase();
   const roleMeta = accountRole ? ROLE_META[accountRole] : null;
   const RoleIcon = roleMeta?.icon;
 
@@ -221,14 +220,13 @@ export function SettingsOverview({
     <section className="animate-in fade-in-50 duration-200">
       {/* Identity */}
       <Card className="flex-row items-center gap-4 px-5 py-5">
-        <Avatar size="lg" className="size-14">
-          {profile?.avatar_url ? (
-            <AvatarImage src={profile.avatar_url} alt={displayName} />
-          ) : null}
-          <AvatarFallback className="bg-primary/10 text-xl text-primary">
-            {initial}
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar
+          size="lg"
+          className="size-14"
+          name={displayName}
+          src={profile?.avatar_url}
+          fallbackClassName="text-xl"
+        />
         <div className="min-w-0 flex-1">
           <div className="truncate text-base font-semibold text-foreground">
             {displayName}

@@ -6,6 +6,14 @@ const h = vi.hoisted(() => ({
   state: {
     owned: null as { id: string } | null,
     ownedCustomField: null as { id: string } | null,
+    // Account rows in lead_field_options (field='status'). Empty array
+    // = account uses the built-in defaults, mirroring production.
+    leadFieldOptions: [] as { key: string }[],
+    // Account staff roster (profiles reads — assign_lead round-robin).
+    roster: [] as { user_id: string }[],
+    // When set, follow_ups inserts fail with this error (23505 tests).
+    followUpInsertError: null as { code: string; message: string } | null,
+    followUpInserts: [] as unknown[],
     automations: [] as Record<string, unknown>[],
     steps: [] as Record<string, unknown>[],
     fromCalls: [] as string[],
@@ -39,6 +47,22 @@ vi.mock("./admin-client", () => {
     if (table === "custom_fields") {
       // account-scoped ownership lookup for a custom field definition
       return { data: state.ownedCustomField, error: null };
+    }
+    if (table === "lead_field_options") {
+      return { data: state.leadFieldOptions, error: null };
+    }
+    if (table === "profiles") {
+      return { data: state.roster, error: null };
+    }
+    if (table === "follow_ups") {
+      if (type === "insert") {
+        if (state.followUpInsertError) {
+          return { data: null, error: state.followUpInsertError };
+        }
+        state.followUpInserts.push(ops.payload);
+        return { data: null, error: null };
+      }
+      return { data: null, error: null };
     }
     if (table === "contact_custom_values") {
       if (type === "upsert") {
@@ -106,6 +130,10 @@ const ACCOUNT = "acct-1";
 beforeEach(() => {
   h.state.owned = null;
   h.state.ownedCustomField = null;
+  h.state.leadFieldOptions = [];
+  h.state.roster = [];
+  h.state.followUpInsertError = null;
+  h.state.followUpInserts = [];
   h.state.automations = [];
   h.state.steps = [];
   h.state.fromCalls = [];
@@ -269,7 +297,7 @@ describe("set_lead_status", () => {
     ).toBeNull();
   });
 
-  it("rejects an unknown status without writing", async () => {
+  it("rejects a status outside the default list without writing", async () => {
     h.state.owned = { id: "c1" };
     h.state.automations = [automationWithUpdateStep()];
     h.state.steps = [leadStatusStep("won")];
@@ -284,7 +312,205 @@ describe("set_lead_status", () => {
     // The step throws (logged as failed) — no contacts write happens.
     expect(h.state.updateCalls).toHaveLength(0);
   });
+
+  it("allows a custom status when the account's list defines it", async () => {
+    h.state.owned = { id: "c1" };
+    // Account replaced the defaults with its own list (migration 042).
+    h.state.leadFieldOptions = [{ key: "contacted" }, { key: "won" }];
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [leadStatusStep("won")];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect(h.state.updateCalls).toHaveLength(1);
+    expect(
+      (h.state.updateCalls[0].payload as { lead_status: string }).lead_status,
+    ).toBe("won");
+  });
+
+  it("rejects a default status the account's saved list has removed", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.leadFieldOptions = [{ key: "contacted" }];
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [leadStatusStep("interested")];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect(h.state.updateCalls).toHaveLength(0);
+  });
 });
+
+describe("assign_lead", () => {
+  it("writes a specific teammate to contacts.assigned_to, account-scoped", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [step("assign_lead", { mode: "specific", agent_id: "agent-9" })];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect(h.state.updateCalls).toHaveLength(1);
+    const call = h.state.updateCalls[0];
+    expect(call.filters).toContainEqual(["eq", "id", "c1"]);
+    expect(call.filters).toContainEqual(["eq", "account_id", ACCOUNT]);
+    expect((call.payload as { assigned_to: string }).assigned_to).toBe("agent-9");
+  });
+
+  it("round-robin picks a roster member deterministically", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.roster = [{ user_id: "u-a" }, { user_id: "u-b" }];
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [step("assign_lead", { mode: "round_robin" })];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect(h.state.updateCalls).toHaveLength(1);
+    const picked = (h.state.updateCalls[0].payload as { assigned_to: string })
+      .assigned_to;
+    expect(["u-a", "u-b"]).toContain(picked);
+
+    // Same contact → same pick on a second run (stateless determinism).
+    h.state.updateCalls = [];
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+    expect(
+      (h.state.updateCalls[0].payload as { assigned_to: string }).assigned_to,
+    ).toBe(picked);
+  });
+
+  it("skips when only_if_unassigned and the lead already has an owner", async () => {
+    // The contacts read returns assigned_to for the pre-check.
+    h.state.owned = { id: "c1", assigned_to: "u-existing" } as never;
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [
+      step("assign_lead", {
+        mode: "specific",
+        agent_id: "agent-9",
+        only_if_unassigned: true,
+      }),
+    ];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect(h.state.updateCalls).toHaveLength(0);
+  });
+});
+
+describe("create_follow_up", () => {
+  it("inserts an open task owned by the automation author by default", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [
+      step("create_follow_up", {
+        task_type: "call",
+        due_in_days: 2,
+        assign_mode: "lead_owner",
+      }),
+    ];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect(h.state.followUpInserts).toHaveLength(1);
+    const row = h.state.followUpInserts[0] as Record<string, unknown>;
+    expect(row.account_id).toBe(ACCOUNT);
+    expect(row.contact_id).toBe("c1");
+    expect(row.task_type).toBe("call");
+    // Lead has no owner in this mock → falls back to the automation author.
+    expect(row.assigned_to).toBe("u1");
+    expect(row.created_by).toBe("u1");
+    expect(String(row.due_date)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("prefers the lead's owner when assigned", async () => {
+    h.state.owned = { id: "c1", assigned_to: "u-owner" } as never;
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [
+      step("create_follow_up", {
+        task_type: "todo",
+        due_in_days: 0,
+        assign_mode: "lead_owner",
+      }),
+    ];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect(
+      (h.state.followUpInserts[0] as Record<string, unknown>).assigned_to,
+    ).toBe("u-owner");
+  });
+
+  it("treats the one-open-task-per-contact conflict as a skip, not a failure", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.followUpInsertError = { code: "23505", message: "duplicate" };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [
+      step("create_follow_up", {
+        task_type: "call",
+        due_in_days: 1,
+        assign_mode: "lead_owner",
+      }),
+    ];
+
+    // Must not throw — the run should complete normally.
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect(h.state.followUpInserts).toHaveLength(0);
+  });
+});
+
+function step(step_type: string, step_config: Record<string, unknown>) {
+  return {
+    id: "s1",
+    automation_id: "a1",
+    step_type,
+    position: 0,
+    parent_step_id: null,
+    step_config,
+  };
+}
 
 function automationWithUpdateStep() {
   return {

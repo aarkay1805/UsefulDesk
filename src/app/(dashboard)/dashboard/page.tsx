@@ -12,6 +12,7 @@ import {
 import {
   loadActivity,
   loadConversationsSeries,
+  loadLeadFunnel,
   loadMetrics,
   loadLeadsDonut,
   loadResponseTime,
@@ -19,6 +20,7 @@ import {
 import type {
   ActivityItem,
   ConversationsSeriesPoint,
+  LeadFunnelData,
   MetricsBundle,
   LeadsDonutData,
   ResponseTimeSummary,
@@ -30,6 +32,8 @@ import { SkeletonCard } from '@/components/dashboard/skeleton'
 import { QuickActions } from '@/components/dashboard/quick-actions'
 import { ConversationsChart } from '@/components/dashboard/conversations-chart'
 import { LeadsDonut } from '@/components/dashboard/leads-donut'
+import { LeadFunnel } from '@/components/dashboard/lead-funnel'
+import { LeadActionLists } from '@/components/dashboard/lead-action-lists'
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
 import { ActivityFeed } from '@/components/dashboard/activity-feed'
 
@@ -52,6 +56,9 @@ export default function DashboardPage() {
 
   const [leadsDonut, setLeadsDonut] = useState<LeadsDonutData | null>(null)
   const [leadsDonutLoading, setLeadsDonutLoading] = useState(true)
+
+  const [leadFunnel, setLeadFunnel] = useState<LeadFunnelData | null>(null)
+  const [leadFunnelLoading, setLeadFunnelLoading] = useState(true)
 
   const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(null)
   const [responseTimeLoading, setResponseTimeLoading] = useState(true)
@@ -79,6 +86,11 @@ export default function DashboardPage() {
       .then((p) => setLeadsDonut(p))
       .catch((err) => console.error('[dashboard] leads donut failed:', err))
       .finally(() => setLeadsDonutLoading(false))
+
+    void loadLeadFunnel(db)
+      .then((f) => setLeadFunnel(f))
+      .catch((err) => console.error('[dashboard] lead funnel failed:', err))
+      .finally(() => setLeadFunnelLoading(false))
 
     void loadResponseTime(db)
       .then((r) => setResponseTime(r))
@@ -183,6 +195,9 @@ export default function DashboardPage() {
       {/* Quick actions */}
       <QuickActions />
 
+      {/* Today's lead work queues — action lists over dashboards. */}
+      <LeadActionLists />
+
       {/* Charts row */}
       {/* items-stretch (the grid default) stretches the two columns to
           match the tallest sibling; adding h-full on each wrapper and
@@ -203,6 +218,9 @@ export default function DashboardPage() {
           <LeadsDonut data={leadsDonut} loading={leadsDonutLoading} />
         </div>
       </div>
+
+      {/* Lead funnel + conversion */}
+      <LeadFunnel data={leadFunnel} loading={leadFunnelLoading} />
 
       {/* Response time */}
       <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />

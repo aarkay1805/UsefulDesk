@@ -11,10 +11,14 @@ import type {
   TagStepConfig,
   UpdateContactFieldStepConfig,
   SetLeadStatusStepConfig,
+  AssignLeadStepConfig,
+  CreateFollowUpStepConfig,
   WaitStepConfig,
   CreateDealStepConfig,
   AssignConversationStepConfig,
 } from '@/types'
+import { istAddDays, istToday } from '@/lib/memberships/expiry'
+import { DEFAULT_FIELD_OPTIONS } from '@/lib/leads/field-options'
 import { supabaseAdmin } from './admin-client'
 import { engineSendText, engineSendTemplate } from './meta-send'
 
@@ -500,18 +504,33 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
     case 'set_lead_status': {
       const cfg = step.step_config as SetLeadStatusStepConfig
       if (!args.contactId) throw new Error('set_lead_status needs a contact')
-      // 'new' clears the stored value (NULL = the "New" board column);
-      // anything else must satisfy the contacts_lead_status_check
-      // constraint (migration 040) — reject unknowns here for a clear
-      // log message instead of a raw constraint violation.
-      const allowed = new Set([
-        'contacted',
-        'interested',
-        'trial_booked',
-        'lost',
-      ])
-      if (cfg.status !== 'new' && !allowed.has(cfg.status)) {
-        throw new Error(`set_lead_status got unknown status: ${cfg.status}`)
+      if (typeof cfg.status !== 'string' || !cfg.status.trim()) {
+        throw new Error('set_lead_status needs a status')
+      }
+      // 'new' clears the stored value (NULL = the "New" board column).
+      // Anything else must be in the account's status list — statuses
+      // are per-account since migration 042 (the DB CHECK is gone), so
+      // validate here for a clear log message instead of silently
+      // writing an orphan key when e.g. the status was deleted after
+      // this automation was built. Accounts with no saved rows use the
+      // built-in defaults, mirroring resolveFieldOptions.
+      if (cfg.status !== 'new') {
+        const { data: statusRows } = await db
+          .from('lead_field_options')
+          .select('key')
+          .eq('account_id', args.automation.account_id)
+          .eq('field', 'status')
+        const rows = (statusRows ?? []) as { key: string }[]
+        const allowed = new Set(
+          rows.length > 0
+            ? rows.map((r) => r.key)
+            : DEFAULT_FIELD_OPTIONS.status.map((o) => o.key),
+        )
+        if (!allowed.has(cfg.status)) {
+          throw new Error(
+            `set_lead_status: "${cfg.status}" is not in this account's status list`,
+          )
+        }
       }
       // Defense in depth: scope the service-role write to the account,
       // same as update_contact_field above.
@@ -524,6 +543,93 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         .eq('id', args.contactId)
         .eq('account_id', args.automation.account_id)
       return `lead status set to ${cfg.status}`
+    }
+
+    case 'assign_lead': {
+      const cfg = step.step_config as AssignLeadStepConfig
+      if (!args.contactId) throw new Error('assign_lead needs a contact')
+
+      if (cfg.only_if_unassigned) {
+        const { data: row } = await db
+          .from('contacts')
+          .select('assigned_to')
+          .eq('id', args.contactId)
+          .eq('account_id', args.automation.account_id)
+          .maybeSingle()
+        if (row?.assigned_to) return 'lead already has an owner — skipped'
+      }
+
+      let agentId = cfg.agent_id
+      if (cfg.mode === 'round_robin') {
+        // Deterministic spread without shared state: hash the contact id
+        // across the account's roster (sorted, so the mapping is stable).
+        // Every contact always lands on the same teammate; the roster as
+        // a whole splits evenly. A true least-loaded picker can replace
+        // this without changing the step's contract.
+        const { data: profiles } = await db
+          .from('profiles')
+          .select('user_id')
+          .eq('account_id', args.automation.account_id)
+          .order('user_id')
+        const roster = (profiles ?? []) as { user_id: string }[]
+        if (roster.length === 0) return 'no agent resolved'
+        let hash = 0
+        for (const ch of args.contactId) hash = (hash * 31 + ch.charCodeAt(0)) | 0
+        agentId = roster[Math.abs(hash) % roster.length].user_id
+      }
+      if (!agentId) return 'no agent resolved'
+
+      await db
+        .from('contacts')
+        .update({ assigned_to: agentId, updated_at: new Date().toISOString() })
+        .eq('id', args.contactId)
+        .eq('account_id', args.automation.account_id)
+      return `lead assigned to ${agentId}`
+    }
+
+    case 'create_follow_up': {
+      const cfg = step.step_config as CreateFollowUpStepConfig
+      if (!args.contactId) throw new Error('create_follow_up needs a contact')
+
+      // Resolve the task owner. 'lead_owner' follows contacts.assigned_to
+      // and falls back to the automation's author so the task never lands
+      // ownerless (PRD: every next action has an owner).
+      let assignedTo: string = args.automation.user_id
+      if (cfg.assign_mode === 'specific' && cfg.agent_id) {
+        assignedTo = cfg.agent_id
+      } else if (cfg.assign_mode === 'lead_owner') {
+        const { data: row } = await db
+          .from('contacts')
+          .select('assigned_to')
+          .eq('id', args.contactId)
+          .eq('account_id', args.automation.account_id)
+          .maybeSingle()
+        if (row?.assigned_to) assignedTo = row.assigned_to as string
+      }
+
+      const dueInDays = Number.isFinite(cfg.due_in_days) ? Math.max(0, cfg.due_in_days) : 0
+      const dueDate = istAddDays(istToday(), dueInDays)
+
+      const { error } = await db.from('follow_ups').insert({
+        account_id: args.automation.account_id,
+        contact_id: args.contactId,
+        assigned_to: assignedTo,
+        created_by: args.automation.user_id,
+        reason: 'other',
+        task_type: cfg.task_type,
+        due_date: dueDate,
+        note: cfg.note ? interpolate(cfg.note, args) : null,
+      })
+      if (error) {
+        // The partial unique index allows ONE open task per contact —
+        // an existing open chase is the accountability model working,
+        // not a failure. Anything else is a real error.
+        if ((error as { code?: string }).code === '23505') {
+          return 'an open follow-up already exists — skipped'
+        }
+        throw new Error(`create_follow_up failed: ${error.message}`)
+      }
+      return `follow-up (${cfg.task_type}) due ${dueDate} for ${assignedTo}`
     }
 
     case 'create_deal': {

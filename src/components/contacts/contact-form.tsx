@@ -214,6 +214,10 @@ export function ContactForm({
             lead_status: leadStatus || null,
             source: source || null,
             gender: gender || null,
+            // PRD rule: every new lead gets an owner immediately. The
+            // creator is the default; reassign later via the table's
+            // Assigned-to cell or an assign_lead automation.
+            assigned_to: user.id,
           })
           .select('id')
           .single();

@@ -64,6 +64,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import {
   Phone,
   Mail,
@@ -142,7 +143,7 @@ export function ContactDetailView({
   const supabase = createClient();
   const router = useRouter();
   const { accountId, accountRole, user, profile } = useAuth();
-  const { staff, nameById } = useAccountStaff();
+  const { staff, nameById, avatarById } = useAccountStaff();
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(false);
@@ -929,6 +930,7 @@ export function ContactDetailView({
                     <div className="grid grid-cols-[auto_1fr] gap-2.5 pb-4">
                       <StaffAvatar
                         name={profile?.full_name || 'Me'}
+                        src={profile?.avatar_url}
                       />
                       <div className="space-y-2 min-w-0">
                       <NoteComposerCard
@@ -991,6 +993,9 @@ export function ContactDetailView({
                             followUp={noteFollowUps[note.id]}
                             authorName={
                               nameById.get(note.user_id) ?? 'Teammate'
+                            }
+                            authorAvatarUrl={
+                              avatarById.get(note.user_id) ?? null
                             }
                             currentUserId={user?.id ?? ''}
                             nameById={nameById}
@@ -1198,9 +1203,9 @@ function InlineField({
   );
 }
 
-// Circle initial for the note author (and the composer's current
-// user); hover reveals the full name.
-function StaffAvatar({ name }: { name: string }) {
+// Note author's avatar (and the composer's current user) — photo when
+// uploaded, initial fallback otherwise; hover reveals the full name.
+function StaffAvatar({ name, src }: { name: string; src?: string | null }) {
   return (
     <Tooltip>
       <TooltipTrigger
@@ -1211,11 +1216,11 @@ function StaffAvatar({ name }: { name: string }) {
           />
         }
       >
-        <Avatar className="size-9 border border-border/50">
-          <AvatarFallback className="bg-muted text-sm font-medium text-muted-foreground">
-            {(name.trim().charAt(0) || '?').toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar
+          className="size-9 border border-border/50"
+          name={name}
+          src={src}
+        />
       </TooltipTrigger>
       <TooltipContent>{name}</TooltipContent>
     </Tooltip>
@@ -1439,6 +1444,7 @@ function NoteCard({
   note,
   followUp,
   authorName,
+  authorAvatarUrl,
   currentUserId,
   canDeleteAny,
   nameById,
@@ -1450,6 +1456,7 @@ function NoteCard({
   note: ContactNote;
   followUp?: NoteFollowUp;
   authorName: string;
+  authorAvatarUrl: string | null;
   currentUserId: string;
   /** Admin/owner moderation: may delete notes authored by others. */
   canDeleteAny: boolean;
@@ -1561,7 +1568,7 @@ function NoteCard({
     // differs (Save / Cancel instead of Create note).
     return (
       <div className="grid grid-cols-[auto_1fr] gap-2.5">
-        <StaffAvatar name={authorName} />
+        <StaffAvatar name={authorName} src={authorAvatarUrl} />
         <div className="min-w-0 space-y-2">
           <NoteComposerCard
             text={draftText}
@@ -1599,7 +1606,7 @@ function NoteCard({
 
   return (
     <div className="grid grid-cols-[auto_1fr] gap-2.5">
-      <StaffAvatar name={authorName} />
+      <StaffAvatar name={authorName} src={authorAvatarUrl} />
       <div className="group min-w-0 rounded-lg border border-border/50 bg-card">
         <div
           className="cursor-pointer p-3"

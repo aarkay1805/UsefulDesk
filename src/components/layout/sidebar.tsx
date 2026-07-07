@@ -62,7 +62,7 @@ const ROLE_CHIP: Record<
     className: 'bg-muted text-muted-foreground',
   },
 };
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -325,19 +325,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           <div className="flex items-center gap-1">
             <DropdownMenu>
               <DropdownMenuTrigger className="hover:bg-muted/60 focus:bg-muted/60 data-popup-open:bg-muted/60 flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors focus:outline-none">
-                <Avatar className="size-8 shrink-0">
-                  {profile?.avatar_url ? (
-                    <AvatarImage
-                      src={profile.avatar_url}
-                      alt={profile.full_name ?? 'Avatar'}
-                    />
-                  ) : null}
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                    {profile?.full_name?.charAt(0)?.toUpperCase() ??
-                      profile?.email?.charAt(0)?.toUpperCase() ??
-                      'U'}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar
+                  className="size-8 shrink-0"
+                  name={profile?.full_name || profile?.email || 'U'}
+                  src={profile?.avatar_url}
+                />
                 <div className="min-w-0 flex-1">
                   <p className="text-foreground truncate text-sm font-medium">
                     {profile?.full_name ?? 'User'}

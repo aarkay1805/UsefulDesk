@@ -94,6 +94,50 @@ function validateOne(step: StepLike, path: string, issues: ValidationIssue[]): v
         issues.push({ path: `${path}.status`, message: 'a lead status is required' })
       }
       break
+    case 'assign_lead':
+      if (c.mode !== 'specific' && c.mode !== 'round_robin') {
+        issues.push({
+          path: `${path}.mode`,
+          message: 'mode must be "specific" or "round_robin"',
+        })
+      }
+      if (c.mode === 'specific' && !nonEmpty(c.agent_id)) {
+        issues.push({
+          path: `${path}.agent_id`,
+          message: 'agent is required when mode is "specific"',
+        })
+      }
+      break
+    case 'create_follow_up':
+      if (!['call', 'email', 'todo'].includes(String(c.task_type))) {
+        issues.push({
+          path: `${path}.task_type`,
+          message: 'task type must be call, email, or todo',
+        })
+      }
+      if (
+        typeof c.due_in_days !== 'number' ||
+        !Number.isFinite(c.due_in_days) ||
+        c.due_in_days < 0
+      ) {
+        issues.push({
+          path: `${path}.due_in_days`,
+          message: 'due in days must be 0 or more',
+        })
+      }
+      if (c.assign_mode !== 'lead_owner' && c.assign_mode !== 'specific') {
+        issues.push({
+          path: `${path}.assign_mode`,
+          message: 'assign mode must be "lead_owner" or "specific"',
+        })
+      }
+      if (c.assign_mode === 'specific' && !nonEmpty(c.agent_id)) {
+        issues.push({
+          path: `${path}.agent_id`,
+          message: 'agent is required when assign mode is "specific"',
+        })
+      }
+      break
     case 'create_deal':
       if (!nonEmpty(c.pipeline_id)) {
         issues.push({ path: `${path}.pipeline_id`, message: 'pipeline is required' })

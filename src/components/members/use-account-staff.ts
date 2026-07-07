@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 export interface StaffMember {
   user_id: string;
   full_name: string;
+  avatar_url: string | null;
 }
 
 /**
@@ -26,7 +27,7 @@ export function useAccountStaff() {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("user_id, full_name")
+        .select("user_id, full_name, avatar_url")
         .eq("account_id", accountId)
         .order("full_name", { ascending: true });
       if (cancelled) return;
@@ -34,6 +35,7 @@ export function useAccountStaff() {
         ((data as StaffMember[]) ?? []).map((s) => ({
           user_id: s.user_id,
           full_name: s.full_name || "Teammate",
+          avatar_url: s.avatar_url ?? null,
         })),
       );
       setLoading(false);
@@ -49,5 +51,11 @@ export function useAccountStaff() {
     [staff],
   );
 
-  return { staff, nameById, loading };
+  /** user_id → avatar photo URL (null = no upload), for UserAvatar. */
+  const avatarById = useMemo(
+    () => new Map(staff.map((s) => [s.user_id, s.avatar_url])),
+    [staff],
+  );
+
+  return { staff, nameById, avatarById, loading };
 }
