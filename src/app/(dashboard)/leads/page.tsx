@@ -432,8 +432,12 @@ function HeaderCell({
       {sortable && (
         <div
           className={cn(
-            'flex items-center transition-opacity',
-            sortDir ? 'opacity-100' : 'opacity-0 group-hover/th:opacity-100'
+            'flex items-center overflow-hidden transition-all',
+            // Active sort stays laid out + lit. Inactive collapses to zero
+            // width at rest so the label reclaims the space; hover expands it.
+            sortDir
+              ? 'max-w-16 opacity-100'
+              : 'max-w-0 opacity-0 group-hover/th:max-w-16 group-hover/th:opacity-100'
           )}
         >
           <button
@@ -468,7 +472,7 @@ function HeaderCell({
             <button
               type="button"
               aria-label={`${col.label} column options`}
-              className="text-muted-foreground hover:bg-muted data-[popup-open]:bg-muted flex size-5 items-center justify-center rounded opacity-0 transition-opacity group-hover/th:opacity-100 data-[popup-open]:opacity-100"
+              className="text-muted-foreground hover:bg-muted data-[popup-open]:bg-muted flex size-5 max-w-0 items-center justify-center overflow-hidden rounded opacity-0 transition-all group-hover/th:max-w-5 group-hover/th:opacity-100 data-[popup-open]:max-w-5 data-[popup-open]:opacity-100"
             />
           }
         >

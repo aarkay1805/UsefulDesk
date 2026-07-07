@@ -561,11 +561,13 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
 
       let agentId = cfg.agent_id
       if (cfg.mode === 'round_robin') {
-        // Deterministic spread without shared state: hash the contact id
-        // across the account's roster (sorted, so the mapping is stable).
-        // Every contact always lands on the same teammate; the roster as
-        // a whole splits evenly. A true least-loaded picker can replace
-        // this without changing the step's contract.
+        // Least-loaded pick: whoever currently owns the fewest leads
+        // (contacts without a membership) gets the next one. This is
+        // what owners expect "round robin" to mean — a visibly even
+        // spread — and unlike a hash spread it can't clump a small
+        // batch onto one teammate. Ties break by user_id (sorted), so
+        // the pick is deterministic. Roster sizes are tiny (gym staff),
+        // so one head-count per teammate is cheap.
         const { data: profiles } = await db
           .from('profiles')
           .select('user_id')
@@ -573,9 +575,21 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
           .order('user_id')
         const roster = (profiles ?? []) as { user_id: string }[]
         if (roster.length === 0) return 'no agent resolved'
-        let hash = 0
-        for (const ch of args.contactId) hash = (hash * 31 + ch.charCodeAt(0)) | 0
-        agentId = roster[Math.abs(hash) % roster.length].user_id
+        const loads = await Promise.all(
+          roster.map((r) =>
+            db
+              .from('contacts')
+              .select('id, memberships!left(id)', { count: 'exact', head: true })
+              .eq('account_id', args.automation.account_id)
+              .eq('assigned_to', r.user_id)
+              .is('memberships', null),
+          ),
+        )
+        let best = 0
+        for (let i = 1; i < roster.length; i++) {
+          if ((loads[i].count ?? 0) < (loads[best].count ?? 0)) best = i
+        }
+        agentId = roster[best].user_id
       }
       if (!agentId) return 'no agent resolved'
 

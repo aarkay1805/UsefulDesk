@@ -11,6 +11,8 @@ const h = vi.hoisted(() => ({
     leadFieldOptions: [] as { key: string }[],
     // Account staff roster (profiles reads — assign_lead round-robin).
     roster: [] as { user_id: string }[],
+    // Per-teammate lead-load counts (assign_lead least-loaded pick).
+    assignedCounts: {} as Record<string, number>,
     // When set, follow_ups inserts fail with this error (23505 tests).
     followUpInsertError: null as { code: string; message: string } | null,
     followUpInserts: [] as unknown[],
@@ -32,6 +34,7 @@ vi.mock("./admin-client", () => {
   function resolve(ops: {
     table: string;
     type: string;
+    head?: boolean;
     payload?: unknown;
     filters: [string, string, unknown][];
   }) {
@@ -40,6 +43,14 @@ vi.mock("./admin-client", () => {
       if (type === "update") {
         state.updateCalls.push({ table, filters: ops.filters, payload: ops.payload });
         return { data: null, error: null };
+      }
+      // Head-count of one teammate's leads (assign_lead least-loaded).
+      if (ops.head) {
+        const byAgent = ops.filters.find(
+          ([op, col]) => op === "eq" && col === "assigned_to",
+        );
+        const uid = byAgent ? String(byAgent[2]) : "";
+        return { data: null, count: state.assignedCounts[uid] ?? 0, error: null };
       }
       // ownership guard / condition read
       return { data: state.owned, error: null };
@@ -85,11 +96,14 @@ vi.mock("./admin-client", () => {
     const ops = {
       table,
       type: "select",
+      head: false,
       payload: undefined as unknown,
       filters: [] as [string, string, unknown][],
     };
     const b: Record<string, unknown> = {
-      select: () => b,
+      select: (_cols?: unknown, opts?: { head?: boolean }) => (
+        (ops.head = !!opts?.head), b
+      ),
       insert: (p: unknown) => ((ops.type = "insert"), (ops.payload = p), b),
       update: (p: unknown) => ((ops.type = "update"), (ops.payload = p), b),
       delete: () => ((ops.type = "delete"), b),
@@ -132,6 +146,7 @@ beforeEach(() => {
   h.state.ownedCustomField = null;
   h.state.leadFieldOptions = [];
   h.state.roster = [];
+  h.state.assignedCounts = {};
   h.state.followUpInsertError = null;
   h.state.followUpInserts = [];
   h.state.automations = [];
@@ -370,9 +385,11 @@ describe("assign_lead", () => {
     expect((call.payload as { assigned_to: string }).assigned_to).toBe("agent-9");
   });
 
-  it("round-robin picks a roster member deterministically", async () => {
+  it("round-robin assigns the least-loaded teammate", async () => {
     h.state.owned = { id: "c1" };
     h.state.roster = [{ user_id: "u-a" }, { user_id: "u-b" }];
+    // u-a already owns 3 leads; u-b owns 1 → u-b gets the next one.
+    h.state.assignedCounts = { "u-a": 3, "u-b": 1 };
     h.state.automations = [automationWithUpdateStep()];
     h.state.steps = [step("assign_lead", { mode: "round_robin" })];
 
@@ -384,21 +401,28 @@ describe("assign_lead", () => {
     });
 
     expect(h.state.updateCalls).toHaveLength(1);
-    const picked = (h.state.updateCalls[0].payload as { assigned_to: string })
-      .assigned_to;
-    expect(["u-a", "u-b"]).toContain(picked);
+    expect(
+      (h.state.updateCalls[0].payload as { assigned_to: string }).assigned_to,
+    ).toBe("u-b");
+  });
 
-    // Same contact → same pick on a second run (stateless determinism).
-    h.state.updateCalls = [];
+  it("round-robin breaks ties deterministically (first by sorted user_id)", async () => {
+    h.state.owned = { id: "c1" };
+    h.state.roster = [{ user_id: "u-a" }, { user_id: "u-b" }];
+    h.state.assignedCounts = { "u-a": 2, "u-b": 2 };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [step("assign_lead", { mode: "round_robin" })];
+
     await runAutomationsForTrigger({
       accountId: ACCOUNT,
       triggerType: "new_message_received",
       contactId: "c1",
       context: {},
     });
+
     expect(
       (h.state.updateCalls[0].payload as { assigned_to: string }).assigned_to,
-    ).toBe(picked);
+    ).toBe("u-a");
   });
 
   it("skips when only_if_unassigned and the lead already has an owner", async () => {
