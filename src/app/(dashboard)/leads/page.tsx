@@ -27,7 +27,7 @@ import {
 } from '@/lib/leads/status';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
 import { sourceLabel, genderLabel } from '@/lib/leads/attributes';
-import { formatCurrency } from '@/lib/currency';
+import { formatCustomFieldValue } from '@/lib/contacts/custom-fields';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -316,28 +316,6 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
   },
 ];
 
-// Display a stored custom value according to its field's data type.
-// Values are stored as free text, so every branch falls back to the raw
-// string when it can't be parsed (e.g. legacy/imported junk).
-function formatCustomValue(value: string, type?: string): string {
-  switch (type) {
-    case 'currency': {
-      const n = Number(value);
-      return Number.isFinite(n) ? formatCurrency(n) : value;
-    }
-    case 'number': {
-      const n = Number(value);
-      return Number.isFinite(n) ? new Intl.NumberFormat().format(n) : value;
-    }
-    case 'date': {
-      const d = new Date(value);
-      return Number.isNaN(d.getTime()) ? value : formatDate(value);
-    }
-    default:
-      return value; // text, email, phone, url
-  }
-}
-
 // Map a custom field's data type to the inline editor's input kind.
 function customEditKind(type?: string): 'text' | 'email' | 'number' | 'date' {
   switch (type) {
@@ -365,7 +343,7 @@ function customColumn(field: CustomField): ColumnDef {
       const raw = c.customValues?.[field.id];
       return (
         <span className="text-muted-foreground text-sm">
-          {raw ? formatCustomValue(raw, field.field_type) : '-'}
+          {raw ? formatCustomFieldValue(raw, field.field_type) : '-'}
         </span>
       );
     },

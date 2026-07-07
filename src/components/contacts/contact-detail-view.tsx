@@ -8,6 +8,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactNote, CustomField, MessageTemplate } from '@/types';
 import {
+  customFieldInputType,
+  formatCustomFieldValue,
+} from '@/lib/contacts/custom-fields';
+import {
   TemplatePicker,
   type TemplateSendValues,
 } from '@/components/inbox/template-picker';
@@ -522,6 +526,7 @@ export function ContactDetailView({
                       />
                       <InlineField
                         label="Email"
+                        type="email"
                         value={contact.email}
                         placeholder="Add email"
                         onSave={(v) => saveField('email', v)}
@@ -536,6 +541,7 @@ export function ContactDetailView({
                         <InlineField
                           key={field.id}
                           label={field.field_name}
+                          type={field.field_type}
                           value={customValues[field.id]}
                           placeholder={`Add ${field.field_name}`}
                           onSave={(v) => saveCustomField(field.id, v)}
@@ -737,12 +743,15 @@ function InlineField({
   value,
   placeholder,
   required,
+  type,
   onSave,
 }: {
   label: string;
   value?: string | null;
   placeholder?: string;
   required?: boolean;
+  /** Custom field data type (see CUSTOM_FIELD_TYPES); drives input + display. */
+  type?: string;
   onSave: (val: string) => Promise<boolean>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -772,6 +781,7 @@ function InlineField({
         <div className="flex items-center gap-1">
           <Input
             autoFocus
+            type={customFieldInputType(type)}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -813,7 +823,8 @@ function InlineField({
     );
   }
 
-  const shown = value && value.trim() ? value : '—';
+  const shown =
+    value && value.trim() ? formatCustomFieldValue(value, type) : '—';
   return (
     <button
       type="button"

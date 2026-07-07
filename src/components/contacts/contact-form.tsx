@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import type { Contact, LeadStatus, Tag, ContactTag, CustomField } from '@/types';
 import { LEAD_COLUMNS } from '@/lib/leads/status';
 import { SOURCE_OPTIONS, GENDER_OPTIONS } from '@/lib/leads/attributes';
+import { customFieldInputType } from '@/lib/contacts/custom-fields';
 import {
   findExistingContact,
   isExactMatch,
@@ -496,6 +497,7 @@ export function ContactForm({
                     </Label>
                     <Input
                       id={`cf-custom-${field.id}`}
+                      type={customFieldInputType(field.field_type)}
                       value={customValues[field.id] ?? ''}
                       onChange={(e) =>
                         setCustomValues((prev) => ({
