@@ -27,9 +27,10 @@ const badgeVariants = cva(
         warning: "bg-amber-500/10 text-amber-400",
         info: "bg-sky-500/10 text-sky-400",
         violet: "bg-violet-500/10 text-violet-400",
-        // Neutral gray pill (admin-made tags, counts): plain fill, full-
-        // strength text — a non-colour-coded sibling of `secondary`.
-        neutral: "bg-muted text-foreground",
+        // Neutral slate pill (admin-made tags, counts): the fill-only
+        // tint recipe in slate — matches a #64748b colour-prop status
+        // badge, so slate reads as "neutral" across statuses and tags.
+        neutral: "bg-slate-500/10 text-slate-500",
       },
     },
     defaultVariants: {
