@@ -17,6 +17,7 @@ import {
   REASON_LABEL,
 } from "@/lib/memberships/follow-ups";
 import type { FollowUp } from "@/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CompleteFollowUpDialog } from "./follow-up-dialog";
 import { useAccountStaff } from "./use-account-staff";
@@ -181,16 +182,13 @@ function TaskList({
                       </p>
                     )}
                   </div>
-                  <span
-                    className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                      f.assigned_to
-                        ? "bg-muted text-muted-foreground"
-                        : "bg-red-500/10 text-red-400"
-                    }`}
+                  <Badge
+                    variant={f.assigned_to ? "neutral" : "danger"}
+                    className="shrink-0"
                   >
                     <UserRound className="size-3" />
                     {owner}
-                  </span>
+                  </Badge>
                 </div>
                 <div
                   className="mt-2 flex justify-end"

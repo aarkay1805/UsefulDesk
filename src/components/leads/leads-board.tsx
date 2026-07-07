@@ -23,6 +23,7 @@ import {
   type LeadColumnKey,
 } from "@/lib/leads/status";
 import { Building2, Phone } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface LeadsBoardProps {
   leads: Contact[];
@@ -194,9 +195,9 @@ function StatusColumn({
         <h3 className="truncate text-sm font-semibold text-foreground">
           {column.label}
         </h3>
-        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+        <Badge variant="neutral" className="shrink-0">
           {leads.length}
-        </span>
+        </Badge>
       </div>
 
       <div

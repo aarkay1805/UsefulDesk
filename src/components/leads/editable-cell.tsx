@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 // Read and edit states share ONE box model so switching between them
@@ -47,14 +48,7 @@ export interface CellOption {
 }
 
 function StatusPill({ label, color }: { label: string; color: string }) {
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-sm font-semibold"
-      style={{ backgroundColor: color + "20", color }}
-    >
-      {label}
-    </span>
-  );
+  return <Badge color={color}>{label}</Badge>;
 }
 
 interface EditableCellProps {

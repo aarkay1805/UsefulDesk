@@ -22,6 +22,7 @@ import {
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
 import { sourceLabel, genderLabel } from '@/lib/leads/attributes';
 import { formatCurrency } from '@/lib/currency';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -188,13 +189,9 @@ function renderTags(c: ContactWithData) {
   return (
     <div className="flex flex-wrap gap-1">
       {c.tags.slice(0, 3).map((tag) => (
-        <span
-          key={tag.id}
-          className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
-          style={{ backgroundColor: tag.color + '20', color: tag.color }}
-        >
+        <Badge key={tag.id} color={tag.color}>
           {tag.name}
-        </span>
+        </Badge>
       ))}
       {c.tags.length > 3 && (
         <span className="text-[10px] text-muted-foreground">
@@ -207,14 +204,7 @@ function renderTags(c: ContactWithData) {
 
 function renderLeadStatus(c: ContactWithData) {
   const col = LEAD_COLUMN_BY_KEY[leadColumnKey(c.lead_status)];
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-sm font-semibold"
-      style={{ backgroundColor: col.color + '20', color: col.color }}
-    >
-      {col.label}
-    </span>
-  );
+  return <Badge color={col.color}>{col.label}</Badge>;
 }
 
 const BUILTIN_COLUMNS: ColumnDef[] = [

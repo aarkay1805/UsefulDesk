@@ -19,6 +19,14 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // Tinted status pills — the canonical look for statuses/tags
+        // across the app (members renewals, leads, broadcasts, flows).
+        success: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+        danger: "border-red-500/40 bg-red-500/10 text-red-400",
+        warning: "border-amber-500/40 bg-amber-500/10 text-amber-400",
+        info: "border-sky-500/40 bg-sky-500/10 text-sky-400",
+        violet: "border-violet-500/40 bg-violet-500/10 text-violet-400",
+        neutral: "border-border bg-muted text-muted-foreground",
       },
     },
     defaultVariants: {
@@ -30,14 +38,33 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant = "default",
+  color,
+  style,
   render,
   ...props
-}: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
+}: useRender.ComponentProps<"span"> &
+  VariantProps<typeof badgeVariants> & {
+    /**
+     * Dynamic tint from a hex colour (e.g. a user-defined tag or lead
+     * status colour stored in the DB). Applies the same recipe as the
+     * tinted variants: 10% background, 40% border, full-strength text.
+     * Overrides the variant's colours via inline style.
+     */
+    color?: string;
+  }) {
   return useRender({
     defaultTagName: "span",
     props: mergeProps<"span">(
       {
         className: cn(badgeVariants({ variant }), className),
+        style: color
+          ? {
+              backgroundColor: `${color}1a`,
+              borderColor: `${color}66`,
+              color,
+              ...style,
+            }
+          : style,
       },
       props
     ),

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Broadcast, BroadcastRecipient, RecipientStatus } from '@/types';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -287,11 +288,7 @@ export default function BroadcastDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-foreground">{broadcast.name}</h1>
-              <span
-                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${status.classes}`}
-              >
-                {status.label}
-              </span>
+              <Badge className={status.classes}>{status.label}</Badge>
             </div>
             <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
               <span>Template: {broadcast.template_name}</span>
@@ -491,11 +488,9 @@ export default function BroadcastDetailPage() {
                         {recipient.contact?.phone ?? '-'}
                       </TableCell>
                       <TableCell>
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${rStatus.classes}`}
-                        >
+                        <Badge className={rStatus.classes}>
                           {rStatus.label}
-                        </span>
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {recipient.sent_at

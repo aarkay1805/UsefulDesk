@@ -27,6 +27,7 @@ import {
   Zap,
 } from "lucide-react";
 import type { AccountRole } from "@/lib/auth/roles";
+import { Badge } from "@/components/ui/badge";
 
 // Per-role chip metadata used in the sidebar's account strip + the
 // Members tab roster. Keeping this near both consumers in a single
@@ -316,12 +317,12 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                   const meta = ROLE_CHIP[accountRole];
                   const Icon = meta.icon;
                   return (
-                    <span
-                      className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${meta.className}`}
+                    <Badge
+                      className={`ml-auto shrink-0 px-1.5 text-[10px] uppercase tracking-wider ${meta.className}`}
                     >
                       <Icon className="size-3" />
                       {meta.label}
-                    </span>
+                    </Badge>
                   );
                 })()
               ) : null}

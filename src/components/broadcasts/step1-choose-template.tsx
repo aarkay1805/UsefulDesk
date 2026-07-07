@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { MessageTemplate } from '@/types';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, FileText, ArrowRight } from 'lucide-react';
 
@@ -98,11 +99,7 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
               >
                 <div className="flex items-start justify-between">
                   <h3 className="text-sm font-medium text-foreground">{template.name}</h3>
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${catColor}`}
-                  >
-                    {template.category}
-                  </span>
+                  <Badge className={catColor}>{template.category}</Badge>
                 </div>
                 <p className="line-clamp-3 text-xs text-muted-foreground">{template.body_text}</p>
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground">

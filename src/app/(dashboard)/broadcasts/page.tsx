@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Broadcast } from '@/types';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -261,9 +262,7 @@ export default function BroadcastsPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${status.classes}`}
-                      >
+                      <Badge className={status.classes}>
                         {status.pulse && (
                           <span className="relative flex h-1.5 w-1.5">
                             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-yellow-400 opacity-75" />
@@ -271,7 +270,7 @@ export default function BroadcastsPage() {
                           </span>
                         )}
                         {status.label}
-                      </span>
+                      </Badge>
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground sm:table-cell">
                       {new Date(broadcast.created_at).toLocaleDateString()}
