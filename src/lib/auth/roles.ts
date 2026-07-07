@@ -98,6 +98,15 @@ export function canViewOnly(role: AccountRole): boolean {
   return role === "viewer";
 }
 
+/**
+ * Owner / admin: delete notes authored by other members (moderation).
+ * Agents may only delete their own notes — mirrored by the
+ * contact_notes_delete RLS policy in migration 046.
+ */
+export function canDeleteAnyNote(role: AccountRole): boolean {
+  return hasMinRole(role, "admin");
+}
+
 /** Owner only: irreversible destructive operations. */
 export function canDeleteAccount(role: AccountRole): boolean {
   return role === "owner";

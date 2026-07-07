@@ -13,6 +13,7 @@ import {
 } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
+import { canDeleteAnyNote } from '@/lib/auth/roles';
 import { cn } from '@/lib/utils';
 import {
   duePresets,
@@ -140,7 +141,7 @@ export function ContactDetailView({
 }: ContactDetailViewProps) {
   const supabase = createClient();
   const router = useRouter();
-  const { accountId, user, profile } = useAuth();
+  const { accountId, accountRole, user, profile } = useAuth();
   const { staff, nameById } = useAccountStaff();
 
   const [contact, setContact] = useState<Contact | null>(null);
@@ -546,12 +547,16 @@ export function ContactDetailView({
       .eq('note_id', noteId)
       .eq('status', 'open');
 
-    const { error } = await supabase
+    // .select() makes an RLS-blocked delete detectable: it returns no
+    // error, just zero rows — without it we'd toast success while the
+    // note survives (only its own author or an admin may delete).
+    const { data: deleted, error } = await supabase
       .from('contact_notes')
       .delete()
-      .eq('id', noteId);
+      .eq('id', noteId)
+      .select('id');
 
-    if (error) {
+    if (error || !deleted?.length) {
       toast.error('Failed to delete note');
     } else {
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
@@ -990,6 +995,9 @@ export function ContactDetailView({
                             currentUserId={user?.id ?? ''}
                             nameById={nameById}
                             staff={staff}
+                            canDeleteAny={
+                              accountRole ? canDeleteAnyNote(accountRole) : false
+                            }
                             onMarkDone={markFollowUpDone}
                             onDelete={deleteNote}
                             onSaveEdit={saveNoteEdit}
@@ -1432,6 +1440,7 @@ function NoteCard({
   followUp,
   authorName,
   currentUserId,
+  canDeleteAny,
   nameById,
   staff,
   onMarkDone,
@@ -1442,6 +1451,8 @@ function NoteCard({
   followUp?: NoteFollowUp;
   authorName: string;
   currentUserId: string;
+  /** Admin/owner moderation: may delete notes authored by others. */
+  canDeleteAny: boolean;
   nameById: Map<string, string>;
   staff: StaffMember[];
   onMarkDone: (noteId: string, followUpId: string) => void;
@@ -1527,18 +1538,20 @@ function NoteCard({
       </span>
       <span className="flex shrink-0 items-center gap-1.5">
         Created on {createdOn}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(note.id);
-          }}
-          aria-label="Delete note"
-          title="Delete note"
-          className="cursor-pointer text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-        >
-          <Trash2 className="size-3.5" />
-        </button>
+        {(isOwner || canDeleteAny) && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(note.id);
+            }}
+            aria-label="Delete note"
+            title="Delete note"
+            className="cursor-pointer text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        )}
       </span>
     </div>
   );
@@ -1650,7 +1663,9 @@ function NoteCard({
                 </button>
               )}
             </div>
-            {metaRow}
+            {/* +4px over the meta row's own mt-2 — the strip's bottom
+                row sits 12px under the follow-up block. */}
+            <div className="pt-1">{metaRow}</div>
           </div>
         )}
       </div>
