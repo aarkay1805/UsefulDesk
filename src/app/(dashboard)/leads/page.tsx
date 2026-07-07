@@ -159,10 +159,11 @@ interface ContactWithData extends Contact {
 // How a cell edits inline. `column` writes a contacts row column;
 // 'status' writes lead_status; 'select' picks a preset for a free-text
 // column (source/gender); 'tags' toggles contact_tags rows; 'custom'
-// upserts a contact_custom_values row. Only `created` stays read-only
-// (system audit column) and falls through to the row's open-detail click.
+// upserts a contact_custom_values row. Two columns stay read-only by
+// design: `name` (clicking it opens the detail sheet — the row's main
+// affordance) and `created` (system audit column).
 type EditSpec =
-  | { kind: 'text'; column: 'name' | 'company' | 'phone' }
+  | { kind: 'text'; column: 'company' | 'phone' }
   | { kind: 'email'; column: 'email' }
   | { kind: 'select'; column: 'source' | 'gender' }
   | { kind: 'status' }
@@ -239,7 +240,6 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
       ) : (
         <span className="text-muted-foreground italic">Unnamed</span>
       ),
-    edit: { kind: 'text', column: 'name' },
   },
   {
     key: 'status',

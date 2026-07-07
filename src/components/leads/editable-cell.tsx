@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Check, ChevronDown, Loader2, X } from "lucide-react";
+import { Check, ChevronDown, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { InlineEditActions } from "@/components/ui/inline-edit-actions";
 import { cn } from "@/lib/utils";
 
 // Read and edit states share ONE box model so switching between them
@@ -312,13 +313,6 @@ export function EditableCell({
     },
   };
 
-  // The floating confirm/dismiss pair mirrors the lead-detail panel's
-  // InlineField buttons. onMouseDown preventDefault keeps the input
-  // focused while clicking, so the container's blur-cancel can't fire
-  // before the button's onClick.
-  const actionButton =
-    "flex size-6 shrink-0 items-center justify-center rounded-full bg-card disabled:opacity-50 cursor-pointer";
-
   return (
     <div
       className={cn(OUTER, "relative")}
@@ -355,32 +349,11 @@ export function EditableCell({
           className="h-8 w-full rounded-md bg-card pl-2.5 pr-13 text-sm text-foreground outline-none ring-2 ring-inset ring-primary disabled:opacity-60"
         />
       )}
-      <div className="absolute top-1/2 right-2.5 z-10 flex -translate-y-1/2 items-center gap-0.5">
-        <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => settle(inputRef.current?.value ?? "")}
-          disabled={saving}
-          className={cn(actionButton, "text-primary hover:bg-primary/10")}
-          aria-label="Save"
-        >
-          {saving ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <Check className="size-4" />
-          )}
-        </button>
-        <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={cancel}
-          disabled={saving}
-          className={cn(actionButton, "text-muted-foreground hover:bg-muted")}
-          aria-label="Cancel"
-        >
-          <X className="size-4" />
-        </button>
-      </div>
+      <InlineEditActions
+        saving={saving}
+        onConfirm={() => settle(inputRef.current?.value ?? "")}
+        onDismiss={cancel}
+      />
     </div>
   );
 }

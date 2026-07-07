@@ -227,4 +227,17 @@ html[data-theme="rose"] {
   html {
     @apply font-sans;
   }
+
+  /* Number inputs: hide the native increment/decrement spinners
+     everywhere (they crowd small inline editors); stepping via the
+     keyboard arrows / scroll still works. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
 }

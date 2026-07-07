@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { InlineEditActions } from '@/components/ui/inline-edit-actions';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -43,7 +44,6 @@ import {
   Loader2,
   Plus,
   Trash2,
-  X,
   LayoutTemplate,
   Pencil,
   StickyNote,
@@ -795,13 +795,23 @@ function InlineField({
       },
       placeholder,
       disabled: saving,
+      // pr-16 clears the floating confirm/dismiss pair: the pair sits
+      // right-2.5 (10px) plus two size-6 buttons and a gap (50px), and
+      // unlike the table cells there's no outer cell padding absorbing
+      // part of that — 60px to clear, plus 4px of breathing room so the
+      // date picker's calendar icon doesn't touch the ✓ button.
+      // bg-card (not bg-muted) marks the active editor with a solid
+      // fill, matching the leads table's edit state.
       className:
-        'bg-muted border-border text-foreground h-7 text-sm placeholder:text-muted-foreground',
+        'bg-card border-border text-foreground h-7 pr-16 text-sm placeholder:text-muted-foreground',
     };
     return (
       <div className="grid min-h-10 grid-cols-[100px_1fr] items-center gap-3 px-3">
         <span className="text-xs text-muted-foreground capitalize">{label}</span>
-        <div className="flex items-center gap-1">
+        {/* Same in-field editing chrome as the leads table cells: the
+            input fills the row and the actions float inside its right
+            edge (InlineEditActions). */}
+        <div className="relative min-w-0">
           {type === 'currency' ? (
             <CurrencyInput
               symbol={currencySymbol(defaultCurrency)}
@@ -810,28 +820,11 @@ function InlineField({
           ) : (
             <Input type={customFieldInputType(type)} {...inputProps} />
           )}
-          <button
-            type="button"
-            onClick={confirm}
-            disabled={saving}
-            className="flex size-6 shrink-0 items-center justify-center rounded-full text-primary hover:bg-primary/10 disabled:opacity-50 cursor-pointer"
-            aria-label="Save"
-          >
-            {saving ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Check className="size-4" />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            disabled={saving}
-            className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted disabled:opacity-50 cursor-pointer"
-            aria-label="Cancel"
-          >
-            <X className="size-4" />
-          </button>
+          <InlineEditActions
+            saving={saving}
+            onConfirm={confirm}
+            onDismiss={() => setEditing(false)}
+          />
         </div>
       </div>
     );
