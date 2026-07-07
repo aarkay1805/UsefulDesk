@@ -8,6 +8,7 @@ import type { Contact, LeadStatus, Tag, ContactTag, CustomField } from '@/types'
 import { LEAD_COLUMNS } from '@/lib/leads/status';
 import { SOURCE_OPTIONS, GENDER_OPTIONS } from '@/lib/leads/attributes';
 import { customFieldInputType } from '@/lib/contacts/custom-fields';
+import { currencySymbol } from '@/lib/currency';
 import {
   findExistingContact,
   isExactMatch,
@@ -23,6 +24,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -48,7 +50,7 @@ export function ContactForm({
   onViewExisting,
 }: ContactFormProps) {
   const supabase = createClient();
-  const { accountId } = useAuth();
+  const { accountId, defaultCurrency } = useAuth();
   const isEdit = !!contact;
 
   const [name, setName] = useState('');
@@ -495,19 +497,35 @@ export function ContactForm({
                     >
                       {field.field_name}
                     </Label>
-                    <Input
-                      id={`cf-custom-${field.id}`}
-                      type={customFieldInputType(field.field_type)}
-                      value={customValues[field.id] ?? ''}
-                      onChange={(e) =>
-                        setCustomValues((prev) => ({
-                          ...prev,
-                          [field.id]: e.target.value,
-                        }))
-                      }
-                      placeholder={`Enter ${field.field_name}...`}
-                      className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-                    />
+                    {field.field_type === 'currency' ? (
+                      <CurrencyInput
+                        id={`cf-custom-${field.id}`}
+                        symbol={currencySymbol(defaultCurrency)}
+                        value={customValues[field.id] ?? ''}
+                        onChange={(e) =>
+                          setCustomValues((prev) => ({
+                            ...prev,
+                            [field.id]: e.target.value,
+                          }))
+                        }
+                        placeholder={`Enter ${field.field_name}...`}
+                        className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                      />
+                    ) : (
+                      <Input
+                        id={`cf-custom-${field.id}`}
+                        type={customFieldInputType(field.field_type)}
+                        value={customValues[field.id] ?? ''}
+                        onChange={(e) =>
+                          setCustomValues((prev) => ({
+                            ...prev,
+                            [field.id]: e.target.value,
+                          }))
+                        }
+                        placeholder={`Enter ${field.field_name}...`}
+                        className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                      />
+                    )}
                   </div>
                 ))}
               </div>

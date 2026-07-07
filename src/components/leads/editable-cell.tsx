@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Check, ChevronDown, Loader2 } from "lucide-react";
+import { Check, ChevronDown, Loader2, X } from "lucide-react";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -27,8 +28,10 @@ const INNER =
 // its normal rendered value until clicked; clicking swaps in an inline
 // editor: a text/email input, or — for status — a dropdown whose
 // options render as coloured status tags (matching the read display).
-// Commit on Enter/blur/select, cancel on Escape or outside-click. A
-// no-op edit (value unchanged) cancels without a write.
+// Commit is EXPLICIT — Enter or the floating ✓ button (dropdown: select).
+// Escape, the floating ✕ button, or clicking/tabbing away dismisses
+// without a write, so a stray outside-click can't save a half-typed
+// value. A no-op edit (value unchanged) cancels without a write.
 //
 // Text/email editors are uncontrolled — the input seeds from `value`
 // via defaultValue and is read through a ref on commit. That keeps us
@@ -55,11 +58,28 @@ interface EditableCellProps {
   editing: boolean;
   /** True while the parent's async write is in flight. */
   saving: boolean;
-  kind: "text" | "email" | "number" | "date" | "status";
+  /**
+   * 'status'/'select' pick one option from a dropdown (status renders
+   * coloured pills, select plain labels). 'tags' is a stay-open
+   * checklist — each toggle fires onToggleOption immediately.
+   */
+  kind: "text" | "email" | "number" | "date" | "status" | "select" | "tags";
   /** Current committed value (seed + baseline for the no-op check). */
   value: string;
-  /** Options for `kind: 'status'`. Ignored otherwise. */
+  /** Options for the dropdown kinds ('status' | 'select' | 'tags'). */
   options?: CellOption[];
+  /** Selected option values for `kind: 'tags'`. */
+  multiValue?: string[];
+  /**
+   * Toggle handler for `kind: 'tags'` — the parent writes the change
+   * and updates its state; the checklist stays open across toggles.
+   */
+  onToggleOption?: (value: string) => void;
+  /**
+   * Static adornment shown inside the editor before the input — e.g.
+   * the account currency symbol for currency-type custom columns.
+   */
+  prefix?: string;
   /** The normal, read-mode rendering of the cell. */
   display: React.ReactNode;
   onStart: () => void;
@@ -73,6 +93,9 @@ export function EditableCell({
   kind,
   value,
   options,
+  multiValue,
+  onToggleOption,
+  prefix,
   display,
   onStart,
   onCommit,
@@ -83,14 +106,16 @@ export function EditableCell({
   // would fire it again. Escape / outside-click set it too so the
   // dismiss path stays inert once a value is chosen.
   const settledRef = useRef(false);
+  // Dropdown-style editors (they manage their own focus).
+  const isMenuKind = kind === "status" || kind === "select" || kind === "tags";
 
   useEffect(() => {
     if (!editing) return;
     settledRef.current = false;
-    // Focus the text editor after it mounts (the status dropdown manages
-    // its own focus). Ref-only work — no state writes, so this stays
+    // Focus the text editor after it mounts (the dropdown editors manage
+    // their own focus). Ref-only work — no state writes, so this stays
     // clear of set-state-in-effect.
-    if (kind === "status") return;
+    if (kind === "status" || kind === "select" || kind === "tags") return;
     const id = window.setTimeout(() => inputRef.current?.focus(), 0);
     return () => window.clearTimeout(id);
   }, [editing, kind]);
@@ -123,7 +148,7 @@ export function EditableCell({
           {display}
           {/* Cells that open a menu advertise it: chevron fades in on
               cell hover, mirroring the open-state trigger's chevron. */}
-          {kind === "status" && (
+          {isMenuKind && (
             <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/cell:opacity-100" />
           )}
         </span>
@@ -151,8 +176,16 @@ export function EditableCell({
   // the hover ring's dimensions exactly and never changes the box height.
   const EDIT_INNER = cn(INNER, "ring-2 ring-inset ring-primary bg-card");
 
-  if (kind === "status") {
+  if (kind === "status" || kind === "select") {
     const current = options?.find((o) => o.value === value);
+    // Status options render as coloured pills (matching the read
+    // display); plain selects (source, gender) as text labels.
+    const optionLabel = (o: CellOption) =>
+      kind === "status" ? (
+        <StatusPill label={o.label} color={o.color ?? "#64748b"} />
+      ) : (
+        <span className="text-sm">{o.label}</span>
+      );
     return (
       <div className={OUTER} onClick={(e) => e.stopPropagation()}>
         <DropdownMenu
@@ -172,7 +205,7 @@ export function EditableCell({
             }
           >
             {current ? (
-              <StatusPill label={current.label} color={current.color ?? "#64748b"} />
+              optionLabel(current)
             ) : (
               <span className="text-sm text-muted-foreground">Select…</span>
             )}
@@ -192,7 +225,7 @@ export function EditableCell({
                 onClick={() => settle(o.value)}
                 className="flex items-center justify-between gap-3 text-popover-foreground focus:bg-muted"
               >
-                <StatusPill label={o.label} color={o.color ?? "#64748b"} />
+                {optionLabel(o)}
                 {o.value === value && <Check className="size-3.5 text-primary" />}
               </DropdownMenuItem>
             ))}
@@ -202,44 +235,152 @@ export function EditableCell({
     );
   }
 
+  if (kind === "tags") {
+    return (
+      <div className={OUTER} onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu
+          open
+          onOpenChange={(open) => {
+            // The checklist stays open across toggles (each one writes
+            // immediately); closing it just ends the edit session.
+            if (!open) cancel();
+          }}
+        >
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                disabled={saving}
+                className={cn(EDIT_INNER, "justify-between disabled:opacity-60")}
+              />
+            }
+          >
+            <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+              {display}
+            </span>
+            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="min-w-44 bg-popover border-border"
+          >
+            {options && options.length > 0 ? (
+              options.map((o) => (
+                <DropdownMenuCheckboxItem
+                  key={o.value}
+                  checked={multiValue?.includes(o.value) ?? false}
+                  closeOnClick={false}
+                  onCheckedChange={() => onToggleOption?.(o.value)}
+                  className="text-popover-foreground focus:bg-muted"
+                >
+                  {o.label}
+                </DropdownMenuCheckboxItem>
+              ))
+            ) : (
+              <div className="px-1.5 py-1 text-sm text-muted-foreground">
+                No tags yet
+              </div>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  }
+
+  // Shared by both editor layouts (bare input / prefix-adorned) so the
+  // behaviours can't drift.
+  const inputProps = {
+    ref: inputRef,
+    type:
+      kind === "email"
+        ? "email"
+        : kind === "number"
+          ? "number"
+          : kind === "date"
+            ? "date"
+            : "text",
+    defaultValue: value,
+    disabled: saving,
+    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        settle(inputRef.current?.value ?? "");
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        cancel();
+      }
+    },
+  };
+
+  // The floating confirm/dismiss pair mirrors the lead-detail panel's
+  // InlineField buttons. onMouseDown preventDefault keeps the input
+  // focused while clicking, so the container's blur-cancel can't fire
+  // before the button's onClick.
+  const actionButton =
+    "flex size-6 shrink-0 items-center justify-center rounded-full bg-card disabled:opacity-50 cursor-pointer";
+
   return (
     <div
       className={cn(OUTER, "relative")}
       // Keep clicks inside the editor from bubbling to the row.
       onClick={(e) => e.stopPropagation()}
-    >
-      <input
-        ref={inputRef}
-        type={
-          kind === "email"
-            ? "email"
-            : kind === "number"
-              ? "number"
-              : kind === "date"
-                ? "date"
-                : "text"
+      // Focus escaping the editor entirely (outside click / Tab away)
+      // dismisses the edit — the accidental-save guard. settledRef makes
+      // this inert after an explicit commit/cancel.
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          cancel();
         }
-        defaultValue={value}
-        disabled={saving}
-        onBlur={() => settle(inputRef.current?.value ?? "")}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            settle(inputRef.current?.value ?? "");
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            cancel();
-          }
-        }}
-        // Same box dimensions as INNER (h-7, px-1.5, rounded, inset
-        // ring) but without flex — display:flex on an <input> can break
-        // caret/text rendering. Height/padding still match exactly, so
-        // no row shift.
-        className="h-8 w-full rounded-md bg-card px-2.5 text-sm text-foreground outline-none ring-2 ring-inset ring-primary disabled:opacity-60"
-      />
-      {saving && (
-        <Loader2 className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 animate-spin text-primary" />
+      }}
+    >
+      {prefix ? (
+        // The ring/bg move to a wrapper so the adornment sits inside the
+        // focus outline; box dimensions match the bare input exactly.
+        <div className="flex h-8 w-full min-w-0 items-center rounded-md bg-card ring-2 ring-inset ring-primary">
+          <span className="pointer-events-none shrink-0 pl-2.5 text-sm text-muted-foreground">
+            {prefix}
+          </span>
+          <input
+            {...inputProps}
+            className="h-full w-full min-w-0 rounded-md bg-transparent pl-1.5 pr-13 text-sm text-foreground outline-none disabled:opacity-60"
+          />
+        </div>
+      ) : (
+        <input
+          {...inputProps}
+          // Same box dimensions as INNER (h-7, px-1.5, rounded, inset
+          // ring) but without flex — display:flex on an <input> can break
+          // caret/text rendering. Height/padding still match exactly, so
+          // no row shift. pr-13 clears the floating buttons.
+          className="h-8 w-full rounded-md bg-card pl-2.5 pr-13 text-sm text-foreground outline-none ring-2 ring-inset ring-primary disabled:opacity-60"
+        />
       )}
+      <div className="absolute top-1/2 right-2.5 z-10 flex -translate-y-1/2 items-center gap-0.5">
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => settle(inputRef.current?.value ?? "")}
+          disabled={saving}
+          className={cn(actionButton, "text-primary hover:bg-primary/10")}
+          aria-label="Save"
+        >
+          {saving ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Check className="size-4" />
+          )}
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={cancel}
+          disabled={saving}
+          className={cn(actionButton, "text-muted-foreground hover:bg-muted")}
+          aria-label="Cancel"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
     </div>
   );
 }

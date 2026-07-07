@@ -11,6 +11,7 @@ import {
   customFieldInputType,
   formatCustomFieldValue,
 } from '@/lib/contacts/custom-fields';
+import { currencySymbol } from '@/lib/currency';
 import {
   TemplatePicker,
   type TemplateSendValues,
@@ -29,6 +30,7 @@ import {
   AccordionContent,
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -754,6 +756,7 @@ function InlineField({
   type?: string;
   onSave: (val: string) => Promise<boolean>;
 }) {
+  const { defaultCurrency } = useAuth();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
@@ -775,27 +778,38 @@ function InlineField({
   }
 
   if (editing) {
+    // Shared between the plain input and the currency-adorned one so
+    // the two branches can't drift.
+    const inputProps = {
+      autoFocus: true,
+      value: draft,
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+        setDraft(e.target.value),
+      onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          confirm();
+        } else if (e.key === 'Escape') {
+          setEditing(false);
+        }
+      },
+      placeholder,
+      disabled: saving,
+      className:
+        'bg-muted border-border text-foreground h-7 text-sm placeholder:text-muted-foreground',
+    };
     return (
       <div className="grid min-h-10 grid-cols-[100px_1fr] items-center gap-3 px-3">
         <span className="text-xs text-muted-foreground capitalize">{label}</span>
         <div className="flex items-center gap-1">
-          <Input
-            autoFocus
-            type={customFieldInputType(type)}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                confirm();
-              } else if (e.key === 'Escape') {
-                setEditing(false);
-              }
-            }}
-            placeholder={placeholder}
-            disabled={saving}
-            className="bg-muted border-border text-foreground h-7 text-sm placeholder:text-muted-foreground"
-          />
+          {type === 'currency' ? (
+            <CurrencyInput
+              symbol={currencySymbol(defaultCurrency)}
+              {...inputProps}
+            />
+          ) : (
+            <Input type={customFieldInputType(type)} {...inputProps} />
+          )}
           <button
             type="button"
             onClick={confirm}
@@ -824,7 +838,9 @@ function InlineField({
   }
 
   const shown =
-    value && value.trim() ? formatCustomFieldValue(value, type) : '—';
+    value && value.trim()
+      ? formatCustomFieldValue(value, type, defaultCurrency)
+      : '—';
   return (
     <button
       type="button"

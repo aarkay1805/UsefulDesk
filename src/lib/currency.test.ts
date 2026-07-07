@@ -1,10 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
   CURRENCIES,
+  currencySymbol,
   DEFAULT_CURRENCY,
   formatCurrency,
   formatCurrencyShort,
 } from "./currency";
+
+describe("currencySymbol", () => {
+  it("returns the symbol for known currencies", () => {
+    expect(currencySymbol("INR")).toBe("₹");
+    expect(currencySymbol("USD")).toBe("$");
+    expect(currencySymbol("EUR")).toBe("€");
+  });
+
+  it("defaults to the app default currency", () => {
+    expect(currencySymbol()).toBe(currencySymbol(DEFAULT_CURRENCY));
+    expect(currencySymbol("")).toBe(currencySymbol(DEFAULT_CURRENCY));
+  });
+
+  it("falls back to the code for unknown currencies", () => {
+    expect(currencySymbol("ZZZ")).toBe("ZZZ");
+  });
+});
 
 describe("formatCurrency", () => {
   it("formats whole amounts with no minor units", () => {

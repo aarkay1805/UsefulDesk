@@ -45,6 +45,16 @@ export const CURRENCIES: CurrencyOption[] = [
 ];
 
 /**
+ * Symbol for a currency code ("INR" → "₹"), for adorning amount inputs
+ * where a full formatted string doesn't fit. Falls back to the code
+ * itself for currencies we don't carry a symbol for.
+ */
+export function currencySymbol(currency: string = DEFAULT_CURRENCY): string {
+  const code = (currency || DEFAULT_CURRENCY).trim();
+  return CURRENCIES.find((c) => c.code === code)?.symbol ?? code;
+}
+
+/**
  * Format a deal value as a currency string. Whole-number output
  * (no minor units) — deal values are tracked to the dollar across
  * the app. `currency` defaults to USD so callers with nothing better

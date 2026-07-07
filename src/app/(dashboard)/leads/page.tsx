@@ -26,8 +26,14 @@ import {
   type LeadColumnKey,
 } from '@/lib/leads/status';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
-import { sourceLabel, genderLabel } from '@/lib/leads/attributes';
+import {
+  sourceLabel,
+  genderLabel,
+  SOURCE_OPTIONS,
+  GENDER_OPTIONS,
+} from '@/lib/leads/attributes';
 import { formatCustomFieldValue } from '@/lib/contacts/custom-fields';
+import { currencySymbol } from '@/lib/currency';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +62,7 @@ import {
 import {
   Plus,
   Upload,
+  Eye,
   MoreHorizontal,
   MoreVertical,
   Pencil,
@@ -98,6 +105,7 @@ import {
 } from '@/components/contacts/manage-columns-dialog';
 import { LeadsBoard } from '@/components/leads/leads-board';
 import { EditableCell } from '@/components/leads/editable-cell';
+import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { GatedButton } from '@/components/ui/gated-button';
@@ -149,13 +157,16 @@ interface ContactWithData extends Contact {
 }
 
 // How a cell edits inline. `column` writes a contacts row column;
-// 'status' writes lead_status; 'custom' upserts a contact_custom_values
-// row. Columns without an `edit` spec (name link, created) stay
-// read-only and fall through to the row's open-detail click.
+// 'status' writes lead_status; 'select' picks a preset for a free-text
+// column (source/gender); 'tags' toggles contact_tags rows; 'custom'
+// upserts a contact_custom_values row. Only `created` stays read-only
+// (system audit column) and falls through to the row's open-detail click.
 type EditSpec =
   | { kind: 'text'; column: 'name' | 'company' | 'phone' }
   | { kind: 'email'; column: 'email' }
+  | { kind: 'select'; column: 'source' | 'gender' }
   | { kind: 'status' }
+  | { kind: 'tags' }
   | { kind: 'custom'; fieldId: string };
 
 interface ColumnDef {
@@ -228,6 +239,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
       ) : (
         <span className="text-muted-foreground italic">Unnamed</span>
       ),
+    edit: { kind: 'text', column: 'name' },
   },
   {
     key: 'status',
@@ -282,6 +294,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
         {sourceLabel(c.source)}
       </span>
     ),
+    edit: { kind: 'select', column: 'source' },
   },
   {
     key: 'gender',
@@ -294,6 +307,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
         {genderLabel(c.gender)}
       </span>
     ),
+    edit: { kind: 'select', column: 'gender' },
   },
   {
     key: 'tags',
@@ -301,6 +315,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     defaultWidth: 180,
     minWidth: 120,
     render: renderTags,
+    edit: { kind: 'tags' },
   },
   {
     key: 'created',
@@ -331,7 +346,7 @@ function customEditKind(type?: string): 'text' | 'email' | 'number' | 'date' {
   }
 }
 
-function customColumn(field: CustomField): ColumnDef {
+function customColumn(field: CustomField, currency?: string): ColumnDef {
   return {
     key: `cf:${field.id}`,
     label: field.field_name,
@@ -343,7 +358,7 @@ function customColumn(field: CustomField): ColumnDef {
       const raw = c.customValues?.[field.id];
       return (
         <span className="text-muted-foreground text-sm">
-          {raw ? formatCustomFieldValue(raw, field.field_type) : '-'}
+          {raw ? formatCustomFieldValue(raw, field.field_type, currency) : '-'}
         </span>
       );
     },
@@ -578,6 +593,7 @@ function applyLeadFilters<Q extends FilterableQuery<Q>>(
 
 export default function LeadsPage() {
   const supabase = createClient();
+  const { defaultCurrency } = useAuth();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
 
@@ -669,8 +685,11 @@ export default function LeadsPage() {
   // keys are dropped. Custom columns default to hidden until the user saves
   // them via Manage Columns (i.e. their key appears in prefs.order).
   const liveColumns = useMemo<ColumnDef[]>(
-    () => [...BUILTIN_COLUMNS, ...customFields.map(customColumn)],
-    [customFields]
+    () => [
+      ...BUILTIN_COLUMNS,
+      ...customFields.map((f) => customColumn(f, defaultCurrency)),
+    ],
+    [customFields, defaultCurrency]
   );
 
   const colByKey = useMemo(() => {
@@ -678,6 +697,15 @@ export default function LeadsPage() {
     liveColumns.forEach((c) => (map[c.key] = c));
     return map;
   }, [liveColumns]);
+
+  // Every account tag as checklist options for the tags cell editor.
+  const allTagOptions = useMemo(
+    () =>
+      Object.values(tagsMap)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((t) => ({ value: t.id, label: t.name })),
+    [tagsMap]
+  );
 
   const orderedKeys = useMemo(() => {
     const liveKeys = liveColumns.map((c) => c.key);
@@ -993,7 +1021,11 @@ export default function LeadsPage() {
       case 'email':
         return c.email ?? '';
       case 'text':
+      case 'select':
         return (c[edit.column] as string | undefined) ?? '';
+      case 'tags':
+        // Tags edit via per-toggle writes, not a committed string.
+        return '';
     }
   }
 
@@ -1002,6 +1034,9 @@ export default function LeadsPage() {
   // untouched on failure so the displayed value stays truthful.
   const commitCell = useCallback(
     async (contact: ContactWithData, edit: EditSpec, rawValue: string) => {
+      // Tags never commit through here — each toggle writes immediately
+      // via toggleContactTag.
+      if (edit.kind === 'tags') return;
       setSavingCell(true);
       try {
         if (edit.kind === 'status') {
@@ -1061,7 +1096,7 @@ export default function LeadsPage() {
             )
           );
         } else {
-          // Built-in text/email column.
+          // Built-in contacts column (text/email/select).
           const trimmed = rawValue.trim();
           if (edit.column === 'phone' && !trimmed) {
             toast.error('Phone number is required');
@@ -1096,6 +1131,41 @@ export default function LeadsPage() {
       }
     },
     [supabase]
+  );
+
+  // One tag toggle from the tags cell's checklist. Optimistic — the row
+  // updates immediately and reverts on a failed write, mirroring the
+  // detail panel's tag toggles. The checklist stays open throughout.
+  const toggleContactTag = useCallback(
+    async (contact: ContactWithData, tagId: string) => {
+      const tag = tagsMap[tagId];
+      if (!tag) return;
+      const had = contact.tags?.some((t) => t.id === tagId) ?? false;
+      const apply = (add: boolean) => (c: ContactWithData) =>
+        c.id === contact.id
+          ? {
+              ...c,
+              tags: add
+                ? [...(c.tags ?? []), tag]
+                : (c.tags ?? []).filter((t) => t.id !== tagId),
+            }
+          : c;
+      setContacts((prev) => prev.map(apply(!had)));
+      const { error } = had
+        ? await supabase
+            .from('contact_tags')
+            .delete()
+            .eq('contact_id', contact.id)
+            .eq('tag_id', tagId)
+        : await supabase
+            .from('contact_tags')
+            .insert({ contact_id: contact.id, tag_id: tagId });
+      if (error) {
+        toast.error('Failed to update tags');
+        setContacts((prev) => prev.map(apply(had)));
+      }
+    },
+    [supabase, tagsMap]
   );
 
   function openAddForm() {
@@ -1719,6 +1789,27 @@ export default function LeadsPage() {
                                       label: c.label,
                                       color: c.color,
                                     }))
+                                  : col.edit.kind === 'select'
+                                    ? col.edit.column === 'source'
+                                      ? SOURCE_OPTIONS
+                                      : GENDER_OPTIONS
+                                    : col.edit.kind === 'tags'
+                                      ? allTagOptions
+                                      : undefined
+                              }
+                              multiValue={
+                                col.edit.kind === 'tags'
+                                  ? (contact.tags ?? []).map((t) => t.id)
+                                  : undefined
+                              }
+                              onToggleOption={
+                                col.edit.kind === 'tags'
+                                  ? (tagId) => toggleContactTag(contact, tagId)
+                                  : undefined
+                              }
+                              prefix={
+                                col.customType === 'currency'
+                                  ? currencySymbol(defaultCurrency)
                                   : undefined
                               }
                               // Render mode content sits directly in the
@@ -1757,6 +1848,13 @@ export default function LeadsPage() {
                             align="end"
                             className="bg-popover border-border"
                           >
+                            <DropdownMenuItem
+                              onClick={() => openDetail(contact.id)}
+                              className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                            >
+                              <Eye className="size-4" />
+                              View details
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => openEditForm(contact)}
                               className="text-popover-foreground focus:bg-muted focus:text-foreground"

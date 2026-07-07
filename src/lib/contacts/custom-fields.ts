@@ -26,12 +26,20 @@ export function customFieldInputType(type?: string): string {
   }
 }
 
-/** Human display of a stored value according to its field type. */
-export function formatCustomFieldValue(value: string, type?: string): string {
+/**
+ * Human display of a stored value according to its field type.
+ * `currency` is the account's default currency (useAuth().defaultCurrency);
+ * omitting it falls back to the app-wide default, so pass it wherever known.
+ */
+export function formatCustomFieldValue(
+  value: string,
+  type?: string,
+  currency?: string,
+): string {
   switch (type) {
     case 'currency': {
       const n = Number(value);
-      return Number.isFinite(n) ? formatCurrency(n) : value;
+      return Number.isFinite(n) ? formatCurrency(n, currency) : value;
     }
     case 'number': {
       const n = Number(value);
