@@ -87,7 +87,8 @@ Returns `{ sent, failed, skipped_already_sent, accounts_considered, notes }`.
 ## Ops
 
 - **Secret** lives in two places, must match: Vercel env `AUTOMATION_CRON_SECRET`
-  and GitHub repo secret `AUTOMATION_CRON_SECRET`. Shared with `/api/automations/cron`.
+  and GitHub repo secret `AUTOMATION_CRON_SECRET`. Shared with all cron routes —
+  see [automations-and-cron.md](automations-and-cron.md).
 - **Schedule:** [`.github/workflows/renewals-cron.yml`](../.github/workflows/renewals-cron.yml),
   daily 03:30 UTC. Manual run via Actions tab → Run workflow.
 - **Domain:** `desk.usefulmade.com` (alias `useful-desk.vercel.app`).

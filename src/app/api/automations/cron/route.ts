@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/automations/admin-client'
+import { cronSecretConfigured, isAuthorizedCronRequest } from '@/lib/cron/auth'
 import { resumePendingExecution } from '@/lib/automations/engine'
 import type { AutomationContext } from '@/lib/automations/engine'
 
@@ -15,12 +16,10 @@ import type { AutomationContext } from '@/lib/automations/engine'
  * two-step UPDATE-by-id.
  */
 export async function GET(request: Request) {
-  const expected = process.env.AUTOMATION_CRON_SECRET
-  if (!expected) {
+  if (!cronSecretConfigured()) {
     return NextResponse.json({ error: 'cron not configured' }, { status: 503 })
   }
-  const supplied = request.headers.get('x-cron-secret')
-  if (supplied !== expected) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

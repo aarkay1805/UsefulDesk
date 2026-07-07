@@ -1,0 +1,54 @@
+name: ops-crons
+
+# Pings the three high-frequency cron endpoints (the daily renewals job
+# lives in renewals-cron.yml):
+#
+#   /api/follow-ups/cron   — deliver due follow-up reminder notifications
+#   /api/automations/cron  — resume automations parked on a Wait step
+#   /api/flows/cron        — time out abandoned flow runs
+#
+# All three are idempotent and claim-first, so overlapping or doubled
+# runs are harmless. Native Vercel Cron on the Hobby plan only allows
+# two jobs at daily granularity — so, as with renewals, this GitHub
+# Action is the pinger. Uses the same repo secret AUTOMATION_CRON_SECRET.
+#
+# GitHub schedules are best-effort: a "*/15" job typically fires every
+# 15–25 minutes under load. Fine here — follow-up reminder slots are
+# hourly, and the other two jobs only need to drain within the hour.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  # Lets you trigger a run by hand from the Actions tab (for testing).
+  workflow_dispatch:
+
+# If a run is somehow still going when the next fires, don't stack them.
+concurrency:
+  group: ops-crons
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deliver follow-up reminders
+        run: |
+          curl --fail --silent --show-error \
+            -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
+            https://desk.usefulmade.com/api/follow-ups/cron
+
+      # if: always() — a failure above must not stop the remaining
+      # pings; the job still ends red so the failure is visible.
+      - name: Resume delayed automations
+        if: always()
+        run: |
+          curl --fail --silent --show-error \
+            -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
+            https://desk.usefulmade.com/api/automations/cron
+
+      - name: Sweep abandoned flow runs
+        if: always()
+        run: |
+          curl --fail --silent --show-error \
+            -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
+            https://desk.usefulmade.com/api/flows/cron

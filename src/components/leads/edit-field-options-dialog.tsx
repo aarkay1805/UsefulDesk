@@ -37,9 +37,12 @@ const FIELD_COLUMN: Record<LeadFieldKind, 'lead_status' | 'source' | 'gender'> =
     gender: 'gender',
   };
 
-/** Swatches offered for status pills (same family as the defaults). */
+/**
+ * Swatches offered for status pills (same family as the defaults).
+ * Blue (#3b82f6) is intentionally omitted — it's permanently reserved
+ * for the built-in "New lead" stage, so it must not be pickable here.
+ */
 const STATUS_COLORS = [
-  '#3b82f6', // blue
   '#eab308', // yellow
   '#f97316', // orange
   '#22c55e', // green
@@ -234,7 +237,10 @@ function OptionsEditor({
         </DialogDescription>
       </DialogHeader>
 
-      <div className="max-h-[50vh] space-y-2 overflow-y-auto py-1">
+      {/* -mx-1 px-1: overflow-y-auto clips overflow-x too, so pad the
+          scroll box (and pull it back out) to stop focus/selection rings
+          from being shaved at the left edge. */}
+      <div className="max-h-[50vh] -mx-1 space-y-2 overflow-y-auto px-1 py-1">
         {draft.map((option, i) => (
           <div key={option.key} className="flex items-center gap-2">
             <Input

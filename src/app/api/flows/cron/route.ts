@@ -1,5 +1,5 @@
-import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
+import { cronSecretConfigured, isAuthorizedCronRequest } from '@/lib/cron/auth'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { resolveFallbackPolicy } from '@/lib/flows/fallback'
 
@@ -27,21 +27,10 @@ import { resolveFallbackPolicy } from '@/lib/flows/fallback'
  * tenants.
  */
 export async function GET(request: Request) {
-  const expected = process.env.AUTOMATION_CRON_SECRET
-  if (!expected) {
+  if (!cronSecretConfigured()) {
     return NextResponse.json({ error: 'cron not configured' }, { status: 503 })
   }
-  // Constant-time compare so an attacker who can hit the endpoint
-  // can't recover the secret byte-by-byte from response-time deltas.
-  // Length pre-check is required by timingSafeEqual (throws otherwise)
-  // and leaks only the length itself, which isn't sensitive.
-  const supplied = request.headers.get('x-cron-secret') ?? ''
-  const suppliedBuf = Buffer.from(supplied)
-  const expectedBuf = Buffer.from(expected)
-  if (
-    suppliedBuf.length !== expectedBuf.length ||
-    !timingSafeEqual(suppliedBuf, expectedBuf)
-  ) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

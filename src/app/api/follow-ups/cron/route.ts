@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/automations/admin-client'
+import { cronSecretConfigured, isAuthorizedCronRequest } from '@/lib/cron/auth'
 
 /**
  * Follow-up reminder delivery — makes `follow_ups.remind_at` real.
@@ -40,11 +41,10 @@ const TASK_LABEL: Record<string, string> = {
 }
 
 export async function GET(request: Request) {
-  const expected = process.env.AUTOMATION_CRON_SECRET
-  if (!expected) {
+  if (!cronSecretConfigured()) {
     return NextResponse.json({ error: 'cron not configured' }, { status: 503 })
   }
-  if (request.headers.get('x-cron-secret') !== expected) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

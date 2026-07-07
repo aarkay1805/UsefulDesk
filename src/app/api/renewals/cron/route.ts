@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/automations/admin-client'
+import { cronSecretConfigured, isAuthorizedCronRequest } from '@/lib/cron/auth'
 import { engineSendTemplate } from '@/lib/automations/meta-send'
 import { formatCurrency, DEFAULT_CURRENCY } from '@/lib/currency'
 import { istToday } from '@/lib/memberships/expiry'
@@ -43,11 +44,10 @@ interface ReminderCandidate {
 }
 
 export async function GET(request: Request) {
-  const expected = process.env.AUTOMATION_CRON_SECRET
-  if (!expected) {
+  if (!cronSecretConfigured()) {
     return NextResponse.json({ error: 'cron not configured' }, { status: 503 })
   }
-  if (request.headers.get('x-cron-secret') !== expected) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
