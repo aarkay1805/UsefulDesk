@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  addBusinessDays,
   addMonths,
   duePresets,
   followUpDueLabel,
@@ -58,22 +57,6 @@ describe('reminders', () => {
   });
 });
 
-describe('addBusinessDays', () => {
-  // 2026-07-06 is a Monday.
-  it('stays within a week when no weekend intervenes', () => {
-    expect(addBusinessDays('2026-07-06', 2)).toBe('2026-07-08'); // Wed
-    expect(addBusinessDays('2026-07-06', 3)).toBe('2026-07-09'); // Thu
-  });
-
-  it('skips weekends', () => {
-    // Friday + 1bd → Monday; Friday + 3bd → Wednesday.
-    expect(addBusinessDays('2026-07-10', 1)).toBe('2026-07-13');
-    expect(addBusinessDays('2026-07-10', 3)).toBe('2026-07-15');
-    // From a Saturday, 1bd lands on Monday.
-    expect(addBusinessDays('2026-07-11', 1)).toBe('2026-07-13');
-  });
-});
-
 describe('addMonths', () => {
   it('adds calendar months', () => {
     expect(addMonths('2026-07-07', 1)).toBe('2026-08-07');
@@ -94,15 +77,23 @@ describe('duePresets', () => {
     const byId = Object.fromEntries(presets.map((p) => [p.id, p.date]));
     expect(byId.today).toBe('2026-07-07');
     expect(byId.tomorrow).toBe('2026-07-08');
-    expect(byId['2bd']).toBe('2026-07-09'); // Thu
-    expect(byId['3bd']).toBe('2026-07-10'); // Fri
+    expect(byId['2d']).toBe('2026-07-09'); // Thu
+    expect(byId['3d']).toBe('2026-07-10'); // Fri
     expect(byId['1w']).toBe('2026-07-14');
     expect(byId['1m']).toBe('2026-08-07');
   });
 
-  it('labels business-day presets with the weekday and longer ones with the date', () => {
-    const bd3 = presets.find((p) => p.id === '3bd')!;
-    expect(bd3.label).toBe('In 3 business days (Friday)');
+  it('counts plain calendar days — weekends are not skipped', () => {
+    // 2026-07-10 is a Friday: +2 days lands on Sunday, +3 on Monday.
+    const fromFriday = duePresets('2026-07-10');
+    const byId = Object.fromEntries(fromFriday.map((p) => [p.id, p.date]));
+    expect(byId['2d']).toBe('2026-07-12'); // Sun
+    expect(byId['3d']).toBe('2026-07-13'); // Mon
+  });
+
+  it('labels day presets with the weekday and longer ones with the date', () => {
+    const d3 = presets.find((p) => p.id === '3d')!;
+    expect(d3.label).toBe('In 3 days (Friday)');
     const w1 = presets.find((p) => p.id === '1w')!;
     expect(w1.label).toBe('In 1 week (Jul 14)');
   });

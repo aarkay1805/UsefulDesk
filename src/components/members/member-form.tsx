@@ -40,6 +40,12 @@ interface MemberFormProps {
   onOpenChange: (open: boolean) => void;
   /** Present in edit mode — a membership row with its contact hydrated. */
   member?: Membership | null;
+  /**
+   * Add-mode prefill — seeds name/phone/email from an existing contact
+   * (e.g. converting a lead to a member). Submit still find-or-creates
+   * by phone, so the existing contact is reused, not duplicated.
+   */
+  seedContact?: { name?: string | null; phone?: string | null; email?: string | null } | null;
   onSaved: () => void;
   /** Jump to an existing member's detail (dedupe found they already exist). */
   onViewExisting?: (contactId: string) => void;
@@ -49,6 +55,7 @@ export function MemberForm({
   open,
   onOpenChange,
   member,
+  seedContact,
   onSaved,
   onViewExisting,
 }: MemberFormProps) {
@@ -85,9 +92,11 @@ export function MemberForm({
 
   useEffect(() => {
     if (!open) return;
-    setName(member?.contact?.name ?? "");
-    setPhone(member?.contact?.phone ?? "");
-    setEmail(member?.contact?.email ?? "");
+    // Edit mode reads the membership's contact; add mode falls back to
+    // the optional seed (lead → member conversion), else blank.
+    setName(member?.contact?.name ?? seedContact?.name ?? "");
+    setPhone(member?.contact?.phone ?? seedContact?.phone ?? "");
+    setEmail(member?.contact?.email ?? seedContact?.email ?? "");
     setPlanId(member?.plan_id ?? "");
     setStartDate(member?.start_date ?? istToday());
     setFeeAmount(member ? String(member.fee_amount) : "");
@@ -101,6 +110,9 @@ export function MemberForm({
       ? daysBetween(member.start_date, member.end_date)
       : NaN;
     setTrialDays(Number.isFinite(td) && td > 0 ? String(td) : "7");
+    // seedContact is read only at open; re-seeding on its identity would
+    // clobber user edits, so it's intentionally out of the dep list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, member]);
 
   // When a plan is picked, seed the fee from its price (unless the user

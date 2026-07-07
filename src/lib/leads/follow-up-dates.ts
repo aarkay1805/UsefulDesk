@@ -1,26 +1,10 @@
-// Due-date presets for the note composer's follow-up row — HubSpot's
-// "in 3 business days (Friday)" style. All math is IST-first via the
+// Due-date presets for the note composer's follow-up row —
+// "In 3 days (Friday)" style, plain calendar days (gyms run 7 days a
+// week, so no business-day skipping). All math is IST-first via the
 // memberships date helpers ('YYYY-MM-DD' strings; no Date-object
 // timezone traps).
 
 import { daysBetween, istAddDays, istToday } from '@/lib/memberships/expiry';
-
-/** 0 = Sunday … 6 = Saturday for an IST 'YYYY-MM-DD' string. */
-function weekday(dateStr: string): number {
-  return new Date(`${dateStr}T00:00:00Z`).getUTCDay();
-}
-
-/** Add n business days (skips Saturdays and Sundays). */
-export function addBusinessDays(dateStr: string, n: number): string {
-  let d = dateStr;
-  let left = n;
-  while (left > 0) {
-    d = istAddDays(d, 1);
-    const w = weekday(d);
-    if (w !== 0 && w !== 6) left -= 1;
-  }
-  return d;
-}
 
 /** Add calendar months, clamping the day (Jan 31 + 1m → Feb 28/29). */
 export function addMonths(dateStr: string, months: number): string {
@@ -52,7 +36,7 @@ function shortDate(dateStr: string): string {
 
 export interface DuePreset {
   id: string;
-  /** e.g. "In 3 business days (Friday)" / "In 1 week (Jul 14)". */
+  /** e.g. "In 3 days (Friday)" / "In 1 week (Jul 14)". */
   label: string;
   /** Resolved IST due date, 'YYYY-MM-DD'. */
   date: string;
@@ -60,8 +44,8 @@ export interface DuePreset {
 
 /** The preset list, resolved against today (IST). */
 export function duePresets(today: string = istToday()): DuePreset[] {
-  const bd2 = addBusinessDays(today, 2);
-  const bd3 = addBusinessDays(today, 3);
+  const d2 = istAddDays(today, 2);
+  const d3 = istAddDays(today, 3);
   const w1 = istAddDays(today, 7);
   const w2 = istAddDays(today, 14);
   const m1 = addMonths(today, 1);
@@ -70,16 +54,8 @@ export function duePresets(today: string = istToday()): DuePreset[] {
   return [
     { id: 'today', label: 'Today', date: today },
     { id: 'tomorrow', label: 'Tomorrow', date: istAddDays(today, 1) },
-    {
-      id: '2bd',
-      label: `In 2 business days (${weekdayName(bd2)})`,
-      date: bd2,
-    },
-    {
-      id: '3bd',
-      label: `In 3 business days (${weekdayName(bd3)})`,
-      date: bd3,
-    },
+    { id: '2d', label: `In 2 days (${weekdayName(d2)})`, date: d2 },
+    { id: '3d', label: `In 3 days (${weekdayName(d3)})`, date: d3 },
     { id: '1w', label: `In 1 week (${shortDate(w1)})`, date: w1 },
     { id: '2w', label: `In 2 weeks (${shortDate(w2)})`, date: w2 },
     { id: '1m', label: `In 1 month (${shortDate(m1)})`, date: m1 },

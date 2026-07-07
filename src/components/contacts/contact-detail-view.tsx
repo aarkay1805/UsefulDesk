@@ -33,6 +33,7 @@ import {
   TemplatePicker,
   type TemplateSendValues,
 } from '@/components/inbox/template-picker';
+import { MemberForm } from '@/components/members/member-form';
 import {
   Sheet,
   SheetContent,
@@ -79,6 +80,7 @@ import {
   Pencil,
   StickyNote,
   MessageCircle,
+  UserPlus,
 } from 'lucide-react';
 
 const SECTION_IDS = ['details', 'tags', 'notes'];
@@ -109,7 +111,7 @@ interface FollowUpDraft {
 const DEFAULT_FOLLOW_UP_DRAFT: FollowUpDraft = {
   enabled: false,
   type: 'todo',
-  dueId: '3bd',
+  dueId: '3d',
   customDate: '',
   assignee: '',
   remindSlot: '',
@@ -157,6 +159,9 @@ export function ContactDetailView({
 
   // Existing WhatsApp thread for this contact — powers the Chat quick action.
   const [conversationId, setConversationId] = useState<string | null>(null);
+
+  // Convert-to-member — opens the member form seeded with this contact.
+  const [convertOpen, setConvertOpen] = useState(false);
 
   // Accordion sections — all expanded by default, user can collapse.
   const [openSections, setOpenSections] = useState<string[]>(SECTION_IDS);
@@ -774,8 +779,16 @@ export function ContactDetailView({
                 </div>
               </div>
 
-              {/* Quick actions — HubSpot-style icon row */}
-              <div className="mt-3 flex items-start gap-4">
+              {/* Quick actions — a primary "Convert" action leads the row
+                  (filled circle), then the HubSpot-style icon actions. */}
+              <div className="mt-3 flex items-start gap-6">
+                <QuickAction
+                  icon={UserPlus}
+                  label="Convert"
+                  title="Convert to member"
+                  primary
+                  onClick={() => setConvertOpen(true)}
+                />
                 <QuickAction
                   icon={LayoutTemplate}
                   label="Template"
@@ -976,7 +989,7 @@ export function ContactDetailView({
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       {loadingNotes ? (
                         <div className="flex items-center justify-center py-6">
                           <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -1023,6 +1036,21 @@ export function ContactDetailView({
       onOpenChange={setTemplatePickerOpen}
       onSelect={handleSendTemplate}
     />
+    {contact && (
+      <MemberForm
+        open={convertOpen}
+        onOpenChange={setConvertOpen}
+        seedContact={{
+          name: contact.name,
+          phone: contact.phone,
+          email: contact.email,
+        }}
+        onSaved={() => {
+          setConvertOpen(false);
+          onUpdated();
+        }}
+      />
+    )}
     </>
   );
 }
@@ -1037,6 +1065,7 @@ function QuickAction({
   href,
   disabled,
   loading,
+  primary,
 }: {
   icon: typeof Phone;
   label: string;
@@ -1045,9 +1074,12 @@ function QuickAction({
   href?: string;
   disabled?: boolean;
   loading?: boolean;
+  /** Filled primary circle + white icon — the emphasised action. */
+  primary?: boolean;
 }) {
-  const circle =
-    'flex size-9 items-center justify-center rounded-full border border-border bg-transparent text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary cursor-pointer';
+  const circle = primary
+    ? 'flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer'
+    : 'flex size-9 items-center justify-center rounded-full border border-border bg-transparent text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary cursor-pointer';
   const inner = loading ? (
     <Loader2 className="size-4 animate-spin" />
   ) : (
@@ -1076,7 +1108,7 @@ function QuickAction({
           {inner}
         </button>
       )}
-      <span className="text-[10px] leading-none text-muted-foreground">
+      <span className="text-xs leading-none text-muted-foreground">
         {label}
       </span>
     </div>
@@ -1273,8 +1305,8 @@ function NoteComposerCard({
 
 // Follow-up bar attached under the note textarea — three states (per
 // the mocks): switch off = just the label row; on = task chips ("[Call ▾]
-// in [3 business days (Friday) ▾]") plus an "Assign to … / reminder"
-// line. Reminder defaults to none ("Set reminder").
+// [In 3 days (Friday) ▾]") plus an "Assign to … / reminder" strip under
+// its own divider. Reminder defaults to none ("Set reminder").
 function FollowUpRow({
   draft,
   onPatch,
@@ -1287,14 +1319,12 @@ function FollowUpRow({
   currentUserId: string;
 }) {
   const presets = duePresets();
-  // Chip shows "3 business days (Friday)" — the sentence supplies "in".
-  const chipLabel = (label: string) => label.replace(/^In /, '');
+  // Chip shows the preset label verbatim ("In 3 days (Friday)",
+  // "Tomorrow") — no connecting "in" between the two chips.
   const dueLabel =
     draft.dueId === 'custom'
       ? draft.customDate || 'Custom date'
-      : chipLabel(
-          presets.find((p) => p.id === draft.dueId)?.label ?? presets[3].label
-        );
+      : presets.find((p) => p.id === draft.dueId)?.label ?? presets[3].label;
   const effectiveAssignee = draft.assignee || currentUserId;
   const assigneeMember = staff.find((s) => s.user_id === effectiveAssignee);
   const assigneeLabel = assigneeMember
@@ -1304,10 +1334,12 @@ function FollowUpRow({
     REMINDER_SLOTS.find((s) => s.value === draft.remindSlot)?.label ??
     'Set reminder';
 
-  // Sizing/spacing per the Figma spec (node 38:793): rows 12px apart
-  // in a 12/8 padded bar; chips are 14px text in 8/4 padded pills with
-  // 4px inner gaps; the footer line is 12px text, regular weight, 4px
-  // inner gaps and 16px between the two groups.
+  // Sizing/spacing per the Figma spec (node 38:793): a 12/8 padded bar
+  // with NO flex gap — each row self-pads (label row py-1, chips row
+  // py-2, so 12px between them and 16px under the chips). Chips are
+  // 14px text in 8/4 padded pills with 4px inner gaps; the footer line
+  // is 12px text, regular weight, 4px inner gaps and 16px between the
+  // two groups.
   const chip =
     'inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm text-foreground hover:bg-muted';
   const textTrigger =
@@ -1315,20 +1347,20 @@ function FollowUpRow({
   const item = 'text-popover-foreground focus:bg-muted focus:text-foreground';
 
   return (
-    <div className="flex flex-col gap-3 border-t border-border px-3 py-2">
-      <div className="flex items-center justify-between gap-2 py-1">
-        <span className="text-sm text-foreground">Add a follow up task</span>
-        <Switch
-          checked={draft.enabled}
-          onCheckedChange={(v) => onPatch({ enabled: v === true })}
-          aria-label="Add a follow up task"
-        />
-      </div>
+    <div className="border-t border-border">
+      <div className="flex flex-col px-3 py-2">
+        <div className="flex items-center justify-between gap-2 py-1">
+          <span className="text-sm text-foreground">Add a follow up task</span>
+          <Switch
+            checked={draft.enabled}
+            onCheckedChange={(v) => onPatch({ enabled: v === true })}
+            aria-label="Add a follow up task"
+          />
+        </div>
 
-      {draft.enabled && (
-        <div className="flex flex-col gap-3">
-          {/* What + when */}
-          <div className="flex flex-wrap items-center gap-2">
+        {/* What + when */}
+        {draft.enabled && (
+          <div className="flex flex-wrap items-center gap-2 py-2">
             <DropdownMenu>
               <DropdownMenuTrigger render={<button type="button" className={chip} />}>
                 {FOLLOW_UP_TASK_TYPES.find((t) => t.value === draft.type)?.label}
@@ -1346,7 +1378,6 @@ function FollowUpRow({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <span className="text-sm text-muted-foreground">in</span>
             <DropdownMenu>
               <DropdownMenuTrigger render={<button type="button" className={chip} />}>
                 {dueLabel}
@@ -1381,9 +1412,12 @@ function FollowUpRow({
               />
             )}
           </div>
+        )}
+      </div>
 
-          {/* Who + reminder */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-1">
+      {/* Who + reminder — its own strip under a full-width divider (per mock) */}
+      {draft.enabled && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border px-3 py-2">
             <span className="flex items-center gap-1 text-xs">
               <span className="text-muted-foreground">Assign to</span>
               <DropdownMenu>
@@ -1427,7 +1461,6 @@ function FollowUpRow({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
         </div>
       )}
     </div>
@@ -1531,35 +1564,33 @@ function NoteCard({
     year: 'numeric',
   });
 
-  // Meta row — lives in the follow-up strip when the note has a task
-  // (with the assignee), else at the bottom of the note body.
+  // Meta footer — always the card's own bottom strip (under a divider),
+  // "Created on" first, then the assignee when the note spawned a task.
   const metaRow = (
-    <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-      <span className="min-w-0 truncate">
+    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+      <span className="flex min-w-0 items-center gap-4">
+        <span className="shrink-0">Created on {createdOn}</span>
         {assigneeName && (
-          <>
+          <span className="min-w-0 truncate">
             Assigned to{' '}
             <span className="font-medium text-foreground">{assigneeName}</span>
-          </>
+          </span>
         )}
       </span>
-      <span className="flex shrink-0 items-center gap-1.5">
-        Created on {createdOn}
-        {(isOwner || canDeleteAny) && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(note.id);
-            }}
-            aria-label="Delete note"
-            title="Delete note"
-            className="cursor-pointer text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-          >
-            <Trash2 className="size-3.5" />
-          </button>
-        )}
-      </span>
+      {(isOwner || canDeleteAny) && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(note.id);
+          }}
+          aria-label="Delete note"
+          title="Delete note"
+          className="shrink-0 cursor-pointer text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
+      )}
     </div>
   );
 
@@ -1634,7 +1665,6 @@ function NoteCard({
               {expanded ? 'See less' : 'See more'}
             </button>
           )}
-          {!followUp && metaRow}
         </div>
 
         {followUp && (
@@ -1670,11 +1700,11 @@ function NoteCard({
                 </button>
               )}
             </div>
-            {/* +4px over the meta row's own mt-2 — the strip's bottom
-                row sits 12px under the follow-up block. */}
-            <div className="pt-1">{metaRow}</div>
           </div>
         )}
+
+        {/* Meta footer strip — divider above, in every layout (per mock) */}
+        <div className="border-t border-border/50 px-3 py-2">{metaRow}</div>
       </div>
     </div>
   );
