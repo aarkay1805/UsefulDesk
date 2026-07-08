@@ -482,7 +482,7 @@ function HeaderCell({
       surface). Absent when column drag is disabled. */
   dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>;
 }) {
-  const sortable = Boolean(col.sortColumn);
+  const sortable = Boolean(col.sortColumn) || Boolean(col.isCustom);
   return (
     <div className="group/th flex items-center gap-0.5 pr-2">
       {/* The label doubles as the column's drag handle (Sheets-style):
@@ -814,6 +814,28 @@ function applyLeadFilters<Q extends FilterableQuery<Q>>(
   return q;
 }
 
+// Order two stored custom-field values. Numeric types compare numerically;
+// everything else lexically — imported dates are stored ISO (YYYY-MM-DD), so
+// text order is chronological. Empty/missing always sorts last, both
+// directions (a blank cell is never "the smallest date").
+function compareCustomValues(
+  a: string | undefined,
+  b: string | undefined,
+  type: string,
+  dir: SortDir
+): number {
+  const aEmpty = a == null || a === '';
+  const bEmpty = b == null || b === '';
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  const numeric = type === 'number' || type === 'currency';
+  const r = numeric
+    ? (Number.parseFloat(a) || 0) - (Number.parseFloat(b) || 0)
+    : a.localeCompare(b);
+  return dir === 'asc' ? r : -r;
+}
+
 export default function LeadsPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -1095,6 +1117,21 @@ export default function LeadsPage() {
     [sort, colByKey]
   );
 
+  // Active sort targeting a custom field. Its values live in
+  // contact_custom_values (no contacts column to .order() by), so
+  // fetchContacts sorts the full filtered id set client-side instead.
+  // Mutually exclusive with sortColumn (custom cols have no sortColumn).
+  const customSort = useMemo(() => {
+    if (!sort) return null;
+    const col = colByKey[sort.key];
+    if (!col?.isCustom) return null;
+    return {
+      fieldId: col.key.slice(3), // strip "cf:"
+      type: col.customType ?? 'text',
+      dir: sort.dir,
+    };
+  }, [sort, colByKey]);
+
   // Custom field ids whose column is currently shown — only these need their
   // per-contact values fetched. Joined to a stable string for fetch deps.
   const activeCustomFieldIds = useMemo(
@@ -1193,40 +1230,110 @@ export default function LeadsPage() {
       return;
     }
 
-    // Leads = contacts without a membership: PostgREST anti-join via a
-    // left embed filtered to null. Filters apply before order/range
-    // (transform stage drops the filter methods).
-    let query = supabase
-      .from('contacts')
-      .select('*, memberships!left(id)', { count: 'exact' })
-      .is('memberships', null);
-    if (term) {
-      const like = `%${term}%`;
-      query = query.or(
-        `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
+    // Leads = contacts without a membership: PostgREST anti-join via a left
+    // embed filtered to null. Shared by the server-sorted path and the
+    // custom-field-sort path so their filters can't drift. Filters apply
+    // before order/range (transform stage drops the filter methods).
+    const buildFiltered = (select: string, opts?: { count: 'exact' }) => {
+      let q = supabase
+        .from('contacts')
+        .select(select, opts)
+        .is('memberships', null);
+      if (term) {
+        const like = `%${term}%`;
+        q = q.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+      }
+      return applyLeadFilters(q, filters, tagIds);
+    };
+
+    let contactRows: Contact[] = [];
+
+    if (customSort) {
+      // Custom-field values live in contact_custom_values, so the contacts
+      // query can't .order() by them. Pull ALL filtered lead ids, order them
+      // by the field's stored value client-side (whole set → paging is
+      // correct across pages), then fetch only the current page's full rows.
+      // created_at desc is the stable tiebreak for equal/missing values.
+      const { data: idData, error: idErr } = await buildFiltered(
+        'id, memberships!left(id)'
+      ).order('created_at', { ascending: false });
+      if (seq !== fetchSeq.current) return;
+      if (idErr) {
+        toast.error('Failed to load leads');
+        setLoading(false);
+        return;
+      }
+      const allIds = ((idData ?? []) as unknown as { id: string }[]).map(
+        (r) => r.id
       );
-    }
-    query = applyLeadFilters(query, filters, tagIds);
 
-    const {
-      data,
-      count: exactCount,
-      error,
-    } = await query
-      // Sorted column when set + server-sortable, else newest first.
-      .order(sortColumn ?? 'created_at', {
-        ascending: sortColumn ? sort!.dir === 'asc' : false,
-      })
-      .range(from, to);
-    if (seq !== fetchSeq.current) return; // superseded by a newer fetch
-    if (error) {
-      toast.error('Failed to load leads');
-      setLoading(false);
-      return;
-    }
-    const contactRows: Contact[] = data ?? [];
+      // All stored values for the sort field (RLS scopes to this account —
+      // no id list in the URL, so this stays a single light request).
+      const { data: valData } = await supabase
+        .from('contact_custom_values')
+        .select('contact_id, value')
+        .eq('custom_field_id', customSort.fieldId);
+      if (seq !== fetchSeq.current) return;
+      const valById = new Map<string, string>();
+      for (const v of (valData ?? []) as {
+        contact_id: string;
+        value: string | null;
+      }[]) {
+        if (v.value != null) valById.set(v.contact_id, v.value);
+      }
 
-    setTotalCount(exactCount ?? 0);
+      const sortedIds = [...allIds].sort((a, b) =>
+        compareCustomValues(
+          valById.get(a),
+          valById.get(b),
+          customSort.type,
+          customSort.dir
+        )
+      );
+      setTotalCount(allIds.length);
+
+      const pageIds = sortedIds.slice(from, from + pageSize);
+      if (pageIds.length === 0) {
+        setContacts([]);
+        setLoading(false);
+        return;
+      }
+      const { data: rowData, error: rowErr } = await supabase
+        .from('contacts')
+        .select('*')
+        .in('id', pageIds);
+      if (seq !== fetchSeq.current) return;
+      if (rowErr) {
+        toast.error('Failed to load leads');
+        setLoading(false);
+        return;
+      }
+      const byId = new Map(
+        ((rowData ?? []) as unknown as Contact[]).map((r) => [r.id, r])
+      );
+      contactRows = pageIds
+        .map((id) => byId.get(id))
+        .filter((r): r is Contact => Boolean(r));
+    } else {
+      const {
+        data,
+        count: exactCount,
+        error,
+      } = await buildFiltered('*, memberships!left(id)', { count: 'exact' })
+        // Sorted column when set + server-sortable, else newest first.
+        .order(sortColumn ?? 'created_at', {
+          ascending: sortColumn ? sort!.dir === 'asc' : false,
+        })
+        .range(from, to);
+      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
+      if (error) {
+        toast.error('Failed to load leads');
+        setLoading(false);
+        return;
+      }
+      contactRows = (data ?? []) as unknown as Contact[];
+      setTotalCount(exactCount ?? 0);
+    }
 
     if (contactRows.length === 0) {
       setContacts([]);
@@ -1289,6 +1396,7 @@ export default function LeadsPage() {
     tagsMap,
     activeCustomKey,
     sortColumn,
+    customSort,
     sort,
   ]);
 
@@ -1961,11 +2069,13 @@ export default function LeadsPage() {
     [tagsMap]
   );
 
-  // Sortable columns (have a DB mapping) for the Sort panel, in display order.
+  // Sortable columns for the Sort panel, in display order. Real contacts
+  // columns sort server-side (sortColumn); custom fields sort client-side
+  // over the full filtered id set (see fetchContacts' customSort branch).
   const sortableColumns = useMemo(
     () =>
       visibleColumns
-        .filter((c) => c.sortColumn)
+        .filter((c) => c.sortColumn || c.isCustom)
         .map((c) => ({ key: c.key, label: c.label })),
     [visibleColumns]
   );
