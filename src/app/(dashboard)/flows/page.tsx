@@ -62,7 +62,7 @@ const STATUS_LABELS: Record<FlowRow["status"], string> = {
 
 const STATUS_COLORS: Record<FlowRow["status"], string> = {
   draft: "border-border bg-muted text-muted-foreground",
-  active: "border-emerald-600/40 bg-emerald-500/10 text-emerald-300",
+  active: "border-emerald-600/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   archived: "border-border bg-muted/50 text-muted-foreground",
 };
 
@@ -412,7 +412,7 @@ function FlowCard({
           variant="ghost"
           size="sm"
           onClick={onDelete}
-          className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
+          className="text-red-700 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Delete

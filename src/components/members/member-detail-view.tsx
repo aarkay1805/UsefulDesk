@@ -244,7 +244,7 @@ export function MemberDetailView({
                   <dd className="font-medium text-foreground">
                     {formatCurrency(membership.fee_amount, defaultCurrency)}
                     {balance > 0 && (
-                      <span className="ml-1 text-xs font-medium text-amber-400">
+                      <span className="ml-1 text-xs font-medium text-amber-700 dark:text-amber-400">
                         ({formatCurrency(balance, defaultCurrency)} due)
                       </span>
                     )}
@@ -409,7 +409,7 @@ export function MemberDetailView({
                         key={v.id}
                         className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground"
                       >
-                        <UserCheck className="size-3.5 text-emerald-400" />
+                        <UserCheck className="size-3.5 text-emerald-700 dark:text-emerald-400" />
                         {new Date(v.checked_in_at).toLocaleString("en-IN", {
                           timeZone: "Asia/Kolkata",
                           dateStyle: "medium",

@@ -139,13 +139,13 @@ export function RenewalRemindersSettings() {
           surprised that "enabled" sends nothing when WhatsApp / the
           template aren't set up. */}
       {!readiness.loading && !readiness.ready && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-600/40 bg-amber-950/30 px-3 py-2.5 text-sm text-amber-200">
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-600/40 bg-amber-950/30 px-3 py-2.5 text-sm text-amber-800 dark:text-amber-200">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           <span>{readiness.reason} Reminders won&apos;t send until this is done.</span>
         </div>
       )}
       {!readiness.loading && readiness.ready && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-emerald-700/40 bg-emerald-950/25 px-3 py-2.5 text-sm text-emerald-200">
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-emerald-700/40 bg-emerald-950/25 px-3 py-2.5 text-sm text-emerald-800 dark:text-emerald-200">
           <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
           <span>WhatsApp is connected and the renewal template is approved.</span>
         </div>

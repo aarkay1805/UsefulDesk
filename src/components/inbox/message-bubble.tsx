@@ -27,18 +27,25 @@ interface MessageBubbleProps {
   onToggleReaction?: (emoji: string) => void;
 }
 
+// Status ticks render INSIDE the outbound bg-primary bubble, so their
+// colour must contrast with the accent fill — which varies per theme
+// (white-text violet/cobalt/rose vs dark-text emerald/amber). Deriving
+// from primary-foreground is the only recipe that works on all five;
+// fixed grey/blue/red ticks fell below 3:1 on several accents. "Read"
+// is full-strength vs the dimmed pending tier, and every state carries
+// an aria-label so the meaning never rides on colour alone (WCAG 1.4.1).
 function StatusIcon({ status }: { status: Message["status"] }) {
   switch (status) {
     case "sending":
-      return <Clock className="h-3 w-3 text-muted-foreground" />;
+      return <Clock aria-label="Sending" className="h-3 w-3 text-primary-foreground/70" />;
     case "sent":
-      return <Check className="h-3 w-3 text-muted-foreground" />;
+      return <Check aria-label="Sent" className="h-3 w-3 text-primary-foreground/70" />;
     case "delivered":
-      return <CheckCheck className="h-3 w-3 text-muted-foreground" />;
+      return <CheckCheck aria-label="Delivered" className="h-3 w-3 text-primary-foreground/70" />;
     case "read":
-      return <CheckCheck className="h-3 w-3 text-blue-400" />;
+      return <CheckCheck aria-label="Read" className="h-3 w-3 text-primary-foreground" />;
     case "failed":
-      return <XCircle className="h-3 w-3 text-red-400" />;
+      return <XCircle aria-label="Failed to send" className="h-3 w-3 text-primary-foreground" />;
     default:
       return null;
   }

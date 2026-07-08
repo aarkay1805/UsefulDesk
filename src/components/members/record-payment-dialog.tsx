@@ -175,7 +175,7 @@ export function RecordPaymentDialog({
           {dues && dues.balance > 0 && (
             <div className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
               <span className="text-muted-foreground">Balance due</span>
-              <span className="font-medium text-amber-400">
+              <span className="font-medium text-amber-700 dark:text-amber-400">
                 {formatCurrency(dues.balance, defaultCurrency)}
                 {dues.collected > 0 && (
                   <span className="ml-1 text-xs text-muted-foreground">

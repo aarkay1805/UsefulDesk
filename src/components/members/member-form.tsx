@@ -316,7 +316,7 @@ export function MemberForm({
 
             <div className="space-y-2">
               <Label htmlFor="mf-phone" className="text-muted-foreground">
-                Phone <span className="text-red-400">*</span>
+                Phone <span className="text-red-700 dark:text-red-400">*</span>
               </Label>
               <Input
                 id="mf-phone"
@@ -330,7 +330,7 @@ export function MemberForm({
                 className="bg-muted"
               />
               {dupMatch ? (
-                <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-300">
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-300">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                   <div className="space-y-1">
                     <p>
@@ -386,7 +386,7 @@ export function MemberForm({
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="mf-plan" className="text-muted-foreground">
-                  Plan {!isTrial && <span className="text-red-400">*</span>}
+                  Plan {!isTrial && <span className="text-red-700 dark:text-red-400">*</span>}
                 </Label>
                 <select
                   id="mf-plan"

@@ -37,17 +37,17 @@ const BUCKET_META: Record<
 > = {
   ending_today: {
     label: "Ending today",
-    icon: <CalendarClock className="size-4 text-amber-400" />,
+    icon: <CalendarClock className="size-4 text-amber-700 dark:text-amber-400" />,
     empty: "No trials ending today.",
   },
   ending_soon: {
     label: "Ending this week",
-    icon: <Clock className="size-4 text-sky-400" />,
+    icon: <Clock className="size-4 text-sky-700 dark:text-sky-400" />,
     empty: "No trials ending this week.",
   },
   expired_unconverted: {
     label: "Expired — not converted",
-    icon: <CircleAlert className="size-4 text-red-400" />,
+    icon: <CircleAlert className="size-4 text-red-700 dark:text-red-400" />,
     empty: "No lapsed trials to win back.",
   },
 };
@@ -166,7 +166,7 @@ function TrialList({
 
       {rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
-          <CheckCircle2 className="size-6 text-emerald-500/70" />
+          <CheckCircle2 className="size-6 text-emerald-700 dark:text-emerald-500/70" />
           <p className="text-xs text-muted-foreground">{meta.empty}</p>
         </div>
       ) : (

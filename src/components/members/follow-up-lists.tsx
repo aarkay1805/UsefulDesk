@@ -79,7 +79,7 @@ export function FollowUpLists({ onSelect, reloadKey }: FollowUpListsProps) {
       <div className="grid gap-4 lg:grid-cols-3">
         <TaskList
           title="Overdue"
-          icon={<CircleAlert className="size-4 text-red-400" />}
+          icon={<CircleAlert className="size-4 text-red-700 dark:text-red-400" />}
           rows={buckets.overdue}
           nameById={nameById}
           onSelect={onSelect}
@@ -88,7 +88,7 @@ export function FollowUpLists({ onSelect, reloadKey }: FollowUpListsProps) {
         />
         <TaskList
           title="Due today"
-          icon={<CalendarClock className="size-4 text-amber-400" />}
+          icon={<CalendarClock className="size-4 text-amber-700 dark:text-amber-400" />}
           rows={buckets.dueToday}
           nameById={nameById}
           onSelect={onSelect}
@@ -149,7 +149,7 @@ function TaskList({
 
       {rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
-          <CheckCircle2 className="size-6 text-emerald-500/70" />
+          <CheckCircle2 className="size-6 text-emerald-700 dark:text-emerald-500/70" />
           <p className="text-xs text-muted-foreground">{emptyLabel}</p>
         </div>
       ) : (

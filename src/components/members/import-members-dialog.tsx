@@ -214,7 +214,7 @@ function ImportForm({
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="im-plan" className="text-muted-foreground">
-              Plan <span className="text-red-400">*</span>
+              Plan <span className="text-red-700 dark:text-red-400">*</span>
             </Label>
             <select
               id="im-plan"

@@ -73,13 +73,13 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
   }, [reloadKey]);
 
   const tiles = [
-    { label: "Collected today", value: totals.today, icon: <IndianRupee className="size-4 text-emerald-400" /> },
-    { label: "Last 7 days", value: totals.week, icon: <CalendarDays className="size-4 text-emerald-400" /> },
-    { label: "This month", value: totals.month, icon: <Wallet className="size-4 text-emerald-400" /> },
+    { label: "Collected today", value: totals.today, icon: <IndianRupee className="size-4 text-emerald-700 dark:text-emerald-400" /> },
+    { label: "Last 7 days", value: totals.week, icon: <CalendarDays className="size-4 text-emerald-700 dark:text-emerald-400" /> },
+    { label: "This month", value: totals.month, icon: <Wallet className="size-4 text-emerald-700 dark:text-emerald-400" /> },
     {
       label: "Outstanding",
       value: totals.outstanding,
-      icon: <AlertTriangle className="size-4 text-amber-400" />,
+      icon: <AlertTriangle className="size-4 text-amber-700 dark:text-amber-400" />,
       accent: true,
     },
   ];
@@ -93,7 +93,7 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
             {t.label}
           </div>
           <div
-            className={`mt-2 text-xl font-semibold ${t.accent && t.value > 0 ? "text-amber-400" : "text-foreground"}`}
+            className={`mt-2 text-xl font-semibold ${t.accent && t.value > 0 ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}
           >
             {loading ? "—" : formatCurrency(t.value, defaultCurrency)}
           </div>

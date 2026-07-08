@@ -145,7 +145,7 @@ function BucketCard({
   return (
     <section className="flex flex-col rounded-xl border border-border bg-card">
       <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
-        <Wallet className="size-4 text-amber-400" />
+        <Wallet className="size-4 text-amber-700 dark:text-amber-400" />
         <h3 className="text-sm font-medium text-foreground">{title}</h3>
         <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
           {rows.length}
@@ -154,7 +154,7 @@ function BucketCard({
 
       {rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
-          <CheckCircle2 className="size-6 text-emerald-500/70" />
+          <CheckCircle2 className="size-6 text-emerald-700 dark:text-emerald-500/70" />
           <p className="text-xs text-muted-foreground">Nothing here.</p>
         </div>
       ) : (
@@ -181,7 +181,7 @@ function BucketCard({
                         {overdue > 0 ? ` · ${overdue}d overdue` : " · due now"}
                       </p>
                     </div>
-                    <span className="shrink-0 text-sm font-semibold text-amber-400">
+                    <span className="shrink-0 text-sm font-semibold text-amber-700 dark:text-amber-400">
                       {formatCurrency(m.balance, currency)}
                     </span>
                   </div>

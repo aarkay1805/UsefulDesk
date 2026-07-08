@@ -445,7 +445,7 @@ function NodeCard({
           )}
         </div>
         {hasError && (
-          <CircleAlert className="h-3.5 w-3.5 shrink-0 text-red-400" />
+          <CircleAlert className="h-3.5 w-3.5 shrink-0 text-red-700 dark:text-red-400" />
         )}
         {expanded ? (
           <ChevronUp className="text-muted-foreground h-4 w-4" />
@@ -473,7 +473,7 @@ function NodeCard({
               variant="ghost"
               size="sm"
               onClick={onRemove}
-              className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
+              className="text-red-700 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Remove node

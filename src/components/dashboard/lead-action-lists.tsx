@@ -212,8 +212,8 @@ export function LeadActionLists() {
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                         overdueDays > 0
-                          ? "bg-red-500/10 text-red-400"
-                          : "bg-amber-500/10 text-amber-400"
+                          ? "bg-red-500/10 text-red-700 dark:text-red-400"
+                          : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
                       }`}
                     >
                       {overdueDays > 0 ? `Overdue ${overdueDays}d` : "Today"}
@@ -271,7 +271,7 @@ export function LeadActionLists() {
                       <span className="shrink-0 font-mono text-xs text-muted-foreground">
                         {l.phone}
                       </span>
-                      <span className="shrink-0 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-400">
+                      <span className="shrink-0 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-400">
                         waiting {waitingDays}d
                       </span>
                     </Link>

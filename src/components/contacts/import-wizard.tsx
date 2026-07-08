@@ -1026,7 +1026,7 @@ function MapStep({
         )}
 
         {mode !== 'add' && (
-          <p className="flex items-start gap-1.5 text-[11px] text-amber-500">
+          <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
             <AlertTriangle className="mt-px size-3 shrink-0" />
             Updates applied via import cannot be undone.
           </p>
@@ -1186,7 +1186,7 @@ function MapStep({
                               size="icon-sm"
                               title="Delete field"
                               onClick={() => onDeleteField(cfId)}
-                              className="shrink-0 text-muted-foreground hover:text-red-400"
+                              className="shrink-0 text-muted-foreground hover:text-red-700 dark:hover:text-red-400"
                             >
                               <Trash2 className="size-3.5" />
                             </Button>
@@ -1204,14 +1204,14 @@ function MapStep({
 
         {/* Validation */}
         {!validation.phoneMapped && (
-          <p className="flex items-center gap-1.5 text-xs text-red-400">
+          <p className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
             <XCircle className="size-3.5 shrink-0" />
             Map one column to <span className="font-medium">Phone</span> to
             continue — it&apos;s required.
           </p>
         )}
         {validation.duplicateTargets.length > 0 && (
-          <p className="flex items-center gap-1.5 text-xs text-red-400">
+          <p className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
             <XCircle className="size-3.5 shrink-0" />
             Each field can be mapped once. Duplicated:{' '}
             {validation.duplicateTargets
@@ -1245,9 +1245,9 @@ function ReviewStep({
   if (result) {
     const stats: [string, number, string][] = [
       ['imported', result.imported, 'text-primary'],
-      ['updated', result.updated, 'text-cyan-400'],
-      ['skipped', result.skipped, 'text-amber-400'],
-      ['failed', result.failed, 'text-red-400'],
+      ['updated', result.updated, 'text-cyan-700 dark:text-cyan-400'],
+      ['skipped', result.skipped, 'text-amber-700 dark:text-amber-400'],
+      ['failed', result.failed, 'text-red-700 dark:text-red-400'],
     ];
     return (
       <div className="rounded-xl border border-border bg-background/50 p-5">
@@ -1284,7 +1284,7 @@ function ReviewStep({
           </p>
         )}
         {result.invalidValues > 0 && (
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-400">
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
             <AlertTriangle className="size-3.5 shrink-0" />
             {result.invalidValues} value
             {result.invalidValues !== 1 ? 's' : ''} skipped — wrong format for
@@ -1314,7 +1314,7 @@ function ReviewStep({
           {mappedPreview.droppedNoPhone > 0 && (
             <div>
               <span className="text-muted-foreground">Rows without phone: </span>
-              <span className="font-medium text-amber-400">
+              <span className="font-medium text-amber-700 dark:text-amber-400">
                 {mappedPreview.droppedNoPhone} skipped
               </span>
             </div>
@@ -1324,7 +1324,7 @@ function ReviewStep({
               <span className="text-muted-foreground">
                 Wrong-format values:{' '}
               </span>
-              <span className="font-medium text-amber-400">
+              <span className="font-medium text-amber-700 dark:text-amber-400">
                 {mappedPreview.invalidCustomValues} will be skipped
               </span>
             </div>

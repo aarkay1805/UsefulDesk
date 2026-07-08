@@ -1701,7 +1701,7 @@ function NoteCard({
                   onClick={() => onMarkDone(note.id, followUp.id)}
                   aria-label="Mark as followed up"
                   title="Mark as followed up"
-                  className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-green-500 hover:text-green-500"
+                  className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-green-500 hover:text-green-700 dark:hover:text-green-400"
                 >
                   <Check className="size-4" />
                 </button>

@@ -282,7 +282,7 @@ export function Step3Personalize({
               />
             )}
           {headerMediaError && (
-            <p className="mt-1.5 text-xs text-amber-300">
+            <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">
               {headerMediaError === 'missing'
                 ? 'A media URL is required to send this template.'
                 : 'Enter a valid http(s) URL.'}
@@ -428,7 +428,7 @@ export function Step3Personalize({
       </div>
 
       {unmappedKeys.length > 0 && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
           Map every placeholder before continuing — still missing{' '}
           <span className="font-mono font-semibold">
             {unmappedKeys.join(', ')}

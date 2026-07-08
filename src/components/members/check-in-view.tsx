@@ -101,7 +101,7 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
           />
         </div>
         <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm">
-          <UserCheck className="size-4 text-emerald-400" />
+          <UserCheck className="size-4 text-emerald-700 dark:text-emerald-400" />
           <span className="font-medium text-foreground">{checkedToday.size}</span>
           <span className="text-muted-foreground">in today</span>
         </div>

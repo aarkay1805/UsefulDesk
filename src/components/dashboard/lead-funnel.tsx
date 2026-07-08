@@ -68,8 +68,8 @@ export function LeadFunnel({ data, loading }: LeadFunnelProps) {
                       }}
                     >
                       <span
-                        className="text-[11px] font-semibold tabular-nums"
-                        style={{ color: s.color }}
+                        className="tinted-text text-[11px] font-semibold tabular-nums"
+                        style={{ '--badge-tint': s.color } as React.CSSProperties}
                       >
                         {s.count}
                       </span>

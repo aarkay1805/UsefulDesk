@@ -554,8 +554,8 @@ export default function InboxPage() {
           so it pushes the panels down instead of overlapping them. */}
       {whatsappConnected === false && (
         <div className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2">
-          <WifiOff className="h-4 w-4 text-amber-400" />
-          <p className="text-xs text-amber-400">
+          <WifiOff className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+          <p className="text-xs text-amber-700 dark:text-amber-400">
             WhatsApp® is not connected. Go to Settings to connect your account.
           </p>
         </div>

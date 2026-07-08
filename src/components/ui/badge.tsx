@@ -22,15 +22,17 @@ const badgeVariants = cva(
         // Tinted status pills — the canonical look for statuses across
         // the app (members renewals, leads, broadcasts, flows). Fill-only,
         // matching the upstream `destructive` recipe (tinted bg, no border).
-        success: "bg-emerald-500/10 text-emerald-400",
-        danger: "bg-red-500/10 text-red-400",
-        warning: "bg-amber-500/10 text-amber-400",
-        info: "bg-sky-500/10 text-sky-400",
-        violet: "bg-violet-500/10 text-violet-400",
+        // Text shade is mode-aware: the -400s only clear WCAG 4.5:1 on
+        // dark surfaces; light mode needs the -700s over the same tint.
+        success: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+        danger: "bg-red-500/10 text-red-700 dark:text-red-400",
+        warning: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+        info: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
+        violet: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
         // Neutral slate pill (admin-made tags, counts): the fill-only
         // tint recipe in slate — matches a #64748b colour-prop status
         // badge, so slate reads as "neutral" across statuses and tags.
-        neutral: "bg-slate-500/10 text-slate-500",
+        neutral: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
       },
     },
     defaultVariants: {
@@ -51,8 +53,9 @@ function Badge({
     /**
      * Dynamic tint from a hex colour (e.g. a lead status colour stored
      * in the DB). Applies the same fill-only recipe as the tinted
-     * variants: 10% background, full-strength text. Overrides the
-     * variant's colours via inline style.
+     * variants — 10% background — with a mode-aware text colour derived
+     * from the hex via `.badge-tinted` (globals.css): lightened in dark
+     * mode, darkened in light mode, so any stored hex stays ≥4.5:1.
      */
     color?: string;
   }) {
@@ -60,13 +63,9 @@ function Badge({
     defaultTagName: "span",
     props: mergeProps<"span">(
       {
-        className: cn(badgeVariants({ variant }), className),
+        className: cn(badgeVariants({ variant }), color && "badge-tinted", className),
         style: color
-          ? {
-              backgroundColor: `${color}1a`,
-              color,
-              ...style,
-            }
+          ? ({ "--badge-tint": color, ...style } as React.CSSProperties)
           : style,
       },
       props

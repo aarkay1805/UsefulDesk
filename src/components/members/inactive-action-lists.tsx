@@ -103,7 +103,7 @@ export function InactiveActionLists({
       <div className="grid gap-4 lg:grid-cols-2">
         <RetentionList
           title={`Inactive ${INACTIVE_DAYS}+ days`}
-          icon={<MoonStar className="size-4 text-amber-400" />}
+          icon={<MoonStar className="size-4 text-amber-700 dark:text-amber-400" />}
           rows={inactive}
           detail={(r) => {
             const days = daysSinceVisit(r);
@@ -169,7 +169,7 @@ function RetentionList({
 
       {rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
-          <CheckCircle2 className="size-6 text-emerald-500/70" />
+          <CheckCircle2 className="size-6 text-emerald-700 dark:text-emerald-500/70" />
           <p className="text-xs text-muted-foreground">{emptyLabel}</p>
         </div>
       ) : (
