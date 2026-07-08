@@ -29,7 +29,7 @@ export function LeadFunnel({ data, loading }: LeadFunnelProps) {
         </div>
         <Link
           href="/leads"
-          className="text-xs font-medium text-primary hover:text-primary/80"
+          className="text-xs font-medium text-primary-text hover:text-primary-text/80"
         >
           Open Leads →
         </Link>

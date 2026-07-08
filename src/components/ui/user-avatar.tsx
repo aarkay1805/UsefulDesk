@@ -42,7 +42,7 @@ export function UserAvatar({
       {src ? <AvatarImage src={src} alt={name} /> : null}
       <AvatarFallback
         className={cn(
-          'bg-primary/10 text-sm font-medium text-primary',
+          'bg-primary/10 text-sm font-medium text-primary-text',
           fallbackClassName
         )}
       >

@@ -578,7 +578,7 @@ export function TemplateManager() {
                         onClick={() => openEdit(template)}
                         title="Editing triggers Meta re-review — status flips to PENDING."
                         aria-label="Edit template"
-                        className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 px-2"
+                        className="text-muted-foreground hover:text-primary-text hover:bg-primary/10 h-8 px-2"
                       >
                         <Pencil className="size-3.5" />
                         Edit
@@ -591,7 +591,7 @@ export function TemplateManager() {
                         onClick={() => openEdit(template)}
                         title="Edit the template and resubmit to Meta for review."
                         aria-label="Edit and resubmit template"
-                        className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 px-2"
+                        className="text-muted-foreground hover:text-primary-text hover:bg-primary/10 h-8 px-2"
                       >
                         <RotateCcw className="size-3.5" />
                         Resubmit

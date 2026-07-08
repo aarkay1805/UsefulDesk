@@ -298,7 +298,7 @@ export default function JoinPage() {
       </div>
       <CardTitle className="text-xl text-foreground">
         You&apos;re invited to{' '}
-        <span className="text-primary">{peek.account_name}</span>
+        <span className="text-primary-text">{peek.account_name}</span>
       </CardTitle>
       <CardDescription className="text-muted-foreground">
         You&apos;ll join as{' '}

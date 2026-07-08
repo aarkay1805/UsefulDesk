@@ -809,7 +809,7 @@ export function WhatsAppConfig() {
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground">
                   <ol className="list-decimal list-inside space-y-1 text-sm">
-                    <li>Go to <span className="text-primary">developers.facebook.com</span></li>
+                    <li>Go to <span className="text-primary-text">developers.facebook.com</span></li>
                     <li>Click &quot;My Apps&quot; and then &quot;Create App&quot;</li>
                     <li>Select &quot;Business&quot; as the app type</li>
                     <li>Fill in app details and create</li>
@@ -874,7 +874,7 @@ export function WhatsAppConfig() {
                 href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm text-primary-text hover:text-primary-text/80 transition-colors"
               >
                 <ExternalLink className="size-3.5" />
                 Meta WhatsApp API Documentation

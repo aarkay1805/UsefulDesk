@@ -136,7 +136,7 @@ export function GlobalSearch() {
                     className={cn(
                       "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50",
                       active
-                        ? "font-medium text-primary"
+                        ? "font-medium text-primary-text"
                         : "text-popover-foreground"
                     )}
                   >

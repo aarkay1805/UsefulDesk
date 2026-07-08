@@ -133,7 +133,7 @@ function groupMessagesByDate(messages: Message[]) {
 }
 
 const STATUS_OPTIONS: { label: string; value: ConversationStatus; color: string }[] = [
-  { label: "Open", value: "open", color: "text-primary" },
+  { label: "Open", value: "open", color: "text-primary-text" },
   { label: "Pending", value: "pending", color: "text-amber-700 dark:text-amber-400" },
   { label: "Closed", value: "closed", color: "text-muted-foreground" },
 ];
@@ -847,7 +847,7 @@ export function MessageThread({
             variant="outline"
             className={cn(
               "ml-1 hidden gap-1 border-border text-[10px] sm:inline-flex sm:ml-2",
-              sessionInfo.expired ? "text-red-700 dark:text-red-400" : "text-primary"
+              sessionInfo.expired ? "text-red-700 dark:text-red-400" : "text-primary-text"
             )}
           >
             <Clock className="h-3 w-3" />
@@ -935,7 +935,7 @@ export function MessageThread({
             <DropdownMenuTrigger
               className={cn(
                 "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                assignedAgentId ? "text-primary" : "text-muted-foreground"
+                assignedAgentId ? "text-primary-text" : "text-muted-foreground"
               )}
             >
               <UserPlus className="h-3 w-3" />
@@ -960,7 +960,7 @@ export function MessageThread({
                       onClick={() => handleAssignChange(p.user_id)}
                       className={cn(
                         "text-sm",
-                        isSelected ? "text-primary" : "text-popover-foreground"
+                        isSelected ? "text-primary-text" : "text-popover-foreground"
                       )}
                     >
                       <PresenceDot

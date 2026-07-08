@@ -44,7 +44,7 @@ export function GymMetrics() {
     <section>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground">Gym today</h2>
-        <Link href="/members" className="text-xs font-medium text-primary hover:underline">
+        <Link href="/members" className="text-xs font-medium text-primary-text hover:underline">
           View members →
         </Link>
       </div>

@@ -248,7 +248,7 @@ export function ConversationList({
                   className={cn(
                     "text-sm",
                     filter === opt.value
-                      ? "text-primary"
+                      ? "text-primary-text"
                       : "text-popover-foreground"
                   )}
                 >
@@ -264,7 +264,7 @@ export function ConversationList({
                 className={cn(
                   "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
                   selectedTagIds.length > 0
-                    ? "text-primary"
+                    ? "text-primary-text"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -300,7 +300,7 @@ export function ConversationList({
                 className={cn(
                   "inline-flex max-w-40 items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
                   selectedCompany
-                    ? "text-primary"
+                    ? "text-primary-text"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -316,7 +316,7 @@ export function ConversationList({
                   className={cn(
                     "text-sm",
                     selectedCompany === null
-                      ? "text-primary"
+                      ? "text-primary-text"
                       : "text-popover-foreground"
                   )}
                 >
@@ -329,7 +329,7 @@ export function ConversationList({
                     className={cn(
                       "text-sm",
                       selectedCompany === co
-                        ? "text-primary"
+                        ? "text-primary-text"
                         : "text-popover-foreground"
                     )}
                   >

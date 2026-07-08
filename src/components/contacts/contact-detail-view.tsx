@@ -740,7 +740,7 @@ export function ContactDetailView({
             <SheetHeader className="p-4 border-b border-border/50">
               <div className="flex items-center gap-3">
                 <Avatar className="size-12 bg-muted border border-border">
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+                  <AvatarFallback className="bg-primary/10 text-primary-text text-sm font-medium">
                     {getInitials(contact.name)}
                   </AvatarFallback>
                 </Avatar>
@@ -754,7 +754,7 @@ export function ContactDetailView({
                   <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-muted-foreground">
                     <button
                       onClick={copyPhone}
-                      className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"
+                      className="flex items-center gap-1 hover:text-primary-text transition-colors cursor-pointer"
                     >
                       <Phone className="size-3" />
                       {contact.phone}
@@ -899,7 +899,7 @@ export function ContactDetailView({
                         <Link
                           href="/settings?tab=fields"
                           onClick={() => onOpenChange(false)}
-                          className="text-primary underline underline-offset-3 hover:text-primary/80"
+                          className="text-primary-text underline underline-offset-3 hover:text-primary-text/80"
                         >
                           Create tags in Settings
                         </Link>
@@ -1344,7 +1344,7 @@ function FollowUpRow({
   const chip =
     'inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm text-foreground hover:bg-muted';
   const textTrigger =
-    'inline-flex cursor-pointer items-center gap-1 py-1 text-xs text-foreground hover:text-primary';
+    'inline-flex cursor-pointer items-center gap-1 py-1 text-xs text-foreground hover:text-primary-text';
   const item = 'text-popover-foreground focus:bg-muted focus:text-foreground';
 
   return (
@@ -1661,7 +1661,7 @@ function NoteCard({
                 e.stopPropagation();
                 setExpanded((v) => !v);
               }}
-              className="mt-1 cursor-pointer text-xs font-medium text-primary hover:underline"
+              className="mt-1 cursor-pointer text-xs font-medium text-primary-text hover:underline"
             >
               {expanded ? 'See less' : 'See more'}
             </button>

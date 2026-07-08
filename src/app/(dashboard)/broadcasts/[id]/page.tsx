@@ -420,7 +420,7 @@ export default function BroadcastDetailPage() {
                 <DropdownMenuItem
                   onClick={() => setStatusFilter('all')}
                   className={
-                    statusFilter === 'all' ? 'text-primary' : 'text-popover-foreground'
+                    statusFilter === 'all' ? 'text-primary-text' : 'text-popover-foreground'
                   }
                 >
                   All statuses
@@ -431,7 +431,7 @@ export default function BroadcastDetailPage() {
                     onClick={() => setStatusFilter(s)}
                     className={
                       statusFilter === s
-                        ? 'text-primary'
+                        ? 'text-primary-text'
                         : 'text-popover-foreground'
                     }
                   >

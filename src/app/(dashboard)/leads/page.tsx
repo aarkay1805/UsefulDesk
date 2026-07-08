@@ -1682,7 +1682,7 @@ export default function LeadsPage() {
                   onClick={() => setLeadsView('table')}
                   className={cn(
                     'focus:bg-muted focus:text-foreground',
-                    view === 'table' ? 'text-primary' : 'text-popover-foreground'
+                    view === 'table' ? 'text-primary-text' : 'text-popover-foreground'
                   )}
                 >
                   <List className="size-4" />
@@ -1692,7 +1692,7 @@ export default function LeadsPage() {
                   onClick={() => setLeadsView('board')}
                   className={cn(
                     'focus:bg-muted focus:text-foreground',
-                    view === 'board' ? 'text-primary' : 'text-popover-foreground'
+                    view === 'board' ? 'text-primary-text' : 'text-popover-foreground'
                   )}
                 >
                   <LayoutGrid className="size-4" />

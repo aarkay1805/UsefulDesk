@@ -28,6 +28,11 @@
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
+  /* Form-control border, strengthened to WCAG 1.4.11 (3:1) — distinct
+   * from --input (the fill token) and from --border (decorative). Used
+   * by text inputs, selects, textareas, checkboxes, radios where the
+   * box outline is the sole affordance. See the MODE blocks below. */
+  --color-input-border: var(--input-border);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
@@ -38,6 +43,13 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  /* Accent tuned for use AS text/icons on the app surfaces (links,
+   * emphasised labels). --primary is calibrated as a button FILL, so
+   * on a dark surface it only reaches ~3.3:1 — fine for graphics, short
+   * of the 4.5:1 text bar. --primary-text blends the accent toward the
+   * live --foreground, so it self-adjusts per mode (lightens on dark,
+   * darkens on light) and clears 4.5:1 for every accent. */
+  --color-primary-text: var(--primary-text);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -110,6 +122,10 @@ html[data-mode="dark"] {
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(0.28 0.01 260);
   --input: oklch(0.28 0.01 260);
+  /* 3:1 against both the card (0.18) and the app bg (0.13) — the resting
+   * outline is the only affordance on an empty field. Deliberately much
+   * lighter than --border (decorative separators stay subtle). */
+  --input-border: oklch(0.5 0.01 260);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
@@ -139,6 +155,9 @@ html[data-mode="light"] {
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0.004 260);
   --input: oklch(0.922 0.004 260);
+  /* 3:1 against white/near-white surfaces (light inputs have no fill, so
+   * the border carries identification entirely). Darker than --border. */
+  --input-border: oklch(0.62 0.02 260);
   --chart-2: oklch(0.6 0.1 260);
   --chart-3: oklch(0.7 0.06 260);
   --chart-4: oklch(0.8 0.04 260);
@@ -235,6 +254,18 @@ html[data-theme="rose"] {
 html[data-mode="light"][data-theme="amber"] {
   --ring: oklch(0.6 0.15 65);
   --sidebar-ring: oklch(0.6 0.15 65);
+}
+
+/* Accent-as-text token (links, emphasised labels). Blends the accent
+ * 62% with the live --foreground (38%) — the same recipe the flow-node
+ * labels use. Because --foreground flips per mode, this self-adjusts:
+ * it lightens the accent on dark surfaces and darkens it on light,
+ * landing every accent between 5.1:1 and 11.2:1 as text (WCAG 1.4.3).
+ * Defined once; resolves lazily against whatever accent/mode is active.
+ * If a browser lacks color-mix the utility simply inherits --foreground
+ * (still fully readable), so no explicit fallback is needed. */
+:root {
+  --primary-text: color-mix(in oklch, var(--primary), var(--foreground) 38%);
 }
 
 /* Dynamic tinted pills (Badge's `color` prop — DB-driven hex colours

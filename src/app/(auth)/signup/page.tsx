@@ -236,7 +236,7 @@ function SignupPageInner() {
                   ? `/login?invite=${encodeURIComponent(inviteToken)}`
                   : "/login"
               }
-              className="text-primary hover:text-primary/80"
+              className="text-primary-text hover:text-primary-text/80"
             >
               Sign in
             </Link>

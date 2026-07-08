@@ -322,7 +322,7 @@ export function Step2SelectAudience({
                     onClick={() => toggleTag(tag.id)}
                     className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                       isSelected
-                        ? 'border-primary/30 bg-primary/10 text-primary'
+                        ? 'border-primary/30 bg-primary/10 text-primary-text'
                         : 'border-border bg-muted text-muted-foreground hover:border-border'
                     }`}
                   >

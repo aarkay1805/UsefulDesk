@@ -1137,7 +1137,7 @@ function MapStep({
                               <SelectItem key={t.key} value={t.key}>
                                 {t.label}
                                 {t.required && (
-                                  <span className="text-primary"> *</span>
+                                  <span className="text-primary-text"> *</span>
                                 )}
                               </SelectItem>
                             ))}
@@ -1156,7 +1156,7 @@ function MapStep({
                             <>
                               <SelectSeparator />
                               <SelectItem value={CREATE_FIELD_KEY}>
-                                <span className="text-primary">
+                                <span className="text-primary-text">
                                   + Create new field…
                                 </span>
                               </SelectItem>
@@ -1244,7 +1244,7 @@ function ReviewStep({
 }) {
   if (result) {
     const stats: [string, number, string][] = [
-      ['imported', result.imported, 'text-primary'],
+      ['imported', result.imported, 'text-primary-text'],
       ['updated', result.updated, 'text-cyan-700 dark:text-cyan-400'],
       ['skipped', result.skipped, 'text-amber-700 dark:text-amber-400'],
       ['failed', result.failed, 'text-red-700 dark:text-red-400'],

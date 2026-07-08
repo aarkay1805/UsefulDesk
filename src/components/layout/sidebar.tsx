@@ -47,7 +47,7 @@ const ROLE_CHIP: Record<
     icon: Shield,
     label: 'Admin',
     // Primary-tinted: significant but not as scarce as owner.
-    className: 'bg-primary/10 text-primary',
+    className: 'bg-primary/10 text-primary-text',
   },
   agent: {
     icon: UserCog,
@@ -220,7 +220,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                       // Taller on mobile so fingers can hit the row reliably (≥44px).
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
                       isActive
-                        ? 'bg-primary/10 text-primary'
+                        ? 'bg-primary/10 text-primary-text'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     )}
                   >
@@ -269,7 +269,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
                       isActive
-                        ? 'bg-primary/10 text-primary'
+                        ? 'bg-primary/10 text-primary-text'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     )}
                   >
