@@ -66,6 +66,15 @@ import {
 } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { UserAvatar } from '@/components/ui/user-avatar';
+import { Badge } from '@/components/ui/badge';
+import { SourceIcon } from '@/components/leads/source-icon';
+import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
+import { autoReceivedLabel } from '@/lib/leads/attributes';
+import {
+  columnToStatus,
+  leadColumnKey,
+  type LeadColumnKey,
+} from '@/lib/leads/status';
 import {
   Phone,
   Mail,
@@ -97,7 +106,7 @@ interface NoteFollowUp {
 }
 
 /** Editor state for the composer's follow-up bar. */
-interface FollowUpDraft {
+export interface FollowUpDraft {
   enabled: boolean;
   type: FollowUpTaskType;
   /** duePresets() id, or 'custom'. */
@@ -109,7 +118,7 @@ interface FollowUpDraft {
   remindSlot: string;
 }
 
-const DEFAULT_FOLLOW_UP_DRAFT: FollowUpDraft = {
+export const DEFAULT_FOLLOW_UP_DRAFT: FollowUpDraft = {
   enabled: false,
   type: 'todo',
   dueId: '3d',
@@ -119,7 +128,7 @@ const DEFAULT_FOLLOW_UP_DRAFT: FollowUpDraft = {
 };
 
 /** The concrete IST due date a draft resolves to (undefined = invalid). */
-function resolveDueDate(draft: FollowUpDraft): string | undefined {
+export function resolveDueDate(draft: FollowUpDraft): string | undefined {
   return draft.dueId === 'custom'
     ? draft.customDate || undefined
     : duePresets().find((p) => p.id === draft.dueId)?.date;
@@ -147,6 +156,10 @@ export function ContactDetailView({
   const router = useRouter();
   const { accountId, accountRole, user, profile } = useAuth();
   const { staff, nameById, avatarById } = useAccountStaff();
+  // Account option lists (status/source/gender) — drive the Details
+  // section's dropdown editors, kept in sync with the leads table which
+  // reads the same lists.
+  const fieldOptions = useLeadFieldOptions();
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(false);
@@ -373,6 +386,28 @@ export function ContactDetailView({
   ): Promise<boolean> {
     if (!contactId) return false;
     const next = val.trim() || null;
+    const { error } = await supabase
+      .from('contacts')
+      .update({ [column]: next, updated_at: new Date().toISOString() })
+      .eq('id', contactId);
+    if (error) {
+      toast.error('Failed to update');
+      return false;
+    }
+    setContact((c) => (c ? { ...c, [column]: next } : c));
+    onUpdated();
+    return true;
+  }
+
+  // Write any single contacts column (used by the Details dropdown editors
+  // for status / source / gender / assignee). `next` is already the DB
+  // value (null clears; lead_status is a LeadStatus|null; assigned_to a
+  // uuid|null), so no trimming here.
+  async function saveContactColumn(
+    column: 'lead_status' | 'source' | 'gender' | 'assigned_to',
+    next: string | null,
+  ): Promise<boolean> {
+    if (!contactId) return false;
     const { error } = await supabase
       .from('contacts')
       .update({ [column]: next, updated_at: new Date().toISOString() })
@@ -846,12 +881,38 @@ export function ContactDetailView({
                     Details
                   </AccordionTrigger>
                   <AccordionContent>
+                    {/* Mirrors the leads table's columns, in the same
+                        order, so the two stay in sync — including custom
+                        fields (added once in Settings, they surface in both
+                        the table and here from the shared custom_fields
+                        fetch). Received By + Created are read-only. */}
                     <dl className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50">
                       <InlineField
                         label="Name"
                         value={contact.name}
                         placeholder="Add name"
                         onSave={(v) => saveField('name', v)}
+                      />
+                      <InlineSelectField
+                        label="Status"
+                        value={leadColumnKey(contact.lead_status)}
+                        variant="pill"
+                        options={fieldOptions.statuses.map((s) => ({
+                          value: s.key,
+                          label: s.label,
+                          color: s.color,
+                        }))}
+                        display={
+                          <Badge color={fieldOptions.statusFor(contact.lead_status).color}>
+                            {fieldOptions.statusFor(contact.lead_status).label}
+                          </Badge>
+                        }
+                        onSave={(v) =>
+                          saveContactColumn(
+                            'lead_status',
+                            columnToStatus(v as LeadColumnKey),
+                          )
+                        }
                       />
                       <InlineField
                         label="Phone"
@@ -873,6 +934,100 @@ export function ContactDetailView({
                         placeholder="Add company"
                         onSave={(v) => saveField('company', v)}
                       />
+                      <InlineSelectField
+                        label="Source"
+                        value={contact.source ?? ''}
+                        variant="plain"
+                        options={fieldOptions.sources.map((o) => ({
+                          value: o.key,
+                          label: o.label,
+                          icon: <SourceIcon source={o.key} label={o.label} />,
+                        }))}
+                        display={
+                          contact.source ? (
+                            <SourceIcon
+                              source={contact.source}
+                              label={fieldOptions.sourceLabel(contact.source)}
+                            />
+                          ) : (
+                            <span className="text-muted-foreground/60">—</span>
+                          )
+                        }
+                        onSave={(v) => saveContactColumn('source', v || null)}
+                      />
+                      <InlineSelectField
+                        label="Gender"
+                        value={contact.gender ?? ''}
+                        variant="plain"
+                        options={fieldOptions.genders.map((o) => ({
+                          value: o.key,
+                          label: o.label,
+                        }))}
+                        display={
+                          contact.gender ? (
+                            <span>{fieldOptions.genderLabel(contact.gender)}</span>
+                          ) : (
+                            <span className="text-muted-foreground/60">—</span>
+                          )
+                        }
+                        onSave={(v) => saveContactColumn('gender', v || null)}
+                      />
+                      <InlineSelectField
+                        label="Assigned to"
+                        value={contact.assigned_to ?? ''}
+                        variant="plain"
+                        options={[
+                          { value: '', label: 'Unassigned' },
+                          ...staff.map((s) => ({
+                            value: s.user_id,
+                            label: s.full_name,
+                            icon: (
+                              <UserAvatar
+                                name={s.full_name}
+                                src={s.avatar_url}
+                                className="size-5 shrink-0"
+                                fallbackClassName="text-[10px]"
+                              />
+                            ),
+                          })),
+                        ]}
+                        display={
+                          contact.assigned_to ? (
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <UserAvatar
+                                name={nameById.get(contact.assigned_to) ?? 'Teammate'}
+                                src={avatarById.get(contact.assigned_to) ?? null}
+                                className="size-5 shrink-0"
+                                fallbackClassName="text-[10px]"
+                              />
+                              <span className="truncate">
+                                {nameById.get(contact.assigned_to) ?? 'Teammate'}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/60">Unassigned</span>
+                          )
+                        }
+                        onSave={(v) => saveContactColumn('assigned_to', v || null)}
+                      />
+                      <StaticField label="Received by">
+                        {(() => {
+                          const auto = autoReceivedLabel(contact.received_via);
+                          if (auto) return <Badge variant="neutral">{auto}</Badge>;
+                          const name = nameById.get(contact.user_id) ?? 'Teammate';
+                          return (
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <UserAvatar
+                                name={name}
+                                src={avatarById.get(contact.user_id) ?? null}
+                                className="size-5 shrink-0"
+                                fallbackClassName="text-[10px]"
+                              />
+                              <span className="truncate">{name}</span>
+                            </span>
+                          );
+                        })()}
+                      </StaticField>
                       {customFields.map((field) => (
                         <InlineField
                           key={field.id}
@@ -883,6 +1038,15 @@ export function ContactDetailView({
                           onSave={(v) => saveCustomField(field.id, v)}
                         />
                       ))}
+                      <StaticField label="Created">
+                        <span className="text-foreground">
+                          {new Date(contact.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </span>
+                      </StaticField>
                     </dl>
                   </AccordionContent>
                 </AccordionItem>
@@ -1236,6 +1400,121 @@ function InlineField({
   );
 }
 
+// Read-only Details row — same two-column layout as InlineField but no
+// editor (Received By, Created).
+function StaticField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid min-h-10 grid-cols-[100px_1fr] items-center gap-3 px-3">
+      <span className="text-xs text-muted-foreground capitalize leading-5">
+        {label}
+      </span>
+      <span className="flex min-w-0 items-center gap-2 text-sm text-foreground">
+        {children}
+      </span>
+    </div>
+  );
+}
+
+interface SelectFieldOption {
+  value: string;
+  label: string;
+  /** Pill colour for `variant: 'pill'` (status). */
+  color?: string;
+  /** Leading glyph for `variant: 'plain'` (source logo, teammate avatar). */
+  icon?: React.ReactNode;
+}
+
+// Dropdown-editable Details row (status / source / gender / assignee),
+// mirroring the leads table's inline cell editors: coloured pills for
+// status, icon + label otherwise. The whole row is the trigger; picking an
+// option commits immediately.
+function InlineSelectField({
+  label,
+  value,
+  options,
+  variant,
+  display,
+  onSave,
+}: {
+  label: string;
+  /** Current option value ('' allowed, e.g. unassigned). */
+  value: string;
+  options: SelectFieldOption[];
+  variant: 'pill' | 'plain';
+  /** Read-mode rendering of the current value. */
+  display: React.ReactNode;
+  onSave: (value: string) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function pick(next: string) {
+    if (next === value) {
+      setOpen(false);
+      return;
+    }
+    setSaving(true);
+    const ok = await onSave(next);
+    setSaving(false);
+    if (ok) setOpen(false);
+  }
+
+  return (
+    <div className="grid min-h-10 grid-cols-[100px_1fr] items-center gap-3 px-3">
+      <span className="text-xs text-muted-foreground capitalize leading-5">
+        {label}
+      </span>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              disabled={saving}
+              className="group -mx-1.5 flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/40 disabled:opacity-60"
+            />
+          }
+        >
+          <span className="flex min-w-0 items-center gap-2 text-sm">
+            {display}
+          </span>
+          {saving ? (
+            <Loader2 className="ml-auto size-3.5 shrink-0 animate-spin text-primary" />
+          ) : (
+            <ChevronDown className="ml-auto size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-data-[popup-open]:opacity-100" />
+          )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="bg-popover border-border min-w-52">
+          {options.map((o) => (
+            <DropdownMenuItem
+              key={o.value || 'unassigned'}
+              onClick={() => pick(o.value)}
+              className="justify-between gap-3 text-popover-foreground focus:bg-muted focus:text-foreground"
+            >
+              {variant === 'pill' ? (
+                <Badge color={o.color ?? '#64748b'}>{o.label}</Badge>
+              ) : (
+                <span className="flex min-w-0 items-center gap-2">
+                  {o.icon}
+                  <span className="truncate">{o.label}</span>
+                </span>
+              )}
+              {o.value === value && (
+                <Check className="size-3.5 shrink-0 text-primary" />
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 // Note author's avatar (and the composer's current user) — photo when
 // uploaded, initial fallback otherwise; hover reveals the full name.
 function StaffAvatar({ name, src }: { name: string; src?: string | null }) {
@@ -1263,7 +1542,7 @@ function StaffAvatar({ name, src }: { name: string; src?: string | null }) {
 // The composer card — borderless textarea + attached follow-up bar in
 // one bordered container. Shared by "write a note" and a saved note's
 // edit view (which swaps the footer CTA for Save/Cancel).
-function NoteComposerCard({
+export function NoteComposerCard({
   text,
   onTextChange,
   draft,

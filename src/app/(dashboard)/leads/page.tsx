@@ -89,6 +89,9 @@ import {
   Pencil,
   Trash2,
   Loader2,
+  StickyNote,
+  UserCheck,
+  UserPlus,
   Users,
   ChevronLeft,
   ChevronRight,
@@ -97,7 +100,6 @@ import {
   Settings,
   LayoutGrid,
   List,
-  SquarePen,
   Search,
   Columns3,
   ArrowUp,
@@ -126,6 +128,11 @@ import {
 } from '@/components/contacts/manage-columns-dialog';
 import { LeadsBoard } from '@/components/leads/leads-board';
 import { EditableCell } from '@/components/leads/editable-cell';
+import {
+  BulkEditDialog,
+  type BulkEditProperty,
+} from '@/components/leads/bulk-edit-dialog';
+import { BulkAddNoteDialog } from '@/components/leads/bulk-add-note-dialog';
 import { SourceIcon } from '@/components/leads/source-icon';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
@@ -892,6 +899,16 @@ export default function LeadsPage() {
   // Bulk selection (page-scoped — only the loaded rows are selectable)
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkNoteOpen, setBulkNoteOpen] = useState(false);
+  // The bulk toolbar animates open/closed instead of mounting/unmounting,
+  // so on exit (selection cleared) it lingers ~300ms while collapsing. We
+  // freeze the last non-zero count here so the label doesn't flash "0
+  // records" mid-collapse. Adjusted during render (no effect needed).
+  const [bulkCount, setBulkCount] = useState(0);
+  if (selected.size > 0 && selected.size !== bulkCount) {
+    setBulkCount(selected.size);
+  }
 
   // Inline cell editing (HubSpot-style). Only one cell edits at a time.
   const [editingCell, setEditingCell] = useState<{
@@ -1644,6 +1661,153 @@ export default function LeadsPage() {
     setBulkDeleteOpen(false);
   }
 
+  // Properties the bulk-edit dialog can set in one shot. Single-value
+  // fields only — identity columns (name/phone/email) and the multi-value
+  // tags column are intentionally excluded. Option lists come from the
+  // account's own field options + staff roster, so the dialog offers the
+  // same choices as the inline cell editors.
+  const bulkEditProperties = useMemo<BulkEditProperty[]>(() => {
+    const assigneeOptions = [
+      { value: UNASSIGNED, label: 'Unassigned' },
+      ...staff.map((s) => ({
+        value: s.user_id,
+        label: s.full_name,
+        // Same avatar glyph the Assigned-to cell shows in the table.
+        icon: (
+          <UserAvatar
+            name={s.full_name}
+            src={s.avatar_url}
+            className="size-5 shrink-0"
+            fallbackClassName="text-[10px]"
+          />
+        ),
+      })),
+    ];
+    return [
+      {
+        key: 'status',
+        label: 'Lead status',
+        group: 'Lead fields',
+        editor: {
+          kind: 'select',
+          // Coloured pills, matching the Status cell editor.
+          variant: 'pill',
+          options: fieldOptions.statuses.map((s) => ({
+            value: s.key,
+            label: s.label,
+            color: s.color,
+          })),
+        },
+      },
+      {
+        key: 'assignee',
+        label: 'Assigned to',
+        group: 'Lead fields',
+        editor: { kind: 'select', variant: 'plain', options: assigneeOptions },
+      },
+      {
+        key: 'source',
+        label: 'Source',
+        group: 'Lead fields',
+        editor: {
+          kind: 'select',
+          variant: 'plain',
+          options: fieldOptions.sources.map((o) => ({
+            value: o.key,
+            label: o.label,
+            // Same brand glyph the Source cell editor shows.
+            icon: <SourceIcon source={o.key} label={o.label} />,
+          })),
+        },
+      },
+      {
+        key: 'gender',
+        label: 'Gender',
+        group: 'Lead fields',
+        editor: {
+          kind: 'select',
+          variant: 'plain',
+          options: fieldOptions.genders.map((o) => ({
+            value: o.key,
+            label: o.label,
+          })),
+        },
+      },
+      {
+        key: 'company',
+        label: 'Company',
+        group: 'Lead fields',
+        editor: { kind: 'text' },
+      },
+      ...customFields.map(
+        (f): BulkEditProperty => ({
+          key: `cf:${f.id}`,
+          label: f.field_name,
+          group: 'Custom fields',
+          editor: { kind: customEditKind(f.field_type) },
+        })
+      ),
+    ];
+  }, [fieldOptions, staff, customFields]);
+
+  // Apply one property to every selected lead. Returns true on success so
+  // the dialog can close; each failure toasts and keeps it open. Custom
+  // fields fan out to one upsert per contact (join-table rows); built-in
+  // columns update in a single query. The `.select('id')` on the contacts
+  // update turns an RLS-blocked write (silent zero rows) into a failure.
+  async function handleBulkEdit(
+    property: BulkEditProperty,
+    value: string
+  ): Promise<boolean> {
+    const ids = [...selected];
+    if (ids.length === 0) return false;
+
+    if (property.key.startsWith('cf:')) {
+      const fieldId = property.key.slice(3);
+      const trimmed = value.trim();
+      const { error } = await supabase.from('contact_custom_values').upsert(
+        ids.map((id) => ({
+          contact_id: id,
+          custom_field_id: fieldId,
+          value: trimmed,
+        })),
+        { onConflict: 'contact_id,custom_field_id' }
+      );
+      if (error) {
+        toast.error('Failed to update leads');
+        return false;
+      }
+      toast.success(`Updated ${ids.length} lead${ids.length === 1 ? '' : 's'}`);
+      setSelected(new Set());
+      refreshAll();
+      return true;
+    }
+
+    let patch: Record<string, unknown>;
+    if (property.key === 'status') {
+      patch = { lead_status: columnToStatus(value as LeadColumnKey) };
+    } else if (property.key === 'assignee') {
+      patch = { assigned_to: value === UNASSIGNED ? null : value };
+    } else {
+      // source / gender / company — raw contacts column, '' clears it.
+      patch = { [property.key]: value.trim() || null };
+    }
+
+    const { data, error } = await supabase
+      .from('contacts')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .in('id', ids)
+      .select('id');
+    if (error || !data || data.length === 0) {
+      toast.error('Failed to update leads');
+      return false;
+    }
+    toast.success(`Updated ${data.length} lead${data.length === 1 ? '' : 's'}`);
+    setSelected(new Set());
+    refreshAll();
+    return true;
+  }
+
   const totalPages = Math.ceil(totalCount / pageSize);
   const hasNext = page < totalPages - 1;
   const hasPrev = page > 0;
@@ -1861,71 +2025,6 @@ export default function LeadsPage() {
         </GatedButton>
       </PageHeaderActions>
 
-      {/* Bulk-selection bar — appears only while table rows are selected. */}
-      {view === 'table' && selected.size > 0 && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <button
-                  type="button"
-                  className="group text-foreground hover:bg-muted -ml-2.5 flex h-8 items-center gap-1.5 rounded-md px-2.5 text-base font-semibold whitespace-nowrap"
-                />
-              }
-            >
-              {selected.size} record{selected.size === 1 ? '' : 's'} selected
-              <ChevronDown className="text-muted-foreground size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="bg-popover border-border min-w-56"
-            >
-              <DropdownMenuItem
-                onClick={() => setSelected(new Set())}
-                className="text-popover-foreground focus:bg-muted focus:text-foreground"
-              >
-                <X className="size-4" />
-                None
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={selectAllMatching}
-                className="text-popover-foreground focus:bg-muted focus:text-foreground"
-              >
-                <ListChecks className="size-4" />
-                All {totalCount} in Leads
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Placeholder — no backing feature yet */}
-            <Button
-              variant="outline"
-              disabled
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              <SquarePen className="size-4" />
-              Mass update
-            </Button>
-            <GatedButton
-              variant="destructive"
-              canAct={canEdit}
-              gateReason="delete leads"
-              onClick={() => setBulkDeleteOpen(true)}
-            >
-              <Trash2 className="size-4" />
-              Delete selected
-            </GatedButton>
-          </div>
-          <Button
-            variant="ghost"
-            onClick={() => setSelected(new Set())}
-            className="text-foreground hover:bg-muted"
-          >
-            Clear
-          </Button>
-        </div>
-      )}
-
       {/* Row 2 — search capped on the left; view / settings / columns /
           filters / sort cluster trails on the right (HubSpot-style),
           with the leftover space opening up between the two groups. */}
@@ -2044,6 +2143,122 @@ export default function LeadsPage() {
           )}
         </div>
       </div>
+
+      {/* Bulk-selection toolbar — one encapsulated row below the search
+          toolbar, above the table. It stays mounted (in table view) and
+          animates open/closed on the selection so BOTH entering and exiting
+          multi-select mode transition: a grid-rows 0fr↔1fr height collapse
+          plus a fade, 300ms ease-in-out. `-mt-3` when closed cancels the
+          parent flex gap so an empty toolbar leaves no gap above the table;
+          `inert` drops the collapsed toolbar from tab order + clicks.
+          Delete/Edit are wired; the rest are disabled placeholders. */}
+      {view === 'table' && (
+        <div
+          className={cn(
+            'grid shrink-0 transition-all duration-300 ease-in-out',
+            selected.size > 0
+              ? 'grid-rows-[1fr] opacity-100'
+              : '-mt-3 grid-rows-[0fr] opacity-0'
+          )}
+          inert={selected.size === 0}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="border-border bg-card flex flex-wrap items-center gap-0.5 rounded-lg border px-1.5 py-1">
+              {/* Selection count + scope menu (None / All in Leads) */}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      type="button"
+                      className="group text-foreground hover:bg-muted flex h-7 items-center gap-1 rounded-md px-2 text-[0.8rem] font-semibold whitespace-nowrap"
+                    />
+                  }
+                >
+                  {bulkCount} record{bulkCount === 1 ? '' : 's'} selected
+                  <ChevronDown className="text-muted-foreground size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="bg-popover border-border min-w-56"
+                >
+                  <DropdownMenuItem
+                    onClick={() => setSelected(new Set())}
+                    className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                  >
+                    <X className="size-4" />
+                    None
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={selectAllMatching}
+                    className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                  >
+                    <ListChecks className="size-4" />
+                    All {totalCount} in Leads
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <div className="bg-border mx-0.5 h-4 w-px" />
+
+              {/* Actions — Assign / Edit / Delete / Add note / Convert to
+                  member. Delete + Edit are wired; the rest are disabled
+                  placeholders matching the target toolbar. */}
+              <Button variant="ghost" size="sm" disabled className="text-muted-foreground">
+                <UserPlus />
+                Assign
+              </Button>
+              <GatedButton
+                variant="ghost"
+                size="sm"
+                canAct={canEdit}
+                gateReason="edit leads"
+                onClick={() => setBulkEditOpen(true)}
+                className="text-foreground"
+              >
+                <Pencil />
+                Edit
+              </GatedButton>
+              <GatedButton
+                variant="ghost"
+                size="sm"
+                canAct={canEdit}
+                gateReason="delete leads"
+                onClick={() => setBulkDeleteOpen(true)}
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 />
+                Delete
+              </GatedButton>
+              <GatedButton
+                variant="ghost"
+                size="sm"
+                canAct={canEdit}
+                gateReason="add notes"
+                onClick={() => setBulkNoteOpen(true)}
+                className="text-foreground"
+              >
+                <StickyNote />
+                Add note
+              </GatedButton>
+              <Button variant="ghost" size="sm" disabled className="text-muted-foreground">
+                <UserCheck />
+                Convert to member
+              </Button>
+
+              {/* Close — clears the selection, trailing edge. */}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setSelected(new Set())}
+                aria-label="Clear selection"
+                className="text-muted-foreground hover:text-foreground ml-auto"
+              >
+                <X />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {view === 'board' ? (
         <div className="min-h-0 flex-1">
@@ -2616,6 +2831,27 @@ export default function LeadsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Edit — update one property across the selected leads. */}
+      <BulkEditDialog
+        open={bulkEditOpen}
+        onOpenChange={setBulkEditOpen}
+        count={selected.size}
+        properties={bulkEditProperties}
+        onApply={handleBulkEdit}
+      />
+
+      {/* Bulk Add note — one note (+ optional follow-up) on every selected
+          lead, reusing the detail sheet's composer. */}
+      <BulkAddNoteDialog
+        open={bulkNoteOpen}
+        onOpenChange={setBulkNoteOpen}
+        contactIds={[...selected]}
+        onDone={() => {
+          setSelected(new Set());
+          refreshAll();
+        }}
+      />
     </div>
   );
 }
