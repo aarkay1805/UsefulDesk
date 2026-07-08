@@ -141,9 +141,17 @@ export function ManageColumnsDialog({
     const newKeys = liveKeys.filter((k) => !seen.current.has(k));
     seen.current = liveSet;
     if (newKeys.length === 0) {
-      // Still prune any keys that vanished (deleted field).
-      setVisibleOrder((prev) => prev.filter((k) => liveSet.has(k)));
-      setHiddenKeys((prev) => prev.filter((k) => liveSet.has(k)));
+      // Still prune any keys that vanished (deleted field). Return the
+      // SAME array when nothing was pruned so React bails out of the
+      // update — otherwise a fresh `columns` prop identity each parent
+      // render would schedule an endless string of no-op state updates
+      // (max-update-depth).
+      const prune = (prev: string[]) => {
+        const next = prev.filter((k) => liveSet.has(k));
+        return next.length === prev.length ? prev : next;
+      };
+      setVisibleOrder(prune);
+      setHiddenKeys(prune);
       return;
     }
     setVisibleOrder((prev) => prev.filter((k) => liveSet.has(k)));

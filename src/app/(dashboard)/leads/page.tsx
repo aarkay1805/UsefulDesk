@@ -143,11 +143,14 @@ const CHECKBOX_COL_WIDTH = 44;
 const ACTIONS_COL_WIDTH = 48;
 
 // Applied to every cell of the column being dragged (header + body) so the
-// whole strip reads as "picked up": a brand tint plus a horizontal-only
-// drop shadow (no y-offset → no shadow seams between stacked rows, so it
-// merges into one continuous left/right edge shadow down the column).
-const DRAG_COLUMN_CLASS =
-  'relative z-20 bg-primary/10 shadow-[6px_0_12px_-6px_rgba(0,0,0,0.35),-6px_0_12px_-6px_rgba(0,0,0,0.35)]';
+// whole strip reads as "picked up": the opaque card surface, which cleanly
+// occludes the columns it slides over (no text bleed-through, zero GPU
+// cost), lifted above its neighbours (z-20). The drop shadow is NOT here —
+// a per-cell box-shadow both seams between rows and is swallowed entirely
+// by a `border-collapse: collapse` table (Tailwind's preflight default).
+// Instead one overlay element draws a single continuous column shadow (see
+// the drag-shadow overlay in the table below).
+const DRAG_COLUMN_CLASS = 'relative z-20 bg-card';
 
 type ViewMode = 'wrap' | 'clip';
 type LeadsView = 'table' | 'board';
@@ -615,8 +618,14 @@ function DraggableHeaderCell({
   onEditOptions?: () => void;
   onResizeStart: (e: React.MouseEvent) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: col.key });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: col.key });
 
   const style: React.CSSProperties = {
     ...frozenStyle,
@@ -664,7 +673,12 @@ function DraggableHeaderCell({
         role="separator"
         aria-orientation="vertical"
         onMouseDown={onResizeStart}
-        className="border-border hover:border-primary absolute top-2 right-0 bottom-2 w-1.5 cursor-col-resize border-r hover:border-r-2"
+        className={cn(
+          'border-border hover:border-primary absolute top-2 right-0 bottom-2 w-1.5 cursor-col-resize',
+          // Drop the resize grip's border while dragging so it doesn't read
+          // as a stray separator stuck to the lifted column's right edge.
+          isDragging ? 'border-r-0' : 'border-r hover:border-r-2'
+        )}
       />
     </TableHead>
   );
@@ -931,7 +945,9 @@ export default function LeadsPage() {
           render: (c) => {
             if (!c.assigned_to) {
               return (
-                <span className="text-muted-foreground text-sm">Unassigned</span>
+                <span className="text-muted-foreground text-sm">
+                  Unassigned
+                </span>
               );
             }
             const name = nameById.get(c.assigned_to) ?? 'Teammate';
@@ -1701,17 +1717,28 @@ export default function LeadsPage() {
     window.addEventListener('mouseup', onUp);
   }
 
-  const manageColumns: ManageColumn[] = orderedKeys
-    .map((k) => colByKey[k])
-    .filter(Boolean)
-    .map((c) => ({
-      key: c.key,
-      label: c.label,
-      required: c.required,
-      isCustom: c.isCustom,
-      fieldType: c.customType,
-    }));
-  const hiddenForDialog = orderedKeys.filter((k) => !isVisible(k));
+  // Memoised so the Manage Columns dialog (always mounted) gets a STABLE
+  // `columns`/`hidden` identity. Recomputing these inline handed the dialog
+  // a fresh array every render — including every drag frame — which fired
+  // its column-sync effect nonstop and blew the max-update-depth limit.
+  const manageColumns: ManageColumn[] = useMemo(
+    () =>
+      orderedKeys
+        .map((k) => colByKey[k])
+        .filter(Boolean)
+        .map((c) => ({
+          key: c.key,
+          label: c.label,
+          required: c.required,
+          isCustom: c.isCustom,
+          fieldType: c.customType,
+        })),
+    [orderedKeys, colByKey]
+  );
+  const hiddenForDialog = useMemo(
+    () => orderedKeys.filter((k) => !isVisible(k)),
+    [orderedKeys, isVisible]
+  );
 
   // During a column drag, how far each column's cells slide so the body
   // tracks its (already-shifting) header. The dragged column follows the
@@ -1745,6 +1772,16 @@ export default function LeadsPage() {
     }
     return 0;
   }
+
+  // Geometry for the single drag-shadow overlay (one continuous column
+  // shadow, vs a seamy per-cell one). Left edge = checkbox column + the
+  // widths of every visible column ahead of the dragged one; it then rides
+  // the same dragX translate as the column's cells.
+  let dragColLeft = CHECKBOX_COL_WIDTH;
+  for (let i = 0; i < dragActiveIndex; i++) {
+    dragColLeft += widthOf(arrangedColumns[i]);
+  }
+  const dragColWidth = draggedWidth;
 
   const cellClamp =
     viewMode === 'clip' ? 'truncate' : 'whitespace-normal break-words';
@@ -1892,7 +1929,9 @@ export default function LeadsPage() {
                   onClick={() => setLeadsView('table')}
                   className={cn(
                     'focus:bg-muted focus:text-foreground',
-                    view === 'table' ? 'text-primary-text' : 'text-popover-foreground'
+                    view === 'table'
+                      ? 'text-primary-text'
+                      : 'text-popover-foreground'
                   )}
                 >
                   <List className="size-4" />
@@ -1902,7 +1941,9 @@ export default function LeadsPage() {
                   onClick={() => setLeadsView('board')}
                   className={cn(
                     'focus:bg-muted focus:text-foreground',
-                    view === 'board' ? 'text-primary-text' : 'text-popover-foreground'
+                    view === 'board'
+                      ? 'text-primary-text'
+                      : 'text-popover-foreground'
                   )}
                 >
                   <LayoutGrid className="size-4" />
@@ -1992,328 +2033,363 @@ export default function LeadsPage() {
               remaining height (flex-1) so its horizontal scrollbar stays in view
               at the bottom edge and the header sticks while the body scrolls. */}
           <div className="border-border bg-card min-h-0 flex-1 overflow-auto rounded-lg border">
-            <table
-              className="w-full table-fixed caption-bottom text-sm"
-              style={{ minWidth: totalWidth }}
+            {/* DndContext wraps the whole <table>, never a <tr>: it emits a
+                hidden accessibility live-region <div>, which is invalid HTML
+                inside a <tr> (hydration error). SortableContext renders no
+                DOM, so it can stay on the header row. */}
+            <DndContext
+              sensors={dndSensors}
+              collisionDetection={closestCenter}
+              onDragStart={(e) => {
+                setDraggingKey(String(e.active.id));
+                setOverKey(String(e.active.id));
+                setDragX(0);
+              }}
+              onDragMove={(e) => setDragX(e.delta.x)}
+              onDragOver={(e) => setOverKey(e.over ? String(e.over.id) : null)}
+              onDragCancel={() => {
+                setDraggingKey(null);
+                setOverKey(null);
+              }}
+              onDragEnd={handleColumnDragEnd}
             >
-              <colgroup>
-                <col style={{ width: CHECKBOX_COL_WIDTH }} />
-                {arrangedColumns.map((col) => (
-                  <col key={col.key} style={{ width: widthOf(col) }} />
-                ))}
-                <col style={{ width: ACTIONS_COL_WIDTH }} />
-                <col />
-              </colgroup>
-              <TableHeader className="bg-card sticky top-0 z-10">
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead
-                    className={cn(hasFrozen && 'bg-card sticky left-0 z-20')}
-                  >
-                    <Checkbox
-                      checked={allOnPageSelected}
-                      indeterminate={!allOnPageSelected && someOnPageSelected}
-                      onCheckedChange={toggleSelectAll}
-                      disabled={contacts.length === 0}
-                      aria-label="Select all leads on this page"
-                    />
-                  </TableHead>
-                  <DndContext
-                    sensors={dndSensors}
-                    collisionDetection={closestCenter}
-                    onDragStart={(e) => {
-                      setDraggingKey(String(e.active.id));
-                      setOverKey(String(e.active.id));
-                      setDragX(0);
-                    }}
-                    onDragMove={(e) => setDragX(e.delta.x)}
-                    onDragOver={(e) =>
-                      setOverKey(e.over ? String(e.over.id) : null)
-                    }
-                    onDragCancel={() => {
-                      setDraggingKey(null);
-                      setOverKey(null);
-                    }}
-                    onDragEnd={handleColumnDragEnd}
-                  >
-                    <SortableContext
-                      items={arrangedColumns.map((c) => c.key)}
-                      strategy={horizontalListSortingStrategy}
-                    >
-                      {arrangedColumns.map((col, i) => {
-                        const isFrozen = frozenKeySet.has(col.key);
-                        return (
-                          <DraggableHeaderCell
-                            key={col.key}
-                            col={col}
-                            isFrozen={isFrozen}
-                            frozenStyle={frozenCellStyle(col.key)}
-                            dragX={col.key === draggingKey ? dragX : 0}
-                            sortDir={sort?.key === col.key ? sort.dir : null}
-                            onSort={(dir) => sortByColumn(col.key, dir)}
-                            // Count model: freeze up to this column (i + 1), or
-                            // unfreeze back to just before it (i).
-                            onToggleFreeze={() =>
-                              setFrozenColumnCount(isFrozen ? i : i + 1)
-                            }
-                            onAddColumn={() => setManageColumnsOpen(true)}
-                            onRemoveColumn={() => hideColumn(col.key)}
-                            onEditOptions={
-                              col.optionsField && canEditSettings
-                                ? col.optionsField === 'tags'
-                                  ? () => router.push('/settings?tab=fields')
-                                  : () =>
-                                      setEditOptionsKind(
-                                        col.optionsField as LeadFieldKind
-                                      )
-                                : undefined
-                            }
-                            onResizeStart={(e) => startResize(e, col)}
-                          />
-                        );
-                      })}
-                    </SortableContext>
-                  </DndContext>
-                  <TableHead />
-                  <TableHead aria-hidden />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow className="border-border">
-                    <TableCell
-                      colSpan={totalCols}
-                      className="py-12 text-center"
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="text-primary size-6 animate-spin" />
-                        <p className="text-muted-foreground text-sm">
-                          Loading leads...
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : contacts.length === 0 ? (
-                  <TableRow className="border-border">
-                    <TableCell
-                      colSpan={totalCols}
-                      className="py-12 text-center"
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <Users className="text-muted-foreground size-8" />
-                        <p className="text-muted-foreground text-sm">
-                          {hasActiveFilters
-                            ? 'No leads match your filters.'
-                            : 'No leads yet.'}
-                        </p>
-                        {!hasActiveFilters && (
-                          <GatedButton
-                            canAct={canEdit}
-                            gateReason="add or import leads"
-                            variant="outline"
-                            size="sm"
-                            onClick={openAddForm}
-                            className="border-border text-muted-foreground hover:bg-muted mt-2"
-                          >
-                            <Plus className="size-3.5" />
-                            Add your first lead
-                          </GatedButton>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  contacts.map((contact) => (
-                    <TableRow
-                      key={contact.id}
-                      className="group border-border hover:bg-muted/50 cursor-pointer"
-                      onClick={() => openDetail(contact.id)}
-                    >
-                      <TableCell
-                        onClick={(e) => e.stopPropagation()}
+              {/* Relative wrapper sized to the table so the drag-shadow
+                  overlay positions in table coordinates and scrolls with
+                  the content. */}
+              <div className="relative" style={{ minWidth: totalWidth }}>
+                <table
+                  className="w-full table-fixed caption-bottom text-sm"
+                  style={{ minWidth: totalWidth }}
+                >
+                  <colgroup>
+                    <col style={{ width: CHECKBOX_COL_WIDTH }} />
+                    {arrangedColumns.map((col) => (
+                      <col key={col.key} style={{ width: widthOf(col) }} />
+                    ))}
+                    <col style={{ width: ACTIONS_COL_WIDTH }} />
+                    <col />
+                  </colgroup>
+                  <TableHeader className="bg-card sticky top-0 z-10">
+                    <TableRow className="border-border hover:bg-transparent">
+                      <TableHead
                         className={cn(
-                          hasFrozen &&
-                            'bg-card group-hover:bg-muted/50 sticky left-0 z-10'
+                          hasFrozen && 'bg-card sticky left-0 z-20'
                         )}
                       >
                         <Checkbox
-                          checked={selected.has(contact.id)}
-                          onCheckedChange={() => toggleSelect(contact.id)}
-                          aria-label={`Select ${contact.name || contact.phone}`}
+                          checked={allOnPageSelected}
+                          indeterminate={
+                            !allOnPageSelected && someOnPageSelected
+                          }
+                          onCheckedChange={toggleSelectAll}
+                          disabled={contacts.length === 0}
+                          aria-label="Select all leads on this page"
                         />
-                      </TableCell>
-                      {arrangedColumns.map((col, ci) => {
-                        const shift = columnDragShift(ci);
-                        const isDragged = col.key === draggingKey;
-                        return (
-                        <TableCell
-                          key={col.key}
-                          style={{
-                            ...frozenCellStyle(col.key),
-                            // The dragged column tracks the pointer; the
-                            // columns it displaces slide by its width — so
-                            // whole columns move as one (Sheets-style).
-                            transform: shift
-                              ? `translateX(${shift}px)`
-                              : undefined,
-                            // Dragged cells track instantly; displaced cells
-                            // ease like their headers. No transition idle.
-                            transition:
-                              draggingKey && !isDragged
-                                ? 'transform 200ms ease'
-                                : undefined,
-                          }}
-                          className={cn(
-                            'align-middle',
-                            // The editor supplies its own padding so the
-                            // input fills the cell edge-to-edge.
-                            col.edit && canEdit && 'p-0',
-                            // Frozen cells need an opaque base so scrolled
-                            // content can't bleed through; the layered
-                            // hover tint matches the row's own hover.
-                            frozenKeySet.has(col.key) &&
-                              'bg-card group-hover:bg-muted/50 z-10',
-                            // Elevated tint on the column being dragged —
-                            // last so it wins over the frozen/hover bg.
-                            col.key === draggingKey && DRAG_COLUMN_CLASS
-                          )}
-                        >
-                          {col.edit && canEdit ? (
-                            <EditableCell
-                              editing={
-                                editingCell?.id === contact.id &&
-                                editingCell?.key === col.key
+                      </TableHead>
+                      <SortableContext
+                        items={arrangedColumns.map((c) => c.key)}
+                        strategy={horizontalListSortingStrategy}
+                      >
+                        {arrangedColumns.map((col, i) => {
+                          const isFrozen = frozenKeySet.has(col.key);
+                          return (
+                            <DraggableHeaderCell
+                              key={col.key}
+                              col={col}
+                              isFrozen={isFrozen}
+                              frozenStyle={frozenCellStyle(col.key)}
+                              dragX={col.key === draggingKey ? dragX : 0}
+                              sortDir={sort?.key === col.key ? sort.dir : null}
+                              onSort={(dir) => sortByColumn(col.key, dir)}
+                              // Count model: freeze up to this column (i + 1), or
+                              // unfreeze back to just before it (i).
+                              onToggleFreeze={() =>
+                                setFrozenColumnCount(isFrozen ? i : i + 1)
                               }
-                              saving={savingCell}
-                              kind={
-                                col.edit.kind === 'custom'
-                                  ? customEditKind(col.customType)
-                                  : col.edit.kind === 'assignee'
-                                    ? 'select'
-                                    : col.edit.kind
-                              }
-                              value={readEditValue(contact, col.edit)}
-                              options={
-                                col.edit.kind === 'status'
-                                  ? fieldOptions.statuses.map((c) => ({
-                                      value: c.key,
-                                      label: c.label,
-                                      color: c.color,
-                                    }))
-                                  : col.edit.kind === 'select'
-                                    ? (col.edit.column === 'source'
-                                        ? fieldOptions.sources
-                                        : fieldOptions.genders
-                                      ).map((o) => ({
-                                        value: o.key,
-                                        label: o.label,
-                                        // Source options carry their brand
-                                        // glyph so the dropdown reads logo +
-                                        // name (the cell shows the logo only).
-                                        icon:
-                                          col.edit &&
-                                          col.edit.kind === 'select' &&
-                                          col.edit.column === 'source' ? (
-                                            <SourceIcon
-                                              source={o.key}
-                                              label={o.label}
-                                            />
-                                          ) : undefined,
-                                      }))
-                                    : col.edit.kind === 'assignee'
-                                      ? [
-                                          { value: '', label: 'Unassigned' },
-                                          ...staff.map((s) => ({
-                                            value: s.user_id,
-                                            label: s.full_name,
-                                          })),
-                                        ]
-                                      : col.edit.kind === 'tags'
-                                        ? allTagOptions
-                                        : undefined
-                              }
-                              multiValue={
-                                col.edit.kind === 'tags'
-                                  ? (contact.tags ?? []).map((t) => t.id)
+                              onAddColumn={() => setManageColumnsOpen(true)}
+                              onRemoveColumn={() => hideColumn(col.key)}
+                              onEditOptions={
+                                col.optionsField && canEditSettings
+                                  ? col.optionsField === 'tags'
+                                    ? () => router.push('/settings?tab=fields')
+                                    : () =>
+                                        setEditOptionsKind(
+                                          col.optionsField as LeadFieldKind
+                                        )
                                   : undefined
                               }
-                              onToggleOption={
-                                col.edit.kind === 'tags'
-                                  ? (tagId) => toggleContactTag(contact, tagId)
-                                  : undefined
-                              }
-                              prefix={
-                                col.customType === 'currency'
-                                  ? currencySymbol(defaultCurrency)
-                                  : undefined
-                              }
-                              // Render mode content sits directly in the
-                              // editor's flex-centred slot — no line-box
-                              // wrapper, so the hover ring stays symmetric.
-                              display={col.render(contact)}
-                              onStart={() =>
-                                setEditingCell({ id: contact.id, key: col.key })
-                              }
-                              onCommit={(v) =>
-                                commitCell(contact, col.edit!, v)
-                              }
-                              onCancel={() => setEditingCell(null)}
+                              onResizeStart={(e) => startResize(e, col)}
                             />
-                          ) : (
-                            <div className={cn('min-w-0', cellClamp)}>
-                              {col.render(contact)}
-                            </div>
-                          )}
-                        </TableCell>
-                        );
-                      })}
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            render={
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                className="text-muted-foreground hover:text-foreground"
-                              />
-                            }
-                          >
-                            <MoreHorizontal className="size-4" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="bg-popover border-border"
-                          >
-                            <DropdownMenuItem
-                              onClick={() => openDetail(contact.id)}
-                              className="text-popover-foreground focus:bg-muted focus:text-foreground"
-                            >
-                              <Eye className="size-4" />
-                              View details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => openEditForm(contact)}
-                              className="text-popover-foreground focus:bg-muted focus:text-foreground"
-                            >
-                              <Pencil className="size-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-border" />
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => confirmDelete(contact)}
-                            >
-                              <Trash2 className="size-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                      <TableCell aria-hidden />
+                          );
+                        })}
+                      </SortableContext>
+                      <TableHead />
+                      <TableHead aria-hidden />
                     </TableRow>
-                  ))
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow className="border-border">
+                        <TableCell
+                          colSpan={totalCols}
+                          className="py-12 text-center"
+                        >
+                          <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="text-primary size-6 animate-spin" />
+                            <p className="text-muted-foreground text-sm">
+                              Loading leads...
+                            </p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : contacts.length === 0 ? (
+                      <TableRow className="border-border">
+                        <TableCell
+                          colSpan={totalCols}
+                          className="py-12 text-center"
+                        >
+                          <div className="flex flex-col items-center gap-2">
+                            <Users className="text-muted-foreground size-8" />
+                            <p className="text-muted-foreground text-sm">
+                              {hasActiveFilters
+                                ? 'No leads match your filters.'
+                                : 'No leads yet.'}
+                            </p>
+                            {!hasActiveFilters && (
+                              <GatedButton
+                                canAct={canEdit}
+                                gateReason="add or import leads"
+                                variant="outline"
+                                size="sm"
+                                onClick={openAddForm}
+                                className="border-border text-muted-foreground hover:bg-muted mt-2"
+                              >
+                                <Plus className="size-3.5" />
+                                Add your first lead
+                              </GatedButton>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      contacts.map((contact) => (
+                        <TableRow
+                          key={contact.id}
+                          className="group border-border hover:bg-muted/50 cursor-pointer"
+                          onClick={() => openDetail(contact.id)}
+                        >
+                          <TableCell
+                            onClick={(e) => e.stopPropagation()}
+                            className={cn(
+                              hasFrozen &&
+                                'bg-card group-hover:bg-muted/50 sticky left-0 z-10'
+                            )}
+                          >
+                            <Checkbox
+                              checked={selected.has(contact.id)}
+                              onCheckedChange={() => toggleSelect(contact.id)}
+                              aria-label={`Select ${contact.name || contact.phone}`}
+                            />
+                          </TableCell>
+                          {arrangedColumns.map((col, ci) => {
+                            const shift = columnDragShift(ci);
+                            const isDragged = col.key === draggingKey;
+                            return (
+                              <TableCell
+                                key={col.key}
+                                style={{
+                                  ...frozenCellStyle(col.key),
+                                  // The dragged column tracks the pointer; the
+                                  // columns it displaces slide by its width — so
+                                  // whole columns move as one (Sheets-style).
+                                  transform: shift
+                                    ? `translateX(${shift}px)`
+                                    : undefined,
+                                  // Dragged cells track instantly; displaced cells
+                                  // ease like their headers. No transition idle.
+                                  transition:
+                                    draggingKey && !isDragged
+                                      ? 'transform 200ms ease'
+                                      : undefined,
+                                }}
+                                className={cn(
+                                  'align-middle',
+                                  // The editor supplies its own padding so the
+                                  // input fills the cell edge-to-edge.
+                                  col.edit && canEdit && 'p-0',
+                                  // Frozen cells need an opaque base so scrolled
+                                  // content can't bleed through; the layered
+                                  // hover tint matches the row's own hover.
+                                  frozenKeySet.has(col.key) &&
+                                    'bg-card group-hover:bg-muted/50 z-10',
+                                  // Elevated tint on the column being dragged —
+                                  // last so it wins over the frozen/hover bg.
+                                  col.key === draggingKey && DRAG_COLUMN_CLASS
+                                )}
+                              >
+                                {col.edit && canEdit ? (
+                                  <EditableCell
+                                    editing={
+                                      editingCell?.id === contact.id &&
+                                      editingCell?.key === col.key
+                                    }
+                                    saving={savingCell}
+                                    kind={
+                                      col.edit.kind === 'custom'
+                                        ? customEditKind(col.customType)
+                                        : col.edit.kind === 'assignee'
+                                          ? 'select'
+                                          : col.edit.kind
+                                    }
+                                    value={readEditValue(contact, col.edit)}
+                                    options={
+                                      col.edit.kind === 'status'
+                                        ? fieldOptions.statuses.map((c) => ({
+                                            value: c.key,
+                                            label: c.label,
+                                            color: c.color,
+                                          }))
+                                        : col.edit.kind === 'select'
+                                          ? (col.edit.column === 'source'
+                                              ? fieldOptions.sources
+                                              : fieldOptions.genders
+                                            ).map((o) => ({
+                                              value: o.key,
+                                              label: o.label,
+                                              // Source options carry their brand
+                                              // glyph so the dropdown reads logo +
+                                              // name (the cell shows the logo only).
+                                              icon:
+                                                col.edit &&
+                                                col.edit.kind === 'select' &&
+                                                col.edit.column === 'source' ? (
+                                                  <SourceIcon
+                                                    source={o.key}
+                                                    label={o.label}
+                                                  />
+                                                ) : undefined,
+                                            }))
+                                          : col.edit.kind === 'assignee'
+                                            ? [
+                                                {
+                                                  value: '',
+                                                  label: 'Unassigned',
+                                                },
+                                                ...staff.map((s) => ({
+                                                  value: s.user_id,
+                                                  label: s.full_name,
+                                                })),
+                                              ]
+                                            : col.edit.kind === 'tags'
+                                              ? allTagOptions
+                                              : undefined
+                                    }
+                                    multiValue={
+                                      col.edit.kind === 'tags'
+                                        ? (contact.tags ?? []).map((t) => t.id)
+                                        : undefined
+                                    }
+                                    onToggleOption={
+                                      col.edit.kind === 'tags'
+                                        ? (tagId) =>
+                                            toggleContactTag(contact, tagId)
+                                        : undefined
+                                    }
+                                    prefix={
+                                      col.customType === 'currency'
+                                        ? currencySymbol(defaultCurrency)
+                                        : undefined
+                                    }
+                                    // Render mode content sits directly in the
+                                    // editor's flex-centred slot — no line-box
+                                    // wrapper, so the hover ring stays symmetric.
+                                    display={col.render(contact)}
+                                    onStart={() =>
+                                      setEditingCell({
+                                        id: contact.id,
+                                        key: col.key,
+                                      })
+                                    }
+                                    onCommit={(v) =>
+                                      commitCell(contact, col.edit!, v)
+                                    }
+                                    onCancel={() => setEditingCell(null)}
+                                  />
+                                ) : (
+                                  <div className={cn('min-w-0', cellClamp)}>
+                                    {col.render(contact)}
+                                  </div>
+                                )}
+                              </TableCell>
+                            );
+                          })}
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                render={
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="text-muted-foreground hover:text-foreground"
+                                  />
+                                }
+                              >
+                                <MoreHorizontal className="size-4" />
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="end"
+                                className="bg-popover border-border"
+                              >
+                                <DropdownMenuItem
+                                  onClick={() => openDetail(contact.id)}
+                                  className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                                >
+                                  <Eye className="size-4" />
+                                  View details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => openEditForm(contact)}
+                                  className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                                >
+                                  <Pencil className="size-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator className="bg-border" />
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onClick={() => confirmDelete(contact)}
+                                >
+                                  <Trash2 className="size-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                          <TableCell aria-hidden />
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </table>
+                {/* Single drag-shadow overlay — one continuous shadow around
+                  the whole dragged column, not a seamy per-cell one. It sits
+                  ABOVE the table with a transparent interior, so its box
+                  shadow paints over the neighbouring columns while the
+                  dragged column's own opaque cells show through untouched.
+                  pointer-events-none keeps the drag alive. */}
+                {draggingKey && dragActiveIndex >= 0 && (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute top-0 bottom-0 z-30 rounded-sm shadow-[0_0_18px_2px_rgba(0,0,0,0.10)]"
+                    style={{
+                      left: dragColLeft,
+                      width: dragColWidth,
+                      transform: `translateX(${dragX}px)`,
+                    }}
+                  />
                 )}
-              </TableBody>
-            </table>
+              </div>
+            </DndContext>
           </div>
 
           {/* Footer — pinned below the scroll region: record count left,
