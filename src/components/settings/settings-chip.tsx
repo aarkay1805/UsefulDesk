@@ -13,11 +13,14 @@ import { cn } from '@/lib/utils';
  */
 export type ChipVariant = 'owner' | 'admin' | 'ok' | 'warn' | 'muted';
 
+// Light-mode text shades are -700, not -600: the -600s only reach
+// ~2.9-3.4:1 on the /10 tint (they were paired with a dark override, so
+// the earlier sweep left them alone). -700 clears 4.5:1; dark keeps -300.
 const VARIANTS: Record<ChipVariant, string> = {
-  owner: 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300',
+  owner: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   admin: 'border-primary-soft-2 bg-primary-soft text-primary-text',
-  ok: 'border-emerald-500/35 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
-  warn: 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300',
+  ok: 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  warn: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   muted: 'border-border bg-muted text-muted-foreground',
 };
 

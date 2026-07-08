@@ -26,13 +26,17 @@ export const ROLE_META: Record<
     icon: Crown,
     label: 'Owner',
     variant: 'owner',
-    className: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
+    // text-amber-300 was dark-mode-only (~2:1 on the light amber tint).
+    // amber-700 clears 4.6:1 in light; amber-300 stays for dark.
+    className: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   },
   admin: {
     icon: Shield,
     label: 'Admin',
     variant: 'admin',
-    className: 'border-primary/40 bg-primary/10 text-primary',
+    // text-primary is a button-fill calibration (~3.3:1 as text); the
+    // accent-as-text token clears 4.5:1 in both modes.
+    className: 'border-primary/40 bg-primary/10 text-primary-text',
   },
   agent: {
     icon: UserCog,

@@ -26,6 +26,7 @@ import {
   type LeadFieldKind,
   type LeadFieldOption,
 } from '@/lib/leads/field-options';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -250,7 +251,7 @@ function OptionsEditor({
   }
 
   return (
-    <DialogContent className="bg-card border-border sm:max-w-md">
+    <DialogContent className="bg-card border-border sm:max-w-lg">
       <DialogHeader>
         <DialogTitle className="text-foreground capitalize">
           Edit {FIELD_TITLES[kind]} options
@@ -266,6 +267,7 @@ function OptionsEditor({
           scroll box (and pull it back out) to stop focus/selection rings
           from being shaved at the left edge. */}
       <div className="max-h-[50vh] -mx-1 space-y-2 overflow-y-auto px-1 py-1">
+<<<<<<< HEAD
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -284,6 +286,33 @@ function OptionsEditor({
                 onLabel={(label) => update(i, { label })}
                 onColor={(color) => update(i, { color })}
                 onRemove={() => remove(i)}
+=======
+        {draft.map((option, i) => (
+          <div key={option.key} className="flex items-center gap-2">
+            {isStatus && (
+              // Live preview — the option rendered as the actual pill so
+              // "what you pick is what you see". Uses the same Badge
+              // `color` path (tinted recipe) the leads table/board use,
+              // so the colour + derived-text here match production.
+              <Badge
+                color={option.color ?? STATUS_COLORS[0]}
+                className="w-24 shrink-0 justify-start"
+                aria-hidden
+              >
+                <span className="truncate">{option.label || 'Preview'}</span>
+              </Badge>
+            )}
+            <Input
+              value={option.label}
+              onChange={(e) => update(i, { label: e.target.value })}
+              className="bg-muted border-border text-foreground h-8 flex-1"
+              aria-label={`Option ${i + 1} label`}
+            />
+            {isStatus && (
+              <ColorSwatchPicker
+                value={option.color ?? STATUS_COLORS[0]}
+                onChange={(color) => update(i, { color })}
+>>>>>>> 37ca9bc1d68ba2b9385f44d551fe5d81b26dd62f
               />
             ))}
           </SortableContext>
@@ -447,7 +476,9 @@ function ColorSwatchPicker({
           aria-label={`Colour ${c}`}
           onClick={() => onChange(c)}
           className={cn(
-            'size-4 cursor-pointer rounded-full transition-transform hover:scale-110',
+            // Hairline boundary so light swatches (yellow) are perceivable
+            // against the card — a solid dot alone is ~1.8:1 on white.
+            'size-4 cursor-pointer rounded-full border border-black/15 transition-transform hover:scale-110 dark:border-white/20',
             value === c && 'ring-2 ring-ring ring-offset-1 ring-offset-card'
           )}
           style={{ backgroundColor: c }}
