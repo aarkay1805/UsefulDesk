@@ -1,7 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowDown, ArrowUp, Loader2, Plus, Trash2 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
@@ -118,6 +133,13 @@ function OptionsEditor({
   const [saving, setSaving] = useState(false);
 
   const isStatus = kind === 'status';
+  // The controls that reveal only once the user starts typing a new option.
+  const typing = newLabel.trim().length > 0;
+
+  // Drag-to-reorder — same interaction as the "Edit columns" dialog.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+  );
 
   function update(index: number, patch: Partial<DraftOption>) {
     setDraft((prev) =>
@@ -125,13 +147,14 @@ function OptionsEditor({
     );
   }
 
-  function move(index: number, delta: -1 | 1) {
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
     setDraft((prev) => {
-      const next = [...prev];
-      const target = index + delta;
-      if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
+      const from = prev.findIndex((o) => o.key === active.id);
+      const to = prev.findIndex((o) => o.key === over.id);
+      if (from === -1 || to === -1) return prev;
+      return arrayMove(prev, from, to);
     });
   }
 
@@ -150,6 +173,8 @@ function OptionsEditor({
           prev.map((o) => o.key)
         ),
         label,
+        // Auto-assign a default swatch (cycles so consecutive adds differ);
+        // the user recolours from the row's swatches afterwards.
         color: isStatus ? STATUS_COLORS[prev.length % STATUS_COLORS.length] : null,
         isNew: true,
       },
@@ -241,55 +266,33 @@ function OptionsEditor({
           scroll box (and pull it back out) to stop focus/selection rings
           from being shaved at the left edge. */}
       <div className="max-h-[50vh] -mx-1 space-y-2 overflow-y-auto px-1 py-1">
-        {draft.map((option, i) => (
-          <div key={option.key} className="flex items-center gap-2">
-            <Input
-              value={option.label}
-              onChange={(e) => update(i, { label: e.target.value })}
-              className="bg-muted border-border text-foreground h-8 flex-1"
-              aria-label={`Option ${i + 1} label`}
-            />
-            {isStatus && (
-              <ColorSwatchPicker
-                value={option.color ?? STATUS_COLORS[0]}
-                onChange={(color) => update(i, { color })}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={draft.map((o) => o.key)}
+            strategy={verticalListSortingStrategy}
+          >
+            {draft.map((option, i) => (
+              <OptionRow
+                key={option.key}
+                option={option}
+                index={i}
+                isStatus={isStatus}
+                onLabel={(label) => update(i, { label })}
+                onColor={(color) => update(i, { color })}
+                onRemove={() => remove(i)}
               />
-            )}
-            <div className="flex items-center">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                disabled={i === 0}
-                onClick={() => move(i, -1)}
-                aria-label="Move up"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <ArrowUp className="size-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                disabled={i === draft.length - 1}
-                onClick={() => move(i, 1)}
-                aria-label="Move down"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <ArrowDown className="size-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => remove(i)}
-                aria-label={`Remove ${option.label}`}
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            </div>
-          </div>
-        ))}
+            ))}
+          </SortableContext>
+        </DndContext>
 
-        <div className="flex items-center gap-2 pt-1">
+        {/* Divider between the list and the add row (mirrors the mock). */}
+        <div className="border-border/60 border-t border-dashed pt-2" />
+
+        <div className="flex items-center gap-2">
           <Input
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
@@ -297,21 +300,31 @@ function OptionsEditor({
               if (e.key === 'Enter') {
                 e.preventDefault();
                 addOption();
+              } else if (e.key === 'Escape' && typing) {
+                e.preventDefault();
+                setNewLabel('');
               }
             }}
             placeholder="Add an option…"
-            className="bg-muted border-border text-foreground h-8 flex-1 placeholder:text-muted-foreground"
+            className="bg-muted border-border text-foreground h-7 flex-1 rounded-full px-3.5 placeholder:text-muted-foreground"
           />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={addOption}
-            disabled={!newLabel.trim()}
-            className="border-border text-muted-foreground hover:bg-muted"
-          >
-            <Plus className="size-4" />
-            Add
-          </Button>
+          {/* Cancel + Add reveal only once the user types, sliding in.
+              Colour is chosen afterwards from the created row's swatches. */}
+          {typing && (
+            <div className="animate-in fade-in slide-in-from-right-2 flex items-center gap-2 duration-200 ease-out">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setNewLabel('')}
+                className="border-border text-muted-foreground hover:bg-muted"
+              >
+                Cancel
+              </Button>
+              <Button size="sm" onClick={addOption}>
+                Add
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -330,6 +343,89 @@ function OptionsEditor({
         </Button>
       </DialogFooter>
     </DialogContent>
+  );
+}
+
+/**
+ * One draggable option row: grip handle · a tinted pill input that previews
+ * the chosen colour live · colour swatches (status only) · delete.
+ */
+function OptionRow({
+  option,
+  index,
+  isStatus,
+  onLabel,
+  onColor,
+  onRemove,
+}: {
+  option: DraftOption;
+  index: number;
+  isStatus: boolean;
+  onLabel: (label: string) => void;
+  onColor: (color: string) => void;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: option.key });
+
+  const color = option.color ?? STATUS_COLORS[0];
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(
+        'flex items-center gap-2',
+        isDragging && 'relative z-10 opacity-90'
+      )}
+    >
+      <button
+        type="button"
+        className="text-muted-foreground hover:text-foreground shrink-0 cursor-grab touch-none active:cursor-grabbing"
+        aria-label="Drag to reorder"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="size-4" />
+      </button>
+
+      <Input
+        value={option.label}
+        onChange={(e) => onLabel(e.target.value)}
+        aria-label={`Option ${index + 1} label`}
+        className={cn(
+          'h-7 flex-1 rounded-full border-transparent px-3.5 font-medium',
+          isStatus
+            ? // `tinted-text` derives a mode-aware readable colour from
+              // --badge-tint; the inline background is the 10% fill (inline
+              // beats Input's dark:bg-input/30 so the tint always shows).
+              'tinted-text'
+            : 'bg-muted text-foreground'
+        )}
+        style={
+          isStatus
+            ? ({
+                '--badge-tint': color,
+                backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+              } as React.CSSProperties)
+            : undefined
+        }
+      />
+
+      {isStatus && (
+        <ColorSwatchPicker value={color} onChange={onColor} />
+      )}
+
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={onRemove}
+        aria-label={`Remove ${option.label}`}
+        className="text-muted-foreground hover:text-destructive shrink-0"
+      >
+        <Trash2 className="size-4" />
+      </Button>
+    </div>
   );
 }
 

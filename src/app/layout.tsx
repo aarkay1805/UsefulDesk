@@ -95,7 +95,11 @@ export default function RootLayout({
       // children still surface.
       suppressHydrationWarning
     >
-      <head>
+      {/* A browser extension (locator dev tool) injects a
+          `data-locator-hook-status-message` attribute onto <head> before
+          React hydrates, causing an attribute-mismatch warning. It's
+          external, not our markup — suppress it on this element only. */}
+      <head suppressHydrationWarning>
         <Script
           id="theme-boot"
           strategy="beforeInteractive"
