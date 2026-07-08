@@ -9,6 +9,21 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type {
@@ -126,6 +141,13 @@ const BOARD_LIMIT = 500;
 // Fixed utility columns flank the managed columns and aren't user-editable.
 const CHECKBOX_COL_WIDTH = 44;
 const ACTIONS_COL_WIDTH = 48;
+
+// Applied to every cell of the column being dragged (header + body) so the
+// whole strip reads as "picked up": a brand tint plus a horizontal-only
+// drop shadow (no y-offset → no shadow seams between stacked rows, so it
+// merges into one continuous left/right edge shadow down the column).
+const DRAG_COLUMN_CLASS =
+  'relative z-20 bg-primary/10 shadow-[6px_0_12px_-6px_rgba(0,0,0,0.35),-6px_0_12px_-6px_rgba(0,0,0,0.35)]';
 
 type ViewMode = 'wrap' | 'clip';
 type LeadsView = 'table' | 'board';
@@ -413,6 +435,7 @@ function HeaderCell({
   onAddColumn,
   onRemoveColumn,
   onEditOptions,
+  dragHandleProps,
 }: {
   col: ColumnDef;
   sortDir: SortDir | null;
@@ -423,11 +446,25 @@ function HeaderCell({
   onRemoveColumn: () => void;
   /** Option-backed columns only (admins): edit the column's choices. */
   onEditOptions?: () => void;
+  /** Sortable drag listeners+attributes — spread on the label (the grab
+      surface). Absent when column drag is disabled. */
+  dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>;
 }) {
   const sortable = Boolean(col.sortColumn);
   return (
     <div className="group/th flex items-center gap-0.5 pr-2">
-      <span className="min-w-0 flex-1 truncate">{col.label}</span>
+      {/* The label doubles as the column's drag handle (Sheets-style):
+          grab the header text to reorder. touch-none keeps it from
+          scrolling the table on touch drags. */}
+      <span
+        {...dragHandleProps}
+        className={cn(
+          'min-w-0 flex-1 truncate',
+          dragHandleProps && 'cursor-grab touch-none active:cursor-grabbing'
+        )}
+      >
+        {col.label}
+      </span>
 
       {/* Inline sort toggles — hidden until hover, but the active one
           stays visible so the current sort is always legible. */}
@@ -543,6 +580,93 @@ function HeaderCell({
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
+  );
+}
+
+// A header cell wrapped as a horizontal sortable item. Owns the <th>
+// (so the sortable ref/transform live on it) and threads the drag
+// listeners down to HeaderCell's label. Resize grip + sticky freeze
+// styling ride along unchanged — the grip uses mouse events so it never
+// collides with the pointer-based drag sensor, and the label-only handle
+// keeps the sort arrows / overflow menu clickable.
+function DraggableHeaderCell({
+  col,
+  isFrozen,
+  frozenStyle,
+  dragX,
+  sortDir,
+  onSort,
+  onToggleFreeze,
+  onAddColumn,
+  onRemoveColumn,
+  onEditOptions,
+  onResizeStart,
+}: {
+  col: ColumnDef;
+  isFrozen: boolean;
+  frozenStyle?: React.CSSProperties;
+  /** Live pointer delta while THIS column is the one being dragged. */
+  dragX: number;
+  sortDir: SortDir | null;
+  onSort: (dir: SortDir) => void;
+  onToggleFreeze: () => void;
+  onAddColumn: () => void;
+  onRemoveColumn: () => void;
+  onEditOptions?: () => void;
+  onResizeStart: (e: React.MouseEvent) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: col.key });
+
+  const style: React.CSSProperties = {
+    ...frozenStyle,
+    // For the dragged header, ignore dnd-kit's transform (it carries a Y
+    // offset + scaleX/scaleY sized to the hovered column, which distorts
+    // the label) and use a pure X translate matching the body cells, so
+    // the whole strip moves as one rigid column. Other headers keep their
+    // dnd transform to shift open the drop slot.
+    transform: isDragging
+      ? `translateX(${dragX}px)`
+      : CSS.Transform.toString(transform),
+    // No transition on the active header so it tracks the pointer instantly
+    // (in lockstep with the body); neighbours keep their shift animation.
+    transition: isDragging ? 'none' : transition,
+    // Lift the dragged header above its sticky/frozen neighbours.
+    ...(isDragging ? { zIndex: 40 } : {}),
+  };
+
+  return (
+    <TableHead
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'text-muted-foreground select-none',
+        // Positioned ancestor for the resize grip — sticky frozen cells
+        // already establish one.
+        isFrozen ? 'bg-card z-20' : 'relative',
+        // Elevated look while this header is the one being dragged.
+        isDragging && DRAG_COLUMN_CLASS
+      )}
+    >
+      <HeaderCell
+        col={col}
+        sortDir={sortDir}
+        frozen={isFrozen}
+        onSort={onSort}
+        onToggleFreeze={onToggleFreeze}
+        onAddColumn={onAddColumn}
+        onRemoveColumn={onRemoveColumn}
+        onEditOptions={onEditOptions}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
+      {/* Resize grip on the right edge */}
+      <span
+        role="separator"
+        aria-orientation="vertical"
+        onMouseDown={onResizeStart}
+        className="border-border hover:border-primary absolute top-2 right-0 bottom-2 w-1.5 cursor-col-resize border-r hover:border-r-2"
+      />
+    </TableHead>
   );
 }
 
@@ -702,6 +826,18 @@ export default function LeadsPage() {
     width: number;
   } | null>(null);
 
+  // Key of the column currently being drag-reordered (null = not dragging).
+  // Drives the whole-column tint + elevation while a header is picked up.
+  const [draggingKey, setDraggingKey] = useState<string | null>(null);
+  // Live horizontal pointer delta during a column drag. The header follows
+  // the cursor via dnd-kit's own transform; we mirror that same delta onto
+  // the dragged column's body cells so the whole strip travels together.
+  const [dragX, setDragX] = useState(0);
+  // Key of the column currently under the drag (the drop target). dnd-kit
+  // shifts the other HEADERS open to preview the slot; we read this to
+  // shift their body cells the same way so whole columns displace as one.
+  const [overKey, setOverKey] = useState<string | null>(null);
+
   // Modals
   const [formOpen, setFormOpen] = useState(false);
   const [editContact, setEditContact] = useState<Contact | null>(null);
@@ -731,6 +867,13 @@ export default function LeadsPage() {
   // results. Without this, rapidly changing the search/page could let a
   // slower earlier request resolve last and render stale rows.
   const fetchSeq = useRef(0);
+
+  // Column drag-reorder. A 6px activation distance means a plain click on
+  // the header label (to no effect) or on the sort arrows / overflow menu
+  // never starts a drag — only a deliberate pull does.
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
 
   const pageSize = prefs.pageSize;
   const viewMode = prefs.viewMode;
@@ -1507,6 +1650,34 @@ export default function LeadsPage() {
     setPrefs((p) => ({ ...p, order, hidden, frozenCount: nextFrozen }));
   }
 
+  // Drop after a header drag → persist the new column order. Reorders the
+  // visible keys among themselves and splices them back into the full
+  // order (hidden keys stay put). Cross-freeze-boundary moves are rejected
+  // so the "leading N are frozen" invariant survives untouched.
+  function handleColumnDragEnd(e: DragEndEvent) {
+    setDraggingKey(null);
+    setOverKey(null);
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+
+    const visibleKeys = visibleColumns.map((c) => c.key);
+    const oldIndex = visibleKeys.indexOf(String(active.id));
+    const newIndex = visibleKeys.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const bothFrozen = oldIndex < frozenCount && newIndex < frozenCount;
+    const bothUnfrozen = oldIndex >= frozenCount && newIndex >= frozenCount;
+    if (!bothFrozen && !bothUnfrozen) return; // don't cross the freeze line
+
+    const nextVisible = arrayMove(visibleKeys, oldIndex, newIndex);
+    const visibleSet = new Set(visibleKeys);
+    const queue = [...nextVisible];
+    const nextOrder = orderedKeys.map((k) =>
+      visibleSet.has(k) ? queue.shift()! : k
+    );
+    saveColumns(nextOrder, prefs.hidden, frozenCount);
+  }
+
   // Column resize — drag the header's right edge. Width tracks the pointer
   // live (transient state) and commits to prefs on release.
   function startResize(e: React.MouseEvent, col: ColumnDef) {
@@ -1541,6 +1712,39 @@ export default function LeadsPage() {
       fieldType: c.customType,
     }));
   const hiddenForDialog = orderedKeys.filter((k) => !isVisible(k));
+
+  // During a column drag, how far each column's cells slide so the body
+  // tracks its (already-shifting) header. The dragged column follows the
+  // pointer (dragX); the columns the drag has passed over shift by the
+  // dragged column's width toward its vacated slot — mirroring dnd-kit's
+  // horizontalListSortingStrategy so header and body displace as one.
+  const dragActiveIndex = draggingKey
+    ? arrangedColumns.findIndex((c) => c.key === draggingKey)
+    : -1;
+  const dragOverIndex = overKey
+    ? arrangedColumns.findIndex((c) => c.key === overKey)
+    : -1;
+  const draggedWidth =
+    dragActiveIndex >= 0 ? widthOf(arrangedColumns[dragActiveIndex]) : 0;
+  function columnDragShift(index: number): number {
+    if (dragActiveIndex < 0 || dragOverIndex < 0) return 0;
+    if (index === dragActiveIndex) return dragX;
+    if (
+      dragActiveIndex < dragOverIndex &&
+      index > dragActiveIndex &&
+      index <= dragOverIndex
+    ) {
+      return -draggedWidth;
+    }
+    if (
+      dragActiveIndex > dragOverIndex &&
+      index < dragActiveIndex &&
+      index >= dragOverIndex
+    ) {
+      return draggedWidth;
+    }
+    return 0;
+  }
 
   const cellClamp =
     viewMode === 'clip' ? 'truncate' : 'whitespace-normal break-words';
@@ -1813,52 +2017,62 @@ export default function LeadsPage() {
                       aria-label="Select all leads on this page"
                     />
                   </TableHead>
-                  {arrangedColumns.map((col, i) => {
-                    const isFrozen = frozenKeySet.has(col.key);
-                    return (
-                      <TableHead
-                        key={col.key}
-                        style={frozenCellStyle(col.key)}
-                        className={cn(
-                          'text-muted-foreground select-none',
-                          // Positioned ancestor for the resize grip — sticky
-                          // frozen cells already establish one.
-                          isFrozen ? 'bg-card z-20' : 'relative'
-                        )}
-                      >
-                        <HeaderCell
-                          col={col}
-                          sortDir={sort?.key === col.key ? sort.dir : null}
-                          frozen={isFrozen}
-                          onSort={(dir) => sortByColumn(col.key, dir)}
-                          // Count model: freeze up to this column (i + 1), or
-                          // unfreeze back to just before it (i).
-                          onToggleFreeze={() =>
-                            setFrozenColumnCount(isFrozen ? i : i + 1)
-                          }
-                          onAddColumn={() => setManageColumnsOpen(true)}
-                          onRemoveColumn={() => hideColumn(col.key)}
-                          onEditOptions={
-                            col.optionsField && canEditSettings
-                              ? col.optionsField === 'tags'
-                                ? () => router.push('/settings?tab=fields')
-                                : () =>
-                                    setEditOptionsKind(
-                                      col.optionsField as LeadFieldKind
-                                    )
-                              : undefined
-                          }
-                        />
-                        {/* Resize grip on the right edge */}
-                        <span
-                          role="separator"
-                          aria-orientation="vertical"
-                          onMouseDown={(e) => startResize(e, col)}
-                          className="border-border hover:border-primary absolute top-2 right-0 bottom-2 w-1.5 cursor-col-resize border-r hover:border-r-2"
-                        />
-                      </TableHead>
-                    );
-                  })}
+                  <DndContext
+                    sensors={dndSensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={(e) => {
+                      setDraggingKey(String(e.active.id));
+                      setOverKey(String(e.active.id));
+                      setDragX(0);
+                    }}
+                    onDragMove={(e) => setDragX(e.delta.x)}
+                    onDragOver={(e) =>
+                      setOverKey(e.over ? String(e.over.id) : null)
+                    }
+                    onDragCancel={() => {
+                      setDraggingKey(null);
+                      setOverKey(null);
+                    }}
+                    onDragEnd={handleColumnDragEnd}
+                  >
+                    <SortableContext
+                      items={arrangedColumns.map((c) => c.key)}
+                      strategy={horizontalListSortingStrategy}
+                    >
+                      {arrangedColumns.map((col, i) => {
+                        const isFrozen = frozenKeySet.has(col.key);
+                        return (
+                          <DraggableHeaderCell
+                            key={col.key}
+                            col={col}
+                            isFrozen={isFrozen}
+                            frozenStyle={frozenCellStyle(col.key)}
+                            dragX={col.key === draggingKey ? dragX : 0}
+                            sortDir={sort?.key === col.key ? sort.dir : null}
+                            onSort={(dir) => sortByColumn(col.key, dir)}
+                            // Count model: freeze up to this column (i + 1), or
+                            // unfreeze back to just before it (i).
+                            onToggleFreeze={() =>
+                              setFrozenColumnCount(isFrozen ? i : i + 1)
+                            }
+                            onAddColumn={() => setManageColumnsOpen(true)}
+                            onRemoveColumn={() => hideColumn(col.key)}
+                            onEditOptions={
+                              col.optionsField && canEditSettings
+                                ? col.optionsField === 'tags'
+                                  ? () => router.push('/settings?tab=fields')
+                                  : () =>
+                                      setEditOptionsKind(
+                                        col.optionsField as LeadFieldKind
+                                      )
+                                : undefined
+                            }
+                            onResizeStart={(e) => startResize(e, col)}
+                          />
+                        );
+                      })}
+                    </SortableContext>
+                  </DndContext>
                   <TableHead />
                   <TableHead aria-hidden />
                 </TableRow>
@@ -1927,10 +2141,27 @@ export default function LeadsPage() {
                           aria-label={`Select ${contact.name || contact.phone}`}
                         />
                       </TableCell>
-                      {arrangedColumns.map((col) => (
+                      {arrangedColumns.map((col, ci) => {
+                        const shift = columnDragShift(ci);
+                        const isDragged = col.key === draggingKey;
+                        return (
                         <TableCell
                           key={col.key}
-                          style={frozenCellStyle(col.key)}
+                          style={{
+                            ...frozenCellStyle(col.key),
+                            // The dragged column tracks the pointer; the
+                            // columns it displaces slide by its width — so
+                            // whole columns move as one (Sheets-style).
+                            transform: shift
+                              ? `translateX(${shift}px)`
+                              : undefined,
+                            // Dragged cells track instantly; displaced cells
+                            // ease like their headers. No transition idle.
+                            transition:
+                              draggingKey && !isDragged
+                                ? 'transform 200ms ease'
+                                : undefined,
+                          }}
                           className={cn(
                             'align-middle',
                             // The editor supplies its own padding so the
@@ -1940,7 +2171,10 @@ export default function LeadsPage() {
                             // content can't bleed through; the layered
                             // hover tint matches the row's own hover.
                             frozenKeySet.has(col.key) &&
-                              'bg-card group-hover:bg-muted/50 z-10'
+                              'bg-card group-hover:bg-muted/50 z-10',
+                            // Elevated tint on the column being dragged —
+                            // last so it wins over the frozen/hover bg.
+                            col.key === draggingKey && DRAG_COLUMN_CLASS
                           )}
                         >
                           {col.edit && canEdit ? (
@@ -2030,7 +2264,8 @@ export default function LeadsPage() {
                             </div>
                           )}
                         </TableCell>
-                      ))}
+                        );
+                      })}
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger
