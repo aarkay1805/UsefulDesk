@@ -11,6 +11,7 @@ import {
   type LeadFieldKind,
   type LeadFieldOption,
 } from '@/lib/leads/field-options';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -225,7 +226,7 @@ function OptionsEditor({
   }
 
   return (
-    <DialogContent className="bg-card border-border sm:max-w-md">
+    <DialogContent className="bg-card border-border sm:max-w-lg">
       <DialogHeader>
         <DialogTitle className="text-foreground capitalize">
           Edit {FIELD_TITLES[kind]} options
@@ -243,6 +244,19 @@ function OptionsEditor({
       <div className="max-h-[50vh] -mx-1 space-y-2 overflow-y-auto px-1 py-1">
         {draft.map((option, i) => (
           <div key={option.key} className="flex items-center gap-2">
+            {isStatus && (
+              // Live preview — the option rendered as the actual pill so
+              // "what you pick is what you see". Uses the same Badge
+              // `color` path (tinted recipe) the leads table/board use,
+              // so the colour + derived-text here match production.
+              <Badge
+                color={option.color ?? STATUS_COLORS[0]}
+                className="w-24 shrink-0 justify-start"
+                aria-hidden
+              >
+                <span className="truncate">{option.label || 'Preview'}</span>
+              </Badge>
+            )}
             <Input
               value={option.label}
               onChange={(e) => update(i, { label: e.target.value })}
