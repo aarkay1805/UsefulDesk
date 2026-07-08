@@ -25,6 +25,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
+  Check,
+  Link2,
   Loader2,
   Mail,
   MailX,
@@ -84,6 +86,8 @@ interface Invitation {
   id: string;
   role: 'admin' | 'agent' | 'viewer';
   label: string | null;
+  /** Display name of the invited person (set by lead-import; migration 049). */
+  full_name: string | null;
   created_at: string;
   expires_at: string;
 }
@@ -263,6 +267,42 @@ export function MembersTab() {
     } catch (err) {
       console.error('[MembersTab] revoke error:', err);
       toast.error('Could not reach the server');
+    }
+  }
+
+  // Mint a fresh link for a pending invite and copy it. Rotating the token
+  // invalidates any previously shared link for this invite — the toast says
+  // so. Needed because invite tokens are stored hashed (never re-derivable),
+  // and import-created invites never surfaced a link at creation time.
+  const [linkingId, setLinkingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  async function handleCopyLink(invite: Invitation) {
+    setLinkingId(invite.id);
+    try {
+      const res = await fetch(
+        `/api/account/invitations/${invite.id}/link`,
+        { method: 'POST' }
+      );
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        toast.error(payload.error || 'Failed to generate link');
+        return;
+      }
+      const { url } = (await res.json()) as { url: string };
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopiedId(invite.id);
+        window.setTimeout(() => setCopiedId(null), 2000);
+        toast.success('Invite link copied — this replaces any link shared before.');
+      } catch {
+        // Clipboard blocked (insecure context / permissions) — show the URL.
+        toast.message('Invite link (copy it):', { description: url });
+      }
+    } catch (err) {
+      console.error('[MembersTab] copy-link error:', err);
+      toast.error('Could not reach the server');
+    } finally {
+      setLinkingId(null);
     }
   }
 
@@ -472,16 +512,11 @@ export function MembersTab() {
               {invitations.length}
             </Badge>
           </div>
-          {/* P10 — make the no-resend design explicit. Admins were
-              confused why the pending list shows roles + expiry but
-              no "copy link again" button. Stating the constraint up
-              front (rather than letting the user discover it by
-              looking for a button) keeps it from feeling like a bug. */}
           {invitations.length > 0 ? (
             <p className="mb-3 text-xs text-muted-foreground">
-              The plaintext invite URL is only shown once at creation
-              for security — to re-share, revoke the invite below and
-              create a new one.
+              Invite links are stored hashed, so <b>Copy link</b> mints a fresh
+              one each time — which invalidates any link you shared for that
+              invite before. Share the newest one.
             </p>
           ) : null}
 
@@ -513,7 +548,7 @@ export function MembersTab() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-foreground">
-                            {inv.label || 'Untitled invite'}
+                            {inv.full_name || inv.label || 'Untitled invite'}
                           </span>
                           <span
                             className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${inviteRoleMeta.className}`}
@@ -527,10 +562,27 @@ export function MembersTab() {
                         </p>
                       </div>
 
+                      {/* Copy link — rotates the token, so the freshest
+                          copy is the only working link (see the note above). */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={linkingId === inv.id}
+                        onClick={() => handleCopyLink(inv)}
+                        className="border-border text-muted-foreground hover:bg-muted"
+                      >
+                        {linkingId === inv.id ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : copiedId === inv.id ? (
+                          <Check className="size-4 text-emerald-600 dark:text-emerald-400" />
+                        ) : (
+                          <Link2 className="size-4" />
+                        )}
+                        {copiedId === inv.id ? 'Copied' : 'Copy link'}
+                      </Button>
+
                       {/* Revoke: red default state, mirrors the
-                          members-tab Remove button. Pre-polish version
-                          read as a neutral secondary button until
-                          hover. */}
+                          members-tab Remove button. */}
                       <Button
                         variant="outline"
                         size="sm"

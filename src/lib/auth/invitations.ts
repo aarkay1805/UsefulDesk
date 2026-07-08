@@ -99,3 +99,76 @@ export function clampExpiryDays(expiresInDays: number | undefined): number {
   }
   return Math.min(Math.floor(expiresInDays), MAX_INVITE_EXPIRY_DAYS);
 }
+
+// ============================================================
+// Base-URL resolution for invite links — shared by the create
+// (POST /invitations) and rotate (POST /invitations/[id]/link)
+// routes so the host-allowlist hardening lives in one place.
+//
+// Resolution order, first match wins:
+//   1. NEXT_PUBLIC_SITE_URL — explicit config, trumps everything.
+//   2. X-Forwarded-Host (+ proto) — set by any reverse proxy.
+//   3. Host header + the request's protocol — bare deployments.
+//   4. Marketing-site fallback (essentially unreachable from a
+//      real browser; logs a warning).
+//
+// ALLOWED_INVITE_HOSTS (comma-separated) validates the header-
+// derived host so a bare public deployment can't be tricked into
+// minting invite links pointing at a spoofed `Host:`.
+// ============================================================
+
+function parseAllowedHosts(): readonly string[] | null {
+  const raw = process.env.ALLOWED_INVITE_HOSTS?.trim();
+  if (!raw) return null;
+  const list = raw
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+  return list.length > 0 ? list : null;
+}
+
+function isHostAllowed(
+  hostname: string,
+  allowList: readonly string[] | null,
+): boolean {
+  if (!allowList) return true; // No allow-list → permissive (legacy behavior).
+  return allowList.includes(hostname.toLowerCase());
+}
+
+/** Derive the base URL to publish invite links under from a request. */
+export function resolveInviteBaseUrl(request: Request): string {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+
+  const allowList = parseAllowedHosts();
+  const forwardedHost = request.headers
+    .get("x-forwarded-host")
+    ?.split(",")[0]
+    ?.trim();
+  const forwardedProto = request.headers
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim();
+  if (forwardedHost && isHostAllowed(forwardedHost, allowList)) {
+    return `${forwardedProto || "https"}://${forwardedHost}`;
+  }
+
+  const host = request.headers.get("host")?.trim();
+  if (host && isHostAllowed(host, allowList)) {
+    const reqProto = new URL(request.url).protocol.replace(":", "");
+    return `${reqProto}://${host}`;
+  }
+
+  if (allowList && (forwardedHost || host)) {
+    console.warn("[invitations] rejected non-allow-listed host:", {
+      forwardedHost,
+      host,
+      allowList,
+    });
+  } else {
+    console.warn(
+      "[invitations] could not derive base URL from request; falling back to marketing domain",
+    );
+  }
+  return "https://wacrm.tech";
+}

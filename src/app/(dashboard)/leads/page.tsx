@@ -44,6 +44,7 @@ import {
   genderLabel,
   autoReceivedLabel,
 } from '@/lib/leads/attributes';
+import { toCsv, downloadCsv } from '@/lib/csv/export';
 import {
   DEFAULT_FIELD_OPTIONS,
   statusColumn,
@@ -83,6 +84,7 @@ import {
 import {
   Plus,
   Upload,
+  Download,
   Eye,
   MoreHorizontal,
   MoreVertical,
@@ -117,6 +119,7 @@ import {
   EMPTY_FILTERS,
   activeFilterCount,
   UNASSIGNED,
+  PENDING_FILTER_PREFIX,
   type LeadFilters,
 } from '@/components/leads/leads-filters';
 import { LeadsSort } from '@/components/leads/leads-sort';
@@ -134,6 +137,16 @@ import {
 import { BulkAddNoteDialog } from '@/components/leads/bulk-add-note-dialog';
 import { BulkConvertDialog } from '@/components/leads/bulk-convert-dialog';
 import { SourceIcon } from '@/components/leads/source-icon';
+import {
+  AssigneeDisplay,
+  PendingAssigneeDisplay,
+  StatusBadge,
+  assigneeCellOptions,
+  customEditKind,
+  genderCellOptions,
+  sourceCellOptions,
+  statusCellOptions,
+} from '@/components/leads/lead-cell-renderers';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -272,7 +285,7 @@ const DEFAULT_STATUS_COLUMNS = statusColumns(DEFAULT_FIELD_OPTIONS.status);
 
 function renderLeadStatus(c: ContactWithData) {
   const col = statusColumn(DEFAULT_STATUS_COLUMNS, c.lead_status);
-  return <Badge color={col.color}>{col.label}</Badge>;
+  return <StatusBadge column={col} />;
 }
 
 const BUILTIN_COLUMNS: ColumnDef[] = [
@@ -409,7 +422,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
   },
   {
     key: 'created',
-    label: 'Created',
+    label: 'Created on',
     defaultWidth: 120,
     minWidth: 100,
     sortColumn: 'created_at',
@@ -420,21 +433,6 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     ),
   },
 ];
-
-// Map a custom field's data type to the inline editor's input kind.
-function customEditKind(type?: string): 'text' | 'email' | 'number' | 'date' {
-  switch (type) {
-    case 'currency':
-    case 'number':
-      return 'number';
-    case 'date':
-      return 'date';
-    case 'email':
-      return 'email';
-    default:
-      return 'text'; // text, phone, url
-  }
-}
 
 function customColumn(field: CustomField, currency?: string): ColumnDef {
   return {
@@ -794,15 +792,21 @@ function applyLeadFilters<Q extends FilterableQuery<Q>>(
   if (filters.owner.length) q = q.in('user_id', filters.owner);
 
   if (filters.assigned.length) {
-    const hasUnassigned = filters.assigned.includes(UNASSIGNED);
-    const ids = filters.assigned.filter((a) => a !== UNASSIGNED);
-    if (hasUnassigned && ids.length) {
-      q = q.or(`assigned_to.is.null,assigned_to.in.(${ids.join(',')})`);
-    } else if (hasUnassigned) {
-      q = q.is('assigned_to', null);
-    } else {
-      q = q.in('assigned_to', ids);
-    }
+    // The "Assigned to" filter mixes three buckets, OR'd together:
+    // Unassigned, real staff (assigned_to), and pending invites
+    // (pending_invitation_id, values prefixed `pending:`).
+    const parts: string[] = [];
+    if (filters.assigned.includes(UNASSIGNED)) parts.push('assigned_to.is.null');
+    const realIds = filters.assigned.filter(
+      (a) => a !== UNASSIGNED && !a.startsWith(PENDING_FILTER_PREFIX)
+    );
+    if (realIds.length) parts.push(`assigned_to.in.(${realIds.join(',')})`);
+    const pendingIds = filters.assigned
+      .filter((a) => a.startsWith(PENDING_FILTER_PREFIX))
+      .map((a) => a.slice(PENDING_FILTER_PREFIX.length));
+    if (pendingIds.length)
+      parts.push(`pending_invitation_id.in.(${pendingIds.join(',')})`);
+    if (parts.length) q = q.or(parts.join(','));
   }
 
   const since = createdRangeSince(filters.createdRange);
@@ -849,6 +853,13 @@ export default function LeadsPage() {
   // All tags (for the tags column render + Filters panel).
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
 
+  // Distinct pending-invite owners in use (migration 049) — Assigned-to
+  // filter options, so you can select a pending teammate's leads and
+  // bulk-reassign them.
+  const [pendingAssignees, setPendingAssignees] = useState<
+    { id: string; name: string }[]
+  >([]);
+
   // Board view data — fetched independently of the paginated table so
   // switching views doesn't fight the table's pagination window.
   const [boardLeads, setBoardLeads] = useState<Contact[]>([]);
@@ -890,6 +901,7 @@ export default function LeadsPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContactId, setDetailContactId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
   const [manageColumnsOpen, setManageColumnsOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -951,10 +963,9 @@ export default function LeadsPage() {
       if (col.key === 'status') {
         return {
           ...col,
-          render: (c) => {
-            const s = fieldOptions.statusFor(c.lead_status);
-            return <Badge color={s.color}>{s.label}</Badge>;
-          },
+          render: (c) => (
+            <StatusBadge column={fieldOptions.statusFor(c.lead_status)} />
+          ),
         };
       }
       if (col.key === 'source') {
@@ -985,6 +996,11 @@ export default function LeadsPage() {
         return {
           ...col,
           render: (c) => {
+            // A pending-invite owner overrides the display — the lead is
+            // parked on a teammate who hasn't joined yet (migration 049).
+            if (c.pending_invitation_id && c.pending_assignee_name) {
+              return <PendingAssigneeDisplay name={c.pending_assignee_name} />;
+            }
             if (!c.assigned_to) {
               return (
                 <span className="text-muted-foreground text-sm">
@@ -992,17 +1008,11 @@ export default function LeadsPage() {
                 </span>
               );
             }
-            const name = nameById.get(c.assigned_to) ?? 'Teammate';
             return (
-              <span className="flex min-w-0 items-center gap-1.5">
-                <UserAvatar
-                  name={name}
-                  src={avatarById.get(c.assigned_to) ?? null}
-                  className="size-5 shrink-0"
-                  fallbackClassName="text-[10px]"
-                />
-                <span className="text-foreground truncate text-sm">{name}</span>
-              </span>
+              <AssigneeDisplay
+                name={nameById.get(c.assigned_to) ?? 'Teammate'}
+                avatarUrl={avatarById.get(c.assigned_to)}
+              />
             );
           },
         };
@@ -1015,17 +1025,11 @@ export default function LeadsPage() {
             if (auto) return <Badge variant="neutral">{auto}</Badge>;
             // Human origin (manual / import / legacy NULL) → the teammate
             // who created the lead (contacts.user_id is the auth user id).
-            const name = nameById.get(c.user_id) ?? 'Teammate';
             return (
-              <span className="flex min-w-0 items-center gap-1.5">
-                <UserAvatar
-                  name={name}
-                  src={avatarById.get(c.user_id) ?? null}
-                  className="size-5 shrink-0"
-                  fallbackClassName="text-[10px]"
-                />
-                <span className="text-foreground truncate text-sm">{name}</span>
-              </span>
+              <AssigneeDisplay
+                name={nameById.get(c.user_id) ?? 'Teammate'}
+                avatarUrl={avatarById.get(c.user_id)}
+              />
             );
           },
         };
@@ -1142,6 +1146,28 @@ export default function LeadsPage() {
       data.forEach((t) => (map[t.id] = t));
       setTagsMap(map);
     }
+  }, [supabase]);
+
+  // Distinct pending invites currently parked on leads. Cheap — the
+  // partial index idx_contacts_pending_invitation covers the predicate.
+  const fetchPendingAssignees = useCallback(async () => {
+    const { data } = await supabase
+      .from('contacts')
+      .select('pending_invitation_id, pending_assignee_name')
+      .not('pending_invitation_id', 'is', null);
+    if (!data) return;
+    const byId = new Map<string, string>();
+    for (const r of data as {
+      pending_invitation_id: string | null;
+      pending_assignee_name: string | null;
+    }[]) {
+      if (r.pending_invitation_id && !byId.has(r.pending_invitation_id)) {
+        byId.set(r.pending_invitation_id, r.pending_assignee_name ?? 'Pending');
+      }
+    }
+    setPendingAssignees(
+      [...byId.entries()].map(([id, name]) => ({ id, name }))
+    );
   }, [supabase]);
 
   const fetchContacts = useCallback(async () => {
@@ -1310,6 +1336,10 @@ export default function LeadsPage() {
   }, [fetchTags]);
 
   useEffect(() => {
+    fetchPendingAssignees();
+  }, [fetchPendingAssignees]);
+
+  useEffect(() => {
     fetchContacts();
   }, [fetchContacts]);
 
@@ -1326,8 +1356,9 @@ export default function LeadsPage() {
   /** Refresh whichever views hold data after any mutation. */
   const refreshAll = useCallback(() => {
     fetchContacts();
+    fetchPendingAssignees();
     setBoardNonce((n) => n + 1);
-  }, [fetchContacts]);
+  }, [fetchContacts, fetchPendingAssignees]);
 
   // Drag on the board rewrites the lead's status. Optimistic — the
   // card already landed in its new column; revert by refetch on error.
@@ -1413,12 +1444,16 @@ export default function LeadsPage() {
         } else if (edit.kind === 'assignee') {
           // '' = Unassigned. assigned_to references profiles(user_id)
           // within the account; options come from the staff roster so
-          // an arbitrary id can't be picked.
+          // an arbitrary id can't be picked. Picking a real owner also
+          // clears any pending-invite overlay (migration 049) — the lead
+          // was parked on a not-yet-joined teammate; now it has a real one.
           const assignedTo = rawValue || null;
           const { error } = await supabase
             .from('contacts')
             .update({
               assigned_to: assignedTo,
+              pending_invitation_id: null,
+              pending_assignee_name: null,
               updated_at: new Date().toISOString(),
             })
             .eq('id', contact.id);
@@ -1426,14 +1461,22 @@ export default function LeadsPage() {
             toast.error('Failed to update assignee');
             return;
           }
+          const clearPending = {
+            pending_invitation_id: null,
+            pending_assignee_name: null,
+          };
           setContacts((prev) =>
             prev.map((c) =>
-              c.id === contact.id ? { ...c, assigned_to: assignedTo } : c
+              c.id === contact.id
+                ? { ...c, assigned_to: assignedTo, ...clearPending }
+                : c
             )
           );
           setBoardLeads((prev) =>
             prev.map((l) =>
-              l.id === contact.id ? { ...l, assigned_to: assignedTo } : l
+              l.id === contact.id
+                ? { ...l, assigned_to: assignedTo, ...clearPending }
+                : l
             )
           );
         } else if (edit.kind === 'custom') {
@@ -1643,6 +1686,95 @@ export default function LeadsPage() {
     setSelected(new Set((data ?? []).map((c) => c.id)));
   }
 
+  // Export every lead matching the current search + filters to CSV (not
+  // just the loaded page). Reuses the exact same query the table builds,
+  // then resolves each cell through the same display helpers the table
+  // renders with (status/source/gender labels, assignee + creator names,
+  // received-via pill). Tags are pulled in a second query, like the table.
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const term = search.trim();
+      const tagIds = await resolveTagContactIds(supabase, filters.tags);
+      if (tagIds && tagIds.length === 0) {
+        toast.error('No leads to export');
+        return;
+      }
+      let query = supabase
+        .from('contacts')
+        .select('*, memberships!left(id)')
+        .is('memberships', null);
+      if (term) {
+        const like = `%${term}%`;
+        query = query.or(
+          `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
+        );
+      }
+      query = applyLeadFilters(query, filters, tagIds);
+      const { data, error } = await query.order('created_at', {
+        ascending: false,
+      });
+      if (error) {
+        toast.error('Failed to export leads');
+        return;
+      }
+      const rows = (data ?? []) as Contact[];
+      if (rows.length === 0) {
+        toast.error('No leads to export');
+        return;
+      }
+
+      // Tag names per contact (second pass, mirrors the table's fetch).
+      const ids = rows.map((r) => r.id);
+      const { data: ctRows } = await supabase
+        .from('contact_tags')
+        .select('contact_id, tag_id')
+        .in('contact_id', ids);
+      const tagNamesByContact: Record<string, string[]> = {};
+      ctRows?.forEach((r) => {
+        const t = tagsMap[r.tag_id];
+        if (t) (tagNamesByContact[r.contact_id] ??= []).push(t.name);
+      });
+
+      const headers = [
+        'Name',
+        'Phone',
+        'Email',
+        'Company',
+        'Status',
+        'Source',
+        'Gender',
+        'Assigned To',
+        'Received By',
+        'Tags',
+        'Created On',
+      ];
+      const body = rows.map((c) => {
+        const auto = autoReceivedLabel(c.received_via);
+        const receivedBy = auto ?? (nameById.get(c.user_id) ?? 'Teammate');
+        return [
+          c.name ?? '',
+          c.phone,
+          c.email ?? '',
+          c.company ?? '',
+          fieldOptions.statusFor(c.lead_status).label,
+          c.source ? fieldOptions.sourceLabel(c.source) : '',
+          c.gender ? fieldOptions.genderLabel(c.gender) : '',
+          c.assigned_to ? (nameById.get(c.assigned_to) ?? 'Teammate') : '',
+          receivedBy,
+          (tagNamesByContact[c.id] ?? []).join(', '),
+          formatDate(c.created_at),
+        ];
+      });
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadCsv(`leads-${stamp}.csv`, toCsv(headers, body));
+      toast.success(`Exported ${rows.length} lead${rows.length === 1 ? '' : 's'}`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function handleBulkDelete() {
     const ids = [...selected];
     if (ids.length === 0) return;
@@ -1788,7 +1920,14 @@ export default function LeadsPage() {
     if (property.key === 'status') {
       patch = { lead_status: columnToStatus(value as LeadColumnKey) };
     } else if (property.key === 'assignee') {
-      patch = { assigned_to: value === UNASSIGNED ? null : value };
+      // Assigning a real owner in bulk also clears the pending-invite
+      // overlay (migration 049) — the leads picked up a real teammate,
+      // so they're no longer "invite pending". This is the bulk swap.
+      patch = {
+        assigned_to: value === UNASSIGNED ? null : value,
+        pending_invitation_id: null,
+        pending_assignee_name: null,
+      };
     } else {
       // source / gender / company — raw contacts column, '' clears it.
       patch = { [property.key]: value.trim() || null };
@@ -2006,15 +2145,28 @@ export default function LeadsPage() {
           page title, so the page doesn't own a second title row. */}
       <PageHeaderActions>
         <GatedButton
-          variant="outline"
+          variant="ghost"
           canAct={canEdit}
           gateReason="add or import leads"
           onClick={() => setImportOpen(true)}
-          className="border-border text-muted-foreground hover:bg-muted"
+          className="text-muted-foreground hover:bg-muted"
         >
-          <Upload className="size-4" />
+          <Download className="size-4" />
           Import
         </GatedButton>
+        <Button
+          variant="ghost"
+          onClick={handleExport}
+          disabled={exporting}
+          className="text-muted-foreground hover:bg-muted"
+        >
+          {exporting ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Upload className="size-4" />
+          )}
+          Export
+        </Button>
         <GatedButton
           canAct={canEdit}
           gateReason="add or import leads"
@@ -2131,6 +2283,7 @@ export default function LeadsPage() {
                 statuses={fieldOptions.statuses}
                 sources={fieldOptions.sources}
                 genders={fieldOptions.genders}
+                pendingInvites={pendingAssignees}
               />
               <LeadsSort
                 value={sort}
@@ -2515,42 +2668,19 @@ export default function LeadsPage() {
                                     value={readEditValue(contact, col.edit)}
                                     options={
                                       col.edit.kind === 'status'
-                                        ? fieldOptions.statuses.map((c) => ({
-                                            value: c.key,
-                                            label: c.label,
-                                            color: c.color,
-                                          }))
+                                        ? statusCellOptions(
+                                            fieldOptions.statuses
+                                          )
                                         : col.edit.kind === 'select'
-                                          ? (col.edit.column === 'source'
-                                              ? fieldOptions.sources
-                                              : fieldOptions.genders
-                                            ).map((o) => ({
-                                              value: o.key,
-                                              label: o.label,
-                                              // Source options carry their brand
-                                              // glyph so the dropdown reads logo +
-                                              // name (the cell shows the logo only).
-                                              icon:
-                                                col.edit &&
-                                                col.edit.kind === 'select' &&
-                                                col.edit.column === 'source' ? (
-                                                  <SourceIcon
-                                                    source={o.key}
-                                                    label={o.label}
-                                                  />
-                                                ) : undefined,
-                                            }))
+                                          ? col.edit.column === 'source'
+                                            ? sourceCellOptions(
+                                                fieldOptions.sources
+                                              )
+                                            : genderCellOptions(
+                                                fieldOptions.genders
+                                              )
                                           : col.edit.kind === 'assignee'
-                                            ? [
-                                                {
-                                                  value: '',
-                                                  label: 'Unassigned',
-                                                },
-                                                ...staff.map((s) => ({
-                                                  value: s.user_id,
-                                                  label: s.full_name,
-                                                })),
-                                              ]
+                                            ? assigneeCellOptions(staff)
                                             : col.edit.kind === 'tags'
                                               ? allTagOptions
                                               : undefined
@@ -2764,8 +2894,10 @@ export default function LeadsPage() {
         onSaved={fieldOptions.refetch}
       />
 
-      {/* Import Wizard */}
+      {/* Import Wizard — leads variant: 4-step flow with the editable
+          preview grid + Fix-values panel (PRDs/import_leads_ux.md). */}
       <ImportWizard
+        variant="leads"
         open={importOpen}
         onOpenChange={setImportOpen}
         onImported={refreshAll}

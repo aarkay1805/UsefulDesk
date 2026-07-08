@@ -43,15 +43,18 @@ export const CUSTOM_FIELD_TYPES: CustomFieldType[] = [
 /** Reserved names a new custom field cannot collide with. */
 export const RESERVED_FIELD_NAMES = ['phone', 'name', 'email', 'company', 'tags'];
 
-export type TargetKind = 'standard' | 'tags' | 'custom';
+export type TargetKind = 'standard' | 'tags' | 'custom' | 'option' | 'assignee';
 
 export interface TargetField {
-  /** 'phone' | 'name' | 'email' | 'company' | 'tags' | `custom:${id}` */
+  /** 'phone' | 'name' | 'email' | 'company' | 'tags' | `custom:${id}`,
+   *  plus (leads) 'lead_status' | 'source' | 'gender' | 'assignee'. */
   key: string;
   label: string;
   kind: TargetKind;
   /** Only `phone` is required (contacts.phone is NOT NULL + unique). */
   required: boolean;
+  /** For kind 'option': which account option list validates the values. */
+  optionsField?: 'status' | 'source' | 'gender';
 }
 
 const STANDARD_TARGETS: TargetField[] = [
@@ -61,13 +64,27 @@ const STANDARD_TARGETS: TargetField[] = [
   { key: 'company', label: 'Company', kind: 'standard', required: false },
 ];
 
-/** Header synonyms used by auto-map, keyed by standard/tags target key. */
+/** Lead-field targets — offered by `buildLeadTargets` (Leads import only).
+ *  Raw cell text lands on `MappedRow` untouched; the wizard coerces it
+ *  against the account's option lists via `lib/leads/import-coerce`. */
+const LEAD_TARGETS: TargetField[] = [
+  { key: 'lead_status', label: 'Status', kind: 'option', required: false, optionsField: 'status' },
+  { key: 'source', label: 'Source', kind: 'option', required: false, optionsField: 'source' },
+  { key: 'gender', label: 'Gender', kind: 'option', required: false, optionsField: 'gender' },
+  { key: 'assignee', label: 'Assigned to', kind: 'assignee', required: false },
+];
+
+/** Header synonyms used by auto-map, keyed by target key. */
 const HEADER_SYNONYMS: Record<string, string[]> = {
   phone: ['phone', 'mobile', 'number', 'whatsapp', 'cell', 'phone number', 'contact number', 'msisdn'],
   name: ['name', 'full name', 'contact name', 'customer name'],
   email: ['email', 'e-mail', 'mail', 'email address'],
   company: ['company', 'organization', 'organisation', 'org', 'business'],
   tags: ['tags', 'tag', 'labels', 'label'],
+  lead_status: ['status', 'lead status', 'stage', 'lead stage'],
+  source: ['source', 'lead source', 'channel', 'came from', 'enquiry source'],
+  gender: ['gender', 'sex'],
+  assignee: ['assigned to', 'assignee', 'assigned', 'owner', 'rep', 'agent', 'trainer', 'staff'],
 };
 
 export interface CustomFieldRef {
@@ -83,7 +100,11 @@ export interface CustomFieldRef {
  * (the caller drops it and counts it). Kept deliberately light — no locale
  * pattern library; ambiguous slash dates use JS Date interpretation.
  */
-export function coerceCustomValue(rawValue: string, type: string): string | null {
+export function coerceCustomValue(
+  rawValue: string,
+  type: string,
+  dateOrder?: 'DMY' | 'MDY'
+): string | null {
   const value = rawValue.trim();
   if (!value) return null;
 
@@ -113,19 +134,44 @@ export function coerceCustomValue(rawValue: string, type: string): string | null
       return digits.length >= 7 ? value : null;
     }
     case 'date':
-      return coerceDate(value);
+      return coerceDate(value, dateOrder);
     case 'text':
     default:
       return value;
   }
 }
 
-/** Normalize a date string to ISO `YYYY-MM-DD`, or null if unparseable. */
-function coerceDate(value: string): string | null {
+/**
+ * Normalize a date string to ISO `YYYY-MM-DD`, or null if unparseable.
+ * `dateOrder` disambiguates slash/dash dates ("02/07/2026"): 'DMY' reads
+ * day-first (India default), 'MDY' month-first. Without it, ambiguous
+ * dates fall through to JS `Date.parse` (month-first bias) — the
+ * pre-existing contacts-import behaviour.
+ */
+function coerceDate(value: string, dateOrder?: 'DMY' | 'MDY'): string | null {
   const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) {
     const d = new Date(`${iso[1]}-${iso[2]}-${iso[3]}T00:00:00Z`);
     return Number.isNaN(d.getTime()) ? null : `${iso[1]}-${iso[2]}-${iso[3]}`;
+  }
+  if (dateOrder) {
+    const m = value.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/);
+    if (m) {
+      const [a, b] = [Number(m[1]), Number(m[2])];
+      let year = Number(m[3]);
+      if (m[3].length === 2) year += 2000;
+      // A part > 12 can only be the day, whichever order was chosen.
+      let day = dateOrder === 'DMY' ? a : b;
+      let month = dateOrder === 'DMY' ? b : a;
+      if (month > 12 && day <= 12) [day, month] = [month, day];
+      const d = new Date(Date.UTC(year, month - 1, day));
+      const valid =
+        d.getUTCFullYear() === year &&
+        d.getUTCMonth() === month - 1 &&
+        d.getUTCDate() === day;
+      if (!valid) return null;
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
   }
   const parsed = Date.parse(value);
   if (Number.isNaN(parsed)) return null;
@@ -140,6 +186,25 @@ function coerceDate(value: string): string | null {
 export function buildTargets(customFields: CustomFieldRef[]): TargetField[] {
   return [
     ...STANDARD_TARGETS,
+    { key: 'tags', label: 'Tags', kind: 'tags', required: false },
+    ...customFields.map((f) => ({
+      key: `custom:${f.id}`,
+      label: f.field_name,
+      kind: 'custom' as const,
+      required: false,
+    })),
+  ];
+}
+
+/**
+ * Target list for the Leads import variant — the contacts targets plus
+ * the lead fields (Status / Source / Gender / Assigned to). Contacts
+ * import keeps using `buildTargets`; behaviour there is unchanged.
+ */
+export function buildLeadTargets(customFields: CustomFieldRef[]): TargetField[] {
+  return [
+    ...STANDARD_TARGETS,
+    ...LEAD_TARGETS,
     { key: 'tags', label: 'Tags', kind: 'tags', required: false },
     ...customFields.map((f) => ({
       key: `custom:${f.id}`,
@@ -283,6 +348,13 @@ export interface MappedRow {
   company?: string;
   tagNames: string[];
   customValues: MappedCustomValue[];
+  // Lead-field columns (leads variant only) — RAW cell text. Coercion to
+  // option keys / staff ids is layered on top by `lib/leads/import-coerce`
+  // so this engine stays dependency-free.
+  leadStatus?: string;
+  source?: string;
+  gender?: string;
+  assignedTo?: string;
 }
 
 export interface ApplyMappingResult {
@@ -305,7 +377,8 @@ export interface ApplyMappingResult {
 export function applyMapping(
   raw: RawCsv,
   mapping: string[],
-  fieldTypeById?: Map<string, string>
+  fieldTypeById?: Map<string, string>,
+  dateOrder?: 'DMY' | 'MDY'
 ): ApplyMappingResult {
   // Precompute column indexes per target so we scan the mapping once.
   const phoneCols: number[] = [];
@@ -313,6 +386,10 @@ export function applyMapping(
   const emailCols: number[] = [];
   const companyCols: number[] = [];
   const tagCols: number[] = [];
+  const leadStatusCols: number[] = [];
+  const sourceCols: number[] = [];
+  const genderCols: number[] = [];
+  const assigneeCols: number[] = [];
   const customCols: { col: number; fieldId: string }[] = [];
 
   mapping.forEach((key, col) => {
@@ -322,6 +399,10 @@ export function applyMapping(
     else if (key === 'email') emailCols.push(col);
     else if (key === 'company') companyCols.push(col);
     else if (key === 'tags') tagCols.push(col);
+    else if (key === 'lead_status') leadStatusCols.push(col);
+    else if (key === 'source') sourceCols.push(col);
+    else if (key === 'gender') genderCols.push(col);
+    else if (key === 'assignee') assigneeCols.push(col);
     else {
       const id = customFieldId(key);
       if (id) customCols.push({ col, fieldId: id });
@@ -352,7 +433,7 @@ export function applyMapping(
       const rawValue = row[col]?.trim();
       if (!rawValue) continue;
       const type = fieldTypeById?.get(fieldId) ?? 'text';
-      const value = coerceCustomValue(rawValue, type);
+      const value = coerceCustomValue(rawValue, type, dateOrder);
       if (value === null) {
         invalidCustomValues++;
         continue;
@@ -367,6 +448,10 @@ export function applyMapping(
       company: first(row, companyCols) || undefined,
       tagNames,
       customValues,
+      leadStatus: first(row, leadStatusCols) || undefined,
+      source: first(row, sourceCols) || undefined,
+      gender: first(row, genderCols) || undefined,
+      assignedTo: first(row, assigneeCols) || undefined,
     });
   }
 

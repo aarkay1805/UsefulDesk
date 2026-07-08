@@ -1,5 +1,19 @@
 'use client';
 
+// CSV import wizard, shared by Contacts and Leads via the `variant` prop.
+//
+//   variant="contacts" (default) — the original 3-step flow, unchanged:
+//     Upload → Map (mode radio lives here) → Review & import.
+//   variant="leads" — the 4-step flow from PRDs/import_leads_ux.md:
+//     Upload → Map columns → Preview & edit → Confirm.
+//     Map gains lead-field targets (Status/Source/Gender/Assigned to), a
+//     searchable field picker, heuristic type detection on inline field
+//     creation, and a DD/MM chip for ambiguous date columns. Preview is
+//     an editable grid rendered with the leads table's own cell
+//     renderers plus the value-level "Fix values" panel. Confirm owns
+//     the write policy (add/update/both) + consent, and the commit
+//     consumes the EDITED PreviewRow[] — not a re-run of the mapping.
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -11,9 +25,9 @@ import {
 import {
   applyMapping,
   autoMapColumns,
+  buildLeadTargets,
   buildTargets,
   customFieldId,
-  CREATE_FIELD_KEY,
   CUSTOM_FIELD_TYPES,
   IGNORE_KEY,
   parseCsvRaw,
@@ -25,10 +39,25 @@ import {
   type TargetField,
 } from '@/lib/contacts/field-mapping';
 import {
+  buildPreviewRows,
+  detectDateOrder,
+  detectFieldType,
+  type DateOrder,
+  type FixableField,
+  type PreviewRow,
+} from '@/lib/leads/import-coerce';
+import {
   assignImportedContactTags,
   resolveImportTagIds,
   type ContactTagAssignment,
 } from '@/lib/contacts/resolve-import-tags';
+import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
+import { useAccountStaff } from '@/components/members/use-account-staff';
+import {
+  ImportPreviewGrid,
+  type PendingInvite,
+} from '@/components/leads/import-preview-grid';
+import { StatusBadge } from '@/components/leads/lead-cell-renderers';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -40,13 +69,11 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Combobox, type ComboboxGroup } from '@/components/ui/combobox';
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -62,6 +89,7 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
+  ArrowRight,
   Download,
   Wand2,
   RotateCcw,
@@ -70,28 +98,59 @@ import {
 } from 'lucide-react';
 
 type ImportMode = 'add' | 'update' | 'both';
+type ImportVariant = 'contacts' | 'leads';
 
 const SAMPLE_LIMIT = 3;
+/** Values scanned per column for type/date detection (create-field prefill). */
+const DETECT_LIMIT = 40;
 const INSERT_CHUNK = 50;
 const CUSTOM_VALUE_CHUNK = 100;
 
-const TEMPLATE_CSV =
-  'phone,name,email,company,tags\n' +
-  '+15551234567,Jane Doe,jane@example.com,Acme Inc,"VIP, Lead"\n' +
-  '+15559876543,John Roe,john@example.com,Globex,Customer\n';
+const TEMPLATE_CSV: Record<ImportVariant, { filename: string; content: string }> = {
+  contacts: {
+    filename: 'contacts-template.csv',
+    content:
+      'phone,name,email,company,tags\n' +
+      '+15551234567,Jane Doe,jane@example.com,Acme Inc,"VIP, Lead"\n' +
+      '+15559876543,John Roe,john@example.com,Globex,Customer\n',
+  },
+  leads: {
+    filename: 'leads-template.csv',
+    content:
+      'phone,name,email,status,source,gender,assigned to\n' +
+      '+919876543210,Priya Sharma,priya@example.com,Interested,Instagram,Female,Aakash\n' +
+      '+919812345678,Rahul Verma,,New,Walk-in,Male,\n',
+  },
+};
 
-const MODE_LABELS: Record<ImportMode, { title: string; hint: string }> = {
-  add: {
-    title: 'Add new contacts',
-    hint: 'Insert rows as new contacts. Numbers already in this account are skipped.',
+const MODE_LABELS: Record<ImportVariant, Record<ImportMode, { title: string; hint: string }>> = {
+  contacts: {
+    add: {
+      title: 'Add new contacts',
+      hint: 'Insert rows as new contacts. Numbers already in this account are skipped.',
+    },
+    update: {
+      title: 'Update existing only',
+      hint: 'Match rows to existing contacts by phone and update them. Unmatched rows are skipped.',
+    },
+    both: {
+      title: 'Add & update',
+      hint: 'Update contacts that already exist and add the rest as new.',
+    },
   },
-  update: {
-    title: 'Update existing only',
-    hint: 'Match rows to existing contacts by phone and update them. Unmatched rows are skipped.',
-  },
-  both: {
-    title: 'Add & update',
-    hint: 'Update contacts that already exist and add the rest as new.',
+  leads: {
+    both: {
+      title: 'Add new & update existing',
+      hint: 'Recommended — new phones become leads, known phones get updated.',
+    },
+    add: {
+      title: 'Only add new leads',
+      hint: 'Rows matching an existing lead by phone are skipped.',
+    },
+    update: {
+      title: 'Only update existing',
+      hint: 'No new leads are created. Unmatched rows are skipped.',
+    },
   },
 };
 
@@ -103,12 +162,24 @@ interface ImportResult {
   tagsAssigned: number;
   customValues: number;
   invalidValues: number;
+  /** Rows cleaned by value-level fixes in the preview (leads only). */
+  remapped: number;
+}
+
+/** One value-level fix from the preview's Fix-values panel, for the audit. */
+interface RemapEntry {
+  field: FixableField;
+  raw: string;
+  key: string;
+  count: number;
 }
 
 interface ImportWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImported: () => void;
+  /** 'leads' opts into the 4-step preview flow; default keeps Contacts as-is. */
+  variant?: ImportVariant;
 }
 
 function truncateFilename(name: string, max = 48): string {
@@ -119,12 +190,25 @@ function truncateFilename(name: string, max = 48): string {
   return `${base.slice(0, Math.max(keep, 12))}…${ext}`;
 }
 
-function downloadTemplate() {
-  const blob = new Blob([TEMPLATE_CSV], { type: 'text/csv;charset=utf-8' });
+/** Up to DETECT_LIMIT non-empty values of a column, for detection. */
+function columnValues(raw: RawCsv | null, col: number): string[] {
+  if (!raw) return [];
+  const vals: string[] = [];
+  for (const row of raw.rows) {
+    const v = row[col]?.trim();
+    if (v) vals.push(v);
+    if (vals.length >= DETECT_LIMIT) break;
+  }
+  return vals;
+}
+
+function downloadTemplate(variant: ImportVariant) {
+  const { filename, content } = TEMPLATE_CSV[variant];
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'contacts-template.csv';
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -133,21 +217,43 @@ export function ImportWizard({
   open,
   onOpenChange,
   onImported,
+  variant = 'contacts',
 }: ImportWizardProps) {
   const supabase = createClient();
-  const { user, accountId, canEditSettings } = useAuth();
+  const { user, accountId, canEditSettings, defaultCurrency } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isLeads = variant === 'leads';
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // Account option lists + staff roster — the leads variant's coercion
+  // targets. Cheap account-scoped reads; unused by the contacts variant.
+  const fieldOptions = useLeadFieldOptions();
+  const { staff, nameById, avatarById, loading: staffLoading } =
+    useAccountStaff();
+
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [file, setFile] = useState<File | null>(null);
   const [raw, setRaw] = useState<RawCsv | null>(null);
   const [customFields, setCustomFields] = useState<CustomFieldRef[]>([]);
   const [mapping, setMapping] = useState<string[]>([]);
-  const [mode, setMode] = useState<ImportMode>('add');
+  const [mode, setMode] = useState<ImportMode>(isLeads ? 'both' : 'add');
   const [dontOverwriteEmpty, setDontOverwriteEmpty] = useState(true);
   const [compliance, setCompliance] = useState(false);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
+
+  // Leads variant: the editable preview + its bookkeeping.
+  const [previewRows, setPreviewRows] = useState<PreviewRow[] | null>(null);
+  const [previewMeta, setPreviewMeta] = useState({
+    droppedNoPhone: 0,
+    dupes: 0,
+    invalid: 0,
+  });
+  const [remaps, setRemaps] = useState<RemapEntry[]>([]);
+  const [dateOrder, setDateOrder] = useState<DateOrder>('DMY');
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  // Not-yet-redeemed teammate invites — assignee targets for the preview's
+  // Fix-values panel (leads variant, admin only). Loaded at preview build.
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
 
   // Inline custom-field editor. `createCol` set → creating for that column;
   // `editFieldId` set → editing that existing field. At most one at a time.
@@ -157,7 +263,10 @@ export function ImportWizard({
   const [newFieldType, setNewFieldType] = useState('text');
   const [savingField, setSavingField] = useState(false);
 
-  const targets = useMemo(() => buildTargets(customFields), [customFields]);
+  const targets = useMemo(
+    () => (isLeads ? buildLeadTargets(customFields) : buildTargets(customFields)),
+    [customFields, isLeads]
+  );
   const fieldTypeById = useMemo(() => {
     const map = new Map<string, string>();
     for (const f of customFields) map.set(f.id, f.field_type ?? 'text');
@@ -187,12 +296,17 @@ export function ImportWizard({
     setFile(null);
     setRaw(null);
     setMapping([]);
-    setMode('add');
+    setMode(isLeads ? 'both' : 'add');
     setDontOverwriteEmpty(true);
     setCompliance(false);
     setResult(null);
     setCreateCol(null);
     setEditFieldId(null);
+    setPreviewRows(null);
+    setPreviewMeta({ droppedNoPhone: 0, dupes: 0, invalid: 0 });
+    setRemaps([]);
+    setPendingInvites([]);
+    setDateOrder('DMY');
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -224,7 +338,7 @@ export function ImportWizard({
     }
 
     setRaw(parsed);
-    setMapping(autoMapColumns(parsed.headers, buildTargets(customFields)));
+    setMapping(autoMapColumns(parsed.headers, targets));
   }
 
   const validation = useMemo(() => validateMapping(mapping), [mapping]);
@@ -243,6 +357,33 @@ export function ImportWizard({
     });
   }, [raw]);
 
+  // Columns currently mapped to a date-type custom field whose sample
+  // values can't self-disambiguate DD/MM vs MM/DD — they get the chip.
+  const ambiguousDateCols = useMemo(() => {
+    const set = new Set<number>();
+    if (!isLeads || !raw) return set;
+    mapping.forEach((key, col) => {
+      const id = customFieldId(key);
+      if (!id || fieldTypeById.get(id) !== 'date') return;
+      if (detectDateOrder(columnValues(raw, col)) === 'ambiguous') set.add(col);
+    });
+    return set;
+  }, [isLeads, raw, mapping, fieldTypeById]);
+
+  // The order actually used at parse time: hard evidence in the data wins;
+  // the user's chip choice only decides genuinely ambiguous files.
+  const effectiveDateOrder = useMemo<DateOrder>(() => {
+    if (!raw) return dateOrder;
+    const vals: string[] = [];
+    mapping.forEach((key, col) => {
+      const id = customFieldId(key);
+      if (id && fieldTypeById.get(id) === 'date')
+        vals.push(...columnValues(raw, col));
+    });
+    const detected = detectDateOrder(vals);
+    return detected === 'ambiguous' ? dateOrder : detected;
+  }, [raw, mapping, fieldTypeById, dateOrder]);
+
   const mappedPreview = useMemo(() => {
     if (!raw)
       return {
@@ -252,6 +393,11 @@ export function ImportWizard({
       };
     return applyMapping(raw, mapping, fieldTypeById);
   }, [raw, mapping, fieldTypeById]);
+
+  const mappedKeys = useMemo(
+    () => new Set(mapping.filter((k) => k !== IGNORE_KEY)),
+    [mapping]
+  );
 
   function setColumn(col: number, key: string) {
     setMapping((prev) => {
@@ -274,8 +420,19 @@ export function ImportWizard({
   function requestCreateField(col: number) {
     setEditFieldId(null);
     setCreateCol(col);
-    setNewFieldName(raw?.headers[col]?.trim() ?? '');
-    setNewFieldType('text');
+    if (isLeads) {
+      // Scan the column and prefill label + type (HubSpot's "scanning
+      // column data" with plain heuristics — see import-coerce).
+      const detected = detectFieldType(
+        raw?.headers[col] ?? '',
+        columnValues(raw, col)
+      );
+      setNewFieldName(detected.label);
+      setNewFieldType(detected.type);
+    } else {
+      setNewFieldName(raw?.headers[col]?.trim() ?? '');
+      setNewFieldType('text');
+    }
   }
 
   function requestEditField(fieldId: string) {
@@ -380,6 +537,127 @@ export function ImportWizard({
     setMapping((prev) => prev.map((k) => (k === key ? IGNORE_KEY : k)));
     toast.success(`Deleted "${field.field_name}".`);
   }
+
+  /** Leads: structure + dedupe + coerce, then land on the Preview step. */
+  async function buildPreview() {
+    if (!raw || !accountId) return;
+    setLoadingPreview(true);
+    try {
+      const {
+        rows: mappedAll,
+        droppedNoPhone,
+        invalidCustomValues,
+      } = applyMapping(raw, mapping, fieldTypeById, effectiveDateOrder);
+      const { unique, duplicates } = dedupeByPhone(mappedAll);
+
+      // Label rows that already exist (the UPDATE flag). One read of the
+      // generated phone_normalized column — same lookup the commit uses.
+      const { data } = await supabase
+        .from('contacts')
+        .select('phone_normalized')
+        .eq('account_id', accountId);
+      const existingKeys = new Set<string>();
+      for (const r of data ?? []) {
+        const k = (r as { phone_normalized: string | null }).phone_normalized;
+        if (k) existingKeys.add(k);
+      }
+
+      setPreviewRows(
+        buildPreviewRows({
+          rows: unique,
+          statusOptions: fieldOptions.statuses,
+          sourceOptions: fieldOptions.sources,
+          genderOptions: fieldOptions.genders,
+          staff,
+          existingKeys,
+        })
+      );
+      setPreviewMeta({
+        droppedNoPhone,
+        dupes: duplicates,
+        invalid: invalidCustomValues,
+      });
+      setRemaps([]);
+
+      // Existing pending invites → assignee targets (admin only; the
+      // endpoint is admin-gated, so a 403 for agents just yields []).
+      if (canEditSettings) {
+        try {
+          const res = await fetch('/api/account/invitations');
+          if (res.ok) {
+            const body = (await res.json()) as {
+              invitations?: {
+                id: string;
+                full_name?: string | null;
+                label?: string | null;
+              }[];
+            };
+            setPendingInvites(
+              (body.invitations ?? [])
+                .map((i) => ({
+                  id: i.id,
+                  name: (i.full_name || i.label || '').trim(),
+                }))
+                .filter((i) => i.name)
+            );
+          }
+        } catch {
+          // Non-fatal — the panel just won't offer existing invites.
+        }
+      }
+
+      setStep(3);
+    } catch {
+      toast.error('Could not prepare the preview. Please try again.');
+    } finally {
+      setLoadingPreview(false);
+    }
+  }
+
+  function recordRemap(fix: RemapEntry) {
+    setRemaps((prev) => [...prev, fix]);
+  }
+
+  /**
+   * Create — or reuse — a pending teammate invite for `name`. Dedups
+   * against already-loaded pending invites (case-insensitive) so a
+   * repeat import doesn't mint a second "Rahul". Admin only (endpoint
+   * enforces it too). Returns the invite, or null on failure.
+   */
+  async function createTeammate(name: string): Promise<PendingInvite | null> {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const existing = pendingInvites.find(
+      (p) => p.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existing) return existing;
+    try {
+      const res = await fetch('/api/account/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: 'agent',
+          full_name: trimmed,
+          label: trimmed,
+        }),
+      });
+      if (!res.ok) {
+        toast.error('Could not create teammate. You may not have permission.');
+        return null;
+      }
+      const body = (await res.json()) as { invitation?: { id: string } };
+      if (!body.invitation?.id) return null;
+      const invite: PendingInvite = { id: body.invitation.id, name: trimmed };
+      setPendingInvites((prev) => [...prev, invite]);
+      toast.success(`Invite created for "${trimmed}" — share the link later from Settings → Team.`);
+      return invite;
+    } catch {
+      toast.error('Could not create teammate.');
+      return null;
+    }
+  }
+
+  // ---- Contacts commit (unchanged behaviour) ------------------------------
 
   async function handleImport() {
     if (!raw) return;
@@ -585,8 +863,255 @@ export function ImportWizard({
         tagsAssigned,
         customValues,
         invalidValues: invalidCustomValues,
+        remapped: 0,
       });
       setStep(3);
+
+      if (imported > 0 || updated > 0) onImported();
+      if (skippedNames.length > 0) {
+        const sample = skippedNames.slice(0, 3).join(', ');
+        const more =
+          skippedNames.length > 3 ? ` (+${skippedNames.length - 3} more)` : '';
+        toast.info(`Unknown tags skipped: ${sample}${more}`);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Import failed';
+      toast.error(message);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  // ---- Leads commit — consumes the EDITED preview rows ---------------------
+
+  async function handleLeadImport() {
+    if (!previewRows) return;
+    setImporting(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const authUser = session?.user;
+      if (!authUser) throw new Error('Not authenticated');
+      if (!accountId)
+        throw new Error('Your profile is not linked to an account.');
+
+      let imported = 0;
+      let updated = 0;
+      let skipped = previewMeta.droppedNoPhone + previewMeta.dupes;
+      let failed = 0;
+
+      // Fresh id lookup at commit time (preview edits may have changed
+      // phones; the preview's `exists` flag is display-only).
+      const { data: existingRows } = await supabase
+        .from('contacts')
+        .select('id, phone_normalized')
+        .eq('account_id', accountId);
+      const idByKey = new Map<string, string>();
+      for (const r of existingRows ?? []) {
+        const row = r as { id: string; phone_normalized: string | null };
+        if (row.phone_normalized) idByKey.set(row.phone_normalized, row.id);
+      }
+
+      const hasStatus = mappedKeys.has('lead_status');
+      const hasSource = mappedKeys.has('source');
+      const hasGender = mappedKeys.has('gender');
+
+      /** lead_status column value for a resolved key ('new' = NULL bucket). */
+      const statusValue = (key: string | null) =>
+        key && key !== 'new' ? key : null;
+
+      const toInsert: PreviewRow[] = [];
+      const toUpdate: { row: PreviewRow; id: string }[] = [];
+      for (const row of previewRows) {
+        const existingId = idByKey.get(normalizeKey(row.base.phone));
+        if (existingId) {
+          if (mode === 'add') {
+            skipped++;
+            continue;
+          }
+          toUpdate.push({ row, id: existingId });
+        } else {
+          if (mode === 'update') {
+            skipped++;
+            continue;
+          }
+          toInsert.push(row);
+        }
+      }
+
+      // Resolve tag names → ids once for every row we're about to write.
+      const writeRows = [...toInsert, ...toUpdate.map((u) => u.row)];
+      const allTagNames = writeRows.flatMap((r) => r.base.tagNames);
+      let tagIdByKey = new Map<string, string>();
+      let skippedNames: string[] = [];
+      if (allTagNames.length > 0) {
+        ({ tagIdByKey, skippedNames } = await resolveImportTagIds(supabase, {
+          accountId,
+          userId: authUser.id,
+          tagNames: allTagNames,
+          canCreateTags: canEditSettings,
+        }));
+      }
+
+      const tagAssignments: ContactTagAssignment[] = [];
+      const customValueRows: {
+        contact_id: string;
+        custom_field_id: string;
+        value: string;
+      }[] = [];
+
+      function recordWritten(contactId: string, row: MappedRow) {
+        if (row.tagNames.length > 0) {
+          tagAssignments.push({ contactId, tagNames: row.tagNames });
+        }
+        for (const cv of row.customValues) {
+          customValueRows.push({
+            contact_id: contactId,
+            custom_field_id: cv.fieldId,
+            value: cv.value,
+          });
+        }
+      }
+
+      // INSERT new leads in chunks with the same per-row fallback as the
+      // contacts path; the payload adds the resolved lead fields.
+      for (let i = 0; i < toInsert.length; i += INSERT_CHUNK) {
+        const chunk = toInsert.slice(i, i + INSERT_CHUNK);
+        const payload = chunk.map((row) => ({
+          user_id: authUser.id,
+          account_id: accountId,
+          phone: row.base.phone,
+          name: row.base.name || null,
+          email: row.base.email || null,
+          company: row.base.company || null,
+          // A mapped Assigned-to cell overrides the importer-as-owner
+          // default; unmatched/empty cells fall back to the importer.
+          // A pending-invite owner keeps the importer in assigned_to (the
+          // fallback) and parks the real assignment on pending_invitation_id.
+          assigned_to: row.assignedTo ?? authUser.id,
+          pending_invitation_id: row.pendingInvitationId ?? null,
+          pending_assignee_name: row.pendingAssigneeName ?? null,
+          received_via: 'import' as const,
+          ...(hasStatus ? { lead_status: statusValue(row.leadStatus) } : {}),
+          ...(hasSource ? { source: row.source } : {}),
+          ...(hasGender ? { gender: row.gender } : {}),
+        }));
+
+        const { data, error } = await supabase
+          .from('contacts')
+          .insert(payload)
+          .select('id');
+
+        if (error) {
+          for (let j = 0; j < payload.length; j++) {
+            const { data: single, error: singleErr } = await supabase
+              .from('contacts')
+              .insert(payload[j])
+              .select('id')
+              .single();
+            if (!singleErr && single) {
+              imported++;
+              recordWritten(single.id, chunk[j].base);
+            } else if (isUniqueViolation(singleErr)) {
+              skipped++;
+            } else {
+              failed++;
+            }
+          }
+        } else {
+          const inserted = data ?? [];
+          imported += inserted.length;
+          for (let j = 0; j < inserted.length; j++) {
+            if (chunk[j]) recordWritten(inserted[j].id, chunk[j].base);
+          }
+        }
+      }
+
+      // UPDATE existing leads. Lead fields follow the same blank policy as
+      // the standard fields; ownership is never cleared by an import.
+      for (const { row, id } of toUpdate) {
+        const patch: Record<string, string | null> = {};
+        const setField = (key: 'name' | 'email' | 'company', value?: string) => {
+          if (value && value.trim()) patch[key] = value;
+          else if (!dontOverwriteEmpty) patch[key] = null;
+        };
+        setField('name', row.base.name);
+        setField('email', row.base.email);
+        setField('company', row.base.company);
+
+        if (hasStatus) {
+          if (row.leadStatus) patch.lead_status = statusValue(row.leadStatus);
+          else if (!dontOverwriteEmpty) patch.lead_status = null;
+        }
+        if (hasSource) {
+          if (row.source) patch.source = row.source;
+          else if (!dontOverwriteEmpty) patch.source = null;
+        }
+        if (hasGender) {
+          if (row.gender) patch.gender = row.gender;
+          else if (!dontOverwriteEmpty) patch.gender = null;
+        }
+        // Ownership: a real assignee wins; a pending-invite parks the
+        // assignment (importer stays the fallback in assigned_to). Only
+        // touch assigned_to when we actually resolved someone, so an
+        // un-mapped assignee never clears an existing owner.
+        if (row.pendingInvitationId) {
+          patch.pending_invitation_id = row.pendingInvitationId;
+          patch.pending_assignee_name = row.pendingAssigneeName ?? null;
+        } else if (row.assignedTo) {
+          patch.assigned_to = row.assignedTo;
+          patch.pending_invitation_id = null;
+          patch.pending_assignee_name = null;
+        }
+
+        if (Object.keys(patch).length > 0) {
+          const { error } = await supabase
+            .from('contacts')
+            .update(patch)
+            .eq('id', id)
+            .eq('account_id', accountId);
+          if (error) {
+            failed++;
+            continue;
+          }
+        }
+        updated++;
+        recordWritten(id, row.base);
+      }
+
+      // Upsert custom field values (unique on contact_id,custom_field_id).
+      let customValues = 0;
+      for (let i = 0; i < customValueRows.length; i += CUSTOM_VALUE_CHUNK) {
+        const chunk = customValueRows.slice(i, i + CUSTOM_VALUE_CHUNK);
+        const { error } = await supabase
+          .from('contact_custom_values')
+          .upsert(chunk, { onConflict: 'contact_id,custom_field_id' });
+        if (!error) customValues += chunk.length;
+      }
+
+      let tagsAssigned = 0;
+      try {
+        tagsAssigned = await assignImportedContactTags(
+          supabase,
+          tagAssignments,
+          tagIdByKey
+        );
+      } catch {
+        toast.warning('Leads imported, but some tag assignments failed.');
+      }
+
+      setResult({
+        imported,
+        updated,
+        skipped,
+        failed,
+        tagsAssigned,
+        customValues,
+        invalidValues: previewMeta.invalid,
+        remapped: remaps.reduce((n, r) => n + r.count, 0),
+      });
 
       if (imported > 0 || updated > 0) onImported();
       if (skippedNames.length > 0) {
@@ -606,75 +1131,172 @@ export function ImportWizard({
   const canProceedFromUpload = !!raw && raw.rows.length > 0;
   const canImport = validation.ok && compliance && !importing;
 
+  // Leads: rows the current write policy will actually process.
+  const leadWriteCount = useMemo(() => {
+    if (!previewRows) return 0;
+    if (mode === 'both') return previewRows.length;
+    const existing = previewRows.filter((r) => r.exists).length;
+    return mode === 'update' ? existing : previewRows.length - existing;
+  }, [previewRows, mode]);
+
+  const stepLabels = isLeads
+    ? ['Upload', 'Map columns', 'Preview & edit', 'Confirm']
+    : ['Upload', 'Map Fields', 'Review'];
+
+  const description = (() => {
+    if (result) return 'Import complete.';
+    if (step === 1)
+      return isLeads
+        ? 'Upload a CSV of leads to begin.'
+        : 'Upload a CSV of contacts to begin.';
+    if (step === 2)
+      return isLeads
+        ? 'Map your file columns to lead fields.'
+        : 'Map your file columns to contact fields.';
+    if (step === 3)
+      return isLeads
+        ? 'Check and edit the leads exactly as they will appear.'
+        : 'Review and confirm the import.';
+    return 'Choose the write policy and confirm.';
+  })();
+
   return (
     <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[min(92vh,760px)] flex-col gap-0 overflow-hidden border-border/80 bg-popover p-0 text-popover-foreground sm:max-w-3xl">
+      <DialogContent
+        className={cn(
+          'flex max-h-[min(92vh,760px)] flex-col gap-0 overflow-hidden border-border/80 bg-popover p-0 text-popover-foreground',
+          isLeads ? 'sm:max-w-[1200px]' : 'sm:max-w-3xl'
+        )}
+      >
         <div className="shrink-0 space-y-4 border-b border-border/80 px-6 pt-6 pb-5">
           <DialogHeader className="gap-1.5">
             <DialogTitle className="text-lg text-popover-foreground">
-              Import Contacts
+              {isLeads ? 'Import Leads' : 'Import Contacts'}
             </DialogTitle>
             <DialogDescription className="leading-relaxed text-muted-foreground">
-              {step === 1 && 'Upload a CSV of contacts to begin.'}
-              {step === 2 && 'Map your file columns to contact fields.'}
-              {step === 3 && !result && 'Review and confirm the import.'}
-              {step === 3 && result && 'Import complete.'}
+              {description}
             </DialogDescription>
           </DialogHeader>
 
-          <StepIndicator step={step} />
+          <StepIndicator step={result ? stepLabels.length : step} labels={stepLabels} />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          {step === 1 && (
-            <UploadStep
-              file={file}
-              raw={raw}
-              fileInputRef={fileInputRef}
-              onFileChange={handleFileChange}
-            />
+        {/* The Preview step owns its own scroll (the grid fills the height
+            and scrolls x/y), so the body must NOT vertically scroll there —
+            else the horizontal scrollbar ends up below the fold. Every other
+            step keeps the normal vertical scroll. */}
+        <div
+          className={cn(
+            'min-h-0 flex-1 px-6 py-5',
+            isLeads && !result && step === 3
+              ? 'flex flex-col overflow-hidden'
+              : 'overflow-y-auto'
           )}
+        >
+          {result ? (
+            isLeads ? (
+              <LeadsResultPanel result={result} remaps={remaps} fieldOptions={fieldOptions} nameById={nameById} />
+            ) : (
+              <ContactsResultPanel result={result} />
+            )
+          ) : (
+            <>
+              {step === 1 && (
+                <UploadStep
+                  file={file}
+                  raw={raw}
+                  isLeads={isLeads}
+                  fileInputRef={fileInputRef}
+                  onFileChange={handleFileChange}
+                />
+              )}
 
-          {step === 2 && raw && (
-            <MapStep
-              raw={raw}
-              targets={targets}
-              mapping={mapping}
-              samples={samples}
-              mode={mode}
-              dontOverwriteEmpty={dontOverwriteEmpty}
-              validation={validation}
-              canCreateFields={canEditSettings}
-              onSetColumn={setColumn}
-              onSetMode={setMode}
-              onSetDontOverwriteEmpty={setDontOverwriteEmpty}
-              onAutoMap={handleAutoMap}
-              onReset={handleReset}
-              onRequestCreateField={requestCreateField}
-              onRequestEditField={requestEditField}
-              onDeleteField={handleDeleteField}
-            />
-          )}
+              {step === 2 && raw && (
+                <MapStep
+                  raw={raw}
+                  targets={targets}
+                  mapping={mapping}
+                  samples={samples}
+                  showMode={!isLeads}
+                  variant={variant}
+                  mode={mode}
+                  dontOverwriteEmpty={dontOverwriteEmpty}
+                  validation={validation}
+                  canCreateFields={canEditSettings}
+                  ambiguousDateCols={ambiguousDateCols}
+                  dateOrder={dateOrder}
+                  onToggleDateOrder={() =>
+                    setDateOrder((o) => (o === 'DMY' ? 'MDY' : 'DMY'))
+                  }
+                  onSetColumn={setColumn}
+                  onSetMode={setMode}
+                  onSetDontOverwriteEmpty={setDontOverwriteEmpty}
+                  onAutoMap={handleAutoMap}
+                  onReset={handleReset}
+                  onRequestCreateField={requestCreateField}
+                  onRequestEditField={requestEditField}
+                  onDeleteField={handleDeleteField}
+                />
+              )}
 
-          {step === 3 && (
-            <ReviewStep
-              result={result}
-              mode={mode}
-              mappedPreview={mappedPreview}
-              compliance={compliance}
-              onSetCompliance={setCompliance}
-            />
+              {step === 3 && !isLeads && (
+                <ReviewStep
+                  mode={mode}
+                  variant={variant}
+                  mappedPreview={mappedPreview}
+                  compliance={compliance}
+                  onSetCompliance={setCompliance}
+                />
+              )}
+
+              {step === 3 && isLeads && previewRows && (
+                <ImportPreviewGrid
+                  rows={previewRows}
+                  onRowsChange={setPreviewRows}
+                  onRemapLogged={recordRemap}
+                  mappedKeys={mappedKeys}
+                  customFields={customFields}
+                  fieldOptions={fieldOptions}
+                  staff={staff}
+                  nameById={nameById}
+                  avatarById={avatarById}
+                  pendingInvites={pendingInvites}
+                  canCreateTeammate={canEditSettings}
+                  onCreateTeammate={createTeammate}
+                  defaultCurrency={defaultCurrency}
+                  dateOrder={effectiveDateOrder}
+                  skippedNoPhone={previewMeta.droppedNoPhone}
+                  skippedDupes={previewMeta.dupes}
+                />
+              )}
+
+              {step === 4 && isLeads && previewRows && (
+                <ConfirmStep
+                  rows={previewRows}
+                  meta={previewMeta}
+                  mode={mode}
+                  onSetMode={setMode}
+                  dontOverwriteEmpty={dontOverwriteEmpty}
+                  onSetDontOverwriteEmpty={setDontOverwriteEmpty}
+                  compliance={compliance}
+                  onSetCompliance={setCompliance}
+                  remaps={remaps}
+                  fieldOptions={fieldOptions}
+                  nameById={nameById}
+                />
+              )}
+            </>
           )}
         </div>
 
-        <DialogFooter className="mt-0 shrink-0 items-center gap-2 border-t border-border/80 bg-background/50 px-6 py-4 sm:justify-between">
+        <DialogFooter className="mx-0 mb-0 mt-0 shrink-0 items-center gap-2 border-t border-border/80 bg-background/50 px-6 py-4 sm:justify-between">
           <div>
-            {step === 1 && (
+            {step === 1 && !result && (
               <Button
                 type="button"
                 variant="ghost"
-                onClick={downloadTemplate}
+                onClick={() => downloadTemplate(variant)}
                 className="text-muted-foreground hover:text-foreground"
               >
                 <Download className="size-4" />
@@ -717,17 +1339,48 @@ export function ImportWizard({
                     Next
                   </Button>
                 )}
-                {step === 2 && (
+                {step === 2 &&
+                  (isLeads ? (
+                    <Button
+                      type="button"
+                      // Gate on staff + option lists being loaded — coercion
+                      // reads them, and building the preview with an empty
+                      // roster would false-flag every mapped assignee.
+                      disabled={
+                        !validation.ok ||
+                        loadingPreview ||
+                        staffLoading ||
+                        fieldOptions.loading
+                      }
+                      onClick={buildPreview}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                    >
+                      {(loadingPreview || staffLoading) && (
+                        <Loader2 className="size-4 animate-spin" />
+                      )}
+                      Preview {raw?.rows.length ?? 0} row
+                      {raw?.rows.length !== 1 ? 's' : ''}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      disabled={!validation.ok}
+                      onClick={() => setStep(3)}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                    >
+                      Next
+                    </Button>
+                  ))}
+                {step === 3 && isLeads && (
                   <Button
                     type="button"
-                    disabled={!validation.ok}
-                    onClick={() => setStep(3)}
+                    onClick={() => setStep(4)}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
-                    Next
+                    Next: Confirm
                   </Button>
                 )}
-                {step === 3 && (
+                {step === 3 && !isLeads && (
                   <Button
                     type="button"
                     disabled={!canImport}
@@ -737,6 +1390,18 @@ export function ImportWizard({
                     {importing && <Loader2 className="size-4 animate-spin" />}
                     Import {mappedPreview.rows.length} contact
                     {mappedPreview.rows.length !== 1 ? 's' : ''}
+                  </Button>
+                )}
+                {step === 4 && isLeads && (
+                  <Button
+                    type="button"
+                    disabled={!compliance || importing || leadWriteCount === 0}
+                    onClick={handleLeadImport}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                  >
+                    {importing && <Loader2 className="size-4 animate-spin" />}
+                    Import {leadWriteCount} lead
+                    {leadWriteCount !== 1 ? 's' : ''}
                   </Button>
                 )}
               </>
@@ -798,8 +1463,9 @@ export function ImportWizard({
               </SelectContent>
             </Select>
             <p className="text-[11px] text-muted-foreground">
-              Values import as text today; the type is saved for validation and
-              formatting.
+              {isLeads && createCol !== null
+                ? 'Name and type were suggested by scanning this column — adjust if wrong.'
+                : 'Values import as text today; the type is saved for validation and formatting.'}
             </p>
           </div>
         </div>
@@ -829,12 +1495,11 @@ export function ImportWizard({
   );
 }
 
-function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
-  const steps = ['Upload', 'Map Fields', 'Review'];
+function StepIndicator({ step, labels }: { step: number; labels: string[] }) {
   return (
     <div className="flex items-center gap-2">
-      {steps.map((label, i) => {
-        const n = (i + 1) as 1 | 2 | 3;
+      {labels.map((label, i) => {
+        const n = i + 1;
         const active = n === step;
         const done = n < step;
         return (
@@ -857,7 +1522,7 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
             >
               {label}
             </span>
-            {i < steps.length - 1 && (
+            {i < labels.length - 1 && (
               <span className="mx-1 h-px flex-1 bg-border" />
             )}
           </div>
@@ -870,11 +1535,13 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
 function UploadStep({
   file,
   raw,
+  isLeads,
   fileInputRef,
   onFileChange,
 }: {
   file: File | null;
   raw: RawCsv | null;
+  isLeads: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
@@ -926,6 +1593,16 @@ function UploadStep({
         )}
       </div>
 
+      {isLeads && (
+        <p className="text-center text-xs text-muted-foreground">
+          Exported from Excel or Google Sheets? Use{' '}
+          <span className="font-medium text-foreground">
+            File → Save as → .csv
+          </span>{' '}
+          first — only CSV files are supported.
+        </p>
+      )}
+
       <input
         ref={fileInputRef}
         type="file"
@@ -942,10 +1619,15 @@ function MapStep({
   targets,
   mapping,
   samples,
+  showMode,
+  variant,
   mode,
   dontOverwriteEmpty,
   validation,
   canCreateFields,
+  ambiguousDateCols,
+  dateOrder,
+  onToggleDateOrder,
   onSetColumn,
   onSetMode,
   onSetDontOverwriteEmpty,
@@ -959,10 +1641,17 @@ function MapStep({
   targets: TargetField[];
   mapping: string[];
   samples: string[][];
+  /** Contacts keeps the mode radio here; leads moves it to Confirm. */
+  showMode: boolean;
+  variant: ImportVariant;
   mode: ImportMode;
   dontOverwriteEmpty: boolean;
   validation: ReturnType<typeof validateMapping>;
   canCreateFields: boolean;
+  /** Columns mapped to a date field whose samples can't self-disambiguate. */
+  ambiguousDateCols: Set<number>;
+  dateOrder: DateOrder;
+  onToggleDateOrder: () => void;
   onSetColumn: (col: number, key: string) => void;
   onSetMode: (mode: ImportMode) => void;
   onSetDontOverwriteEmpty: (v: boolean) => void;
@@ -972,69 +1661,115 @@ function MapStep({
   onRequestEditField: (fieldId: string) => void;
   onDeleteField: (fieldId: string) => void;
 }) {
-  const standardTargets = targets.filter((t) => t.kind !== 'custom');
-  const customTargets = targets.filter((t) => t.kind === 'custom');
   const showEmptyToggle = mode === 'update' || mode === 'both';
+  const modeLabels = MODE_LABELS[variant];
 
-  const labelForKey = (key: string): string => {
-    if (key === IGNORE_KEY) return "Don't import";
-    return targets.find((t) => t.key === key)?.label ?? key;
-  };
+  const targetByKey = useMemo(() => {
+    const map = new Map<string, TargetField>();
+    targets.forEach((t) => map.set(t.key, t));
+    return map;
+  }, [targets]);
+
+  const mappedCount = mapping.filter((k) => k !== IGNORE_KEY).length;
+  const unmappedCount = mapping.length - mappedCount;
+
+  // Grouped, searchable picker — "Don't import" first, then the field
+  // groups, custom fields last with their data type as a hint.
+  const comboGroups = useMemo<ComboboxGroup[]>(() => {
+    const groups: ComboboxGroup[] = [
+      { options: [{ value: IGNORE_KEY, label: "Don't import" }] },
+      {
+        label: 'Standard',
+        options: targets
+          .filter((t) => t.kind === 'standard')
+          .map((t) => ({
+            value: t.key,
+            label: t.label,
+            hint: t.required ? 'required' : undefined,
+          })),
+      },
+    ];
+    const leadFields = targets.filter(
+      (t) => t.kind === 'option' || t.kind === 'assignee'
+    );
+    if (leadFields.length > 0) {
+      groups.push({
+        label: 'Lead fields',
+        options: leadFields.map((t) => ({ value: t.key, label: t.label })),
+      });
+    }
+    groups.push({
+      label: 'Tags',
+      options: targets
+        .filter((t) => t.kind === 'tags')
+        .map((t) => ({ value: t.key, label: t.label })),
+    });
+    const custom = targets.filter((t) => t.kind === 'custom');
+    if (custom.length > 0) {
+      groups.push({
+        label: 'Custom fields',
+        options: custom.map((t) => ({ value: t.key, label: t.label })),
+      });
+    }
+    return groups;
+  }, [targets]);
 
   return (
     <div className="space-y-5">
-      {/* Action mode */}
-      <div className="space-y-2">
-        <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-          How to process rows
-        </p>
-        <RadioGroup
-          value={mode}
-          onValueChange={(v) => v && onSetMode(v as ImportMode)}
-          className="gap-2"
-        >
-          {(Object.keys(MODE_LABELS) as ImportMode[]).map((key) => (
-            <label
-              key={key}
-              className={cn(
-                'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
-                mode === key
-                  ? 'border-primary/40 bg-primary/[0.04]'
-                  : 'border-border/80 hover:bg-muted/40'
-              )}
-            >
-              <RadioGroupItem value={key} className="mt-0.5" />
-              <span className="space-y-0.5">
-                <span className="block text-sm font-medium text-foreground">
-                  {MODE_LABELS[key].title}
-                </span>
-                <span className="block text-xs text-muted-foreground">
-                  {MODE_LABELS[key].hint}
-                </span>
-              </span>
-            </label>
-          ))}
-        </RadioGroup>
-
-        {showEmptyToggle && (
-          <label className="flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-background/40 px-3 py-2.5">
-            <span className="text-sm text-foreground">
-              Don&apos;t overwrite existing values with empty cells
-            </span>
-            <Switch
-              checked={dontOverwriteEmpty}
-              onCheckedChange={(v) => onSetDontOverwriteEmpty(!!v)}
-            />
-          </label>
-        )}
-
-        {mode !== 'add' && (
-          <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
-            <AlertTriangle className="mt-px size-3 shrink-0" />
-            Updates applied via import cannot be undone.
+      {/* Action mode — contacts variant only; leads decides at Confirm. */}
+      {showMode && (
+        <div className="space-y-2">
+          <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+            How to process rows
           </p>
-        )}
-      </div>
+          <RadioGroup
+            value={mode}
+            onValueChange={(v) => v && onSetMode(v as ImportMode)}
+            className="gap-2"
+          >
+            {(Object.keys(modeLabels) as ImportMode[]).map((key) => (
+              <label
+                key={key}
+                className={cn(
+                  'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                  mode === key
+                    ? 'border-primary/40 bg-primary/[0.04]'
+                    : 'border-border/80 hover:bg-muted/40'
+                )}
+              >
+                <RadioGroupItem value={key} className="mt-0.5" />
+                <span className="space-y-0.5">
+                  <span className="block text-sm font-medium text-foreground">
+                    {modeLabels[key].title}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    {modeLabels[key].hint}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </RadioGroup>
+
+          {showEmptyToggle && (
+            <label className="flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-background/40 px-3 py-2.5">
+              <span className="text-sm text-foreground">
+                Don&apos;t overwrite existing values with empty cells
+              </span>
+              <Switch
+                checked={dontOverwriteEmpty}
+                onCheckedChange={(v) => onSetDontOverwriteEmpty(!!v)}
+              />
+            </label>
+          )}
+
+          {mode !== 'add' && (
+            <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="mt-px size-3 shrink-0" />
+              Updates applied via import cannot be undone.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Mapping table */}
       <div className="space-y-2">
@@ -1068,142 +1803,162 @@ function MapStep({
 
         <div className="overflow-hidden rounded-xl border border-border ring-1 ring-border/50">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[34rem] text-xs">
+            {/* table-fixed: column widths come from these <th>s, NOT cell
+                content — so the phone note / date chip appearing can grow the
+                row's height but never shift column widths. */}
+            <table className="w-full min-w-[38rem] table-fixed text-xs">
               <thead>
                 <tr className="border-b border-border bg-background/60">
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                  <th className="w-[18%] px-3 py-2 text-left font-medium text-muted-foreground">
                     File column
                   </th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                  <th className="w-[24%] px-3 py-2 text-left font-medium text-muted-foreground">
                     Sample data
                   </th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                    Contact field
+                  <th className="w-[42%] px-3 py-2 text-left font-medium text-muted-foreground">
+                    {variant === 'leads' ? 'Lead field' : 'Contact field'}
+                  </th>
+                  <th className="w-[16%] px-3 py-2 text-left font-medium text-muted-foreground">
+                    Status
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
-                {raw.headers.map((header, col) => (
-                  <tr key={col} className="bg-popover/40">
-                    <td className="max-w-[10rem] truncate px-3 py-2 font-medium text-foreground">
-                      {header || (
-                        <span className="text-muted-foreground italic">
-                          (unnamed)
+                {raw.headers.map((header, col) => {
+                  const key = mapping[col] ?? IGNORE_KEY;
+                  const isMapped = key !== IGNORE_KEY;
+                  const cfId = customFieldId(key);
+                  return (
+                    <tr key={col} className="bg-popover/40">
+                      <td className="max-w-[10rem] truncate px-3 py-2 font-medium text-foreground">
+                        {header || (
+                          <span className="text-muted-foreground italic">
+                            (unnamed)
+                          </span>
+                        )}
+                      </td>
+                      <td className="max-w-[12rem] px-3 py-2 text-muted-foreground">
+                        <span className="block truncate font-mono text-[11px]">
+                          {samples[col]?.join(' · ') || '—'}
                         </span>
-                      )}
-                    </td>
-                    <td className="max-w-[12rem] px-3 py-2 text-muted-foreground">
-                      <span className="block truncate font-mono text-[11px]">
-                        {samples[col]?.join(' · ') || '—'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-1">
-                      <Select
-                        value={mapping[col] ?? IGNORE_KEY}
-                        onValueChange={(v) => {
-                          if (!v) return;
-                          if (v === CREATE_FIELD_KEY) {
-                            onRequestCreateField(col);
-                            return;
-                          }
-                          onSetColumn(col, v);
-                        }}
-                      >
-                        <SelectTrigger
-                          size="sm"
-                          className="w-full min-w-[9rem] bg-background/60"
-                        >
-                          <SelectValue>
-                            {(value) => (
-                              <span
-                                className={cn(
-                                  (value ?? IGNORE_KEY) === IGNORE_KEY &&
-                                    'text-muted-foreground'
-                                )}
-                              >
-                                {labelForKey((value as string) ?? IGNORE_KEY)}
-                              </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1">
+                          <Combobox
+                            groups={comboGroups}
+                            value={key}
+                            onSelect={(v) => onSetColumn(col, v)}
+                            searchPlaceholder="Search fields…"
+                            footer={
+                              canCreateFields
+                                ? {
+                                    label: 'Create new field…',
+                                    onSelect: () => onRequestCreateField(col),
+                                  }
+                                : null
+                            }
+                            className={cn(
+                              'min-w-[11rem] text-xs',
+                              !isMapped && 'text-muted-foreground'
                             )}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={IGNORE_KEY}>
-                            <span className="text-muted-foreground">
-                              Don&apos;t import
+                            contentClassName="w-60"
+                          >
+                            <span
+                              className={cn(
+                                'truncate',
+                                !isMapped && 'text-muted-foreground'
+                              )}
+                            >
+                              {isMapped
+                                ? (targetByKey.get(key)?.label ?? key)
+                                : "Don't import"}
                             </span>
-                          </SelectItem>
-                          <SelectSeparator />
-                          <SelectGroup>
-                            <SelectLabel>Standard</SelectLabel>
-                            {standardTargets.map((t) => (
-                              <SelectItem key={t.key} value={t.key}>
-                                {t.label}
-                                {t.required && (
-                                  <span className="text-primary-text"> *</span>
-                                )}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                          {customTargets.length > 0 && (
-                            <SelectGroup>
-                              <SelectLabel>Custom fields</SelectLabel>
-                              {customTargets.map((t) => (
-                                <SelectItem key={t.key} value={t.key}>
-                                  {t.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          )}
-                          {canCreateFields && (
+                          </Combobox>
+
+                          {cfId && canCreateFields && (
                             <>
-                              <SelectSeparator />
-                              <SelectItem value={CREATE_FIELD_KEY}>
-                                <span className="text-primary-text">
-                                  + Create new field…
-                                </span>
-                              </SelectItem>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                title="Edit field"
+                                onClick={() => onRequestEditField(cfId)}
+                                className="shrink-0 text-muted-foreground hover:text-foreground"
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                title="Delete field"
+                                onClick={() => onDeleteField(cfId)}
+                                className="shrink-0 text-muted-foreground hover:text-red-700 dark:hover:text-red-400"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
                             </>
                           )}
-                        </SelectContent>
-                      </Select>
+                        </div>
 
-                      {(() => {
-                        const cfId = customFieldId(mapping[col] ?? '');
-                        if (!cfId || !canCreateFields) return null;
-                        return (
-                          <>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              title="Edit field"
-                              onClick={() => onRequestEditField(cfId)}
-                              className="shrink-0 text-muted-foreground hover:text-foreground"
-                            >
-                              <Pencil className="size-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              title="Delete field"
-                              onClick={() => onDeleteField(cfId)}
-                              className="shrink-0 text-muted-foreground hover:text-red-700 dark:hover:text-red-400"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </Button>
-                          </>
-                        );
-                      })()}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        {key === 'phone' && (
+                          <p className="mt-1 max-w-[24rem] text-[10px] leading-snug text-muted-foreground">
+                            Leads are matched by phone — duplicates in your
+                            file and existing records are handled
+                            automatically.
+                          </p>
+                        )}
+
+                        {ambiguousDateCols.has(col) && (
+                          <button
+                            type="button"
+                            onClick={onToggleDateOrder}
+                            title="Toggle day/month order"
+                            className="mt-1 inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary-text hover:bg-primary/20"
+                          >
+                            {dateOrder === 'DMY' ? 'DD/MM' : 'MM/DD'} ▾
+                            <span className="font-sans font-normal text-muted-foreground">
+                              {dateOrder === 'DMY'
+                                ? '02/07 = 2 July'
+                                : '02/07 = Feb 7'}
+                            </span>
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {isMapped ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                            <CheckCircle className="size-3.5 shrink-0" />
+                            Mapped
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <span className="size-1.5 rounded-full bg-current opacity-50" />
+                            Skipped
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
+
+        <p className="text-[11px] text-muted-foreground">
+          {unmappedCount === 0 ? (
+            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+              <CheckCircle className="size-3" />
+              All {mapping.length} columns mapped
+            </span>
+          ) : (
+            <>
+              {unmappedCount} column{unmappedCount === 1 ? '' : 's'} won&apos;t
+              be imported
+            </>
+          )}
+        </p>
 
         {/* Validation */}
         {!validation.phoneMapped && (
@@ -1228,15 +1983,16 @@ function MapStep({
   );
 }
 
+/** Contacts variant's pre-import review (mode summary + consent). */
 function ReviewStep({
-  result,
   mode,
+  variant,
   mappedPreview,
   compliance,
   onSetCompliance,
 }: {
-  result: ImportResult | null;
   mode: ImportMode;
+  variant: ImportVariant;
   mappedPreview: {
     rows: MappedRow[];
     droppedNoPhone: number;
@@ -1245,59 +2001,6 @@ function ReviewStep({
   compliance: boolean;
   onSetCompliance: (v: boolean) => void;
 }) {
-  if (result) {
-    const stats: [string, number, string][] = [
-      ['imported', result.imported, 'text-primary-text'],
-      ['updated', result.updated, 'text-cyan-700 dark:text-cyan-400'],
-      ['skipped', result.skipped, 'text-amber-700 dark:text-amber-400'],
-      ['failed', result.failed, 'text-red-700 dark:text-red-400'],
-    ];
-    return (
-      <div className="rounded-xl border border-border bg-background/50 p-5">
-        <p className="text-sm font-medium text-popover-foreground">
-          Import complete
-        </p>
-        <div className="mt-3 flex flex-wrap gap-4">
-          {stats
-            .filter(([, n]) => n > 0)
-            .map(([label, n, color]) => (
-              <div
-                key={label}
-                className={cn('flex items-center gap-1.5 text-sm', color)}
-              >
-                {label === 'failed' ? (
-                  <XCircle className="size-4 shrink-0" />
-                ) : label === 'skipped' ? (
-                  <AlertTriangle className="size-4 shrink-0" />
-                ) : (
-                  <CheckCircle className="size-4 shrink-0" />
-                )}
-                {n} {label}
-              </div>
-            ))}
-        </div>
-        {(result.tagsAssigned > 0 || result.customValues > 0) && (
-          <p className="mt-3 text-xs text-muted-foreground">
-            {result.tagsAssigned > 0 &&
-              `${result.tagsAssigned} tag assignment${result.tagsAssigned !== 1 ? 's' : ''}`}
-            {result.tagsAssigned > 0 && result.customValues > 0 && ' · '}
-            {result.customValues > 0 &&
-              `${result.customValues} custom value${result.customValues !== 1 ? 's' : ''}`}{' '}
-            applied.
-          </p>
-        )}
-        {result.invalidValues > 0 && (
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
-            <AlertTriangle className="size-3.5 shrink-0" />
-            {result.invalidValues} value
-            {result.invalidValues !== 1 ? 's' : ''} skipped — wrong format for
-            the field type.
-          </p>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-border bg-background/40 p-4">
@@ -1311,7 +2014,7 @@ function ReviewStep({
           <div>
             <span className="text-muted-foreground">Mode: </span>
             <span className="font-medium text-foreground">
-              {MODE_LABELS[mode].title}
+              {MODE_LABELS[variant][mode].title}
             </span>
           </div>
           {mappedPreview.droppedNoPhone > 0 && (
@@ -1335,18 +2038,394 @@ function ReviewStep({
         </div>
       </div>
 
-      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 bg-background/40 p-4">
-        <Checkbox
-          checked={compliance}
-          onCheckedChange={(v) => onSetCompliance(!!v)}
-          className="mt-0.5"
-        />
-        <span className="text-xs leading-relaxed text-muted-foreground">
-          I confirm these contacts have consented to be messaged, or that I have
-          a legitimate business interest to contact them, in line with WhatsApp
-          and anti-spam policies.
-        </span>
-      </label>
+      <ConsentCheckbox compliance={compliance} onSetCompliance={onSetCompliance} />
+    </div>
+  );
+}
+
+function ConsentCheckbox({
+  compliance,
+  onSetCompliance,
+}: {
+  compliance: boolean;
+  onSetCompliance: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 bg-background/40 p-4">
+      <Checkbox
+        checked={compliance}
+        onCheckedChange={(v) => onSetCompliance(!!v)}
+        className="mt-0.5"
+      />
+      <span className="text-xs leading-relaxed text-muted-foreground">
+        I confirm these contacts have consented to be messaged, or that I have
+        a legitimate business interest to contact them, in line with WhatsApp
+        and anti-spam policies.
+      </span>
+    </label>
+  );
+}
+
+/** Leads Step 4 — write policy + consent + the import receipt. */
+/** One remap's resolved target — a status pill, a source/gender label, or
+ *  a staff name for assignee fixes. Shared by the Confirm receipt and the
+ *  result audit so the two can't drift. */
+function RemapTarget({
+  entry,
+  fieldOptions,
+  nameById,
+}: {
+  entry: RemapEntry;
+  fieldOptions: ReturnType<typeof useLeadFieldOptions>;
+  nameById: Map<string, string>;
+}) {
+  if (entry.field === 'status') {
+    return <StatusBadge column={fieldOptions.statusFor(entry.key)} />;
+  }
+  if (entry.field === 'assignee') {
+    return (
+      <span className="truncate text-foreground">
+        {entry.key ? (nameById.get(entry.key) ?? 'Teammate') : 'You (importer)'}
+      </span>
+    );
+  }
+  return (
+    <span className="truncate text-foreground">
+      {entry.field === 'source'
+        ? fieldOptions.sourceLabel(entry.key)
+        : fieldOptions.genderLabel(entry.key)}
+    </span>
+  );
+}
+
+function ConfirmStep({
+  rows,
+  meta,
+  mode,
+  onSetMode,
+  dontOverwriteEmpty,
+  onSetDontOverwriteEmpty,
+  compliance,
+  onSetCompliance,
+  remaps,
+  fieldOptions,
+  nameById,
+}: {
+  rows: PreviewRow[];
+  meta: { droppedNoPhone: number; dupes: number; invalid: number };
+  mode: ImportMode;
+  onSetMode: (mode: ImportMode) => void;
+  dontOverwriteEmpty: boolean;
+  onSetDontOverwriteEmpty: (v: boolean) => void;
+  compliance: boolean;
+  onSetCompliance: (v: boolean) => void;
+  remaps: RemapEntry[];
+  fieldOptions: ReturnType<typeof useLeadFieldOptions>;
+  nameById: Map<string, string>;
+}) {
+  const existing = rows.filter((r) => r.exists).length;
+  const fresh = rows.length - existing;
+  const modeLabels = MODE_LABELS.leads;
+  const showEmptyToggle = mode === 'update' || mode === 'both';
+
+  const receipt: [string, number][] = [
+    ['New leads', mode === 'update' ? 0 : fresh],
+    ['Updates (matched by phone)', mode === 'add' ? 0 : existing],
+    ...(mode === 'add' && existing > 0
+      ? ([['Skipped — already exist', existing]] as [string, number][])
+      : []),
+    ...(mode === 'update' && fresh > 0
+      ? ([['Skipped — not found', fresh]] as [string, number][])
+      : []),
+    ...(meta.droppedNoPhone > 0
+      ? ([['Skipped — no phone', meta.droppedNoPhone]] as [string, number][])
+      : []),
+    ...(meta.dupes > 0
+      ? ([['Skipped — duplicate in file', meta.dupes]] as [string, number][])
+      : []),
+  ];
+
+  return (
+    <div className="grid gap-5 md:grid-cols-[1fr_minmax(15rem,0.8fr)]">
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+          How to process rows
+        </p>
+        <RadioGroup
+          value={mode}
+          onValueChange={(v) => v && onSetMode(v as ImportMode)}
+          className="gap-2"
+        >
+          {(Object.keys(modeLabels) as ImportMode[]).map((key) => (
+            <label
+              key={key}
+              className={cn(
+                'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                mode === key
+                  ? 'border-primary/40 bg-primary/[0.04]'
+                  : 'border-border/80 hover:bg-muted/40'
+              )}
+            >
+              <RadioGroupItem value={key} className="mt-0.5" />
+              <span className="space-y-0.5">
+                <span className="block text-sm font-medium text-foreground">
+                  {modeLabels[key].title}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  {modeLabels[key].hint}
+                </span>
+              </span>
+            </label>
+          ))}
+        </RadioGroup>
+
+        {showEmptyToggle && (
+          <label className="flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-background/40 px-3 py-2.5">
+            <span className="text-sm text-foreground">
+              Don&apos;t overwrite existing values with empty cells
+            </span>
+            <Switch
+              checked={dontOverwriteEmpty}
+              onCheckedChange={(v) => onSetDontOverwriteEmpty(!!v)}
+            />
+          </label>
+        )}
+
+        {mode !== 'add' && (
+          <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="mt-px size-3 shrink-0" />
+            Updates applied via import cannot be undone.
+          </p>
+        )}
+
+        <div className="pt-2">
+          <ConsentCheckbox
+            compliance={compliance}
+            onSetCompliance={onSetCompliance}
+          />
+        </div>
+      </div>
+
+      {/* Import receipt — counts + the value-remap audit. */}
+      <aside className="h-fit rounded-xl border border-border bg-background/40 p-4">
+        <p className="text-[11px] font-semibold tracking-[0.13em] text-muted-foreground uppercase">
+          Import receipt
+        </p>
+        <div className="mt-2 space-y-1">
+          {receipt.map(([label, n]) => (
+            <div
+              key={label}
+              className="flex items-baseline justify-between gap-3 text-sm"
+            >
+              <span className="text-muted-foreground">{label}</span>
+              <span className="font-medium text-foreground tabular-nums">
+                {n}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 border-t border-dashed border-border pt-3">
+          <p className="text-[11px] font-semibold tracking-[0.13em] text-muted-foreground uppercase">
+            Values remapped · {remaps.reduce((n, r) => n + r.count, 0)}
+          </p>
+          {remaps.length === 0 ? (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              No fixes applied — unmatched values import as-is.
+            </p>
+          ) : (
+            <div className="mt-1.5 space-y-1.5">
+              {remaps.map((r, i) => (
+                <div
+                  key={i}
+                  className="flex min-w-0 items-center gap-1.5 text-xs"
+                >
+                  <span className="truncate font-mono text-muted-foreground line-through">
+                    {r.raw}
+                  </span>
+                  <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
+                  <RemapTarget
+                    entry={r}
+                    fieldOptions={fieldOptions}
+                    nameById={nameById}
+                  />
+                  <span className="shrink-0 text-muted-foreground">
+                    ×{r.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+/** Contacts result — the original compact banner. */
+function ContactsResultPanel({ result }: { result: ImportResult }) {
+  const stats: [string, number, string][] = [
+    ['imported', result.imported, 'text-primary-text'],
+    ['updated', result.updated, 'text-cyan-700 dark:text-cyan-400'],
+    ['skipped', result.skipped, 'text-amber-700 dark:text-amber-400'],
+    ['failed', result.failed, 'text-red-700 dark:text-red-400'],
+  ];
+  return (
+    <div className="rounded-xl border border-border bg-background/50 p-5">
+      <p className="text-sm font-medium text-popover-foreground">
+        Import complete
+      </p>
+      <div className="mt-3 flex flex-wrap gap-4">
+        {stats
+          .filter(([, n]) => n > 0)
+          .map(([label, n, color]) => (
+            <div
+              key={label}
+              className={cn('flex items-center gap-1.5 text-sm', color)}
+            >
+              {label === 'failed' ? (
+                <XCircle className="size-4 shrink-0" />
+              ) : label === 'skipped' ? (
+                <AlertTriangle className="size-4 shrink-0" />
+              ) : (
+                <CheckCircle className="size-4 shrink-0" />
+              )}
+              {n} {label}
+            </div>
+          ))}
+      </div>
+      {(result.tagsAssigned > 0 || result.customValues > 0) && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {result.tagsAssigned > 0 &&
+            `${result.tagsAssigned} tag assignment${result.tagsAssigned !== 1 ? 's' : ''}`}
+          {result.tagsAssigned > 0 && result.customValues > 0 && ' · '}
+          {result.customValues > 0 &&
+            `${result.customValues} custom value${result.customValues !== 1 ? 's' : ''}`}{' '}
+          applied.
+        </p>
+      )}
+      {result.invalidValues > 0 && (
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="size-3.5 shrink-0" />
+          {result.invalidValues} value
+          {result.invalidValues !== 1 ? 's' : ''} skipped — wrong format for
+          the field type.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Leads result — big scannable tiles + the remap audit (the trust moment). */
+function LeadsResultPanel({
+  result,
+  remaps,
+  fieldOptions,
+  nameById,
+}: {
+  result: ImportResult;
+  remaps: RemapEntry[];
+  fieldOptions: ReturnType<typeof useLeadFieldOptions>;
+  nameById: Map<string, string>;
+}) {
+  const tiles: { label: string; n: number; className: string }[] = [
+    {
+      label: 'Leads added',
+      n: result.imported,
+      className: 'text-emerald-700 dark:text-emerald-400',
+    },
+    {
+      label: 'Updated',
+      n: result.updated,
+      className: 'text-cyan-700 dark:text-cyan-400',
+    },
+    { label: 'Skipped', n: result.skipped, className: 'text-muted-foreground' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <CheckCircle className="size-5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+        <p className="text-sm font-medium text-popover-foreground">
+          Import complete
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {tiles.map((t) => (
+          <div
+            key={t.label}
+            className="rounded-xl border border-border bg-background/50 px-4 py-3.5"
+          >
+            <p
+              className={cn(
+                'font-heading text-3xl leading-none font-semibold tabular-nums',
+                t.className
+              )}
+            >
+              {t.n}
+            </p>
+            <p className="mt-1.5 text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+              {t.label}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {result.failed > 0 && (
+        <p className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
+          <XCircle className="size-3.5 shrink-0" />
+          {result.failed} row{result.failed !== 1 ? 's' : ''} failed to write.
+        </p>
+      )}
+
+      {result.remapped > 0 && remaps.length > 0 && (
+        <div className="rounded-xl border border-border bg-background/40 p-4">
+          <p className="text-[11px] font-semibold tracking-[0.13em] text-muted-foreground uppercase">
+            {result.remapped} value{result.remapped !== 1 ? 's' : ''} remapped
+            to your options
+          </p>
+          <div className="mt-2 space-y-1.5">
+            {remaps.map((r, i) => (
+              <div key={i} className="flex min-w-0 items-center gap-1.5 text-xs">
+                <span className="truncate font-mono text-muted-foreground line-through">
+                  {r.raw}
+                </span>
+                <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
+                <RemapTarget
+                  entry={r}
+                  fieldOptions={fieldOptions}
+                  nameById={nameById}
+                />
+                <span className="shrink-0 text-muted-foreground">
+                  ×{r.count}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(result.tagsAssigned > 0 ||
+        result.customValues > 0 ||
+        result.invalidValues > 0) && (
+        <p className="text-xs text-muted-foreground">
+          {result.tagsAssigned > 0 &&
+            `${result.tagsAssigned} tag assignment${result.tagsAssigned !== 1 ? 's' : ''} applied`}
+          {result.tagsAssigned > 0 && result.customValues > 0 && ' · '}
+          {result.customValues > 0 &&
+            `${result.customValues} custom value${result.customValues !== 1 ? 's' : ''} applied`}
+          {result.invalidValues > 0 && (
+            <>
+              {(result.tagsAssigned > 0 || result.customValues > 0) && ' · '}
+              <span className="text-amber-700 dark:text-amber-400">
+                {result.invalidValues} wrong-format value
+                {result.invalidValues !== 1 ? 's' : ''} skipped
+              </span>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }

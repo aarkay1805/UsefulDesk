@@ -29,6 +29,11 @@ const CREATED_RANGE_OPTIONS: { value: CreatedRange; label: string }[] = [
 // Sentinel for the "Unassigned" bucket in the Assigned-to filter.
 export const UNASSIGNED = '__unassigned__';
 
+// Prefix marking a pending-invite option in the Assigned-to filter
+// (value = `pending:${invitationId}`) — filters on pending_invitation_id
+// rather than assigned_to. See migration 049.
+export const PENDING_FILTER_PREFIX = 'pending:';
+
 export interface LeadFilters {
   owner: string[]; // contacts.user_id (creator)
   assigned: string[]; // contacts.assigned_to (UNASSIGNED = null)
@@ -71,6 +76,8 @@ interface LeadsFiltersProps {
   statuses: LeadColumn[];
   sources: LeadFieldOption[];
   genders: LeadFieldOption[];
+  /** Pending-invite owners in use, offered under "Assigned to" (migration 049). */
+  pendingInvites?: { id: string; name: string }[];
 }
 
 export function LeadsFilters({
@@ -81,6 +88,7 @@ export function LeadsFilters({
   statuses,
   sources,
   genders,
+  pendingInvites = [],
 }: LeadsFiltersProps) {
   const count = activeFilterCount(value);
 
@@ -93,6 +101,10 @@ export function LeadsFilters({
   }
 
   const staffOptions = staff.map((s) => ({ value: s.user_id, label: s.full_name }));
+  const pendingOptions = pendingInvites.map((p) => ({
+    value: `${PENDING_FILTER_PREFIX}${p.id}`,
+    label: `${p.name} · pending`,
+  }));
 
   return (
     <Popover>
@@ -184,6 +196,7 @@ export function LeadsFilters({
             options={[
               { value: UNASSIGNED, label: 'Unassigned' },
               ...staffOptions,
+              ...pendingOptions,
             ]}
             selected={value.assigned}
             onToggle={(v) => toggle('assigned', v)}

@@ -125,6 +125,12 @@ export interface Contact {
   gender?: string | null;
   /** Staff owner of this lead (auth user id — see migration 047). */
   assigned_to?: string | null;
+  /** Parked owner = a not-yet-joined teammate (pending invite, migration
+   *  049). When set, the lead reads "Invite pending · pending_assignee_name";
+   *  assigned_to stays the importer as fallback. Cleared when the invitee
+   *  redeems or an owner is picked manually. */
+  pending_invitation_id?: string | null;
+  pending_assignee_name?: string | null;
   /** Origin channel the lead entered through (immutable, migration 048).
    *  Human origins ('manual'/'import') render the creator; the rest
    *  render an "Auto · <channel>" pill. NULL = pre-048 (treat as human). */

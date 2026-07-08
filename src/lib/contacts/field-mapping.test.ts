@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyMapping,
   autoMapColumns,
+  buildLeadTargets,
   buildTargets,
   coerceCustomValue,
   customFieldId,
@@ -114,6 +115,74 @@ describe('applyMapping', () => {
     const mapping = ['phone', IGNORE_KEY, IGNORE_KEY, IGNORE_KEY];
     const { rows } = applyMapping(raw, mapping);
     expect(rows[0]).toMatchObject({ phone: '+111', name: undefined });
+  });
+});
+
+describe('lead targets (buildLeadTargets)', () => {
+  it('adds the four lead fields; contacts targets stay unchanged', () => {
+    const leadKeys = buildLeadTargets([]).map((t) => t.key);
+    expect(leadKeys).toEqual([
+      'phone',
+      'name',
+      'email',
+      'company',
+      'lead_status',
+      'source',
+      'gender',
+      'assignee',
+      'tags',
+    ]);
+    expect(buildTargets([]).map((t) => t.key)).toEqual([
+      'phone',
+      'name',
+      'email',
+      'company',
+      'tags',
+    ]);
+  });
+
+  it('auto-maps lead-field header synonyms', () => {
+    const targets = buildLeadTargets([]);
+    expect(
+      autoMapColumns(
+        ['Phone', 'Lead Status', 'Lead Source', 'Sex', 'Assigned To'],
+        targets
+      )
+    ).toEqual(['phone', 'lead_status', 'source', 'gender', 'assignee']);
+  });
+
+  it('carries raw lead-field cells onto MappedRow', () => {
+    const { rows } = applyMapping(
+      {
+        headers: ['Phone', 'Status', 'Source', 'Gender', 'Owner'],
+        rows: [['+111', 'Not Interested', 'Insta', 'F', 'Mohit']],
+      },
+      ['phone', 'lead_status', 'source', 'gender', 'assignee']
+    );
+    expect(rows[0]).toMatchObject({
+      leadStatus: 'Not Interested',
+      source: 'Insta',
+      gender: 'F',
+      assignedTo: 'Mohit',
+    });
+  });
+});
+
+describe('date-order coercion', () => {
+  it('reads slash dates by the given order', () => {
+    expect(coerceCustomValue('02/07/2026', 'date', 'DMY')).toBe('2026-07-02');
+    expect(coerceCustomValue('02/07/2026', 'date', 'MDY')).toBe('2026-02-07');
+    expect(coerceCustomValue('28/06/26', 'date', 'DMY')).toBe('2026-06-28');
+  });
+
+  it('swaps when the chosen order is impossible for the value', () => {
+    // 28 can't be a month — DMY-invalid input still lands on the real date.
+    expect(coerceCustomValue('28/06/2026', 'date', 'MDY')).toBe('2026-06-28');
+  });
+
+  it('rejects impossible dates and keeps ISO untouched', () => {
+    expect(coerceCustomValue('31/02/2026', 'date', 'DMY')).toBeNull();
+    expect(coerceCustomValue('2026-07-02', 'date', 'DMY')).toBe('2026-07-02');
   });
 });
 
