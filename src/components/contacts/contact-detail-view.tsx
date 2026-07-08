@@ -1691,7 +1691,7 @@ function NoteCard({
               {followUp.status === 'done' ? (
                 <span
                   title="Followed up"
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-500 text-white"
+                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-white"
                 >
                   <Check className="size-4" />
                 </span>

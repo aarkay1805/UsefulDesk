@@ -417,7 +417,7 @@ export function WhatsAppConfig() {
       <div className="space-y-6">
         {/* Corrupted-token reset banner */}
         {showResetBanner && (
-          <Alert className="bg-amber-950/40 border-amber-600/40">
+          <Alert className="bg-amber-500/10 border-amber-600/30 dark:bg-amber-950/40 dark:border-amber-600/40">
             <div className="flex items-start gap-3">
               <AlertTriangle className="size-5 text-amber-700 dark:text-amber-400 mt-0.5 shrink-0" />
               <div className="flex-1">
@@ -431,7 +431,7 @@ export function WhatsAppConfig() {
                   onClick={handleReset}
                   disabled={resetting}
                   size="sm"
-                  className="mt-3 bg-amber-600 hover:bg-amber-700 text-white"
+                  className="mt-3 bg-amber-700 hover:bg-amber-800 text-white"
                 >
                   {resetting ? (
                     <>
@@ -479,8 +479,8 @@ export function WhatsAppConfig() {
           <Alert
             className={
               isRegistered
-                ? 'bg-emerald-950/30 border-emerald-700/50'
-                : 'bg-amber-950/30 border-amber-700/50'
+                ? 'bg-emerald-500/10 border-emerald-600/30 dark:bg-emerald-950/30 dark:border-emerald-700/50'
+                : 'bg-amber-500/10 border-amber-600/30 dark:bg-amber-950/30 dark:border-amber-700/50'
             }
           >
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -768,10 +768,9 @@ export function WhatsAppConfig() {
           </Button>
           {config && (
             <Button
-              variant="outline"
+              variant="destructive"
               onClick={handleReset}
               disabled={resetting}
-              className="border-red-900 text-red-700 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-950/40"
             >
               {resetting ? (
                 <>

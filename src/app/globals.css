@@ -152,7 +152,11 @@ html[data-mode="light"] {
   --muted-foreground: oklch(0.52 0.015 260);
   --accent: oklch(0.96 0.004 260);
   --accent-foreground: oklch(0.25 0.01 260);
-  --destructive: oklch(0.577 0.245 27.325);
+  /* Deeper than the stock 0.577: as `text-destructive` over the /10
+   * tint the destructive button/badge variants use, 0.577 was only
+   * 3.99:1 on white. 0.514 clears 5.2:1 there (6.3:1 as plain text,
+   * and white-on-solid also improves to 6.3:1). */
+  --destructive: oklch(0.514 0.21 27.325);
   --border: oklch(0.922 0.004 260);
   --input: oklch(0.922 0.004 260);
   /* 3:1 against white/near-white surfaces (light inputs have no fill, so
