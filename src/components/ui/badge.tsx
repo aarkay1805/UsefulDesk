@@ -33,6 +33,11 @@ const badgeVariants = cva(
         // tint recipe in slate — matches a #64748b colour-prop status
         // badge, so slate reads as "neutral" across statuses and tags.
         neutral: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
+        // Colour-free variant used internally when the `color` prop is
+        // set: `.badge-tinted` (globals.css, components layer) supplies
+        // bg + text, so the variant must not emit colour utilities —
+        // they'd win the cascade and paint the pill solid primary.
+        tinted: "",
       },
     },
     defaultVariants: {
@@ -63,7 +68,14 @@ function Badge({
     defaultTagName: "span",
     props: mergeProps<"span">(
       {
-        className: cn(badgeVariants({ variant }), color && "badge-tinted", className),
+        // A hex `color` replaces the variant's colours entirely — route
+        // through the colour-free `tinted` variant so utilities like
+        // `bg-primary` can't out-cascade the `.badge-tinted` recipe.
+        className: cn(
+          badgeVariants({ variant: color ? "tinted" : variant }),
+          color && "badge-tinted",
+          className
+        ),
         style: color
           ? ({ "--badge-tint": color, ...style } as React.CSSProperties)
           : style,
