@@ -55,6 +55,10 @@ Phone-first · WhatsApp-native (not add-on) · renewal-first · **action lists o
 
 **Deferred (don't build early):** branded member app, class marketplace, payroll, workout/nutrition tracking, franchise analytics, door access, AI automation, loyalty, UPI AutoPay.
 
+### To-Do items
+
+- **Meta lead-ads ingestion → `received_via='meta'`.** The Leads "Received By" column (migration `048`) already accepts a `'meta'` origin and renders "Auto · Meta", but **no code path creates a contact from a Meta lead ad** — the label is a reserved placeholder. When lead-ads capture is built (fits Phase 2 India-first / Phase 4 capture forms), set `received_via: 'meta'` on that insert and the column lights up automatically. Same reserved slot exists for `'automation'` (a future "create contact" automation step). See `src/lib/leads/attributes.ts` (`autoReceivedLabel`) and the create-path list in migration `048`'s header.
+
 ## Gym domain layer (data model)
 
 A **member = a `contacts` row that also has a `memberships` row.** New tables (migration `031_gym_memberships.sql`):
