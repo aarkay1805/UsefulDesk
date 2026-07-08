@@ -351,7 +351,9 @@ function ColorSwatchPicker({
           aria-label={`Colour ${c}`}
           onClick={() => onChange(c)}
           className={cn(
-            'size-4 cursor-pointer rounded-full transition-transform hover:scale-110',
+            // Hairline boundary so light swatches (yellow) are perceivable
+            // against the card — a solid dot alone is ~1.8:1 on white.
+            'size-4 cursor-pointer rounded-full border border-black/15 transition-transform hover:scale-110 dark:border-white/20',
             value === c && 'ring-2 ring-ring ring-offset-1 ring-offset-card'
           )}
           style={{ backgroundColor: c }}
