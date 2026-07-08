@@ -39,7 +39,11 @@ import {
   type LeadColumnKey,
 } from '@/lib/leads/status';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
-import { sourceLabel, genderLabel } from '@/lib/leads/attributes';
+import {
+  sourceLabel,
+  genderLabel,
+  autoReceivedLabel,
+} from '@/lib/leads/attributes';
 import {
   DEFAULT_FIELD_OPTIONS,
   statusColumn,
@@ -366,6 +370,26 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
         <span className="text-muted-foreground text-sm">Unassigned</span>
       ),
     edit: { kind: 'assignee' },
+  },
+  {
+    key: 'received_by',
+    label: 'Received By',
+    defaultWidth: 170,
+    minWidth: 130,
+    // Groups leads by origin channel; ordering by the raw text is useful
+    // (all "Auto · WhatsApp" together), unlike the assignee uuid.
+    sortColumn: 'received_via',
+    // Immutable origin — no `edit`. Static fallback renders the auto pill
+    // only; liveColumns overrides it to show the creating teammate for
+    // human origins (needs the staff roster).
+    render: (c) => {
+      const auto = autoReceivedLabel(c.received_via);
+      return auto ? (
+        <Badge variant="neutral">{auto}</Badge>
+      ) : (
+        <span className="text-muted-foreground text-sm">—</span>
+      );
+    },
   },
   {
     key: 'tags',
@@ -956,6 +980,29 @@ export default function LeadsPage() {
                 <UserAvatar
                   name={name}
                   src={avatarById.get(c.assigned_to) ?? null}
+                  className="size-5 shrink-0"
+                  fallbackClassName="text-[10px]"
+                />
+                <span className="text-foreground truncate text-sm">{name}</span>
+              </span>
+            );
+          },
+        };
+      }
+      if (col.key === 'received_by') {
+        return {
+          ...col,
+          render: (c) => {
+            const auto = autoReceivedLabel(c.received_via);
+            if (auto) return <Badge variant="neutral">{auto}</Badge>;
+            // Human origin (manual / import / legacy NULL) → the teammate
+            // who created the lead (contacts.user_id is the auth user id).
+            const name = nameById.get(c.user_id) ?? 'Teammate';
+            return (
+              <span className="flex min-w-0 items-center gap-1.5">
+                <UserAvatar
+                  name={name}
+                  src={avatarById.get(c.user_id) ?? null}
                   className="size-5 shrink-0"
                   fallbackClassName="text-[10px]"
                 />

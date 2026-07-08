@@ -105,6 +105,10 @@ export async function resolveConversationByPhone(
         user_id: ownerUserId,
         phone: sanitized,
         name: name || sanitized,
+        // Origin (migration 048): find-or-create off an inbound WhatsApp
+        // thread (or the API send route reusing this path) — an automated
+        // capture, not a human-added lead.
+        received_via: 'whatsapp',
       })
       .select('id')
       .single();

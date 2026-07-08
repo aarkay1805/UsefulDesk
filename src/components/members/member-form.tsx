@@ -209,6 +209,8 @@ export function MemberForm({
             name: name.trim() || null,
             phone: phone.trim(),
             email: email.trim() || null,
+            // Origin (migration 048): a human added this record in the UI.
+            received_via: "manual" as const,
           })
           .select("id")
           .single();

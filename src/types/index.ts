@@ -94,6 +94,17 @@ export interface AccountInvitation {
  *  valid. Built-in defaults live in src/lib/leads/status.ts. */
 export type LeadStatus = string;
 
+/** Origin channel a lead entered through (contacts.received_via,
+ *  migration 048). 'manual'/'import' are human actions; the rest are
+ *  automated captures rendered as "Auto · <channel>". */
+export type ReceivedVia =
+  | 'manual'
+  | 'import'
+  | 'whatsapp'
+  | 'meta'
+  | 'api'
+  | 'automation';
+
 export interface Contact {
   id: string;
   user_id: string;
@@ -114,6 +125,10 @@ export interface Contact {
   gender?: string | null;
   /** Staff owner of this lead (auth user id — see migration 047). */
   assigned_to?: string | null;
+  /** Origin channel the lead entered through (immutable, migration 048).
+   *  Human origins ('manual'/'import') render the creator; the rest
+   *  render an "Auto · <channel>" pill. NULL = pre-048 (treat as human). */
+  received_via?: ReceivedVia | null;
   /** When lead_status last changed (DB trigger, migration 047).
    *  NULL = unchanged since creation; readers fall back to created_at. */
   lead_status_changed_at?: string | null;

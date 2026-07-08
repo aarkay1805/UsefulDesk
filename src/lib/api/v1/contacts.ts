@@ -132,6 +132,9 @@ export async function findOrCreateContact(
       name: input.name ?? sanitized,
       email: input.email ?? null,
       company: input.company ?? null,
+      // Origin (migration 048): created through the public API, not a
+      // human in the dashboard.
+      received_via: 'api',
     })
     .select('id')
     .single();

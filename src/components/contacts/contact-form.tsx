@@ -218,6 +218,8 @@ export function ContactForm({
             // creator is the default; reassign later via the table's
             // Assigned-to cell or an assign_lead automation.
             assigned_to: user.id,
+            // Origin (migration 048): a human added this lead in the UI.
+            received_via: 'manual',
           })
           .select('id')
           .single();

@@ -489,6 +489,9 @@ export function ImportWizard({
           // Imported leads default to the importer as owner (PRD:
           // every new lead has an owner) — bulk-reassign later.
           assigned_to: user.id,
+          // Origin (migration 048): bulk CSV import — a human action, so
+          // the "Received By" column shows the importer.
+          received_via: 'import' as const,
         }));
 
         const { data, error } = await supabase

@@ -1010,6 +1010,9 @@ async function findOrCreateContact(
       user_id: configOwnerUserId,
       phone,
       name: name || phone,
+      // Origin (migration 048): an inbound WhatsApp message created this
+      // lead — automated capture, not a human-added row.
+      received_via: 'whatsapp',
     })
     .select()
     .single()

@@ -264,6 +264,9 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         account_id: accountId,
         phone,
         name: uniqueByPhone.get(phone)?.name ?? null,
+        // Origin (migration 048): contacts materialised from a broadcast
+        // CSV — a bulk human action, same as an import.
+        received_via: 'import' as const,
       }));
 
     const INSERT_CHUNK = 200;
