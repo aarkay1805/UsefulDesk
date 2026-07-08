@@ -49,6 +49,8 @@ export interface CellOption {
   label: string;
   /** Tag colour for `kind: 'status'` options. */
   color?: string;
+  /** Leading glyph for `kind: 'select'` options (e.g. a source logo). */
+  icon?: React.ReactNode;
 }
 
 function StatusPill({ label, color }: { label: string; color: string }) {
@@ -185,7 +187,10 @@ export function EditableCell({
       kind === "status" ? (
         <StatusPill label={o.label} color={o.color ?? "#64748b"} />
       ) : (
-        <span className="text-sm">{o.label}</span>
+        <span className="flex items-center gap-2 text-sm">
+          {o.icon}
+          {o.label}
+        </span>
       );
     return (
       <div className={OUTER} onClick={(e) => e.stopPropagation()}>

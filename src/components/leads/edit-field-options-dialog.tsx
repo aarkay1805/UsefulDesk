@@ -447,8 +447,11 @@ function ColorSwatchPicker({
           aria-label={`Colour ${c}`}
           onClick={() => onChange(c)}
           className={cn(
-            // Hairline boundary so light swatches (yellow) are perceivable
-            // against the card — a solid dot alone is ~1.8:1 on white.
+            // Raw hex — same hue + saturation the pill derives from, at its
+            // own vivid lightness. This is a colour indicator, not text, so
+            // it doesn't follow the pill's darkened/lightened readable tint.
+            // Hairline boundary keeps light dots (yellow) perceivable against
+            // the card — a solid dot alone is ~1.8:1.
             'size-4 cursor-pointer rounded-full border border-black/15 transition-transform hover:scale-110 dark:border-white/20',
             value === c && 'ring-2 ring-ring ring-offset-1 ring-offset-card'
           )}

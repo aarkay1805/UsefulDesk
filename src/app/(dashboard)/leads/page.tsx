@@ -107,6 +107,7 @@ import {
 } from '@/components/contacts/manage-columns-dialog';
 import { LeadsBoard } from '@/components/leads/leads-board';
 import { EditableCell } from '@/components/leads/editable-cell';
+import { SourceIcon } from '@/components/leads/source-icon';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -302,11 +303,12 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     defaultWidth: 130,
     minWidth: 100,
     sortColumn: 'source',
-    render: (c) => (
-      <span className="text-muted-foreground text-sm">
-        {sourceLabel(c.source)}
-      </span>
-    ),
+    render: (c) =>
+      c.source ? (
+        <SourceIcon source={c.source} label={sourceLabel(c.source)} />
+      ) : (
+        <span className="text-muted-foreground text-sm">—</span>
+      ),
     edit: { kind: 'select', column: 'source' },
     optionsField: 'source',
   },
@@ -759,11 +761,15 @@ export default function LeadsPage() {
       if (col.key === 'source') {
         return {
           ...col,
-          render: (c) => (
-            <span className="text-muted-foreground text-sm">
-              {fieldOptions.sourceLabel(c.source)}
-            </span>
-          ),
+          render: (c) =>
+            c.source ? (
+              <SourceIcon
+                source={c.source}
+                label={fieldOptions.sourceLabel(c.source)}
+              />
+            ) : (
+              <span className="text-muted-foreground text-sm">—</span>
+            ),
         };
       }
       if (col.key === 'gender') {
@@ -1966,6 +1972,18 @@ export default function LeadsPage() {
                                       ).map((o) => ({
                                         value: o.key,
                                         label: o.label,
+                                        // Source options carry their brand
+                                        // glyph so the dropdown reads logo +
+                                        // name (the cell shows the logo only).
+                                        icon:
+                                          col.edit &&
+                                          col.edit.kind === 'select' &&
+                                          col.edit.column === 'source' ? (
+                                            <SourceIcon
+                                              source={o.key}
+                                              label={o.label}
+                                            />
+                                          ) : undefined,
                                       }))
                                     : col.edit.kind === 'assignee'
                                       ? [
