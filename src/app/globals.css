@@ -174,7 +174,7 @@ html[data-mode="light"] {
      hover/active overlays are translucent --foreground (see sidebar.tsx),
      so they darken against this grey instead of merging with it — the
      mode-safe stand-in for a multiply blend. */
-  --sidebar: oklch(0.955 0.004 260);
+  --sidebar: oklch(0.98 0.004 260);
   --sidebar-foreground: oklch(0.21 0.01 260);
   --sidebar-accent: oklch(0.96 0.004 260);
   --sidebar-accent-foreground: oklch(0.25 0.01 260);
