@@ -91,7 +91,6 @@ import {
   Loader2,
   StickyNote,
   UserCheck,
-  UserPlus,
   Users,
   ChevronLeft,
   ChevronRight,
@@ -133,6 +132,7 @@ import {
   type BulkEditProperty,
 } from '@/components/leads/bulk-edit-dialog';
 import { BulkAddNoteDialog } from '@/components/leads/bulk-add-note-dialog';
+import { BulkConvertDialog } from '@/components/leads/bulk-convert-dialog';
 import { SourceIcon } from '@/components/leads/source-icon';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
@@ -901,6 +901,7 @@ export default function LeadsPage() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkNoteOpen, setBulkNoteOpen] = useState(false);
+  const [bulkConvertOpen, setBulkConvertOpen] = useState(false);
   // The bulk toolbar animates open/closed instead of mounting/unmounting,
   // so on exit (selection cleared) it lingers ~300ms while collapsing. We
   // freeze the last non-zero count here so the label doesn't flash "0
@@ -2200,13 +2201,8 @@ export default function LeadsPage() {
 
               <div className="bg-border mx-0.5 h-4 w-px" />
 
-              {/* Actions — Assign / Edit / Delete / Add note / Convert to
-                  member. Delete + Edit are wired; the rest are disabled
-                  placeholders matching the target toolbar. */}
-              <Button variant="ghost" size="sm" disabled className="text-muted-foreground">
-                <UserPlus />
-                Assign
-              </Button>
+              {/* Actions — Edit / Delete / Add note / Convert to member.
+                  (Assign lives inside Edit → Assigned to.) */}
               <GatedButton
                 variant="ghost"
                 size="sm"
@@ -2240,10 +2236,17 @@ export default function LeadsPage() {
                 <StickyNote />
                 Add note
               </GatedButton>
-              <Button variant="ghost" size="sm" disabled className="text-muted-foreground">
+              <GatedButton
+                variant="ghost"
+                size="sm"
+                canAct={canEdit}
+                gateReason="convert leads to members"
+                onClick={() => setBulkConvertOpen(true)}
+                className="text-foreground"
+              >
                 <UserCheck />
                 Convert to member
-              </Button>
+              </GatedButton>
 
               {/* Close — clears the selection, trailing edge. */}
               <Button
@@ -2335,18 +2338,21 @@ export default function LeadsPage() {
                     <TableRow className="border-border hover:bg-transparent">
                       <TableHead
                         className={cn(
+                          'px-0',
                           hasFrozen && 'bg-card sticky left-0 z-20'
                         )}
                       >
-                        <Checkbox
-                          checked={allOnPageSelected}
-                          indeterminate={
-                            !allOnPageSelected && someOnPageSelected
-                          }
-                          onCheckedChange={toggleSelectAll}
-                          disabled={contacts.length === 0}
-                          aria-label="Select all leads on this page"
-                        />
+                        <div className="flex items-center justify-center">
+                          <Checkbox
+                            checked={allOnPageSelected}
+                            indeterminate={
+                              !allOnPageSelected && someOnPageSelected
+                            }
+                            onCheckedChange={toggleSelectAll}
+                            disabled={contacts.length === 0}
+                            aria-label="Select all leads on this page"
+                          />
+                        </div>
                       </TableHead>
                       <SortableContext
                         items={arrangedColumns.map((c) => c.key)}
@@ -2443,15 +2449,18 @@ export default function LeadsPage() {
                           <TableCell
                             onClick={(e) => e.stopPropagation()}
                             className={cn(
+                              'px-0',
                               hasFrozen &&
                                 'bg-card group-hover:bg-muted/50 sticky left-0 z-10'
                             )}
                           >
-                            <Checkbox
-                              checked={selected.has(contact.id)}
-                              onCheckedChange={() => toggleSelect(contact.id)}
-                              aria-label={`Select ${contact.name || contact.phone}`}
-                            />
+                            <div className="flex items-center justify-center">
+                              <Checkbox
+                                checked={selected.has(contact.id)}
+                                onCheckedChange={() => toggleSelect(contact.id)}
+                                aria-label={`Select ${contact.name || contact.phone}`}
+                              />
+                            </div>
                           </TableCell>
                           {arrangedColumns.map((col, ci) => {
                             const shift = columnDragShift(ci);
@@ -2846,6 +2855,18 @@ export default function LeadsPage() {
       <BulkAddNoteDialog
         open={bulkNoteOpen}
         onOpenChange={setBulkNoteOpen}
+        contactIds={[...selected]}
+        onDone={() => {
+          setSelected(new Set());
+          refreshAll();
+        }}
+      />
+
+      {/* Bulk Convert — turn the selected leads into members (starts a
+          membership; they drop off the leads list). */}
+      <BulkConvertDialog
+        open={bulkConvertOpen}
+        onOpenChange={setBulkConvertOpen}
         contactIds={[...selected]}
         onDone={() => {
           setSelected(new Set());
