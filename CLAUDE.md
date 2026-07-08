@@ -4,6 +4,8 @@
 
 > Shared context for every session. UsefulDesk is being turned into an **India-first CRM for gyms, boutique studios, and (eventually) franchises**. Market analysis lives in `PRDs/india_gym_crm_pain_points.md`.
 
+> **Keep this file current (rule, non-negotiable).** Every time you land a **major architecture change or a new feature**, update this CLAUDE.md in the *same* change — treat the doc edit as part of "done", not a follow-up. Touch the sections it affects (Architecture, UI reusability, Current status / "Built since", Roadmap To-Do, data model). Keep entries terse and factual: what shipped, where the code lives, any reuse/gotcha a future session must know. Prune stale lines rather than stacking contradictions. Small bug fixes / refactors don't need an entry; anything that changes how the codebase works or adds user-facing capability does.
+
 ## The one thing to understand first
 
 This repo (`wacrm` v0.7.0) **looks** like a generic WhatsApp CRM but is **not primitive** — it's a mature multi-tenant WhatsApp CRM. It already ships best-in-class versions of the exact layer the market wants (WhatsApp send + templates, broadcasts, automations, shared inbox, RBAC, public API). What is genuinely missing is the **gym domain** (members, plans, memberships, renewals, payments, attendance).
@@ -75,7 +77,14 @@ All date math is **IST-first** (`src/lib/memberships/expiry.ts`) — members mus
 
 Built since M1 (migrations `032`–`046`):
 
-- **Leads module** (`/leads`, migrations `039`–`042`) — lead records on top of `contacts`, DB-driven lead status funnel (hex-coloured statuses), source/gender fields, **per-account editable lead field options**, custom fields with input types + formatting, INR currency handling, inline edit actions.
+- **Leads module** (`/leads`, migrations `039`–`042`) — lead records on top of `contacts`, DB-driven lead status funnel (hex-coloured statuses), source/gender fields, **per-account editable lead field options**, custom fields with input types + formatting, INR currency handling, inline edit actions. Table = draggable/resizable/freezable columns (`page.tsx`), board = kanban by `lead_status`.
+- **Leads bulk actions** (`src/app/(dashboard)/leads/page.tsx` + `src/components/leads/bulk-*.tsx`) — row multi-select shows an **encapsulated toolbar below the search bar** that animates open/closed (grid-rows `0fr↔1fr` + fade, 300ms ease-in-out; the count is frozen mid-collapse so it can't flash "0", and `-mt-3` when closed cancels the flex gap). Actions:
+  - **Edit** → `BulkEditDialog`: pick one property (status / assignee / source / gender / company / any custom field), set its value, apply to all selected. (Assign is folded in here as "Assigned to" — no separate Assign button.)
+  - **Delete** → confirm + `.in('id', ids)`.
+  - **Add note** → `BulkAddNoteDialog`, which **reuses the detail sheet's exported `NoteComposerCard`** (textarea + optional follow-up). Notes batch-insert (append-only); follow-ups insert per contact honouring one-OPEN-task-per-contact (skips are tallied, not errors).
+  - **Convert to member** → `BulkConvertDialog`: pick plan + start date, create one `active` membership per lead (same insert as the detail-page convert) — converted leads drop off the list (leads anti-join memberships).
+  - **Reuse pattern:** these dialogs' value pickers use `DropdownMenu` + `Badge`/`SourceIcon`/`UserAvatar` in the trigger (NOT `ui/Select` — its `SelectValue` echoes the raw value and its item padding differs), mirroring the inline table cell editors so status shows coloured pills, source/assignee show glyphs.
+- **Lead detail ↔ table sync** (`src/components/contacts/contact-detail-view.tsx`) — the detail sheet's **Details** section mirrors the leads table's columns in the same order, incl. custom fields (shared `custom_fields` fetch) and option lists (`useLeadFieldOptions`), so adding a column/custom field once surfaces it in **both**. Dropdown-editable rows = `InlineSelectField` (matches the table cell editors); read-only rows (Received by / Created) = `StaticField`. `NoteComposerCard` + `FollowUpDraft` / `DEFAULT_FOLLOW_UP_DRAFT` / `resolveDueDate` are exported from this file for reuse.
 - **Follow-ups** (migrations `036`, `043`–`045`) — assignable tasks with task types, due-date presets, IST reminder slots, and an optional link to the authoring note (one OPEN task per contact — cancel a note's open task before deleting the note). Notes live on the lead/contact detail sheet with author avatars, edit-in-place, drafts.
 - **Payments & dues** — payment-due buckets (`034`), account UPI + copy-UPI-link (`038`), trial memberships (`035`), attendance (`032`), renewal reminder cron (`033`, `src/app/api/renewals/cron`), member activity (`037`).
 - **Notes ownership** (`046`) — author-owned edit/delete + admin moderation (see the authored-content rule above).

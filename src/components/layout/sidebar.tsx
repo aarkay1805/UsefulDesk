@@ -165,7 +165,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       <aside
         className={cn(
           // Mobile: fixed drawer that slides in from the left.
-          'border-border bg-card fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r',
+          'border-border bg-sidebar fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r',
           'transition-transform duration-200 ease-out will-change-transform',
           open ? 'translate-x-0' : '-translate-x-full',
           // Desktop: static, always visible — reset all the mobile framing.
@@ -221,7 +221,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
                       isActive
                         ? 'bg-primary/10 text-primary-text'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground'
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -270,7 +270,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
                       isActive
                         ? 'bg-primary/10 text-primary-text'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground'
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -324,7 +324,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               free for page titles + actions (HubSpot-style). */}
           <div className="flex items-center gap-1">
             <DropdownMenu>
-              <DropdownMenuTrigger className="hover:bg-muted/60 focus:bg-muted/60 data-popup-open:bg-muted/60 flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors focus:outline-none">
+              <DropdownMenuTrigger className="hover:bg-foreground/[0.06] focus:bg-foreground/[0.06] data-popup-open:bg-foreground/[0.06] flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors focus:outline-none">
                 <UserAvatar
                   className="size-8 shrink-0"
                   name={profile?.full_name || profile?.email || 'U'}

@@ -139,7 +139,10 @@ html[data-mode="dark"] {
 }
 
 html[data-mode="light"] {
-  --background: oklch(0.99 0.002 260);
+  /* Main app surface is pure white; the left sidebar carries a light-grey
+     panel tint (see --sidebar below) so the two read as distinct. Cards
+     (--card, also white) separate from the white bg via their borders. */
+  --background: oklch(1 0 0);
   --foreground: oklch(0.21 0.01 260);
   --card: oklch(1 0 0);
   --card-2: oklch(0.985 0.002 260);
@@ -167,7 +170,11 @@ html[data-mode="light"] {
   --chart-4: oklch(0.8 0.04 260);
   --chart-5: oklch(0.87 0.03 260);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0.002 260);
+  /* Light-grey panel, distinct from the white main surface. Nav item
+     hover/active overlays are translucent --foreground (see sidebar.tsx),
+     so they darken against this grey instead of merging with it — the
+     mode-safe stand-in for a multiply blend. */
+  --sidebar: oklch(0.955 0.004 260);
   --sidebar-foreground: oklch(0.21 0.01 260);
   --sidebar-accent: oklch(0.96 0.004 260);
   --sidebar-accent-foreground: oklch(0.25 0.01 260);
