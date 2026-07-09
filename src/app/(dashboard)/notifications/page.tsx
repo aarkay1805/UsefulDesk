@@ -6,23 +6,32 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { Notification } from "@/types";
 import {
+  ArrowLeftRight,
+  Ban,
   Bell,
+  Check,
   CheckCheck,
   ClipboardList,
   Loader2,
   UserCheck,
   UserPlus,
+  X,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { respondLeadTransfer } from "@/lib/leads/transfers";
 
 // Icon per notification type.
 const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
   conversation_assigned: UserPlus,
   lead_assigned: UserCheck,
   follow_up_reminder: ClipboardList,
+  lead_transfer_request: ArrowLeftRight,
+  lead_transfer_accepted: Check,
+  lead_transfer_declined: X,
+  lead_transfer_cancelled: Ban,
 };
 
 export default function NotificationsPage() {
@@ -51,7 +60,6 @@ export default function NotificationsPage() {
   }, [accountId]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 
@@ -119,6 +127,28 @@ export default function NotificationsPage() {
     [load],
   );
 
+  // Accept / decline a lead transfer inline (migration 050). The RPC guards
+  // a resolved request, so a stale button just toasts "already resolved".
+  const [actingId, setActingId] = useState<string | null>(null);
+  const respondTransfer = useCallback(
+    async (n: Notification, accept: boolean) => {
+      if (!n.reference_id) return;
+      setActingId(n.id);
+      try {
+        const supabase = createClient();
+        await respondLeadTransfer(supabase, n.reference_id, accept);
+        toast.success(accept ? "Transfer accepted" : "Transfer declined");
+        if (!n.read_at) markRead(n.id);
+        load();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Action failed");
+      } finally {
+        setActingId(null);
+      }
+    },
+    [load, markRead],
+  );
+
   const handleClick = useCallback(
     (n: Notification) => {
       if (!n.read_at) markRead(n.id);
@@ -126,7 +156,11 @@ export default function NotificationsPage() {
         router.push(`/inbox?c=${n.conversation_id}`);
       } else if (
         n.type === "lead_assigned" ||
-        n.type === "follow_up_reminder"
+        n.type === "follow_up_reminder" ||
+        n.type === "lead_transfer_request" ||
+        n.type === "lead_transfer_accepted" ||
+        n.type === "lead_transfer_declined" ||
+        n.type === "lead_transfer_cancelled"
       ) {
         // Lead-scoped notifications land on the Leads list; the lead's
         // name is in the notification body for a quick search.
@@ -273,6 +307,36 @@ export default function NotificationsPage() {
                     </p>
                   </div>
                 </button>
+
+                {/* Inline Accept/Decline for an unresolved transfer request
+                    (migration 050). Sibling of the row button — nested
+                    buttons are invalid HTML. Hidden once the row is read
+                    (acting marks it read). */}
+                {n.type === "lead_transfer_request" && isUnread && (
+                  <div className="mt-2 flex gap-2 pl-16">
+                    <Button
+                      size="sm"
+                      disabled={actingId === n.id}
+                      onClick={() => respondTransfer(n, true)}
+                    >
+                      {actingId === n.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                      Accept
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={actingId === n.id}
+                      onClick={() => respondTransfer(n, false)}
+                    >
+                      <X className="h-4 w-4" />
+                      Decline
+                    </Button>
+                  </div>
+                )}
               </li>
             );
           })}

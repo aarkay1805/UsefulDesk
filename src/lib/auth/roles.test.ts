@@ -6,6 +6,9 @@ import {
   canDeleteAnyNote,
   canEditSettings,
   canManageMembers,
+  canReassignLeadsDirectly,
+  canRequestLeadTransfer,
+  canResolveAnyLeadTransfer,
   canSendMessages,
   canTransferOwnership,
   canViewOnly,
@@ -120,6 +123,27 @@ describe("capability predicates", () => {
     expect(canDeleteAnyNote("admin")).toBe(true);
     expect(canDeleteAnyNote("agent")).toBe(false);
     expect(canDeleteAnyNote("viewer")).toBe(false);
+  });
+
+  it("canReassignLeadsDirectly: admin+ only", () => {
+    expect(canReassignLeadsDirectly("owner")).toBe(true);
+    expect(canReassignLeadsDirectly("admin")).toBe(true);
+    expect(canReassignLeadsDirectly("agent")).toBe(false);
+    expect(canReassignLeadsDirectly("viewer")).toBe(false);
+  });
+
+  it("canRequestLeadTransfer: agent+ only", () => {
+    expect(canRequestLeadTransfer("owner")).toBe(true);
+    expect(canRequestLeadTransfer("admin")).toBe(true);
+    expect(canRequestLeadTransfer("agent")).toBe(true);
+    expect(canRequestLeadTransfer("viewer")).toBe(false);
+  });
+
+  it("canResolveAnyLeadTransfer: admin+ only", () => {
+    expect(canResolveAnyLeadTransfer("owner")).toBe(true);
+    expect(canResolveAnyLeadTransfer("admin")).toBe(true);
+    expect(canResolveAnyLeadTransfer("agent")).toBe(false);
+    expect(canResolveAnyLeadTransfer("viewer")).toBe(false);
   });
 
   it("canDeleteAccount: owner only", () => {

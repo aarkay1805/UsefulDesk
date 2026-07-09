@@ -108,6 +108,8 @@ import {
   Sparkles,
   Pin,
   X,
+  Check,
+  Ban,
 } from 'lucide-react';
 import { PageHeaderActions } from '@/components/layout/page-header-actions';
 import { ContactForm } from '@/components/contacts/contact-form';
@@ -141,12 +143,27 @@ import {
   AssigneeDisplay,
   PendingAssigneeDisplay,
   StatusBadge,
+  TransferPendingDisplay,
   assigneeCellOptions,
   customEditKind,
   genderCellOptions,
   sourceCellOptions,
   statusCellOptions,
 } from '@/components/leads/lead-cell-renderers';
+import { TransferRequestDialog } from '@/components/leads/transfer-request-dialog';
+import {
+  cancelLeadTransfer,
+  fetchPendingTransfers,
+  pendingTransferMap,
+  requestLeadTransfer,
+  respondLeadTransfer,
+} from '@/lib/leads/transfers';
+import {
+  canReassignLeadsDirectly,
+  canRequestLeadTransfer,
+  canResolveAnyLeadTransfer,
+} from '@/lib/auth/roles';
+import type { LeadTransfer } from '@/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -839,9 +856,16 @@ function compareCustomValues(
 export default function LeadsPage() {
   const supabase = createClient();
   const router = useRouter();
-  const { defaultCurrency } = useAuth();
+  const { defaultCurrency, user, profile } = useAuth();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
+
+  // Lead-transfer capabilities (migration 050). admin/owner reassign
+  // instantly + get bulk assign; agents open an accept-gated request.
+  const role = profile?.account_role ?? null;
+  const canReassignDirect = role ? canReassignLeadsDirectly(role) : false;
+  const canTransfer = role ? canRequestLeadTransfer(role) : false;
+  const canResolveAnyTransfer = role ? canResolveAnyLeadTransfer(role) : false;
 
   // Account-editable option lists (status/source/gender) — drive the
   // status pills, board columns, cell editors, filters and the header
@@ -881,6 +905,16 @@ export default function LeadsPage() {
   const [pendingAssignees, setPendingAssignees] = useState<
     { id: string; name: string }[]
   >([]);
+
+  // In-flight ownership transfers, keyed by contact_id (migration 050).
+  // Overlays a "transfer pending → X" badge on the assignee cell.
+  const [transfers, setTransfers] = useState<Record<string, LeadTransfer>>({});
+  // Agent peer-handoff confirm: the lead + chosen target awaiting a note.
+  const [transferDialog, setTransferDialog] = useState<{
+    contact: ContactWithData;
+    targetId: string;
+  } | null>(null);
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
 
   // Board view data — fetched independently of the paginated table so
   // switching views doesn't fight the table's pagination window.
@@ -958,6 +992,18 @@ export default function LeadsPage() {
   // slower earlier request resolve last and render stale rows.
   const fetchSeq = useRef(0);
 
+  // Latest fetchContacts held in a ref so the transfers realtime channel can
+  // trigger an owner-flip refetch without re-subscribing on every filter/sort
+  // change (fetchContacts' identity churns; fetchTransfers is stable).
+  const fetchContactsRef = useRef<() => void>(() => {});
+
+  // Transfer-cell actions are defined far below (after refreshAll); the
+  // assignee column's render closure reaches them through this ref so the
+  // liveColumns memo doesn't take a TDZ dep on a later const.
+  const transferActionRef = useRef<
+    (id: string, action: 'accept' | 'decline' | 'cancel') => void
+  >(() => {});
+
   // Column drag-reorder. A 6px activation distance means a plain click on
   // the header label (to no effect) or on the sort arrows / overflow menu
   // never starts a drag — only a deliberate pull does.
@@ -1018,6 +1064,80 @@ export default function LeadsPage() {
         return {
           ...col,
           render: (c) => {
+            // A pending ownership transfer (migration 050) overlays the
+            // owner: ownership hasn't moved yet, so show current owner →
+            // target, with contextual Accept/Decline/Withdraw when the
+            // viewer is the target, the requester, or an admin.
+            const transfer = transfers[c.id];
+            if (transfer) {
+              const ownerId = transfer.from_user_id ?? c.assigned_to ?? null;
+              const badge = (
+                <TransferPendingDisplay
+                  ownerName={ownerId ? nameById.get(ownerId) ?? 'Teammate' : null}
+                  ownerAvatarUrl={ownerId ? avatarById.get(ownerId) : null}
+                  targetName={nameById.get(transfer.to_user_id) ?? 'Teammate'}
+                  incoming={transfer.to_user_id === user?.id}
+                />
+              );
+              const canAccept =
+                transfer.to_user_id === user?.id || canResolveAnyTransfer;
+              const canCancel =
+                transfer.requested_by === user?.id || canResolveAnyTransfer;
+              if (!canAccept && !canCancel) return badge;
+              return (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <button
+                        type="button"
+                        className="min-w-0 max-w-full text-left"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    }
+                  >
+                    {badge}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="bg-popover border-border min-w-48"
+                  >
+                    {canAccept && (
+                      <>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            transferActionRef.current(transfer.id, 'accept')
+                          }
+                          className="text-popover-foreground focus:bg-muted"
+                        >
+                          <Check className="size-4" />
+                          Accept transfer
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            transferActionRef.current(transfer.id, 'decline')
+                          }
+                          className="text-popover-foreground focus:bg-muted"
+                        >
+                          <X className="size-4" />
+                          Decline
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {canCancel && (
+                      <DropdownMenuItem
+                        onClick={() =>
+                          transferActionRef.current(transfer.id, 'cancel')
+                        }
+                        className="text-popover-foreground focus:bg-muted"
+                      >
+                        <Ban className="size-4" />
+                        Withdraw request
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            }
             // A pending-invite owner overrides the display — the lead is
             // parked on a teammate who hasn't joined yet (migration 049).
             if (c.pending_invitation_id && c.pending_assignee_name) {
@@ -1062,7 +1182,16 @@ export default function LeadsPage() {
       ...builtins,
       ...customFields.map((f) => customColumn(f, defaultCurrency)),
     ];
-  }, [customFields, defaultCurrency, fieldOptions, nameById, avatarById]);
+  }, [
+    customFields,
+    defaultCurrency,
+    fieldOptions,
+    nameById,
+    avatarById,
+    transfers,
+    user,
+    canResolveAnyTransfer,
+  ]);
 
   const colByKey = useMemo(() => {
     const map: Record<string, ColumnDef> = {};
@@ -1205,6 +1334,12 @@ export default function LeadsPage() {
     setPendingAssignees(
       [...byId.entries()].map(([id, name]) => ({ id, name }))
     );
+  }, [supabase]);
+
+  // In-flight ownership transfers → map by contact_id for the cell overlay.
+  const fetchTransfers = useCallback(async () => {
+    const rows = await fetchPendingTransfers(supabase);
+    setTransfers(pendingTransferMap(rows));
   }, [supabase]);
 
   const fetchContacts = useCallback(async () => {
@@ -1448,6 +1583,34 @@ export default function LeadsPage() {
   }, [fetchPendingAssignees]);
 
   useEffect(() => {
+    fetchTransfers();
+  }, [fetchTransfers]);
+
+  useEffect(() => {
+    fetchContactsRef.current = fetchContacts;
+  }, [fetchContacts]);
+
+  // Realtime: a transfer created/resolved anywhere refreshes the overlay
+  // map and (for owner flips on accept) the rows. Subscribes once —
+  // fetchTransfers is stable and fetchContacts rides the ref.
+  useEffect(() => {
+    const channel = supabase
+      .channel('lead-transfers')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'lead_transfers' },
+        () => {
+          fetchTransfers();
+          fetchContactsRef.current();
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, fetchTransfers]);
+
+  useEffect(() => {
     fetchContacts();
   }, [fetchContacts]);
 
@@ -1465,8 +1628,62 @@ export default function LeadsPage() {
   const refreshAll = useCallback(() => {
     fetchContacts();
     fetchPendingAssignees();
+    fetchTransfers();
     setBoardNonce((n) => n + 1);
-  }, [fetchContacts, fetchPendingAssignees]);
+  }, [fetchContacts, fetchPendingAssignees, fetchTransfers]);
+
+  // Agent peer-handoff confirm → send the pending request (migration 050).
+  const submitTransferRequest = useCallback(
+    async (note: string) => {
+      if (!transferDialog) return;
+      setTransferSubmitting(true);
+      try {
+        const outcome = await requestLeadTransfer(
+          supabase,
+          transferDialog.contact.id,
+          transferDialog.targetId,
+          note || undefined
+        );
+        toast.success(
+          outcome === 'pending'
+            ? 'Transfer request sent — waiting for them to accept.'
+            : 'Lead reassigned'
+        );
+        setTransferDialog(null);
+        refreshAll();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Failed to send request');
+      } finally {
+        setTransferSubmitting(false);
+      }
+    },
+    [supabase, transferDialog, refreshAll]
+  );
+
+  // Resolve a pending transfer from the assignee-cell overlay menu.
+  const handleTransferAction = useCallback(
+    async (transferId: string, action: 'accept' | 'decline' | 'cancel') => {
+      try {
+        if (action === 'cancel') {
+          await cancelLeadTransfer(supabase, transferId);
+          toast.success('Transfer request withdrawn');
+        } else {
+          await respondLeadTransfer(supabase, transferId, action === 'accept');
+          toast.success(
+            action === 'accept' ? 'Transfer accepted' : 'Transfer declined'
+          );
+        }
+        refreshAll();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Action failed');
+      }
+    },
+    [supabase, refreshAll]
+  );
+
+  useEffect(() => {
+    transferActionRef.current = handleTransferAction;
+  }, [handleTransferAction]);
 
   // Drag on the board rewrites the lead's status. Optimistic — the
   // card already landed in its new column; revert by refetch on error.
@@ -1550,43 +1767,85 @@ export default function LeadsPage() {
             )
           );
         } else if (edit.kind === 'assignee') {
-          // '' = Unassigned. assigned_to references profiles(user_id)
-          // within the account; options come from the staff roster so
-          // an arbitrary id can't be picked. Picking a real owner also
-          // clears any pending-invite overlay (migration 049) — the lead
-          // was parked on a not-yet-joined teammate; now it has a real one.
-          const assignedTo = rawValue || null;
-          const { error } = await supabase
-            .from('contacts')
-            .update({
-              assigned_to: assignedTo,
-              pending_invitation_id: null,
-              pending_assignee_name: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', contact.id);
-          if (error) {
-            toast.error('Failed to update assignee');
-            return;
-          }
+          // Ownership changes are role-gated (migration 050):
+          //  · unassign        → managerial (admin) direct write
+          //  · admin/self-claim → instant via request_lead_transfer
+          //  · agent handoff    → open the accept-gated request dialog
+          const target = rawValue || null;
           const clearPending = {
             pending_invitation_id: null,
             pending_assignee_name: null,
           };
-          setContacts((prev) =>
-            prev.map((c) =>
-              c.id === contact.id
-                ? { ...c, assigned_to: assignedTo, ...clearPending }
-                : c
-            )
-          );
-          setBoardLeads((prev) =>
-            prev.map((l) =>
-              l.id === contact.id
-                ? { ...l, assigned_to: assignedTo, ...clearPending }
-                : l
-            )
-          );
+          const patchLocal = (assignedTo: string | null) => {
+            setContacts((prev) =>
+              prev.map((c) =>
+                c.id === contact.id
+                  ? { ...c, assigned_to: assignedTo, ...clearPending }
+                  : c
+              )
+            );
+            setBoardLeads((prev) =>
+              prev.map((l) =>
+                l.id === contact.id
+                  ? { ...l, assigned_to: assignedTo, ...clearPending }
+                  : l
+              )
+            );
+          };
+
+          if (!target) {
+            // Unassigning has no one to accept — managerial only.
+            if (!canReassignDirect) {
+              toast.error('Only an admin can unassign a lead.');
+              return;
+            }
+            const { error } = await supabase
+              .from('contacts')
+              .update({
+                assigned_to: null,
+                ...clearPending,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', contact.id);
+            if (error) {
+              toast.error('Failed to update assignee');
+              return;
+            }
+            patchLocal(null);
+            return;
+          }
+
+          if (target === contact.assigned_to) return; // already owns it
+
+          const selfClaim = !contact.assigned_to && target === user?.id;
+          if (canReassignDirect || selfClaim) {
+            // Instant reassign (managerial) or an agent claiming a free lead.
+            try {
+              await requestLeadTransfer(supabase, contact.id, target);
+            } catch (e) {
+              toast.error(
+                e instanceof Error ? e.message : 'Failed to reassign'
+              );
+              return;
+            }
+            patchLocal(target);
+            fetchTransfers();
+            toast.success('Lead reassigned');
+            return;
+          }
+
+          // Agent peer handoff — must own the lead; the target accepts.
+          if (!canTransfer) {
+            toast.error('You do not have permission to reassign leads.');
+            return;
+          }
+          if (contact.assigned_to !== user?.id) {
+            toast.error(
+              'Only the current owner or an admin can transfer this lead.'
+            );
+            return;
+          }
+          setTransferDialog({ contact, targetId: target });
         } else if (edit.kind === 'custom') {
           const trimmed = rawValue.trim();
           const { error } = trimmed
@@ -1655,7 +1914,7 @@ export default function LeadsPage() {
         setEditingCell(null);
       }
     },
-    [supabase]
+    [supabase, canReassignDirect, canTransfer, user, fetchTransfers]
   );
 
   // One tag toggle from the tags cell's checklist. Optimistic — the row
@@ -1940,12 +2199,22 @@ export default function LeadsPage() {
           })),
         },
       },
-      {
-        key: 'assignee',
-        label: 'Assigned to',
-        group: 'Lead fields',
-        editor: { kind: 'select', variant: 'plain', options: assigneeOptions },
-      },
+      // Bulk reassign is a managerial action (migration 050) — admins/owners
+      // only. Agents transfer one lead at a time via the accept-gated flow.
+      ...(canReassignDirect
+        ? [
+            {
+              key: 'assignee',
+              label: 'Assigned to',
+              group: 'Lead fields',
+              editor: {
+                kind: 'select',
+                variant: 'plain',
+                options: assigneeOptions,
+              },
+            } as BulkEditProperty,
+          ]
+        : []),
       {
         key: 'source',
         label: 'Source',
@@ -1989,7 +2258,7 @@ export default function LeadsPage() {
         })
       ),
     ];
-  }, [fieldOptions, staff, customFields]);
+  }, [fieldOptions, staff, customFields, canReassignDirect]);
 
   // Apply one property to every selected lead. Returns true on success so
   // the dialog can close; each failure toasts and keeps it open. Custom
@@ -2985,6 +3254,32 @@ export default function LeadsPage() {
         onOpenChange={setDetailOpen}
         contactId={detailContactId}
         onUpdated={refreshAll}
+      />
+
+      {/* Agent peer-handoff confirm — sends the accept-gated transfer
+          request (migration 050). Admins never reach this (instant). */}
+      <TransferRequestDialog
+        key={transferDialog?.contact.id ?? 'none'}
+        open={transferDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setTransferDialog(null);
+        }}
+        targetName={
+          transferDialog
+            ? nameById.get(transferDialog.targetId) ?? 'Teammate'
+            : ''
+        }
+        targetAvatarUrl={
+          transferDialog ? avatarById.get(transferDialog.targetId) : null
+        }
+        leadName={
+          transferDialog
+            ? transferDialog.contact.name?.trim() ||
+              transferDialog.contact.phone
+            : ''
+        }
+        submitting={transferSubmitting}
+        onConfirm={submitTransferRequest}
       />
 
       {/* "Edit options" — per-account option lists for the status /

@@ -5,6 +5,7 @@
 // grid — extracted so the import preview is pixel-identical to the table
 // (the whole point of the Preview step) and a restyle lands in both.
 
+import { ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { SourceIcon } from '@/components/leads/source-icon';
@@ -61,6 +62,49 @@ export function PendingAssigneeDisplay({ name }: { name: string }) {
         <span className="truncate">{name}</span>
         <span className="text-[10px] font-medium opacity-80"> · pending</span>
       </span>
+    </span>
+  );
+}
+
+/**
+ * A lead with a pending ownership transfer (migration 050). Shows the
+ * CURRENT owner (ownership hasn't moved yet) plus a warning chip pointing
+ * at the proposed new owner. `incoming` = the request is waiting on the
+ * viewer, so the chip reads "to you" to cue the Accept/Decline action.
+ */
+export function TransferPendingDisplay({
+  ownerName,
+  ownerAvatarUrl,
+  targetName,
+  incoming = false,
+}: {
+  ownerName?: string | null;
+  ownerAvatarUrl?: string | null;
+  targetName: string;
+  incoming?: boolean;
+}) {
+  return (
+    <span
+      className="flex min-w-0 items-center gap-1.5"
+      title={
+        incoming
+          ? `Transfer awaiting your acceptance`
+          : `Transfer pending → ${targetName}`
+      }
+    >
+      <UserAvatar
+        name={ownerName ?? 'Unassigned'}
+        src={ownerAvatarUrl ?? null}
+        className="size-5 shrink-0 opacity-80"
+        fallbackClassName="text-[10px]"
+      />
+      <span className="text-muted-foreground min-w-0 truncate text-sm">
+        {ownerName ?? 'Unassigned'}
+      </span>
+      <Badge variant="warning" className="shrink-0 gap-0.5">
+        <ArrowRight className="size-3" />
+        {incoming ? 'to you' : targetName}
+      </Badge>
     </span>
   );
 }

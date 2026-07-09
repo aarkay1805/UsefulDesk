@@ -210,7 +210,15 @@ export type NotificationType =
   /** A lead's owner changed to you (contacts.assigned_to, migration 047). */
   | 'lead_assigned'
   /** A follow-up task's remind_at slot arrived (delivered by the cron runner). */
-  | 'follow_up_reminder';
+  | 'follow_up_reminder'
+  /** A teammate wants to hand you a lead — actionable (Accept/Decline). Migration 050. */
+  | 'lead_transfer_request'
+  /** The target accepted your lead transfer. */
+  | 'lead_transfer_accepted'
+  /** The target declined your lead transfer. */
+  | 'lead_transfer_declined'
+  /** A pending lead transfer to you was withdrawn. */
+  | 'lead_transfer_cancelled';
 
 export interface Notification {
   id: string;
@@ -222,10 +230,38 @@ export interface Notification {
   contact_id?: string;
   /** Who triggered it. Null when an automation/system assigned it. */
   actor_user_id?: string;
+  /** Generic subject pointer — the lead_transfers.id for transfer notifs
+   *  (drives the inline Accept/Decline). Migration 050. */
+  reference_id?: string | null;
   title: string;
   body?: string;
   read_at?: string;
   created_at: string;
+}
+
+/** A lead ownership transfer request + its lifecycle (migration 050). */
+export type LeadTransferStatus =
+  | 'pending'
+  | 'accepted'
+  | 'declined'
+  | 'cancelled'
+  | 'superseded';
+
+export interface LeadTransfer {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  /** Owner at request time (auth user id). Null if that teammate was removed. */
+  from_user_id?: string | null;
+  /** Proposed new owner (auth user id). */
+  to_user_id: string;
+  /** Who initiated the request (auth user id). */
+  requested_by?: string | null;
+  status: LeadTransferStatus;
+  note?: string | null;
+  created_at: string;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
 }
 
 export type SenderType = 'customer' | 'agent' | 'bot';

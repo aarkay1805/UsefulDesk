@@ -107,6 +107,33 @@ export function canDeleteAnyNote(role: AccountRole): boolean {
   return hasMinRole(role, "admin");
 }
 
+/**
+ * Owner / admin: reassign any lead instantly (managerial) and use the
+ * bulk "Assigned to" action. Agents can't reassign directly — they open
+ * a transfer request the target must accept (see canRequestLeadTransfer).
+ * Mirrored by request_lead_transfer's instant path (migration 050).
+ */
+export function canReassignLeadsDirectly(role: AccountRole): boolean {
+  return hasMinRole(role, "admin");
+}
+
+/**
+ * Owner / admin / agent: initiate a lead transfer. Admins land instantly;
+ * an agent's request stays pending until the target accepts. Viewers can't.
+ */
+export function canRequestLeadTransfer(role: AccountRole): boolean {
+  return hasMinRole(role, "agent");
+}
+
+/**
+ * Owner / admin: force-accept, decline, or cancel ANY pending transfer.
+ * (Accepting a request targeted at you is identity-based, not a role — the
+ * respond_lead_transfer RPC gates that by to_user_id.)
+ */
+export function canResolveAnyLeadTransfer(role: AccountRole): boolean {
+  return hasMinRole(role, "admin");
+}
+
 /** Owner only: irreversible destructive operations. */
 export function canDeleteAccount(role: AccountRole): boolean {
   return role === "owner";

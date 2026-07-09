@@ -13,7 +13,13 @@ import {
 } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
-import { canDeleteAnyNote } from '@/lib/auth/roles';
+import {
+  canDeleteAnyNote,
+  canReassignLeadsDirectly,
+  canRequestLeadTransfer,
+} from '@/lib/auth/roles';
+import { requestLeadTransfer } from '@/lib/leads/transfers';
+import { TransferRequestDialog } from '@/components/leads/transfer-request-dialog';
 import { cn } from '@/lib/utils';
 import {
   duePresets,
@@ -176,6 +182,11 @@ export function ContactDetailView({
 
   // Convert-to-member — opens the member form seeded with this contact.
   const [convertOpen, setConvertOpen] = useState(false);
+
+  // Agent peer-handoff (migration 050): a chosen transfer target awaiting
+  // the confirm dialog. Admins reassign instantly and never open this.
+  const [transferTarget, setTransferTarget] = useState<string | null>(null);
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
 
   // Accordion sections — all expanded by default, user can collapse.
   const [openSections, setOpenSections] = useState<string[]>(SECTION_IDS);
@@ -419,6 +430,74 @@ export function ContactDetailView({
     setContact((c) => (c ? { ...c, [column]: next } : c));
     onUpdated();
     return true;
+  }
+
+  // Role-gated ownership change (migration 050), mirroring the leads table:
+  //  · unassign        → managerial (admin) direct write
+  //  · admin/self-claim → instant via request_lead_transfer
+  //  · agent handoff    → open the accept-gated request dialog (returns
+  //    false so the inline field reverts — ownership hasn't moved yet)
+  const canReassignDirect = accountRole
+    ? canReassignLeadsDirectly(accountRole)
+    : false;
+  const canTransfer = accountRole ? canRequestLeadTransfer(accountRole) : false;
+
+  async function saveAssignee(next: string | null): Promise<boolean> {
+    if (!contact) return false;
+    const target = next || null;
+
+    if (!target) {
+      if (!canReassignDirect) {
+        toast.error('Only an admin can unassign a lead.');
+        return false;
+      }
+      return saveContactColumn('assigned_to', null);
+    }
+    if (target === contact.assigned_to) return true;
+
+    const selfClaim = !contact.assigned_to && target === user?.id;
+    if (canReassignDirect || selfClaim) {
+      try {
+        await requestLeadTransfer(supabase, contact.id, target);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Failed to reassign');
+        return false;
+      }
+      setContact((c) => (c ? { ...c, assigned_to: target } : c));
+      onUpdated();
+      toast.success('Lead reassigned');
+      return true;
+    }
+
+    if (!canTransfer) {
+      toast.error('You do not have permission to reassign leads.');
+      return false;
+    }
+    if (contact.assigned_to !== user?.id) {
+      toast.error('Only the current owner or an admin can transfer this lead.');
+      return false;
+    }
+    setTransferTarget(target);
+    return false; // dialog owns the request; field reverts to current owner
+  }
+
+  async function submitTransferRequest(note: string) {
+    if (!contact || !transferTarget) return;
+    setTransferSubmitting(true);
+    try {
+      await requestLeadTransfer(
+        supabase,
+        contact.id,
+        transferTarget,
+        note || undefined
+      );
+      toast.success('Transfer request sent — waiting for them to accept.');
+      setTransferTarget(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to send request');
+    } finally {
+      setTransferSubmitting(false);
+    }
   }
 
   // Save one custom field value inline — delete + re-insert for that field
@@ -1008,7 +1087,7 @@ export function ContactDetailView({
                             <span className="text-muted-foreground/60">Unassigned</span>
                           )
                         }
-                        onSave={(v) => saveContactColumn('assigned_to', v || null)}
+                        onSave={(v) => saveAssignee(v || null)}
                       />
                       <StaticField label="Received by">
                         {(() => {
@@ -1214,6 +1293,22 @@ export function ContactDetailView({
           setConvertOpen(false);
           onUpdated();
         }}
+      />
+    )}
+    {contact && (
+      <TransferRequestDialog
+        key={transferTarget ?? 'none'}
+        open={transferTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setTransferTarget(null);
+        }}
+        targetName={
+          transferTarget ? nameById.get(transferTarget) ?? 'Teammate' : ''
+        }
+        targetAvatarUrl={transferTarget ? avatarById.get(transferTarget) : null}
+        leadName={contact.name?.trim() || contact.phone}
+        submitting={transferSubmitting}
+        onConfirm={submitTransferRequest}
       />
     )}
     </>
