@@ -7,7 +7,14 @@
 //   table — the former Contacts table, plus a Status column
 //   board — kanban by lead_status (the former pipeline board's role)
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  startTransition,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   DndContext,
@@ -135,7 +142,7 @@ import {
   ManageColumnsDialog,
   type ManageColumn,
 } from '@/components/contacts/manage-columns-dialog';
-import { LeadsBoard } from '@/components/leads/leads-board';
+import { LeadsBoardView } from '@/components/leads/leads-board-view';
 import { EditableCell } from '@/components/leads/editable-cell';
 import {
   BulkEditDialog,
@@ -2178,39 +2185,31 @@ export default function LeadsPage() {
     assignmentActionRef.current = handleAssignmentAction;
   }, [handleAssignmentAction]);
 
-  // Drag on the board rewrites the lead's status. Optimistic — the
-  // card already landed in its new column; revert by refetch on error.
-  // `.select('id')` turns an RLS-blocked write (silently zero rows) into
-  // a visible failure, so the optimistic card can't stay in a column the
-  // DB never agreed to.
-  const handleStatusChange = useCallback(
-    async (contactId: string, status: LeadStatus | null) => {
-      setBoardLeads((prev) =>
-        prev.map((l) =>
-          l.id === contactId ? { ...l, lead_status: status } : l
-        )
-      );
-      const { data, error } = await supabase
-        .from('contacts')
-        .update({
-          lead_status: status,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', contactId)
-        .select('id');
-      if (error || !data || data.length === 0) {
-        toast.error('Failed to update lead status');
-        setBoardNonce((n) => n + 1);
-      } else {
-        // Keep the table's Status column in sync for the next visit.
+  // The board island (LeadsBoardView) owns the optimistic drag update + the
+  // DB write, so a drop re-renders ONLY the board subtree — not this
+  // ~4k-line page (with its toolbar, filters, and many always-mounted
+  // dialogs). That page re-render is a fixed, card-count-independent cost
+  // that on the drop frame competes with the card's FLIP settle and hitches
+  // it. Once the write commits, the island calls this to sync the page's own
+  // copies: its board mirror (so a table→board round-trip is fresh) and the
+  // table's Status column (for the next visit). startTransition keeps the
+  // sync low-priority so it can't interrupt the in-flight settle.
+  const handleStatusPersisted = useCallback(
+    (contactId: string, status: LeadStatus | null) => {
+      startTransition(() => {
+        setBoardLeads((prev) =>
+          prev.map((l) =>
+            l.id === contactId ? { ...l, lead_status: status } : l
+          )
+        );
         setContacts((prev) =>
           prev.map((c) =>
             c.id === contactId ? { ...c, lead_status: status } : c
           )
         );
-      }
+      });
     },
-    [supabase]
+    []
   );
 
   // Current committed value for an editable cell — the editor's baseline.
@@ -3492,10 +3491,10 @@ export default function LeadsPage() {
                   view to reach the rest.
                 </p>
               )}
-              <LeadsBoard
+              <LeadsBoardView
                 leads={boardLeads}
                 columns={fieldOptions.statuses}
-                onStatusChange={handleStatusChange}
+                onStatusPersisted={handleStatusPersisted}
                 onOpenLead={openDetail}
                 onEditLead={openEditForm}
                 onDeleteLead={confirmDelete}
@@ -3506,6 +3505,7 @@ export default function LeadsPage() {
                 assignmentRequests={assignmentRequests}
                 currentUserId={user?.id}
                 sourceLabel={fieldOptions.sourceLabel}
+                supabase={supabase}
               />
             </>
           )}

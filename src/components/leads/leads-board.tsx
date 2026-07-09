@@ -11,8 +11,6 @@ import {
   useDroppable,
   useDraggable,
   closestCorners,
-  defaultDropAnimationSideEffects,
-  type DropAnimation,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
@@ -36,6 +34,7 @@ import {
   Phone,
   Trash2,
 } from "lucide-react";
+import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { SourceIcon } from "@/components/leads/source-icon";
@@ -96,19 +95,6 @@ interface LeadsBoardProps {
 }
 
 const CARD_TAG_LIMIT = 2;
-
-// The lifted card settles into its dropped slot with dnd-kit's own
-// transform-only drop animation (GPU, O(1)) — NOT a Motion layout FLIP,
-// which would measure every card in the board on release (a freeze at
-// scale). `active` opacity 0 hides the real card underneath while the
-// overlay flies onto it, so there's no double-vision on the settle.
-const DROP_ANIMATION: DropAnimation = {
-  duration: 220,
-  easing: "cubic-bezier(0.2, 0, 0, 1)",
-  sideEffects: defaultDropAnimationSideEffects({
-    styles: { active: { opacity: "0" } },
-  }),
-};
 
 // Compact created-on stamp — "9 Jul", year suffix only when it isn't this
 // year. Full date rides the title tooltip.
@@ -278,11 +264,15 @@ function CardMenu({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
  * — the same states the table cells overlay, so a lead mid-handoff can't
  * look "normal" here).
  *
- * memo() is load-bearing for drag perf: during a drag dnd-kit re-renders
- * the draggable wrapper on every column crossing, but `lead` + `ctx` are
- * stable references, so this body (avatar decode, source SVG, badges,
- * dropdown subtree) is skipped. See ColumnCards for the full story.
+ * `contain: layout` (the `[contain:layout]` util) is the reason the drag +
+ * drop FLIP stays smooth with this rich body. Motion's FLIP flushes layout
+ * once per move to measure every card; layout containment makes each card
+ * an isolated layout subtree, so that flush skips the ~30 unchanged nodes
+ * inside every card (avatar, source SVG, badges, dropdown root) and only
+ * re-lays-out the column's card boxes — i.e. it costs what a bare
+ * title+phone card cost before this redesign.
  *
+ * memo() keeps the body render itself off the drag path (see ColumnCards).
  * The card is a clickable div, NOT a button — it contains real buttons
  * (name = the keyboard/AT open affordance, ⋮ = the actions menu), and
  * nesting those inside a button is invalid HTML.
@@ -303,7 +293,7 @@ const LeadCard = memo(function LeadCard({
     <div
       onClick={() => ctx.onOpenLead(lead.id)}
       className={cn(
-        "group/card w-full cursor-pointer rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/60",
+        "group/card w-full cursor-pointer rounded-lg border border-border bg-card p-3 text-left transition-colors [contain:layout] hover:border-primary/40 hover:bg-muted/60",
         isOverlay && "shadow-lg",
       )}
     >
@@ -386,17 +376,12 @@ const LeadCard = memo(function LeadCard({
  * The dnd-kit draggable. This is the ONLY node in the card tree that
  * subscribes to the drag context, so it's the only one that re-renders on
  * every pointer/column change — deliberately kept featherweight (a bare
- * wrapper div; the heavy `LeadCard` body is memoised and skipped). No
- * Motion layout projection lives here (or anywhere in the tree), so a
- * re-render never forces a `getBoundingClientRect` reflow — that's what
- * keeps both the drag AND the drop settle smooth at 500 cards.
- *
- * `animate-in fade-in-0 zoom-in-95` is a compositor-only CSS entrance
- * (tw-animate-css) that replays only when this card mounts — i.e. the one
- * card that changed columns on drop — so cards come/go with a touch of
- * life at zero measurement cost. The whole wrapper is the drag handle;
- * `touch-none` stops a touch-drag from scrolling the column; `isDragging`
- * dims the source while the DragOverlay carries the lifted copy.
+ * wrapper div; the heavy `LeadCard` body is memoised and skipped). The
+ * `motion.div` that owns layout projection is its PARENT (rendered by the
+ * memoised ColumnCards, which doesn't re-render mid-drag), so these
+ * re-renders never touch the projection node. The whole wrapper is the
+ * drag handle; `touch-none` stops a touch-drag from scrolling the column;
+ * `isDragging` dims the source while the DragOverlay carries the lifted copy.
  */
 function DraggableLeadCard({
   lead,
@@ -415,10 +400,7 @@ function DraggableLeadCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={cn(
-        "animate-in fade-in-0 zoom-in-95 touch-none duration-200 ease-out transition-opacity",
-        isDragging && "opacity-30",
-      )}
+      className={cn("touch-none transition-opacity", isDragging && "opacity-30")}
     >
       <LeadCard lead={lead} ctx={ctx} />
     </div>
@@ -426,13 +408,19 @@ function DraggableLeadCard({
 }
 
 /**
- * The card list for one column. memo()'d against `leads` + `ctx`, both
- * stable references while a drag is in flight (LeadsBoard doesn't re-render
- * on pointer-move / column-over changes). So when dnd-kit re-renders a
- * StatusColumn for its `isOver` outline, THIS subtree is skipped entirely —
- * only the leaf DraggableLeadCards (which subscribe to the drag context
- * directly) re-render, and those are cheap. No layout-measuring node exists
- * in the tree, so neither the drag nor the drop triggers a reflow storm.
+ * The animated card list for one column. memo()'d against `leads` + `ctx`,
+ * both stable references while a drag is in flight (LeadsBoard doesn't
+ * re-render on pointer-move / column-over changes). So when dnd-kit
+ * re-renders a StatusColumn for its `isOver` outline, THIS subtree — every
+ * `motion.div` with layout projection — is skipped, and no card is
+ * re-measured mid-drag. Only the leaf DraggableLeadCards (which subscribe to
+ * the drag context directly) re-render, and those are cheap.
+ *
+ * `layout="position"` (not full `layout`): cards never change size on the
+ * board, only position, so we skip Motion's size-interpolation + scale
+ * correction. `layoutId` bridges a card across columns for the fly-to-new-
+ * home FLIP. The drop's one-shot layout flush stays cheap because each
+ * LeadCard is `contain: layout` (see LeadCard).
  */
 const ColumnCards = memo(function ColumnCards({
   leads,
@@ -442,11 +430,23 @@ const ColumnCards = memo(function ColumnCards({
   ctx: LeadCardContext;
 }) {
   return (
-    <>
+    // popLayout pulls an exiting card out of flow immediately so the
+    // remaining cards slide up to close the gap while it animates out.
+    <AnimatePresence mode="popLayout" initial={false}>
       {leads.map((lead) => (
-        <DraggableLeadCard key={lead.id} lead={lead} ctx={ctx} />
+        <motion.div
+          key={lead.id}
+          layout="position"
+          layoutId={lead.id}
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.96 }}
+          transition={{ type: "spring", stiffness: 550, damping: 38, mass: 0.7 }}
+        >
+          <DraggableLeadCard lead={lead} ctx={ctx} />
+        </motion.div>
       ))}
-    </>
+    </AnimatePresence>
   );
 });
 
@@ -483,7 +483,10 @@ function StatusColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          "mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-lg transition-all",
+          // Transition only the drop-affordance colours — NOT `transition-all`,
+          // which would watch layout properties too and can thrash as cards
+          // enter/leave the column on every drop.
+          "mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-lg transition-[background-color,outline-color] duration-150",
           isOver &&
             "bg-primary/5 outline outline-2 outline-dashed outline-primary outline-offset-2",
         )}
@@ -620,23 +623,27 @@ export function LeadsBoard({
           column cleanly at the viewport edge instead of mid-column.
           Disabled on lg+ where snapping would interfere with the
           natural layout. */}
-      <div className="leads-scroll flex h-full snap-x snap-mandatory gap-3 overflow-x-auto pb-4 lg:snap-none">
-        {allColumns.map((col) => (
-          <StatusColumn
-            key={col.key}
-            column={col}
-            leads={leadsByColumn.get(col.key) ?? []}
-            ctx={cardCtx}
-          />
-        ))}
-      </div>
+      {/* LayoutGroup shares layoutId across columns so a card dragged from
+          one status to another *flies* to its new home instead of teleporting. */}
+      <LayoutGroup>
+        <div className="leads-scroll flex h-full snap-x snap-mandatory gap-3 overflow-x-auto pb-4 lg:snap-none">
+          {allColumns.map((col) => (
+            <StatusColumn
+              key={col.key}
+              column={col}
+              leads={leadsByColumn.get(col.key) ?? []}
+              ctx={cardCtx}
+            />
+          ))}
+        </div>
+      </LayoutGroup>
 
-      {/* The lifted card. On drop dnd-kit runs DROP_ANIMATION — a pure
-          transform of this overlay into the card's new slot (O(1)); the
-          real card is optimistically already there, hidden by the drop
-          side-effect until the overlay lands. No Motion FLIP, so release
-          stays smooth at any card count. */}
-      <DragOverlay dropAnimation={DROP_ANIMATION}>
+      {/* dropAnimation disabled: Motion's layoutId FLIP owns the settle, so the
+          real card flies to its new column. A dnd-kit drop tween here would
+          double-animate against it. The FLIP stays cheap because each card is
+          `contain: layout` (see LeadCard) — the drop's layout flush skips card
+          internals. */}
+      <DragOverlay dropAnimation={null}>
         {activeLead ? (
           <div className="opacity-90">
             <LeadCard lead={activeLead} ctx={cardCtx} isOverlay />
