@@ -2,7 +2,12 @@
 
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { LeadsBoard, type BoardLead } from '@/components/leads/leads-board';
+import {
+  LeadsBoard,
+  type BoardDensity,
+  type BoardLead,
+  type BoardSortWithin,
+} from '@/components/leads/leads-board';
 import type { LeadColumn } from '@/lib/leads/status';
 import type { Contact, LeadStatus, LeadTransfer } from '@/types';
 import type { createClient } from '@/lib/supabase/client';
@@ -20,6 +25,8 @@ interface LeadsBoardViewProps {
   assignmentRequests: Record<string, LeadTransfer>;
   currentUserId?: string;
   sourceLabel: (key: string) => string;
+  density: BoardDensity;
+  sortWithin: BoardSortWithin;
   onOpenLead: (contactId: string) => void;
   onEditLead: (lead: Contact) => void;
   onDeleteLead: (lead: Contact) => void;
@@ -50,6 +57,8 @@ export function LeadsBoardView({
   assignmentRequests,
   currentUserId,
   sourceLabel,
+  density,
+  sortWithin,
   onOpenLead,
   onEditLead,
   onDeleteLead,
@@ -73,10 +82,14 @@ export function LeadsBoardView({
     async (contactId: string, status: LeadStatus | null) => {
       // Optimistic — LOCAL only, so the drop frame re-renders just this
       // island + the board, never the page. Motion's FLIP then settles on a
-      // clean frame.
+      // clean frame. Bump updated_at too so the "Recently updated" sort
+      // reflects the move immediately (the DB write sets the same).
+      const now = new Date().toISOString();
       setLeads((prev) =>
         prev.map((l) =>
-          l.id === contactId ? { ...l, lead_status: status } : l,
+          l.id === contactId
+            ? { ...l, lead_status: status, updated_at: now }
+            : l,
         ),
       );
       // `.select('id')` turns an RLS-blocked write (silently zero rows) into
@@ -84,7 +97,7 @@ export function LeadsBoardView({
       // DB never agreed to.
       const { data, error } = await supabase
         .from('contacts')
-        .update({ lead_status: status, updated_at: new Date().toISOString() })
+        .update({ lead_status: status, updated_at: now })
         .eq('id', contactId)
         .select('id');
       if (error || !data || data.length === 0) {
@@ -112,6 +125,8 @@ export function LeadsBoardView({
       assignmentRequests={assignmentRequests}
       currentUserId={currentUserId}
       sourceLabel={sourceLabel}
+      density={density}
+      sortWithin={sortWithin}
     />
   );
 }

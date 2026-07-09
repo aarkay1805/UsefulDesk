@@ -50,6 +50,13 @@ import { cn } from "@/lib/utils";
 /** Board rows are table rows — same enrichment (tags ride along). */
 export type BoardLead = Contact & { tags?: Tag[] };
 
+// Board view settings (Tier 1), persisted in the shared `table_preferences`
+// 'leads' blob (migration 053). Density = how much each card shows (the
+// board's peer of the table's clip/wrap); sort-within = card order inside
+// each status column (the board hard-coded newest-first before this).
+export type BoardDensity = 'compact' | 'comfortable';
+export type BoardSortWithin = 'newest' | 'oldest' | 'name' | 'updated';
+
 /** Everything a card needs beyond its own lead row. Assembled once
  *  (memoised) by LeadsBoard so it's a STABLE reference — the whole card
  *  tree is memoised against it, so a dnd-kit re-render can't cascade into
@@ -65,6 +72,9 @@ interface LeadCardContext {
   assignmentRequests: Record<string, LeadTransfer>;
   currentUserId?: string;
   sourceLabel: (key: string) => string;
+  /** Compact drops company / tags / the source+date footer strip; the
+      owner + name + phone always show. */
+  density: BoardDensity;
 }
 
 interface LeadsBoardProps {
@@ -92,9 +102,50 @@ interface LeadsBoardProps {
   currentUserId?: string;
   /** Account-aware source label (fieldOptions.sourceLabel). */
   sourceLabel: (key: string) => string;
+  /** Board view settings (Tier 1) — how much each card shows, and the
+      card order within each status column. */
+  density: BoardDensity;
+  sortWithin: BoardSortWithin;
 }
 
 const CARD_TAG_LIMIT = 2;
+
+// Order the cards inside one status column. created_at / updated_at are
+// stored ISO, so a string compare is chronological. Newest is the default
+// (matches the pre-settings board); oldest surfaces stale leads to the top
+// (the action-list use). Name sorts blanks (Unnamed) last, both empty = tie.
+function sortColumnLeads(
+  list: BoardLead[],
+  mode: BoardSortWithin,
+): BoardLead[] {
+  const arr = [...list];
+  switch (mode) {
+    case 'oldest':
+      arr.sort((a, b) => a.created_at.localeCompare(b.created_at));
+      break;
+    case 'name':
+      arr.sort((a, b) => {
+        const an = a.name?.trim() ?? '';
+        const bn = b.name?.trim() ?? '';
+        if (!an && !bn) return 0;
+        if (!an) return 1;
+        if (!bn) return -1;
+        return an.localeCompare(bn);
+      });
+      break;
+    case 'updated':
+      arr.sort((a, b) =>
+        (b.updated_at ?? b.created_at).localeCompare(
+          a.updated_at ?? a.created_at,
+        ),
+      );
+      break;
+    case 'newest':
+    default:
+      arr.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+  return arr;
+}
 
 // Compact created-on stamp — "9 Jul", year suffix only when it isn't this
 // year. Full date rides the title tooltip.
@@ -320,14 +371,17 @@ const LeadCard = memo(function LeadCard({
         <Phone className="size-3 shrink-0" />
         <span className="truncate">{lead.phone}</span>
       </p>
-      {lead.company && (
+
+      {/* Comfortable-only detail: company, tags, and the source+date footer
+          strip. Compact keeps just name / phone / owner for a dense scan. */}
+      {ctx.density === "comfortable" && lead.company && (
         <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Building2 className="size-3 shrink-0" />
           <span className="truncate">{lead.company}</span>
         </p>
       )}
 
-      {tags.length > 0 && (
+      {ctx.density === "comfortable" && tags.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {tags.slice(0, CARD_TAG_LIMIT).map((tag) => (
             <Badge key={tag.id} variant="neutral">
@@ -348,26 +402,33 @@ const LeadCard = memo(function LeadCard({
         </div>
       )}
 
-      {/* Footer — origin (source glyph + created date) vs owner. Hairline
-          top border groups it apart from the identity block above. */}
-      <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border/60 pt-2">
-        <span className="flex min-w-0 items-center gap-1.5">
-          {lead.source && (
-            <SourceIcon
-              source={lead.source}
-              label={ctx.sourceLabel(lead.source)}
-              className="size-3.5"
-            />
-          )}
-          <span
-            className="text-[11px] text-muted-foreground"
-            title={`Created ${new Date(lead.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`}
-          >
-            {formatCardDate(lead.created_at)}
+      {ctx.density === "comfortable" ? (
+        // Footer — origin (source glyph + created date) vs owner. Hairline
+        // top border groups it apart from the identity block above.
+        <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border/60 pt-2">
+          <span className="flex min-w-0 items-center gap-1.5">
+            {lead.source && (
+              <SourceIcon
+                source={lead.source}
+                label={ctx.sourceLabel(lead.source)}
+                className="size-3.5"
+              />
+            )}
+            <span
+              className="text-[11px] text-muted-foreground"
+              title={`Created ${new Date(lead.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`}
+            >
+              {formatCardDate(lead.created_at)}
+            </span>
           </span>
-        </span>
-        <CardOwner lead={lead} ctx={ctx} />
-      </div>
+          <CardOwner lead={lead} ctx={ctx} />
+        </div>
+      ) : (
+        // Compact — owner only, no border/meta strip.
+        <div className="mt-2 flex justify-end">
+          <CardOwner lead={lead} ctx={ctx} />
+        </div>
+      )}
     </div>
   );
 });
@@ -523,6 +584,8 @@ export function LeadsBoard({
   assignmentRequests,
   currentUserId,
   sourceLabel,
+  density,
+  sortWithin,
 }: LeadsBoardProps) {
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
 
@@ -542,8 +605,13 @@ export function LeadsBoard({
       }
       map.get(key)!.push(lead);
     }
+    // Order each column by the chosen sort. Reordering animates for free —
+    // the cards' layoutId FLIP flies them to their new slots.
+    for (const key of map.keys()) {
+      map.set(key, sortColumnLeads(map.get(key)!, sortWithin));
+    }
     return { allColumns: [...columns, ...extras], leadsByColumn: map };
-  }, [leads, columns]);
+  }, [leads, columns, sortWithin]);
 
   // Card render context — memoised into ONE stable reference so the
   // memoised card tree (LeadCard / ColumnCards) actually skips re-renders
@@ -561,6 +629,7 @@ export function LeadsBoard({
       assignmentRequests,
       currentUserId,
       sourceLabel,
+      density,
     }),
     [
       onOpenLead,
@@ -573,6 +642,7 @@ export function LeadsBoard({
       assignmentRequests,
       currentUserId,
       sourceLabel,
+      density,
     ],
   );
 

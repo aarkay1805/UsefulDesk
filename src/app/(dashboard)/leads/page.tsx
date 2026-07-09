@@ -143,6 +143,10 @@ import {
   type ManageColumn,
 } from '@/components/contacts/manage-columns-dialog';
 import { LeadsBoardView } from '@/components/leads/leads-board-view';
+import type {
+  BoardDensity,
+  BoardSortWithin,
+} from '@/components/leads/leads-board';
 import { EditableCell } from '@/components/leads/editable-cell';
 import {
   BulkEditDialog,
@@ -225,6 +229,12 @@ interface TablePrefs {
   sort: SortState | null;
   // Number of leading visible columns pinned to the left (sticky).
   frozenCount: number;
+  // Board view settings (Tier 1) — density + card order within a column.
+  // Shares this 'leads' prefs row (migration 053); the table ignores it.
+  board: {
+    density: BoardDensity;
+    sortWithin: BoardSortWithin;
+  };
 }
 
 const DEFAULT_PREFS: TablePrefs = {
@@ -236,6 +246,7 @@ const DEFAULT_PREFS: TablePrefs = {
   view: 'table',
   sort: null,
   frozenCount: 0,
+  board: { density: 'comfortable', sortWithin: 'newest' },
 };
 
 interface ContactWithData extends Contact {
@@ -1214,6 +1225,9 @@ export default function LeadsPage() {
   // Defensive reads — prefs saved before these fields existed omit them.
   const sort = prefs.sort ?? null;
   const frozenCountPref = prefs.frozenCount ?? 0;
+  const boardDensity = prefs.board?.density ?? DEFAULT_PREFS.board.density;
+  const boardSortWithin =
+    prefs.board?.sortWithin ?? DEFAULT_PREFS.board.sortWithin;
 
   // ---- Column resolution --------------------------------------------------
   // Live columns = built-ins + one per custom field. Effective order applies
@@ -2196,15 +2210,20 @@ export default function LeadsPage() {
   // sync low-priority so it can't interrupt the in-flight settle.
   const handleStatusPersisted = useCallback(
     (contactId: string, status: LeadStatus | null) => {
+      const now = new Date().toISOString();
       startTransition(() => {
         setBoardLeads((prev) =>
           prev.map((l) =>
-            l.id === contactId ? { ...l, lead_status: status } : l
+            l.id === contactId
+              ? { ...l, lead_status: status, updated_at: now }
+              : l
           )
         );
         setContacts((prev) =>
           prev.map((c) =>
-            c.id === contactId ? { ...c, lead_status: status } : c
+            c.id === contactId
+              ? { ...c, lead_status: status, updated_at: now }
+              : c
           )
         );
       });
@@ -3022,6 +3041,20 @@ export default function LeadsPage() {
     setPrefs((p) => ({ ...p, view: v }));
   }
 
+  function setBoardDensity(density: BoardDensity) {
+    setPrefs((p) => ({
+      ...p,
+      board: { ...(p.board ?? DEFAULT_PREFS.board), density },
+    }));
+  }
+
+  function setBoardSortWithin(sortWithin: BoardSortWithin) {
+    setPrefs((p) => ({
+      ...p,
+      board: { ...(p.board ?? DEFAULT_PREFS.board), sortWithin },
+    }));
+  }
+
   function resetColumnSizes() {
     setPrefs((p) => ({ ...p, widths: {} }));
   }
@@ -3242,8 +3275,8 @@ export default function LeadsPage() {
                   <Button
                     variant="outline"
                     className={cn(
-                      'border-border text-muted-foreground hover:bg-muted focus-visible:z-10',
-                      view === 'table' && 'rounded-r-none'
+                      // The settings gear is fused on the right in BOTH views.
+                      'border-border text-muted-foreground hover:bg-muted rounded-r-none focus-visible:z-10'
                     )}
                   />
                 }
@@ -3288,19 +3321,19 @@ export default function LeadsPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            {view === 'table' && (
-              /* Table settings (pagination, cell text, custom fields) */
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setViewSettingsOpen(true)}
-                aria-label="Table settings"
-                title="Table settings"
-                className="border-border text-muted-foreground hover:bg-muted -ml-px rounded-l-none focus-visible:z-10"
-              >
-                <Settings className="size-4" />
-              </Button>
-            )}
+            {/* Settings gear — fused right segment, both views. Opens the
+                active view's own settings (table: pagination / cell text;
+                board: card density / sort). */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setViewSettingsOpen(true)}
+              aria-label={view === 'board' ? 'Board settings' : 'Table settings'}
+              title={view === 'board' ? 'Board settings' : 'Table settings'}
+              className="border-border text-muted-foreground hover:bg-muted -ml-px rounded-l-none focus-visible:z-10"
+            >
+              <Settings className="size-4" />
+            </Button>
           </div>
 
           {view === 'table' && (
@@ -3505,6 +3538,8 @@ export default function LeadsPage() {
                 assignmentRequests={assignmentRequests}
                 currentUserId={user?.id}
                 sourceLabel={fieldOptions.sourceLabel}
+                density={boardDensity}
+                sortWithin={boardSortWithin}
                 supabase={supabase}
               />
             </>
@@ -3927,11 +3962,16 @@ export default function LeadsPage() {
       <ViewSettingsSheet
         open={viewSettingsOpen}
         onOpenChange={setViewSettingsOpen}
+        view={view}
         pageSize={pageSize}
         pageSizeOptions={PAGE_SIZE_OPTIONS}
         onPageSizeChange={setPageSize}
         cellText={viewMode}
         onCellTextChange={setViewMode}
+        density={boardDensity}
+        onDensityChange={setBoardDensity}
+        sortWithin={boardSortWithin}
+        onSortWithinChange={setBoardSortWithin}
       />
 
       {/* Edit columns — split-view picker (catalogue + custom fields on the

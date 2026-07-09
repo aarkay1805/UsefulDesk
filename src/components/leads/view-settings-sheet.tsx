@@ -15,34 +15,60 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import type {
+  BoardDensity,
+  BoardSortWithin,
+} from '@/components/leads/leads-board';
 
 type CellTextMode = 'wrap' | 'clip';
+
+const SORT_WITHIN_OPTIONS: { value: BoardSortWithin; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'name', label: 'Name (A–Z)' },
+  { value: 'updated', label: 'Recently updated' },
+];
 
 interface ViewSettingsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Which view's settings to show — the gear opens this same sheet from
+      both the table and the board. */
+  view: 'table' | 'board';
 
-  // Display
+  // Table display
   pageSize: number;
   pageSizeOptions: readonly number[];
   onPageSizeChange: (n: number) => void;
   cellText: CellTextMode;
   onCellTextChange: (mode: CellTextMode) => void;
+
+  // Board display (Tier 1)
+  density: BoardDensity;
+  onDensityChange: (mode: BoardDensity) => void;
+  sortWithin: BoardSortWithin;
+  onSortWithinChange: (mode: BoardSortWithin) => void;
 }
 
-// The gear "Table settings" side sheet — display prefs (pagination, cell
-// text). Mirrors the profile detail side-sheet interaction (right
+// The gear settings side sheet — display prefs for whichever view is
+// active. Mirrors the profile detail side-sheet interaction (right
 // slide-over). Column management + custom fields live in the separate
-// "Edit columns" split-view dialog.
+// "Edit columns" split-view dialog (table only).
 export function ViewSettingsSheet({
   open,
   onOpenChange,
+  view,
   pageSize,
   pageSizeOptions,
   onPageSizeChange,
   cellText,
   onCellTextChange,
+  density,
+  onDensityChange,
+  sortWithin,
+  onSortWithinChange,
 }: ViewSettingsSheetProps) {
+  const isBoard = view === 'board';
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -50,47 +76,89 @@ export function ViewSettingsSheet({
         className="w-full gap-0 border-border bg-popover p-0 text-popover-foreground sm:max-w-md"
       >
         <SheetHeader className="border-b border-border px-5 py-4">
-          <SheetTitle className="text-base text-foreground">Table settings</SheetTitle>
+          <SheetTitle className="text-base text-foreground">
+            {isBoard ? 'Board settings' : 'Table settings'}
+          </SheetTitle>
           <SheetDescription className="text-muted-foreground">
-            Configure how the leads table looks and behaves.
+            {isBoard
+              ? 'Configure how the leads board looks and behaves.'
+              : 'Configure how the leads table looks and behaves.'}
           </SheetDescription>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
-          {/* Display */}
-          <Section title="Display">
-            <SettingRow label="Records per page">
-              <Select
-                value={String(pageSize)}
-                onValueChange={(v) => onPageSizeChange(Number(v))}
+          {isBoard ? (
+            <Section title="Display">
+              <SettingRow
+                label="Card density"
+                description="How much detail each card shows."
               >
-                <SelectTrigger size="sm" className="min-w-[4.25rem]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {pageSizeOptions.map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </SettingRow>
+                <Segmented
+                  options={[
+                    { value: 'comfortable', label: 'Comfortable' },
+                    { value: 'compact', label: 'Compact' },
+                  ]}
+                  value={density}
+                  onChange={(v) => onDensityChange(v as BoardDensity)}
+                />
+              </SettingRow>
 
-            <SettingRow
-              label="Cell text"
-              description="How text that overflows a cell is shown."
-            >
-              <Segmented
-                options={[
-                  { value: 'clip', label: 'Clip' },
-                  { value: 'wrap', label: 'Wrap' },
-                ]}
-                value={cellText}
-                onChange={(v) => onCellTextChange(v as CellTextMode)}
-              />
-            </SettingRow>
-          </Section>
+              <SettingRow
+                label="Sort cards"
+                description="Order of cards within each status column."
+              >
+                <Select
+                  value={sortWithin}
+                  onValueChange={(v) => onSortWithinChange(v as BoardSortWithin)}
+                >
+                  <SelectTrigger size="sm" className="min-w-[10rem]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SORT_WITHIN_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </SettingRow>
+            </Section>
+          ) : (
+            <Section title="Display">
+              <SettingRow label="Records per page">
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => onPageSizeChange(Number(v))}
+                >
+                  <SelectTrigger size="sm" className="min-w-[4.25rem]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pageSizeOptions.map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </SettingRow>
+
+              <SettingRow
+                label="Cell text"
+                description="How text that overflows a cell is shown."
+              >
+                <Segmented
+                  options={[
+                    { value: 'clip', label: 'Clip' },
+                    { value: 'wrap', label: 'Wrap' },
+                  ]}
+                  value={cellText}
+                  onChange={(v) => onCellTextChange(v as CellTextMode)}
+                />
+              </SettingRow>
+            </Section>
+          )}
         </div>
       </SheetContent>
     </Sheet>
