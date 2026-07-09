@@ -10,9 +10,16 @@
 --     they OWN creates a pending request the target must accept before
 --     ownership moves.
 --
--- Invariant: a lead is NEVER ownerless. `contacts.assigned_to` flips
--- only on acceptance; pending/declined/cancelled leave the current
--- owner untouched.
+-- "Ownership" here = `contacts.user_id`, surfaced as the **Received by**
+-- column: the human teammate who owns the lead. `received_via` stays the
+-- immutable origin CHANNEL (manual/import/whatsapp/meta/…); only
+-- human-received leads (received_via NULL/manual/import) can be
+-- transferred — system-generated captures are locked.
+--
+-- Invariant: a lead is NEVER ownerless. `contacts.user_id` flips only on
+-- acceptance; pending/declined/cancelled leave the current owner
+-- untouched. (The separate `assigned_to` "assignment" field is not
+-- touched by transfers.)
 --
 -- All mutations run through SECURITY DEFINER RPCs (role rules + state
 -- machine live server-side); the table is SELECT-only from clients,
@@ -102,7 +109,7 @@ DECLARE
   v_uid            UUID := auth.uid();
   v_account_id     UUID;
   v_owner          UUID;
-  v_pending_invite UUID;
+  v_received_via   TEXT;
   v_is_admin       BOOLEAN;
   v_transfer_id    UUID;
   v_contact_name   TEXT;
@@ -112,9 +119,10 @@ BEGIN
     RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
   END IF;
 
-  SELECT account_id, assigned_to, pending_invitation_id,
+  -- Ownership = contacts.user_id (the "Received by" teammate).
+  SELECT account_id, user_id, received_via,
          COALESCE(NULLIF(TRIM(name), ''), phone, 'a lead')
-    INTO v_account_id, v_owner, v_pending_invite, v_contact_name
+    INTO v_account_id, v_owner, v_received_via, v_contact_name
   FROM contacts WHERE id = p_contact_id;
 
   IF v_account_id IS NULL THEN
@@ -122,6 +130,14 @@ BEGIN
   END IF;
   IF NOT is_account_member(v_account_id, 'agent') THEN
     RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
+  END IF;
+
+  -- Only human-received leads are transferable. System-generated captures
+  -- (whatsapp/meta/api/automation) have no human owner to hand off.
+  IF v_received_via IS NOT NULL
+     AND v_received_via NOT IN ('manual', 'import') THEN
+    RAISE EXCEPTION 'System-generated leads cannot be transferred'
+      USING ERRCODE = '22023';
   END IF;
 
   -- Target must be a real, non-viewer member of this account.
@@ -142,23 +158,16 @@ BEGIN
 
   v_is_admin := is_account_member(v_account_id, 'admin');
 
-  -- ---- Instant path -----------------------------------------------------
-  -- Managerial (admin/owner), or an agent claiming an UNASSIGNED lead for
-  -- themselves. A lead parked on a pending invite (049) has no real owner,
-  -- so only an admin may move it (and doing so clears the overlay).
-  IF v_is_admin
-     OR (v_owner IS NULL AND v_pending_invite IS NULL AND p_to_user = v_uid) THEN
-
-    -- Close any in-flight request for this lead (admin override supersedes).
+  -- ---- Instant path (managerial) ----------------------------------------
+  -- Admin/owner move ownership immediately; the new owner is notified
+  -- (they didn't act). Any in-flight request for this lead is superseded.
+  IF v_is_admin THEN
     UPDATE lead_transfers
       SET status = 'superseded', resolved_at = NOW(), resolved_by = v_uid
       WHERE contact_id = p_contact_id AND status = 'pending';
 
     UPDATE contacts
-      SET assigned_to = p_to_user,
-          pending_invitation_id = NULL,
-          pending_assignee_name = NULL,
-          updated_at = NOW()
+      SET user_id = p_to_user, updated_at = NOW()
       WHERE id = p_contact_id;
 
     INSERT INTO lead_transfers (
@@ -168,6 +177,17 @@ BEGIN
       v_account_id, p_contact_id, v_owner, p_to_user, v_uid,
       'accepted', p_note, NOW(), v_uid
     );
+
+    IF p_to_user <> v_uid THEN
+      SELECT full_name INTO v_actor_name FROM profiles WHERE user_id = v_uid;
+      INSERT INTO notifications (account_id, user_id, type, contact_id,
+                                 actor_user_id, title, body)
+      VALUES (v_account_id, p_to_user, 'lead_assigned', p_contact_id, v_uid,
+              'Lead assigned to you',
+              v_contact_name || CASE
+                WHEN v_actor_name IS NOT NULL AND v_actor_name <> ''
+                THEN ' — assigned by ' || v_actor_name ELSE '' END);
+    END IF;
 
     RETURN 'accepted';
   END IF;
@@ -252,14 +272,9 @@ BEGIN
   SELECT full_name INTO v_actor_name FROM profiles WHERE user_id = v_uid;
 
   IF p_accept THEN
-    -- Ownership moves now. If the acceptor IS the target, the contacts
-    -- trigger's self-guard suppresses the duplicate lead_assigned notice;
-    -- an admin force-accept legitimately notifies the new owner.
+    -- Ownership (contacts.user_id) moves now.
     UPDATE contacts
-      SET assigned_to = v_t.to_user_id,
-          pending_invitation_id = NULL,
-          pending_assignee_name = NULL,
-          updated_at = NOW()
+      SET user_id = v_t.to_user_id, updated_at = NOW()
       WHERE id = v_t.contact_id;
 
     UPDATE lead_transfers
@@ -276,6 +291,15 @@ BEGIN
     FROM (SELECT DISTINCT uid FROM unnest(
             ARRAY[v_t.requested_by, v_t.from_user_id]
           ) AS uid WHERE uid IS NOT NULL AND uid <> v_uid) recipients;
+
+    -- An admin force-accepting for someone else → tell the new owner too
+    -- (there's no assigned_to trigger firing on a user_id change).
+    IF v_uid <> v_t.to_user_id THEN
+      INSERT INTO notifications (account_id, user_id, type, contact_id,
+                                 actor_user_id, title, body)
+      VALUES (v_t.account_id, v_t.to_user_id, 'lead_assigned', v_t.contact_id,
+              v_uid, 'Lead assigned to you', v_contact_name);
+    END IF;
 
     RETURN 'accepted';
   ELSE

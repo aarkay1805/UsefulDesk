@@ -132,9 +132,13 @@ export interface Contact {
   pending_invitation_id?: string | null;
   pending_assignee_name?: string | null;
   /** Origin channel the lead entered through (immutable, migration 048).
-   *  Human origins ('manual'/'import') render the creator; the rest
+   *  Human origins ('manual'/'import') render the owner; the rest
    *  render an "Auto · <channel>" pill. NULL = pre-048 (treat as human). */
   received_via?: ReceivedVia | null;
+  /** Original human creator (auth user id), immutable — set once at insert,
+   *  frozen on update by a DB trigger (migration 051). Distinct from
+   *  `user_id`, which is the CURRENT owner and moves on transfer (050). */
+  created_by?: string | null;
   /** When lead_status last changed (DB trigger, migration 047).
    *  NULL = unchanged since creation; readers fall back to created_at. */
   lead_status_changed_at?: string | null;

@@ -1,6 +1,19 @@
 # Lead Ownership Transfer — role-gated reassign + peer handoff
 
-> Status: **SPEC** (not built). Target migration `050_lead_transfers.sql`.
+> **AMENDMENT (as built).** "Ownership" = the **"Received by" human =
+> `contacts.user_id`**, NOT `assigned_to`. `assigned_to` stays a separate
+> reassignable "assignment" field, untouched by transfers. `received_via`
+> stays the immutable origin channel; **only human-received leads**
+> (`received_via` NULL/manual/import) are transferable — system-generated
+> captures are locked. The transfer UI lives on the **Received-by column**
+> (leads table cell + detail sheet row), not the Assignee cell. Everywhere
+> below that says `assigned_to`, read `user_id`. Because ownership moves via
+> `user_id`, `notify_lead_assigned` (which watches `assigned_to`) does NOT
+> fire, so the RPCs notify the new owner explicitly on admin-instant and
+> admin-force-accept. There is no "self-claim an unassigned lead" case
+> (`user_id` is always set). Bulk assignment stays as it was (not gated).
+
+> Status: **BUILT + live.** Migration `050_lead_transfers.sql`.
 > Builds on 047 (assigned_to → auth.users, notify_lead_assigned), 049
 > (pending-invite overlay), 027 (notifications + realtime), 017 (RLS +
 > `is_account_member`), and the `roles.ts` capability-predicate rule.

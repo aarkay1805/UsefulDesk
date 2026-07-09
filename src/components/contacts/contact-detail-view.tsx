@@ -432,52 +432,38 @@ export function ContactDetailView({
     return true;
   }
 
-  // Role-gated ownership change (migration 050), mirroring the leads table:
-  //  · unassign        → managerial (admin) direct write
-  //  · admin/self-claim → instant via request_lead_transfer
-  //  · agent handoff    → open the accept-gated request dialog (returns
-  //    false so the inline field reverts — ownership hasn't moved yet)
+  // Ownership transfer of the "Received by" owner (contacts.user_id,
+  // migration 050). Admins move it instantly; an agent handing off a lead
+  // they own opens the accept-gated dialog (returns false so the inline
+  // field reverts — ownership hasn't moved yet). Only reachable for
+  // human-received leads (the Received-by row is static for auto origins).
   const canReassignDirect = accountRole
     ? canReassignLeadsDirectly(accountRole)
     : false;
   const canTransfer = accountRole ? canRequestLeadTransfer(accountRole) : false;
 
-  async function saveAssignee(next: string | null): Promise<boolean> {
-    if (!contact) return false;
-    const target = next || null;
+  async function transferOwner(next: string | null): Promise<boolean> {
+    if (!contact || !next) return false;
+    if (next === contact.user_id) return true;
 
-    if (!target) {
-      if (!canReassignDirect) {
-        toast.error('Only an admin can unassign a lead.');
-        return false;
-      }
-      return saveContactColumn('assigned_to', null);
-    }
-    if (target === contact.assigned_to) return true;
-
-    const selfClaim = !contact.assigned_to && target === user?.id;
-    if (canReassignDirect || selfClaim) {
+    if (canReassignDirect) {
       try {
-        await requestLeadTransfer(supabase, contact.id, target);
+        await requestLeadTransfer(supabase, contact.id, next);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Failed to reassign');
+        toast.error(e instanceof Error ? e.message : 'Failed to transfer');
         return false;
       }
-      setContact((c) => (c ? { ...c, assigned_to: target } : c));
+      setContact((c) => (c ? { ...c, user_id: next } : c));
       onUpdated();
-      toast.success('Lead reassigned');
+      toast.success('Ownership transferred');
       return true;
     }
 
-    if (!canTransfer) {
-      toast.error('You do not have permission to reassign leads.');
-      return false;
-    }
-    if (contact.assigned_to !== user?.id) {
+    if (!canTransfer || contact.user_id !== user?.id) {
       toast.error('Only the current owner or an admin can transfer this lead.');
       return false;
     }
-    setTransferTarget(target);
+    setTransferTarget(next);
     return false; // dialog owns the request; field reverts to current owner
   }
 
@@ -1087,26 +1073,85 @@ export function ContactDetailView({
                             <span className="text-muted-foreground/60">Unassigned</span>
                           )
                         }
-                        onSave={(v) => saveAssignee(v || null)}
+                        onSave={(v) => saveContactColumn('assigned_to', v || null)}
                       />
-                      <StaticField label="Received by">
-                        {(() => {
-                          const auto = autoReceivedLabel(contact.received_via);
-                          if (auto) return <Badge variant="neutral">{auto}</Badge>;
-                          const name = nameById.get(contact.user_id) ?? 'Teammate';
+                      {(() => {
+                        // "Received by" = the human owner (contacts.user_id).
+                        // Auto origins are locked; human leads get an owner
+                        // picker that transfers ownership (migration 050).
+                        const auto = autoReceivedLabel(contact.received_via);
+                        if (auto) {
                           return (
-                            <span className="flex min-w-0 items-center gap-1.5">
-                              <UserAvatar
-                                name={name}
-                                src={avatarById.get(contact.user_id) ?? null}
-                                className="size-5 shrink-0"
-                                fallbackClassName="text-[10px]"
-                              />
-                              <span className="truncate">{name}</span>
-                            </span>
+                            <StaticField label="Received by">
+                              <Badge variant="neutral">{auto}</Badge>
+                            </StaticField>
                           );
-                        })()}
-                      </StaticField>
+                        }
+                        const name = nameById.get(contact.user_id) ?? 'Teammate';
+                        const ownerChip = (
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <UserAvatar
+                              name={name}
+                              src={avatarById.get(contact.user_id) ?? null}
+                              className="size-5 shrink-0"
+                              fallbackClassName="text-[10px]"
+                            />
+                            <span className="truncate">{name}</span>
+                          </span>
+                        );
+                        const canInitiate =
+                          canReassignDirect ||
+                          (canTransfer && contact.user_id === user?.id);
+                        if (!canInitiate) {
+                          return (
+                            <StaticField label="Received by">
+                              {ownerChip}
+                            </StaticField>
+                          );
+                        }
+                        return (
+                          <InlineSelectField
+                            label="Received by"
+                            value={contact.user_id ?? ''}
+                            variant="plain"
+                            options={staff.map((s) => ({
+                              value: s.user_id,
+                              label: s.full_name,
+                              icon: (
+                                <UserAvatar
+                                  name={s.full_name}
+                                  src={s.avatar_url}
+                                  className="size-5 shrink-0"
+                                  fallbackClassName="text-[10px]"
+                                />
+                              ),
+                            }))}
+                            display={ownerChip}
+                            onSave={(v) => transferOwner(v || null)}
+                          />
+                        );
+                      })()}
+                      {contact.created_by && (
+                        <StaticField label="Created by">
+                          {(() => {
+                            const name =
+                              nameById.get(contact.created_by) ?? 'Teammate';
+                            return (
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <UserAvatar
+                                  name={name}
+                                  src={
+                                    avatarById.get(contact.created_by) ?? null
+                                  }
+                                  className="size-5 shrink-0"
+                                  fallbackClassName="text-[10px]"
+                                />
+                                <span className="truncate">{name}</span>
+                              </span>
+                            );
+                          })()}
+                        </StaticField>
+                      )}
                       {customFields.map((field) => (
                         <InlineField
                           key={field.id}

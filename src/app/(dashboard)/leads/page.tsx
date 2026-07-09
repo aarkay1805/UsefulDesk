@@ -429,6 +429,21 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     },
   },
   {
+    key: 'created_by',
+    label: 'Created by',
+    defaultWidth: 160,
+    minWidth: 120,
+    // Immutable original creator (migration 051) — audit; never changes on
+    // transfer. No edit / no sort (uuid). Static fallback; liveColumns
+    // overrides to show the teammate once the staff roster resolves.
+    render: (c) =>
+      c.created_by ? (
+        <span className="text-muted-foreground text-sm">Created</span>
+      ) : (
+        <span className="text-muted-foreground text-sm">—</span>
+      ),
+  },
+  {
     key: 'tags',
     label: 'Tags',
     defaultWidth: 180,
@@ -1004,6 +1019,12 @@ export default function LeadsPage() {
     (id: string, action: 'accept' | 'decline' | 'cancel') => void
   >(() => {});
 
+  // Start a transfer from the Received-by cell's owner picker (same TDZ
+  // dodge — the handler is defined after refreshAll).
+  const initiateTransferRef = useRef<
+    (contact: ContactWithData, targetId: string) => void
+  >(() => {});
+
   // Column drag-reorder. A 6px activation distance means a plain click on
   // the header label (to no effect) or on the sort arrows / overflow menu
   // never starts a drag — only a deliberate pull does.
@@ -1064,13 +1085,44 @@ export default function LeadsPage() {
         return {
           ...col,
           render: (c) => {
-            // A pending ownership transfer (migration 050) overlays the
-            // owner: ownership hasn't moved yet, so show current owner →
-            // target, with contextual Accept/Decline/Withdraw when the
-            // viewer is the target, the requester, or an admin.
+            // A pending-invite owner overrides the display — the lead is
+            // parked on a teammate who hasn't joined yet (migration 049).
+            if (c.pending_invitation_id && c.pending_assignee_name) {
+              return <PendingAssigneeDisplay name={c.pending_assignee_name} />;
+            }
+            if (!c.assigned_to) {
+              return (
+                <span className="text-muted-foreground text-sm">
+                  Unassigned
+                </span>
+              );
+            }
+            return (
+              <AssigneeDisplay
+                name={nameById.get(c.assigned_to) ?? 'Teammate'}
+                avatarUrl={avatarById.get(c.assigned_to)}
+              />
+            );
+          },
+        };
+      }
+      if (col.key === 'received_by') {
+        return {
+          ...col,
+          render: (c) => {
+            // System-generated capture → locked "Auto · <channel>" pill,
+            // never transferable (no human owner).
+            const auto = autoReceivedLabel(c.received_via);
+            if (auto) return <Badge variant="neutral">{auto}</Badge>;
+
+            // Ownership = the human "Received by" (contacts.user_id).
+            // A pending transfer (migration 050) overlays it: ownership
+            // hasn't moved yet, so show current owner → target with
+            // contextual Accept/Decline/Withdraw for the target /
+            // requester / admin.
             const transfer = transfers[c.id];
             if (transfer) {
-              const ownerId = transfer.from_user_id ?? c.assigned_to ?? null;
+              const ownerId = transfer.from_user_id ?? c.user_id ?? null;
               const badge = (
                 <TransferPendingDisplay
                   ownerName={ownerId ? nameById.get(ownerId) ?? 'Teammate' : null}
@@ -1138,42 +1190,77 @@ export default function LeadsPage() {
                 </DropdownMenu>
               );
             }
-            // A pending-invite owner overrides the display — the lead is
-            // parked on a teammate who hasn't joined yet (migration 049).
-            if (c.pending_invitation_id && c.pending_assignee_name) {
-              return <PendingAssigneeDisplay name={c.pending_assignee_name} />;
-            }
-            if (!c.assigned_to) {
-              return (
-                <span className="text-muted-foreground text-sm">
-                  Unassigned
-                </span>
-              );
-            }
-            return (
-              <AssigneeDisplay
-                name={nameById.get(c.assigned_to) ?? 'Teammate'}
-                avatarUrl={avatarById.get(c.assigned_to)}
-              />
-            );
-          },
-        };
-      }
-      if (col.key === 'received_by') {
-        return {
-          ...col,
-          render: (c) => {
-            const auto = autoReceivedLabel(c.received_via);
-            if (auto) return <Badge variant="neutral">{auto}</Badge>;
-            // Human origin (manual / import / legacy NULL) → the teammate
-            // who created the lead (contacts.user_id is the auth user id).
-            return (
+
+            const ownerChip = (
               <AssigneeDisplay
                 name={nameById.get(c.user_id) ?? 'Teammate'}
                 avatarUrl={avatarById.get(c.user_id)}
               />
             );
+            // Who can start a transfer: admins on any human lead; an agent
+            // on a lead they own. Everyone else sees a static owner.
+            const canInitiate =
+              canReassignDirect || (canTransfer && c.user_id === user?.id);
+            if (!canInitiate) return ownerChip;
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      type="button"
+                      className="min-w-0 max-w-full text-left"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  }
+                >
+                  {ownerChip}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="bg-popover border-border max-h-72 min-w-52 overflow-auto"
+                >
+                  <div className="text-muted-foreground px-2 py-1.5 text-[11px]">
+                    {canReassignDirect
+                      ? 'Transfer ownership to…'
+                      : 'Request transfer to…'}
+                  </div>
+                  {staff
+                    .filter((s) => s.user_id !== c.user_id)
+                    .map((s) => (
+                      <DropdownMenuItem
+                        key={s.user_id}
+                        onClick={() => initiateTransferRef.current(c, s.user_id)}
+                        className="text-popover-foreground focus:bg-muted gap-2"
+                      >
+                        <UserAvatar
+                          name={s.full_name}
+                          src={s.avatar_url}
+                          className="size-5 shrink-0"
+                          fallbackClassName="text-[10px]"
+                        />
+                        <span className="truncate">{s.full_name}</span>
+                      </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
           },
+        };
+      }
+      if (col.key === 'created_by') {
+        return {
+          ...col,
+          // Immutable original creator (migration 051). Auto-captured leads
+          // may have no human creator → em dash.
+          render: (c) =>
+            c.created_by ? (
+              <AssigneeDisplay
+                name={nameById.get(c.created_by) ?? 'Teammate'}
+                avatarUrl={avatarById.get(c.created_by)}
+              />
+            ) : (
+              <span className="text-muted-foreground text-sm">—</span>
+            ),
         };
       }
       return col;
@@ -1190,6 +1277,9 @@ export default function LeadsPage() {
     avatarById,
     transfers,
     user,
+    staff,
+    canReassignDirect,
+    canTransfer,
     canResolveAnyTransfer,
   ]);
 
@@ -1685,6 +1775,46 @@ export default function LeadsPage() {
     transferActionRef.current = handleTransferAction;
   }, [handleTransferAction]);
 
+  // Start an ownership transfer of the "Received by" owner (contacts.user_id,
+  // migration 050). Admins move it instantly; an agent handing off a lead
+  // they own opens the accept-gated request dialog.
+  const initiateTransfer = useCallback(
+    async (contact: ContactWithData, targetId: string) => {
+      if (targetId === contact.user_id) return;
+      if (canReassignDirect) {
+        try {
+          await requestLeadTransfer(supabase, contact.id, targetId);
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : 'Failed to transfer');
+          return;
+        }
+        setContacts((prev) =>
+          prev.map((c) =>
+            c.id === contact.id ? { ...c, user_id: targetId } : c
+          )
+        );
+        setBoardLeads((prev) =>
+          prev.map((l) =>
+            l.id === contact.id ? { ...l, user_id: targetId } : l
+          )
+        );
+        fetchTransfers();
+        toast.success('Ownership transferred');
+        return;
+      }
+      if (!canTransfer || contact.user_id !== user?.id) {
+        toast.error('Only the current owner or an admin can transfer this lead.');
+        return;
+      }
+      setTransferDialog({ contact, targetId });
+    },
+    [supabase, canReassignDirect, canTransfer, user, fetchTransfers]
+  );
+
+  useEffect(() => {
+    initiateTransferRef.current = initiateTransfer;
+  }, [initiateTransfer]);
+
   // Drag on the board rewrites the lead's status. Optimistic — the
   // card already landed in its new column; revert by refetch on error.
   const handleStatusChange = useCallback(
@@ -1767,85 +1897,45 @@ export default function LeadsPage() {
             )
           );
         } else if (edit.kind === 'assignee') {
-          // Ownership changes are role-gated (migration 050):
-          //  · unassign        → managerial (admin) direct write
-          //  · admin/self-claim → instant via request_lead_transfer
-          //  · agent handoff    → open the accept-gated request dialog
-          const target = rawValue || null;
+          // '' = Unassigned. assigned_to references profiles(user_id)
+          // within the account; options come from the staff roster so
+          // an arbitrary id can't be picked. Picking a real owner also
+          // clears any pending-invite overlay (migration 049) — the lead
+          // was parked on a not-yet-joined teammate; now it has a real one.
+          // (Ownership TRANSFER is a separate flow on the Received-by
+          // column — migration 050 — not this assignment field.)
+          const assignedTo = rawValue || null;
+          const { error } = await supabase
+            .from('contacts')
+            .update({
+              assigned_to: assignedTo,
+              pending_invitation_id: null,
+              pending_assignee_name: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', contact.id);
+          if (error) {
+            toast.error('Failed to update assignee');
+            return;
+          }
           const clearPending = {
             pending_invitation_id: null,
             pending_assignee_name: null,
           };
-          const patchLocal = (assignedTo: string | null) => {
-            setContacts((prev) =>
-              prev.map((c) =>
-                c.id === contact.id
-                  ? { ...c, assigned_to: assignedTo, ...clearPending }
-                  : c
-              )
-            );
-            setBoardLeads((prev) =>
-              prev.map((l) =>
-                l.id === contact.id
-                  ? { ...l, assigned_to: assignedTo, ...clearPending }
-                  : l
-              )
-            );
-          };
-
-          if (!target) {
-            // Unassigning has no one to accept — managerial only.
-            if (!canReassignDirect) {
-              toast.error('Only an admin can unassign a lead.');
-              return;
-            }
-            const { error } = await supabase
-              .from('contacts')
-              .update({
-                assigned_to: null,
-                ...clearPending,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', contact.id);
-            if (error) {
-              toast.error('Failed to update assignee');
-              return;
-            }
-            patchLocal(null);
-            return;
-          }
-
-          if (target === contact.assigned_to) return; // already owns it
-
-          const selfClaim = !contact.assigned_to && target === user?.id;
-          if (canReassignDirect || selfClaim) {
-            // Instant reassign (managerial) or an agent claiming a free lead.
-            try {
-              await requestLeadTransfer(supabase, contact.id, target);
-            } catch (e) {
-              toast.error(
-                e instanceof Error ? e.message : 'Failed to reassign'
-              );
-              return;
-            }
-            patchLocal(target);
-            fetchTransfers();
-            toast.success('Lead reassigned');
-            return;
-          }
-
-          // Agent peer handoff — must own the lead; the target accepts.
-          if (!canTransfer) {
-            toast.error('You do not have permission to reassign leads.');
-            return;
-          }
-          if (contact.assigned_to !== user?.id) {
-            toast.error(
-              'Only the current owner or an admin can transfer this lead.'
-            );
-            return;
-          }
-          setTransferDialog({ contact, targetId: target });
+          setContacts((prev) =>
+            prev.map((c) =>
+              c.id === contact.id
+                ? { ...c, assigned_to: assignedTo, ...clearPending }
+                : c
+            )
+          );
+          setBoardLeads((prev) =>
+            prev.map((l) =>
+              l.id === contact.id
+                ? { ...l, assigned_to: assignedTo, ...clearPending }
+                : l
+            )
+          );
         } else if (edit.kind === 'custom') {
           const trimmed = rawValue.trim();
           const { error } = trimmed
@@ -1914,7 +2004,7 @@ export default function LeadsPage() {
         setEditingCell(null);
       }
     },
-    [supabase, canReassignDirect, canTransfer, user, fetchTransfers]
+    [supabase]
   );
 
   // One tag toggle from the tags cell's checklist. Optimistic — the row
@@ -2199,22 +2289,12 @@ export default function LeadsPage() {
           })),
         },
       },
-      // Bulk reassign is a managerial action (migration 050) — admins/owners
-      // only. Agents transfer one lead at a time via the accept-gated flow.
-      ...(canReassignDirect
-        ? [
-            {
-              key: 'assignee',
-              label: 'Assigned to',
-              group: 'Lead fields',
-              editor: {
-                kind: 'select',
-                variant: 'plain',
-                options: assigneeOptions,
-              },
-            } as BulkEditProperty,
-          ]
-        : []),
+      {
+        key: 'assignee',
+        label: 'Assigned to',
+        group: 'Lead fields',
+        editor: { kind: 'select', variant: 'plain', options: assigneeOptions },
+      },
       {
         key: 'source',
         label: 'Source',
@@ -2258,7 +2338,7 @@ export default function LeadsPage() {
         })
       ),
     ];
-  }, [fieldOptions, staff, customFields, canReassignDirect]);
+  }, [fieldOptions, staff, customFields]);
 
   // Apply one property to every selected lead. Returns true on success so
   // the dialog can close; each failure toasts and keeps it open. Custom
