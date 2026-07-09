@@ -152,10 +152,13 @@ import {
 } from '@/components/leads/lead-cell-renderers';
 import { TransferRequestDialog } from '@/components/leads/transfer-request-dialog';
 import {
+  cancelLeadAssignment,
   cancelLeadTransfer,
   fetchPendingTransfers,
   pendingTransferMap,
+  requestLeadAssignment,
   requestLeadTransfer,
+  respondLeadAssignment,
   respondLeadTransfer,
 } from '@/lib/leads/transfers';
 import {
@@ -921,9 +924,14 @@ export default function LeadsPage() {
     { id: string; name: string }[]
   >([]);
 
-  // In-flight ownership transfers, keyed by contact_id (migration 050).
-  // Overlays a "transfer pending → X" badge on the assignee cell.
+  // In-flight ownership transfers (Received-by), keyed by contact_id
+  // (migration 050). Overlays a "transfer pending → X" badge on that cell.
   const [transfers, setTransfers] = useState<Record<string, LeadTransfer>>({});
+  // In-flight assignment requests (Assigned-to), keyed by contact_id
+  // (migration 052) — owner-approval flow, overlaid on the Assignee cell.
+  const [assignmentRequests, setAssignmentRequests] = useState<
+    Record<string, LeadTransfer>
+  >({});
   // Agent peer-handoff confirm: the lead + chosen target awaiting a note.
   const [transferDialog, setTransferDialog] = useState<{
     contact: ContactWithData;
@@ -1025,6 +1033,11 @@ export default function LeadsPage() {
     (contact: ContactWithData, targetId: string) => void
   >(() => {});
 
+  // Resolve an assignment request from the Assignee-cell overlay menu.
+  const assignmentActionRef = useRef<
+    (id: string, action: 'approve' | 'reject' | 'cancel') => void
+  >(() => {});
+
   // Column drag-reorder. A 6px activation distance means a plain click on
   // the header label (to no effect) or on the sort arrows / overflow menu
   // never starts a drag — only a deliberate pull does.
@@ -1085,6 +1098,82 @@ export default function LeadsPage() {
         return {
           ...col,
           render: (c) => {
+            // A pending assignment request (migration 052) overlays the
+            // cell: the change hasn't applied yet, awaiting the OWNER's
+            // approval. Owner/admin see Approve/Reject; the requester sees
+            // Withdraw.
+            const req = assignmentRequests[c.id];
+            if (req) {
+              const fromId = req.from_user_id ?? c.assigned_to ?? null;
+              const targetName = req.to_user_id
+                ? nameById.get(req.to_user_id) ?? 'Teammate'
+                : 'Unassign';
+              const badge = (
+                <TransferPendingDisplay
+                  ownerName={fromId ? nameById.get(fromId) ?? 'Unassigned' : null}
+                  ownerAvatarUrl={fromId ? avatarById.get(fromId) : null}
+                  targetName={targetName}
+                />
+              );
+              const canApprove =
+                req.approver_user_id === user?.id || canResolveAnyTransfer;
+              const canCancel =
+                req.requested_by === user?.id || canResolveAnyTransfer;
+              if (!canApprove && !canCancel) return badge;
+              return (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <button
+                        type="button"
+                        className="min-w-0 max-w-full text-left"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    }
+                  >
+                    {badge}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="bg-popover border-border min-w-48"
+                  >
+                    {canApprove && (
+                      <>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            assignmentActionRef.current(req.id, 'approve')
+                          }
+                          className="text-popover-foreground focus:bg-muted"
+                        >
+                          <Check className="size-4" />
+                          Approve assignment
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            assignmentActionRef.current(req.id, 'reject')
+                          }
+                          className="text-popover-foreground focus:bg-muted"
+                        >
+                          <X className="size-4" />
+                          Reject
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {canCancel && (
+                      <DropdownMenuItem
+                        onClick={() =>
+                          assignmentActionRef.current(req.id, 'cancel')
+                        }
+                        className="text-popover-foreground focus:bg-muted"
+                      >
+                        <Ban className="size-4" />
+                        Withdraw request
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            }
             // A pending-invite owner overrides the display — the lead is
             // parked on a teammate who hasn't joined yet (migration 049).
             if (c.pending_invitation_id && c.pending_assignee_name) {
@@ -1127,7 +1216,11 @@ export default function LeadsPage() {
                 <TransferPendingDisplay
                   ownerName={ownerId ? nameById.get(ownerId) ?? 'Teammate' : null}
                   ownerAvatarUrl={ownerId ? avatarById.get(ownerId) : null}
-                  targetName={nameById.get(transfer.to_user_id) ?? 'Teammate'}
+                  targetName={
+                    transfer.to_user_id
+                      ? nameById.get(transfer.to_user_id) ?? 'Teammate'
+                      : 'Teammate'
+                  }
                   incoming={transfer.to_user_id === user?.id}
                 />
               );
@@ -1276,6 +1369,7 @@ export default function LeadsPage() {
     nameById,
     avatarById,
     transfers,
+    assignmentRequests,
     user,
     staff,
     canReassignDirect,
@@ -1426,10 +1520,11 @@ export default function LeadsPage() {
     );
   }, [supabase]);
 
-  // In-flight ownership transfers → map by contact_id for the cell overlay.
+  // In-flight requests → split by kind into the two cell overlays.
   const fetchTransfers = useCallback(async () => {
     const rows = await fetchPendingTransfers(supabase);
-    setTransfers(pendingTransferMap(rows));
+    setTransfers(pendingTransferMap(rows, 'ownership'));
+    setAssignmentRequests(pendingTransferMap(rows, 'assignment'));
   }, [supabase]);
 
   const fetchContacts = useCallback(async () => {
@@ -1815,6 +1910,32 @@ export default function LeadsPage() {
     initiateTransferRef.current = initiateTransfer;
   }, [initiateTransfer]);
 
+  // Owner/admin approves or rejects (or requester withdraws) an assignment
+  // request from the Assignee-cell overlay (migration 052).
+  const handleAssignmentAction = useCallback(
+    async (requestId: string, action: 'approve' | 'reject' | 'cancel') => {
+      try {
+        if (action === 'cancel') {
+          await cancelLeadAssignment(supabase, requestId);
+          toast.success('Request withdrawn');
+        } else {
+          await respondLeadAssignment(supabase, requestId, action === 'approve');
+          toast.success(
+            action === 'approve' ? 'Assignment approved' : 'Assignment rejected'
+          );
+        }
+        refreshAll();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Action failed');
+      }
+    },
+    [supabase, refreshAll]
+  );
+
+  useEffect(() => {
+    assignmentActionRef.current = handleAssignmentAction;
+  }, [handleAssignmentAction]);
+
   // Drag on the board rewrites the lead's status. Optimistic — the
   // card already landed in its new column; revert by refetch on error.
   const handleStatusChange = useCallback(
@@ -1897,45 +2018,46 @@ export default function LeadsPage() {
             )
           );
         } else if (edit.kind === 'assignee') {
-          // '' = Unassigned. assigned_to references profiles(user_id)
-          // within the account; options come from the staff roster so
-          // an arbitrary id can't be picked. Picking a real owner also
-          // clears any pending-invite overlay (migration 049) — the lead
-          // was parked on a not-yet-joined teammate; now it has a real one.
-          // (Ownership TRANSFER is a separate flow on the Received-by
-          // column — migration 050 — not this assignment field.)
-          const assignedTo = rawValue || null;
-          const { error } = await supabase
-            .from('contacts')
-            .update({
-              assigned_to: assignedTo,
-              pending_invitation_id: null,
-              pending_assignee_name: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', contact.id);
-          if (error) {
-            toast.error('Failed to update assignee');
+          // Assignment goes through request_lead_assignment (migration 052):
+          // the owner (Received-by) or an admin changes it instantly; any
+          // other agent's change becomes a request the OWNER must approve.
+          // '' = Unassign. (Ownership TRANSFER is the separate Received-by
+          // flow — migration 050.)
+          const target = rawValue || null;
+          if (target === (contact.assigned_to ?? null)) return; // no-op
+          let outcome: 'approved' | 'pending';
+          try {
+            outcome = await requestLeadAssignment(supabase, contact.id, target);
+          } catch (e) {
+            toast.error(
+              e instanceof Error ? e.message : 'Failed to update assignee'
+            );
             return;
           }
-          const clearPending = {
-            pending_invitation_id: null,
-            pending_assignee_name: null,
-          };
-          setContacts((prev) =>
-            prev.map((c) =>
-              c.id === contact.id
-                ? { ...c, assigned_to: assignedTo, ...clearPending }
-                : c
-            )
-          );
-          setBoardLeads((prev) =>
-            prev.map((l) =>
-              l.id === contact.id
-                ? { ...l, assigned_to: assignedTo, ...clearPending }
-                : l
-            )
-          );
+          if (outcome === 'approved') {
+            const clearPending = {
+              pending_invitation_id: null,
+              pending_assignee_name: null,
+            };
+            setContacts((prev) =>
+              prev.map((c) =>
+                c.id === contact.id
+                  ? { ...c, assigned_to: target, ...clearPending }
+                  : c
+              )
+            );
+            setBoardLeads((prev) =>
+              prev.map((l) =>
+                l.id === contact.id
+                  ? { ...l, assigned_to: target, ...clearPending }
+                  : l
+              )
+            );
+          } else {
+            // Pending the owner's approval — surface the overlay.
+            fetchTransfers();
+            toast.success('Sent to the lead owner for approval');
+          }
         } else if (edit.kind === 'custom') {
           const trimmed = rawValue.trim();
           const { error } = trimmed
@@ -2004,7 +2126,7 @@ export default function LeadsPage() {
         setEditingCell(null);
       }
     },
-    [supabase]
+    [supabase, fetchTransfers]
   );
 
   // One tag toggle from the tags cell's checklist. Optimistic — the row
@@ -2373,18 +2495,37 @@ export default function LeadsPage() {
       return true;
     }
 
+    // Assignment goes through request_lead_assignment per lead (migration
+    // 052) so a non-owner agent can't bulk-bypass the owner's approval:
+    // owner/admin changes apply instantly; others become pending requests.
+    if (property.key === 'assignee') {
+      const target = value === UNASSIGNED ? null : value;
+      let approved = 0;
+      let pending = 0;
+      let skipped = 0;
+      for (const id of ids) {
+        try {
+          const outcome = await requestLeadAssignment(supabase, id, target);
+          if (outcome === 'approved') approved++;
+          else pending++;
+        } catch {
+          // No-op (already assigned that way) or not permitted → skip.
+          skipped++;
+        }
+      }
+      const parts: string[] = [];
+      if (approved) parts.push(`${approved} updated`);
+      if (pending) parts.push(`${pending} sent for approval`);
+      if (skipped) parts.push(`${skipped} skipped`);
+      toast.success(parts.join(' · ') || 'No changes');
+      setSelected(new Set());
+      refreshAll();
+      return true;
+    }
+
     let patch: Record<string, unknown>;
     if (property.key === 'status') {
       patch = { lead_status: columnToStatus(value as LeadColumnKey) };
-    } else if (property.key === 'assignee') {
-      // Assigning a real owner in bulk also clears the pending-invite
-      // overlay (migration 049) — the leads picked up a real teammate,
-      // so they're no longer "invite pending". This is the bulk swap.
-      patch = {
-        assigned_to: value === UNASSIGNED ? null : value,
-        pending_invitation_id: null,
-        pending_assignee_name: null,
-      };
     } else {
       // source / gender / company — raw contacts column, '' clears it.
       patch = { [property.key]: value.trim() || null };

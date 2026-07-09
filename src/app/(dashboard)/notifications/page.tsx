@@ -21,7 +21,10 @@ import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { respondLeadTransfer } from "@/lib/leads/transfers";
+import {
+  respondLeadAssignment,
+  respondLeadTransfer,
+} from "@/lib/leads/transfers";
 
 // Icon per notification type.
 const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
@@ -32,6 +35,10 @@ const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
   lead_transfer_accepted: Check,
   lead_transfer_declined: X,
   lead_transfer_cancelled: Ban,
+  lead_assignment_request: ArrowLeftRight,
+  lead_assignment_approved: Check,
+  lead_assignment_rejected: X,
+  lead_assignment_cancelled: Ban,
 };
 
 export default function NotificationsPage() {
@@ -149,6 +156,26 @@ export default function NotificationsPage() {
     [load, markRead],
   );
 
+  // Approve / reject an assignment request inline (migration 052).
+  const respondAssignment = useCallback(
+    async (n: Notification, approve: boolean) => {
+      if (!n.reference_id) return;
+      setActingId(n.id);
+      try {
+        const supabase = createClient();
+        await respondLeadAssignment(supabase, n.reference_id, approve);
+        toast.success(approve ? "Assignment approved" : "Assignment rejected");
+        if (!n.read_at) markRead(n.id);
+        load();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Action failed");
+      } finally {
+        setActingId(null);
+      }
+    },
+    [load, markRead],
+  );
+
   const handleClick = useCallback(
     (n: Notification) => {
       if (!n.read_at) markRead(n.id);
@@ -160,7 +187,11 @@ export default function NotificationsPage() {
         n.type === "lead_transfer_request" ||
         n.type === "lead_transfer_accepted" ||
         n.type === "lead_transfer_declined" ||
-        n.type === "lead_transfer_cancelled"
+        n.type === "lead_transfer_cancelled" ||
+        n.type === "lead_assignment_request" ||
+        n.type === "lead_assignment_approved" ||
+        n.type === "lead_assignment_rejected" ||
+        n.type === "lead_assignment_cancelled"
       ) {
         // Lead-scoped notifications land on the Leads list; the lead's
         // name is in the notification body for a quick search.
@@ -334,6 +365,32 @@ export default function NotificationsPage() {
                     >
                       <X className="h-4 w-4" />
                       Decline
+                    </Button>
+                  </div>
+                )}
+
+                {n.type === "lead_assignment_request" && isUnread && (
+                  <div className="mt-2 flex gap-2 pl-16">
+                    <Button
+                      size="sm"
+                      disabled={actingId === n.id}
+                      onClick={() => respondAssignment(n, true)}
+                    >
+                      {actingId === n.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={actingId === n.id}
+                      onClick={() => respondAssignment(n, false)}
+                    >
+                      <X className="h-4 w-4" />
+                      Reject
                     </Button>
                   </div>
                 )}

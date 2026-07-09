@@ -18,7 +18,10 @@ import {
   canReassignLeadsDirectly,
   canRequestLeadTransfer,
 } from '@/lib/auth/roles';
-import { requestLeadTransfer } from '@/lib/leads/transfers';
+import {
+  requestLeadAssignment,
+  requestLeadTransfer,
+} from '@/lib/leads/transfers';
 import { TransferRequestDialog } from '@/components/leads/transfer-request-dialog';
 import { cn } from '@/lib/utils';
 import {
@@ -465,6 +468,37 @@ export function ContactDetailView({
     }
     setTransferTarget(next);
     return false; // dialog owns the request; field reverts to current owner
+  }
+
+  // Assignment change (contacts.assigned_to, migration 052). Owner/admin →
+  // instant; any other agent → request the owner must approve (returns false
+  // so the inline field reverts — assignment hasn't changed yet).
+  async function saveAssignment(next: string | null): Promise<boolean> {
+    if (!contact) return false;
+    if (next === (contact.assigned_to ?? null)) return true;
+    let outcome: 'approved' | 'pending';
+    try {
+      outcome = await requestLeadAssignment(supabase, contact.id, next);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update');
+      return false;
+    }
+    if (outcome === 'approved') {
+      setContact((c) =>
+        c
+          ? {
+              ...c,
+              assigned_to: next,
+              pending_invitation_id: null,
+              pending_assignee_name: null,
+            }
+          : c
+      );
+      onUpdated();
+      return true;
+    }
+    toast.success('Sent to the lead owner for approval');
+    return false;
   }
 
   async function submitTransferRequest(note: string) {
@@ -1073,7 +1107,7 @@ export function ContactDetailView({
                             <span className="text-muted-foreground/60">Unassigned</span>
                           )
                         }
-                        onSave={(v) => saveContactColumn('assigned_to', v || null)}
+                        onSave={(v) => saveAssignment(v || null)}
                       />
                       {(() => {
                         // "Received by" = the human owner (contacts.user_id).

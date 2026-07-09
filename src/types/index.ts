@@ -222,7 +222,15 @@ export type NotificationType =
   /** The target declined your lead transfer. */
   | 'lead_transfer_declined'
   /** A pending lead transfer to you was withdrawn. */
-  | 'lead_transfer_cancelled';
+  | 'lead_transfer_cancelled'
+  /** A teammate wants to reassign a lead you own — actionable (Approve/Reject). Migration 052. */
+  | 'lead_assignment_request'
+  /** The owner approved your assignment request. */
+  | 'lead_assignment_approved'
+  /** The owner rejected your assignment request. */
+  | 'lead_assignment_rejected'
+  /** A pending assignment request was withdrawn. */
+  | 'lead_assignment_cancelled';
 
 export interface Notification {
   id: string;
@@ -243,24 +251,36 @@ export interface Notification {
   created_at: string;
 }
 
-/** A lead ownership transfer request + its lifecycle (migration 050). */
+/** Lifecycle of a lead transfer/assignment request (migrations 050, 052).
+ *  Ownership uses accepted/declined; assignment uses approved/rejected. */
 export type LeadTransferStatus =
   | 'pending'
   | 'accepted'
   | 'declined'
+  | 'approved'
+  | 'rejected'
   | 'cancelled'
   | 'superseded';
+
+/** ownership = the Received-by owner (contacts.user_id); assignment = the
+ *  Assigned-to delegate (contacts.assigned_to). Migration 052. */
+export type LeadTransferKind = 'ownership' | 'assignment';
 
 export interface LeadTransfer {
   id: string;
   account_id: string;
   contact_id: string;
-  /** Owner at request time (auth user id). Null if that teammate was removed. */
+  kind: LeadTransferKind;
+  /** Prior holder at request time (owner for ownership; assignee for
+   *  assignment). Auth user id, or null. */
   from_user_id?: string | null;
-  /** Proposed new owner (auth user id). */
-  to_user_id: string;
+  /** Proposed new holder (auth user id). Null = unassign (assignment only). */
+  to_user_id?: string | null;
   /** Who initiated the request (auth user id). */
   requested_by?: string | null;
+  /** For assignment requests: the lead owner who must approve. Null for
+   *  ownership (the target approves instead). */
+  approver_user_id?: string | null;
   status: LeadTransferStatus;
   note?: string | null;
   created_at: string;

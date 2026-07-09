@@ -7,6 +7,7 @@ function transfer(over: Partial<LeadTransfer>): LeadTransfer {
     id: 't1',
     account_id: 'a1',
     contact_id: 'c1',
+    kind: 'ownership',
     from_user_id: 'u-from',
     to_user_id: 'u-to',
     requested_by: 'u-from',
@@ -40,6 +41,15 @@ describe('pendingTransferMap', () => {
       transfer({ id: 'new', contact_id: 'c1' }),
     ]);
     expect(map.c1?.id).toBe('new');
+  });
+
+  it('filters by kind when given', () => {
+    const rows = [
+      transfer({ id: 'own', contact_id: 'c1', kind: 'ownership' }),
+      transfer({ id: 'asg', contact_id: 'c1', kind: 'assignment' }),
+    ];
+    expect(pendingTransferMap(rows, 'ownership').c1?.id).toBe('own');
+    expect(pendingTransferMap(rows, 'assignment').c1?.id).toBe('asg');
   });
 });
 

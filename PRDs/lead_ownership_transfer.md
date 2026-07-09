@@ -13,6 +13,19 @@
 > admin-force-accept. There is no "self-claim an unassigned lead" case
 > (`user_id` is always set). Bulk assignment stays as it was (not gated).
 
+> **ADDENDUM — Assignment approval (migration 052, built + live).** A
+> SECOND, separate flow governs the **"Assigned to"** delegate
+> (`contacts.assigned_to`), NOT ownership. Rule: the lead's OWNER
+> (Received-by `user_id`) or an admin change it instantly; **any other
+> agent's change becomes a request the OWNER approves** — approver = the
+> owner OR any admin, and crucially NOT the target teammate (the opposite
+> of ownership transfer, where the target accepts). Covers any change incl.
+> unassign. Same `lead_transfers` table via a `kind` discriminator
+> (`ownership`/`assignment`) + `approver_user_id`; RPCs
+> `request_lead_assignment` / `respond_lead_assignment` /
+> `cancel_lead_assignment`; notif types `lead_assignment_*`. UI on the
+> Assignee cell (overlay + Approve/Reject/Withdraw) + `/notifications`.
+
 > Status: **BUILT + live.** Migration `050_lead_transfers.sql`.
 > Builds on 047 (assigned_to → auth.users, notify_lead_assigned), 049
 > (pending-invite overlay), 027 (notifications + realtime), 017 (RLS +

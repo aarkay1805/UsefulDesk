@@ -4,7 +4,7 @@
 // machine; the client never writes lead_transfers directly.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { LeadTransfer } from '@/types';
+import type { LeadTransfer, LeadTransferKind } from '@/types';
 
 /** Result of request_lead_transfer: instant reassign vs pending handshake. */
 export type TransferOutcome = 'accepted' | 'pending';
@@ -55,9 +55,56 @@ export async function cancelLeadTransfer(
 }
 
 /**
- * All in-flight (pending) transfers in the account — the light query the
- * leads list runs to overlay "transfer pending → X" badges, mirroring
- * fetchTags / fetchPendingAssignees. RLS scopes rows to the account.
+ * Ask to change a lead's Assigned-to delegate (contacts.assigned_to,
+ * migration 052). Owner (Received-by) or admin → 'approved' instantly; any
+ * other agent → 'pending' (the OWNER must approve). `toAssignee` null =
+ * unassign. Throws on error.
+ */
+export async function requestLeadAssignment(
+  supabase: SupabaseClient,
+  contactId: string,
+  toAssignee: string | null,
+  note?: string
+): Promise<'approved' | 'pending'> {
+  const { data, error } = await supabase.rpc('request_lead_assignment', {
+    p_contact_id: contactId,
+    p_to_assignee: toAssignee,
+    p_note: note ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return data as 'approved' | 'pending';
+}
+
+/** Approve or reject a pending assignment request (lead owner or admin). */
+export async function respondLeadAssignment(
+  supabase: SupabaseClient,
+  requestId: string,
+  approve: boolean
+): Promise<'approved' | 'rejected'> {
+  const { data, error } = await supabase.rpc('respond_lead_assignment', {
+    p_request_id: requestId,
+    p_approve: approve,
+  });
+  if (error) throw new Error(error.message);
+  return data as 'approved' | 'rejected';
+}
+
+/** Withdraw a pending assignment request (requester or admin). */
+export async function cancelLeadAssignment(
+  supabase: SupabaseClient,
+  requestId: string
+): Promise<void> {
+  const { error } = await supabase.rpc('cancel_lead_assignment', {
+    p_request_id: requestId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * All in-flight (pending) transfers/requests in the account — the light
+ * query the leads list runs to overlay pending badges, mirroring fetchTags
+ * / fetchPendingAssignees. RLS scopes rows to the account. Both kinds
+ * (ownership + assignment) come back; split with pendingTransferMap.
  */
 export async function fetchPendingTransfers(
   supabase: SupabaseClient
@@ -70,15 +117,19 @@ export async function fetchPendingTransfers(
 }
 
 /**
- * Index pending transfers by contact_id (one pending per lead is enforced
- * by the DB's partial unique index, so last-wins is just defensive).
+ * Index pending rows by contact_id, optionally filtered to one kind. One
+ * pending per (contact, kind) is enforced by the DB's partial unique index,
+ * so last-wins is just defensive.
  */
 export function pendingTransferMap(
-  transfers: LeadTransfer[]
+  transfers: LeadTransfer[],
+  kind?: LeadTransferKind
 ): Record<string, LeadTransfer> {
   const map: Record<string, LeadTransfer> = {};
   for (const t of transfers) {
-    if (t.status === 'pending') map[t.contact_id] = t;
+    if (t.status !== 'pending') continue;
+    if (kind && t.kind !== kind) continue;
+    map[t.contact_id] = t;
   }
   return map;
 }
