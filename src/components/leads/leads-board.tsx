@@ -102,10 +102,11 @@ interface LeadsBoardProps {
   currentUserId?: string;
   /** Account-aware source label (fieldOptions.sourceLabel). */
   sourceLabel: (key: string) => string;
-  /** Board view settings (Tier 1) — how much each card shows, and the
-      card order within each status column. */
+  /** Board view settings — how much each card shows, and the card order
+      within each status column (Tier 1); hide empty columns at rest (Tier 2). */
   density: BoardDensity;
   sortWithin: BoardSortWithin;
+  collapseEmpty: boolean;
 }
 
 const CARD_TAG_LIMIT = 2;
@@ -586,6 +587,7 @@ export function LeadsBoard({
   sourceLabel,
   density,
   sortWithin,
+  collapseEmpty,
 }: LeadsBoardProps) {
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
 
@@ -612,6 +614,17 @@ export function LeadsBoard({
     }
     return { allColumns: [...columns, ...extras], leadsByColumn: map };
   }, [leads, columns, sortWithin]);
+
+  // Collapse-empty (Tier 2): hide 0-count columns at REST, but reveal every
+  // column mid-drag so an empty stage stays a valid drop target — pick a card
+  // up (activeLeadId set) and all columns reappear; drop and empties
+  // re-collapse. handleDragEnd still validates the target against allColumns.
+  const displayColumns = useMemo(() => {
+    if (!collapseEmpty || activeLeadId) return allColumns;
+    return allColumns.filter(
+      (c) => (leadsByColumn.get(c.key)?.length ?? 0) > 0,
+    );
+  }, [allColumns, leadsByColumn, collapseEmpty, activeLeadId]);
 
   // Card render context — memoised into ONE stable reference so the
   // memoised card tree (LeadCard / ColumnCards) actually skips re-renders
@@ -697,7 +710,7 @@ export function LeadsBoard({
           one status to another *flies* to its new home instead of teleporting. */}
       <LayoutGroup>
         <div className="leads-scroll flex h-full snap-x snap-mandatory gap-3 overflow-x-auto pb-4 lg:snap-none">
-          {allColumns.map((col) => (
+          {displayColumns.map((col) => (
             <StatusColumn
               key={col.key}
               column={col}

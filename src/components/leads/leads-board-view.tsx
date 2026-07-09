@@ -27,6 +27,7 @@ interface LeadsBoardViewProps {
   sourceLabel: (key: string) => string;
   density: BoardDensity;
   sortWithin: BoardSortWithin;
+  collapseEmpty: boolean;
   onOpenLead: (contactId: string) => void;
   onEditLead: (lead: Contact) => void;
   onDeleteLead: (lead: Contact) => void;
@@ -59,6 +60,7 @@ export function LeadsBoardView({
   sourceLabel,
   density,
   sortWithin,
+  collapseEmpty,
   onOpenLead,
   onEditLead,
   onDeleteLead,
@@ -127,6 +129,7 @@ export function LeadsBoardView({
       sourceLabel={sourceLabel}
       density={density}
       sortWithin={sortWithin}
+      collapseEmpty={collapseEmpty}
     />
   );
 }

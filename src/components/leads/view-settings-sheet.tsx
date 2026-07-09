@@ -14,6 +14,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import type {
   BoardDensity,
@@ -43,11 +44,13 @@ interface ViewSettingsSheetProps {
   cellText: CellTextMode;
   onCellTextChange: (mode: CellTextMode) => void;
 
-  // Board display (Tier 1)
+  // Board display (Tier 1 + 2)
   density: BoardDensity;
   onDensityChange: (mode: BoardDensity) => void;
   sortWithin: BoardSortWithin;
   onSortWithinChange: (mode: BoardSortWithin) => void;
+  collapseEmpty: boolean;
+  onCollapseEmptyChange: (value: boolean) => void;
 }
 
 // The gear settings side sheet — display prefs for whichever view is
@@ -67,6 +70,8 @@ export function ViewSettingsSheet({
   onDensityChange,
   sortWithin,
   onSortWithinChange,
+  collapseEmpty,
+  onCollapseEmptyChange,
 }: ViewSettingsSheetProps) {
   const isBoard = view === 'board';
   return (
@@ -122,6 +127,16 @@ export function ViewSettingsSheet({
                     ))}
                   </SelectContent>
                 </Select>
+              </SettingRow>
+
+              <SettingRow
+                label="Collapse empty columns"
+                description="Hide statuses with no leads. They reappear while you drag so you can still drop into an empty stage."
+              >
+                <Switch
+                  checked={collapseEmpty}
+                  onCheckedChange={onCollapseEmptyChange}
+                />
               </SettingRow>
             </Section>
           ) : (

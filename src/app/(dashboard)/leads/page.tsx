@@ -234,6 +234,7 @@ interface TablePrefs {
   board: {
     density: BoardDensity;
     sortWithin: BoardSortWithin;
+    collapseEmpty: boolean;
   };
 }
 
@@ -246,7 +247,7 @@ const DEFAULT_PREFS: TablePrefs = {
   view: 'table',
   sort: null,
   frozenCount: 0,
-  board: { density: 'comfortable', sortWithin: 'newest' },
+  board: { density: 'comfortable', sortWithin: 'newest', collapseEmpty: false },
 };
 
 interface ContactWithData extends Contact {
@@ -1228,6 +1229,8 @@ export default function LeadsPage() {
   const boardDensity = prefs.board?.density ?? DEFAULT_PREFS.board.density;
   const boardSortWithin =
     prefs.board?.sortWithin ?? DEFAULT_PREFS.board.sortWithin;
+  const boardCollapseEmpty =
+    prefs.board?.collapseEmpty ?? DEFAULT_PREFS.board.collapseEmpty;
 
   // ---- Column resolution --------------------------------------------------
   // Live columns = built-ins + one per custom field. Effective order applies
@@ -3055,6 +3058,13 @@ export default function LeadsPage() {
     }));
   }
 
+  function setBoardCollapseEmpty(collapseEmpty: boolean) {
+    setPrefs((p) => ({
+      ...p,
+      board: { ...(p.board ?? DEFAULT_PREFS.board), collapseEmpty },
+    }));
+  }
+
   function resetColumnSizes() {
     setPrefs((p) => ({ ...p, widths: {} }));
   }
@@ -3540,6 +3550,7 @@ export default function LeadsPage() {
                 sourceLabel={fieldOptions.sourceLabel}
                 density={boardDensity}
                 sortWithin={boardSortWithin}
+                collapseEmpty={boardCollapseEmpty}
                 supabase={supabase}
               />
             </>
@@ -3972,6 +3983,8 @@ export default function LeadsPage() {
         onDensityChange={setBoardDensity}
         sortWithin={boardSortWithin}
         onSortWithinChange={setBoardSortWithin}
+        collapseEmpty={boardCollapseEmpty}
+        onCollapseEmptyChange={setBoardCollapseEmpty}
       />
 
       {/* Edit columns — split-view picker (catalogue + custom fields on the
