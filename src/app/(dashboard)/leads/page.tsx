@@ -174,14 +174,16 @@ import {
 import type { LeadTransfer } from '@/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
-import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useTablePrefs } from '@/hooks/use-table-prefs';
 import { GatedButton } from '@/components/ui/gated-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50];
-const PREFS_KEY = 'usefuldesk:leads:table-prefs';
+// Names this surface's saved view in `table_preferences` (per-user,
+// per-account). Was a global localStorage key until migration 053.
+const PREFS_VIEW_KEY = 'leads';
 // The board loads every column at once, so it is capped to the most
 // recent leads rather than paginated. Past this size the owner should
 // be working the table/action lists, not a 500-card wall.
@@ -1098,8 +1100,8 @@ export default function LeadsPage() {
 
   // Table preferences (visibility, order, widths, page size, view mode),
   // persisted per-browser in localStorage.
-  const [prefs, setPrefs] = useLocalStorage<TablePrefs>(
-    PREFS_KEY,
+  const [prefs, setPrefs] = useTablePrefs<TablePrefs>(
+    PREFS_VIEW_KEY,
     DEFAULT_PREFS
   );
 
