@@ -59,6 +59,7 @@ import {
 } from '@/components/leads/import-preview-grid';
 import { StatusBadge } from '@/components/leads/lead-cell-renderers';
 import { cn } from '@/lib/utils';
+import { AnimatePresence, motion } from 'motion/react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -1201,7 +1202,21 @@ export function ImportWizard({
               <ContactsResultPanel result={result} />
             )
           ) : (
-            <>
+            // Crossfade between wizard steps. Opacity-only (no transform) so
+            // step 3's sticky-header preview grid is unaffected; `mode="wait"`
+            // keeps a single step mounted at a time.
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={step}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.13, ease: 'easeOut' }}
+                className={cn(
+                  'min-h-0',
+                  step === 3 && isLeads && 'flex flex-1 flex-col'
+                )}
+              >
               {step === 1 && (
                 <UploadStep
                   file={file}
@@ -1222,7 +1237,6 @@ export function ImportWizard({
                   variant={variant}
                   mode={mode}
                   dontOverwriteEmpty={dontOverwriteEmpty}
-                  validation={validation}
                   canCreateFields={canEditSettings}
                   ambiguousDateCols={ambiguousDateCols}
                   dateOrder={dateOrder}
@@ -1286,12 +1300,17 @@ export function ImportWizard({
                   nameById={nameById}
                 />
               )}
-            </>
+              </motion.div>
+            </AnimatePresence>
           )}
         </div>
 
         <DialogFooter className="mx-0 mb-0 mt-0 shrink-0 items-center gap-2 border-t border-border/80 bg-background/50 px-6 py-4 sm:justify-between">
-          <div>
+          {/* Left slot: step-1 sample link, and — dedicated — the mapping
+              step's validation errors. Pinned here on the sticky footer so a
+              required-field error can't scroll out of sight behind the
+              mapping table. */}
+          <div className="min-w-0 flex-1">
             {step === 1 && !result && (
               <Button
                 type="button"
@@ -1302,6 +1321,28 @@ export function ImportWizard({
                 <Download className="size-4" />
                 Sample CSV
               </Button>
+            )}
+            {step === 2 && !result && !validation.ok && (
+              <div className="flex flex-col gap-0.5">
+                {!validation.phoneMapped && (
+                  <p className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
+                    <XCircle className="size-3.5 shrink-0" />
+                    Map one column to{' '}
+                    <span className="font-medium">Phone</span> to continue —
+                    it&apos;s required.
+                  </p>
+                )}
+                {validation.duplicateTargets.length > 0 && (
+                  <p className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
+                    <XCircle className="size-3.5 shrink-0" />
+                    Each field can be mapped once. Duplicated:{' '}
+                    {validation.duplicateTargets
+                      .map((k) => customFieldId(k) ?? k)
+                      .join(', ')}
+                    .
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
@@ -1623,7 +1664,6 @@ function MapStep({
   variant,
   mode,
   dontOverwriteEmpty,
-  validation,
   canCreateFields,
   ambiguousDateCols,
   dateOrder,
@@ -1646,7 +1686,6 @@ function MapStep({
   variant: ImportVariant;
   mode: ImportMode;
   dontOverwriteEmpty: boolean;
-  validation: ReturnType<typeof validateMapping>;
   canCreateFields: boolean;
   /** Columns mapped to a date field whose samples can't self-disambiguate. */
   ambiguousDateCols: Set<number>;
@@ -1960,24 +1999,8 @@ function MapStep({
           )}
         </p>
 
-        {/* Validation */}
-        {!validation.phoneMapped && (
-          <p className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
-            <XCircle className="size-3.5 shrink-0" />
-            Map one column to <span className="font-medium">Phone</span> to
-            continue — it&apos;s required.
-          </p>
-        )}
-        {validation.duplicateTargets.length > 0 && (
-          <p className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
-            <XCircle className="size-3.5 shrink-0" />
-            Each field can be mapped once. Duplicated:{' '}
-            {validation.duplicateTargets
-              .map((k) => customFieldId(k) ?? k)
-              .join(', ')}
-            .
-          </p>
-        )}
+        {/* Validation errors render on the sticky footer (see DialogFooter's
+            left slot) so they stay visible above the mapping table's scroll. */}
       </div>
     </div>
   );

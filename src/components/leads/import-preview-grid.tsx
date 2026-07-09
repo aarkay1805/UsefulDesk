@@ -20,6 +20,8 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Collapse } from '@/components/ui/collapse';
+import { MotionList, MotionListItem } from '@/components/ui/motion-list';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -627,8 +629,11 @@ export function ImportPreviewGrid({
         </div>
 
         {/* Docked fix-values panel — open by default, non-dismissible while
-            anything is unmatched; disappears only when everything is clean. */}
-        {showPanel && (
+            anything is unmatched; disappears only when everything is clean.
+            `Collapse axis="width"` slides it open/shut horizontally; the grid
+            (flex sibling) reflows into the freed space with NO transform, so
+            its sticky header stays put. */}
+        <Collapse open={showPanel} axis="width" className="flex">
           <FixValuesPanel
             values={unmatched}
             fieldOptions={fieldOptions}
@@ -641,7 +646,7 @@ export function ImportPreviewGrid({
             onFix={fixValue}
             onAutoMatch={autoMatch}
           />
-        )}
+        </Collapse>
       </div>
 
       <p className="shrink-0 text-xs text-muted-foreground">
@@ -739,20 +744,25 @@ function FixValuesPanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2.5">
-        {values.map((v) => (
-          <FixValueCard
-            key={`${v.field}:${v.raw.toLowerCase()}`}
-            value={v}
-            fieldOptions={fieldOptions}
-            staff={staff}
-            nameById={nameById}
-            avatarById={avatarById}
-            pendingInvites={pendingInvites}
-            canCreateTeammate={canCreateTeammate}
-            onCreateTeammate={onCreateTeammate}
-            onFix={(key) => onFix(v.field, v.raw, key, v.count)}
-          />
-        ))}
+        {/* Cards fade/slide out as each value is fixed (drops from `values`);
+            the rest reflow up. */}
+        <MotionList>
+          {values.map((v) => (
+            <MotionListItem key={`${v.field}:${v.raw.toLowerCase()}`}>
+              <FixValueCard
+                value={v}
+                fieldOptions={fieldOptions}
+                staff={staff}
+                nameById={nameById}
+                avatarById={avatarById}
+                pendingInvites={pendingInvites}
+                canCreateTeammate={canCreateTeammate}
+                onCreateTeammate={onCreateTeammate}
+                onFix={(key) => onFix(v.field, v.raw, key, v.count)}
+              />
+            </MotionListItem>
+          ))}
+        </MotionList>
       </div>
 
       <div className="border-t border-border p-2.5">
