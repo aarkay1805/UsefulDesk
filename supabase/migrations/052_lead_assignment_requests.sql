@@ -30,6 +30,13 @@ ALTER TABLE lead_transfers
 
 ALTER TABLE lead_transfers ALTER COLUMN to_user_id DROP NOT NULL;
 
+-- Assignment requests resolve to approved/rejected (ownership used
+-- accepted/declined in 050) — widen the status check.
+ALTER TABLE lead_transfers DROP CONSTRAINT IF EXISTS lead_transfers_status_check;
+ALTER TABLE lead_transfers ADD CONSTRAINT lead_transfers_status_check
+  CHECK (status IN ('pending','accepted','declined','approved','rejected',
+                    'cancelled','superseded'));
+
 -- One pending row per (contact, kind) — a lead can have a pending
 -- ownership transfer AND a pending assignment request simultaneously.
 DROP INDEX IF EXISTS uniq_lead_transfer_pending;
