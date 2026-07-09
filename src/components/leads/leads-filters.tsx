@@ -35,23 +35,30 @@ export const UNASSIGNED = '__unassigned__';
 export const PENDING_FILTER_PREFIX = 'pending:';
 
 export interface LeadFilters {
-  owner: string[]; // contacts.user_id (creator)
+  owner: string[]; // contacts.user_id (creator / current owner)
   assigned: string[]; // contacts.assigned_to (UNASSIGNED = null)
+  createdBy: string[]; // contacts.created_by (original creator, migration 051)
   leadStatus: string[]; // LeadColumnKey incl. 'new' (= null)
   source: string[];
   tags: string[]; // tag ids
   gender: string[];
   createdRange: CreatedRange;
+  // Custom-field value filters (text/number-type fields): custom_field_id →
+  // selected raw values. Resolved to contact ids before the query, like tags.
+  // Set from the column header menu, not this panel.
+  customValues: Record<string, string[]>;
 }
 
 export const EMPTY_FILTERS: LeadFilters = {
   owner: [],
   assigned: [],
+  createdBy: [],
   leadStatus: [],
   source: [],
   tags: [],
   gender: [],
   createdRange: '',
+  customValues: {},
 };
 
 /** Number of active filter groups — drives the button badge. */
@@ -59,11 +66,13 @@ export function activeFilterCount(f: LeadFilters): number {
   return (
     (f.owner.length ? 1 : 0) +
     (f.assigned.length ? 1 : 0) +
+    (f.createdBy.length ? 1 : 0) +
     (f.leadStatus.length ? 1 : 0) +
     (f.source.length ? 1 : 0) +
     (f.tags.length ? 1 : 0) +
     (f.gender.length ? 1 : 0) +
-    (f.createdRange ? 1 : 0)
+    (f.createdRange ? 1 : 0) +
+    Object.values(f.customValues).filter((v) => v.length).length
   );
 }
 
@@ -92,7 +101,10 @@ export function LeadsFilters({
 }: LeadsFiltersProps) {
   const count = activeFilterCount(value);
 
-  function toggle(key: keyof Omit<LeadFilters, 'createdRange'>, v: string) {
+  function toggle(
+    key: keyof Omit<LeadFilters, 'createdRange' | 'customValues'>,
+    v: string
+  ) {
     const cur = value[key];
     const next = cur.includes(v)
       ? cur.filter((x) => x !== v)
@@ -200,6 +212,15 @@ export function LeadsFilters({
             ]}
             selected={value.assigned}
             onToggle={(v) => toggle('assigned', v)}
+          />
+
+          <Divider />
+          <CheckGroup
+            label="Created by"
+            options={staffOptions}
+            selected={value.createdBy}
+            onToggle={(v) => toggle('createdBy', v)}
+            emptyHint="No teammates."
           />
         </div>
       </PopoverContent>

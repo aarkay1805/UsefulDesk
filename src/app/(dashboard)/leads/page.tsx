@@ -72,6 +72,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -110,6 +113,8 @@ import {
   X,
   Check,
   Ban,
+  EyeOff,
+  Filter,
 } from 'lucide-react';
 import { PageHeaderActions } from '@/components/layout/page-header-actions';
 import { ContactForm } from '@/components/contacts/contact-form';
@@ -257,6 +262,13 @@ interface ColumnDef {
   // without one (custom fields — values live in a join table) can't
   // be sorted and hide their sort controls.
   sortColumn?: string;
+  // Columns whose values can't be server-`.order()`d — person uuids that
+  // only mean something once resolved to a name, or tags in a join table.
+  // These sort client-side over the full filtered id set (like custom
+  // fields). See fetchContacts' clientSort branch.
+  clientSort?:
+    | { kind: 'person'; column: 'assigned_to' | 'created_by' }
+    | { kind: 'tags' };
   // For custom columns: the field's stored data type (see CUSTOM_FIELD_TYPES).
   customType?: string;
   // Option-backed columns: which editable option list feeds this
@@ -269,6 +281,24 @@ type SortDir = 'asc' | 'desc';
 interface SortState {
   key: string;
   dir: SortDir;
+}
+
+// A resolved client-side sort — the active sort maps to a column with no
+// server-orderable `contacts` column, so fetchContacts orders the full
+// filtered id set in JS. `custom` reads contact_custom_values; `person`
+// resolves a uuid column to a teammate name; `tags` reads the join table.
+type ClientSort =
+  | { kind: 'custom'; fieldId: string; type: string; dir: SortDir }
+  | { kind: 'person'; column: 'assigned_to' | 'created_by'; dir: SortDir }
+  | { kind: 'tags'; dir: SortDir };
+
+// Per-column Excel-style value filter, threaded from the page into each
+// header's overflow menu. `selected` mirrors the shared LeadFilters state
+// so the column filter and the global Filters panel never drift.
+interface ColumnFilterProp {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onToggle: (value: string) => void;
 }
 
 function formatDate(iso: string) {
@@ -400,7 +430,9 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     label: 'Assigned to',
     defaultWidth: 170,
     minWidth: 130,
-    // No sortColumn — assigned_to is a uuid; ordering by it is noise.
+    // assigned_to is a uuid — ordering by it raw is noise, so sort
+    // client-side by the resolved teammate name instead.
+    clientSort: { kind: 'person', column: 'assigned_to' },
     // Static fallback; liveColumns overrides with the staff roster
     // (names + avatars) once useAccountStaff resolves.
     render: (c) =>
@@ -437,8 +469,10 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     defaultWidth: 160,
     minWidth: 120,
     // Immutable original creator (migration 051) — audit; never changes on
-    // transfer. No edit / no sort (uuid). Static fallback; liveColumns
-    // overrides to show the teammate once the staff roster resolves.
+    // transfer. No edit. created_by is a uuid, so sort client-side by the
+    // resolved teammate name. Static fallback; liveColumns overrides to
+    // show the teammate once the staff roster resolves.
+    clientSort: { kind: 'person', column: 'created_by' },
     render: (c) =>
       c.created_by ? (
         <span className="text-muted-foreground text-sm">Created</span>
@@ -451,6 +485,9 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     label: 'Tags',
     defaultWidth: 180,
     minWidth: 120,
+    // Tags live in a join table — sort client-side by each lead's
+    // alphabetically-first tag name.
+    clientSort: { kind: 'tags' },
     render: renderTags,
     edit: { kind: 'tags' },
     optionsField: 'tags',
@@ -502,6 +539,7 @@ function HeaderCell({
   onAddColumn,
   onRemoveColumn,
   onEditOptions,
+  filter,
   dragHandleProps,
 }: {
   col: ColumnDef;
@@ -513,11 +551,16 @@ function HeaderCell({
   onRemoveColumn: () => void;
   /** Option-backed columns only (admins): edit the column's choices. */
   onEditOptions?: () => void;
+  /** Excel-style value filter for enumerable columns — a checkbox list
+      of the column's possible values that show/hide rows. Absent for
+      free-text columns (name/phone/email/…). */
+  filter?: ColumnFilterProp;
   /** Sortable drag listeners+attributes — spread on the label (the grab
       surface). Absent when column drag is disabled. */
   dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>;
 }) {
-  const sortable = Boolean(col.sortColumn) || Boolean(col.isCustom);
+  const sortable =
+    Boolean(col.sortColumn) || Boolean(col.isCustom) || Boolean(col.clientSort);
   return (
     <div className="group/th flex items-center gap-0.5 pr-2">
       {/* The label doubles as the column's drag handle (Sheets-style):
@@ -604,6 +647,56 @@ function HeaderCell({
             <ArrowDown className="size-4" />
             Sort descending
           </DropdownMenuItem>
+          {/* Excel-style value filter — a checkbox list of the column's
+              possible values. Toggling writes straight into the shared
+              LeadFilters state, so it stays in sync with the Filters panel. */}
+          {filter && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="text-popover-foreground focus:bg-muted focus:text-foreground">
+                <Filter className="size-4" />
+                Filter
+                {filter.selected.length > 0 && (
+                  <span className="bg-primary text-primary-foreground ml-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-[10px] font-semibold">
+                    {filter.selected.length}
+                  </span>
+                )}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="bg-popover border-border max-h-72 min-w-52 overflow-y-auto">
+                {filter.options.length === 0 ? (
+                  <div className="text-muted-foreground px-2 py-1.5 text-xs">
+                    No values
+                  </div>
+                ) : (
+                  filter.options.map((o) => {
+                    const checked = filter.selected.includes(o.value);
+                    return (
+                      // Plain item (not CheckboxItem) so we render an
+                      // always-visible left checkbox — the multi-select
+                      // affordance — and keep the menu open on click.
+                      <DropdownMenuItem
+                        key={o.value}
+                        closeOnClick={false}
+                        onClick={() => filter.onToggle(o.value)}
+                        className="text-popover-foreground focus:bg-muted focus:text-foreground gap-2"
+                      >
+                        <span
+                          className={cn(
+                            'flex size-4 shrink-0 items-center justify-center rounded-[4px] border',
+                            checked
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-input-border bg-card'
+                          )}
+                        >
+                          {checked && <Check className="size-3.5" />}
+                        </span>
+                        <span className="truncate">{o.label}</span>
+                      </DropdownMenuItem>
+                    );
+                  })
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
           {/* Placeholder — no backing feature yet, matches HubSpot's greyed row */}
           <DropdownMenuItem
             disabled
@@ -641,8 +734,8 @@ function HeaderCell({
             onClick={onRemoveColumn}
             className="text-popover-foreground focus:bg-muted focus:text-foreground"
           >
-            <X className="size-4" />
-            Remove column
+            <EyeOff className="size-4" />
+            Hide column
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -667,6 +760,7 @@ function DraggableHeaderCell({
   onAddColumn,
   onRemoveColumn,
   onEditOptions,
+  filter,
   onResizeStart,
 }: {
   col: ColumnDef;
@@ -680,6 +774,7 @@ function DraggableHeaderCell({
   onAddColumn: () => void;
   onRemoveColumn: () => void;
   onEditOptions?: () => void;
+  filter?: ColumnFilterProp;
   onResizeStart: (e: React.MouseEvent) => void;
 }) {
   const {
@@ -730,6 +825,7 @@ function DraggableHeaderCell({
         onAddColumn={onAddColumn}
         onRemoveColumn={onRemoveColumn}
         onEditOptions={onEditOptions}
+        filter={filter}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
       {/* Resize grip on the right edge */}
@@ -792,6 +888,51 @@ async function resolveTagContactIds(
   return [...new Set((data ?? []).map((r) => r.contact_id))];
 }
 
+// Custom-field types that get a value filter — enumerable/scannable ones.
+// Excludes email/phone/url/date (a distinct-value checkbox list is noise
+// there; email/phone/url aren't bucketed, dates want a range).
+const CUSTOM_FILTER_TYPES = new Set(['text', 'number', 'currency']);
+
+// Resolve a custom-field value filter to the contact ids whose stored value
+// for that field is one of `values`.
+async function resolveCustomValueContactIds(
+  supabase: ReturnType<typeof createClient>,
+  fieldId: string,
+  values: string[]
+): Promise<string[]> {
+  const { data } = await supabase
+    .from('contact_custom_values')
+    .select('contact_id')
+    .eq('custom_field_id', fieldId)
+    .in('value', values);
+  return [...new Set((data ?? []).map((r) => r.contact_id))];
+}
+
+// Combine every contact-id-restricting filter (tags + custom-field values)
+// into one id list — AND across dimensions (a lead must satisfy them all),
+// so the sets are intersected. Returns null when no id-based filter is
+// active, or [] when one is active but matches nothing (caller
+// short-circuits to an empty result).
+async function resolveContactIdFilter(
+  supabase: ReturnType<typeof createClient>,
+  filters: LeadFilters
+): Promise<string[] | null> {
+  const sets: string[][] = [];
+  const tagIds = await resolveTagContactIds(supabase, filters.tags);
+  if (tagIds) sets.push(tagIds);
+  for (const [fieldId, vals] of Object.entries(filters.customValues)) {
+    if (!vals.length) continue;
+    sets.push(await resolveCustomValueContactIds(supabase, fieldId, vals));
+  }
+  if (sets.length === 0) return null;
+  let acc = sets[0];
+  for (let i = 1; i < sets.length; i++) {
+    const s = new Set(sets[i]);
+    acc = acc.filter((id) => s.has(id));
+  }
+  return acc;
+}
+
 // Minimal chainable shape shared by the PostgREST filter builders we
 // use — lets one helper apply the lead filters to any of them.
 interface FilterableQuery<Q> {
@@ -801,15 +942,16 @@ interface FilterableQuery<Q> {
   gte(column: string, value: string): Q;
 }
 
-// Apply the Filters panel selections to a contacts query. `tagIds` is the
-// pre-resolved tag → contact-id constraint (see resolveTagContactIds).
+// Apply the Filters panel selections to a contacts query. `idFilter` is the
+// pre-resolved tag + custom-value → contact-id constraint (intersection;
+// see resolveContactIdFilter).
 function applyLeadFilters<Q extends FilterableQuery<Q>>(
   query: Q,
   filters: LeadFilters,
-  tagIds: string[] | null
+  idFilter: string[] | null
 ): Q {
   let q = query;
-  if (tagIds) q = q.in('id', tagIds);
+  if (idFilter) q = q.in('id', idFilter);
 
   if (filters.leadStatus.length) {
     const hasNew = filters.leadStatus.includes('new');
@@ -825,6 +967,7 @@ function applyLeadFilters<Q extends FilterableQuery<Q>>(
   if (filters.source.length) q = q.in('source', filters.source);
   if (filters.gender.length) q = q.in('gender', filters.gender);
   if (filters.owner.length) q = q.in('user_id', filters.owner);
+  if (filters.createdBy.length) q = q.in('created_by', filters.createdBy);
 
   if (filters.assigned.length) {
     // The "Assigned to" filter mixes three buckets, OR'd together:
@@ -947,6 +1090,11 @@ export default function LeadsPage() {
 
   // Custom-field definitions — drive the dynamic columns.
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  // Distinct values present for each filterable custom field (custom_field_id
+  // → sorted values), feeding that column's value-filter checkbox list.
+  const [customFilterOptions, setCustomFilterOptions] = useState<
+    Record<string, string[]>
+  >({});
 
   // Table preferences (visibility, order, widths, page size, view mode),
   // persisted per-browser in localStorage.
@@ -1430,19 +1578,30 @@ export default function LeadsPage() {
     [sort, colByKey]
   );
 
-  // Active sort targeting a custom field. Its values live in
-  // contact_custom_values (no contacts column to .order() by), so
-  // fetchContacts sorts the full filtered id set client-side instead.
-  // Mutually exclusive with sortColumn (custom cols have no sortColumn).
-  const customSort = useMemo(() => {
+  // Active sort on a column that can't be server-`.order()`d — a custom
+  // field (values in contact_custom_values), a person uuid resolved to a
+  // name, or tags (join table). fetchContacts sorts the full filtered id
+  // set client-side instead. Mutually exclusive with sortColumn (these
+  // columns have no sortColumn).
+  const clientSort = useMemo((): ClientSort | null => {
     if (!sort) return null;
     const col = colByKey[sort.key];
-    if (!col?.isCustom) return null;
-    return {
-      fieldId: col.key.slice(3), // strip "cf:"
-      type: col.customType ?? 'text',
-      dir: sort.dir,
-    };
+    if (!col) return null;
+    if (col.isCustom) {
+      return {
+        kind: 'custom',
+        fieldId: col.key.slice(3), // strip "cf:"
+        type: col.customType ?? 'text',
+        dir: sort.dir,
+      };
+    }
+    if (col.clientSort?.kind === 'person') {
+      return { kind: 'person', column: col.clientSort.column, dir: sort.dir };
+    }
+    if (col.clientSort?.kind === 'tags') {
+      return { kind: 'tags', dir: sort.dir };
+    }
+    return null;
   }, [sort, colByKey]);
 
   // Custom field ids whose column is currently shown — only these need their
@@ -1539,11 +1698,11 @@ export default function LeadsPage() {
     const to = from + pageSize - 1;
     const term = search.trim();
 
-    // Tag filter → contact ids. An active filter that matches nothing
-    // short-circuits to an empty result (skips the main query).
-    const tagIds = await resolveTagContactIds(supabase, filters.tags);
+    // Tag + custom-value filters → contact ids. An active id filter that
+    // matches nothing short-circuits to an empty result (skips the query).
+    const idFilter = await resolveContactIdFilter(supabase, filters);
     if (seq !== fetchSeq.current) return;
-    if (tagIds && tagIds.length === 0) {
+    if (idFilter && idFilter.length === 0) {
       setTotalCount(0);
       setContacts([]);
       setLoading(false);
@@ -1563,19 +1722,24 @@ export default function LeadsPage() {
         const like = `%${term}%`;
         q = q.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
       }
-      return applyLeadFilters(q, filters, tagIds);
+      return applyLeadFilters(q, filters, idFilter);
     };
 
     let contactRows: Contact[] = [];
 
-    if (customSort) {
-      // Custom-field values live in contact_custom_values, so the contacts
-      // query can't .order() by them. Pull ALL filtered lead ids, order them
-      // by the field's stored value client-side (whole set → paging is
-      // correct across pages), then fetch only the current page's full rows.
-      // created_at desc is the stable tiebreak for equal/missing values.
+    if (clientSort) {
+      // The sort column has no server-orderable `contacts` column (custom
+      // field, person uuid → name, or tags). Pull ALL filtered lead ids,
+      // build a per-lead sort key, order the whole set client-side (so
+      // paging is correct across pages), then fetch only the current page's
+      // full rows. created_at desc is the stable tiebreak for equal/missing
+      // keys. For the person kind we select the uuid column alongside the id.
+      const idSelect =
+        clientSort.kind === 'person'
+          ? `id, ${clientSort.column}, memberships!left(id)`
+          : 'id, memberships!left(id)';
       const { data: idData, error: idErr } = await buildFiltered(
-        'id, memberships!left(id)'
+        idSelect
       ).order('created_at', { ascending: false });
       if (seq !== fetchSeq.current) return;
       if (idErr) {
@@ -1583,31 +1747,65 @@ export default function LeadsPage() {
         setLoading(false);
         return;
       }
-      const allIds = ((idData ?? []) as unknown as { id: string }[]).map(
-        (r) => r.id
-      );
+      const idRows = (idData ?? []) as unknown as Record<
+        string,
+        string | null
+      >[];
+      const allIds = idRows.map((r) => r.id as string);
 
-      // All stored values for the sort field (RLS scopes to this account —
-      // no id list in the URL, so this stays a single light request).
-      const { data: valData } = await supabase
-        .from('contact_custom_values')
-        .select('contact_id, value')
-        .eq('custom_field_id', customSort.fieldId);
-      if (seq !== fetchSeq.current) return;
-      const valById = new Map<string, string>();
-      for (const v of (valData ?? []) as {
-        contact_id: string;
-        value: string | null;
-      }[]) {
-        if (v.value != null) valById.set(v.contact_id, v.value);
+      // Sort key per lead + the compare type. Blank/missing keys always
+      // sort last (see compareCustomValues), both directions.
+      const keyById = new Map<string, string>();
+      let cmpType = 'text';
+      if (clientSort.kind === 'custom') {
+        cmpType = clientSort.type;
+        // All stored values for the sort field (RLS scopes to this account —
+        // no id list in the URL, so this stays a single light request).
+        const { data: valData } = await supabase
+          .from('contact_custom_values')
+          .select('contact_id, value')
+          .eq('custom_field_id', clientSort.fieldId);
+        if (seq !== fetchSeq.current) return;
+        for (const v of (valData ?? []) as {
+          contact_id: string;
+          value: string | null;
+        }[]) {
+          if (v.value != null) keyById.set(v.contact_id, v.value);
+        }
+      } else if (clientSort.kind === 'person') {
+        // Resolve the uuid column to the teammate's name (sorted alpha).
+        for (const r of idRows) {
+          const uid = r[clientSort.column];
+          const name = uid ? nameById.get(uid) : undefined;
+          if (name) keyById.set(r.id as string, name);
+        }
+      } else {
+        // Tags — key on each lead's alphabetically-first tag name. One
+        // account-scoped read (no id list in the URL), like the custom path.
+        const { data: tagLinks } = await supabase
+          .from('contact_tags')
+          .select('contact_id, tag_id');
+        if (seq !== fetchSeq.current) return;
+        const firstTag = new Map<string, string>();
+        for (const l of (tagLinks ?? []) as {
+          contact_id: string;
+          tag_id: string;
+        }[]) {
+          const name = tagsMap[l.tag_id]?.name;
+          if (!name) continue;
+          const cur = firstTag.get(l.contact_id);
+          if (cur == null || name.localeCompare(cur) < 0)
+            firstTag.set(l.contact_id, name);
+        }
+        for (const [cid, name] of firstTag) keyById.set(cid, name);
       }
 
       const sortedIds = [...allIds].sort((a, b) =>
         compareCustomValues(
-          valById.get(a),
-          valById.get(b),
-          customSort.type,
-          customSort.dir
+          keyById.get(a),
+          keyById.get(b),
+          cmpType,
+          clientSort.dir
         )
       );
       setTotalCount(allIds.length);
@@ -1714,9 +1912,10 @@ export default function LeadsPage() {
     search,
     filters,
     tagsMap,
+    nameById,
     activeCustomKey,
     sortColumn,
-    customSort,
+    clientSort,
     sort,
   ]);
 
@@ -2241,8 +2440,8 @@ export default function LeadsPage() {
   // logic but pulls only ids (no pagination window).
   async function selectAllMatching() {
     const term = search.trim();
-    const tagIds = await resolveTagContactIds(supabase, filters.tags);
-    if (tagIds && tagIds.length === 0) {
+    const idFilter = await resolveContactIdFilter(supabase, filters);
+    if (idFilter && idFilter.length === 0) {
       setSelected(new Set());
       return;
     }
@@ -2256,7 +2455,7 @@ export default function LeadsPage() {
         `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
       );
     }
-    query = applyLeadFilters(query, filters, tagIds);
+    query = applyLeadFilters(query, filters, idFilter);
     const { data, error } = await query;
     if (error) {
       toast.error('Failed to select all leads');
@@ -2274,8 +2473,8 @@ export default function LeadsPage() {
     setExporting(true);
     try {
       const term = search.trim();
-      const tagIds = await resolveTagContactIds(supabase, filters.tags);
-      if (tagIds && tagIds.length === 0) {
+      const idFilter = await resolveContactIdFilter(supabase, filters);
+      if (idFilter && idFilter.length === 0) {
         toast.error('No leads to export');
         return;
       }
@@ -2289,7 +2488,7 @@ export default function LeadsPage() {
           `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
         );
       }
-      query = applyLeadFilters(query, filters, tagIds);
+      query = applyLeadFilters(query, filters, idFilter);
       const { data, error } = await query.order('created_at', {
         ascending: false,
       });
@@ -2417,6 +2616,35 @@ export default function LeadsPage() {
         group: 'Lead fields',
         editor: { kind: 'select', variant: 'plain', options: assigneeOptions },
       },
+      // Ownership ("Received by" = contacts.user_id). Moves through the
+      // transfer flow, not a column write — gate on canTransfer (agent+),
+      // matching the inline cell picker. No "Unassigned" (ownership can't
+      // be cleared). Per-lead who-can-move-what is enforced server-side.
+      ...(canTransfer
+        ? [
+            {
+              key: 'received_by',
+              label: 'Received by',
+              group: 'Lead fields' as const,
+              editor: {
+                kind: 'select' as const,
+                variant: 'plain' as const,
+                options: staff.map((s) => ({
+                  value: s.user_id,
+                  label: s.full_name,
+                  icon: (
+                    <UserAvatar
+                      name={s.full_name}
+                      src={s.avatar_url}
+                      className="size-5 shrink-0"
+                      fallbackClassName="text-[10px]"
+                    />
+                  ),
+                })),
+              },
+            },
+          ]
+        : []),
       {
         key: 'source',
         label: 'Source',
@@ -2460,7 +2688,7 @@ export default function LeadsPage() {
         })
       ),
     ];
-  }, [fieldOptions, staff, customFields]);
+  }, [fieldOptions, staff, customFields, canTransfer]);
 
   // Apply one property to every selected lead. Returns true on success so
   // the dialog can close; each failure toasts and keeps it open. Custom
@@ -2523,6 +2751,34 @@ export default function LeadsPage() {
       return true;
     }
 
+    // Ownership ("Received by" = contacts.user_id) moves through the
+    // transfer flow (migration 050), not a column write. Loop
+    // request_lead_transfer per lead so the server gates who can move what:
+    // admin/owner move instantly ('accepted'); an agent's own leads become
+    // pending requests; system-generated / not-owned leads throw → skipped.
+    if (property.key === 'received_by') {
+      let transferred = 0;
+      let pending = 0;
+      let skipped = 0;
+      for (const id of ids) {
+        try {
+          const outcome = await requestLeadTransfer(supabase, id, value);
+          if (outcome === 'accepted') transferred++;
+          else pending++;
+        } catch {
+          skipped++;
+        }
+      }
+      const parts: string[] = [];
+      if (transferred) parts.push(`${transferred} transferred`);
+      if (pending) parts.push(`${pending} sent for approval`);
+      if (skipped) parts.push(`${skipped} skipped`);
+      toast.success(parts.join(' · ') || 'No changes');
+      setSelected(new Set());
+      refreshAll();
+      return true;
+    }
+
     let patch: Record<string, unknown>;
     if (property.key === 'status') {
       patch = { lead_status: columnToStatus(value as LeadColumnKey) };
@@ -2559,13 +2815,146 @@ export default function LeadsPage() {
     [tagsMap]
   );
 
+  // Enumerable columns get an Excel-style value filter in their header
+  // menu. Each maps to a shared LeadFilters dimension (so the column filter
+  // and the Filters panel can't drift) plus the checkbox options to offer.
+  // Free-text columns (name/phone/email/company/dates/custom) aren't listed
+  // — their menus simply omit the Filter item. received_by → owner and
+  // created_by → createdBy both filter on the underlying uuid column.
+  const columnFilterConfig = useMemo<
+    Record<
+      string,
+      { dim: keyof LeadFilters; options: { value: string; label: string }[] }
+    >
+  >(() => {
+    const staffOptions = staff.map((s) => ({
+      value: s.user_id,
+      label: s.full_name,
+    }));
+    const pendingOptions = pendingAssignees.map((p) => ({
+      value: `${PENDING_FILTER_PREFIX}${p.id}`,
+      label: `${p.name} · pending`,
+    }));
+    return {
+      status: {
+        dim: 'leadStatus',
+        options: fieldOptions.statuses.map((c) => ({
+          value: c.key,
+          label: c.label,
+        })),
+      },
+      source: {
+        dim: 'source',
+        options: fieldOptions.sources.map((o) => ({
+          value: o.key,
+          label: o.label,
+        })),
+      },
+      gender: {
+        dim: 'gender',
+        options: fieldOptions.genders.map((o) => ({
+          value: o.key,
+          label: o.label,
+        })),
+      },
+      tags: {
+        dim: 'tags',
+        options: allTags.map((t) => ({ value: t.id, label: t.name })),
+      },
+      assignee: {
+        dim: 'assigned',
+        options: [
+          { value: UNASSIGNED, label: 'Unassigned' },
+          ...staffOptions,
+          ...pendingOptions,
+        ],
+      },
+      received_by: { dim: 'owner', options: staffOptions },
+      created_by: { dim: 'createdBy', options: staffOptions },
+    };
+  }, [fieldOptions, allTags, staff, pendingAssignees]);
+
+  // Toggle one value of a column's value filter — writes into the shared
+  // LeadFilters state (page resets to 0 via the search/filters effect).
+  function toggleColumnFilter(dim: keyof LeadFilters, value: string) {
+    setFilters((f) => {
+      const cur = f[dim];
+      if (!Array.isArray(cur)) return f; // only array dimensions are filtered here
+      const next = cur.includes(value)
+        ? cur.filter((x) => x !== value)
+        : [...cur, value];
+      return { ...f, [dim]: next };
+    });
+  }
+
+  // Visible custom columns whose type supports a value filter (text/number).
+  const filterableCustomFields = useMemo(
+    () =>
+      customFields.filter(
+        (f) =>
+          CUSTOM_FILTER_TYPES.has(f.field_type) &&
+          visibleColumns.some((c) => c.key === `cf:${f.id}`)
+      ),
+    [customFields, visibleColumns]
+  );
+  const filterableCustomKey = filterableCustomFields.map((f) => f.id).join(',');
+
+  // Load the distinct stored values for each filterable custom column, so its
+  // header menu can offer them as checkboxes. One account-scoped read (RLS),
+  // deduped client-side — mirrors the customSort value fetch.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!filterableCustomKey) {
+        if (!cancelled) setCustomFilterOptions({});
+        return;
+      }
+      const ids = filterableCustomKey.split(',');
+      const { data } = await supabase
+        .from('contact_custom_values')
+        .select('custom_field_id, value')
+        .in('custom_field_id', ids);
+      if (cancelled) return;
+      const seen: Record<string, Set<string>> = {};
+      for (const r of (data ?? []) as {
+        custom_field_id: string;
+        value: string | null;
+      }[]) {
+        const v = r.value?.trim();
+        if (!v) continue;
+        (seen[r.custom_field_id] ??= new Set<string>()).add(v);
+      }
+      const map: Record<string, string[]> = {};
+      for (const [fid, set] of Object.entries(seen))
+        map[fid] = [...set].sort((a, b) => a.localeCompare(b));
+      setCustomFilterOptions(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, filterableCustomKey]);
+
+  // Toggle one value of a custom-field value filter (custom_field_id → values).
+  function toggleCustomValueFilter(fieldId: string, value: string) {
+    setFilters((f) => {
+      const cur = f.customValues[fieldId] ?? [];
+      const next = cur.includes(value)
+        ? cur.filter((x) => x !== value)
+        : [...cur, value];
+      const customValues = { ...f.customValues };
+      if (next.length) customValues[fieldId] = next;
+      else delete customValues[fieldId];
+      return { ...f, customValues };
+    });
+  }
+
   // Sortable columns for the Sort panel, in display order. Real contacts
   // columns sort server-side (sortColumn); custom fields sort client-side
   // over the full filtered id set (see fetchContacts' customSort branch).
   const sortableColumns = useMemo(
     () =>
       visibleColumns
-        .filter((c) => c.sortColumn || c.isCustom)
+        .filter((c) => c.sortColumn || c.isCustom || c.clientSort)
         .map((c) => ({ key: c.key, label: c.label })),
     [visibleColumns]
   );
@@ -3113,11 +3502,41 @@ export default function LeadsPage() {
                       >
                         {arrangedColumns.map((col, i) => {
                           const isFrozen = frozenKeySet.has(col.key);
+                          const fc = columnFilterConfig[col.key];
+                          let filterProp: ColumnFilterProp | undefined;
+                          if (fc) {
+                            filterProp = {
+                              options: fc.options,
+                              selected: filters[fc.dim] as string[],
+                              onToggle: (v) => toggleColumnFilter(fc.dim, v),
+                            };
+                          } else if (
+                            col.isCustom &&
+                            CUSTOM_FILTER_TYPES.has(col.customType ?? '')
+                          ) {
+                            const fieldId = col.key.slice(3); // strip "cf:"
+                            filterProp = {
+                              options: (
+                                customFilterOptions[fieldId] ?? []
+                              ).map((v) => ({
+                                value: v,
+                                label: formatCustomFieldValue(
+                                  v,
+                                  col.customType,
+                                  defaultCurrency
+                                ),
+                              })),
+                              selected: filters.customValues[fieldId] ?? [],
+                              onToggle: (v) =>
+                                toggleCustomValueFilter(fieldId, v),
+                            };
+                          }
                           return (
                             <DraggableHeaderCell
                               key={col.key}
                               col={col}
                               isFrozen={isFrozen}
+                              filter={filterProp}
                               frozenStyle={frozenCellStyle(col.key)}
                               dragX={col.key === draggingKey ? dragX : 0}
                               sortDir={sort?.key === col.key ? sort.dir : null}
