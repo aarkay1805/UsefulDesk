@@ -1086,9 +1086,12 @@ export default function LeadsPage() {
   const [transferSubmitting, setTransferSubmitting] = useState(false);
 
   // Board view data — fetched independently of the paginated table so
-  // switching views doesn't fight the table's pagination window.
-  const [boardLeads, setBoardLeads] = useState<Contact[]>([]);
-  const [boardLoading, setBoardLoading] = useState(false);
+  // switching views doesn't fight the table's pagination window. Rows are
+  // enriched with tags (same shape as the table) for the card chips.
+  const [boardLeads, setBoardLeads] = useState<ContactWithData[]>([]);
+  // Starts true so the first board visit shows the skeleton, not a
+  // one-frame "No leads yet" flash before the fetch effect fires.
+  const [boardLoading, setBoardLoading] = useState(true);
   const [boardNonce, setBoardNonce] = useState(0);
 
   // Custom-field definitions — drive the dynamic columns.
@@ -1165,6 +1168,8 @@ export default function LeadsPage() {
   // results. Without this, rapidly changing the search/page could let a
   // slower earlier request resolve last and render stale rows.
   const fetchSeq = useRef(0);
+  // Same guard for the board's independent fetch.
+  const boardFetchSeq = useRef(0);
 
   // Latest fetchContacts held in a ref so the transfers realtime channel can
   // trigger an owner-flip refetch without re-subscribing on every filter/sort
@@ -1923,35 +1928,67 @@ export default function LeadsPage() {
   ]);
 
   // Board data — all statuses at once, capped at BOARD_LIMIT most
-  // recent. Respects the header search.
+  // recent. Respects the header search AND the shared Filters panel
+  // (same applyLeadFilters + id-filter resolution the table uses, so the
+  // two views — and the CSV export — can never disagree on the set).
+  // Sequence-guarded like fetchContacts: only the latest run commits.
   const fetchBoard = useCallback(async () => {
     void boardNonce; // manual refetch trigger — bump to reload
+    const seq = ++boardFetchSeq.current;
     setBoardLoading(true);
     const term = search.trim();
+
+    const idFilter = await resolveContactIdFilter(supabase, filters);
+    if (seq !== boardFetchSeq.current) return;
+    if (idFilter && idFilter.length === 0) {
+      setBoardLeads([]);
+      setBoardLoading(false);
+      return;
+    }
 
     let query = supabase
       .from('contacts')
       .select('*, memberships!left(id)')
-      .is('memberships', null)
-      .order('created_at', { ascending: false })
-      .limit(BOARD_LIMIT);
-
+      .is('memberships', null);
     if (term) {
       const like = `%${term}%`;
       query = query.or(
         `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
       );
     }
+    query = applyLeadFilters(query, filters, idFilter);
 
-    const { data, error } = await query;
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(BOARD_LIMIT);
+    if (seq !== boardFetchSeq.current) return; // superseded by a newer fetch
     if (error) {
       toast.error('Failed to load leads');
       setBoardLoading(false);
       return;
     }
-    setBoardLeads((data ?? []) as Contact[]);
+    const rows = (data ?? []) as unknown as Contact[];
+
+    // Tags for the card chips — one account-scoped read (RLS bounds it;
+    // no 500-id list in the URL), same pattern as the tags client-sort.
+    const { data: tagLinks } = await supabase
+      .from('contact_tags')
+      .select('contact_id, tag_id');
+    if (seq !== boardFetchSeq.current) return;
+    const tagsByContact: Record<string, Tag[]> = {};
+    for (const l of (tagLinks ?? []) as {
+      contact_id: string;
+      tag_id: string;
+    }[]) {
+      const t = tagsMap[l.tag_id];
+      if (t) (tagsByContact[l.contact_id] ??= []).push(t);
+    }
+
+    setBoardLeads(
+      rows.map((c) => ({ ...c, tags: tagsByContact[c.id] ?? [] }))
+    );
     setBoardLoading(false);
-  }, [supabase, search, boardNonce]);
+  }, [supabase, search, filters, tagsMap, boardNonce]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (Supabase await), not
@@ -1989,6 +2026,9 @@ export default function LeadsPage() {
         () => {
           fetchTransfers();
           fetchContactsRef.current();
+          // Board cards render owner/pending chips too — refetch when
+          // it's the live view (the effect below gates on view).
+          setBoardNonce((n) => n + 1);
         }
       )
       .subscribe();
@@ -2140,6 +2180,9 @@ export default function LeadsPage() {
 
   // Drag on the board rewrites the lead's status. Optimistic — the
   // card already landed in its new column; revert by refetch on error.
+  // `.select('id')` turns an RLS-blocked write (silently zero rows) into
+  // a visible failure, so the optimistic card can't stay in a column the
+  // DB never agreed to.
   const handleStatusChange = useCallback(
     async (contactId: string, status: LeadStatus | null) => {
       setBoardLeads((prev) =>
@@ -2147,11 +2190,15 @@ export default function LeadsPage() {
           l.id === contactId ? { ...l, lead_status: status } : l
         )
       );
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('contacts')
-        .update({ lead_status: status })
-        .eq('id', contactId);
-      if (error) {
+        .update({
+          lead_status: status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', contactId)
+        .select('id');
+      if (error || !data || data.length === 0) {
         toast.error('Failed to update lead status');
         setBoardNonce((n) => n + 1);
       } else {
@@ -3258,34 +3305,39 @@ export default function LeadsPage() {
           </div>
 
           {view === 'table' && (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => setManageColumnsOpen(true)}
-                className="border-border text-muted-foreground hover:bg-muted"
-              >
-                <Columns3 className="size-4" />
-                <span className="hidden sm:inline">Edit columns</span>
-              </Button>
-              <LeadsFilters
-                value={filters}
-                onChange={setFilters}
-                staff={staff}
-                tags={allTags}
-                statuses={fieldOptions.statuses}
-                sources={fieldOptions.sources}
-                genders={fieldOptions.genders}
-                pendingInvites={pendingAssignees}
-              />
-              <LeadsSort
-                value={sort}
-                onChange={(next) => {
-                  setPrefs((p) => ({ ...p, sort: next }));
-                  setPage(0);
-                }}
-                columns={sortableColumns}
-              />
-            </>
+            <Button
+              variant="outline"
+              onClick={() => setManageColumnsOpen(true)}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              <Columns3 className="size-4" />
+              <span className="hidden sm:inline">Edit columns</span>
+            </Button>
+          )}
+          {/* Filters constrain the DATA (both views + the CSV export), so
+              the panel lives in both — unlike Sort / Edit columns, which
+              are table presentation only. Without this, a filter set in
+              the table would silently keep applying to the export while
+              being invisible (and uncloseable) from the board. */}
+          <LeadsFilters
+            value={filters}
+            onChange={setFilters}
+            staff={staff}
+            tags={allTags}
+            statuses={fieldOptions.statuses}
+            sources={fieldOptions.sources}
+            genders={fieldOptions.genders}
+            pendingInvites={pendingAssignees}
+          />
+          {view === 'table' && (
+            <LeadsSort
+              value={sort}
+              onChange={(next) => {
+                setPrefs((p) => ({ ...p, sort: next }));
+                setPage(0);
+              }}
+              columns={sortableColumns}
+            />
           )}
         </div>
       </div>
@@ -3407,6 +3459,31 @@ export default function LeadsPage() {
                 />
               ))}
             </div>
+          ) : boardLeads.length === 0 ? (
+            // Whole-board empty state (mirrors the table's) — five "drop a
+            // lead here" ghost columns say nothing when there's nothing to
+            // drag.
+            <div className="border-border bg-card flex h-full flex-col items-center justify-center gap-2 rounded-lg border py-12">
+              <Users className="text-muted-foreground size-8" />
+              <p className="text-muted-foreground text-sm">
+                {hasActiveFilters
+                  ? 'No leads match your filters.'
+                  : 'No leads yet.'}
+              </p>
+              {!hasActiveFilters && (
+                <GatedButton
+                  canAct={canEdit}
+                  gateReason="add or import leads"
+                  variant="outline"
+                  size="sm"
+                  onClick={openAddForm}
+                  className="border-border text-muted-foreground hover:bg-muted mt-2"
+                >
+                  <Plus className="size-3.5" />
+                  Add your first lead
+                </GatedButton>
+              )}
+            </div>
           ) : (
             <>
               {boardLeads.length >= BOARD_LIMIT && (
@@ -3420,7 +3497,15 @@ export default function LeadsPage() {
                 columns={fieldOptions.statuses}
                 onStatusChange={handleStatusChange}
                 onOpenLead={openDetail}
+                onEditLead={openEditForm}
+                onDeleteLead={confirmDelete}
                 canEdit={canEdit}
+                nameById={nameById}
+                avatarById={avatarById}
+                transfers={transfers}
+                assignmentRequests={assignmentRequests}
+                currentUserId={user?.id}
+                sourceLabel={fieldOptions.sourceLabel}
               />
             </>
           )}

@@ -14,7 +14,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import type { Contact, LeadStatus } from "@/types";
+import type { Contact, LeadStatus, LeadTransfer, Tag } from "@/types";
 import {
   columnToStatus,
   leadColumnKey,
@@ -25,12 +25,32 @@ import {
   humaniseKey,
   UNKNOWN_STATUS_COLOR,
 } from "@/lib/leads/field-options";
-import { Building2, Phone } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  Eye,
+  MoreHorizontal,
+  Pencil,
+  Phone,
+  Trash2,
+} from "lucide-react";
 import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/ui/user-avatar";
+import { SourceIcon } from "@/components/leads/source-icon";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+
+/** Board rows are table rows — same enrichment (tags ride along). */
+export type BoardLead = Contact & { tags?: Tag[] };
 
 interface LeadsBoardProps {
-  leads: Contact[];
+  leads: BoardLead[];
   /** Board columns — the fixed "New" bucket + the account's statuses
    *  (useLeadFieldOptions().statuses). */
   columns: LeadColumn[];
@@ -38,8 +58,22 @@ interface LeadsBoardProps {
   onStatusChange: (contactId: string, status: LeadStatus | null) => void;
   /** Open the lead's detail slide-over (card click). */
   onOpenLead: (contactId: string) => void;
-  /** Viewers can look but not drag. */
+  /** Card ⋮ menu → the page's edit form / delete confirm. */
+  onEditLead: (lead: Contact) => void;
+  onDeleteLead: (lead: Contact) => void;
+  /** Viewers can look but not drag/edit/delete. */
   canEdit: boolean;
+  /** Teammate lookups (useAccountStaff) — assignee avatar + pending chips. */
+  nameById: ReadonlyMap<string, string>;
+  avatarById: ReadonlyMap<string, string | null>;
+  /** In-flight ownership transfers / assignment requests, keyed by
+      contact_id (migrations 050/052) — same maps the table cells overlay. */
+  transfers: Record<string, LeadTransfer>;
+  assignmentRequests: Record<string, LeadTransfer>;
+  /** Viewer's user id — a transfer aimed at them reads "to you". */
+  currentUserId?: string;
+  /** Account-aware source label (fieldOptions.sourceLabel). */
+  sourceLabel: (key: string) => string;
 }
 
 // Kanban view of the Leads list. Columns are the account's lead
@@ -53,12 +87,20 @@ export function LeadsBoard({
   columns,
   onStatusChange,
   onOpenLead,
+  onEditLead,
+  onDeleteLead,
   canEdit,
+  nameById,
+  avatarById,
+  transfers,
+  assignmentRequests,
+  currentUserId,
+  sourceLabel,
 }: LeadsBoardProps) {
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
 
   const { allColumns, leadsByColumn } = useMemo(() => {
-    const map = new Map<LeadColumnKey, Contact[]>();
+    const map = new Map<LeadColumnKey, BoardLead[]>();
     for (const col of columns) map.set(col.key, []);
     const extras: LeadColumn[] = [];
     for (const lead of leads) {
@@ -87,6 +129,21 @@ export function LeadsBoard({
   const activeLead = activeLeadId
     ? leads.find((l) => l.id === activeLeadId) ?? null
     : null;
+
+  // Card render context — bundled once so the card tree doesn't take a
+  // dozen prop drills per level.
+  const cardCtx: LeadCardContext = {
+    onOpenLead,
+    onEditLead,
+    onDeleteLead,
+    canEdit,
+    nameById,
+    avatarById,
+    transfers,
+    assignmentRequests,
+    currentUserId,
+    sourceLabel,
+  };
 
   function handleDragStart(event: DragStartEvent) {
     setActiveLeadId(String(event.active.id));
@@ -132,8 +189,7 @@ export function LeadsBoard({
               key={col.key}
               column={col}
               leads={leadsByColumn.get(col.key) ?? []}
-              canEdit={canEdit}
-              onOpenLead={onOpenLead}
+              ctx={cardCtx}
             />
           ))}
         </div>
@@ -145,7 +201,7 @@ export function LeadsBoard({
       <DragOverlay dropAnimation={null}>
         {activeLead ? (
           <div className="opacity-90">
-            <LeadCard lead={activeLead} onOpen={() => {}} isOverlay />
+            <LeadCard lead={activeLead} ctx={cardCtx} isOverlay />
           </div>
         ) : null}
       </DragOverlay>
@@ -190,16 +246,28 @@ export function LeadsBoard({
   );
 }
 
+/** Everything a card needs beyond its own lead row. */
+interface LeadCardContext {
+  onOpenLead: (contactId: string) => void;
+  onEditLead: (lead: Contact) => void;
+  onDeleteLead: (lead: Contact) => void;
+  canEdit: boolean;
+  nameById: ReadonlyMap<string, string>;
+  avatarById: ReadonlyMap<string, string | null>;
+  transfers: Record<string, LeadTransfer>;
+  assignmentRequests: Record<string, LeadTransfer>;
+  currentUserId?: string;
+  sourceLabel: (key: string) => string;
+}
+
 function StatusColumn({
   column,
   leads,
-  canEdit,
-  onOpenLead,
+  ctx,
 }: {
   column: LeadColumn;
-  leads: Contact[];
-  canEdit: boolean;
-  onOpenLead: (contactId: string) => void;
+  leads: BoardLead[];
+  ctx: LeadCardContext;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.key });
 
@@ -232,19 +300,14 @@ function StatusColumn({
       >
         {leads.length === 0 ? (
           <div className="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed border-border py-10 text-xs text-muted-foreground">
-            {canEdit ? "Drop a lead here" : "No leads"}
+            {ctx.canEdit ? "Drop a lead here" : "No leads"}
           </div>
         ) : (
           // popLayout pulls an exiting card out of flow immediately so the
           // remaining cards slide up to close the gap while it animates out.
           <AnimatePresence mode="popLayout" initial={false}>
             {leads.map((lead) => (
-              <DraggableLeadCard
-                key={lead.id}
-                lead={lead}
-                canEdit={canEdit}
-                onOpen={onOpenLead}
-              />
+              <DraggableLeadCard key={lead.id} lead={lead} ctx={ctx} />
             ))}
           </AnimatePresence>
         )}
@@ -255,16 +318,14 @@ function StatusColumn({
 
 function DraggableLeadCard({
   lead,
-  canEdit,
-  onOpen,
+  ctx,
 }: {
-  lead: Contact;
-  canEdit: boolean;
-  onOpen: (contactId: string) => void;
+  lead: BoardLead;
+  ctx: LeadCardContext;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: lead.id,
-    disabled: !canEdit,
+    disabled: !ctx.canEdit,
   });
 
   return (
@@ -283,31 +344,75 @@ function DraggableLeadCard({
       transition={{ type: "spring", stiffness: 550, damping: 38, mass: 0.7 }}
       style={{ touchAction: "none" }}
     >
-      <LeadCard lead={lead} onOpen={onOpen} />
+      <LeadCard lead={lead} ctx={ctx} />
     </motion.div>
   );
 }
 
+// Compact created-on stamp — "9 Jul", year suffix only when it isn't this
+// year. Full date rides the title tooltip.
+function formatCardDate(iso: string) {
+  const d = new Date(iso);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    ...(sameYear ? {} : { year: "2-digit" }),
+  });
+}
+
+const CARD_TAG_LIMIT = 2;
+
+/**
+ * One kanban card. Information scent mirrors the table row, compressed:
+ * name → contact/company meta → tags → a hairline footer with the origin
+ * (source glyph + created date) on the left and the OWNER on the right —
+ * the assignee avatar, or the amber pending chip when a transfer /
+ * assignment approval / invite is still in flight (the same states the
+ * table's cells overlay, so a lead mid-handoff can't look "normal" here).
+ *
+ * The card is a clickable div, NOT a button — it contains real buttons
+ * (name = the keyboard/AT open affordance, ⋮ = the actions menu), and
+ * nesting those inside a button is invalid HTML.
+ */
 function LeadCard({
   lead,
-  onOpen,
+  ctx,
   isOverlay = false,
 }: {
-  lead: Contact;
-  onOpen: (contactId: string) => void;
+  lead: BoardLead;
+  ctx: LeadCardContext;
   isOverlay?: boolean;
 }) {
+  const tags = lead.tags ?? [];
+  const overflowTags = tags.length - CARD_TAG_LIMIT;
+
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(lead.id)}
-      className={`w-full rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/60 ${
+    <div
+      onClick={() => ctx.onOpenLead(lead.id)}
+      className={`group/card w-full cursor-pointer rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/60 ${
         isOverlay ? "shadow-lg" : ""
       }`}
     >
-      <p className="truncate text-sm font-medium text-foreground">
-        {lead.name || <span className="italic text-muted-foreground">Unnamed</span>}
-      </p>
+      {/* Header — name + hover-reveal actions menu. The name is the real
+          <button> (keyboard/AT path to the detail sheet); the wrapping div's
+          onClick is the pointer convenience. */}
+      <div className="flex items-start justify-between gap-1">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            ctx.onOpenLead(lead.id);
+          }}
+          className="min-w-0 truncate text-left text-sm font-medium text-foreground hover:underline"
+        >
+          {lead.name || (
+            <span className="italic text-muted-foreground">Unnamed</span>
+          )}
+        </button>
+        {!isOverlay && <CardMenu lead={lead} ctx={ctx} />}
+      </div>
+
       <p className="mt-1 flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
         <Phone className="size-3 shrink-0" />
         <span className="truncate">{lead.phone}</span>
@@ -318,6 +423,195 @@ function LeadCard({
           <span className="truncate">{lead.company}</span>
         </p>
       )}
-    </button>
+
+      {tags.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          {tags.slice(0, CARD_TAG_LIMIT).map((tag) => (
+            <Badge key={tag.id} variant="neutral">
+              {tag.name}
+            </Badge>
+          ))}
+          {overflowTags > 0 && (
+            <span
+              className="text-[10px] text-muted-foreground"
+              title={tags
+                .slice(CARD_TAG_LIMIT)
+                .map((t) => t.name)
+                .join(", ")}
+            >
+              +{overflowTags}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Footer — origin (source glyph + created date) vs owner. Hairline
+          top border groups it apart from the identity block above. */}
+      <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border/60 pt-2">
+        <span className="flex min-w-0 items-center gap-1.5">
+          {lead.source && (
+            <SourceIcon
+              source={lead.source}
+              label={ctx.sourceLabel(lead.source)}
+              className="size-3.5"
+            />
+          )}
+          <span
+            className="text-[11px] text-muted-foreground"
+            title={`Created ${new Date(lead.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`}
+          >
+            {formatCardDate(lead.created_at)}
+          </span>
+        </span>
+        <CardOwner lead={lead} ctx={ctx} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Footer-right owner slot, in the table's own precedence order:
+ * pending assignment approval → pending ownership transfer → pending
+ * invite → assignee avatar → unassigned placeholder. Pending states are
+ * icon + text + colour (never colour alone), with the full story on title.
+ */
+function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
+  const assignmentReq = ctx.assignmentRequests[lead.id];
+  if (assignmentReq) {
+    const targetName = assignmentReq.to_user_id
+      ? ctx.nameById.get(assignmentReq.to_user_id) ?? "Teammate"
+      : "Unassign";
+    return (
+      <Badge
+        variant="warning"
+        className="shrink-0 gap-0.5"
+        title={`Assignment pending the owner's approval → ${targetName}`}
+      >
+        <ArrowRight className="size-3" />
+        {targetName}
+      </Badge>
+    );
+  }
+
+  const transfer = ctx.transfers[lead.id];
+  if (transfer) {
+    const incoming = transfer.to_user_id === ctx.currentUserId;
+    const targetName = transfer.to_user_id
+      ? ctx.nameById.get(transfer.to_user_id) ?? "Teammate"
+      : "Teammate";
+    return (
+      <Badge
+        variant="warning"
+        className="shrink-0 gap-0.5"
+        title={
+          incoming
+            ? "Ownership transfer awaiting your acceptance"
+            : `Ownership transfer pending → ${targetName}`
+        }
+      >
+        <ArrowRight className="size-3" />
+        {incoming ? "to you" : targetName}
+      </Badge>
+    );
+  }
+
+  // Parked on a not-yet-joined teammate (migration 049) — amber initial,
+  // matching PendingAssigneeDisplay's palette.
+  if (lead.pending_invitation_id && lead.pending_assignee_name) {
+    return (
+      <span
+        title={`Invite pending — ${lead.pending_assignee_name} hasn't joined yet`}
+      >
+        <UserAvatar
+          name={lead.pending_assignee_name}
+          src={null}
+          className="size-5 shrink-0 opacity-90"
+          fallbackClassName="bg-amber-500/15 text-[10px] text-amber-700 dark:text-amber-400"
+        />
+      </span>
+    );
+  }
+
+  if (lead.assigned_to) {
+    const name = ctx.nameById.get(lead.assigned_to) ?? "Teammate";
+    return (
+      <span title={`Assigned to ${name}`}>
+        <UserAvatar
+          name={name}
+          src={ctx.avatarById.get(lead.assigned_to)}
+          className="size-5 shrink-0"
+          fallbackClassName="text-[10px]"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      title="Unassigned"
+      aria-label="Unassigned"
+      className="size-5 shrink-0 rounded-full border border-dashed border-muted-foreground/40"
+    />
+  );
+}
+
+/** Card ⋮ — the table row menu, verbatim: View details / Edit / Delete. */
+function CardMenu({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label={`Actions for ${lead.name || lead.phone}`}
+            // Hidden until card hover, but keyboard focus and an open menu
+            // both force it visible — no hover-only affordance. pointer-down
+            // is stopped so the drag sensor never eats the click.
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="-mr-1 -mt-0.5 flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/card:opacity-100 data-[popup-open]:opacity-100"
+          />
+        }
+      >
+        <MoreHorizontal className="size-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="bg-popover border-border">
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            ctx.onOpenLead(lead.id);
+          }}
+          className="text-popover-foreground focus:bg-muted focus:text-foreground"
+        >
+          <Eye className="size-4" />
+          View details
+        </DropdownMenuItem>
+        {ctx.canEdit && (
+          <>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                ctx.onEditLead(lead);
+              }}
+              className="text-popover-foreground focus:bg-muted focus:text-foreground"
+            >
+              <Pencil className="size-4" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                ctx.onDeleteLead(lead);
+              }}
+            >
+              <Trash2 className="size-4" />
+              Delete
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
