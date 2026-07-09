@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { MotionList, MotionListItem } from "@/components/ui/motion-list";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -279,12 +280,13 @@ export default function NotificationsPage() {
           </p>
         </div>
       ) : (
-        <ul className="space-y-2">
-          {notifications.map((n) => {
+        <div className="space-y-2">
+          <MotionList>
+            {notifications.map((n) => {
             const Icon = TYPE_ICON[n.type] ?? Bell;
             const isUnread = !n.read_at;
             return (
-              <li key={n.id}>
+              <MotionListItem key={n.id}>
                 <button
                   type="button"
                   onClick={() => handleClick(n)}
@@ -394,10 +396,11 @@ export default function NotificationsPage() {
                     </Button>
                   </div>
                 )}
-              </li>
+              </MotionListItem>
             );
           })}
-        </ul>
+          </MotionList>
+        </div>
       )}
     </div>
   );

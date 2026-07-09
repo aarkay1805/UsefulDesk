@@ -4,12 +4,30 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Users, UserX, CalendarClock, CircleAlert, Wallet, IndianRupee } from "lucide-react";
 
+import { motion } from "motion/react";
+
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency } from "@/lib/currency";
 import { loadGymStats, type GymStats } from "@/lib/memberships/stats";
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import { SkeletonCard } from "@/components/dashboard/skeleton";
+
+// Tiles rise + fade in sequence when the stats land; each number then counts
+// up (AnimatedNumber). Container drives the stagger, item drives the reveal.
+const gridVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+};
+const tileVariants = {
+  hidden: { opacity: 0, y: 8 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 400, damping: 32 },
+  },
+} as const;
 
 /**
  * Gym owner's "in control in 30 seconds" strip — the action-list KPIs
@@ -49,60 +67,89 @@ export function GymMetrics() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {loading || !stats ? (
-          Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
-          <>
+      {loading || !stats ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      ) : (
+        <motion.div
+          variants={gridVariants}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          <motion.div variants={tileVariants} className="h-full">
             <TileLink href="/members">
               <MetricCard
                 title="Fees to collect"
-                value={formatCurrency(stats.feesDueAmount, defaultCurrency)}
+                value={
+                  <AnimatedNumber
+                    value={stats.feesDueAmount}
+                    format={(n) => formatCurrency(n, defaultCurrency)}
+                  />
+                }
                 icon={Wallet}
                 subtitle={`${stats.feesDueCount} pending`}
               />
             </TileLink>
+          </motion.div>
+          <motion.div variants={tileVariants} className="h-full">
             <TileLink href="/members">
               <MetricCard
                 title="Renewals due (7d)"
-                value={stats.expiring7.toLocaleString()}
+                value={<AnimatedNumber value={stats.expiring7} />}
                 icon={CalendarClock}
                 subtitle="Expiring this week"
               />
             </TileLink>
+          </motion.div>
+          <motion.div variants={tileVariants} className="h-full">
             <TileLink href="/members">
               <MetricCard
                 title="Expired"
-                value={stats.expired.toLocaleString()}
+                value={<AnimatedNumber value={stats.expired} />}
                 icon={CircleAlert}
                 subtitle="Win them back"
               />
             </TileLink>
+          </motion.div>
+          <motion.div variants={tileVariants} className="h-full">
             <TileLink href="/members">
               <MetricCard
                 title="Inactive (10d+)"
-                value={stats.inactive.toLocaleString()}
+                value={<AnimatedNumber value={stats.inactive} />}
                 icon={UserX}
                 subtitle="No visit in 10 days"
               />
             </TileLink>
+          </motion.div>
+          <motion.div variants={tileVariants} className="h-full">
             <TileLink href="/members">
               <MetricCard
                 title="Active members"
-                value={stats.activeMembers.toLocaleString()}
+                value={<AnimatedNumber value={stats.activeMembers} />}
                 icon={Users}
                 subtitle="Currently valid"
               />
             </TileLink>
+          </motion.div>
+          <motion.div variants={tileVariants} className="h-full">
             <MetricCard
               title="Collected this month"
-              value={formatCurrency(stats.collectedThisMonth, defaultCurrency)}
+              value={
+                <AnimatedNumber
+                  value={stats.collectedThisMonth}
+                  format={(n) => formatCurrency(n, defaultCurrency)}
+                />
+              }
               icon={IndianRupee}
               subtitle="Payments recorded"
             />
-          </>
-        )}
-      </div>
+          </motion.div>
+        </motion.div>
+      )}
     </section>
   );
 }
@@ -111,7 +158,7 @@ function TileLink({ href, children }: { href: string; children: React.ReactNode 
   return (
     <Link
       href={href}
-      className="rounded-xl outline-none transition-transform focus-visible:ring-2 focus-visible:ring-primary [&>div]:h-full [&>div]:transition-colors [&>div]:hover:border-primary/50"
+      className="block h-full rounded-xl outline-none transition-transform focus-visible:ring-2 focus-visible:ring-primary [&>div]:h-full [&>div]:transition-colors [&>div]:hover:border-primary/50"
     >
       {children}
     </Link>

@@ -1,11 +1,15 @@
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react'
-import type { ComponentType } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 interface MetricCardProps {
   title: string
-  /** Pre-formatted value for display (e.g. "42" or "$1,250"). */
-  value: string
+  /**
+   * Display value. A pre-formatted string ("42", "₹1,250") or a node such as
+   * `<AnimatedNumber>` for a count-up. The value `<p>` is `tabular-nums`, so a
+   * ticking number stays width-stable.
+   */
+  value: ReactNode
   icon: ComponentType<{ className?: string }>
   /**
    * Delta-mode secondary row: arrow + delta text. Omit when the metric

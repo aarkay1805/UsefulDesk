@@ -65,6 +65,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { InlineEditActions } from '@/components/ui/inline-edit-actions';
+import { MotionList, MotionListItem } from '@/components/ui/motion-list';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
@@ -1322,28 +1323,33 @@ export function ContactDetailView({
                           No notes yet.
                         </p>
                       ) : (
-                        notes.map((note) => (
-                          <NoteCard
-                            key={note.id}
-                            note={note}
-                            followUp={noteFollowUps[note.id]}
-                            authorName={
-                              nameById.get(note.user_id) ?? 'Teammate'
-                            }
-                            authorAvatarUrl={
-                              avatarById.get(note.user_id) ?? null
-                            }
-                            currentUserId={user?.id ?? ''}
-                            nameById={nameById}
-                            staff={staff}
-                            canDeleteAny={
-                              accountRole ? canDeleteAnyNote(accountRole) : false
-                            }
-                            onMarkDone={markFollowUpDone}
-                            onDelete={deleteNote}
-                            onSaveEdit={saveNoteEdit}
-                          />
-                        ))
+                        <MotionList>
+                          {notes.map((note) => (
+                            <MotionListItem key={note.id}>
+                              <NoteCard
+                                note={note}
+                                followUp={noteFollowUps[note.id]}
+                                authorName={
+                                  nameById.get(note.user_id) ?? 'Teammate'
+                                }
+                                authorAvatarUrl={
+                                  avatarById.get(note.user_id) ?? null
+                                }
+                                currentUserId={user?.id ?? ''}
+                                nameById={nameById}
+                                staff={staff}
+                                canDeleteAny={
+                                  accountRole
+                                    ? canDeleteAnyNote(accountRole)
+                                    : false
+                                }
+                                onMarkDone={markFollowUpDone}
+                                onDelete={deleteNote}
+                                onSaveEdit={saveNoteEdit}
+                              />
+                            </MotionListItem>
+                          ))}
+                        </MotionList>
                       )}
                     </div>
                   </AccordionContent>

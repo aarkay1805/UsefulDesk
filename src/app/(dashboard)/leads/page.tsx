@@ -178,6 +178,7 @@ import { useTablePrefs } from '@/hooks/use-table-prefs';
 import { GatedButton } from '@/components/ui/gated-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { Collapse } from '@/components/ui/collapse';
 
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50];
@@ -3290,24 +3291,13 @@ export default function LeadsPage() {
       </div>
 
       {/* Bulk-selection toolbar — one encapsulated row below the search
-          toolbar, above the table. It stays mounted (in table view) and
-          animates open/closed on the selection so BOTH entering and exiting
-          multi-select mode transition: a grid-rows 0fr↔1fr height collapse
-          plus a fade, 300ms ease-in-out. `-mt-3` when closed cancels the
-          parent flex gap so an empty toolbar leaves no gap above the table;
-          `inert` drops the collapsed toolbar from tab order + clicks.
-          Delete/Edit are wired; the rest are disabled placeholders. */}
+          toolbar, above the table. `Collapse` (Motion) animates the height +
+          fade on both entering and exiting multi-select mode and unmounts the
+          row when empty, so the flex gap above the table closes on its own
+          (no `-mt-3` hack). `bulkCount` (frozen in the caller) keeps the count
+          from flashing "0" during the exit. */}
       {view === 'table' && (
-        <div
-          className={cn(
-            'grid shrink-0 transition-all duration-300 ease-in-out',
-            selected.size > 0
-              ? 'grid-rows-[1fr] opacity-100'
-              : '-mt-3 grid-rows-[0fr] opacity-0'
-          )}
-          inert={selected.size === 0}
-        >
-          <div className="min-h-0 overflow-hidden">
+        <Collapse open={selected.size > 0}>
             <div className="border-border bg-card flex flex-wrap items-center gap-0.5 rounded-lg border px-1.5 py-1">
               {/* Selection count + scope menu (None / All in Leads) */}
               <DropdownMenu>
@@ -3403,8 +3393,7 @@ export default function LeadsPage() {
                 <X />
               </Button>
             </div>
-          </div>
-        </div>
+        </Collapse>
       )}
 
       {view === 'board' ? (
