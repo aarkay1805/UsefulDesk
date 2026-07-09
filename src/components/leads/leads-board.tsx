@@ -26,6 +26,7 @@ import {
   UNKNOWN_STATUS_COLOR,
 } from "@/lib/leads/field-options";
 import { Building2, Phone } from "lucide-react";
+import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import { Badge } from "@/components/ui/badge";
 
 interface LeadsBoardProps {
@@ -122,24 +123,26 @@ export function LeadsBoard({
           column cleanly at the viewport edge instead of mid-column.
           Disabled on lg+ where snapping would interfere with the
           natural layout. */}
-      <div className="leads-scroll flex h-full snap-x snap-mandatory gap-3 overflow-x-auto pb-4 lg:snap-none">
-        {allColumns.map((col) => (
-          <StatusColumn
-            key={col.key}
-            column={col}
-            leads={leadsByColumn.get(col.key) ?? []}
-            canEdit={canEdit}
-            onOpenLead={onOpenLead}
-          />
-        ))}
-      </div>
+      {/* LayoutGroup shares layoutId across columns so a card dragged from
+          one status to another *flies* to its new home instead of teleporting. */}
+      <LayoutGroup>
+        <div className="leads-scroll flex h-full snap-x snap-mandatory gap-3 overflow-x-auto pb-4 lg:snap-none">
+          {allColumns.map((col) => (
+            <StatusColumn
+              key={col.key}
+              column={col}
+              leads={leadsByColumn.get(col.key) ?? []}
+              canEdit={canEdit}
+              onOpenLead={onOpenLead}
+            />
+          ))}
+        </div>
+      </LayoutGroup>
 
-      <DragOverlay
-        dropAnimation={{
-          duration: 200,
-          easing: "cubic-bezier(0.2, 0, 0, 1)",
-        }}
-      >
+      {/* dropAnimation disabled: Motion's layoutId FLIP owns the settle, so the
+          real card flies to its new column. A dnd-kit drop tween here would
+          double-animate against it. */}
+      <DragOverlay dropAnimation={null}>
         {activeLead ? (
           <div className="opacity-90">
             <LeadCard lead={activeLead} onOpen={() => {}} isOverlay />
@@ -232,14 +235,18 @@ function StatusColumn({
             {canEdit ? "Drop a lead here" : "No leads"}
           </div>
         ) : (
-          leads.map((lead) => (
-            <DraggableLeadCard
-              key={lead.id}
-              lead={lead}
-              canEdit={canEdit}
-              onOpen={onOpenLead}
-            />
-          ))
+          // popLayout pulls an exiting card out of flow immediately so the
+          // remaining cards slide up to close the gap while it animates out.
+          <AnimatePresence mode="popLayout" initial={false}>
+            {leads.map((lead) => (
+              <DraggableLeadCard
+                key={lead.id}
+                lead={lead}
+                canEdit={canEdit}
+                onOpen={onOpenLead}
+              />
+            ))}
+          </AnimatePresence>
         )}
       </div>
     </div>
@@ -261,14 +268,23 @@ function DraggableLeadCard({
   });
 
   return (
-    <div
+    // layout + shared layoutId = the FLIP: on drop the card animates from its
+    // old column/slot to the new one. popLayout exit + enter fade/scale the
+    // rest. Spring keeps it snappy, not floaty.
+    <motion.div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      style={{ opacity: isDragging ? 0.3 : 1, touchAction: "none" }}
+      layout
+      layoutId={lead.id}
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: isDragging ? 0.3 : 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ type: "spring", stiffness: 550, damping: 38, mass: 0.7 }}
+      style={{ touchAction: "none" }}
     >
       <LeadCard lead={lead} onOpen={onOpen} />
-    </div>
+    </motion.div>
   );
 }
 
