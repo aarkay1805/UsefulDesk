@@ -87,6 +87,7 @@ export function GymMetrics() {
                   <AnimatedNumber
                     value={stats.feesDueAmount}
                     format={(n) => fmt.money(n)}
+                    className="tabular-nums"
                   />
                 }
                 icon={Wallet}
@@ -141,6 +142,7 @@ export function GymMetrics() {
                 <AnimatedNumber
                   value={stats.collectedThisMonth}
                   format={(n) => fmt.money(n)}
+                  className="tabular-nums"
                 />
               }
               icon={IndianRupee}

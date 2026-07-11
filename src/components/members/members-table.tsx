@@ -408,7 +408,7 @@ export function MembersTable({
         return (
           <div className="flex items-center gap-1.5">
             <FeeStatusBadge status={m.fee_status} />
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground tabular-nums">
               {fmt.money(m.fee_amount)}
             </span>
           </div>

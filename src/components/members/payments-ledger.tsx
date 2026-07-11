@@ -221,7 +221,7 @@ export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
                   </p>
                 }
               />
-              <span className="text-foreground shrink-0 font-semibold">
+              <span className="text-foreground shrink-0 font-semibold tabular-nums">
                 <span className={p.status === "void" ? "line-through opacity-60" : undefined}>
                   {fmt.money(p.amount)}
                 </span>

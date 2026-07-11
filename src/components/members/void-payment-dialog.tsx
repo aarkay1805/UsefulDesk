@@ -58,7 +58,8 @@ export function VoidPaymentDialog({
         <DialogHeader>
           <DialogTitle>Void payment?</DialogTitle>
           <DialogDescription>
-            Reverse the {fmt.money(activePayment.amount)} entry from{" "}
+            Reverse the <span className="tabular-nums">{fmt.money(activePayment.amount)}</span>{" "}
+            entry from{" "}
             {fmt.date(activePayment.paid_at)}. The ledger row is retained for audit history and the
             period balance is reopened.
           </DialogDescription>

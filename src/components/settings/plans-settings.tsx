@@ -231,7 +231,10 @@ export function PlansSettings() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {formatCurrency(plan.price, defaultCurrency)} · {plan.duration_days} days
+                  <span className="tabular-nums">
+                    {formatCurrency(plan.price, defaultCurrency)}
+                  </span>{" "}
+                  · {plan.duration_days} days
                 </p>
               </div>
               {canEditSettings && (

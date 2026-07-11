@@ -233,7 +233,7 @@ export function RecordPaymentDialog({
           {dues && dues.balance > 0 && (
             <div className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
               <span className="text-muted-foreground">Balance due</span>
-              <span className="font-medium text-amber-700 dark:text-amber-400">
+              <span className="font-medium text-amber-700 tabular-nums dark:text-amber-400">
                 {fmt.money(dues.balance)}
                 {dues.collected > 0 && (
                   <span className="text-muted-foreground ml-1 text-xs">
@@ -279,14 +279,14 @@ export function RecordPaymentDialog({
                   <button
                     type="button"
                     onClick={() => setAmount(String(dues.balance))}
-                    className="border-border text-muted-foreground hover:bg-muted hover:text-foreground rounded-md border px-2 py-0.5 text-xs transition-colors"
+                    className="border-border text-muted-foreground hover:bg-muted hover:text-foreground rounded-md border px-2 py-0.5 text-xs tabular-nums transition-colors"
                   >
                     Full {fmt.moneyShort(dues.balance)}
                   </button>
                   <button
                     type="button"
                     onClick={() => setAmount(String(Math.round((dues.balance / 2) * 100) / 100))}
-                    className="border-border text-muted-foreground hover:bg-muted hover:text-foreground rounded-md border px-2 py-0.5 text-xs transition-colors"
+                    className="border-border text-muted-foreground hover:bg-muted hover:text-foreground rounded-md border px-2 py-0.5 text-xs tabular-nums transition-colors"
                   >
                     Half {fmt.moneyShort(Math.round((dues.balance / 2) * 100) / 100)}
                   </button>
@@ -321,7 +321,7 @@ export function RecordPaymentDialog({
                 ) : (
                   <>
                     Remaining after this payment:{" "}
-                    <span className="text-foreground font-medium">
+                    <span className="text-foreground font-medium tabular-nums">
                       {fmt.money(dues.balance - Number(amount))}
                     </span>
                   </>
