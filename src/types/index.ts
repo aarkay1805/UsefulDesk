@@ -138,6 +138,18 @@ export interface Contact {
   source?: string | null;
   /** Free-text gender (see GENDER_OPTIONS). Migration 041. */
   gender?: string | null;
+  // ── Member profile fields (migration 056) — metric-canonical body
+  //    measurements backing the BMI widget + Personal Information. ──
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  date_of_birth?: string | null;
+  nickname?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
   /** Staff owner of this lead (auth user id — see migration 047). */
   assigned_to?: string | null;
   /** Parked owner = a not-yet-joined teammate (pending invite, migration
@@ -843,6 +855,57 @@ export interface MembershipDue {
   fee_status: MembershipFeeStatus;
   fee_amount: number;
   collected_current: number;
+  balance: number;
+}
+
+/** Cycle lifecycle state stored on a period (migration 057). */
+export type MembershipPeriodState = 'open' | 'void';
+
+/**
+ * The DERIVED invoice status of a billing period — never stored (it
+ * needs the account's "today" in its timezone). Computed by
+ * `periodStatus()` in src/lib/memberships/periods.ts.
+ */
+export type InvoiceStatus = 'paid' | 'unpaid' | 'upcoming' | 'void';
+
+/**
+ * One persisted billing cycle = one invoice (migration 057). The
+ * membership row is the current-cycle pointer; these accumulate the
+ * history so recurring members show a real Paid/Unpaid trail.
+ */
+export interface MembershipPeriod {
+  id: string;
+  account_id: string;
+  membership_id: string;
+  contact_id: string;
+  plan_id: string | null;
+  period_start: string;
+  period_end: string;
+  /** Invoice total for the cycle, snapshotted at creation. */
+  fee_amount: number;
+  state: MembershipPeriodState;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * A row from the `membership_period_invoices` view (057): a period plus
+ * its reconciled `amount_paid`/`balance` (Σ payments matched by
+ * period_end, same trick as `membership_dues`). Paid/Unpaid/Upcoming is
+ * derived from these in TS via `periodStatus()`.
+ */
+export interface MembershipPeriodInvoice {
+  id: string;
+  account_id: string;
+  membership_id: string;
+  contact_id: string;
+  plan_id: string | null;
+  period_start: string;
+  period_end: string;
+  fee_amount: number;
+  state: MembershipPeriodState;
+  created_at: string;
+  amount_paid: number;
   balance: number;
 }
 

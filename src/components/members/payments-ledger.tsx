@@ -14,7 +14,9 @@ interface PaymentsLedgerProps {
   reloadKey: number;
 }
 
-type LedgerRow = Payment & { contact?: Pick<Contact, "name" | "phone"> | null };
+type LedgerRow = Payment & {
+  contact?: Pick<Contact, "name" | "phone" | "avatar_url"> | null;
+};
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "Cash",
@@ -52,7 +54,7 @@ export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
     (async () => {
       const { data } = await supabase
         .from("payments")
-        .select("*, contact:contacts(name, phone)")
+        .select("*, contact:contacts(name, phone, avatar_url)")
         .order("paid_at", { ascending: false })
         .limit(100);
       if (cancelled) return;
@@ -108,6 +110,7 @@ export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
                 className="flex-1"
                 name={p.contact?.name}
                 secondary={p.contact?.phone}
+                src={p.contact?.avatar_url}
                 meta={
                   <p className="truncate text-xs text-muted-foreground">
                     {METHOD_LABEL[p.method]} · {fmt.date(p.paid_at)}

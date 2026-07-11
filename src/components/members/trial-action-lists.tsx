@@ -194,6 +194,7 @@ function TrialList({
                   <MemberIdentity
                     name={m.contact?.name}
                     secondary={m.contact?.phone}
+                    src={m.contact?.avatar_url}
                     meta={
                       <p className="truncate text-xs text-muted-foreground">
                         {m.plan?.name ?? "Trial pass"} · {when}

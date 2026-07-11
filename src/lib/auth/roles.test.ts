@@ -4,6 +4,7 @@ import {
   type AccountRole,
   canDeleteAccount,
   canDeleteAnyNote,
+  canDeleteMember,
   canEditSettings,
   canManageMembers,
   canReassignLeadsDirectly,
@@ -144,6 +145,13 @@ describe("capability predicates", () => {
     expect(canResolveAnyLeadTransfer("admin")).toBe(true);
     expect(canResolveAnyLeadTransfer("agent")).toBe(false);
     expect(canResolveAnyLeadTransfer("viewer")).toBe(false);
+  });
+
+  it("canDeleteMember: admin+ only", () => {
+    expect(canDeleteMember("owner")).toBe(true);
+    expect(canDeleteMember("admin")).toBe(true);
+    expect(canDeleteMember("agent")).toBe(false);
+    expect(canDeleteMember("viewer")).toBe(false);
   });
 
   it("canDeleteAccount: owner only", () => {

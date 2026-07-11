@@ -39,6 +39,19 @@ interface RecordPaymentDialogProps {
   onOpenChange: (open: boolean) => void;
   membership: Membership;
   onSaved: () => void;
+  /**
+   * Record against a SPECIFIC billing period (invoice) instead of the
+   * current one — used to settle an arrears row from the invoice list
+   * (057). The payment is stamped with this period so it reconciles to
+   * the right cycle; the membership's `fee_status` is only touched when
+   * this IS the current cycle. Omit for the default current-period flow.
+   */
+  period?: {
+    period_start: string;
+    period_end: string;
+    fee_amount: number;
+    balance: number;
+  };
 }
 
 export function RecordPaymentDialog({
@@ -46,6 +59,7 @@ export function RecordPaymentDialog({
   onOpenChange,
   membership,
   onSaved,
+  period,
 }: RecordPaymentDialogProps) {
   const supabase = createClient();
   const { accountId, user } = useAuth();
@@ -63,6 +77,13 @@ export function RecordPaymentDialog({
   // partials) instead of a blind paid/due flip.
   const [dues, setDues] = useState<{ balance: number; collected: number } | null>(null);
 
+  // Which cycle this payment settles: an explicit period (arrears) or the
+  // membership's current one.
+  const targetStart = period?.period_start ?? membership.start_date;
+  const targetEnd = period?.period_end ?? membership.end_date;
+  const targetFee = Number(period?.fee_amount ?? membership.fee_amount ?? 0);
+  const isCurrentPeriod = targetEnd === membership.end_date;
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -71,6 +92,15 @@ export function RecordPaymentDialog({
     setNote("");
     setShot(null);
     setDues(null);
+    // A specific period carries its own balance (from the invoice view) —
+    // no dues lookup needed. The current period reads the dues view so
+    // partials show against the live balance.
+    if (period) {
+      const balance = Number(period.balance);
+      setDues({ balance, collected: targetFee - balance });
+      setAmount(String(balance > 0 ? balance : targetFee || ""));
+      return;
+    }
     (async () => {
       const { data } = await supabase
         .from("membership_dues")
@@ -89,7 +119,7 @@ export function RecordPaymentDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, membership, supabase, fmt]);
+  }, [open, membership, supabase, fmt, period, targetFee]);
 
   async function handleUpload(file: File) {
     if (file.size > MEDIA_MAX_BYTES_BY_KIND.image) {
@@ -139,8 +169,8 @@ export function RecordPaymentDialog({
         method,
         status: "paid",
         paid_at: paidAt,
-        period_start: membership.start_date,
-        period_end: membership.end_date,
+        period_start: targetStart,
+        period_end: targetEnd,
         screenshot_url: shot?.url ?? null,
         screenshot_path: shot?.path ?? null,
         note: note.trim() || null,
@@ -148,14 +178,18 @@ export function RecordPaymentDialog({
       if (pErr) throw pErr;
 
       // Settle the balance: mark paid only once the period's collected
-      // total covers the fee — a partial payment leaves it 'due'.
+      // total covers the fee — a partial payment leaves it 'due'. Only the
+      // CURRENT cycle drives the membership's fee_status; settling an old
+      // arrears invoice must not flip the live flag.
       const collectedAfter = (dues?.collected ?? 0) + amt;
-      const feeStatus = collectedAfter >= Number(membership.fee_amount ?? 0) ? "paid" : "due";
-      const { error: mErr } = await supabase
-        .from("memberships")
-        .update({ fee_status: feeStatus })
-        .eq("id", membership.id);
-      if (mErr) throw mErr;
+      const feeStatus = collectedAfter >= targetFee ? "paid" : "due";
+      if (isCurrentPeriod) {
+        const { error: mErr } = await supabase
+          .from("memberships")
+          .update({ fee_status: feeStatus })
+          .eq("id", membership.id);
+        if (mErr) throw mErr;
+      }
 
       toast.success(feeStatus === "paid" ? "Payment recorded" : "Partial payment recorded");
       onOpenChange(false);
@@ -172,7 +206,11 @@ export function RecordPaymentDialog({
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Record payment</DialogTitle>
-          <DialogDescription>Log a cash, UPI, or card payment for this member.</DialogDescription>
+          <DialogDescription>
+            {period
+              ? `For ${fmt.date(targetStart)} – ${fmt.date(targetEnd)}.`
+              : "Log a cash, UPI, or card payment for this member."}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -183,7 +221,7 @@ export function RecordPaymentDialog({
                 {fmt.money(dues.balance)}
                 {dues.collected > 0 && (
                   <span className="ml-1 text-xs text-muted-foreground">
-                    of {fmt.money(membership.fee_amount)}
+                    of {fmt.money(targetFee)}
                   </span>
                 )}
               </span>

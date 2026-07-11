@@ -14,6 +14,7 @@ import {
 } from "@/lib/contacts/dedupe";
 import { useLocale } from "@/hooks/use-locale";
 import { istAddDays, daysBetween } from "@/lib/memberships/expiry";
+import { syncCurrentPeriod } from "@/lib/memberships/periods";
 import type { Membership, PaymentMethod } from "@/types";
 import { useMembershipPlans } from "./use-membership-plans";
 import {
@@ -190,6 +191,14 @@ export function MemberForm({
           })
           .eq("id", member.id);
         if (mErr) throw mErr;
+
+        // Keep the current cycle's invoice in step with the edit (057).
+        await syncCurrentPeriod(supabase, member.id, {
+          plan_id: isTrial ? planId || null : planId,
+          period_start: startDate,
+          period_end: endDate,
+          fee_amount: fee,
+        });
 
         toast.success("Member updated");
         onOpenChange(false);

@@ -11,6 +11,7 @@ import {
   daysBetween,
   istAddDays,
 } from "@/lib/memberships/expiry";
+import { insertRenewalPeriod, syncCurrentPeriod } from "@/lib/memberships/periods";
 import type { Membership, PaymentMethod } from "@/types";
 import { useMembershipPlans } from "./use-membership-plans";
 import {
@@ -132,6 +133,26 @@ export function RenewMembershipDialog({
         })
         .eq("id", membership.id);
       if (mErr) throw mErr;
+
+      // Periods (057): a renewal opens a NEW cycle (the old one stays as
+      // history/arrears); a trial-convert reuses the current cycle,
+      // updating its dates/fee. Best-effort — the membership pointer +
+      // dues view already reflect the change if this lags.
+      if (isConvert) {
+        await syncCurrentPeriod(supabase, membership.id, {
+          plan_id: planId,
+          period_start: base,
+          period_end: newEnd,
+          fee_amount: fee,
+        });
+      } else {
+        await insertRenewalPeriod(supabase, membership, {
+          plan_id: planId,
+          start: base,
+          end: newEnd,
+          fee,
+        });
+      }
 
       if (collectPayment && collected > 0) {
         const { error: pErr } = await supabase.from("payments").insert({

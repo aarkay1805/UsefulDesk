@@ -386,6 +386,7 @@ export function MembersTable({
           <MemberIdentity
             name={m.contact?.name}
             secondary={m.contact?.phone}
+            src={m.contact?.avatar_url}
           />
         );
       case "plan":

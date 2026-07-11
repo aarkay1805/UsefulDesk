@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -8,28 +14,35 @@ import {
   Mail,
   CalendarDays,
   RefreshCw,
-  Wallet,
   Pencil,
   Snowflake,
   Play,
   ExternalLink,
   UserCheck,
   UserPlus,
-  UserRoundPlus,
-  CircleCheck,
   MoreHorizontal,
+  Camera,
+  Ban,
+  RotateCcw,
+  ChevronRight,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/hooks/use-locale";
+import { canDeleteMember } from "@/lib/auth/roles";
 import {
   effectiveStatus,
   daysUntil,
   unfreezeEndDate,
 } from "@/lib/memberships/expiry";
-import type { FollowUp, Membership, Payment, PaymentMethod, Attendance } from "@/types";
-import { REASON_LABEL } from "@/lib/memberships/follow-ups";
+import type {
+  Membership,
+  Payment,
+  PaymentMethod,
+  Attendance,
+  MembershipPeriodInvoice,
+} from "@/types";
 import {
   Sheet,
   SheetContent,
@@ -39,11 +52,11 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardAction,
   CardContent,
 } from "@/components/ui/card";
@@ -60,22 +73,34 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  setCurrentPeriodState,
+  syncCurrentPeriod,
+  projectNextInvoice,
+  periodStatus,
+} from "@/lib/memberships/periods";
 import {
   MembershipStatusBadge,
   FeeStatusBadge,
   TrialBadge,
+  InvoiceStatusBadge,
 } from "./membership-status-badge";
+import { InvoiceDetailDialog } from "./invoice-detail-dialog";
 import { RenewMembershipDialog } from "./renew-membership-dialog";
+import { AvatarEditorDialog } from "./avatar-editor-dialog";
 import { RecordPaymentDialog } from "./record-payment-dialog";
-import { FollowUpDialog, CompleteFollowUpDialog } from "./follow-up-dialog";
 import { ContactNotesThread } from "@/components/contacts/contact-notes-thread";
-import { useAccountStaff } from "./use-account-staff";
 import { CopyUpiLinkButton, useUpiConfig } from "./copy-upi-link-button";
 import {
   SendReminderButton,
   type ReminderReadiness,
 } from "./send-reminder-button";
+import { BmiCard } from "./bmi-card";
+import { MemberPersonalInfo } from "./member-personal-info";
+import { MemberCommunication } from "./member-communication";
+import { MemberDangerZone } from "./member-danger-zone";
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "Cash",
@@ -85,8 +110,16 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
   other: "Other",
 };
 
-/** How many check-ins the Visits widget shows before summarising. */
-const VISITS_SHOWN = 8;
+/** Jump-nav sections, in scroll order. Ids double as `#sec-<id>`. */
+const SECTIONS = [
+  { id: "membership", label: "Membership" },
+  { id: "payments", label: "Payments" },
+  { id: "notes", label: "Notes" },
+  { id: "attendance", label: "Attendance" },
+  { id: "communication", label: "Communication" },
+  { id: "personal", label: "Personal info" },
+  { id: "settings", label: "Settings" },
+] as const;
 
 interface MemberDetailViewProps {
   membershipId: string | null;
@@ -108,6 +141,16 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** Section wrapper — id anchor + scroll-margin so the sticky nav
+ *  doesn't overlap the heading when jumped to. */
+function Section({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <section id={`sec-${id}`} className="min-w-0 scroll-mt-14">
+      {children}
+    </section>
+  );
+}
+
 export function MemberDetailView({
   membershipId,
   open,
@@ -117,32 +160,34 @@ export function MemberDetailView({
   onEdit,
 }: MemberDetailViewProps) {
   const supabase = createClient();
-  const { user } = useAuth();
-  const { fmt } = useLocale();
-
-  const { nameById, avatarById } = useAccountStaff();
+  const { user, canSendMessages, accountRole } = useAuth();
+  const { locale, fmt } = useLocale();
   const upi = useUpiConfig();
 
   const [membership, setMembership] = useState<Membership | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [visits, setVisits] = useState<Attendance[]>([]);
-  // This member's single open follow-up task (if any).
-  const [followUp, setFollowUp] = useState<FollowUp | null>(null);
+  const [invoices, setInvoices] = useState<MembershipPeriodInvoice[]>([]);
   const [busy, setBusy] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [completeOpen, setCompleteOpen] = useState(false);
+  // The period to record against (arrears); null = current period.
+  const [payPeriod, setPayPeriod] = useState<MembershipPeriodInvoice | null>(null);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [activeInvoice, setActiveInvoice] = useState<MembershipPeriodInvoice | null>(null);
+  const [avatarOpen, setAvatarOpen] = useState(false);
   // Bumped to re-pull this sheet after a mutation (renew/payment/freeze/check-in).
   const [nonce, setNonce] = useState(0);
+
+  // Jump-nav active section (scrollspy).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [activeSection, setActiveSection] = useState<string>("membership");
 
   useEffect(() => {
     if (!open || !membershipId) return;
     let cancelled = false;
     (async () => {
-      // Membership first — the open follow-up is keyed by contact, which
-      // we only know once the row loads.
       const { data: m } = await supabase
         .from("memberships")
         .select("*, contact:contacts(*), plan:membership_plans(*)")
@@ -154,7 +199,7 @@ export function MemberDetailView({
         return;
       }
 
-      const [{ data: pays }, { data: atts }, { data: fu }] = await Promise.all([
+      const [{ data: pays }, { data: atts }, { data: invs }] = await Promise.all([
         supabase
           .from("payments")
           .select("*")
@@ -167,22 +212,50 @@ export function MemberDetailView({
           .order("checked_in_at", { ascending: false })
           .limit(20),
         supabase
-          .from("follow_ups")
+          .from("membership_period_invoices")
           .select("*")
-          .eq("contact_id", (m as Membership).contact_id)
-          .eq("status", "open")
-          .maybeSingle(),
+          .eq("membership_id", membershipId)
+          .order("period_start", { ascending: false }),
       ]);
       if (cancelled) return;
       setMembership(m as Membership);
       setPayments((pays as Payment[]) ?? []);
       setVisits((atts as Attendance[]) ?? []);
-      setFollowUp((fu as FollowUp) ?? null);
+      setInvoices((invs as MembershipPeriodInvoice[]) ?? []);
     })();
     return () => {
       cancelled = true;
     };
   }, [open, membershipId, nonce, supabase]);
+
+  // Scrollspy — highlight whichever section sits near the top of the
+  // scroll body. Re-arms once the sections mount (membership loaded).
+  useEffect(() => {
+    if (!membership) return;
+    const root = scrollRef.current;
+    if (!root) return;
+    const els = SECTIONS.map((s) => document.getElementById(`sec-${s.id}`)).filter(
+      (el): el is HTMLElement => el !== null,
+    );
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting);
+        if (visible.length === 0) return;
+        visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        setActiveSection(visible[0].target.id.replace("sec-", ""));
+      },
+      { root, rootMargin: "-56px 0px -60% 0px", threshold: 0 },
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [membership?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function jumpTo(id: string) {
+    setActiveSection(id);
+    document
+      .getElementById(`sec-${id}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   // Refetch this sheet AND tell the parent list to refresh.
   const refreshAll = useCallback(() => {
@@ -211,9 +284,47 @@ export function MemberDetailView({
       .from("memberships")
       .update({ status: "active", frozen_at: null, end_date: newEnd })
       .eq("id", membership.id);
+    if (!error) {
+      // Same cycle, just shifted forward by the frozen days (057).
+      await syncCurrentPeriod(supabase, membership.id, {
+        plan_id: membership.plan_id,
+        period_start: membership.start_date,
+        period_end: newEnd,
+        fee_amount: membership.fee_amount,
+      });
+    }
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Membership resumed");
+    refreshAll();
+  }
+
+  async function cancelMembership() {
+    if (!membership) return;
+    setBusy(true);
+    const { error } = await supabase
+      .from("memberships")
+      .update({ status: "cancelled", frozen_at: null })
+      .eq("id", membership.id);
+    // Void the current cycle's invoice; settled past cycles stay paid (057).
+    if (!error) await setCurrentPeriodState(supabase, membership.id, "void");
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Membership cancelled");
+    refreshAll();
+  }
+
+  async function reactivate() {
+    if (!membership) return;
+    setBusy(true);
+    const { error } = await supabase
+      .from("memberships")
+      .update({ status: "active" })
+      .eq("id", membership.id);
+    if (!error) await setCurrentPeriodState(supabase, membership.id, "open");
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Membership reactivated");
     refreshAll();
   }
 
@@ -238,8 +349,7 @@ export function MemberDetailView({
   const days = membership ? daysUntil(membership.end_date, today) : 0;
 
   // Outstanding balance for the current period, derived from the loaded
-  // ledger (payments stamped with this period's end_date). Matches the
-  // membership_dues view so a partial payment shows a remaining balance.
+  // ledger (payments stamped with this period's end_date).
   const collectedCurrent = membership
     ? payments
         .filter((p) => p.status === "paid" && p.period_end === membership.end_date)
@@ -249,6 +359,25 @@ export function MemberDetailView({
     ? Math.max(Number(membership.fee_amount) - collectedCurrent, 0)
     : 0;
 
+  // Invoice timeline: persisted periods (past + current, real arrears)
+  // plus the single projected NEXT cycle (display-only). Newest first so
+  // Upcoming reads at the top, history descends below.
+  const projectedNext = membership ? projectNextInvoice(membership) : null;
+  const displayInvoices: MembershipPeriodInvoice[] = membership
+    ? [...(projectedNext ? [projectedNext] : []), ...invoices]
+    : [];
+
+  function openInvoice(inv: MembershipPeriodInvoice) {
+    setActiveInvoice(inv);
+    setInvoiceOpen(true);
+  }
+  function recordForPeriod(inv: MembershipPeriodInvoice) {
+    // A payment against the current cycle uses the plain flow (null);
+    // an older cycle is passed so it reconciles to the right invoice.
+    setPayPeriod(inv.period_end === membership?.end_date ? null : inv);
+    setPayOpen(true);
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -256,7 +385,7 @@ export function MemberDetailView({
         // The sheet master caps side=right at sm:max-w-sm via a
         // data-variant, which beats a plain sm:max-w-* — match the
         // variant to actually widen (same trick as the contact sheet).
-        className="w-full gap-0 p-0 data-[side=right]:sm:max-w-[960px]"
+        className="w-full gap-0 p-0 data-[side=right]:sm:max-w-[1200px]"
       >
         {!membership || membership.id !== membershipId ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -265,16 +394,34 @@ export function MemberDetailView({
         ) : (
           <div className="flex h-full flex-col">
             {/* Identity header — who this is + the two wedge actions
-                (remind on WhatsApp, renew). Everything else lives on its
-                own widget below. pr-10 clears the sheet's close button. */}
-            <SheetHeader className="border-b border-border p-4 pr-10 sm:p-5 sm:pr-12">
+                (remind on WhatsApp, renew). pr-10 clears the close button. */}
+            <SheetHeader className="p-4 pr-10 sm:p-5 sm:pr-12">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-                <UserAvatar
-                  name={membership.contact?.name || "?"}
-                  src={membership.contact?.avatar_url}
-                  className="size-14"
-                  fallbackClassName="text-lg"
-                />
+                {canSendMessages ? (
+                  <button
+                    type="button"
+                    onClick={() => setAvatarOpen(true)}
+                    aria-label="Change member photo"
+                    className="group/avatar-edit relative shrink-0 rounded-full"
+                  >
+                    <UserAvatar
+                      name={membership.contact?.name || "?"}
+                      src={membership.contact?.avatar_url}
+                      className="size-14"
+                      fallbackClassName="text-lg"
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover/avatar-edit:opacity-100">
+                      <Camera className="size-5" />
+                    </span>
+                  </button>
+                ) : (
+                  <UserAvatar
+                    name={membership.contact?.name || "?"}
+                    src={membership.contact?.avatar_url}
+                    className="size-14"
+                    fallbackClassName="text-lg"
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <SheetTitle className="text-lg">
@@ -329,290 +476,341 @@ export function MemberDetailView({
               </div>
             </SheetHeader>
 
-            {/* Modular widget grid — main column (membership, payments,
-                notes) + rail (follow-up, visits). Single column below lg. */}
-            <div className="flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-5">
-              <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_310px]">
-                <div className="grid min-w-0 gap-4">
-                  {/* Membership */}
-                  <Card>
-                    <CardHeader className="border-b">
-                      <CardTitle>Membership</CardTitle>
-                      <CardDescription>
-                        {membership.plan?.name ?? "No plan"} ·{" "}
-                        {fmt.money(membership.fee_amount)}
-                      </CardDescription>
-                      <CardAction>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            render={
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label="Membership actions"
-                              />
-                            }
-                          >
-                            <MoreHorizontal className="size-4" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => onEdit(membership)}>
-                              <Pencil className="size-4" /> Edit membership
-                            </DropdownMenuItem>
-                            {membership.status === "frozen" ? (
-                              <DropdownMenuItem onClick={unfreeze} disabled={busy}>
-                                <Play className="size-4" /> Resume membership
-                              </DropdownMenuItem>
-                            ) : (
-                              membership.status === "active" && (
-                                <DropdownMenuItem onClick={freeze} disabled={busy}>
-                                  <Snowflake className="size-4" /> Freeze membership
-                                </DropdownMenuItem>
-                              )
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </CardAction>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-3">
-                      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        <Stat label="Plan">{membership.plan?.name ?? "—"}</Stat>
-                        <Stat label="Fee">
-                          {fmt.money(membership.fee_amount)}
-                          {balance > 0 && (
-                            <span className="ml-1 text-xs font-medium text-amber-700 dark:text-amber-400">
-                              ({fmt.money(balance)} due)
-                            </span>
-                          )}
-                        </Stat>
-                        <Stat label="Started">{fmt.date(membership.start_date)}</Stat>
-                        <Stat label="Expires">
-                          {fmt.date(membership.end_date)}
-                          {eff === "active" && (
-                            <span className="ml-1 text-xs font-normal text-muted-foreground">
-                              ({days < 0 ? `${-days}d ago` : days === 0 ? "today" : `in ${days}d`})
-                            </span>
-                          )}
-                        </Stat>
-                      </dl>
-                      {membership.status === "frozen" && membership.frozen_at && (
-                        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Snowflake className="size-3.5" />
-                          Frozen since {fmt.date(membership.frozen_at)} — the paused
-                          days are added back on resume.
-                        </p>
-                      )}
-                      {membership.notes && (
-                        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                          {membership.notes}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Payments */}
-                  <Card>
-                    <CardHeader className="border-b">
-                      <CardTitle>Payments</CardTitle>
-                      <CardDescription>
-                        {!membership.is_trial && balance > 0
-                          ? `${fmt.money(balance)} outstanding for the current period`
-                          : "Ledger for this membership"}
-                      </CardDescription>
-                      {!membership.is_trial && (
-                        <CardAction className="flex items-center gap-2">
-                          {balance > 0 && (
-                            <CopyUpiLinkButton
-                              upi={upi}
-                              amount={balance}
-                              note={`${membership.plan?.name ?? "Membership"} fee`}
-                              size="sm"
-                            />
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setPayOpen(true)}
-                          >
-                            <Wallet className="size-4" /> Record payment
-                          </Button>
-                        </CardAction>
-                      )}
-                    </CardHeader>
-                    <CardContent>
-                      {payments.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          No payments recorded yet.
-                        </p>
-                      ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="hover:bg-transparent">
-                              <TableHead className="text-xs">Date</TableHead>
-                              <TableHead className="text-xs">Method</TableHead>
-                              <TableHead className="text-xs">Note</TableHead>
-                              <TableHead className="text-right text-xs">Amount</TableHead>
-                              <TableHead className="w-8" />
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {payments.map((p) => (
-                              <TableRow key={p.id}>
-                                <TableCell>{fmt.date(p.paid_at)}</TableCell>
-                                <TableCell className="text-muted-foreground">
-                                  {METHOD_LABEL[p.method]}
-                                </TableCell>
-                                <TableCell className="max-w-[14rem] truncate text-muted-foreground">
-                                  {p.note || "—"}
-                                </TableCell>
-                                <TableCell className="text-right font-medium tabular-nums">
-                                  {fmt.money(p.amount)}
-                                </TableCell>
-                                <TableCell>
-                                  {p.screenshot_url && (
-                                    <a
-                                      href={p.screenshot_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-muted-foreground hover:text-foreground"
-                                      title="View screenshot"
-                                    >
-                                      <ExternalLink className="size-4" />
-                                    </a>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Notes — the same authored thread as the lead detail
-                      sheet (a member IS a contact, so contact_notes apply
-                      unchanged). onFollowUpChanged re-pulls the sheet so
-                      the follow-up widget stays in sync with note-spawned
-                      tasks. */}
-                  <Card>
-                    <CardHeader className="border-b">
-                      <CardTitle>Notes</CardTitle>
-                      <CardDescription>
-                        Shared with the team — attach a follow-up from the composer
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <ContactNotesThread
-                        contactId={membership.contact_id}
-                        active={open}
-                        onFollowUpChanged={refreshAll}
-                      />
-                    </CardContent>
-                  </Card>
+            <div ref={scrollRef} className="flex-1 overflow-y-auto bg-muted/20">
+              {/* Jump nav — reads as part of the header (white), divider
+                  after the tabs; sticky under it while scrolling. */}
+              <div className="sticky top-0 z-10 border-b border-border bg-background">
+                <div className="overflow-x-auto px-4 sm:px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <Tabs
+                    value={activeSection}
+                    onValueChange={(v) => v && jumpTo(v)}
+                  >
+                    <TabsList variant="line" className="h-11">
+                      {SECTIONS.map((s) => (
+                        <TabsTrigger key={s.id} value={s.id} className="flex-none">
+                          {s.label}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </Tabs>
                 </div>
+              </div>
 
-                {/* Rail */}
-                <div className="grid min-w-0 gap-4">
-                  {/* Follow-up */}
-                  <Card size="sm">
-                    <CardHeader className="border-b">
-                      <CardTitle>Follow-up</CardTitle>
-                      <CardAction>
-                        {followUp ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setCompleteOpen(true)}
-                          >
-                            <CircleCheck className="size-3.5" /> Done
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setAssignOpen(true)}
-                          >
-                            <UserRoundPlus className="size-3.5" /> Assign
-                          </Button>
-                        )}
-                      </CardAction>
-                    </CardHeader>
-                    <CardContent>
-                      {followUp ? (
-                        <div className="flex flex-col gap-1.5 text-sm">
-                          <p className="font-medium text-foreground">
-                            {REASON_LABEL[followUp.reason]} · due{" "}
-                            {fmt.date(followUp.due_date)}
-                          </p>
-                          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            {followUp.assigned_to ? (
-                              <>
-                                <UserAvatar
-                                  name={nameById.get(followUp.assigned_to) ?? "Teammate"}
-                                  src={avatarById.get(followUp.assigned_to)}
-                                  className="size-4 shrink-0"
-                                  fallbackClassName="text-[8px]"
-                                />
-                                {nameById.get(followUp.assigned_to) ?? "Teammate"}
-                              </>
-                            ) : (
-                              "Unassigned"
-                            )}
-                          </p>
-                          {followUp.note && (
-                            <p className="text-xs text-muted-foreground">{followUp.note}</p>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No open task — assign one so this member has an owner.
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Visits */}
-                  <Card size="sm">
-                    <CardHeader className="border-b">
-                      <CardTitle>Recent visits</CardTitle>
-                      <CardAction>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={checkIn}
-                          disabled={busy}
-                        >
-                          <UserCheck className="size-3.5" /> Check in
-                        </Button>
-                      </CardAction>
-                    </CardHeader>
-                    <CardContent>
-                      {visits.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          No check-ins recorded yet.
-                        </p>
-                      ) : (
-                        <>
-                          <ul className="divide-y divide-border/50">
-                            {visits.slice(0, VISITS_SHOWN).map((v) => (
-                              <li
-                                key={v.id}
-                                className="flex items-center gap-2 py-1.5 text-sm text-muted-foreground"
+              {/* Main column (sections) + sticky BMI rail. */}
+              <div className="p-4 sm:p-5">
+                <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_310px]">
+                  <div className="flex min-w-0 flex-col gap-4">
+                    {/* Membership */}
+                    <Section id="membership">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Membership</CardTitle>
+                          <CardAction>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                render={
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label="Membership actions"
+                                  />
+                                }
                               >
-                                <UserCheck className="size-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
-                                {fmt.dateTime(v.checked_in_at)}
-                              </li>
-                            ))}
-                          </ul>
-                          {visits.length > VISITS_SHOWN && (
-                            <p className="mt-2 text-xs text-muted-foreground">
-                              +{visits.length - VISITS_SHOWN} earlier check-ins
+                                <MoreHorizontal className="size-4" />
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="end"
+                                className="min-w-52"
+                              >
+                                <DropdownMenuItem onClick={() => onEdit(membership)}>
+                                  <Pencil className="size-4" /> Edit membership
+                                </DropdownMenuItem>
+                                {membership.status === "frozen" ? (
+                                  <DropdownMenuItem onClick={unfreeze} disabled={busy}>
+                                    <Play className="size-4" /> Resume membership
+                                  </DropdownMenuItem>
+                                ) : (
+                                  membership.status === "active" && (
+                                    <DropdownMenuItem onClick={freeze} disabled={busy}>
+                                      <Snowflake className="size-4" /> Freeze membership
+                                    </DropdownMenuItem>
+                                  )
+                                )}
+                                {membership.status === "cancelled" ? (
+                                  <DropdownMenuItem onClick={reactivate} disabled={busy}>
+                                    <RotateCcw className="size-4" /> Reactivate membership
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      onClick={cancelMembership}
+                                      disabled={busy}
+                                    >
+                                      <Ban className="size-4" /> Cancel membership
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </CardAction>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-3">
+                          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            <Stat label="Plan">{membership.plan?.name ?? "—"}</Stat>
+                            <Stat label="Fee">
+                              {fmt.money(membership.fee_amount)}
+                              {balance > 0 && (
+                                <span className="ml-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                                  ({fmt.money(balance)} due)
+                                </span>
+                              )}
+                            </Stat>
+                            <Stat label="Started">{fmt.date(membership.start_date)}</Stat>
+                            <Stat label="Expires">
+                              {fmt.date(membership.end_date)}
+                              {eff === "active" && (
+                                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                                  ({days < 0 ? `${-days}d ago` : days === 0 ? "today" : `in ${days}d`})
+                                </span>
+                              )}
+                            </Stat>
+                          </dl>
+                          {membership.status === "frozen" && membership.frozen_at && (
+                            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <Snowflake className="size-3.5" />
+                              Frozen since {fmt.date(membership.frozen_at)} — the paused
+                              days are added back on resume.
                             </p>
                           )}
-                        </>
+                          {membership.notes && (
+                            <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                              {membership.notes}
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Section>
+
+                    {/* Payments */}
+                    <Section id="payments">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Payments</CardTitle>
+                          {!membership.is_trial && balance > 0 && (
+                            <CardAction>
+                              <CopyUpiLinkButton
+                                upi={upi}
+                                amount={balance}
+                                note={`${membership.plan?.name ?? "Membership"} fee`}
+                                size="sm"
+                              />
+                            </CardAction>
+                          )}
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-4">
+                          {/* Invoice timeline (057): one badged, clickable
+                              row per billing cycle — persisted past +
+                              current periods, plus the projected next
+                              (Upcoming). Click → InvoiceDetailDialog to see
+                              its payments / record against it. Trials don't
+                              bill (their 0-fee period is hidden). */}
+                          {!membership.is_trial && displayInvoices.length > 0 && (
+                            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+                              {displayInvoices.map((inv) => {
+                                const st = periodStatus(inv, today);
+                                const bal = Number(inv.balance);
+                                return (
+                                  <button
+                                    key={inv.id}
+                                    type="button"
+                                    onClick={() => openInvoice(inv)}
+                                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/40"
+                                  >
+                                    <InvoiceStatusBadge status={st} />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-sm font-medium text-foreground">
+                                        {membership.plan?.name ?? "Membership"}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {fmt.date(inv.period_start)} – {fmt.date(inv.period_end)}
+                                        {bal > 0 && st === "unpaid" && (
+                                          <span className="text-amber-700 dark:text-amber-400">
+                                            {" · "}
+                                            {fmt.money(bal)} due
+                                          </span>
+                                        )}
+                                      </p>
+                                    </div>
+                                    <span className="text-sm font-semibold tabular-nums text-foreground">
+                                      {fmt.money(inv.fee_amount)}
+                                    </span>
+                                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Transaction history — the raw ledger. */}
+                          {payments.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                              No payments recorded yet.
+                            </p>
+                          ) : (
+                            <div>
+                              <p className="mb-2 text-xs font-medium text-muted-foreground">
+                                Payment history
+                              </p>
+                              <div className="overflow-hidden rounded-lg border border-border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                  <TableHead className="text-xs">Date</TableHead>
+                                  <TableHead className="text-xs">Method</TableHead>
+                                  <TableHead className="text-xs">Note</TableHead>
+                                  <TableHead className="text-right text-xs">Amount</TableHead>
+                                  <TableHead className="w-8" />
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {payments.map((p) => (
+                                  <TableRow key={p.id}>
+                                    <TableCell>{fmt.date(p.paid_at)}</TableCell>
+                                    <TableCell className="text-muted-foreground">
+                                      {METHOD_LABEL[p.method]}
+                                    </TableCell>
+                                    <TableCell className="max-w-[16rem] whitespace-normal text-muted-foreground">
+                                      {p.note || "—"}
+                                    </TableCell>
+                                    <TableCell className="text-right font-medium tabular-nums">
+                                      {fmt.money(p.amount)}
+                                    </TableCell>
+                                    <TableCell>
+                                      {p.screenshot_url && (
+                                        <a
+                                          href={p.screenshot_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-muted-foreground hover:text-foreground"
+                                          title="View screenshot"
+                                        >
+                                          <ExternalLink className="size-4" />
+                                        </a>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Section>
+
+                    {/* Notes — the same authored thread as the lead detail
+                        sheet (a member IS a contact). */}
+                    <Section id="notes">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Notes</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ContactNotesThread
+                            contactId={membership.contact_id}
+                            active={open}
+                            onFollowUpChanged={refreshAll}
+                          />
+                        </CardContent>
+                      </Card>
+                    </Section>
+
+                    {/* Attendance — promoted from the rail to a full section. */}
+                    <Section id="attendance">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Attendance</CardTitle>
+                          <CardAction>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={checkIn}
+                              disabled={busy}
+                            >
+                              <UserCheck className="size-3.5" /> Check in
+                            </Button>
+                          </CardAction>
+                        </CardHeader>
+                        <CardContent>
+                          {visits.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                              No check-ins recorded yet.
+                            </p>
+                          ) : (
+                            <ul className="divide-y divide-border/50">
+                              {visits.map((v) => (
+                                <li
+                                  key={v.id}
+                                  className="flex items-center gap-2 py-1.5 text-sm text-muted-foreground"
+                                >
+                                  <UserCheck className="size-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                                  {fmt.dateTime(v.checked_in_at)}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Section>
+
+                    {/* Communication — static preview for now. */}
+                    <Section id="communication">
+                      <MemberCommunication />
+                    </Section>
+
+                    {/* Personal information */}
+                    <Section id="personal">
+                      {membership.contact && (
+                        <MemberPersonalInfo
+                          key={membership.contact_id}
+                          contact={membership.contact}
+                          canEdit={canSendMessages}
+                          onSaved={refreshAll}
+                        />
                       )}
-                    </CardContent>
-                  </Card>
+                    </Section>
+
+                    {/* Settings / danger zone */}
+                    <Section id="settings">
+                      <MemberDangerZone
+                        contactId={membership.contact_id}
+                        memberName={membership.contact?.name || ""}
+                        canDelete={accountRole ? canDeleteMember(accountRole) : false}
+                        onDeleted={() => {
+                          onOpenChange(false);
+                          onChanged();
+                        }}
+                      />
+                    </Section>
+                  </div>
+
+                  {/* Rail — BMI only, sticky just under the jump nav. top
+                      offset stays below the nav height but under the rail's
+                      natural position, so it rests level with the Membership
+                      card and only pins once scrolled. */}
+                  <div className="grid min-w-0 gap-4 lg:sticky lg:top-[52px] lg:self-start">
+                    <BmiCard
+                      contactId={membership.contact_id}
+                      heightCm={membership.contact?.height_cm}
+                      weightKg={membership.contact?.weight_kg}
+                      measurementSystem={locale.measurementSystem}
+                      canEdit={canSendMessages}
+                      onSaved={refreshAll}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -636,24 +834,39 @@ export function MemberDetailView({
             />
             <RecordPaymentDialog
               open={payOpen}
-              onOpenChange={setPayOpen}
+              onOpenChange={(o) => {
+                setPayOpen(o);
+                if (!o) setPayPeriod(null);
+              }}
               membership={membership}
+              period={
+                payPeriod
+                  ? {
+                      period_start: payPeriod.period_start,
+                      period_end: payPeriod.period_end,
+                      fee_amount: payPeriod.fee_amount,
+                      balance: payPeriod.balance,
+                    }
+                  : undefined
+              }
               onSaved={refreshAll}
             />
-            <FollowUpDialog
-              open={assignOpen}
-              onOpenChange={setAssignOpen}
-              membership={membership}
+            <InvoiceDetailDialog
+              open={invoiceOpen}
+              onOpenChange={setInvoiceOpen}
+              invoice={activeInvoice}
+              canAct={canSendMessages}
+              onRecord={recordForPeriod}
+              onRenew={() => setRenewOpen(true)}
+            />
+            <AvatarEditorDialog
+              open={avatarOpen}
+              onOpenChange={setAvatarOpen}
+              contactId={membership.contact_id}
+              name={membership.contact?.name || "Member"}
+              currentUrl={membership.contact?.avatar_url}
               onSaved={refreshAll}
             />
-            {followUp && (
-              <CompleteFollowUpDialog
-                open={completeOpen}
-                onOpenChange={setCompleteOpen}
-                followUp={followUp}
-                onSaved={refreshAll}
-              />
-            )}
           </>
         )}
       </SheetContent>

@@ -49,14 +49,16 @@ interface RenewalActionListsProps {
 
 const SELECT = "*, contact:contacts(*), plan:membership_plans(*)";
 
-// How far back the Expired table looks. Recent lapses first (the action
-// list philosophy — who to chase now); "All time" is the escape hatch.
-const EXPIRED_WINDOWS: { value: string; label: string; days: number | null }[] = [
-  { value: "30", label: "Last 30 days", days: 30 },
-  { value: "90", label: "Last 3 months", days: 90 },
-  { value: "180", label: "Last 6 months", days: 180 },
-  { value: "all", label: "All time", days: null },
+// How far back the Expired table looks. `value` doubles as the label —
+// ui/Select's SelectValue echoes the raw value, so the value must be the
+// display string for the trigger to read "Last 30 days" not "30".
+const EXPIRED_WINDOWS: { value: string; days: number | null }[] = [
+  { value: "Last 30 days", days: 30 },
+  { value: "Last 3 months", days: 90 },
+  { value: "Last 6 months", days: 180 },
+  { value: "All time", days: null },
 ];
+const DEFAULT_EXPIRED_WINDOW = "All time";
 
 export function RenewalActionLists({
   readiness,
@@ -75,7 +77,7 @@ export function RenewalActionLists({
 
   // Expired lookback window (client-filtered over the full expired set so
   // switching is instant and counts stay accurate).
-  const [expiredWindow, setExpiredWindow] = useState("30");
+  const [expiredWindow, setExpiredWindow] = useState(DEFAULT_EXPIRED_WINDOW);
 
   // Member being handed to a staff owner via the assign dialog.
   const [assigning, setAssigning] = useState<Membership | null>(null);
@@ -169,7 +171,7 @@ export function RenewalActionLists({
           headerAction={
             <Select
               value={expiredWindow}
-              onValueChange={(v) => setExpiredWindow(v ?? "30")}
+              onValueChange={(v) => setExpiredWindow(v ?? DEFAULT_EXPIRED_WINDOW)}
             >
               <SelectTrigger size="sm" className="w-40">
                 <SelectValue />
@@ -177,7 +179,7 @@ export function RenewalActionLists({
               <SelectContent>
                 {EXPIRED_WINDOWS.map((w) => (
                   <SelectItem key={w.value} value={w.value}>
-                    {w.label}
+                    {w.value}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -282,6 +284,7 @@ function RenewalTable({
                       <MemberIdentity
                         name={m.contact?.name}
                         secondary={m.contact?.phone}
+                        src={m.contact?.avatar_url}
                       />
                     </TableCell>
                     <TableCell className="text-muted-foreground">

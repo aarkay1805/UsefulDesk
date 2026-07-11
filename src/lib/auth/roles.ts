@@ -134,6 +134,16 @@ export function canResolveAnyLeadTransfer(role: AccountRole): boolean {
   return hasMinRole(role, "admin");
 }
 
+/**
+ * Owner / admin: hard-delete a MEMBER record and all its data
+ * (membership, payments, attendance, notes). Stricter than the
+ * agent-level contacts_delete RLS — mirrored by the delete_member
+ * RPC's is_account_member(…, 'admin') guard (migration 056).
+ */
+export function canDeleteMember(role: AccountRole): boolean {
+  return hasMinRole(role, "admin");
+}
+
 /** Owner only: irreversible destructive operations. */
 export function canDeleteAccount(role: AccountRole): boolean {
   return role === "owner";

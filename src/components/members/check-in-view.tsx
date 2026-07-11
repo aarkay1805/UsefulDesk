@@ -138,6 +138,7 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
                   className="flex-1"
                   name={m.contact?.name}
                   secondary={m.contact?.phone}
+                  src={m.contact?.avatar_url}
                   meta={
                     <p className="truncate text-xs text-muted-foreground">
                       {m.plan?.name ?? "—"}

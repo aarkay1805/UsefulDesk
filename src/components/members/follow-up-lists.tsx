@@ -182,6 +182,7 @@ function TaskList({
                   <MemberIdentity
                     name={f.contact?.name}
                     secondary={f.contact?.phone}
+                    src={f.contact?.avatar_url}
                     meta={
                       <>
                         <p className="truncate text-xs text-muted-foreground">

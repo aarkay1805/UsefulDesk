@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import type { MembershipStatus, MembershipFeeStatus } from "@/types";
+import type { MembershipStatus, MembershipFeeStatus, InvoiceStatus } from "@/types";
 
 /**
  * Coloured pills for a membership's effective status and its fee state.
@@ -44,6 +44,26 @@ export function MembershipStatusBadge({
     return <Badge variant="warning">{label}</Badge>;
   }
   const s = STATUS_VARIANT[status];
+  return <Badge variant={s.variant}>{s.label}</Badge>;
+}
+
+/**
+ * Invoice/billing-period status pill (migration 057). Paid = settled,
+ * Unpaid = owed (current or overdue), Upcoming = a future cycle, Void =
+ * cancelled cycle. Mirrors the membership status colour language.
+ */
+const INVOICE_VARIANT: Record<
+  InvoiceStatus,
+  { label: string; variant: "success" | "warning" | "info" | "neutral" }
+> = {
+  paid: { label: "Paid", variant: "success" },
+  unpaid: { label: "Unpaid", variant: "warning" },
+  upcoming: { label: "Upcoming", variant: "info" },
+  void: { label: "Void", variant: "neutral" },
+};
+
+export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
+  const s = INVOICE_VARIANT[status];
   return <Badge variant={s.variant}>{s.label}</Badge>;
 }
 
