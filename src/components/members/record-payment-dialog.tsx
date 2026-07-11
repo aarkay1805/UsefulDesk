@@ -6,6 +6,7 @@ import { Loader2, Upload, X } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/hooks/use-locale";
+import { getErrorMessage } from "@/lib/errors";
 import { dateAtNoonInTz } from "@/lib/locale/format";
 import { validatePaymentAmount } from "@/lib/payments/validation";
 import {
@@ -139,7 +140,7 @@ export function RecordPaymentDialog({
       const res = await uploadPrivateAccountMedia("payment-receipts", file);
       setShot({ url: res.signedUrl, path: res.path });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload failed");
+      toast.error(getErrorMessage(err, "Upload failed"));
     } finally {
       setUploading(false);
     }
@@ -201,7 +202,7 @@ export function RecordPaymentDialog({
       onOpenChange(false);
       onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to record payment");
+      toast.error(getErrorMessage(err, "Failed to record payment"));
     } finally {
       setSaving(false);
     }
