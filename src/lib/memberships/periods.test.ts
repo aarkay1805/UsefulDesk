@@ -77,8 +77,22 @@ describe("projectNextInvoice", () => {
   });
 
   it("returns null for trials, cancelled, and planless memberships", () => {
-    expect(projectNextInvoice({ ...baseMembership, is_trial: true })).toBeNull();
-    expect(projectNextInvoice({ ...baseMembership, status: "cancelled" })).toBeNull();
-    expect(projectNextInvoice({ ...baseMembership, plan: undefined })).toBeNull();
+    expect(projectNextInvoice({ ...baseMembership, is_trial: true }, TODAY)).toBeNull();
+    expect(projectNextInvoice({ ...baseMembership, status: "cancelled" }, TODAY)).toBeNull();
+    expect(projectNextInvoice({ ...baseMembership, plan: undefined }, TODAY)).toBeNull();
+  });
+
+  it("returns null for an expired member (no phantom past-dated Upcoming)", () => {
+    // end_date before today — projecting would create a past-dated cycle
+    // that reads as Unpaid. Must be suppressed until they renew.
+    expect(projectNextInvoice({ ...baseMembership, end_date: "2026-01-01" }, TODAY)).toBeNull();
+  });
+
+  it("returns null when the current cycle ends exactly today", () => {
+    expect(projectNextInvoice({ ...baseMembership, end_date: TODAY }, TODAY)).toBeNull();
+  });
+
+  it("projects while the current cycle is still live", () => {
+    expect(projectNextInvoice(baseMembership, TODAY)).not.toBeNull();
   });
 });

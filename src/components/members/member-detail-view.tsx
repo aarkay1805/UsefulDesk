@@ -14,10 +14,10 @@ import {
   Mail,
   CalendarDays,
   RefreshCw,
+  Wallet,
   Pencil,
   Snowflake,
   Play,
-  ExternalLink,
   UserCheck,
   UserPlus,
   MoreHorizontal,
@@ -266,12 +266,16 @@ export function MemberDetailView({
   async function freeze() {
     if (!membership) return;
     setBusy(true);
-    const { error } = await supabase
+    // Chain .select('id') — an RLS-blocked update returns no error + zero
+    // rows, so an empty result is the real failure signal.
+    const { data, error } = await supabase
       .from("memberships")
       .update({ status: "frozen", frozen_at: fmt.today() })
-      .eq("id", membership.id);
+      .eq("id", membership.id)
+      .select("id");
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error || !data?.length)
+      return toast.error(error?.message ?? "Couldn't freeze — check your access.");
     toast.success("Membership frozen");
     refreshAll();
   }
@@ -280,12 +284,15 @@ export function MemberDetailView({
     if (!membership) return;
     setBusy(true);
     const newEnd = unfreezeEndDate(membership.end_date, membership.frozen_at);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("memberships")
       .update({ status: "active", frozen_at: null, end_date: newEnd })
-      .eq("id", membership.id);
-    if (!error) {
-      // Same cycle, just shifted forward by the frozen days (057).
+      .eq("id", membership.id)
+      .select("id");
+    if (!error && data?.length) {
+      // Same cycle, shifted forward by the frozen days — syncCurrentPeriod
+      // also re-stamps this cycle's payments to the new period_end so they
+      // keep reconciling (057).
       await syncCurrentPeriod(supabase, membership.id, {
         plan_id: membership.plan_id,
         period_start: membership.start_date,
@@ -294,7 +301,8 @@ export function MemberDetailView({
       });
     }
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error || !data?.length)
+      return toast.error(error?.message ?? "Couldn't resume — check your access.");
     toast.success("Membership resumed");
     refreshAll();
   }
@@ -302,14 +310,17 @@ export function MemberDetailView({
   async function cancelMembership() {
     if (!membership) return;
     setBusy(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("memberships")
       .update({ status: "cancelled", frozen_at: null })
-      .eq("id", membership.id);
+      .eq("id", membership.id)
+      .select("id");
     // Void the current cycle's invoice; settled past cycles stay paid (057).
-    if (!error) await setCurrentPeriodState(supabase, membership.id, "void");
+    if (!error && data?.length)
+      await setCurrentPeriodState(supabase, membership.id, "void");
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error || !data?.length)
+      return toast.error(error?.message ?? "Couldn't cancel — check your access.");
     toast.success("Membership cancelled");
     refreshAll();
   }
@@ -317,13 +328,16 @@ export function MemberDetailView({
   async function reactivate() {
     if (!membership) return;
     setBusy(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("memberships")
       .update({ status: "active" })
-      .eq("id", membership.id);
-    if (!error) await setCurrentPeriodState(supabase, membership.id, "open");
+      .eq("id", membership.id)
+      .select("id");
+    if (!error && data?.length)
+      await setCurrentPeriodState(supabase, membership.id, "open");
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error || !data?.length)
+      return toast.error(error?.message ?? "Couldn't reactivate — check your access.");
     toast.success("Membership reactivated");
     refreshAll();
   }
@@ -362,7 +376,7 @@ export function MemberDetailView({
   // Invoice timeline: persisted periods (past + current, real arrears)
   // plus the single projected NEXT cycle (display-only). Newest first so
   // Upcoming reads at the top, history descends below.
-  const projectedNext = membership ? projectNextInvoice(membership) : null;
+  const projectedNext = membership ? projectNextInvoice(membership, today) : null;
   const displayInvoices: MembershipPeriodInvoice[] = membership
     ? [...(projectedNext ? [projectedNext] : []), ...invoices]
     : [];
@@ -376,6 +390,19 @@ export function MemberDetailView({
     // an older cycle is passed so it reconciles to the right invoice.
     setPayPeriod(inv.period_end === membership?.end_date ? null : inv);
     setPayOpen(true);
+  }
+  // Method is a payment attribute, not an invoice one — a cycle can have
+  // 0 (upcoming) or several payments. Show the one method, "Multiple" if
+  // mixed, "—" if none.
+  function periodMethod(inv: MembershipPeriodInvoice): string {
+    const methods = new Set(
+      payments
+        .filter((p) => p.status === "paid" && p.period_end === inv.period_end)
+        .map((p) => METHOD_LABEL[p.method]),
+    );
+    if (methods.size === 0) return "—";
+    if (methods.size === 1) return [...methods][0];
+    return "Multiple";
   }
 
   return (
@@ -598,113 +625,86 @@ export function MemberDetailView({
                       <Card>
                         <CardHeader>
                           <CardTitle>Payments</CardTitle>
-                          {!membership.is_trial && balance > 0 && (
-                            <CardAction>
-                              <CopyUpiLinkButton
-                                upi={upi}
-                                amount={balance}
-                                note={`${membership.plan?.name ?? "Membership"} fee`}
-                                size="sm"
-                              />
+                          {!membership.is_trial && (
+                            <CardAction className="flex items-center gap-2">
+                              {balance > 0 && (
+                                <CopyUpiLinkButton
+                                  upi={upi}
+                                  amount={balance}
+                                  note={`${membership.plan?.name ?? "Membership"} fee`}
+                                  size="sm"
+                                />
+                              )}
+                              {canSendMessages && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setPayPeriod(null);
+                                    setPayOpen(true);
+                                  }}
+                                >
+                                  <Wallet className="size-4" /> Record payment
+                                </Button>
+                              )}
                             </CardAction>
                           )}
                         </CardHeader>
-                        <CardContent className="flex flex-col gap-4">
-                          {/* Invoice timeline (057): one badged, clickable
-                              row per billing cycle — persisted past +
-                              current periods, plus the projected next
-                              (Upcoming). Click → InvoiceDetailDialog to see
-                              its payments / record against it. Trials don't
-                              bill (their 0-fee period is hidden). */}
-                          {!membership.is_trial && displayInvoices.length > 0 && (
-                            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-                              {displayInvoices.map((inv) => {
-                                const st = periodStatus(inv, today);
-                                const bal = Number(inv.balance);
-                                return (
-                                  <button
-                                    key={inv.id}
-                                    type="button"
-                                    onClick={() => openInvoice(inv)}
-                                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/40"
-                                  >
-                                    <InvoiceStatusBadge status={st} />
-                                    <div className="min-w-0 flex-1">
-                                      <p className="truncate text-sm font-medium text-foreground">
-                                        {membership.plan?.name ?? "Membership"}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {fmt.date(inv.period_start)} – {fmt.date(inv.period_end)}
-                                        {bal > 0 && st === "unpaid" && (
-                                          <span className="text-amber-700 dark:text-amber-400">
-                                            {" · "}
-                                            {fmt.money(bal)} due
-                                          </span>
-                                        )}
-                                      </p>
-                                    </div>
-                                    <span className="text-sm font-semibold tabular-nums text-foreground">
-                                      {fmt.money(inv.fee_amount)}
-                                    </span>
-                                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {/* Transaction history — the raw ledger. */}
-                          {payments.length === 0 ? (
+                        <CardContent>
+                          {/* Invoices (057): one row per billing cycle —
+                              persisted past + current periods, plus the
+                              projected next (Upcoming). Click a row →
+                              InvoiceDetailDialog (payments / record against
+                              it). Trials don't bill (0-fee period hidden). */}
+                          {membership.is_trial ? (
                             <p className="text-sm text-muted-foreground">
-                              No payments recorded yet.
+                              Trials are not billed. Convert to a member to start invoicing.
+                            </p>
+                          ) : displayInvoices.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                              No invoices yet.
                             </p>
                           ) : (
-                            <div>
-                              <p className="mb-2 text-xs font-medium text-muted-foreground">
-                                Payment history
-                              </p>
-                              <div className="overflow-hidden rounded-lg border border-border">
-                            <Table>
-                              <TableHeader>
-                                <TableRow className="hover:bg-transparent">
-                                  <TableHead className="text-xs">Date</TableHead>
-                                  <TableHead className="text-xs">Method</TableHead>
-                                  <TableHead className="text-xs">Note</TableHead>
-                                  <TableHead className="text-right text-xs">Amount</TableHead>
-                                  <TableHead className="w-8" />
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {payments.map((p) => (
-                                  <TableRow key={p.id}>
-                                    <TableCell>{fmt.date(p.paid_at)}</TableCell>
-                                    <TableCell className="text-muted-foreground">
-                                      {METHOD_LABEL[p.method]}
-                                    </TableCell>
-                                    <TableCell className="max-w-[16rem] whitespace-normal text-muted-foreground">
-                                      {p.note || "—"}
-                                    </TableCell>
-                                    <TableCell className="text-right font-medium tabular-nums">
-                                      {fmt.money(p.amount)}
-                                    </TableCell>
-                                    <TableCell>
-                                      {p.screenshot_url && (
-                                        <a
-                                          href={p.screenshot_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-muted-foreground hover:text-foreground"
-                                          title="View screenshot"
-                                        >
-                                          <ExternalLink className="size-4" />
-                                        </a>
-                                      )}
-                                    </TableCell>
+                            <div className="overflow-hidden rounded-lg border border-border">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="hover:bg-transparent">
+                                    <TableHead className="text-xs">Due date</TableHead>
+                                    <TableHead className="text-xs">Method</TableHead>
+                                    <TableHead className="text-xs">Status</TableHead>
+                                    <TableHead className="text-right text-xs">Amount</TableHead>
+                                    <TableHead className="w-8" />
                                   </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                              </div>
+                                </TableHeader>
+                                <TableBody>
+                                  {displayInvoices.map((inv) => {
+                                    const st = periodStatus(inv, today);
+                                    return (
+                                      <TableRow
+                                        key={inv.id}
+                                        onClick={() => openInvoice(inv)}
+                                        className="cursor-pointer"
+                                      >
+                                        <TableCell className="font-medium">
+                                          {fmt.date(inv.period_start)}
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                          {periodMethod(inv)}
+                                        </TableCell>
+                                        <TableCell>
+                                          <InvoiceStatusBadge status={st} />
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium tabular-nums">
+                                          {fmt.money(inv.fee_amount)}
+                                        </TableCell>
+                                        <TableCell>
+                                          <ChevronRight className="size-4 text-muted-foreground" />
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
                             </div>
                           )}
                         </CardContent>

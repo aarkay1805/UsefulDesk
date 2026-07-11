@@ -96,7 +96,10 @@ export function InvoiceDetailDialog({
   const today = fmt.today();
   const status = periodStatus(invoice, today);
   const balance = Number(invoice.balance);
-  const amountPaid = Number(invoice.fee_amount) - balance;
+  // Use the view's reconciled total, not fee − balance: a period can be
+  // OVER-paid (old data stamped several payments onto one period_end), so
+  // fee − balance would understate what the payment list below actually sums to.
+  const amountPaid = Number(invoice.amount_paid);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

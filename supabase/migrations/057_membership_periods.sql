@@ -121,9 +121,15 @@ FROM memberships m
 ON CONFLICT (membership_id, period_end) DO NOTHING;
 
 -- (b) Past PAID cycles reconstructed from the ledger (distinct prior
--- period_end). Their fee = Σ payments for that cycle, so balance = 0 →
--- they read as "Paid" history. Current cycle already covered by (a), so
--- exclude period_end = the membership's live end_date.
+-- period_end). fee = the LARGEST single payment for that period, NOT the
+-- sum: old data sometimes stamped several full-fee payments (multiple
+-- mis-recorded cycles) onto one period_end, and SUM inflated the invoice
+-- total to a multiple of the real fee (e.g. 4×3999 = 15996 for a 3999
+-- plan). MAX recovers the per-cycle fee; the view still sums payments
+-- into amount_paid so balance = 0 → these read as "Paid" history.
+-- (Heuristic — genuine partial installments under one period_end would
+-- be under-stated, but full-fee-per-cycle is the real-world case here.)
+-- Current cycle already covered by (a), so exclude the live end_date.
 INSERT INTO membership_periods (
   account_id, membership_id, contact_id, plan_id,
   period_start, period_end, fee_amount, state
@@ -131,7 +137,7 @@ INSERT INTO membership_periods (
 SELECT
   p.account_id, p.membership_id, p.contact_id, p.plan_id,
   COALESCE(p.period_start, p.period_end), p.period_end,
-  SUM(p.amount), 'open'
+  MAX(p.amount), 'open'
 FROM payments p
 JOIN memberships m ON m.id = p.membership_id
 WHERE p.status = 'paid'
