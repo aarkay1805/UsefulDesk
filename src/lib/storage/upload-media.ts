@@ -68,6 +68,13 @@ export interface UploadAccountMediaResult {
   path: string;
 }
 
+export interface UploadPrivateAccountMediaResult {
+  /** Short-lived preview URL; the object itself remains private. */
+  signedUrl: string;
+  /** Storage object path (account-scoped). */
+  path: string;
+}
+
 /**
  * Upload a file to an account-scoped Storage bucket and return its public
  * URL. Throws with a user-facing message on auth / account-resolution /
@@ -118,6 +125,63 @@ export async function uploadAccountMedia(
 }
 
 /**
+ * Upload sensitive account media to a PRIVATE bucket. The returned URL
+ * expires quickly and is only for the immediate preview; callers persist
+ * the path, never the signed URL.
+ */
+export async function uploadPrivateAccountMedia(
+  bucket: string,
+  file: File,
+): Promise<UploadPrivateAccountMediaResult> {
+  const supabase = createClient();
+  const {
+    data: { user },
+    error: userErr,
+  } = await supabase.auth.getUser();
+  if (userErr || !user) throw new Error("Not signed in.");
+
+  const { data: profile, error: profileErr } = await supabase
+    .from("profiles")
+    .select("account_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (profileErr || !profile?.account_id) {
+    throw new Error("Could not resolve your account.");
+  }
+
+  const path = buildMediaPath(profile.account_id as string, file.name);
+  const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file, {
+    cacheControl: "3600",
+    upsert: false,
+    contentType: file.type,
+  });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data, error: signError } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(path, 10 * 60);
+  if (signError) {
+    await supabase.storage.from(bucket).remove([path]);
+    throw new Error(signError.message);
+  }
+  return { signedUrl: data.signedUrl, path };
+}
+
+/** Create a short-lived authenticated link for a private object. */
+export async function createPrivateMediaUrl(
+  bucket: string,
+  path: string,
+  expiresInSeconds: number = 5 * 60,
+): Promise<string> {
+  const supabase = createClient();
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(path, expiresInSeconds);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
+
+/**
  * Delete a previously-uploaded object. Used to GC media that was staged
  * (uploaded) but never sent — a cancelled draft or a failed Meta send —
  * so abandoned attachments don't accumulate in the public bucket. The
@@ -127,10 +191,7 @@ export async function uploadAccountMedia(
  * Best-effort: callers fire-and-forget and swallow errors (a missed
  * delete is a storage nit, not something to surface to the user).
  */
-export async function deleteAccountMedia(
-  bucket: string,
-  path: string,
-): Promise<void> {
+export async function deleteAccountMedia(bucket: string, path: string): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase.storage.from(bucket).remove([path]);
   if (error) throw new Error(error.message);

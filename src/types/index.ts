@@ -752,7 +752,7 @@ export interface AutomationLog {
 export type MembershipStatus = 'active' | 'frozen' | 'cancelled' | 'expired';
 export type MembershipFeeStatus = 'paid' | 'due';
 export type PaymentMethod = 'cash' | 'upi' | 'card' | 'bank' | 'other';
-export type PaymentStatus = 'paid' | 'due';
+export type PaymentStatus = 'paid' | 'due' | 'void';
 
 export interface MembershipPlan {
   id: string;
@@ -819,9 +819,17 @@ export interface Payment {
   paid_at: string;
   period_start?: string | null;
   period_end?: string | null;
-  /** Payment proof in the chat-media bucket. */
+  /** Legacy public proof URL. New receipts leave this null. */
   screenshot_url?: string | null;
+  /** Account-scoped object path for either a legacy or private proof. */
   screenshot_path?: string | null;
+  /** Private storage bucket for new receipt proofs (migration 058). */
+  receipt_bucket?: string | null;
+  /** Stable client operation id used to make retries idempotent. */
+  idempotency_key?: string;
+  voided_at?: string | null;
+  voided_by?: string | null;
+  void_reason?: string | null;
   note?: string;
   created_at: string;
 }

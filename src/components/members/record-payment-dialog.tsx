@@ -5,11 +5,11 @@ import { toast } from "sonner";
 import { Loader2, Upload, X } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/hooks/use-locale";
 import { dateAtNoonInTz } from "@/lib/locale/format";
+import { validatePaymentAmount } from "@/lib/payments/validation";
 import {
-  uploadAccountMedia,
+  uploadPrivateAccountMedia,
   deleteAccountMedia,
   MEDIA_MAX_BYTES_BY_KIND,
 } from "@/lib/storage/upload-media";
@@ -62,7 +62,6 @@ export function RecordPaymentDialog({
   period,
 }: RecordPaymentDialogProps) {
   const supabase = createClient();
-  const { accountId, user } = useAuth();
   const { locale, fmt } = useLocale();
 
   const [amount, setAmount] = useState("");
@@ -72,17 +71,21 @@ export function RecordPaymentDialog({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [shot, setShot] = useState<{ url: string; path: string } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   // Outstanding balance for the current period, pulled from the
   // membership_dues view so a payment settles a balance (supports
   // partials) instead of a blind paid/due flip.
-  const [dues, setDues] = useState<{ balance: number; collected: number } | null>(null);
+  const [dues, setDues] = useState<{
+    balance: number;
+    collected: number;
+  } | null>(null);
 
   // Which cycle this payment settles: an explicit period (arrears) or the
   // membership's current one.
   const targetStart = period?.period_start ?? membership.start_date;
   const targetEnd = period?.period_end ?? membership.end_date;
   const targetFee = Number(period?.fee_amount ?? membership.fee_amount ?? 0);
-  const isCurrentPeriod = targetEnd === membership.end_date;
 
   useEffect(() => {
     if (!open) return;
@@ -92,29 +95,34 @@ export function RecordPaymentDialog({
     setNote("");
     setShot(null);
     setDues(null);
+    setLoadError(null);
+    setIdempotencyKey(crypto.randomUUID());
     // A specific period carries its own balance (from the invoice view) —
     // no dues lookup needed. The current period reads the dues view so
     // partials show against the live balance.
     if (period) {
       const balance = Number(period.balance);
       setDues({ balance, collected: targetFee - balance });
-      setAmount(String(balance > 0 ? balance : targetFee || ""));
+      setAmount(balance > 0 ? String(balance) : "");
       return;
     }
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("membership_dues")
         .select("balance, collected_current")
         .eq("membership_id", membership.id)
         .maybeSingle();
       if (cancelled) return;
+      if (error) {
+        setLoadError(error.message);
+        setAmount("");
+        return;
+      }
       const fee = Number(membership.fee_amount ?? 0);
       const balance = data ? Number(data.balance) : fee;
       const collected = data ? Number(data.collected_current) : 0;
       setDues({ balance, collected });
-      // Prefill with the remaining balance so one tap settles the member;
-      // fall back to the full fee when nothing is outstanding.
-      setAmount(String(balance > 0 ? balance : (membership.fee_amount ?? "")));
+      setAmount(balance > 0 ? String(balance) : "");
     })();
     return () => {
       cancelled = true;
@@ -128,8 +136,8 @@ export function RecordPaymentDialog({
     }
     setUploading(true);
     try {
-      const res = await uploadAccountMedia("chat-media", file);
-      setShot({ url: res.publicUrl, path: res.path });
+      const res = await uploadPrivateAccountMedia("payment-receipts", file);
+      setShot({ url: res.signedUrl, path: res.path });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -142,56 +150,54 @@ export function RecordPaymentDialog({
     const path = shot.path;
     setShot(null);
     // Best-effort GC of the staged object.
-    deleteAccountMedia("chat-media", path).catch(() => {});
+    deleteAccountMedia("payment-receipts", path).catch(() => {});
+  }
+
+  function closeDialog() {
+    if (shot) {
+      deleteAccountMedia("payment-receipts", shot.path).catch(() => {});
+      setShot(null);
+    }
+    onOpenChange(false);
   }
 
   async function handleSave() {
-    if (!accountId || !user) return;
     const amt = Number(amount);
-    if (!Number.isFinite(amt) || amt < 0) return toast.error("Enter a valid amount");
+    if (!dues || loadError) return toast.error("The balance is not available yet");
+    const validation = validatePaymentAmount(amt, dues.balance);
+    if (validation === "invalid" || validation === "not_positive") {
+      return toast.error("Enter an amount greater than zero");
+    }
+    if (validation === "exceeds_balance") {
+      return toast.error(`Amount cannot exceed ${fmt.money(dues.balance)}`);
+    }
 
     setSaving(true);
     try {
       // Store paid_at as an instant: local noon in the ACCOUNT's zone,
       // so the row reads back on the same day it was picked anywhere on
       // earth (a fixed noon-UTC anchor breaks past ±12h, e.g. Auckland).
-      const paidAt = (
-        dateAtNoonInTz(paidOn, locale.timeZone) ?? new Date()
-      ).toISOString();
+      const paidAt = (dateAtNoonInTz(paidOn, locale.timeZone) ?? new Date()).toISOString();
 
-      const { error: pErr } = await supabase.from("payments").insert({
-        account_id: accountId,
-        membership_id: membership.id,
-        contact_id: membership.contact_id,
-        plan_id: membership.plan_id,
-        user_id: user.id,
-        amount: amt,
-        method,
-        status: "paid",
-        paid_at: paidAt,
-        period_start: targetStart,
-        period_end: targetEnd,
-        screenshot_url: shot?.url ?? null,
-        screenshot_path: shot?.path ?? null,
-        note: note.trim() || null,
+      const { data, error } = await supabase.rpc("record_membership_payment", {
+        p_membership_id: membership.id,
+        p_period_end: targetEnd,
+        p_amount: amt,
+        p_method: method,
+        p_paid_at: paidAt,
+        p_note: note.trim(),
+        p_receipt_path: shot?.path ?? null,
+        p_idempotency_key: idempotencyKey,
       });
-      if (pErr) throw pErr;
+      if (error) throw error;
 
-      // Settle the balance: mark paid only once the period's collected
-      // total covers the fee — a partial payment leaves it 'due'. Only the
-      // CURRENT cycle drives the membership's fee_status; settling an old
-      // arrears invoice must not flip the live flag.
-      const collectedAfter = (dues?.collected ?? 0) + amt;
-      const feeStatus = collectedAfter >= targetFee ? "paid" : "due";
-      if (isCurrentPeriod) {
-        const { error: mErr } = await supabase
-          .from("memberships")
-          .update({ fee_status: feeStatus })
-          .eq("id", membership.id);
-        if (mErr) throw mErr;
-      }
+      const result = (data as { balance: number }[] | null)?.[0];
+      const settled = Number(result?.balance ?? dues.balance - amt) <= 0;
 
-      toast.success(feeStatus === "paid" ? "Payment recorded" : "Partial payment recorded");
+      toast.success(settled ? "Payment recorded" : "Partial payment recorded");
+      // The receipt now belongs to the persisted payment; prevent close
+      // cleanup from deleting it.
+      setShot(null);
       onOpenChange(false);
       onSaved();
     } catch (err) {
@@ -202,7 +208,13 @@ export function RecordPaymentDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) onOpenChange(true);
+        else closeDialog();
+      }}
+    >
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Record payment</DialogTitle>
@@ -220,42 +232,66 @@ export function RecordPaymentDialog({
               <span className="font-medium text-amber-700 dark:text-amber-400">
                 {fmt.money(dues.balance)}
                 {dues.collected > 0 && (
-                  <span className="ml-1 text-xs text-muted-foreground">
+                  <span className="text-muted-foreground ml-1 text-xs">
                     of {fmt.money(targetFee)}
                   </span>
                 )}
               </span>
             </div>
           )}
+          {loadError && (
+            <p
+              className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border px-3 py-2 text-sm"
+              role="alert"
+            >
+              Could not load the current balance. Close this dialog and try again.
+            </p>
+          )}
+          {dues && dues.balance <= 0 && !loadError && (
+            <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
+              This billing period is already settled.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="rp-amount" className="text-muted-foreground">Amount</Label>
+              <Label htmlFor="rp-amount" className="text-muted-foreground">
+                Amount
+              </Label>
               <Input
                 id="rp-amount"
                 type="number"
-                min={0}
+                min={0.01}
+                max={dues?.balance || undefined}
+                step="0.01"
+                inputMode="decimal"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 className="bg-muted"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="rp-method" className="text-muted-foreground">Method</Label>
+              <Label htmlFor="rp-method" className="text-muted-foreground">
+                Method
+              </Label>
               <select
                 id="rp-method"
                 value={method}
                 onChange={(e) => setMethod(e.target.value as PaymentMethod)}
-                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:ring-1"
               >
                 {PAYMENT_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
                 ))}
               </select>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="rp-date" className="text-muted-foreground">Paid on</Label>
+            <Label htmlFor="rp-date" className="text-muted-foreground">
+              Paid on
+            </Label>
             <Input
               id="rp-date"
               type="date"
@@ -268,16 +304,16 @@ export function RecordPaymentDialog({
           <div className="space-y-1.5">
             <Label className="text-muted-foreground">Screenshot (optional)</Label>
             {shot ? (
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-2 text-xs">
+              <div className="border-border bg-muted/40 flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={shot.url} alt="Payment proof" className="size-10 rounded object-cover" />
-                <span className="flex-1 truncate text-muted-foreground">Screenshot attached</span>
+                <span className="text-muted-foreground flex-1 truncate">Screenshot attached</span>
                 <Button type="button" variant="ghost" size="icon-sm" onClick={removeShot}>
                   <X className="size-4" />
                 </Button>
               </div>
             ) : (
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-2.5 py-3 text-xs text-muted-foreground hover:bg-muted">
+              <label className="border-border bg-muted/40 text-muted-foreground hover:bg-muted flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed px-2.5 py-3 text-xs">
                 {uploading ? (
                   <>
                     <Loader2 className="size-4 animate-spin" /> Uploading…
@@ -303,7 +339,9 @@ export function RecordPaymentDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="rp-note" className="text-muted-foreground">Note</Label>
+            <Label htmlFor="rp-note" className="text-muted-foreground">
+              Note
+            </Label>
             <Input
               id="rp-note"
               value={note}
@@ -315,13 +353,13 @@ export function RecordPaymentDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={closeDialog}>
             Cancel
           </Button>
           <Button
             type="button"
             onClick={handleSave}
-            disabled={saving || uploading}
+            disabled={saving || uploading || !dues || !!loadError || dues.balance <= 0}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}
