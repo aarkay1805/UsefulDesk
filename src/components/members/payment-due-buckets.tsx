@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
 import { RecordPaymentDialog } from "./record-payment-dialog";
 import { CopyUpiLinkButton, useUpiConfig, type UpiConfig } from "./copy-upi-link-button";
+import { MemberIdentity } from "./member-identity";
 
 interface PaymentDueBucketsProps {
   readiness: ReminderReadiness;
@@ -171,15 +172,16 @@ function BucketCard({
                   onClick={() => onSelect(m.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {m.contact?.name || m.contact?.phone || "Unnamed"}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {m.plan?.name ?? "—"}
-                        {overdue > 0 ? ` · ${overdue}d overdue` : " · due now"}
-                      </p>
-                    </div>
+                    <MemberIdentity
+                      name={m.contact?.name}
+                      secondary={m.contact?.phone}
+                      meta={
+                        <p className="truncate text-xs text-muted-foreground">
+                          {m.plan?.name ?? "—"}
+                          {overdue > 0 ? ` · ${overdue}d overdue` : " · due now"}
+                        </p>
+                      }
+                    />
                     <span className="shrink-0 text-sm font-semibold text-amber-700 dark:text-amber-400">
                       {fmt.money(m.balance)}
                     </span>

@@ -21,6 +21,7 @@ import type { FollowUp } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { MemberIdentity } from "./member-identity";
 import { CompleteFollowUpDialog } from "./follow-up-dialog";
 import { useAccountStaff } from "./use-account-staff";
 
@@ -178,19 +179,22 @@ function TaskList({
                 onClick={f.membership_id ? () => onSelect(f.membership_id!) : undefined}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {f.contact?.name || f.contact?.phone || "Unnamed"}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {REASON_LABEL[f.reason]} · due {fmt.date(f.due_date)}
-                    </p>
-                    {f.note && (
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground/80">
-                        {f.note}
-                      </p>
-                    )}
-                  </div>
+                  <MemberIdentity
+                    name={f.contact?.name}
+                    secondary={f.contact?.phone}
+                    meta={
+                      <>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {REASON_LABEL[f.reason]} · due {fmt.date(f.due_date)}
+                        </p>
+                        {f.note && (
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground/80">
+                            {f.note}
+                          </p>
+                        )}
+                      </>
+                    }
+                  />
                   <Badge
                     variant={f.assigned_to ? "neutral" : "danger"}
                     className="shrink-0"

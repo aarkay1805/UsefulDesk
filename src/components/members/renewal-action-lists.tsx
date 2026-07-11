@@ -1,24 +1,45 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarClock,
   CircleAlert,
-  Wallet,
   CheckCircle2,
   Loader2,
+  RefreshCw,
   UserRoundPlus,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/hooks/use-locale";
-import { istAddDays, daysUntil, effectiveStatus } from "@/lib/memberships/expiry";
+import {
+  istAddDays,
+  daysUntil,
+  effectiveStatus,
+} from "@/lib/memberships/expiry";
 import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { MembershipStatusBadge, FeeStatusBadge } from "./membership-status-badge";
+import { MemberIdentity } from "./member-identity";
 import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
 import { FollowUpDialog } from "./follow-up-dialog";
+import { RenewMembershipDialog } from "./renew-membership-dialog";
 
 interface RenewalActionListsProps {
   readiness: ReminderReadiness;
@@ -27,6 +48,15 @@ interface RenewalActionListsProps {
 }
 
 const SELECT = "*, contact:contacts(*), plan:membership_plans(*)";
+
+// How far back the Expired table looks. Recent lapses first (the action
+// list philosophy — who to chase now); "All time" is the escape hatch.
+const EXPIRED_WINDOWS: { value: string; label: string; days: number | null }[] = [
+  { value: "30", label: "Last 30 days", days: 30 },
+  { value: "90", label: "Last 3 months", days: 90 },
+  { value: "180", label: "Last 6 months", days: 180 },
+  { value: "all", label: "All time", days: null },
+];
 
 export function RenewalActionLists({
   readiness,
@@ -38,14 +68,19 @@ export function RenewalActionLists({
 
   const [expiring, setExpiring] = useState<Membership[]>([]);
   const [expired, setExpired] = useState<Membership[]>([]);
-  const [due, setDue] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
-  // Bumped after a reminder send to re-pull the buckets.
+  // Bumped after a reminder/renew/assign to re-pull the buckets.
   const [nonce, setNonce] = useState(0);
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
+  // Expired lookback window (client-filtered over the full expired set so
+  // switching is instant and counts stay accurate).
+  const [expiredWindow, setExpiredWindow] = useState("30");
+
   // Member being handed to a staff owner via the assign dialog.
   const [assigning, setAssigning] = useState<Membership | null>(null);
+  // Member being renewed via the renew dialog.
+  const [renewing, setRenewing] = useState<Membership | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -54,7 +89,7 @@ export function RenewalActionLists({
       const today = fmt.today();
       const in7 = istAddDays(today, 7);
 
-      const [expiringRes, expiredRes, dueRes] = await Promise.all([
+      const [expiringRes, expiredRes] = await Promise.all([
         supabase
           .from("memberships")
           .select(SELECT)
@@ -69,26 +104,30 @@ export function RenewalActionLists({
           .eq("is_trial", false)
           .eq("status", "active")
           .lt("end_date", today)
-          .order("end_date", { ascending: true }),
-        supabase
-          .from("memberships")
-          .select(SELECT)
-          .eq("is_trial", false)
-          .eq("fee_status", "due")
-          .neq("status", "cancelled")
-          .order("end_date", { ascending: true }),
+          // Most-recently lapsed first — the freshest chase targets.
+          .order("end_date", { ascending: false }),
       ]);
       if (cancelled) return;
 
       setExpiring((expiringRes.data as Membership[]) ?? []);
       setExpired((expiredRes.data as Membership[]) ?? []);
-      setDue((dueRes.data as Membership[]) ?? []);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
   }, [reloadKey, nonce, fmt]);
+
+  const today = fmt.today();
+
+  // Apply the lookback window to the expired set.
+  const expiredFiltered = useMemo(() => {
+    const win = EXPIRED_WINDOWS.find((w) => w.value === expiredWindow);
+    if (!win?.days) return expired;
+    const cutoff = istAddDays(today, -win.days);
+    // ISO date strings compare lexically = chronologically.
+    return expired.filter((m) => m.end_date >= cutoff);
+  }, [expired, expiredWindow, today]);
 
   if (loading) {
     return (
@@ -100,36 +139,50 @@ export function RenewalActionLists({
 
   return (
     <>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <ActionList
+      <div className="space-y-6">
+        <RenewalTable
           title="Expiring in 7 days"
-          icon={<CalendarClock className="size-4 text-amber-700 dark:text-amber-400" />}
+          icon={
+            <CalendarClock className="size-4 text-amber-700 dark:text-amber-400" />
+          }
           rows={expiring}
           readiness={readiness}
           onSelect={onSelect}
           onChanged={reload}
           onAssign={canSendMessages ? setAssigning : undefined}
+          onRenew={setRenewing}
           emptyLabel="No memberships expiring soon."
         />
-        <ActionList
+
+        <RenewalTable
           title="Expired"
-          icon={<CircleAlert className="size-4 text-red-700 dark:text-red-400" />}
-          rows={expired}
+          icon={
+            <CircleAlert className="size-4 text-red-700 dark:text-red-400" />
+          }
+          rows={expiredFiltered}
           readiness={readiness}
           onSelect={onSelect}
           onChanged={reload}
           onAssign={canSendMessages ? setAssigning : undefined}
-          emptyLabel="No expired memberships."
-        />
-        <ActionList
-          title="Payment due"
-          icon={<Wallet className="size-4 text-amber-700 dark:text-amber-400" />}
-          rows={due}
-          readiness={readiness}
-          onSelect={onSelect}
-          onChanged={reload}
-          onAssign={canSendMessages ? setAssigning : undefined}
-          emptyLabel="No pending fees."
+          onRenew={setRenewing}
+          emptyLabel="No expired memberships in this window."
+          headerAction={
+            <Select
+              value={expiredWindow}
+              onValueChange={(v) => setExpiredWindow(v ?? "30")}
+            >
+              <SelectTrigger size="sm" className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EXPIRED_WINDOWS.map((w) => (
+                  <SelectItem key={w.value} value={w.value}>
+                    {w.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
         />
       </div>
 
@@ -143,11 +196,22 @@ export function RenewalActionLists({
           onSaved={reload}
         />
       )}
+
+      {renewing && (
+        <RenewMembershipDialog
+          open={!!renewing}
+          onOpenChange={(o) => {
+            if (!o) setRenewing(null);
+          }}
+          membership={renewing}
+          onSaved={reload}
+        />
+      )}
     </>
   );
 }
 
-function ActionList({
+function RenewalTable({
   title,
   icon,
   rows,
@@ -155,7 +219,9 @@ function ActionList({
   onSelect,
   onChanged,
   onAssign,
+  onRenew,
   emptyLabel,
+  headerAction,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -165,69 +231,110 @@ function ActionList({
   onChanged: () => void;
   /** Present for agent+ — opens the assign-follow-up dialog. */
   onAssign?: (m: Membership) => void;
+  onRenew: (m: Membership) => void;
   emptyLabel: string;
+  /** Optional control shown on the right of the header (e.g. a filter). */
+  headerAction?: React.ReactNode;
 }) {
   const { fmt } = useLocale();
   const today = fmt.today();
+
   return (
-    <section className="flex flex-col rounded-xl border border-border bg-card">
-      <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+    <section className="space-y-3">
+      <div className="flex items-center gap-2">
         {icon}
         <h3 className="text-sm font-medium text-foreground">{title}</h3>
-        <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
           {rows.length}
         </span>
-      </header>
+        {headerAction && <div className="ml-auto">{headerAction}</div>}
+      </div>
 
       {rows.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-10 text-center">
           <CheckCircle2 className="size-6 text-emerald-700 dark:text-emerald-500/70" />
           <p className="text-xs text-muted-foreground">{emptyLabel}</p>
         </div>
       ) : (
-        <ul className="divide-y divide-border">
-          {rows.map((m) => {
-            const eff = effectiveStatus(m, today);
-            const days = daysUntil(m.end_date, today);
-            return (
-              <li
-                key={m.id}
-                className="cursor-pointer px-3 py-2.5 transition-colors hover:bg-muted/50"
-                onClick={() => onSelect(m.id)}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {m.contact?.name || m.contact?.phone || "Unnamed"}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {m.plan?.name ?? "—"} · exp {m.end_date}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    <MembershipStatusBadge status={eff} daysToExpiry={days} />
-                    <FeeStatusBadge status={m.fee_status} />
-                  </div>
-                </div>
-                <div
-                  className="mt-2 flex justify-end gap-2"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {onAssign && (
-                    <Button size="sm" variant="ghost" onClick={() => onAssign(m)}>
-                      <UserRoundPlus className="size-3.5" /> Assign
-                    </Button>
-                  )}
-                  <SendReminderButton
-                    membership={m}
-                    readiness={readiness}
-                    onSent={onChanged}
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="rounded-lg border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Plan</TableHead>
+                <TableHead>Expiry</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Fee</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((m) => {
+                const eff = effectiveStatus(m, today);
+                const days = daysUntil(m.end_date, today);
+                return (
+                  <TableRow
+                    key={m.id}
+                    className="cursor-pointer"
+                    onClick={() => onSelect(m.id)}
+                  >
+                    <TableCell>
+                      <MemberIdentity
+                        name={m.contact?.name}
+                        secondary={m.contact?.phone}
+                      />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {m.plan?.name ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {fmt.date(m.end_date)}
+                    </TableCell>
+                    <TableCell>
+                      <MembershipStatusBadge status={eff} daysToExpiry={days} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <FeeStatusBadge status={m.fee_status} />
+                        <span className="text-xs text-muted-foreground">
+                          {fmt.money(m.fee_amount)}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell
+                      className="text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        {onAssign && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onAssign(m)}
+                          >
+                            <UserRoundPlus className="size-3.5" /> Assign
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onRenew(m)}
+                        >
+                          <RefreshCw className="size-3.5" /> Renew
+                        </Button>
+                        <SendReminderButton
+                          membership={m}
+                          readiness={readiness}
+                          onSent={onChanged}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </section>
   );

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/hooks/use-locale";
 import type { Payment, PaymentMethod, Contact } from "@/types";
 import { cn } from "@/lib/utils";
+import { MemberIdentity } from "./member-identity";
 
 interface PaymentsLedgerProps {
   /** Bump to refetch after a payment is recorded elsewhere. */
@@ -103,16 +104,17 @@ export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
         <ul className="divide-y divide-border rounded-lg border border-border">
           {filtered.map((p) => (
             <li key={p.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-foreground">
-                  {p.contact?.name || p.contact?.phone || "Unknown member"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {METHOD_LABEL[p.method]} ·{" "}
-                  {fmt.date(p.paid_at)}
-                  {p.note ? ` · ${p.note}` : ""}
-                </p>
-              </div>
+              <MemberIdentity
+                className="flex-1"
+                name={p.contact?.name}
+                secondary={p.contact?.phone}
+                meta={
+                  <p className="truncate text-xs text-muted-foreground">
+                    {METHOD_LABEL[p.method]} · {fmt.date(p.paid_at)}
+                    {p.note ? ` · ${p.note}` : ""}
+                  </p>
+                }
+              />
               <span className="shrink-0 font-semibold text-foreground">
                 {fmt.money(p.amount)}
               </span>

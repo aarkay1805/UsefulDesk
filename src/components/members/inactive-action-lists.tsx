@@ -20,6 +20,7 @@ import {
 import type { Contact, MemberActivity, Membership } from "@/types";
 import { Button } from "@/components/ui/button";
 import { FollowUpDialog } from "./follow-up-dialog";
+import { MemberIdentity } from "./member-identity";
 
 interface InactiveActionListsProps {
   /** Opens the member detail sheet (keyed by membership id). */
@@ -183,14 +184,15 @@ function RetentionList({
               onClick={() => onSelect(r.membership_id)}
             >
               <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {r.contact_name || r.contact_phone || "Unnamed"}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {detail(r)}
-                  </p>
-                </div>
+                <MemberIdentity
+                  name={r.contact_name}
+                  secondary={r.contact_phone}
+                  meta={
+                    <p className="truncate text-xs text-muted-foreground">
+                      {detail(r)}
+                    </p>
+                  }
+                />
                 {onAssign && (
                   <div
                     className="shrink-0"

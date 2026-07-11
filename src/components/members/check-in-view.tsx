@@ -13,6 +13,7 @@ import type { Membership } from "@/types";
 import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
 import { MembershipStatusBadge } from "./membership-status-badge";
+import { MemberIdentity } from "./member-identity";
 
 interface CheckInViewProps {
   /** Bump to refetch after a mutation elsewhere. */
@@ -133,14 +134,16 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
                 key={m.id}
                 className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {m.contact?.name || "Unnamed"}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {m.contact?.phone} · {m.plan?.name ?? "—"}
-                  </p>
-                </div>
+                <MemberIdentity
+                  className="flex-1"
+                  name={m.contact?.name}
+                  secondary={m.contact?.phone}
+                  meta={
+                    <p className="truncate text-xs text-muted-foreground">
+                      {m.plan?.name ?? "—"}
+                    </p>
+                  }
+                />
                 <MembershipStatusBadge status={eff} daysToExpiry={daysUntil(m.end_date, today)} />
                 <Button
                   type="button"

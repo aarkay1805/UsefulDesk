@@ -79,9 +79,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -97,7 +94,6 @@ import {
   Download,
   Eye,
   MoreHorizontal,
-  MoreVertical,
   Pencil,
   Trash2,
   Loader2,
@@ -112,15 +108,9 @@ import {
   LayoutGrid,
   List,
   Columns3,
-  ArrowUp,
-  ArrowDown,
-  Sparkles,
-  Pin,
   X,
   Check,
   Ban,
-  EyeOff,
-  Filter,
 } from 'lucide-react';
 import { PageHeaderActions } from '@/components/layout/page-header-actions';
 import { ContactForm } from '@/components/contacts/contact-form';
@@ -142,6 +132,7 @@ import {
   type ManageColumn,
 } from '@/components/contacts/manage-columns-dialog';
 import { LeadsBoardView } from '@/components/leads/leads-board-view';
+import { ColumnHeader } from '@/components/table/column-header';
 import type {
   BoardDensity,
   BoardSortWithin,
@@ -551,10 +542,11 @@ function customColumn(
   };
 }
 
-// Per-column header (HubSpot-style). At rest shows just the label; on
-// hover it reveals inline sort arrows and an overflow trigger. The
-// overflow menu carries the full column actions (sort / freeze / add /
-// remove). The active sort direction stays lit even without hover.
+// Per-column header (HubSpot-style). Thin adapter over the shared
+// `ColumnHeader` (src/components/table/column-header.tsx) — maps this
+// page's ColumnDef onto the generic surface and opts into the full set of
+// column actions (freeze / add / edit-options / smart-property placeholder).
+// The all-members table renders the same ColumnHeader with a lighter set.
 function HeaderCell({
   col,
   sortDir,
@@ -587,184 +579,21 @@ function HeaderCell({
   const sortable =
     Boolean(col.sortColumn) || Boolean(col.isCustom) || Boolean(col.clientSort);
   return (
-    <div className="group/th flex items-center gap-0.5 pr-2">
-      {/* The label doubles as the column's drag handle (Sheets-style):
-          grab the header text to reorder. touch-none keeps it from
-          scrolling the table on touch drags. */}
-      <span
-        {...dragHandleProps}
-        className={cn(
-          'min-w-0 flex-1 truncate',
-          dragHandleProps && 'cursor-grab touch-none active:cursor-grabbing'
-        )}
-      >
-        {col.label}
-      </span>
-
-      {/* Inline sort toggles — hidden until hover, but the active one
-          stays visible so the current sort is always legible. */}
-      {sortable && (
-        <div
-          className={cn(
-            'flex items-center overflow-hidden transition-all',
-            // Active sort stays laid out + lit. Inactive collapses to zero
-            // width at rest so the label reclaims the space; hover expands it.
-            sortDir
-              ? 'max-w-16 opacity-100'
-              : 'max-w-0 opacity-0 group-hover/th:max-w-16 group-hover/th:opacity-100'
-          )}
-        >
-          <button
-            type="button"
-            aria-label={`Sort ${col.label} ascending`}
-            onClick={() => onSort('asc')}
-            className={cn(
-              'hover:bg-muted flex size-5 items-center justify-center rounded',
-              sortDir === 'asc' ? 'text-primary' : 'text-muted-foreground'
-            )}
-          >
-            <ArrowUp className="size-3.5" />
-          </button>
-          <button
-            type="button"
-            aria-label={`Sort ${col.label} descending`}
-            onClick={() => onSort('desc')}
-            className={cn(
-              'hover:bg-muted flex size-5 items-center justify-center rounded',
-              sortDir === 'desc' ? 'text-primary' : 'text-muted-foreground'
-            )}
-          >
-            <ArrowDown className="size-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Overflow menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <button
-              type="button"
-              aria-label={`${col.label} column options`}
-              className="text-muted-foreground hover:bg-muted data-[popup-open]:bg-muted flex size-5 max-w-0 items-center justify-center overflow-hidden rounded opacity-0 transition-all group-hover/th:max-w-5 group-hover/th:opacity-100 data-[popup-open]:max-w-5 data-[popup-open]:opacity-100"
-            />
-          }
-        >
-          <MoreVertical className="size-3.5" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          className="bg-popover border-border min-w-52"
-        >
-          <DropdownMenuItem
-            disabled={!sortable}
-            onClick={() => onSort('asc')}
-            className="text-popover-foreground focus:bg-muted focus:text-foreground"
-          >
-            <ArrowUp className="size-4" />
-            Sort ascending
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!sortable}
-            onClick={() => onSort('desc')}
-            className="text-popover-foreground focus:bg-muted focus:text-foreground"
-          >
-            <ArrowDown className="size-4" />
-            Sort descending
-          </DropdownMenuItem>
-          {/* Excel-style value filter — a checkbox list of the column's
-              possible values. Toggling writes straight into the shared
-              LeadFilters state, so it stays in sync with the Filters panel. */}
-          {filter && (
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="text-popover-foreground focus:bg-muted focus:text-foreground">
-                <Filter className="size-4" />
-                Filter
-                {filter.selected.length > 0 && (
-                  <span className="bg-primary text-primary-foreground ml-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-[10px] font-semibold">
-                    {filter.selected.length}
-                  </span>
-                )}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="bg-popover border-border max-h-72 min-w-52 overflow-y-auto">
-                {filter.options.length === 0 ? (
-                  <div className="text-muted-foreground px-2 py-1.5 text-xs">
-                    No values
-                  </div>
-                ) : (
-                  filter.options.map((o) => {
-                    const checked = filter.selected.includes(o.value);
-                    return (
-                      // Plain item (not CheckboxItem) so we render an
-                      // always-visible left checkbox — the multi-select
-                      // affordance — and keep the menu open on click.
-                      <DropdownMenuItem
-                        key={o.value}
-                        closeOnClick={false}
-                        onClick={() => filter.onToggle(o.value)}
-                        className="text-popover-foreground focus:bg-muted focus:text-foreground gap-2"
-                      >
-                        <span
-                          className={cn(
-                            'flex size-4 shrink-0 items-center justify-center rounded-[4px] border',
-                            checked
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-input-border bg-card'
-                          )}
-                        >
-                          {checked && <Check className="size-3.5" />}
-                        </span>
-                        <span className="truncate">{o.label}</span>
-                      </DropdownMenuItem>
-                    );
-                  })
-                )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          )}
-          {/* Placeholder — no backing feature yet, matches HubSpot's greyed row */}
-          <DropdownMenuItem
-            disabled
-            className="text-popover-foreground focus:bg-muted focus:text-foreground"
-          >
-            <Sparkles className="size-4" />
-            Set up smart property
-          </DropdownMenuItem>
-          {onEditOptions && (
-            <DropdownMenuItem
-              onClick={onEditOptions}
-              className="text-popover-foreground focus:bg-muted focus:text-foreground"
-            >
-              <ListChecks className="size-4" />
-              Edit options
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator className="bg-border" />
-          <DropdownMenuItem
-            onClick={onToggleFreeze}
-            className="text-popover-foreground focus:bg-muted focus:text-foreground"
-          >
-            <Pin className="size-4" />
-            {frozen ? 'Unfreeze column' : 'Freeze column'}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={onAddColumn}
-            className="text-popover-foreground focus:bg-muted focus:text-foreground"
-          >
-            <Plus className="size-4" />
-            Add column
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={col.required}
-            onClick={onRemoveColumn}
-            className="text-popover-foreground focus:bg-muted focus:text-foreground"
-          >
-            <EyeOff className="size-4" />
-            Hide column
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <ColumnHeader
+      label={col.label}
+      sortable={sortable}
+      sortDir={sortDir}
+      onSort={onSort}
+      filter={filter}
+      onHide={onRemoveColumn}
+      hideDisabled={col.required}
+      frozen={frozen}
+      onToggleFreeze={onToggleFreeze}
+      onAddColumn={onAddColumn}
+      onEditOptions={onEditOptions}
+      smartPropertyPlaceholder
+      dragHandleProps={dragHandleProps}
+    />
   );
 }
 

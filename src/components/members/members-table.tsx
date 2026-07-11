@@ -10,9 +10,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Columns3,
   Dumbbell,
   ListChecks,
   Loader2,
@@ -22,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/hooks/use-locale";
 import { toCsv, downloadCsv } from "@/lib/csv/export";
@@ -29,6 +32,7 @@ import { effectiveStatus, daysUntil } from "@/lib/memberships/expiry";
 import {
   applyMemberFilters,
   EMPTY_MEMBER_FILTERS,
+  MEMBER_STATUS_OPTIONS,
   type MemberFilters,
 } from "@/lib/memberships/filters";
 import type { Membership } from "@/types";
@@ -60,6 +64,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LeadsSort, type SortState } from "@/components/leads/leads-sort";
+import {
+  ColumnHeader,
+  type ColumnFilterProp,
+  type SortDir,
+} from "@/components/table/column-header";
 import { BulkAddNoteDialog } from "@/components/leads/bulk-add-note-dialog";
 import { useTablePrefs } from "@/hooks/use-table-prefs";
 import {
@@ -67,6 +76,7 @@ import {
   FeeStatusBadge,
 } from "./membership-status-badge";
 import { MembersFilters } from "./members-filters";
+import { MemberIdentity } from "./member-identity";
 import { BulkRecordPaymentDialog } from "./bulk-record-payment-dialog";
 import { useMembershipPlans } from "./use-membership-plans";
 import {
@@ -77,8 +87,10 @@ import {
 
 const PAGE_SIZE = 25;
 
-// Sortable columns. `name` orders the parent by the embedded contact
-// (PostgREST `order=contact(name)`); the rest are memberships columns.
+// Sortable columns for the toolbar Sort menu. `name` orders the parent by
+// the embedded contact (PostgREST `order=contact(name)`); the rest are
+// memberships columns. (Per-header sort covers name/expiry/fee; the menu
+// keeps start_date + fee_status which have no dedicated column.)
 const SORT_COLUMNS: { key: string; label: string }[] = [
   { key: "name", label: "Name" },
   { key: "end_date", label: "Expiry" },
@@ -87,14 +99,96 @@ const SORT_COLUMNS: { key: string; label: string }[] = [
   { key: "start_date", label: "Start date" },
 ];
 
+// Which shared-filter dimension a column's header three-dot Filter submenu
+// writes to. Absent = the header shows no Filter item (free-text columns).
+type MemberFilterDim = "plans" | "statuses" | "feeStatus";
+
+// Column metadata for the all-members grid. Mirrors the leads table's
+// ColumnDef but lighter (no custom fields, no freeze/drag). `sortKey` is
+// the server-sort key written into prefs.sort; `filterDim` wires the
+// header Filter submenu to the shared MemberFilters state. The cell body
+// is rendered by renderCell() (keyed on `key`) so it can reach the
+// component's fmt/readiness closures.
+interface MemberColumn {
+  key: string;
+  label: string;
+  defaultWidth: number;
+  minWidth: number;
+  /** Name can't be hidden — it's the row's primary affordance. */
+  required?: boolean;
+  align?: "right";
+  sortKey?: string;
+  filterDim?: MemberFilterDim;
+}
+
+const MEMBER_COLUMNS: MemberColumn[] = [
+  {
+    key: "name",
+    label: "Name",
+    defaultWidth: 220,
+    minWidth: 150,
+    required: true,
+    sortKey: "name",
+  },
+  { key: "plan", label: "Plan", defaultWidth: 150, minWidth: 100, filterDim: "plans" },
+  {
+    key: "expiry",
+    label: "Expiry",
+    defaultWidth: 130,
+    minWidth: 100,
+    sortKey: "end_date",
+  },
+  {
+    key: "status",
+    label: "Status",
+    defaultWidth: 140,
+    minWidth: 110,
+    filterDim: "statuses",
+  },
+  {
+    key: "fee",
+    label: "Fee",
+    defaultWidth: 160,
+    minWidth: 120,
+    sortKey: "fee_amount",
+    filterDim: "feeStatus",
+  },
+  {
+    key: "reminder",
+    label: "Reminder",
+    defaultWidth: 130,
+    minWidth: 110,
+    align: "right",
+  },
+];
+
+const MEMBER_COLUMN_BY_KEY: Record<string, MemberColumn> = Object.fromEntries(
+  MEMBER_COLUMNS.map((c) => [c.key, c])
+);
+
+const CHECKBOX_COL_WIDTH = 40;
+
+// Fee status options for the fee column's header Filter submenu.
+const FEE_STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: "paid", label: "Paid" },
+  { value: "due", label: "Due" },
+];
+
 interface MembersTablePrefs {
   pageSize: number;
   sort: SortState | null;
+  // Persisted column layout (per-user, per-account via useTablePrefs).
+  order: string[];
+  hidden: string[];
+  widths: Record<string, number>;
 }
 
 const DEFAULT_PREFS: MembersTablePrefs = {
   pageSize: PAGE_SIZE,
   sort: null,
+  order: [],
+  hidden: [],
+  widths: {},
 };
 
 // Debounce a rapidly-changing value (e.g. the search input) so the fetch
@@ -182,6 +276,148 @@ export function MembersTable({
   const sort = prefs.sort;
   // Account-zone today for the render-time status/day derivations.
   const todayDisplay = fmt.today();
+
+  // ── Column layout (persisted order / hidden / widths) ──────────────
+  // Saved order, then any columns added since (new keys append). Unknown
+  // saved keys are dropped so a code change can retire a column safely.
+  const orderedKeys = useMemo(() => {
+    const known = MEMBER_COLUMNS.map((c) => c.key);
+    const saved = prefs.order.filter((k) => known.includes(k));
+    const missing = known.filter((k) => !saved.includes(k));
+    return [...saved, ...missing];
+  }, [prefs.order]);
+
+  const visibleColumns = useMemo(
+    () =>
+      orderedKeys
+        .map((k) => MEMBER_COLUMN_BY_KEY[k])
+        .filter((c): c is MemberColumn => Boolean(c) && !prefs.hidden.includes(c.key)),
+    [orderedKeys, prefs.hidden]
+  );
+
+  // Live width while dragging a resize grip (transient — commits on release).
+  const [resizing, setResizing] = useState<{ key: string; width: number } | null>(
+    null
+  );
+  function widthOf(col: MemberColumn) {
+    if (resizing?.key === col.key) return resizing.width;
+    return prefs.widths[col.key] ?? col.defaultWidth;
+  }
+  const totalWidth =
+    CHECKBOX_COL_WIDTH +
+    visibleColumns.reduce((sum, c) => sum + widthOf(c), 0);
+
+  // Column resize — drag the header's right edge (leads pattern). Width
+  // tracks the pointer live and commits to prefs on release.
+  function startResize(e: React.MouseEvent, col: MemberColumn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = widthOf(col);
+    function onMove(ev: MouseEvent) {
+      const w = Math.max(col.minWidth, startWidth + (ev.clientX - startX));
+      setResizing({ key: col.key, width: w });
+    }
+    function onUp(ev: MouseEvent) {
+      const w = Math.max(col.minWidth, startWidth + (ev.clientX - startX));
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      setResizing(null);
+      setPrefs((p) => ({ ...p, widths: { ...p.widths, [col.key]: w } }));
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
+  function hideColumn(key: string) {
+    setPrefs((p) => ({
+      ...p,
+      hidden: p.hidden.includes(key) ? p.hidden : [...p.hidden, key],
+    }));
+  }
+  function toggleColumnVisible(key: string) {
+    setPrefs((p) => ({
+      ...p,
+      hidden: p.hidden.includes(key)
+        ? p.hidden.filter((k) => k !== key)
+        : [...p.hidden, key],
+    }));
+  }
+
+  function sortByColumn(key: string, dir: SortDir) {
+    setPrefs((p) => ({ ...p, sort: { key, dir } }));
+  }
+
+  // Toggle a value in one of the shared MemberFilters facets — used by
+  // each column's header Filter submenu so it stays in sync with the
+  // Filters panel (single source of truth, leads pattern).
+  function toggleColumnFilter(dim: MemberFilterDim, value: string) {
+    setFilters((f) => {
+      const arr = f[dim] as string[];
+      const next = arr.includes(value)
+        ? arr.filter((v) => v !== value)
+        : [...arr, value];
+      return { ...f, [dim]: next };
+    });
+  }
+
+  // Build the header Filter submenu prop for a column, or undefined for
+  // free-text columns (name/expiry).
+  function filterFor(col: MemberColumn): ColumnFilterProp | undefined {
+    if (!col.filterDim) return undefined;
+    const options =
+      col.filterDim === "plans"
+        ? plans.map((p) => ({ value: p.id, label: p.name }))
+        : col.filterDim === "statuses"
+          ? MEMBER_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
+          : FEE_STATUS_OPTIONS;
+    return {
+      options,
+      selected: (filters[col.filterDim] as string[]) ?? [],
+      onToggle: (v) => toggleColumnFilter(col.filterDim!, v),
+    };
+  }
+
+  // Cell body per column key — reaches fmt/readiness/todayDisplay closures.
+  function renderCell(key: string, m: Membership) {
+    switch (key) {
+      case "name":
+        return (
+          <MemberIdentity
+            name={m.contact?.name}
+            secondary={m.contact?.phone}
+          />
+        );
+      case "plan":
+        return (
+          <span className="truncate text-muted-foreground">
+            {m.plan?.name ?? "—"}
+          </span>
+        );
+      case "expiry":
+        return (
+          <span className="text-muted-foreground">{fmt.date(m.end_date)}</span>
+        );
+      case "status": {
+        const eff = effectiveStatus(m, todayDisplay);
+        const days = daysUntil(m.end_date, todayDisplay);
+        return <MembershipStatusBadge status={eff} daysToExpiry={days} />;
+      }
+      case "fee":
+        return (
+          <div className="flex items-center gap-1.5">
+            <FeeStatusBadge status={m.fee_status} />
+            <span className="text-xs text-muted-foreground">
+              {fmt.money(m.fee_amount)}
+            </span>
+          </div>
+        );
+      case "reminder":
+        return <SendReminderButton membership={m} readiness={readiness} />;
+      default:
+        return null;
+    }
+  }
 
   useEffect(() => {
     const seq = ++fetchSeq.current;
@@ -399,6 +635,47 @@ export function MembersTable({
             columns={SORT_COLUMNS}
           />
           <MembersFilters value={filters} onChange={setFilters} plans={plans} />
+          {/* Show/hide columns — the unhide surface for header "Hide column". */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                />
+              }
+            >
+              <Columns3 className="size-4" />
+              Columns
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48 border-border bg-popover">
+              {MEMBER_COLUMNS.map((col) => {
+                const shown = !prefs.hidden.includes(col.key);
+                return (
+                  <DropdownMenuItem
+                    key={col.key}
+                    closeOnClick={false}
+                    disabled={col.required}
+                    onClick={() => toggleColumnVisible(col.key)}
+                    className="text-popover-foreground focus:bg-muted focus:text-foreground gap-2"
+                  >
+                    <span
+                      className={cn(
+                        "flex size-4 shrink-0 items-center justify-center rounded-[4px] border",
+                        shown
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-input-border bg-card"
+                      )}
+                    >
+                      {shown && <Check className="size-3.5" />}
+                    </span>
+                    <span className="truncate">{col.label}</span>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -498,77 +775,90 @@ export function MembersTable({
         </div>
       ) : (
         <div className="rounded-lg border border-border">
-          <Table>
+          <Table className="table-fixed" style={{ minWidth: totalWidth }}>
+            <colgroup>
+              <col style={{ width: CHECKBOX_COL_WIDTH }} />
+              {visibleColumns.map((col) => (
+                <col key={col.key} style={{ width: widthOf(col) }} />
+              ))}
+            </colgroup>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-8">
-                  <Checkbox
-                    checked={allOnPageSelected}
-                    indeterminate={!allOnPageSelected && someOnPageSelected}
-                    onCheckedChange={toggleSelectAll}
-                    disabled={rows.length === 0}
-                    aria-label="Select all members on this page"
-                  />
+                <TableHead className="px-0">
+                  <div className="flex items-center justify-center">
+                    <Checkbox
+                      checked={allOnPageSelected}
+                      indeterminate={!allOnPageSelected && someOnPageSelected}
+                      onCheckedChange={toggleSelectAll}
+                      disabled={rows.length === 0}
+                      aria-label="Select all members on this page"
+                    />
+                  </div>
                 </TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Expiry</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Fee</TableHead>
-                <TableHead className="text-right">Reminder</TableHead>
+                {visibleColumns.map((col) => (
+                  <TableHead
+                    key={col.key}
+                    className="relative text-muted-foreground select-none"
+                  >
+                    <ColumnHeader
+                      label={col.label}
+                      sortable={Boolean(col.sortKey)}
+                      sortDir={
+                        col.sortKey && sort?.key === col.sortKey
+                          ? sort.dir
+                          : null
+                      }
+                      onSort={(dir) =>
+                        col.sortKey && sortByColumn(col.sortKey, dir)
+                      }
+                      filter={filterFor(col)}
+                      onHide={col.required ? undefined : () => hideColumn(col.key)}
+                    />
+                    {/* Resize grip on the right edge (leads pattern). */}
+                    <span
+                      role="separator"
+                      aria-orientation="vertical"
+                      onMouseDown={(e) => startResize(e, col)}
+                      className="border-border hover:border-primary absolute top-2 right-0 bottom-2 w-1.5 cursor-col-resize border-r hover:border-r-2"
+                    />
+                  </TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((m) => {
-                const eff = effectiveStatus(m, todayDisplay);
-                const days = daysUntil(m.end_date, todayDisplay);
-                return (
-                  <TableRow
-                    key={m.id}
-                    className="cursor-pointer"
-                    onClick={() => onSelect(m.id)}
-                  >
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+              {rows.map((m) => (
+                <TableRow
+                  key={m.id}
+                  className="cursor-pointer"
+                  onClick={() => onSelect(m.id)}
+                >
+                  <TableCell className="px-0" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-center">
                       <Checkbox
                         checked={selected.has(m.id)}
                         onCheckedChange={() => toggleSelect(m)}
                         aria-label={`Select ${m.contact?.name || "member"}`}
                       />
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium text-foreground">
-                        {m.contact?.name || "Unnamed"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {m.contact?.phone}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {m.plan?.name ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {fmt.date(m.end_date)}
-                    </TableCell>
-                    <TableCell>
-                      <MembershipStatusBadge status={eff} daysToExpiry={days} />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <FeeStatusBadge status={m.fee_status} />
-                        <span className="text-xs text-muted-foreground">
-                          {fmt.money(m.fee_amount)}
-                        </span>
-                      </div>
-                    </TableCell>
+                    </div>
+                  </TableCell>
+                  {visibleColumns.map((col) => (
                     <TableCell
-                      className="text-right"
-                      onClick={(e) => e.stopPropagation()}
+                      key={col.key}
+                      className={cn(
+                        "overflow-hidden",
+                        col.align === "right" && "text-right"
+                      )}
+                      onClick={
+                        col.key === "reminder"
+                          ? (e) => e.stopPropagation()
+                          : undefined
+                      }
                     >
-                      <SendReminderButton membership={m} readiness={readiness} />
+                      {renderCell(col.key, m)}
                     </TableCell>
-                  </TableRow>
-                );
-              })}
+                  ))}
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
 

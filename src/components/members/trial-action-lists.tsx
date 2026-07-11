@@ -21,6 +21,7 @@ import {
 import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
 import { TrialBadge } from "./membership-status-badge";
+import { MemberIdentity } from "./member-identity";
 import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
 import { RenewMembershipDialog } from "./renew-membership-dialog";
 
@@ -190,14 +191,15 @@ function TrialList({
                 onClick={() => onSelect(m.id)}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {m.contact?.name || m.contact?.phone || "Unnamed"}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {m.plan?.name ?? "Trial pass"} · {when}
-                    </p>
-                  </div>
+                  <MemberIdentity
+                    name={m.contact?.name}
+                    secondary={m.contact?.phone}
+                    meta={
+                      <p className="truncate text-xs text-muted-foreground">
+                        {m.plan?.name ?? "Trial pass"} · {when}
+                      </p>
+                    }
+                  />
                   <TrialBadge />
                 </div>
                 <div
