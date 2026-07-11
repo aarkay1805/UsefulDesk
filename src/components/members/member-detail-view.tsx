@@ -63,7 +63,6 @@ import {
 import {
   setMembershipCancellation,
   unfreezeMembership,
-  projectNextInvoice,
   isCollectiblePeriod,
 } from "@/lib/memberships/periods";
 import {
@@ -347,10 +346,8 @@ export function MemberDetailView({
       ? 0
       : Math.max(Number(currentInvoice?.balance ?? currentFee - currentPaid), 0);
 
-  // Invoice timeline: persisted periods (past + current, real arrears)
-  // plus the single projected NEXT cycle (display-only). Newest first so
-  // Upcoming reads at the top, history descends below.
-  const projectedNext = membership ? projectNextInvoice(membership, today) : null;
+  // Invoice timeline: persisted periods (past + current, real arrears),
+  // newest first so Upcoming reads at the top, history descends below.
   const canCollectCurrent = membership
     ? isCollectiblePeriod(currentInvoice, membership.status)
     : false;
