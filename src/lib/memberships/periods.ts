@@ -11,9 +11,11 @@
  *     `projectNextInvoice()` synthesises the single next cycle for
  *     display (an Upcoming invoice can't be "real" until it happens).
  *   - WRITES: the birth of a period is a DB trigger (covers every
- *     create path), but renew/edit/unfreeze/convert/cancel are done
- *     explicitly here — a trigger can't tell a renewal (new cycle) from
- *     an edit or an unfreeze (same cycle, shifted dates).
+ *     create path); renew/convert go through renew_membership_transaction
+ *     (harden migration), and edit/unfreeze/cancel/reactivate through the
+ *     058 lifecycle RPCs wrapped below — each one transaction, so the
+ *     membership, its current period, and that period's payments can
+ *     never diverge.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -125,58 +127,21 @@ export function projectNextInvoice(
   };
 }
 
-// ---- lifecycle writes -----------------------------------------
-
-/** The membership's current cycle = the latest period by start. */
-async function latestPeriodId(
-  supabase: SupabaseClient,
-  membershipId: string,
-): Promise<string | null> {
-  const { data } = await supabase
-    .from("membership_periods")
-    .select("id")
-    .eq("membership_id", membershipId)
-    .order("period_start", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return (data as { id: string } | null)?.id ?? null;
-}
+// ---- lifecycle writes (migration 058: single-transaction RPCs) --
+//
+// Payments reconcile to a period ONLY by matching `period_end`, so any
+// move of the cycle key must re-stamp that cycle's payments in the SAME
+// transaction — and the period columns on `payments` are protected
+// financial fields (agents can't re-stamp them via direct table
+// updates). Both constraints live inside these DB functions; the old
+// multi-write client-side sync (`syncCurrentPeriod`) is gone.
 
 /**
- * Open a NEW period for a renewed cycle. The prior period stays as-is,
- * so an unpaid past cycle becomes a real arrears row. Unique
- * (membership_id, period_end) is safe — renewal always extends the end.
+ * Edit the membership's current cycle (plan/dates/fee/trial/notes) —
+ * membership row, its current period, and the period's payments move
+ * together atomically.
  */
-export async function insertRenewalPeriod(
-  supabase: SupabaseClient,
-  membership: Pick<Membership, "id" | "account_id" | "contact_id">,
-  cycle: { plan_id: string | null; start: string; end: string; fee: number },
-) {
-  return supabase.from("membership_periods").insert({
-    account_id: membership.account_id,
-    membership_id: membership.id,
-    contact_id: membership.contact_id,
-    plan_id: cycle.plan_id,
-    period_start: cycle.start,
-    period_end: cycle.end,
-    fee_amount: cycle.fee,
-    state: "open",
-  });
-}
-
-/**
- * Keep the current period's mirror in step with the membership after an
- * edit / unfreeze / trial-convert (same cycle, changed dates/fee/plan).
- * No-op if the membership somehow has no period yet.
- *
- * CRITICAL: payments reconcile to a period ONLY by matching `period_end`
- * (the view + dues both key on it). So when this shifts the cycle's
- * `period_end` (unfreeze pushes it forward; an edit can move it), the
- * already-recorded payments MUST be re-stamped to the new key — else they
- * orphan and a fully-paid cycle reads back as Unpaid.
- */
-export async function syncCurrentPeriod(
+export async function editMembershipCycle(
   supabase: SupabaseClient,
   membershipId: string,
   fields: {
@@ -184,53 +149,48 @@ export async function syncCurrentPeriod(
     period_start: string;
     period_end: string;
     fee_amount: number;
+    is_trial: boolean;
+    notes: string | null;
   },
 ) {
-  const { data } = await supabase
-    .from("membership_periods")
-    .select("id, period_end")
-    .eq("membership_id", membershipId)
-    .order("period_start", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const cur = data as { id: string; period_end: string } | null;
-  if (!cur) return;
-
-  // Re-stamp this cycle's payments before moving the period key, so they
-  // keep reconciling to it.
-  if (fields.period_end !== cur.period_end) {
-    await supabase
-      .from("payments")
-      .update({
-        period_start: fields.period_start,
-        period_end: fields.period_end,
-      })
-      .eq("membership_id", membershipId)
-      .eq("period_end", cur.period_end);
-  }
-
-  return supabase
-    .from("membership_periods")
-    .update(fields)
-    .eq("id", cur.id)
-    .select("id");
+  return supabase.rpc("edit_membership_cycle", {
+    p_membership_id: membershipId,
+    p_plan_id: fields.plan_id,
+    p_period_start: fields.period_start,
+    p_period_end: fields.period_end,
+    p_fee_amount: fields.fee_amount,
+    p_is_trial: fields.is_trial,
+    p_notes: fields.notes,
+  });
 }
 
 /**
- * Void (cancel) or re-open the current cycle's invoice. Past paid cycles
- * are left untouched — cancelling doesn't rewrite settled history.
+ * Resume a frozen membership: end date shifts forward by the paused
+ * days (computed in TS — `unfreezeEndDate` — geography stays out of
+ * SQL), the current period follows, its payments are re-stamped.
  */
-export async function setCurrentPeriodState(
+export async function unfreezeMembership(
   supabase: SupabaseClient,
   membershipId: string,
-  state: "open" | "void",
+  newEndDate: string,
 ) {
-  const id = await latestPeriodId(supabase, membershipId);
-  if (!id) return;
-  return supabase
-    .from("membership_periods")
-    .update({ state })
-    .eq("id", id)
-    .select("id");
+  return supabase.rpc("unfreeze_membership", {
+    p_membership_id: membershipId,
+    p_new_end_date: newEndDate,
+  });
+}
+
+/**
+ * Cancel or reactivate a membership; the current cycle's invoice flips
+ * void/open in the same transaction. Settled past cycles are untouched.
+ */
+export async function setMembershipCancellation(
+  supabase: SupabaseClient,
+  membershipId: string,
+  cancelled: boolean,
+) {
+  return supabase.rpc("set_membership_cancellation", {
+    p_membership_id: membershipId,
+    p_cancelled: cancelled,
+  });
 }

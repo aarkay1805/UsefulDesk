@@ -9,6 +9,7 @@ import type { Payment, PaymentMethod, Contact } from "@/types";
 import { cn } from "@/lib/utils";
 import { MemberIdentity } from "./member-identity";
 import { PaymentProofLink } from "./payment-proof-link";
+import { VoidedPaymentBadge } from "./membership-status-badge";
 
 interface PaymentsLedgerProps {
   /** Bump to refetch after a payment is recorded elsewhere. */
@@ -28,6 +29,11 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
 };
 
 type MethodFilter = "all" | PaymentMethod;
+
+/** Fetch cap — when the fetch fills it, older rows exist beyond the list
+ *  and the ledger must SAY so (silent truncation reads as "that's all"
+ *  to an owner reconciling a month). */
+const LEDGER_LIMIT = 100;
 
 const FILTERS: { value: MethodFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -59,7 +65,7 @@ export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
         .from("payments")
         .select("*, contact:contacts(name, phone, avatar_url)")
         .order("paid_at", { ascending: false })
-        .limit(100);
+        .limit(LEDGER_LIMIT);
       if (cancelled) return;
       if (error) {
         setLoadError(error.message);
@@ -118,6 +124,7 @@ export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
           </p>
         </div>
       ) : (
+        <>
         <ul className="divide-border border-border divide-y rounded-lg border">
           {filtered.map((p) => (
             <li key={p.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
@@ -138,11 +145,22 @@ export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
                   {fmt.money(p.amount)}
                 </span>
               </span>
-              {p.status === "void" && <span className="text-muted-foreground text-xs">Voided</span>}
+              {p.status === "void" && (
+                <VoidedPaymentBadge
+                  payment={p}
+                  voidedOn={p.voided_at ? fmt.date(p.voided_at) : null}
+                />
+              )}
               <PaymentProofLink payment={p} />
             </li>
           ))}
         </ul>
+        {rows.length === LEDGER_LIMIT && (
+          <p className="text-muted-foreground text-xs">
+            Showing the latest {LEDGER_LIMIT} payments — older entries are not listed here.
+          </p>
+        )}
+        </>
       )}
     </div>
   );

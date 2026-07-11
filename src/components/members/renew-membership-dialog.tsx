@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { getErrorMessage } from "@/lib/errors";
 import { useLocale } from "@/hooks/use-locale";
 import { daysBetween, istAddDays } from "@/lib/memberships/expiry";
 import type { Membership, PaymentMethod } from "@/types";
@@ -125,7 +126,7 @@ export function RenewMembershipDialog({
       onOpenChange(false);
       onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to renew");
+      toast.error(getErrorMessage(err, "Failed to renew"));
     } finally {
       setSaving(false);
     }

@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import type { MembershipStatus, MembershipFeeStatus, InvoiceStatus } from "@/types";
+import type { MembershipStatus, MembershipFeeStatus, InvoiceStatus, Payment } from "@/types";
 
 /**
  * Coloured pills for a membership's effective status and its fee state.
@@ -72,6 +72,32 @@ export function FeeStatusBadge({ status }: { status: MembershipFeeStatus }) {
     <Badge variant="success">Paid</Badge>
   ) : (
     <Badge variant="warning">Fee due</Badge>
+  );
+}
+
+/**
+ * "Voided" pill for a corrected ledger row. Surfaces the audit trail the
+ * void RPC records (reason + when) as a native tooltip, so the ledger
+ * answers "why is this struck through?" without a SQL query. `voidedOn`
+ * comes pre-formatted from the caller's `fmt.date` (account locale).
+ */
+export function VoidedPaymentBadge({
+  payment,
+  voidedOn,
+}: {
+  payment: Pick<Payment, "void_reason" | "voided_at">;
+  voidedOn?: string | null;
+}) {
+  const detail = [
+    voidedOn ? `Voided ${voidedOn}` : "Voided",
+    payment.void_reason?.trim() || null,
+  ]
+    .filter(Boolean)
+    .join(": ");
+  return (
+    <span title={detail} className="inline-flex cursor-help">
+      <Badge variant="neutral">Voided</Badge>
+    </span>
   );
 }
 

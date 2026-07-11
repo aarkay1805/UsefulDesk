@@ -61,12 +61,17 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  setCurrentPeriodState,
-  syncCurrentPeriod,
+  setMembershipCancellation,
+  unfreezeMembership,
   projectNextInvoice,
   isCollectiblePeriod,
 } from "@/lib/memberships/periods";
-import { MembershipStatusBadge, FeeStatusBadge, TrialBadge } from "./membership-status-badge";
+import {
+  MembershipStatusBadge,
+  FeeStatusBadge,
+  TrialBadge,
+  VoidedPaymentBadge,
+} from "./membership-status-badge";
 import { InvoiceDetailDialog } from "./invoice-detail-dialog";
 import { RenewMembershipDialog } from "./renew-membership-dialog";
 import { AvatarEditorDialog } from "./avatar-editor-dialog";
@@ -272,26 +277,13 @@ export function MemberDetailView({
   async function unfreeze() {
     if (!membership) return;
     setBusy(true);
+    // One transaction (migration 058): membership resumes, the current
+    // period follows the shifted end_date, and its payments are
+    // re-stamped to the new period key — nothing can diverge midway.
     const newEnd = unfreezeEndDate(membership.end_date, membership.frozen_at);
-    const { data, error } = await supabase
-      .from("memberships")
-      .update({ status: "active", frozen_at: null, end_date: newEnd })
-      .eq("id", membership.id)
-      .select("id");
-    if (!error && data?.length) {
-      // Same cycle, shifted forward by the frozen days — syncCurrentPeriod
-      // also re-stamps this cycle's payments to the new period_end so they
-      // keep reconciling (057).
-      await syncCurrentPeriod(supabase, membership.id, {
-        plan_id: membership.plan_id,
-        period_start: membership.start_date,
-        period_end: newEnd,
-        fee_amount: membership.fee_amount,
-      });
-    }
+    const { error } = await unfreezeMembership(supabase, membership.id, newEnd);
     setBusy(false);
-    if (error || !data?.length)
-      return toast.error(error?.message ?? "Couldn't resume — check your access.");
+    if (error) return toast.error(error.message);
     toast.success("Membership resumed");
     refreshAll();
   }
@@ -299,16 +291,11 @@ export function MemberDetailView({
   async function cancelMembership() {
     if (!membership) return;
     setBusy(true);
-    const { data, error } = await supabase
-      .from("memberships")
-      .update({ status: "cancelled", frozen_at: null })
-      .eq("id", membership.id)
-      .select("id");
-    // Void the current cycle's invoice; settled past cycles stay paid (057).
-    if (!error && data?.length) await setCurrentPeriodState(supabase, membership.id, "void");
+    // Cancel + void the current cycle's invoice atomically (058);
+    // settled past cycles stay paid.
+    const { error } = await setMembershipCancellation(supabase, membership.id, true);
     setBusy(false);
-    if (error || !data?.length)
-      return toast.error(error?.message ?? "Couldn't cancel — check your access.");
+    if (error) return toast.error(error.message);
     toast.success("Membership cancelled");
     refreshAll();
   }
@@ -316,15 +303,9 @@ export function MemberDetailView({
   async function reactivate() {
     if (!membership) return;
     setBusy(true);
-    const { data, error } = await supabase
-      .from("memberships")
-      .update({ status: "active" })
-      .eq("id", membership.id)
-      .select("id");
-    if (!error && data?.length) await setCurrentPeriodState(supabase, membership.id, "open");
+    const { error } = await setMembershipCancellation(supabase, membership.id, false);
     setBusy(false);
-    if (error || !data?.length)
-      return toast.error(error?.message ?? "Couldn't reactivate — check your access.");
+    if (error) return toast.error(error.message);
     toast.success("Membership reactivated");
     refreshAll();
   }
@@ -697,20 +678,6 @@ export function MemberDetailView({
                                 </p>
                               )}
 
-                              {projectedNext && (
-                                <div className="border-border flex flex-wrap items-center gap-3 rounded-lg border border-dashed px-3 py-2.5">
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium">Next renewal estimate</p>
-                                    <p className="text-muted-foreground text-xs">
-                                      {fmt.date(projectedNext.period_start)} –{" "}
-                                      {fmt.date(projectedNext.period_end)} ·{" "}
-                                      {fmt.money(projectedNext.fee_amount)}
-                                    </p>
-                                  </div>
-                                  <Badge variant="info">Estimate</Badge>
-                                </div>
-                              )}
-
                               <div className="space-y-2">
                                 <h4 className="text-sm font-medium">Billing periods</h4>
                                 {invoices.length === 0 ? (
@@ -833,7 +800,12 @@ export function MemberDetailView({
                                           {payment.note || "No note"}
                                         </span>
                                         {payment.status === "void" && (
-                                          <Badge variant="neutral">Voided</Badge>
+                                          <VoidedPaymentBadge
+                                            payment={payment}
+                                            voidedOn={
+                                              payment.voided_at ? fmt.date(payment.voided_at) : null
+                                            }
+                                          />
                                         )}
                                         <PaymentProofLink payment={payment} />
                                         <span

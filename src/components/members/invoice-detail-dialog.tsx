@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PaymentProofLink } from "./payment-proof-link";
+import { VoidedPaymentBadge } from "./membership-status-badge";
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "Cash",
@@ -187,7 +188,12 @@ export function InvoiceDetailDialog({
                   <span className="text-muted-foreground">{fmt.date(p.paid_at)}</span>
                   <span className="text-muted-foreground">{METHOD_LABEL[p.method]}</span>
                   <span className="text-muted-foreground flex-1 truncate">{p.note || ""}</span>
-                  {p.status === "void" && <Badge variant="neutral">Voided</Badge>}
+                  {p.status === "void" && (
+                    <VoidedPaymentBadge
+                      payment={p}
+                      voidedOn={p.voided_at ? fmt.date(p.voided_at) : null}
+                    />
+                  )}
                   <PaymentProofLink payment={p} />
                   <span
                     className={

@@ -14,7 +14,7 @@ import {
 } from "@/lib/contacts/dedupe";
 import { useLocale } from "@/hooks/use-locale";
 import { istAddDays, daysBetween } from "@/lib/memberships/expiry";
-import { syncCurrentPeriod } from "@/lib/memberships/periods";
+import { editMembershipCycle } from "@/lib/memberships/periods";
 import type { Membership, PaymentMethod } from "@/types";
 import { useMembershipPlans } from "./use-membership-plans";
 import {
@@ -179,26 +179,18 @@ export function MemberForm({
           .eq("id", member.contact_id);
         if (cErr) throw cErr;
 
-        const { error: mErr } = await supabase
-          .from("memberships")
-          .update({
-            plan_id: isTrial ? planId || null : planId,
-            start_date: startDate,
-            end_date: endDate,
-            fee_amount: fee,
-            is_trial: isTrial,
-            notes: notes.trim() || null,
-          })
-          .eq("id", member.id);
-        if (mErr) throw mErr;
-
-        // Keep the current cycle's invoice in step with the edit (057).
-        await syncCurrentPeriod(supabase, member.id, {
+        // One transaction (migration 058): membership + current period +
+        // that period's payment re-stamps move together, so an aborted
+        // edit can't leave the cycle keys diverged.
+        const { error: mErr } = await editMembershipCycle(supabase, member.id, {
           plan_id: isTrial ? planId || null : planId,
           period_start: startDate,
           period_end: endDate,
           fee_amount: fee,
+          is_trial: isTrial,
+          notes: notes.trim() || null,
         });
+        if (mErr) throw mErr;
 
         toast.success("Member updated");
         onOpenChange(false);
