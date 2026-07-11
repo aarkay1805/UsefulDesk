@@ -169,9 +169,14 @@ export function BulkConvertDialog({
                 render={<button type="button" className={TRIGGER_CLASS} />}
               >
                 <span className={cn('truncate', !plan && 'text-muted-foreground')}>
-                  {plan
-                    ? `${plan.name} · ${plan.duration_days}d · ${fmt.money(plan.price)}`
-                    : 'Select a plan'}
+                  {plan ? (
+                    <>
+                      {plan.name} · {plan.duration_days}d ·{' '}
+                      <span className="tabular-nums">{fmt.money(plan.price)}</span>
+                    </>
+                  ) : (
+                    'Select a plan'
+                  )}
                 </span>
                 <ChevronDown className="text-muted-foreground size-4 shrink-0" />
               </DropdownMenuTrigger>
@@ -185,7 +190,8 @@ export function BulkConvertDialog({
                     onClick={() => setPlanId(p.id)}
                     className="text-popover-foreground focus:bg-muted focus:text-foreground"
                   >
-                    {p.name} · {p.duration_days}d · {fmt.money(p.price)}
+                    {p.name} · {p.duration_days}d ·{' '}
+                    <span className="tabular-nums">{fmt.money(p.price)}</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>

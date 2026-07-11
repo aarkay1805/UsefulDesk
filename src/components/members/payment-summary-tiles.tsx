@@ -127,7 +127,7 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
             {t.label}
           </div>
           <div
-            className={`mt-2 text-xl font-semibold ${t.accent && t.value > 0 ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}
+            className={`mt-2 text-xl font-semibold tabular-nums ${t.accent && t.value > 0 ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}
           >
             {loading ? "—" : fmt.money(t.value)}
           </div>

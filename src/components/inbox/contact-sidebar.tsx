@@ -220,7 +220,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                       {deal.title}
                     </p>
                     <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
+                      <span className="tabular-nums">
                         {fmt.money(deal.value, deal.currency ?? undefined)}
                       </span>
                       {deal.stage && (

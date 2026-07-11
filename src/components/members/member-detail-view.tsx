@@ -26,13 +26,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/hooks/use-locale";
 import { canCorrectPayments, canDeleteMember } from "@/lib/auth/roles";
 import { effectiveStatus, daysUntil, unfreezeEndDate } from "@/lib/memberships/expiry";
-import type {
-  Membership,
-  Payment,
-  PaymentMethod,
-  Attendance,
-  MembershipPeriodInvoice,
-} from "@/types";
+import type { Membership, Payment, Attendance, MembershipPeriodInvoice } from "@/types";
 import {
   Sheet,
   SheetContent,
@@ -65,12 +59,7 @@ import {
   unfreezeMembership,
   isCollectiblePeriod,
 } from "@/lib/memberships/periods";
-import {
-  MembershipStatusBadge,
-  FeeStatusBadge,
-  TrialBadge,
-  VoidedPaymentBadge,
-} from "./membership-status-badge";
+import { MembershipStatusBadge, FeeStatusBadge, TrialBadge } from "./membership-status-badge";
 import { InvoiceDetailDialog } from "./invoice-detail-dialog";
 import { RenewMembershipDialog } from "./renew-membership-dialog";
 import { AvatarEditorDialog } from "./avatar-editor-dialog";
@@ -82,17 +71,7 @@ import { BmiCard } from "./bmi-card";
 import { MemberPersonalInfo } from "./member-personal-info";
 import { MemberCommunication } from "./member-communication";
 import { MemberDangerZone } from "./member-danger-zone";
-import { PaymentProofLink } from "./payment-proof-link";
 import { VoidPaymentDialog } from "./void-payment-dialog";
-import { useAccountStaff } from "./use-account-staff";
-
-const METHOD_LABEL: Record<PaymentMethod, string> = {
-  cash: "Cash",
-  upi: "UPI",
-  card: "Card",
-  bank: "Bank",
-  other: "Other",
-};
 
 /** Jump-nav sections, in scroll order. Ids double as `#sec-<id>`. */
 const SECTIONS = [
@@ -147,9 +126,6 @@ export function MemberDetailView({
   const { user, canSendMessages, accountRole } = useAuth();
   const { locale, fmt } = useLocale();
   const upi = useUpiConfig();
-  // "Recorded by" on ledger rows — who took the cash is the first
-  // reconciliation question in a multi-staff gym.
-  const { nameById: staffNameById, avatarById: staffAvatarById } = useAccountStaff();
 
   const [membership, setMembership] = useState<Membership | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -162,7 +138,10 @@ export function MemberDetailView({
   // The period to record against (arrears); null = current period.
   const [payPeriod, setPayPeriod] = useState<MembershipPeriodInvoice | null>(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
-  const [activeInvoice, setActiveInvoice] = useState<MembershipPeriodInvoice | null>(null);
+  // Track the open invoice by ID and derive the object from the latest
+  // fetch, so a mutation inside the modal (void) shows fresh numbers
+  // after refreshAll instead of a stale snapshot.
+  const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
@@ -356,8 +335,12 @@ export function MemberDetailView({
     ? isCollectiblePeriod(currentInvoice, membership.status)
     : false;
 
+  const activeInvoice = activeInvoiceId
+    ? (invoices.find((inv) => inv.id === activeInvoiceId) ?? null)
+    : null;
+
   function openInvoice(inv: MembershipPeriodInvoice) {
-    setActiveInvoice(inv);
+    setActiveInvoiceId(inv.id);
     setInvoiceOpen(true);
   }
   function recordForPeriod(inv: MembershipPeriodInvoice) {
@@ -560,9 +543,11 @@ export function MemberDetailView({
                           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                             <Stat label="Plan">{membership.plan?.name ?? "—"}</Stat>
                             <Stat label="Fee">
-                              {fmt.money(membership.fee_amount)}
+                              <span className="tabular-nums">
+                                {fmt.money(membership.fee_amount)}
+                              </span>
                               {balance > 0 && (
-                                <span className="ml-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                                <span className="ml-1 text-xs font-medium text-amber-700 tabular-nums dark:text-amber-400">
                                   ({fmt.money(balance)} due)
                                 </span>
                               )}
@@ -603,12 +588,7 @@ export function MemberDetailView({
                     <Section id="payments">
                       <Card>
                         <CardHeader>
-                          <div>
-                            <CardTitle>Payments</CardTitle>
-                            <p className="text-muted-foreground mt-0.5 text-xs">
-                              Current balance, billing periods, and recorded transactions.
-                            </p>
-                          </div>
+                          <CardTitle>Payments</CardTitle>
                           {!membership.is_trial && canCollectCurrent && (
                             <CardAction className="flex items-center gap-2">
                               <CopyUpiLinkButton
@@ -639,39 +619,6 @@ export function MemberDetailView({
                             </p>
                           ) : (
                             <>
-                              <dl className="border-border bg-muted/20 grid grid-cols-2 gap-3 rounded-xl border p-3 sm:grid-cols-4">
-                                <div>
-                                  <dt className="text-muted-foreground text-xs">Current invoice</dt>
-                                  <dd className="mt-1 font-semibold tabular-nums">
-                                    {fmt.money(currentFee)}
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt className="text-muted-foreground text-xs">Paid</dt>
-                                  <dd className="mt-1 font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
-                                    {fmt.money(currentPaid)}
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt className="text-muted-foreground text-xs">Remaining</dt>
-                                  <dd
-                                    className={
-                                      balance > 0
-                                        ? "mt-1 font-semibold text-amber-700 tabular-nums dark:text-amber-400"
-                                        : "mt-1 font-semibold tabular-nums"
-                                    }
-                                  >
-                                    {fmt.money(balance)}
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt className="text-muted-foreground text-xs">Due from</dt>
-                                  <dd className="mt-1 font-medium">
-                                    {currentInvoice ? fmt.date(currentInvoice.period_start) : "—"}
-                                  </dd>
-                                </div>
-                              </dl>
-
                               {membership.status === "cancelled" && (
                                 <p className="border-border bg-muted/30 text-muted-foreground rounded-lg border px-3 py-2 text-sm">
                                   This membership is cancelled. Its current billing period is not
@@ -680,7 +627,6 @@ export function MemberDetailView({
                               )}
 
                               <div className="space-y-2">
-                                <h4 className="text-sm font-medium">Billing periods</h4>
                                 {invoices.length === 0 ? (
                                   <p className="text-muted-foreground text-sm">
                                     No billing periods yet.
@@ -717,7 +663,11 @@ export function MemberDetailView({
                                                   ? "Current"
                                                   : "Past";
                                           return (
-                                            <TableRow key={inv.id}>
+                                            <TableRow
+                                              key={inv.id}
+                                              onClick={() => openInvoice(inv)}
+                                              className="cursor-pointer"
+                                            >
                                               <TableCell className="font-medium">
                                                 {fmt.date(inv.period_start)} –{" "}
                                                 {fmt.date(inv.period_end)}
@@ -752,11 +702,17 @@ export function MemberDetailView({
                                                 </Badge>
                                               </TableCell>
                                               <TableCell>
+                                                {/* Whole row opens the invoice; this button is
+                                                    the keyboard/AT path (stopPropagation so a
+                                                    click doesn't fire the row handler too). */}
                                                 <Button
                                                   type="button"
                                                   variant="ghost"
                                                   size="icon-sm"
-                                                  onClick={() => openInvoice(inv)}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openInvoice(inv);
+                                                  }}
                                                   aria-label={`View billing period starting ${fmt.date(inv.period_start)}`}
                                                 >
                                                   <ChevronRight
@@ -774,80 +730,6 @@ export function MemberDetailView({
                                 )}
                               </div>
 
-                              <div className="space-y-2">
-                                <h4 className="text-sm font-medium">Transactions</h4>
-                                {payments.length === 0 ? (
-                                  <p className="text-muted-foreground text-sm">
-                                    No payments recorded yet.
-                                  </p>
-                                ) : (
-                                  <ul className="divide-border border-border divide-y rounded-lg border">
-                                    {payments.map((payment) => (
-                                      <li
-                                        key={payment.id}
-                                        className={
-                                          payment.status === "void"
-                                            ? "flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm opacity-65"
-                                            : "flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm"
-                                        }
-                                      >
-                                        <span className="font-medium">
-                                          {fmt.date(payment.paid_at)}
-                                        </span>
-                                        <span className="text-muted-foreground">
-                                          {METHOD_LABEL[payment.method]}
-                                        </span>
-                                        <span className="text-muted-foreground min-w-0 flex-1 truncate">
-                                          {payment.note || "No note"}
-                                        </span>
-                                        {staffNameById.has(payment.user_id) && (
-                                          <span
-                                            title={`Recorded by ${staffNameById.get(payment.user_id)}`}
-                                            className="inline-flex cursor-help"
-                                          >
-                                            <UserAvatar
-                                              name={staffNameById.get(payment.user_id) ?? "?"}
-                                              src={staffAvatarById.get(payment.user_id)}
-                                              className="size-5"
-                                              fallbackClassName="text-[9px]"
-                                            />
-                                          </span>
-                                        )}
-                                        {payment.status === "void" && (
-                                          <VoidedPaymentBadge
-                                            payment={payment}
-                                            voidedOn={
-                                              payment.voided_at ? fmt.date(payment.voided_at) : null
-                                            }
-                                          />
-                                        )}
-                                        <PaymentProofLink payment={payment} />
-                                        <span
-                                          className={
-                                            payment.status === "void"
-                                              ? "font-semibold tabular-nums line-through"
-                                              : "font-semibold tabular-nums"
-                                          }
-                                        >
-                                          {fmt.money(payment.amount)}
-                                        </span>
-                                        {payment.status === "paid" &&
-                                          accountRole &&
-                                          canCorrectPayments(accountRole) && (
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() => setPaymentToVoid(payment)}
-                                            >
-                                              <RotateCcw className="size-3.5" /> Void
-                                            </Button>
-                                          )}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </div>
                             </>
                           )}
                         </CardContent>
@@ -994,6 +876,9 @@ export function MemberDetailView({
               onOpenChange={setInvoiceOpen}
               invoice={activeInvoice}
               canAct={canSendMessages}
+              membershipEndDate={membership.end_date}
+              canVoid={accountRole ? canCorrectPayments(accountRole) : false}
+              onVoidPayment={setPaymentToVoid}
               onRecord={recordForPeriod}
               onRenew={() => setRenewOpen(true)}
             />

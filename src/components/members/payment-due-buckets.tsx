@@ -178,7 +178,7 @@ function BucketCard({
       ) : (
         <>
           <div className="border-border text-muted-foreground border-b px-3 py-1.5 text-xs">
-            {fmt.money(total)} outstanding
+            <span className="tabular-nums">{fmt.money(total)}</span> outstanding
           </div>
           <ul className="divide-border divide-y">
             {rows.map((m) => {
@@ -201,7 +201,7 @@ function BucketCard({
                         </p>
                       }
                     />
-                    <span className="shrink-0 text-sm font-semibold text-amber-700 dark:text-amber-400">
+                    <span className="shrink-0 text-sm font-semibold text-amber-700 tabular-nums dark:text-amber-400">
                       {fmt.money(m.balance)}
                     </span>
                   </div>

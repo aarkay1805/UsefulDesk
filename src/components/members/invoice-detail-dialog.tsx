@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, RefreshCw, Wallet } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Loader2, RefreshCw, RotateCcw, Wallet } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/hooks/use-locale";
@@ -17,9 +17,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { PaymentProofLink } from "./payment-proof-link";
 import { VoidedPaymentBadge } from "./membership-status-badge";
 import { CopyUpiLinkButton, useUpiConfig } from "./copy-upi-link-button";
+import { useAccountStaff } from "./use-account-staff";
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "Cash",
@@ -35,30 +37,52 @@ interface InvoiceDetailDialogProps {
   invoice: MembershipPeriodInvoice | null;
   /** Whether the member can record payments / renew (gated by canSendMessages). */
   canAct: boolean;
+  /** The membership's live end_date — marks which persisted period is "Current". */
+  membershipEndDate?: string | null;
+  /** Admin-only payment correction (canCorrectPayments). */
+  canVoid?: boolean;
+  /** Open the void flow for one of this period's payments. */
+  onVoidPayment?: (payment: Payment) => void;
   /** Settle this invoice — opens the record-payment flow for its period. */
   onRecord: (invoice: MembershipPeriodInvoice) => void;
   /** Renew the membership — used for a projected (upcoming) invoice. */
   onRenew: () => void;
 }
 
+/** One label-left / value-right line of the invoice summary. */
+function SummaryRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-3 py-2">
+      <dt className="text-muted-foreground text-sm">{label}</dt>
+      <dd className="text-right text-sm font-medium">{children}</dd>
+    </div>
+  );
+}
+
 /**
- * Read-only detail for one billing period (invoice) — its status, the
- * money owed/collected, and the payments that reconcile to it. A
- * centered Dialog (not a nested drawer) since it opens over the member
- * detail Sheet. The footer routes back up to the Payments section to
- * record a payment or renew (a projected upcoming invoice → Renew).
+ * Detail for one billing period (invoice): a label/value summary of
+ * everything the table row shows (period, totals, payment + cycle
+ * state) over the period's reconciled transactions — this is THE
+ * transactions surface for a cycle (the Payments card lists invoices
+ * only). A centered Dialog (not a nested drawer) since it opens over
+ * the member detail Sheet. Footer routes to Record payment / Renew;
+ * admins can void a payment right from its row here.
  */
 export function InvoiceDetailDialog({
   open,
   onOpenChange,
   invoice,
   canAct,
+  membershipEndDate,
+  canVoid = false,
+  onVoidPayment,
   onRecord,
   onRenew,
 }: InvoiceDetailDialogProps) {
   const supabase = createClient();
   const { fmt } = useLocale();
   const upi = useUpiConfig();
+  const { nameById: staffNameById, avatarById: staffAvatarById } = useAccountStaff();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -100,63 +124,92 @@ export function InvoiceDetailDialog({
 
   const today = fmt.today();
   const balance = Number(invoice.balance);
+  // Same two-axis read as the invoice table: payment state + cycle
+  // lifecycle, so the modal mirrors the row it opened from.
   const lifecycle =
-    invoice.state === "void" ? "Void" : invoice.period_start > today ? "Upcoming" : "Issued";
+    invoice.state === "void"
+      ? "Void"
+      : invoice.period_start > today
+        ? "Upcoming"
+        : invoice.period_end === membershipEndDate
+          ? "Current"
+          : "Past";
   // Use the view's reconciled total, not fee − balance: a period can be
   // OVER-paid (old data stamped several payments onto one period_end), so
   // fee − balance would understate what the payment list below actually sums to.
   const amountPaid = Number(invoice.amount_paid);
+  // Footer "Void payment" needs an unambiguous target — only offered
+  // when the period has exactly one live payment (the common case).
+  // Voiding corrects money already OWED, so a not-yet-started (Upcoming)
+  // cycle never offers it — its rare mis-record is voided once current.
+  const voidablePayments = payments.filter((p) => p.status === "paid");
+  const voidableCount = voidablePayments.length;
+  const showVoid =
+    canVoid &&
+    !!onVoidPayment &&
+    !projected &&
+    !loading &&
+    voidableCount === 1 &&
+    (lifecycle === "Current" || lifecycle === "Past");
+  const showRenew = canAct && projected;
+  const showCollect = canAct && !projected && balance > 0 && invoice.state !== "void";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <DialogTitle>Invoice</DialogTitle>
-            <Badge variant={projected ? "info" : balance <= 0 ? "success" : "warning"}>
-              {projected ? "Estimate" : balance <= 0 ? "Paid" : "Due"}
-            </Badge>
-            <Badge
-              variant={
-                lifecycle === "Void" ? "neutral" : lifecycle === "Upcoming" ? "info" : "secondary"
-              }
-            >
-              {lifecycle}
-            </Badge>
-          </div>
+          <DialogTitle>Invoice</DialogTitle>
           <DialogDescription>
             {fmt.date(invoice.period_start)} – {fmt.date(invoice.period_end)}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Money summary */}
-          <dl className="border-border bg-muted/30 grid grid-cols-3 gap-3 rounded-lg border px-3 py-2.5">
-            <div>
-              <dt className="text-muted-foreground text-xs">Invoice total</dt>
-              <dd className="mt-0.5 text-sm font-semibold tabular-nums">
-                {fmt.money(invoice.fee_amount)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground text-xs">Paid</dt>
-              <dd className="mt-0.5 text-sm font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
+          {/* Summary — every fact from the invoice row, labels left. */}
+          <dl className="border-border divide-border bg-muted/20 divide-y rounded-lg border">
+            <SummaryRow label="Period">
+              {fmt.date(invoice.period_start)} – {fmt.date(invoice.period_end)}
+            </SummaryRow>
+            <SummaryRow label="Invoice total">
+              <span className="tabular-nums">{fmt.money(invoice.fee_amount)}</span>
+            </SummaryRow>
+            <SummaryRow label="Paid">
+              <span className="text-emerald-700 tabular-nums dark:text-emerald-400">
                 {fmt.money(Math.max(amountPaid, 0))}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground text-xs">Balance</dt>
-              <dd
-                className={`mt-0.5 text-sm font-semibold tabular-nums ${
-                  balance > 0 ? "text-amber-700 dark:text-amber-400" : "text-foreground"
-                }`}
+              </span>
+            </SummaryRow>
+            <SummaryRow label="Balance">
+              <span
+                className={
+                  balance > 0
+                    ? "text-amber-700 tabular-nums dark:text-amber-400"
+                    : "tabular-nums"
+                }
               >
                 {fmt.money(balance)}
-              </dd>
-            </div>
+              </span>
+            </SummaryRow>
+            <SummaryRow label="Payment">
+              <Badge variant={projected ? "info" : balance <= 0 ? "success" : "warning"}>
+                {projected ? "Estimate" : balance <= 0 ? "Paid" : "Due"}
+              </Badge>
+            </SummaryRow>
+            <SummaryRow label="Cycle">
+              <Badge
+                variant={
+                  lifecycle === "Void" ? "neutral" : lifecycle === "Upcoming" ? "info" : "secondary"
+                }
+              >
+                {lifecycle}
+              </Badge>
+            </SummaryRow>
           </dl>
 
-          {/* Payments in this period */}
+          {/* Transactions — same label/value table style as the invoice
+              summary, one group box per payment, whitespace between
+              groups. Voiding lives in the FOOTER for the common
+              one-payment cycle; only a multi-payment period puts a small
+              Void on each group (the footer can't disambiguate). */}
           {projected ? (
             <p className="text-muted-foreground text-sm">
               Not billed yet — this is the next cycle. Renew to collect it.
@@ -177,76 +230,129 @@ export function InvoiceDetailDialog({
               No payments recorded for this period yet.
             </p>
           ) : (
-            <div className="flex flex-col gap-1.5">
-              {payments.map((p) => (
-                <div
-                  key={p.id}
-                  className={
-                    p.status === "void"
-                      ? "border-border flex items-center gap-3 rounded-lg border px-3 py-2 text-sm opacity-65"
-                      : "border-border flex items-center gap-3 rounded-lg border px-3 py-2 text-sm"
-                  }
-                >
-                  <span className="text-muted-foreground">{fmt.date(p.paid_at)}</span>
-                  <span className="text-muted-foreground">{METHOD_LABEL[p.method]}</span>
-                  <span className="text-muted-foreground flex-1 truncate">{p.note || ""}</span>
+            payments.map((p, i) => (
+              <div key={p.id} className={p.status === "void" ? "opacity-65" : undefined}>
+                <div className="mb-1.5 flex items-center gap-2">
+                  <h4 className="text-sm font-medium">
+                    {payments.length > 1 ? `Payment ${payments.length - i}` : "Payment"}
+                  </h4>
                   {p.status === "void" && (
                     <VoidedPaymentBadge
                       payment={p}
                       voidedOn={p.voided_at ? fmt.date(p.voided_at) : null}
                     />
                   )}
-                  <PaymentProofLink payment={p} />
-                  <span
-                    className={
-                      p.status === "void"
-                        ? "font-medium tabular-nums line-through"
-                        : "font-medium tabular-nums"
-                    }
-                  >
-                    {fmt.money(p.amount)}
-                  </span>
+                  {p.status === "paid" &&
+                    canVoid &&
+                    onVoidPayment &&
+                    voidableCount > 1 &&
+                    lifecycle !== "Upcoming" && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto"
+                      onClick={() => onVoidPayment(p)}
+                    >
+                      <RotateCcw className="size-3.5" /> Void
+                    </Button>
+                  )}
                 </div>
-              ))}
-            </div>
+                <dl className="border-border divide-border divide-y rounded-lg border">
+                  <SummaryRow label="Paid on">{fmt.date(p.paid_at)}</SummaryRow>
+                  <SummaryRow label="Method">{METHOD_LABEL[p.method]}</SummaryRow>
+                  <SummaryRow label="Amount">
+                    <span
+                      className={
+                        p.status === "void" ? "tabular-nums line-through" : "tabular-nums"
+                      }
+                    >
+                      {fmt.money(p.amount)}
+                    </span>
+                  </SummaryRow>
+                  {staffNameById.has(p.user_id) && (
+                    <SummaryRow label="Recorded by">
+                      <span className="inline-flex items-center gap-1.5">
+                        <UserAvatar
+                          name={staffNameById.get(p.user_id) ?? "?"}
+                          src={staffAvatarById.get(p.user_id)}
+                          className="size-5"
+                          fallbackClassName="text-[9px]"
+                        />
+                        {staffNameById.get(p.user_id)}
+                      </span>
+                    </SummaryRow>
+                  )}
+                  {p.note && <SummaryRow label="Note">{p.note}</SummaryRow>}
+                  {(p.screenshot_url || p.screenshot_path) && (
+                    <SummaryRow label="Receipt">
+                      <PaymentProofLink payment={p} />
+                    </SummaryRow>
+                  )}
+                  {p.status === "void" && p.void_reason && (
+                    <SummaryRow label="Void reason">
+                      <span className="text-muted-foreground">{p.void_reason}</span>
+                    </SummaryRow>
+                  )}
+                </dl>
+              </div>
+            ))
           )}
         </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-          {canAct && projected && (
-            <Button
-              type="button"
-              onClick={() => {
-                onOpenChange(false);
-                onRenew();
-              }}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <RefreshCw className="size-4" /> Renew
-            </Button>
-          )}
-          {canAct && !projected && balance > 0 && invoice.state !== "void" && (
-            <>
-              {/* Arrears are exactly when a payment link gets sent —
-                  same Copy-UPI as the current-cycle header, for THIS
-                  period's outstanding balance. */}
-              <CopyUpiLinkButton upi={upi} amount={balance} note="Membership fee" size="default" />
+        {/* No Close button — the sheet's top-right dismiss covers it; the
+            footer exists only when there's a real action, else it's
+            omitted entirely (no empty strip). */}
+        {(showVoid || showRenew || showCollect) && (
+          <DialogFooter>
+            {showVoid && (
+              <Button
+                type="button"
+                variant="outline"
+                className="text-destructive sm:mr-auto"
+                onClick={() => onVoidPayment!(voidablePayments[0])}
+              >
+                <RotateCcw className="size-4" /> Void payment
+              </Button>
+            )}
+            {showRenew && (
               <Button
                 type="button"
                 onClick={() => {
                   onOpenChange(false);
-                  onRecord(invoice);
+                  onRenew();
                 }}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                <Wallet className="size-4" /> Record payment
+                <RefreshCw className="size-4" /> Renew
               </Button>
-            </>
-          )}
-        </DialogFooter>
+            )}
+            {showCollect && (
+              <>
+                {/* Arrears are exactly when a payment link gets sent —
+                    same Copy-UPI as the current-cycle header, for THIS
+                    period's outstanding balance. */}
+                <CopyUpiLinkButton
+                  upi={upi}
+                  amount={balance}
+                  note="Membership fee"
+                  size="default"
+                />
+                <Button
+                  type="button"
+                  onClick={() => {
+                    onOpenChange(false);
+                    onRecord(invoice);
+                  }}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  <Wallet className="size-4" />
+                  {lifecycle === "Upcoming" ? "Collect payment" : "Record payment"}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
