@@ -22,12 +22,10 @@ import {
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
-import { formatDay } from "@/lib/dates/format";
+import { useLocale } from "@/hooks/use-locale";
 import {
   effectiveStatus,
   daysUntil,
-  istToday,
   unfreezeEndDate,
 } from "@/lib/memberships/expiry";
 import type { FollowUp, Membership, Payment, PaymentMethod, Attendance } from "@/types";
@@ -119,7 +117,8 @@ export function MemberDetailView({
   onEdit,
 }: MemberDetailViewProps) {
   const supabase = createClient();
-  const { defaultCurrency, user } = useAuth();
+  const { user } = useAuth();
+  const { fmt } = useLocale();
 
   const { nameById, avatarById } = useAccountStaff();
   const upi = useUpiConfig();
@@ -196,7 +195,7 @@ export function MemberDetailView({
     setBusy(true);
     const { error } = await supabase
       .from("memberships")
-      .update({ status: "frozen", frozen_at: istToday() })
+      .update({ status: "frozen", frozen_at: fmt.today() })
       .eq("id", membership.id);
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -234,8 +233,9 @@ export function MemberDetailView({
     refreshAll();
   }
 
-  const eff = membership ? effectiveStatus(membership) : null;
-  const days = membership ? daysUntil(membership.end_date) : 0;
+  const today = fmt.today();
+  const eff = membership ? effectiveStatus(membership, today) : null;
+  const days = membership ? daysUntil(membership.end_date, today) : 0;
 
   // Outstanding balance for the current period, derived from the loaded
   // ledger (payments stamped with this period's end_date). Matches the
@@ -299,7 +299,7 @@ export function MemberDetailView({
                     )}
                     <span className="flex items-center gap-1.5">
                       <CalendarDays className="size-3.5" />
-                      Member since {formatDay(membership.created_at.slice(0, 10))}
+                      Member since {fmt.date(membership.created_at.slice(0, 10))}
                     </span>
                   </SheetDescription>
                 </div>
@@ -340,7 +340,7 @@ export function MemberDetailView({
                       <CardTitle>Membership</CardTitle>
                       <CardDescription>
                         {membership.plan?.name ?? "No plan"} ·{" "}
-                        {formatCurrency(membership.fee_amount, defaultCurrency)}
+                        {fmt.money(membership.fee_amount)}
                       </CardDescription>
                       <CardAction>
                         <DropdownMenu>
@@ -378,16 +378,16 @@ export function MemberDetailView({
                       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <Stat label="Plan">{membership.plan?.name ?? "—"}</Stat>
                         <Stat label="Fee">
-                          {formatCurrency(membership.fee_amount, defaultCurrency)}
+                          {fmt.money(membership.fee_amount)}
                           {balance > 0 && (
                             <span className="ml-1 text-xs font-medium text-amber-700 dark:text-amber-400">
-                              ({formatCurrency(balance, defaultCurrency)} due)
+                              ({fmt.money(balance)} due)
                             </span>
                           )}
                         </Stat>
-                        <Stat label="Started">{formatDay(membership.start_date)}</Stat>
+                        <Stat label="Started">{fmt.date(membership.start_date)}</Stat>
                         <Stat label="Expires">
-                          {formatDay(membership.end_date)}
+                          {fmt.date(membership.end_date)}
                           {eff === "active" && (
                             <span className="ml-1 text-xs font-normal text-muted-foreground">
                               ({days < 0 ? `${-days}d ago` : days === 0 ? "today" : `in ${days}d`})
@@ -398,7 +398,7 @@ export function MemberDetailView({
                       {membership.status === "frozen" && membership.frozen_at && (
                         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Snowflake className="size-3.5" />
-                          Frozen since {formatDay(membership.frozen_at)} — the paused
+                          Frozen since {fmt.date(membership.frozen_at)} — the paused
                           days are added back on resume.
                         </p>
                       )}
@@ -416,7 +416,7 @@ export function MemberDetailView({
                       <CardTitle>Payments</CardTitle>
                       <CardDescription>
                         {!membership.is_trial && balance > 0
-                          ? `${formatCurrency(balance, defaultCurrency)} outstanding for the current period`
+                          ? `${fmt.money(balance)} outstanding for the current period`
                           : "Ledger for this membership"}
                       </CardDescription>
                       {!membership.is_trial && (
@@ -458,7 +458,7 @@ export function MemberDetailView({
                           <TableBody>
                             {payments.map((p) => (
                               <TableRow key={p.id}>
-                                <TableCell>{formatDay(p.paid_at.slice(0, 10))}</TableCell>
+                                <TableCell>{fmt.date(p.paid_at)}</TableCell>
                                 <TableCell className="text-muted-foreground">
                                   {METHOD_LABEL[p.method]}
                                 </TableCell>
@@ -466,7 +466,7 @@ export function MemberDetailView({
                                   {p.note || "—"}
                                 </TableCell>
                                 <TableCell className="text-right font-medium tabular-nums">
-                                  {formatCurrency(p.amount, defaultCurrency)}
+                                  {fmt.money(p.amount)}
                                 </TableCell>
                                 <TableCell>
                                   {p.screenshot_url && (
@@ -542,7 +542,7 @@ export function MemberDetailView({
                         <div className="flex flex-col gap-1.5 text-sm">
                           <p className="font-medium text-foreground">
                             {REASON_LABEL[followUp.reason]} · due{" "}
-                            {formatDay(followUp.due_date)}
+                            {fmt.date(followUp.due_date)}
                           </p>
                           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             {followUp.assigned_to ? (
@@ -600,11 +600,7 @@ export function MemberDetailView({
                                 className="flex items-center gap-2 py-1.5 text-sm text-muted-foreground"
                               >
                                 <UserCheck className="size-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
-                                {new Date(v.checked_in_at).toLocaleString("en-IN", {
-                                  timeZone: "Asia/Kolkata",
-                                  dateStyle: "medium",
-                                  timeStyle: "short",
-                                })}
+                                {fmt.dateTime(v.checked_in_at)}
                               </li>
                             ))}
                           </ul>

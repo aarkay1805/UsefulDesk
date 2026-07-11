@@ -62,7 +62,7 @@ import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
 import { EditFieldOptionsDialog } from '@/components/leads/edit-field-options-dialog';
 import { formatCustomFieldValue } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
-import { formatDay as formatDate } from '@/lib/dates/format';
+import { useLocale } from '@/hooks/use-locale';
 import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Button } from '@/components/ui/button';
@@ -512,15 +512,24 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     defaultWidth: 120,
     minWidth: 100,
     sortColumn: 'created_at',
-    render: (c) => (
-      <span className="text-muted-foreground text-sm">
-        {formatDate(c.created_at)}
-      </span>
-    ),
+    render: (c) => <CreatedDateCell value={c.created_at} />,
   },
 ];
 
-function customColumn(field: CustomField, currency?: string): ColumnDef {
+// Column defs are module constants with no hook access — dates render
+// through this tiny component so they follow the account locale.
+function CreatedDateCell({ value }: { value: string }) {
+  const { fmt } = useLocale();
+  return (
+    <span className="text-muted-foreground text-sm">{fmt.date(value)}</span>
+  );
+}
+
+function customColumn(
+  field: CustomField,
+  currency?: string,
+  localeTag?: string,
+): ColumnDef {
   return {
     key: `cf:${field.id}`,
     label: field.field_name,
@@ -532,7 +541,9 @@ function customColumn(field: CustomField, currency?: string): ColumnDef {
       const raw = c.customValues?.[field.id];
       return (
         <span className="text-muted-foreground text-sm">
-          {raw ? formatCustomFieldValue(raw, field.field_type, currency) : '-'}
+          {raw
+            ? formatCustomFieldValue(raw, field.field_type, currency, localeTag)
+            : '-'}
         </span>
       );
     },
@@ -1032,6 +1043,7 @@ export default function LeadsPage() {
   const supabase = createClient();
   const router = useRouter();
   const { defaultCurrency, user, profile } = useAuth();
+  const { locale, fmt } = useLocale();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
 
@@ -1532,11 +1544,12 @@ export default function LeadsPage() {
     });
     return [
       ...builtins,
-      ...customFields.map((f) => customColumn(f, defaultCurrency)),
+      ...customFields.map((f) => customColumn(f, defaultCurrency, locale.locale)),
     ];
   }, [
     customFields,
     defaultCurrency,
+    locale.locale,
     fieldOptions,
     nameById,
     avatarById,
@@ -2604,7 +2617,7 @@ export default function LeadsPage() {
           c.assigned_to ? (nameById.get(c.assigned_to) ?? 'Teammate') : '',
           receivedBy,
           (tagNamesByContact[c.id] ?? []).join(', '),
-          formatDate(c.created_at),
+          fmt.date(c.created_at),
         ];
       });
 
@@ -3626,7 +3639,8 @@ export default function LeadsPage() {
                                 label: formatCustomFieldValue(
                                   v,
                                   col.customType,
-                                  defaultCurrency
+                                  defaultCurrency,
+                                  locale.locale
                                 ),
                               })),
                               selected: filters.customValues[fieldId] ?? [],

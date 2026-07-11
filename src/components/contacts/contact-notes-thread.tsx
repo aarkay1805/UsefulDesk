@@ -30,12 +30,12 @@ import {
   duePresets,
   FOLLOW_UP_TASK_TYPES,
   followUpDueLabel,
-  remindAtIST,
+  remindAtInTz,
   REMINDER_SLOTS,
   slotFromRemindAt,
   type FollowUpTaskType,
 } from '@/lib/leads/follow-up-dates';
-import { istToday } from '@/lib/memberships/expiry';
+import { useLocale } from '@/hooks/use-locale';
 import {
   useAccountStaff,
   type StaffMember,
@@ -90,16 +90,20 @@ export const DEFAULT_FOLLOW_UP_DRAFT: FollowUpDraft = {
   remindSlot: '',
 };
 
-/** The concrete IST due date a draft resolves to (undefined = invalid). */
-export function resolveDueDate(draft: FollowUpDraft): string | undefined {
+/** The concrete due date a draft resolves to (undefined = invalid).
+ *  Pass `today` from the account zone (`fmt.today()`). */
+export function resolveDueDate(
+  draft: FollowUpDraft,
+  today?: string,
+): string | undefined {
   return draft.dueId === 'custom'
     ? draft.customDate || undefined
-    : duePresets().find((p) => p.id === draft.dueId)?.date;
+    : duePresets(today).find((p) => p.id === draft.dueId)?.date;
 }
 
 /** Editor seed for an existing task: matching preset id or 'custom'. */
-function presetIdForDate(date: string): string {
-  return duePresets().find((p) => p.date === date)?.id ?? 'custom';
+function presetIdForDate(date: string, today?: string): string {
+  return duePresets(today).find((p) => p.date === date)?.id ?? 'custom';
 }
 
 interface ContactNotesThreadProps {
@@ -121,6 +125,7 @@ export function ContactNotesThread({
 }: ContactNotesThreadProps) {
   const supabase = createClient();
   const { accountId, accountRole, user, profile } = useAuth();
+  const { locale, fmt } = useLocale();
   const { staff, nameById, avatarById } = useAccountStaff();
 
   const [notes, setNotes] = useState<ContactNote[]>([]);
@@ -229,7 +234,7 @@ export function ContactNotesThread({
 
   async function addNote() {
     if (!contactId || !newNote.trim()) return;
-    const followUpDue = resolveDueDate(followUpDraft);
+    const followUpDue = resolveDueDate(followUpDraft, fmt.today());
     if (followUpDraft.enabled && !followUpDue) {
       toast.error('Pick a follow-up date');
       return;
@@ -277,7 +282,7 @@ export function ContactNotesThread({
         task_type: followUpDraft.type,
         due_date: followUpDue,
         remind_at: followUpDraft.remindSlot
-          ? remindAtIST(followUpDue, followUpDraft.remindSlot)
+          ? remindAtInTz(followUpDue, followUpDraft.remindSlot, locale.timeZone)
           : null,
         note: newNote.trim().slice(0, 200),
       });
@@ -370,7 +375,7 @@ export function ContactNotesThread({
       toast.error('Note cannot be empty');
       return false;
     }
-    const due = resolveDueDate(draft);
+    const due = resolveDueDate(draft, fmt.today());
     if (draft.enabled && !due) {
       toast.error('Pick a follow-up date');
       return false;
@@ -395,7 +400,9 @@ export function ContactNotesThread({
     }
 
     if (draft.enabled && due) {
-      const remind = draft.remindSlot ? remindAtIST(due, draft.remindSlot) : null;
+      const remind = draft.remindSlot
+        ? remindAtInTz(due, draft.remindSlot, locale.timeZone)
+        : null;
       if (existing) {
         const { error: taskError } = await supabase
           .from('follow_ups')
@@ -617,7 +624,8 @@ function FollowUpRow({
   staff: StaffMember[];
   currentUserId: string;
 }) {
-  const presets = duePresets();
+  const { fmt } = useLocale();
+  const presets = duePresets(fmt.today());
   // Chip shows the preset label verbatim ("In 3 days (Friday)",
   // "Tomorrow") — no connecting "in" between the two chips.
   const dueLabel =
@@ -704,7 +712,7 @@ function FollowUpRow({
               <input
                 type="date"
                 value={draft.customDate}
-                min={istToday()}
+                min={fmt.today()}
                 onChange={(e) => onPatch({ customDate: e.target.value })}
                 className="h-7 rounded-lg border border-border bg-card px-2 text-sm text-foreground outline-none focus:border-primary"
                 aria-label="Follow-up date"
@@ -803,6 +811,7 @@ function NoteCard({
     existing?: NoteFollowUp
   ) => Promise<boolean>;
 }) {
+  const { locale, fmt } = useLocale();
   const [expanded, setExpanded] = useState(false);
   const isOwner = note.user_id === currentUserId;
   const [editing, setEditing] = useState(false);
@@ -817,6 +826,7 @@ function NoteCard({
     note.note_text.length > 180 || note.note_text.split('\n').length > 3;
 
   function beginEdit() {
+    const today = fmt.today();
     setDraftText(note.note_text);
     setEditDraft(
       followUp && followUp.status !== 'cancelled'
@@ -825,13 +835,13 @@ function NoteCard({
             type:
               FOLLOW_UP_TASK_TYPES.find((t) => t.value === followUp.task_type)
                 ?.value ?? 'todo',
-            dueId: presetIdForDate(followUp.due_date),
+            dueId: presetIdForDate(followUp.due_date, today),
             customDate:
-              presetIdForDate(followUp.due_date) === 'custom'
+              presetIdForDate(followUp.due_date, today) === 'custom'
                 ? followUp.due_date
                 : '',
             assignee: followUp.assigned_to ?? '',
-            remindSlot: slotFromRemindAt(followUp.remind_at),
+            remindSlot: slotFromRemindAt(followUp.remind_at, locale.timeZone),
           }
         : DEFAULT_FOLLOW_UP_DRAFT
     );
@@ -857,11 +867,7 @@ function NoteCard({
       : nameById.get(followUp.assigned_to) ?? 'Teammate'
     : null;
 
-  const createdOn = new Date(note.created_at).toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const createdOn = fmt.date(note.created_at);
 
   // Meta footer — always the card's own bottom strip (under a divider),
   // "Created on" first, then the assignee when the note spawned a task.
@@ -982,7 +988,7 @@ function NoteCard({
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span className="text-sm text-foreground">Follow up</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {followUpDueLabel(followUp.task_type, followUp.due_date)}
+                    {followUpDueLabel(followUp.task_type, followUp.due_date, fmt.today())}
                   </span>
                 </div>
               </div>

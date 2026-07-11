@@ -17,8 +17,8 @@ import { Loader2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
-import { istToday } from "@/lib/memberships/expiry";
+import { useLocale } from "@/hooks/use-locale";
+import { dateAtNoonInTz } from "@/lib/locale/format";
 import type { Membership, PaymentMethod } from "@/types";
 import {
   Dialog,
@@ -55,10 +55,11 @@ export function BulkRecordPaymentDialog({
   onDone,
 }: BulkRecordPaymentDialogProps) {
   const supabase = createClient();
-  const { accountId, user, defaultCurrency } = useAuth();
+  const { accountId, user } = useAuth();
+  const { locale, fmt } = useLocale();
 
   const [method, setMethod] = useState<PaymentMethod>("cash");
-  const [paidOn, setPaidOn] = useState(istToday());
+  const [paidOn, setPaidOn] = useState(fmt.today());
   const [saving, setSaving] = useState(false);
   // Selected memberships joined with their outstanding balances.
   const [rows, setRows] = useState<
@@ -72,7 +73,7 @@ export function BulkRecordPaymentDialog({
     setPrevOpen(open);
     if (open) {
       setMethod("cash");
-      setPaidOn(istToday());
+      setPaidOn(fmt.today());
       setSaving(false);
       setRows(null);
     }
@@ -143,9 +144,11 @@ export function BulkRecordPaymentDialog({
   async function recordPayments() {
     if (!accountId || !user || due.length === 0) return;
     setSaving(true);
-    // Anchor the picked calendar day at noon UTC so it lands on the same
-    // IST day it was chosen for (same recipe as RecordPaymentDialog).
-    const paidAt = `${paidOn}T12:00:00.000Z`;
+    // Anchor the picked calendar day at noon in the ACCOUNT's zone so it
+    // reads back on the same day (same recipe as RecordPaymentDialog).
+    const paidAt = (
+      dateAtNoonInTz(paidOn, locale.timeZone) ?? new Date()
+    ).toISOString();
 
     let recorded = 0;
     let failed = 0;
@@ -214,7 +217,7 @@ export function BulkRecordPaymentDialog({
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Outstanding</span>
                 <span className="font-medium text-amber-700 dark:text-amber-400">
-                  {formatCurrency(totalDue, defaultCurrency)} · {due.length}{" "}
+                  {fmt.money(totalDue)} · {due.length}{" "}
                   member{due.length === 1 ? "" : "s"}
                 </span>
               </div>

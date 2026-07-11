@@ -10,6 +10,15 @@
 /** NPCI VPA shape: handle@psp — mirrors the DB CHECK in 038. */
 const VPA_RE = /^[A-Za-z0-9._-]{2,}@[A-Za-z]{2,}$/;
 
+/**
+ * UPI is an India-only payment rail — offered only when the account
+ * bills in INR (a CURRENCY condition, not a country conditional; the
+ * hardcoded `cu=INR` in the link below is correct for the rail itself).
+ */
+export function upiAvailableFor(currency: string): boolean {
+  return currency === "INR";
+}
+
 export function isValidVpa(vpa: string): boolean {
   return VPA_RE.test(vpa.trim());
 }

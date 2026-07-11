@@ -7,8 +7,7 @@ import { Users, UserX, CalendarClock, CircleAlert, Wallet, IndianRupee } from "l
 import { motion } from "motion/react";
 
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
+import { useLocale } from "@/hooks/use-locale";
 import { loadGymStats, type GymStats } from "@/lib/memberships/stats";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { AnimatedNumber } from "@/components/ui/animated-number";
@@ -36,7 +35,7 @@ const tileVariants = {
  * shortcut into the Members section where the owner acts on it.
  */
 export function GymMetrics() {
-  const { defaultCurrency } = useAuth();
+  const { locale, fmt } = useLocale();
   const [stats, setStats] = useState<GymStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,7 +44,7 @@ export function GymMetrics() {
     let cancelled = false;
     (async () => {
       try {
-        const s = await loadGymStats(db);
+        const s = await loadGymStats(db, fmt.today(), locale.timeZone);
         if (!cancelled) setStats(s);
       } catch (err) {
         console.error("[dashboard] gym stats failed:", err);
@@ -56,7 +55,7 @@ export function GymMetrics() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [fmt, locale.timeZone]);
 
   return (
     <section>
@@ -87,7 +86,7 @@ export function GymMetrics() {
                 value={
                   <AnimatedNumber
                     value={stats.feesDueAmount}
-                    format={(n) => formatCurrency(n, defaultCurrency)}
+                    format={(n) => fmt.money(n)}
                   />
                 }
                 icon={Wallet}
@@ -141,7 +140,7 @@ export function GymMetrics() {
               value={
                 <AnimatedNumber
                   value={stats.collectedThisMonth}
-                  format={(n) => formatCurrency(n, defaultCurrency)}
+                  format={(n) => fmt.money(n)}
                 />
               }
               icon={IndianRupee}

@@ -4,7 +4,7 @@ import {
   addMonths,
   duePresets,
   followUpDueLabel,
-  remindAtIST,
+  remindAtInTz,
   REMINDER_SLOTS,
   slotFromRemindAt,
 } from './follow-up-dates';
@@ -42,15 +42,29 @@ describe('reminders', () => {
     expect(REMINDER_SLOTS).toHaveLength(13);
   });
 
-  it('resolves an IST slot on the due date to UTC', () => {
+  it('resolves an IST slot on the due date to UTC (default zone)', () => {
     // 08:00 IST = 02:30 UTC.
-    expect(remindAtIST('2026-07-14', '08:00')).toBe('2026-07-14T02:30:00.000Z');
-    expect(remindAtIST('2026-07-14', '20:00')).toBe('2026-07-14T14:30:00.000Z');
+    expect(remindAtInTz('2026-07-14', '08:00')).toBe('2026-07-14T02:30:00.000Z');
+    expect(remindAtInTz('2026-07-14', '20:00')).toBe('2026-07-14T14:30:00.000Z');
+  });
+
+  it('resolves slots in other zones, DST included', () => {
+    // 08:00 New York in July = EDT (UTC-4) → 12:00 UTC.
+    expect(remindAtInTz('2026-07-14', '08:00', 'America/New_York')).toBe(
+      '2026-07-14T12:00:00.000Z',
+    );
+    // Same wall clock in January = EST (UTC-5) → 13:00 UTC.
+    expect(remindAtInTz('2026-01-14', '08:00', 'America/New_York')).toBe(
+      '2026-01-14T13:00:00.000Z',
+    );
   });
 
   it('round-trips a stored remind_at back to its slot', () => {
     expect(slotFromRemindAt('2026-07-14T02:30:00.000Z')).toBe('08:00');
     expect(slotFromRemindAt('2026-07-14T14:30:00.000Z')).toBe('20:00');
+    expect(
+      slotFromRemindAt('2026-07-14T12:00:00.000Z', 'America/New_York'),
+    ).toBe('08:00');
     expect(slotFromRemindAt(null)).toBe('');
     expect(slotFromRemindAt('2026-07-14T14:45:00.000Z')).toBe(''); // off-slot
     expect(slotFromRemindAt('garbage')).toBe('');

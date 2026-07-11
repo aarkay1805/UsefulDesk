@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/automations/admin-client'
 import { cronSecretConfigured, isAuthorizedCronRequest } from '@/lib/cron/auth'
 import { engineSendTemplate } from '@/lib/automations/meta-send'
-import { formatCurrency, DEFAULT_CURRENCY } from '@/lib/currency'
-import { istToday } from '@/lib/memberships/expiry'
+import { resolveAccountLocale } from '@/lib/locale/config'
+import { buildFormatters, hourInTz, todayInTz } from '@/lib/locale/format'
 import {
+  REMINDER_SEND_HOUR_LOCAL,
   RENEWAL_TEMPLATE_NAME,
   targetEndDates,
 } from '@/lib/memberships/renewal-reminders'
@@ -52,12 +53,15 @@ export async function GET(request: Request) {
   }
 
   const admin = supabaseAdmin()
-  const today = istToday()
+  // "Today" is per-account (each gym's own time zone, migration 055) —
+  // computed inside the loop. This stamp is just for the run log.
+  const now = new Date()
 
   const summary = {
-    today,
+    run_at_utc: now.toISOString(),
     accounts_considered: 0,
     accounts_skipped: 0,
+    accounts_before_send_hour: 0,
     sent: 0,
     failed: 0,
     skipped_already_sent: 0,
@@ -107,7 +111,9 @@ export async function GET(request: Request) {
           .maybeSingle(),
         admin
           .from('accounts')
-          .select('owner_user_id, default_currency')
+          .select(
+            'owner_user_id, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system',
+          )
           .eq('id', accountId)
           .maybeSingle(),
       ])
@@ -117,8 +123,21 @@ export async function GET(request: Request) {
       continue
     }
 
+    // Everything downstream — "today", the send window, the template's
+    // date and fee strings — follows THIS account's localization.
+    const cfg = resolveAccountLocale(account)
+    const fmt = buildFormatters(cfg)
+
+    // Hourly job, per-zone window: skip until the account's local
+    // morning. The claim ledger makes the first run at/after the send
+    // hour the only one that actually messages.
+    if (hourInTz(cfg.timeZone, now) < REMINDER_SEND_HOUR_LOCAL) {
+      summary.accounts_before_send_hour++
+      continue
+    }
+
+    const today = todayInTz(cfg.timeZone, now)
     const ownerUserId = account.owner_user_id as string
-    const currency = (account.default_currency as string) ?? DEFAULT_CURRENCY
     const language = (template.language as string) ?? 'en_US'
     const targets = targetEndDates(s.days_before, today)
 
@@ -193,11 +212,13 @@ export async function GET(request: Request) {
             m.contact_id as string,
           )
 
+          // {{3}} expiry as the gym writes dates ("11 Jul 2026", not
+          // raw ISO), {{4}} fee in its currency + grouping (₹1,00,000).
           const params = [
             m.contact?.name?.trim() || 'there',
             m.plan?.name || 'membership',
-            target.endDate,
-            formatCurrency(m.fee_amount, currency),
+            fmt.date(target.endDate),
+            fmt.money(m.fee_amount),
           ]
 
           const { whatsapp_message_id } = await engineSendTemplate({

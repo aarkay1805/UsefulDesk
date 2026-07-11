@@ -1,6 +1,7 @@
 "use client"
 
 import { Users } from 'lucide-react'
+import { useLocale } from '@/hooks/use-locale'
 import type { LeadsDonutData } from '@/lib/dashboard/types'
 import { EmptyState } from './empty-state'
 import { Skeleton } from './skeleton'
@@ -62,6 +63,7 @@ export function LeadsDonut({ data, loading }: LeadsDonutProps) {
 // status slice, arc from startAngle → endAngle.
 // ------------------------------------------------------------
 function Donut({ data }: { data: LeadsDonutData }) {
+  const { fmt } = useLocale()
   const size = 200
   const r = 80
   const ringWidth = 18
@@ -119,7 +121,7 @@ function Donut({ data }: { data: LeadsDonutData }) {
           textAnchor="middle"
           className="fill-foreground text-[18px] font-semibold tabular-nums"
         >
-          {data.total.toLocaleString()}
+          {fmt.number(data.total)}
         </text>
       </svg>
     </div>

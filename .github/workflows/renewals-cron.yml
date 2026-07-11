@@ -1,8 +1,13 @@
 name: renewals-cron
 
-# Fires the auto renewal-reminder job once a day. The route
+# Fires the auto renewal-reminder job every hour. The route
 # (GET /api/renewals/cron) is idempotent + self-dedupes via the
-# renewal_reminders_sent ledger, so an occasional double-run is harmless.
+# renewal_reminders_sent ledger, so overlapping runs are harmless.
+#
+# Hourly because accounts live in different time zones (migration 055):
+# each run only processes accounts whose LOCAL time is past the send
+# hour (09:00), and the ledger ensures each reminder goes out once per
+# day — so every gym gets its reminders shortly after 9am local time.
 #
 # Native Vercel Cron can't send a custom header, and the route
 # authenticates on `x-cron-secret` — so this GitHub Action is the pinger.
@@ -11,9 +16,9 @@ name: renewals-cron
 
 on:
   schedule:
-    # 03:30 UTC = 09:00 IST, daily. Reminders key off the IST calendar
-    # day, so once a day covers every configured offset.
-    - cron: "30 3 * * *"
+    # :30 keeps the original 03:30 UTC = 09:00 IST slot for the home
+    # market; half-hour zones (IST +5:30) land exactly on their 9am.
+    - cron: "30 * * * *"
   # Lets you trigger a run by hand from the Actions tab (for testing).
   workflow_dispatch:
 

@@ -12,7 +12,8 @@ import {
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { istToday, istAddDays, daysUntil, effectiveStatus } from "@/lib/memberships/expiry";
+import { useLocale } from "@/hooks/use-locale";
+import { istAddDays, daysUntil, effectiveStatus } from "@/lib/memberships/expiry";
 import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
 import { MembershipStatusBadge, FeeStatusBadge } from "./membership-status-badge";
@@ -33,6 +34,7 @@ export function RenewalActionLists({
   reloadKey,
 }: RenewalActionListsProps) {
   const { canSendMessages } = useAuth();
+  const { fmt } = useLocale();
 
   const [expiring, setExpiring] = useState<Membership[]>([]);
   const [expired, setExpired] = useState<Membership[]>([]);
@@ -49,7 +51,7 @@ export function RenewalActionLists({
     const supabase = createClient();
     let cancelled = false;
     (async () => {
-      const today = istToday();
+      const today = fmt.today();
       const in7 = istAddDays(today, 7);
 
       const [expiringRes, expiredRes, dueRes] = await Promise.all([
@@ -86,7 +88,7 @@ export function RenewalActionLists({
     return () => {
       cancelled = true;
     };
-  }, [reloadKey, nonce]);
+  }, [reloadKey, nonce, fmt]);
 
   if (loading) {
     return (
@@ -165,6 +167,8 @@ function ActionList({
   onAssign?: (m: Membership) => void;
   emptyLabel: string;
 }) {
+  const { fmt } = useLocale();
+  const today = fmt.today();
   return (
     <section className="flex flex-col rounded-xl border border-border bg-card">
       <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
@@ -183,8 +187,8 @@ function ActionList({
       ) : (
         <ul className="divide-y divide-border">
           {rows.map((m) => {
-            const eff = effectiveStatus(m);
-            const days = daysUntil(m.end_date);
+            const eff = effectiveStatus(m, today);
+            const days = daysUntil(m.end_date, today);
             return (
               <li
                 key={m.id}

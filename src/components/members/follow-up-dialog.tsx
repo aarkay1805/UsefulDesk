@@ -6,8 +6,9 @@ import { Loader2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useLocale } from "@/hooks/use-locale";
 import { isUniqueViolation } from "@/lib/contacts/dedupe";
-import { istToday, istAddDays } from "@/lib/memberships/expiry";
+import { istAddDays } from "@/lib/memberships/expiry";
 import {
   defaultReason,
   REASON_LABEL,
@@ -92,15 +93,16 @@ function AssignForm({
 }) {
   const supabase = createClient();
   const { user } = useAuth();
+  const { fmt } = useLocale();
   const { staff } = useAccountStaff();
 
   // Default owner = whoever is assigning; due tomorrow (chase lists
   // are worked in the morning, so "today" would be instantly overdue).
   const [assignedTo, setAssignedTo] = useState(user?.id ?? "");
   const [reason, setReason] = useState<FollowUpReason>(
-    () => initialReason ?? defaultReason(membership),
+    () => initialReason ?? defaultReason(membership, fmt.today()),
   );
-  const [dueDate, setDueDate] = useState(() => istAddDays(istToday(), 1));
+  const [dueDate, setDueDate] = useState(() => istAddDays(fmt.today(), 1));
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
 

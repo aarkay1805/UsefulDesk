@@ -47,6 +47,21 @@ export interface Account {
   name: string;
   /** auth.users.id of the immutable owner. */
   owner_user_id: string;
+  /** ISO-4217 (021; default INR since 055). */
+  default_currency: string;
+  /** UPI collection details (038). Null = not configured. */
+  upi_vpa: string | null;
+  upi_payee_name: string | null;
+  // Localization (055) — narrow via resolveAccountLocale
+  // (src/lib/locale/config.ts) rather than reading raw.
+  country_code: string;
+  locale: string;
+  timezone: string;
+  date_order: string;
+  time_format: string;
+  week_start: number;
+  phone_country_code: string;
+  measurement_system: string;
   created_at: string;
   updated_at: string;
 }

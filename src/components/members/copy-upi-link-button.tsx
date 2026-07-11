@@ -6,7 +6,8 @@ import { IndianRupee } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { buildUpiLink } from "@/lib/payments/upi";
+import { useLocale } from "@/hooks/use-locale";
+import { buildUpiLink, upiAvailableFor } from "@/lib/payments/upi";
 import { Button } from "@/components/ui/button";
 
 export interface UpiConfig {
@@ -64,7 +65,9 @@ export function CopyUpiLinkButton({
   note?: string;
   size?: "sm" | "default";
 }) {
-  if (!upi?.vpa) return null;
+  const { locale } = useLocale();
+  // UPI is INR-only — non-INR accounts never see the button.
+  if (!upiAvailableFor(locale.currency) || !upi?.vpa) return null;
 
   async function copy() {
     const link = buildUpiLink({

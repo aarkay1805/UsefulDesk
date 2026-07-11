@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import { formatDay } from "@/lib/dates/format";
+import { useLocale } from "@/hooks/use-locale";
 import {
   bucketFollowUps,
   REASON_LABEL,
@@ -39,6 +39,7 @@ interface FollowUpListsProps {
  */
 export function FollowUpLists({ onSelect, reloadKey }: FollowUpListsProps) {
   const { nameById, avatarById } = useAccountStaff();
+  const { fmt } = useLocale();
 
   const [rows, setRows] = useState<FollowUp[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +75,7 @@ export function FollowUpLists({ onSelect, reloadKey }: FollowUpListsProps) {
     );
   }
 
-  const buckets = bucketFollowUps(rows);
+  const buckets = bucketFollowUps(rows, fmt.today());
 
   return (
     <>
@@ -144,6 +145,7 @@ function TaskList({
   onComplete: (f: FollowUp) => void;
   emptyLabel: string;
 }) {
+  const { fmt } = useLocale();
   return (
     <section className="flex flex-col rounded-xl border border-border bg-card">
       <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
@@ -181,7 +183,7 @@ function TaskList({
                       {f.contact?.name || f.contact?.phone || "Unnamed"}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {REASON_LABEL[f.reason]} · due {formatDay(f.due_date)}
+                      {REASON_LABEL[f.reason]} · due {fmt.date(f.due_date)}
                     </p>
                     {f.note && (
                       <p className="mt-0.5 truncate text-xs text-muted-foreground/80">

@@ -22,10 +22,11 @@ import { Download, FileSpreadsheet, Loader2, Upload } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useLocale } from "@/hooks/use-locale";
+import { importDateOrder } from "@/lib/locale/config";
 import { parseCsvRaw, type RawCsv } from "@/lib/contacts/field-mapping";
 import { isUniqueViolation, normalizeKey } from "@/lib/contacts/dedupe";
 import { detectDateOrder, type DateOrder } from "@/lib/leads/import-coerce";
-import { istToday } from "@/lib/memberships/expiry";
 import {
   applyMemberMapping,
   autoMapMemberColumns,
@@ -68,13 +69,16 @@ export function ImportMembersCsvDialog({
 }: ImportMembersCsvDialogProps) {
   const supabase = createClient();
   const { accountId, user } = useAuth();
+  const { locale, fmt } = useLocale();
+  // Ambiguous numeric dates parse with the account's order (055).
+  const accountDateOrder = importDateOrder(locale);
   const { plans } = useMembershipPlans(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<Step>("upload");
   const [csv, setCsv] = useState<RawCsv | null>(null);
   const [mapping, setMapping] = useState<string[]>([]);
-  const [dateOrder, setDateOrder] = useState<DateOrder>("DMY");
+  const [dateOrder, setDateOrder] = useState<DateOrder>(accountDateOrder);
   const [importing, setImporting] = useState(false);
 
   // Fresh wizard each open (render-time reset per the repo lint rule).
@@ -85,7 +89,7 @@ export function ImportMembersCsvDialog({
       setStep("upload");
       setCsv(null);
       setMapping([]);
-      setDateOrder("DMY");
+      setDateOrder(accountDateOrder);
       setImporting(false);
     }
   }
@@ -109,7 +113,7 @@ export function ImportMembersCsvDialog({
         parsed.rows.slice(0, 50).map((r) => r[i] ?? "")
       );
       const detected = detectDateOrder(samples);
-      setDateOrder(detected === "MDY" ? "MDY" : "DMY");
+      setDateOrder(detected === "ambiguous" ? accountDateOrder : detected);
       setStep("map");
     };
     reader.readAsText(file);
@@ -127,7 +131,7 @@ export function ImportMembersCsvDialog({
       csv.rows,
       mapping
     );
-    const today = istToday();
+    const today = fmt.today();
     const ready: {
       row: (typeof rows)[number];
       membership: NonNullable<
@@ -148,7 +152,7 @@ export function ImportMembersCsvDialog({
       else badRow++;
     }
     return { ready, skippedNoPhone, skippedDuplicate, unknownPlan, badRow };
-  }, [csv, mapping, plans, dateOrder]);
+  }, [csv, mapping, plans, dateOrder, fmt]);
 
   async function handleImport() {
     if (!accountId || !user || !preview || preview.ready.length === 0) return;

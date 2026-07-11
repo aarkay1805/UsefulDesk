@@ -6,7 +6,9 @@ import { Loader2, Check, UserCheck, Dumbbell } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { istToday, effectiveStatus, daysUntil } from "@/lib/memberships/expiry";
+import { useLocale } from "@/hooks/use-locale";
+import { dayStartInTz } from "@/lib/locale/format";
+import { effectiveStatus, daysUntil } from "@/lib/memberships/expiry";
 import type { Membership } from "@/types";
 import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,7 @@ interface CheckInViewProps {
 
 export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
   const { user } = useAuth();
+  const { locale, fmt } = useLocale();
   const [rows, setRows] = useState<Membership[]>([]);
   const [checkedToday, setCheckedToday] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -31,7 +34,10 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
     const supabase = createClient();
     let cancelled = false;
     (async () => {
-      const todayStart = `${istToday()}T00:00:00+05:30`;
+      // "Today" starts at local midnight in the ACCOUNT's zone.
+      const todayStart = (
+        dayStartInTz(fmt.today(), locale.timeZone) ?? new Date()
+      ).toISOString();
       const [membersRes, attRes] = await Promise.all([
         supabase
           .from("memberships")
@@ -53,7 +59,9 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [reloadKey, fmt, locale.timeZone]);
+
+  const today = fmt.today();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -119,7 +127,7 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
         <ul className="flex flex-col gap-1.5">
           {filtered.map((m) => {
             const done = checkedToday.has(m.contact_id);
-            const eff = effectiveStatus(m);
+            const eff = effectiveStatus(m, today);
             return (
               <li
                 key={m.id}
@@ -133,7 +141,7 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
                     {m.contact?.phone} · {m.plan?.name ?? "—"}
                   </p>
                 </div>
-                <MembershipStatusBadge status={eff} daysToExpiry={daysUntil(m.end_date)} />
+                <MembershipStatusBadge status={eff} daysToExpiry={daysUntil(m.end_date, today)} />
                 <Button
                   type="button"
                   variant={done ? "outline" : "default"}

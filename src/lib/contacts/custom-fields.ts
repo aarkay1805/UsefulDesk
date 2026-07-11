@@ -26,33 +26,47 @@ export function customFieldInputType(type?: string): string {
   }
 }
 
+const PLAIN_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
 /**
  * Human display of a stored value according to its field type.
- * `currency` is the account's default currency (useAuth().defaultCurrency);
- * omitting it falls back to the app-wide default, so pass it wherever known.
+ * `currency` + `localeTag` come from the account locale
+ * (`useLocale().locale.currency` / `.locale`); omitting them falls back
+ * to app defaults, so pass them wherever known — locale decides digit
+ * grouping (en-IN lakhs) and date order.
  */
 export function formatCustomFieldValue(
   value: string,
   type?: string,
   currency?: string,
+  localeTag?: string,
 ): string {
   switch (type) {
     case 'currency': {
       const n = Number(value);
-      return Number.isFinite(n) ? formatCurrency(n, currency) : value;
+      return Number.isFinite(n) ? formatCurrency(n, currency, localeTag) : value;
     }
     case 'number': {
       const n = Number(value);
-      return Number.isFinite(n) ? new Intl.NumberFormat().format(n) : value;
+      return Number.isFinite(n)
+        ? new Intl.NumberFormat(localeTag).format(n)
+        : value;
     }
     case 'date': {
-      const d = new Date(value);
+      // Plain YYYY-MM-DD (what <input type=date> stores) is formatted
+      // from its parts on a UTC anchor — `new Date(str)` would parse UTC
+      // midnight and shift the day for viewers west of UTC.
+      const m = PLAIN_DATE.exec(value);
+      const d = m
+        ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12))
+        : new Date(value);
       return Number.isNaN(d.getTime())
         ? value
-        : d.toLocaleDateString('en-US', {
+        : d.toLocaleDateString(localeTag ?? 'en-US', {
             month: 'short',
             day: 'numeric',
             year: 'numeric',
+            ...(m ? { timeZone: 'UTC' } : {}),
           });
     }
     default:

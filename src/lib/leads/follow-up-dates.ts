@@ -1,9 +1,11 @@
 // Due-date presets for the note composer's follow-up row —
 // "In 3 days (Friday)" style, plain calendar days (gyms run 7 days a
-// week, so no business-day skipping). All math is IST-first via the
-// memberships date helpers ('YYYY-MM-DD' strings; no Date-object
-// timezone traps).
+// week, so no business-day skipping). All math is on 'YYYY-MM-DD'
+// strings (no Date-object timezone traps); callers pass `today` and
+// the reminder time zone from the ACCOUNT locale (`useLocale()`), with
+// IST defaults as the home-market fallback.
 
+import { timeInTzToUtc, hhmmInTz } from '@/lib/locale/format';
 import { daysBetween, istAddDays, istToday } from '@/lib/memberships/expiry';
 
 /** Add calendar months, clamping the day (Jan 31 + 1m → Feb 28/29). */
@@ -72,7 +74,7 @@ export const FOLLOW_UP_TASK_TYPES = [
 
 export type FollowUpTaskType = (typeof FOLLOW_UP_TASK_TYPES)[number]['value'];
 
-/** Reminder time slots (IST wall clock on the due date), hourly 8am–8pm. */
+/** Reminder time slots (account-local wall clock on the due date), hourly 8am–8pm. */
 export const REMINDER_SLOTS: { value: string; label: string }[] = Array.from(
   { length: 13 },
   (_, i) => {
@@ -87,27 +89,34 @@ export const REMINDER_SLOTS: { value: string; label: string }[] = Array.from(
 );
 
 /**
- * Resolve a due date + IST slot ("2026-07-14" + "08:00") to an ISO
- * timestamp. IST is fixed UTC+5:30 (no DST), so the offset is safe to
- * hardcode.
+ * Resolve a due date + wall-clock slot ("2026-07-14" + "08:00") to an
+ * ISO timestamp — 8am on that day in the ACCOUNT's time zone (DST-safe
+ * via Intl offset lookup). Defaults to IST for legacy call paths.
  */
-export function remindAtIST(dueDate: string, slot: string): string {
-  return new Date(`${dueDate}T${slot}:00+05:30`).toISOString();
+export function remindAtInTz(
+  dueDate: string,
+  slot: string,
+  timeZone: string = 'Asia/Kolkata',
+): string {
+  const instant = timeInTzToUtc(dueDate, slot, timeZone);
+  return (instant ?? new Date(`${dueDate}T${slot}:00+05:30`)).toISOString();
 }
 
 /**
- * Reverse of remindAtIST for prefilling the editor: an ISO timestamp
- * back to its IST wall-clock slot ('08:00'). Returns '' when the
- * timestamp isn't on a whole IST hour (not one of our slots).
+ * Reverse of remindAtInTz for prefilling the editor: an ISO timestamp
+ * back to its wall-clock slot ('08:00') in the account zone. Returns ''
+ * when the timestamp isn't on a whole local hour (not one of our slots).
  */
-export function slotFromRemindAt(remindAt: string | null | undefined): string {
+export function slotFromRemindAt(
+  remindAt: string | null | undefined,
+  timeZone: string = 'Asia/Kolkata',
+): string {
   if (!remindAt) return '';
   const d = new Date(remindAt);
   if (Number.isNaN(d.getTime())) return '';
-  const istMinutes =
-    (d.getUTCHours() * 60 + d.getUTCMinutes() + 330) % (24 * 60);
-  if (istMinutes % 60 !== 0) return '';
-  return `${String(istMinutes / 60).padStart(2, '0')}:00`;
+  const hhmm = hhmmInTz(d, timeZone);
+  if (!hhmm.endsWith(':00')) return '';
+  return hhmm;
 }
 
 /**

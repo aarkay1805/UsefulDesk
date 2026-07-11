@@ -14,7 +14,7 @@ import {
   ImageOff,
   CornerDownLeft,
 } from "lucide-react";
-import { format } from "date-fns";
+import { useLocale } from "@/hooks/use-locale";
 import { ReplyQuote } from "./reply-quote";
 import { MessageReactions } from "./message-reactions";
 
@@ -255,8 +255,9 @@ export function MessageBubble({
   currentUserId,
   onToggleReaction,
 }: MessageBubbleProps) {
+  const { fmt } = useLocale();
   const isAgent = message.sender_type === "agent" || message.sender_type === "bot";
-  const time = format(new Date(message.created_at), "HH:mm");
+  const time = fmt.time(new Date(message.created_at));
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.

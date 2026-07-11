@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, Loader2, Receipt } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
+import { useLocale } from "@/hooks/use-locale";
 import type { Payment, PaymentMethod, Contact } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +40,7 @@ const FILTERS: { value: MethodFilter; label: string }[] = [
  * UPI app, bank statement) against what the app recorded.
  */
 export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
-  const { defaultCurrency } = useAuth();
+  const { fmt } = useLocale();
   const [rows, setRows] = useState<LedgerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<MethodFilter>("all");
@@ -110,15 +109,12 @@ export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {METHOD_LABEL[p.method]} ·{" "}
-                  {new Date(p.paid_at).toLocaleDateString("en-IN", {
-                    timeZone: "Asia/Kolkata",
-                    dateStyle: "medium",
-                  })}
+                  {fmt.date(p.paid_at)}
                   {p.note ? ` · ${p.note}` : ""}
                 </p>
               </div>
               <span className="shrink-0 font-semibold text-foreground">
-                {formatCurrency(p.amount, defaultCurrency)}
+                {fmt.money(p.amount)}
               </span>
               {p.screenshot_url && (
                 <a

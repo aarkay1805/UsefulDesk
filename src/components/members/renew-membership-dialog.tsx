@@ -6,9 +6,8 @@ import { Loader2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
+import { useLocale } from "@/hooks/use-locale";
 import {
-  istToday,
   daysBetween,
   istAddDays,
 } from "@/lib/memberships/expiry";
@@ -54,7 +53,8 @@ export function RenewMembershipDialog({
   variant = "renew",
 }: RenewMembershipDialogProps) {
   const supabase = createClient();
-  const { accountId, user, defaultCurrency } = useAuth();
+  const { accountId, user } = useAuth();
+  const { fmt } = useLocale();
   const { plans } = useMembershipPlans(true);
   const isConvert = variant === "convert";
 
@@ -88,7 +88,7 @@ export function RenewMembershipDialog({
   // New period extends from the later of current expiry or today, so a
   // member who renews early keeps their unexpired days. A conversion
   // always starts today — a trial's leftover days aren't paid time.
-  const today = istToday();
+  const today = fmt.today();
   const base =
     !isConvert && membership.end_date && daysBetween(today, membership.end_date) > 0
       ? membership.end_date
@@ -192,7 +192,7 @@ export function RenewMembershipDialog({
               <option value="">Select a plan…</option>
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} · {p.duration_days}d · {formatCurrency(p.price, defaultCurrency)}
+                  {p.name} · {p.duration_days}d · {fmt.money(p.price)}
                 </option>
               ))}
             </select>

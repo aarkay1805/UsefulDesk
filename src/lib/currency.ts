@@ -42,6 +42,14 @@ export const CURRENCIES: CurrencyOption[] = [
   { code: "NGN", label: "Nigerian Naira", symbol: "₦" },
   { code: "SGD", label: "Singapore Dollar", symbol: "S$" },
   { code: "MXN", label: "Mexican Peso", symbol: "$" },
+  // Country-preset currencies (lib/locale/config.ts) — every preset's
+  // currency must be offerable here or the settings picker couldn't
+  // re-select what signup chose.
+  { code: "NPR", label: "Nepalese Rupee", symbol: "रू" },
+  { code: "BDT", label: "Bangladeshi Taka", symbol: "৳" },
+  { code: "LKR", label: "Sri Lankan Rupee", symbol: "Rs" },
+  { code: "SAR", label: "Saudi Riyal", symbol: "﷼" },
+  { code: "NZD", label: "New Zealand Dollar", symbol: "NZ$" },
 ];
 
 /**
@@ -60,26 +68,41 @@ export function currencySymbol(currency: string = DEFAULT_CURRENCY): string {
  * the app. `currency` defaults to USD so callers with nothing better
  * stay safe, but pass the account/deal currency wherever known.
  *
+ * `locale` decides digit GROUPING ('en-IN' → ₹1,00,000 lakh style,
+ * 'en-US' → $100,000). Undefined = the runtime default — prefer the
+ * account locale via `useLocale().fmt.money()` / `buildFormatters`
+ * so the gym's convention wins over the viewer's browser.
+ *
  * Total by design: `Intl.NumberFormat` throws a RangeError on a
  * structurally invalid currency code, and `deals.currency` carries
  * NO DB CHECK (only `accounts.default_currency` does), so legacy
  * rows, imports, or hand-edited data can hold malformed values like
  * "United States". We never let that crash a render — on a bad code
- * we fall back to "CODE 1,234".
+ * we fall back to "CODE 1,234". An invalid locale tag is likewise
+ * swallowed (retried with the runtime default).
  */
 export function formatCurrency(
   value: number,
   currency: string = DEFAULT_CURRENCY,
+  locale?: string,
 ): string {
   const code = (currency || DEFAULT_CURRENCY).trim();
   const amount = Number(value) || 0;
+  const opts: Intl.NumberFormatOptions = {
+    style: "currency",
+    currency: code,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  };
   try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: code,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
+    try {
+      return new Intl.NumberFormat(locale, opts).format(amount);
+    } catch (err) {
+      // A RangeError can mean a bad locale OR a bad currency code —
+      // retry locale-less so only a truly bad code hits the fallback.
+      if (locale === undefined) throw err;
+      return new Intl.NumberFormat(undefined, opts).format(amount);
+    }
   } catch {
     // Invalid ISO code — show the raw code + grouped number so the
     // value is still legible instead of throwing.

@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { THEMES } from '@/lib/themes';
 import { CURRENCIES } from '@/lib/currency';
+import { COUNTRY_PRESETS } from '@/lib/locale/config';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -35,8 +36,15 @@ export function SettingsOverview({
 }: {
   onSelect: (section: SettingsSection) => void;
 }) {
-  const { user, profile, accountId, accountRole, defaultCurrency, canManageMembers } =
-    useAuth();
+  const {
+    user,
+    profile,
+    accountId,
+    accountRole,
+    defaultCurrency,
+    locale,
+    canManageMembers,
+  } = useAuth();
   const { mode, theme } = useTheme();
 
   const [counts, setCounts] = useState<OverviewCounts | null>(null);
@@ -143,6 +151,8 @@ export function SettingsOverview({
 
   const currencyLabel =
     CURRENCIES.find((c) => c.code === defaultCurrency)?.label ?? defaultCurrency;
+  const countryLabel =
+    COUNTRY_PRESETS[locale.countryCode]?.label ?? locale.countryCode;
   const themeName = THEMES.find((t) => t.id === theme)?.name ?? theme;
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -198,6 +208,11 @@ export function SettingsOverview({
       section: 'deals',
       loading: false,
       subtitle: `${defaultCurrency} — ${currencyLabel}`,
+    },
+    {
+      section: 'localization',
+      loading: false,
+      subtitle: `${countryLabel} · ${locale.timeZone.replace(/_/g, ' ')}`,
     },
     {
       section: 'fields',

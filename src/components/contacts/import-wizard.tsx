@@ -17,6 +17,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocale } from '@/hooks/use-locale';
+import { importDateOrder } from '@/lib/locale/config';
 import {
   dedupeByPhone,
   isUniqueViolation,
@@ -222,6 +224,9 @@ export function ImportWizard({
 }: ImportWizardProps) {
   const supabase = createClient();
   const { user, accountId, canEditSettings, defaultCurrency } = useAuth();
+  const { locale } = useLocale();
+  // Ambiguous numeric dates parse with the account's order (055).
+  const accountDateOrder = importDateOrder(locale);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isLeads = variant === 'leads';
 
@@ -250,7 +255,7 @@ export function ImportWizard({
     invalid: 0,
   });
   const [remaps, setRemaps] = useState<RemapEntry[]>([]);
-  const [dateOrder, setDateOrder] = useState<DateOrder>('DMY');
+  const [dateOrder, setDateOrder] = useState<DateOrder>(accountDateOrder);
   const [loadingPreview, setLoadingPreview] = useState(false);
   // Not-yet-redeemed teammate invites — assignee targets for the preview's
   // Fix-values panel (leads variant, admin only). Loaded at preview build.
@@ -307,7 +312,7 @@ export function ImportWizard({
     setPreviewMeta({ droppedNoPhone: 0, dupes: 0, invalid: 0 });
     setRemaps([]);
     setPendingInvites([]);
-    setDateOrder('DMY');
+    setDateOrder(accountDateOrder);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 

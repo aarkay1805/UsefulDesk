@@ -6,13 +6,13 @@ import { Loader2, Upload, X } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
+import { useLocale } from "@/hooks/use-locale";
+import { dateAtNoonInTz } from "@/lib/locale/format";
 import {
   uploadAccountMedia,
   deleteAccountMedia,
   MEDIA_MAX_BYTES_BY_KIND,
 } from "@/lib/storage/upload-media";
-import { istToday } from "@/lib/memberships/expiry";
 import type { Membership, PaymentMethod } from "@/types";
 import {
   Dialog,
@@ -48,11 +48,12 @@ export function RecordPaymentDialog({
   onSaved,
 }: RecordPaymentDialogProps) {
   const supabase = createClient();
-  const { accountId, user, defaultCurrency } = useAuth();
+  const { accountId, user } = useAuth();
+  const { locale, fmt } = useLocale();
 
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("cash");
-  const [paidOn, setPaidOn] = useState(istToday());
+  const [paidOn, setPaidOn] = useState(fmt.today());
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -66,7 +67,7 @@ export function RecordPaymentDialog({
     if (!open) return;
     let cancelled = false;
     setMethod("cash");
-    setPaidOn(istToday());
+    setPaidOn(fmt.today());
     setNote("");
     setShot(null);
     setDues(null);
@@ -88,7 +89,7 @@ export function RecordPaymentDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, membership, supabase]);
+  }, [open, membership, supabase, fmt]);
 
   async function handleUpload(file: File) {
     if (file.size > MEDIA_MAX_BYTES_BY_KIND.image) {
@@ -121,9 +122,12 @@ export function RecordPaymentDialog({
 
     setSaving(true);
     try {
-      // Store paid_at as an instant. A picked calendar day is anchored at
-      // noon UTC so it lands on the same IST day it was chosen for.
-      const paidAt = `${paidOn}T12:00:00.000Z`;
+      // Store paid_at as an instant: local noon in the ACCOUNT's zone,
+      // so the row reads back on the same day it was picked anywhere on
+      // earth (a fixed noon-UTC anchor breaks past ±12h, e.g. Auckland).
+      const paidAt = (
+        dateAtNoonInTz(paidOn, locale.timeZone) ?? new Date()
+      ).toISOString();
 
       const { error: pErr } = await supabase.from("payments").insert({
         account_id: accountId,
@@ -176,10 +180,10 @@ export function RecordPaymentDialog({
             <div className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
               <span className="text-muted-foreground">Balance due</span>
               <span className="font-medium text-amber-700 dark:text-amber-400">
-                {formatCurrency(dues.balance, defaultCurrency)}
+                {fmt.money(dues.balance)}
                 {dues.collected > 0 && (
                   <span className="ml-1 text-xs text-muted-foreground">
-                    of {formatCurrency(membership.fee_amount, defaultCurrency)}
+                    of {fmt.money(membership.fee_amount)}
                   </span>
                 )}
               </span>

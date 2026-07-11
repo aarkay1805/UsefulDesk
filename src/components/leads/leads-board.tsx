@@ -46,6 +46,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/hooks/use-locale";
 
 /** Board rows are table rows — same enrichment (tags ride along). */
 export type BoardLead = Contact & { tags?: Tag[] };
@@ -149,11 +150,12 @@ function sortColumnLeads(
 }
 
 // Compact created-on stamp — "9 Jul", year suffix only when it isn't this
-// year. Full date rides the title tooltip.
-function formatCardDate(iso: string) {
+// year. Full date rides the title tooltip. Locale comes from the account
+// config (passed in — module fn, no hook access).
+function formatCardDate(iso: string, localeTag: string) {
   const d = new Date(iso);
   const sameYear = d.getFullYear() === new Date().getFullYear();
-  return d.toLocaleDateString("en-IN", {
+  return d.toLocaleDateString(localeTag, {
     day: "numeric",
     month: "short",
     ...(sameYear ? {} : { year: "2-digit" }),
@@ -338,6 +340,9 @@ const LeadCard = memo(function LeadCard({
   ctx: LeadCardContext;
   isOverlay?: boolean;
 }) {
+  // AuthContext changes only on account load/save, so this subscription
+  // doesn't disturb the board's drag-perf memoization.
+  const { locale, fmt } = useLocale();
   const tags = lead.tags ?? [];
   const overflowTags = tags.length - CARD_TAG_LIMIT;
 
@@ -417,9 +422,9 @@ const LeadCard = memo(function LeadCard({
             )}
             <span
               className="text-[11px] text-muted-foreground"
-              title={`Created ${new Date(lead.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`}
+              title={`Created ${fmt.date(lead.created_at)}`}
             >
-              {formatCardDate(lead.created_at)}
+              {formatCardDate(lead.created_at, locale.locale)}
             </span>
           </span>
           <CardOwner lead={lead} ctx={ctx} />

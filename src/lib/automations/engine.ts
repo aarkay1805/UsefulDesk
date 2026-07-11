@@ -17,7 +17,8 @@ import type {
   CreateDealStepConfig,
   AssignConversationStepConfig,
 } from '@/types'
-import { istAddDays, istToday } from '@/lib/memberships/expiry'
+import { istAddDays } from '@/lib/memberships/expiry'
+import { todayInTz } from '@/lib/locale/format'
 import { DEFAULT_FIELD_OPTIONS } from '@/lib/leads/field-options'
 import { supabaseAdmin } from './admin-client'
 import { engineSendText, engineSendTemplate } from './meta-send'
@@ -622,7 +623,17 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       }
 
       const dueInDays = Number.isFinite(cfg.due_in_days) ? Math.max(0, cfg.due_in_days) : 0
-      const dueDate = istAddDays(istToday(), dueInDays)
+      // "Due in N days" counts from the ACCOUNT's calendar day (055) —
+      // one point lookup; falls back to IST when unset.
+      const { data: acct } = await db
+        .from('accounts')
+        .select('timezone')
+        .eq('id', args.automation.account_id)
+        .maybeSingle()
+      const dueDate = istAddDays(
+        todayInTz((acct?.timezone as string) ?? 'Asia/Kolkata'),
+        dueInDays,
+      )
 
       const { error } = await db.from('follow_ups').insert({
         account_id: args.automation.account_id,

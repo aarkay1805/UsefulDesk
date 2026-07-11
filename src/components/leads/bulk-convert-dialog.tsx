@@ -16,10 +16,10 @@ import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocale } from '@/hooks/use-locale';
 import { useMembershipPlans } from '@/components/members/use-membership-plans';
-import { istToday, istAddDays } from '@/lib/memberships/expiry';
+import { istAddDays } from '@/lib/memberships/expiry';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
-import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -58,11 +58,12 @@ export function BulkConvertDialog({
   onDone?: () => void;
 }) {
   const supabase = createClient();
-  const { accountId, user, defaultCurrency } = useAuth();
+  const { accountId, user } = useAuth();
+  const { fmt } = useLocale();
   const { plans } = useMembershipPlans(true);
 
   const [planId, setPlanId] = useState('');
-  const [startDate, setStartDate] = useState(istToday());
+  const [startDate, setStartDate] = useState(fmt.today());
   const [saving, setSaving] = useState(false);
 
   // Reset the form each time the dialog opens. Done during render (not an
@@ -72,7 +73,7 @@ export function BulkConvertDialog({
     setPrevOpen(open);
     if (open) {
       setPlanId('');
-      setStartDate(istToday());
+      setStartDate(fmt.today());
       setSaving(false);
     }
   }
@@ -169,7 +170,7 @@ export function BulkConvertDialog({
               >
                 <span className={cn('truncate', !plan && 'text-muted-foreground')}>
                   {plan
-                    ? `${plan.name} · ${plan.duration_days}d · ${formatCurrency(plan.price, defaultCurrency)}`
+                    ? `${plan.name} · ${plan.duration_days}d · ${fmt.money(plan.price)}`
                     : 'Select a plan'}
                 </span>
                 <ChevronDown className="text-muted-foreground size-4 shrink-0" />
@@ -184,8 +185,7 @@ export function BulkConvertDialog({
                     onClick={() => setPlanId(p.id)}
                     className="text-popover-foreground focus:bg-muted focus:text-foreground"
                   >
-                    {p.name} · {p.duration_days}d ·{' '}
-                    {formatCurrency(p.price, defaultCurrency)}
+                    {p.name} · {p.duration_days}d · {fmt.money(p.price)}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>

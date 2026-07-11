@@ -3,6 +3,7 @@ import {
   Coins,
   Dumbbell,
   FileText,
+  Globe2,
   KeyRound,
   LayoutGrid,
   Palette,
@@ -33,6 +34,7 @@ export const SETTINGS_SECTIONS = [
   'plans',
   'reminders',
   'deals',
+  'localization',
   'members',
   'api',
 ] as const;
@@ -60,6 +62,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   plans: { id: 'plans', label: 'Membership plans', icon: Dumbbell, group: 'workspace' },
   reminders: { id: 'reminders', label: 'Renewal reminders', icon: BellRing, group: 'workspace' },
   deals: { id: 'deals', label: 'Payments & currency', icon: Coins, group: 'workspace' },
+  localization: { id: 'localization', label: 'Localization', icon: Globe2, group: 'workspace' },
   members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
   api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },
 };

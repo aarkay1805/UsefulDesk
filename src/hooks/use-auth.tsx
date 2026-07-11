@@ -14,6 +14,16 @@ import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import {
+  resolveAccountLocale,
+  DEFAULT_ACCOUNT_LOCALE,
+  type AccountLocale,
+} from "@/lib/locale/config";
+import {
+  buildFormatters,
+  DEFAULT_FORMATTERS,
+  type LocaleFormatters,
+} from "@/lib/locale/format";
+import {
   canEditSettings as canEditSettingsFor,
   canManageMembers as canManageMembersFor,
   canSendMessages as canSendMessagesFor,
@@ -40,9 +50,21 @@ interface Profile {
 interface AccountSummary {
   id: string;
   name: string;
-  /** Default deal currency (ISO-4217). NOT NULL DEFAULT 'USD' in the
-   *  DB (migration 021); narrowed to DEFAULT_CURRENCY when absent. */
+  /** Default deal currency (ISO-4217). NOT NULL DEFAULT 'INR' in the
+   *  DB (021, default flipped in 055); narrowed to DEFAULT_CURRENCY
+   *  when absent. */
   default_currency: string;
+  // Raw localization columns (migration 055) — consumed via the
+  // resolved `locale` / `fmt` context values, kept here so
+  // refreshProfile() round-trips them after a Settings save.
+  country_code: string | null;
+  locale: string | null;
+  timezone: string | null;
+  date_order: string | null;
+  time_format: string | null;
+  week_start: number | null;
+  phone_country_code: string | null;
+  measurement_system: string | null;
 }
 
 interface AuthContextValue {
@@ -88,6 +110,12 @@ interface AuthContextValue {
    *  while loading or when no account is resolved, so callers can use
    *  it unconditionally. */
   defaultCurrency: string;
+  /** Resolved localization config (migration 055). India-shaped until
+   *  the account row loads, so formatting is always total. */
+  locale: AccountLocale;
+  /** Locale-bound formatters (dates, numbers, money, today) for
+   *  `locale`. Prefer reading these via `useLocale()`. */
+  fmt: LocaleFormatters;
   /** True if `accountRole === 'owner'`. */
   isOwner: boolean;
   /** True if `accountRole === 'admin'` (does NOT include owner — use canManageMembers for "admin or above"). */
@@ -169,9 +197,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.account_id) {
           const { data: account, error: accountErr } = await supabase
             .from("accounts")
-            // default_currency added in migration 021; narrowed to the
-            // USD fallback below for older schemas where it reads null.
-            .select("id, name, default_currency")
+            // default_currency added in 021, localization columns in
+            // 055; every field is narrowed below / by
+            // resolveAccountLocale for older schemas where it reads null.
+            .select(
+              "id, name, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system",
+            )
             .eq("id", data.account_id)
             .maybeSingle();
           if (accountErr) {
@@ -186,6 +217,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               id: account.id,
               name: account.name,
               default_currency: account.default_currency ?? DEFAULT_CURRENCY,
+              country_code: account.country_code ?? null,
+              locale: account.locale ?? null,
+              timezone: account.timezone ?? null,
+              date_order: account.date_order ?? null,
+              time_format: account.time_format ?? null,
+              week_start: account.week_start ?? null,
+              phone_country_code: account.phone_country_code ?? null,
+              measurement_system: account.measurement_system ?? null,
             };
           }
         }
@@ -333,6 +372,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [profile?.account_role, profile?.account_id]);
 
+  // One resolved locale + formatter set for the whole tree. Recomputed
+  // only when the account row identity changes (fetch / refreshProfile
+  // after a Settings → Localization save).
+  const localized = useMemo(() => {
+    const cfg = account ? resolveAccountLocale(account) : DEFAULT_ACCOUNT_LOCALE;
+    return { locale: cfg, fmt: buildFormatters(cfg) };
+  }, [account]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -344,6 +391,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshProfile,
         account,
         defaultCurrency: account?.default_currency ?? DEFAULT_CURRENCY,
+        ...localized,
         ...derived,
       }}
     >
@@ -374,6 +422,8 @@ export function useAuth(): AuthContextValue {
       refreshProfile: async () => {},
       account: null,
       defaultCurrency: DEFAULT_CURRENCY,
+      locale: DEFAULT_ACCOUNT_LOCALE,
+      fmt: DEFAULT_FORMATTERS,
       accountId: null,
       accountRole: null,
       isOwner: false,

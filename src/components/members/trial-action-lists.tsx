@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { useLocale } from "@/hooks/use-locale";
 import { daysUntil } from "@/lib/memberships/expiry";
 import {
   partitionTrials,
@@ -63,6 +64,7 @@ export function TrialActionLists({
   onSelect,
   reloadKey,
 }: TrialActionListsProps) {
+  const { fmt } = useLocale();
   const [trials, setTrials] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
   // Bumped after a convert/reminder to re-pull the lists.
@@ -95,8 +97,8 @@ export function TrialActionLists({
   }, [reloadKey, nonce]);
 
   const buckets: PartitionedTrials = useMemo(
-    () => partitionTrials(trials),
-    [trials],
+    () => partitionTrials(trials, fmt.today()),
+    [trials, fmt],
   );
 
   if (loading) {
@@ -154,6 +156,8 @@ function TrialList({
   onConvert: (m: Membership) => void;
   onChanged: () => void;
 }) {
+  const { fmt } = useLocale();
+  const today = fmt.today();
   return (
     <section className="flex flex-col rounded-xl border border-border bg-card">
       <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
@@ -172,13 +176,13 @@ function TrialList({
       ) : (
         <ul className="divide-y divide-border">
           {rows.map((m) => {
-            const days = daysUntil(m.end_date);
+            const days = daysUntil(m.end_date, today);
             const when =
               days < 0
-                ? `ended ${m.end_date} (${-days}d ago)`
+                ? `ended ${fmt.date(m.end_date)} (${-days}d ago)`
                 : days === 0
                   ? `ends today`
-                  : `ends ${m.end_date} (in ${days}d)`;
+                  : `ends ${fmt.date(m.end_date)} (in ${days}d)`;
             return (
               <li
                 key={m.id}

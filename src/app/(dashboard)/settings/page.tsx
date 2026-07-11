@@ -16,6 +16,7 @@ import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel'
 import { PlansSettings } from '@/components/settings/plans-settings';
 import { RenewalRemindersSettings } from '@/components/settings/renewal-reminders-settings';
 import { DealsSettings } from '@/components/settings/deals-settings';
+import { LocalizationSettings } from '@/components/settings/localization-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import {
@@ -26,7 +27,7 @@ import {
 export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { defaultCurrency } = useAuth();
+  const { defaultCurrency, locale } = useAuth();
   const { mode } = useTheme();
 
   // The URL (`?tab=`) is the single source of truth for the active
@@ -48,8 +49,9 @@ export default function SettingsPage() {
     () => ({
       appearance: mode.charAt(0).toUpperCase() + mode.slice(1),
       deals: defaultCurrency,
+      localization: locale.countryCode,
     }),
-    [mode, defaultCurrency],
+    [mode, defaultCurrency, locale.countryCode],
   );
 
   const panel: Record<SettingsSection, ReactNode> = {
@@ -63,6 +65,7 @@ export default function SettingsPage() {
     plans: <PlansSettings />,
     reminders: <RenewalRemindersSettings />,
     deals: <DealsSettings />,
+    localization: <LocalizationSettings />,
     members: <MembersTab />,
     api: <ApiKeysSettings />,
   };

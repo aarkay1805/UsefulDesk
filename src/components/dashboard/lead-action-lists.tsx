@@ -12,8 +12,9 @@ import {
   Phone,
   UserRoundSearch,
 } from "lucide-react";
-import { istToday, daysBetween } from "@/lib/memberships/expiry";
+import { daysBetween } from "@/lib/memberships/expiry";
 import { useCan } from "@/hooks/use-can";
+import { useLocale } from "@/hooks/use-locale";
 import { useAccountStaff } from "@/components/members/use-account-staff";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Skeleton } from "./skeleton";
@@ -56,6 +57,7 @@ const TASK_ICON: Record<string, typeof Phone> = {
 
 export function LeadActionLists() {
   const canEdit = useCan("send-messages");
+  const { fmt } = useLocale();
   const { nameById, avatarById } = useAccountStaff();
 
   const [followUps, setFollowUps] = useState<DueFollowUp[] | null>(null);
@@ -70,7 +72,7 @@ export function LeadActionLists() {
     const supabase = createClient();
     let cancelled = false;
     (async () => {
-      const today = istToday();
+      const today = fmt.today();
       const staleCutoff = new Date(
         Date.now() - STALE_HOURS * 60 * 60 * 1000,
       ).toISOString();
@@ -125,7 +127,7 @@ export function LeadActionLists() {
     return () => {
       cancelled = true;
     };
-  }, [nonce]);
+  }, [nonce, fmt]);
 
   const markDone = useCallback(
     async (id: string) => {

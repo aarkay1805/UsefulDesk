@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { Filter } from 'lucide-react'
+import { useLocale } from '@/hooks/use-locale'
 import type { LeadFunnelData } from '@/lib/dashboard/types'
 import { EmptyState } from './empty-state'
 import { Skeleton } from './skeleton'
@@ -16,6 +17,7 @@ interface LeadFunnelProps {
 // long), how many converted this month, and which sources actually
 // produce members (not just form fills).
 export function LeadFunnel({ data, loading }: LeadFunnelProps) {
+  const { fmt } = useLocale()
   const maxCount = data ? Math.max(1, ...data.stages.map((s) => s.count)) : 1
 
   return (
@@ -93,7 +95,7 @@ export function LeadFunnel({ data, loading }: LeadFunnelProps) {
                   Converted this month
                 </p>
                 <p className="mt-0.5 text-lg font-semibold text-foreground tabular-nums">
-                  {data.convertedThisMonth.toLocaleString()}
+                  {fmt.number(data.convertedThisMonth)}
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5">

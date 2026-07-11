@@ -6,7 +6,8 @@ import { Loader2, MessageCircle, Check } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
+import { useLocale } from "@/hooks/use-locale";
+import type { LocaleFormatters } from "@/lib/locale/format";
 import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
 import { RENEWAL_TEMPLATE_NAME } from "@/lib/memberships/renewal-reminders";
@@ -101,13 +102,15 @@ export function useReminderReadiness(): ReminderReadiness {
 export async function sendRenewalReminder(
   membership: Membership,
   readiness: ReminderReadiness,
-  defaultCurrency: string
+  fmt: LocaleFormatters
 ): Promise<void> {
+  // {{3}} expiry + {{4}} fee rendered the way the gym writes them
+  // (locale settings, migration 055) — mirrors the cron's params.
   const params = [
     membership.contact?.name?.trim() || "there",
     membership.plan?.name || "membership",
-    membership.end_date,
-    formatCurrency(membership.fee_amount, defaultCurrency),
+    fmt.date(membership.end_date),
+    fmt.money(membership.fee_amount),
   ];
   const res = await fetch("/api/whatsapp/send", {
     method: "POST",
@@ -146,7 +149,7 @@ export function SendReminderButton({
   onSent,
   size = "sm",
 }: SendReminderButtonProps) {
-  const { defaultCurrency } = useAuth();
+  const { fmt } = useLocale();
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
@@ -170,7 +173,7 @@ export function SendReminderButton({
     }
     setSending(true);
     try {
-      await sendRenewalReminder(membership, readiness, defaultCurrency);
+      await sendRenewalReminder(membership, readiness, fmt);
       setSent(true);
       toast.success("Reminder sent on WhatsApp");
       onSent?.();
@@ -179,7 +182,7 @@ export function SendReminderButton({
     } finally {
       setSending(false);
     }
-  }, [readiness, hasPhone, blockedReason, membership, defaultCurrency, onSent]);
+  }, [readiness, hasPhone, blockedReason, membership, fmt, onSent]);
 
   return (
     <Button

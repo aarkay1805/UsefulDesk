@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocale } from '@/hooks/use-locale';
 import { toast } from 'sonner';
 import type { Contact, Tag, CustomField, MessageTemplate } from '@/types';
 import {
@@ -105,6 +106,7 @@ export function ContactDetailView({
   const supabase = createClient();
   const router = useRouter();
   const { accountRole, user } = useAuth();
+  const { fmt } = useLocale();
   const { staff, nameById, avatarById } = useAccountStaff();
   // Account option lists (status/source/gender) — drive the Details
   // section's dropdown editors, kept in sync with the leads table which
@@ -833,11 +835,7 @@ export function ContactDetailView({
                       ))}
                       <StaticField label="Created">
                         <span className="text-foreground">
-                          {new Date(contact.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
+                          {fmt.date(contact.created_at)}
                         </span>
                       </StaticField>
                     </dl>
@@ -1028,7 +1026,7 @@ function InlineField({
   type?: string;
   onSave: (val: string) => Promise<boolean>;
 }) {
-  const { defaultCurrency } = useAuth();
+  const { locale } = useLocale();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
@@ -1086,7 +1084,7 @@ function InlineField({
         <div className="relative min-w-0">
           {type === 'currency' ? (
             <CurrencyInput
-              symbol={currencySymbol(defaultCurrency)}
+              symbol={currencySymbol(locale.currency)}
               {...inputProps}
             />
           ) : (
@@ -1104,7 +1102,7 @@ function InlineField({
 
   const shown =
     value && value.trim()
-      ? formatCustomFieldValue(value, type, defaultCurrency)
+      ? formatCustomFieldValue(value, type, locale.currency, locale.locale)
       : '—';
   return (
     <button

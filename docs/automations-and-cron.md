@@ -9,7 +9,7 @@ must ping on a schedule. This page is the map.
 | `/api/follow-ups/cron` | Sends in-app bell notifications for follow-up tasks whose `remind_at` slot has arrived | Follow-up reminders (Leads) | every 15 min |
 | `/api/automations/cron` | Resumes automation runs parked on a **Wait** step | Automations with delays | every 15 min |
 | `/api/flows/cron` | Times out flow runs abandoned mid-conversation (frees the one-active-run-per-contact lock) | WhatsApp flows | every 15 min |
-| `/api/renewals/cron` | Sends the `gym_renewal_reminder` WhatsApp template to members expiring at each configured offset | Auto renewal reminders | daily 09:00 IST |
+| `/api/renewals/cron` | Sends the `gym_renewal_reminder` WhatsApp template to members expiring at each configured offset | Auto renewal reminders | hourly at :30 (sends after 09:00 in each account's timezone) |
 
 All four are idempotent and dedupe claim-first — an overlapping or
 doubled run never double-sends. Renewals has its own deep-dive:
@@ -40,7 +40,9 @@ Two workflows ping production (`desk.usefulmade.com`):
   may stretch this to ~25 min under load, which is fine — reminder
   slots are hourly).
 - [`.github/workflows/renewals-cron.yml`](../.github/workflows/renewals-cron.yml)
-  — renewals, daily 03:30 UTC = 09:00 IST.
+  — renewals, hourly at :30. Accounts live in different timezones
+  (migration 055); each run only processes accounts past 09:00 local,
+  and the sent-ledger keeps it to one send per day per member.
 
 Why not native Vercel Cron: the Hobby plan allows only 2 cron jobs at
 once-per-day granularity — useless for the 15-minute jobs. GitHub

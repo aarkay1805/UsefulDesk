@@ -18,9 +18,10 @@ import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocale } from '@/hooks/use-locale';
 import { useAccountStaff } from '@/components/members/use-account-staff';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
-import { remindAtIST } from '@/lib/leads/follow-up-dates';
+import { remindAtInTz } from '@/lib/leads/follow-up-dates';
 import {
   NoteComposerCard,
   DEFAULT_FOLLOW_UP_DRAFT,
@@ -55,6 +56,7 @@ export function BulkAddNoteDialog({
 }) {
   const supabase = createClient();
   const { user, accountId } = useAuth();
+  const { locale, fmt } = useLocale();
   const { staff } = useAccountStaff();
 
   const [text, setText] = useState('');
@@ -80,7 +82,7 @@ export function BulkAddNoteDialog({
     const trimmed = text.trim();
     if (!trimmed || count === 0) return;
 
-    const due = resolveDueDate(draft);
+    const due = resolveDueDate(draft, fmt.today());
     if (draft.enabled && !due) {
       toast.error('Pick a follow-up date');
       return;
@@ -123,7 +125,9 @@ export function BulkAddNoteDialog({
     let skipped = 0;
     let failed = 0;
     if (draft.enabled && due) {
-      const remind = draft.remindSlot ? remindAtIST(due, draft.remindSlot) : null;
+      const remind = draft.remindSlot
+        ? remindAtInTz(due, draft.remindSlot, locale.timeZone)
+        : null;
       const results = await Promise.all(
         contactIds.map((id) =>
           supabase.from('follow_ups').insert({

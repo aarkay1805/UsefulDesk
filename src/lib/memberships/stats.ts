@@ -1,12 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { dayStartInTz } from "@/lib/locale/format";
 import { istToday, istAddDays } from "./expiry";
 
 /**
  * Owner-view gym KPIs for the dashboard. Every figure is an *action
  * list* count/total ("who to chase today"), not a vanity metric — the
  * PRD's "action lists over dashboards" principle. Membership status is
- * evaluated against IST "today" (see ./expiry) so a UTC+5:30 owner sees
- * the same day boundaries their members do.
+ * evaluated against the ACCOUNT's calendar day (pass `today` + timezone
+ * from the account locale, migration 055) so owners anywhere see the
+ * same day boundaries their members do.
  */
 /** A member counts as inactive after this many days with no check-in. */
 export const INACTIVE_DAYS = 10;
@@ -28,13 +30,20 @@ export interface GymStats {
   inactive: number;
 }
 
-export async function loadGymStats(db: SupabaseClient): Promise<GymStats> {
-  const today = istToday();
+export async function loadGymStats(
+  db: SupabaseClient,
+  today: string = istToday(),
+  timeZone: string = "Asia/Kolkata",
+): Promise<GymStats> {
   const in7 = istAddDays(today, 7);
-  // Start of the current IST month as a tz-aware instant.
-  const monthStartInstant = `${today.slice(0, 7)}-01T00:00:00+05:30`;
+  // Start of the current month as a tz-aware instant.
+  const monthStartInstant = (
+    dayStartInTz(`${today.slice(0, 7)}-01`, timeZone) ?? new Date()
+  ).toISOString();
   // Cutoff for the inactive signal (start of the day INACTIVE_DAYS ago).
-  const recentStartInstant = `${istAddDays(today, -INACTIVE_DAYS)}T00:00:00+05:30`;
+  const recentStartInstant = (
+    dayStartInTz(istAddDays(today, -INACTIVE_DAYS), timeZone) ?? new Date()
+  ).toISOString();
 
   const head = { count: "exact" as const, head: true };
 

@@ -4,6 +4,11 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import {
+  COUNTRY_OPTIONS,
+  presetFor,
+  toAccountColumns,
+} from "@/lib/locale/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +41,7 @@ function SignupPageInner() {
   const inviteToken = searchParams.get("invite");
 
   const [fullName, setFullName] = useState("");
+  const [country, setCountry] = useState("IN");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -72,12 +78,18 @@ function SignupPageInner() {
       : "/dashboard";
     const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
+    // The country picker resolves to a full localization preset
+    // client-side; handle_new_user (migration 055) reads these keys
+    // (regex-guarded) into the new account's localization columns.
+    // Invitees who end up joining another account simply leave their
+    // auto-created personal account carrying these defaults.
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName,
+          ...toAccountColumns(presetFor(country)),
         },
         emailRedirectTo,
       },
@@ -172,6 +184,28 @@ function SignupPageInner() {
                 required
                 className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
               />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="country" className="text-muted-foreground">
+                Where is your business?
+              </Label>
+              <select
+                id="country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              >
+                {COUNTRY_OPTIONS.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Sets your currency, time zone, and date formats — you can
+                change any of it later in Settings.
+              </p>
             </div>
 
             <div className="flex flex-col gap-2">

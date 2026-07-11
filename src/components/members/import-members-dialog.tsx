@@ -6,8 +6,8 @@ import { Loader2, UsersRound } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
-import { istToday, istAddDays } from "@/lib/memberships/expiry";
+import { useLocale } from "@/hooks/use-locale";
+import { istAddDays } from "@/lib/memberships/expiry";
 import { isUniqueViolation } from "@/lib/contacts/dedupe";
 import type { Contact } from "@/types";
 import { useMembershipPlans } from "./use-membership-plans";
@@ -64,7 +64,8 @@ function ImportForm({
   onSaved: () => void;
 }) {
   const supabase = createClient();
-  const { accountId, user, defaultCurrency } = useAuth();
+  const { accountId, user } = useAuth();
+  const { fmt } = useLocale();
   const { plans } = useMembershipPlans(true);
 
   const [candidates, setCandidates] = useState<Contact[]>([]);
@@ -75,7 +76,7 @@ function ImportForm({
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const [planId, setPlanId] = useState("");
-  const [startDate, setStartDate] = useState(istToday());
+  const [startDate, setStartDate] = useState(fmt.today());
   const [feeAmount, setFeeAmount] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -226,8 +227,7 @@ function ImportForm({
               <option value="">Select…</option>
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} · {p.duration_days}d ·{" "}
-                  {formatCurrency(p.price, defaultCurrency)}
+                  {p.name} · {p.duration_days}d · {fmt.money(p.price)}
                 </option>
               ))}
             </select>

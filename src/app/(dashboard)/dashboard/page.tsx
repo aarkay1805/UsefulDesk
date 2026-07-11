@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useLocale } from '@/hooks/use-locale'
+import type { LocaleFormatters } from '@/lib/locale/format'
 import {
   MessageSquare,
   UserPlus,
@@ -40,6 +42,7 @@ import { ActivityFeed } from '@/components/dashboard/activity-feed'
 type RangeDays = 7 | 30 | 90
 
 export default function DashboardPage() {
+  const { fmt } = useLocale()
   const [metrics, setMetrics] = useState<MetricsBundle | null>(null)
   const [metricsLoading, setMetricsLoading] = useState(true)
 
@@ -149,21 +152,22 @@ export default function DashboardPage() {
           <>
             <MetricCard
               title="Active Conversations"
-              value={metrics.activeConversations.current.toLocaleString()}
+              value={fmt.number(metrics.activeConversations.current)}
               icon={MessageSquare}
               delta={{
                 sign: metrics.activeConversations.previous,
-                label: deltaLabel(metrics.activeConversations.previous, 'new today vs yesterday'),
+                label: deltaLabel(fmt, metrics.activeConversations.previous, 'new today vs yesterday'),
               }}
             />
             <MetricCard
               title="New Contacts Today"
-              value={metrics.newContactsToday.current.toLocaleString()}
+              value={fmt.number(metrics.newContactsToday.current)}
               icon={UserPlus}
               delta={{
                 sign:
                   metrics.newContactsToday.current - metrics.newContactsToday.previous,
                 label: deltaLabel(
+                  fmt,
                   metrics.newContactsToday.current - metrics.newContactsToday.previous,
                   'vs yesterday',
                 ),
@@ -171,18 +175,19 @@ export default function DashboardPage() {
             />
             <MetricCard
               title="Open Leads"
-              value={metrics.openLeads.toLocaleString()}
+              value={fmt.number(metrics.openLeads)}
               icon={Users}
               subtitle="not yet members"
             />
             <MetricCard
               title="Messages Sent Today"
-              value={metrics.messagesSentToday.current.toLocaleString()}
+              value={fmt.number(metrics.messagesSentToday.current)}
               icon={Send}
               delta={{
                 sign:
                   metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
                 label: deltaLabel(
+                  fmt,
                   metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
                   'vs yesterday',
                 ),
@@ -233,8 +238,8 @@ export default function DashboardPage() {
 
 // ------------------------------------------------------------
 
-function deltaLabel(delta: number, suffix: string): string {
+function deltaLabel(fmt: LocaleFormatters, delta: number, suffix: string): string {
   if (delta === 0) return `No change ${suffix}`
   const sign = delta > 0 ? '+' : ''
-  return `${sign}${delta.toLocaleString()} ${suffix}`
+  return `${sign}${fmt.number(delta)} ${suffix}`
 }

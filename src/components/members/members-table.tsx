@@ -23,11 +23,9 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { formatDay } from "@/lib/dates/format";
-import { formatCurrency } from "@/lib/currency";
+import { useLocale } from "@/hooks/use-locale";
 import { toCsv, downloadCsv } from "@/lib/csv/export";
-import { effectiveStatus, daysUntil, istToday } from "@/lib/memberships/expiry";
+import { effectiveStatus, daysUntil } from "@/lib/memberships/expiry";
 import {
   applyMemberFilters,
   EMPTY_MEMBER_FILTERS,
@@ -134,7 +132,7 @@ export function MembersTable({
   onRegisterExport,
 }: MembersTableProps) {
   const supabase = useMemo(() => createClient(), []);
-  const { defaultCurrency } = useAuth();
+  const { fmt } = useLocale();
   // Include archived plans so members on a retired plan still filter.
   const { plans } = useMembershipPlans(false);
 
@@ -182,13 +180,15 @@ export function MembersTable({
 
   const pageSize = prefs.pageSize || PAGE_SIZE;
   const sort = prefs.sort;
+  // Account-zone today for the render-time status/day derivations.
+  const todayDisplay = fmt.today();
 
   useEffect(() => {
     const seq = ++fetchSeq.current;
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const today = istToday();
+      const today = fmt.today();
       let q = supabase
         .from("memberships")
         .select("*, contact:contacts!inner(*), plan:membership_plans(*)", {
@@ -223,7 +223,7 @@ export function MembersTable({
     return () => {
       cancelled = true;
     };
-  }, [supabase, reloadKey, search, filters, sort, page, pageSize]);
+  }, [supabase, reloadKey, search, filters, sort, page, pageSize, fmt]);
 
   const totalPages = Math.ceil(totalCount / pageSize);
   const hasPrev = page > 0;
@@ -254,7 +254,7 @@ export function MembersTable({
   // Select every member matching the current search + filters — including
   // rows on other pages. Same query shape as the fetch, ids only.
   async function selectAllMatching() {
-    const today = istToday();
+    const today = fmt.today();
     let q = supabase
       .from("memberships")
       .select("id, contact_id, contact:contacts!inner(id)");
@@ -285,7 +285,7 @@ export function MembersTable({
   // the page), resolved through the same display helpers as the table so
   // the file matches the screen.
   async function handleExport() {
-    const today = istToday();
+    const today = fmt.today();
     let q = supabase
       .from("memberships")
       .select("*, contact:contacts!inner(*), plan:membership_plans(*)");
@@ -314,8 +314,8 @@ export function MembersTable({
         m.plan?.name ?? "",
         m.start_date,
         m.end_date,
-        effectiveStatus(m),
-        formatCurrency(m.fee_amount, defaultCurrency),
+        effectiveStatus(m, today),
+        fmt.money(m.fee_amount),
         m.fee_status,
       ])
     );
@@ -366,7 +366,7 @@ export function MembersTable({
         continue;
       }
       try {
-        await sendRenewalReminder(m, readiness, defaultCurrency);
+        await sendRenewalReminder(m, readiness, fmt);
         sent++;
       } catch {
         failed++;
@@ -520,8 +520,8 @@ export function MembersTable({
             </TableHeader>
             <TableBody>
               {rows.map((m) => {
-                const eff = effectiveStatus(m);
-                const days = daysUntil(m.end_date);
+                const eff = effectiveStatus(m, todayDisplay);
+                const days = daysUntil(m.end_date, todayDisplay);
                 return (
                   <TableRow
                     key={m.id}
@@ -547,7 +547,7 @@ export function MembersTable({
                       {m.plan?.name ?? "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDay(m.end_date)}
+                      {fmt.date(m.end_date)}
                     </TableCell>
                     <TableCell>
                       <MembershipStatusBadge status={eff} daysToExpiry={days} />
@@ -556,7 +556,7 @@ export function MembersTable({
                       <div className="flex items-center gap-1.5">
                         <FeeStatusBadge status={m.fee_status} />
                         <span className="text-xs text-muted-foreground">
-                          {formatCurrency(m.fee_amount, defaultCurrency)}
+                          {fmt.money(m.fee_amount)}
                         </span>
                       </div>
                     </TableCell>

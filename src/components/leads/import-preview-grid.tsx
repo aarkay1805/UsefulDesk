@@ -9,6 +9,7 @@
 // in-memory PreviewRow[] only; nothing is written until Confirm.
 
 import { useMemo, useState } from 'react';
+import { useLocale } from '@/hooks/use-locale';
 import {
   AlertTriangle,
   Check,
@@ -197,6 +198,8 @@ export function ImportPreviewGrid({
   skippedNoPhone,
   skippedDupes,
 }: ImportPreviewGridProps) {
+  const { locale } = useLocale();
+  const localeTag = locale.locale;
   const [editingCell, setEditingCell] = useState<{
     row: number;
     key: string;
@@ -471,7 +474,7 @@ export function ImportPreviewGrid({
           return (
             <span className="text-muted-foreground text-sm">
               {cv
-                ? formatCustomFieldValue(cv.value, type, defaultCurrency)
+                ? formatCustomFieldValue(cv.value, type, defaultCurrency, localeTag)
                 : '-'}
             </span>
           );
@@ -513,6 +516,7 @@ export function ImportPreviewGrid({
     nameById,
     avatarById,
     defaultCurrency,
+    localeTag,
     dateOrder,
   ]);
 

@@ -37,6 +37,15 @@ export const MAX_DAYS_BEFORE = 365;
 export const DEFAULT_DAYS_BEFORE = [7, 3, 1];
 
 /**
+ * Earliest local hour (0–23) at which the cron may message an
+ * account's members. The job runs hourly; an account is processed by
+ * the first run at/after this hour in ITS time zone, and the
+ * renewal_reminders_sent ledger keeps later runs from re-sending —
+ * "shortly after 9am local, once a day" for every gym on earth.
+ */
+export const REMINDER_SEND_HOUR_LOCAL = 9;
+
+/**
  * Sanitise a raw `days_before` array (from settings input or a DB row)
  * into a clean, ordered, de-duplicated list of whole-day offsets in
  * [0, MAX_DAYS_BEFORE], capped at MAX_REMINDER_OFFSETS. 0 = "expires

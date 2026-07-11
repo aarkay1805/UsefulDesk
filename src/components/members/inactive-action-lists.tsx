@@ -11,7 +11,7 @@ import {
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { istToday } from "@/lib/memberships/expiry";
+import { useLocale } from "@/hooks/use-locale";
 import { INACTIVE_DAYS } from "@/lib/memberships/stats";
 import {
   partitionInactivity,
@@ -60,6 +60,7 @@ export function InactiveActionLists({
   reloadKey,
 }: InactiveActionListsProps) {
   const { canSendMessages } = useAuth();
+  const { fmt } = useLocale();
 
   const [rows, setRows] = useState<MemberActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,7 +79,7 @@ export function InactiveActionLists({
         .select("*")
         .eq("status", "active")
         .eq("is_trial", false)
-        .gte("end_date", istToday());
+        .gte("end_date", fmt.today());
       if (cancelled) return;
       setRows((data as MemberActivity[]) ?? []);
       setLoading(false);
@@ -86,7 +87,7 @@ export function InactiveActionLists({
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [reloadKey, fmt]);
 
   if (loading) {
     return (
@@ -96,7 +97,8 @@ export function InactiveActionLists({
     );
   }
 
-  const { inactive, neverVisited } = partitionInactivity(rows);
+  const today = fmt.today();
+  const { inactive, neverVisited } = partitionInactivity(rows, today);
 
   return (
     <>
@@ -106,7 +108,7 @@ export function InactiveActionLists({
           icon={<MoonStar className="size-4 text-amber-700 dark:text-amber-400" />}
           rows={inactive}
           detail={(r) => {
-            const days = daysSinceVisit(r);
+            const days = daysSinceVisit(r, today);
             return `${r.plan_name ?? "—"} · last visit ${days}d ago`;
           }}
           onSelect={onSelect}

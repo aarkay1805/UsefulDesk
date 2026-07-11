@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { Wallet, CalendarDays, IndianRupee, AlertTriangle } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
-import { istToday, istAddDays } from "@/lib/memberships/expiry";
+import { useLocale } from "@/hooks/use-locale";
+import { dayStartInTz, todayInTz } from "@/lib/locale/format";
+import { istAddDays } from "@/lib/memberships/expiry";
 
 interface PaymentSummaryTilesProps {
   /** Bump to refetch after a payment is recorded elsewhere. */
@@ -29,7 +29,7 @@ const ZERO: Totals = { today: 0, week: 0, month: 0, outstanding: 0 };
  * balances from the `membership_dues` view.
  */
 export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
-  const { defaultCurrency } = useAuth();
+  const { locale, fmt } = useLocale();
   const [totals, setTotals] = useState<Totals>(ZERO);
   const [loading, setLoading] = useState(true);
 
@@ -37,12 +37,15 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
     const supabase = createClient();
     let cancelled = false;
     (async () => {
-      const today = istToday();
+      const today = fmt.today();
       const monthStart = `${today.slice(0, 7)}-01`;
       const weekStart = istAddDays(today, -6);
-      // Fetch from the earlier of the two window starts, as an IST instant.
+      // Fetch from the earlier of the two window starts, as an instant at
+      // that day's local midnight in the account's zone.
       const from = weekStart < monthStart ? weekStart : monthStart;
-      const fromInstant = `${from}T00:00:00+05:30`;
+      const fromInstant = (
+        dayStartInTz(from, locale.timeZone) ?? new Date()
+      ).toISOString();
 
       const [{ data: pays }, { data: dues }] = await Promise.all([
         supabase
@@ -56,7 +59,7 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
 
       const t = { ...ZERO };
       for (const p of pays ?? []) {
-        const day = istToday(new Date(p.paid_at as string));
+        const day = todayInTz(locale.timeZone, new Date(p.paid_at as string));
         const amt = Number(p.amount) || 0;
         if (day === today) t.today += amt;
         if (day >= weekStart) t.week += amt;
@@ -70,7 +73,7 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [reloadKey, fmt, locale.timeZone]);
 
   const tiles = [
     { label: "Collected today", value: totals.today, icon: <IndianRupee className="size-4 text-emerald-700 dark:text-emerald-400" /> },
@@ -95,7 +98,7 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
           <div
             className={`mt-2 text-xl font-semibold ${t.accent && t.value > 0 ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}
           >
-            {loading ? "—" : formatCurrency(t.value, defaultCurrency)}
+            {loading ? "—" : fmt.money(t.value)}
           </div>
         </div>
       ))}

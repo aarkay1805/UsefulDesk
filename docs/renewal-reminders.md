@@ -1,28 +1,32 @@
 # Auto renewal reminders — operator runbook
 
-Automated WhatsApp renewal reminders (Phase 2). A daily job finds
+Automated WhatsApp renewal reminders (Phase 2). An hourly job finds
 memberships approaching expiry and sends the `gym_renewal_reminder`
 template — the manual **Remind** button, on a schedule.
 
 ## How it works
 
 ```
-GitHub Action (daily 09:00 IST)
+GitHub Action (hourly at :30)
   └─ GET https://desk.usefulmade.com/api/renewals/cron   (header: x-cron-secret)
        └─ for each account with renewal_reminder_settings.enabled = true
             ├─ readiness gate: WhatsApp connected AND gym_renewal_reminder APPROVED
+            ├─ send window: skip until ≥ 09:00 in the ACCOUNT's timezone (055)
             ├─ for each offset in days_before (e.g. 7, 3, 1):
-            │    target end_date = IST today + offset
+            │    target end_date = account-local today + offset
             │    find active memberships expiring exactly then
             ├─ claim-first dedupe via UNIQUE(membership_id, end_date, days_before)
-            └─ send template via engineSendTemplate (same params as manual button)
+            └─ send template (expiry date + fee formatted per the account locale)
 ```
 
 - **Dedupe:** one row per (membership, expiry, offset) in
   `renewal_reminders_sent`. A member gets at most one message per offset
   per expiry. Renewing moves `end_date` → fresh cycle automatically.
-- **Idempotent:** re-running the cron the same day sends nothing new.
-- **IST-first:** all date math is Asia/Kolkata (`src/lib/memberships/expiry.ts`).
+- **Idempotent:** hourly runs after the send window re-send nothing —
+  the first run at/after 9am local does the work, the ledger blocks the rest.
+- **Timezone-aware:** "today", the 9am window, and the message's date/fee
+  strings all follow each account's localization (migration 055;
+  `src/lib/locale/*`). `REMINDER_SEND_HOUR_LOCAL` = 9.
 - **Cap:** 200 sends per invocation; overflow waits for the next run.
 
 Key code: [`route`](../src/app/api/renewals/cron/route.ts) ·
@@ -82,7 +86,8 @@ Returns `{ sent, failed, skipped_already_sent, accounts_considered, notes }`.
 | `503 cron not configured` | env var not loaded → set in Vercel, **redeploy**. |
 | 200 but `sent: 0`, `accounts_considered: 0` | no account has `enabled = true`. |
 | 200 but account skipped | WhatsApp not connected, or template not APPROVED for that account. |
-| `sent: 0` with members expiring | check offsets vs today's IST date; only exact `today + offset` matches. |
+| `sent: 0` with members expiring | check offsets vs the account-local date; only exact `today + offset` matches. |
+| `accounts_before_send_hour` high | expected — those accounts' local time hasn't reached 09:00 yet; a later hourly run picks them up. |
 
 ## Ops
 
@@ -90,5 +95,7 @@ Returns `{ sent, failed, skipped_already_sent, accounts_considered, notes }`.
   and GitHub repo secret `AUTOMATION_CRON_SECRET`. Shared with all cron routes —
   see [automations-and-cron.md](automations-and-cron.md).
 - **Schedule:** [`.github/workflows/renewals-cron.yml`](../.github/workflows/renewals-cron.yml),
-  daily 03:30 UTC. Manual run via Actions tab → Run workflow.
+  hourly at :30 (covers every account timezone; the route's 09:00-local
+  window + ledger keep it one send per day). Manual run via Actions tab →
+  Run workflow.
 - **Domain:** `desk.usefulmade.com` (alias `useful-desk.vercel.app`).

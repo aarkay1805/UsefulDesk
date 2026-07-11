@@ -1,32 +1,30 @@
 /**
- * Membership date math — IST-first, pure, and unit-tested.
+ * Membership date math — timezone-correct, pure, and unit-tested.
  *
- * Gym renewals hinge on "is this membership expired *today*". For an
- * Indian gym that "today" is the Asia/Kolkata (UTC+5:30) calendar day,
- * not the server's UTC day — otherwise a membership ending 2026-07-04
- * would read as expired from 18:30 UTC the day before, or still-valid
- * for the first 5.5h of the next IST day. Every comparison below keys
- * off `istToday()` so members never expire a day early or late.
+ * Gym renewals hinge on "is this membership expired *today*". That
+ * "today" is the calendar day in the ACCOUNT's time zone (migration
+ * 055), not the server's UTC day — otherwise a membership ending
+ * 2026-07-04 would read as expired hours early or late depending on
+ * where the gym is. Callers pass `today` from the account zone —
+ * `useLocale().fmt.today()` client-side, `todayInTz(cfg.timeZone)` in
+ * server code. The `today` DEFAULTS below remain IST (`istToday()`)
+ * purely as a home-market fallback for legacy call paths; new code
+ * should always pass the account's today explicitly.
  *
  * All dates are 'YYYY-MM-DD' strings (matching the DATE columns on
  * `memberships`); arithmetic is done on UTC-midnight anchors so it's
  * DST- and locale-independent.
  */
 
+import { todayInTz } from "@/lib/locale/format";
 import type { Membership, MembershipStatus } from "@/types";
 
 const MS_PER_DAY = 86_400_000;
 
-/** Today's date in Asia/Kolkata as 'YYYY-MM-DD'. */
+/** Today's date in Asia/Kolkata as 'YYYY-MM-DD' — the India-default
+ *  fallback. Account-aware code uses `todayInTz` / `fmt.today()`. */
 export function istToday(now: Date = new Date()): string {
-  // en-CA formats as YYYY-MM-DD; the timeZone shifts the calendar day
-  // into IST before formatting.
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
+  return todayInTz("Asia/Kolkata", now);
 }
 
 /** Parse 'YYYY-MM-DD' to a UTC-midnight epoch (ms). NaN on malformed input. */

@@ -4,8 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Wallet, CheckCircle2, Loader2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
+import { useLocale } from "@/hooks/use-locale";
 import { bucketForDue, daysOverdue, DUE_BUCKETS, type DueBucket } from "@/lib/memberships/dues";
 import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -32,7 +31,7 @@ export function PaymentDueBuckets({
   reloadKey,
   onChanged,
 }: PaymentDueBucketsProps) {
-  const { defaultCurrency } = useAuth();
+  const { fmt } = useLocale();
   const upi = useUpiConfig();
   const [rows, setRows] = useState<DueMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +89,8 @@ export function PaymentDueBuckets({
     overdue_8_30: [],
     overdue_30_plus: [],
   };
-  for (const m of rows) grouped[bucketForDue(m.start_date)].push(m);
+  const today = fmt.today();
+  for (const m of rows) grouped[bucketForDue(m.start_date, today)].push(m);
 
   return (
     <>
@@ -100,7 +100,6 @@ export function PaymentDueBuckets({
             key={key}
             title={label}
             rows={grouped[key]}
-            currency={defaultCurrency}
             readiness={readiness}
             upi={upi}
             onSelect={onSelect}
@@ -125,7 +124,6 @@ export function PaymentDueBuckets({
 function BucketCard({
   title,
   rows,
-  currency,
   readiness,
   upi,
   onSelect,
@@ -134,13 +132,14 @@ function BucketCard({
 }: {
   title: string;
   rows: DueMember[];
-  currency: string;
   readiness: ReminderReadiness;
   upi: UpiConfig | null;
   onSelect: (id: string) => void;
   onRecord: (m: Membership) => void;
   onSent: () => void;
 }) {
+  const { fmt } = useLocale();
+  const today = fmt.today();
   const total = rows.reduce((s, m) => s + m.balance, 0);
   return (
     <section className="flex flex-col rounded-xl border border-border bg-card">
@@ -160,11 +159,11 @@ function BucketCard({
       ) : (
         <>
           <div className="border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
-            {formatCurrency(total, currency)} outstanding
+            {fmt.money(total)} outstanding
           </div>
           <ul className="divide-y divide-border">
             {rows.map((m) => {
-              const overdue = daysOverdue(m.start_date);
+              const overdue = daysOverdue(m.start_date, today);
               return (
                 <li
                   key={m.id}
@@ -182,7 +181,7 @@ function BucketCard({
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-semibold text-amber-700 dark:text-amber-400">
-                      {formatCurrency(m.balance, currency)}
+                      {fmt.money(m.balance)}
                     </span>
                   </div>
                   <div

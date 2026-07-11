@@ -12,7 +12,8 @@ import {
   isUniqueViolation,
   type ExistingContact,
 } from "@/lib/contacts/dedupe";
-import { istToday, istAddDays, daysBetween } from "@/lib/memberships/expiry";
+import { useLocale } from "@/hooks/use-locale";
+import { istAddDays, daysBetween } from "@/lib/memberships/expiry";
 import type { Membership, PaymentMethod } from "@/types";
 import { useMembershipPlans } from "./use-membership-plans";
 import {
@@ -61,6 +62,7 @@ export function MemberForm({
 }: MemberFormProps) {
   const supabase = createClient();
   const { accountId, user } = useAuth();
+  const { locale, fmt } = useLocale();
   const { plans } = useMembershipPlans(true);
   const isEdit = !!member;
 
@@ -68,7 +70,7 @@ export function MemberForm({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [planId, setPlanId] = useState("");
-  const [startDate, setStartDate] = useState(istToday());
+  const [startDate, setStartDate] = useState(fmt.today());
   const [feeAmount, setFeeAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -98,7 +100,7 @@ export function MemberForm({
     setPhone(member?.contact?.phone ?? seedContact?.phone ?? "");
     setEmail(member?.contact?.email ?? seedContact?.email ?? "");
     setPlanId(member?.plan_id ?? "");
-    setStartDate(member?.start_date ?? istToday());
+    setStartDate(member?.start_date ?? fmt.today());
     setFeeAmount(member ? String(member.fee_amount) : "");
     setNotes(member?.notes ?? "");
     setCollectPayment(false);
@@ -328,7 +330,11 @@ export function MemberForm({
                   if (dupMatch) setDupMatch(null);
                 }}
                 onBlur={checkDuplicate}
-                placeholder="+91 98765 43210"
+                placeholder={
+                  locale.phoneCountryCode
+                    ? `${locale.phoneCountryCode} 98765 43210`
+                    : "+91 98765 43210"
+                }
                 className="bg-muted"
               />
               {dupMatch ? (
@@ -353,7 +359,10 @@ export function MemberForm({
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Include country code, e.g. +91 for India
+                  Include country code
+                  {locale.phoneCountryCode
+                    ? `, e.g. ${locale.phoneCountryCode}`
+                    : ", e.g. +91"}
                 </p>
               )}
             </div>
