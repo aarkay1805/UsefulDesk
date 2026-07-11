@@ -51,6 +51,9 @@ interface ViewSettingsSheetProps {
   onSortWithinChange: (mode: BoardSortWithin) => void;
   collapseEmpty: boolean;
   onCollapseEmptyChange: (value: boolean) => void;
+  /** Cap on how many leads the board renders — surfaced as a footnote
+      here instead of an always-on banner over the board. */
+  boardLimit: number;
 }
 
 // The gear settings side sheet — display prefs for whichever view is
@@ -72,6 +75,7 @@ export function ViewSettingsSheet({
   onSortWithinChange,
   collapseEmpty,
   onCollapseEmptyChange,
+  boardLimit,
 }: ViewSettingsSheetProps) {
   const isBoard = view === 'board';
   return (
@@ -138,6 +142,11 @@ export function ViewSettingsSheet({
                   onCheckedChange={onCollapseEmptyChange}
                 />
               </SettingRow>
+
+              <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                The board shows the {boardLimit} most recent leads. Switch to
+                the table view to page through all of them.
+              </p>
             </Section>
           ) : (
             <Section title="Display">

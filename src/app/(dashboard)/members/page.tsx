@@ -1,12 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, UserRoundSearch } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ChevronDown,
+  Download,
+  FileSpreadsheet,
+  Plus,
+  Upload,
+  UserRoundSearch,
+} from "lucide-react";
+import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/use-auth";
+import { createClient } from "@/lib/supabase/client";
+import { membershipIdForContact } from "@/lib/memberships/lookup";
 import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { GatedButton } from "@/components/ui/gated-button";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  PageHeaderActions,
+  PageHeaderTabs,
+} from "@/components/layout/page-header-actions";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RenewalActionLists } from "@/components/members/renewal-action-lists";
 import { FollowUpLists } from "@/components/members/follow-up-lists";
 import { InactiveActionLists } from "@/components/members/inactive-action-lists";
@@ -14,6 +35,7 @@ import { TrialActionLists } from "@/components/members/trial-action-lists";
 import { MembersTable } from "@/components/members/members-table";
 import { MemberForm } from "@/components/members/member-form";
 import { ImportMembersDialog } from "@/components/members/import-members-dialog";
+import { ImportMembersCsvDialog } from "@/components/members/import-members-csv-dialog";
 import { MemberDetailView } from "@/components/members/member-detail-view";
 import { CheckInView } from "@/components/members/check-in-view";
 import { PaymentSummaryTiles } from "@/components/members/payment-summary-tiles";
@@ -50,11 +72,45 @@ export default function MembersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Membership | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [importCsvOpen, setImportCsvOpen] = useState(false);
 
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
   const reload = () => setReloadKey((k) => k + 1);
+
+  // The All-members table owns the filter-aware CSV export; it registers
+  // its caller here so the header Export button (shown only on that view)
+  // can trigger it without duplicating the query logic.
+  const exportFnRef = useRef<(() => void) | null>(null);
+  const registerExport = useCallback((fn: (() => void) | null) => {
+    exportFnRef.current = fn;
+  }, []);
+
+  // Realtime: any membership / payment / attendance change (another
+  // device's check-in, a teammate recording a payment) bumps reloadKey,
+  // which every list child already refetches on. The bump is trailing-
+  // debounced so a bulk write's event burst coalesces into one refetch
+  // (migration 054 publishes these tables; RLS scopes events to the
+  // account). Subscribes once — the handler only touches stable setState.
+  useEffect(() => {
+    const supabase = createClient();
+    let timer: number | null = null;
+    const bump = () => {
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => setReloadKey((k) => k + 1), 400);
+    };
+    const channel = supabase
+      .channel("member-lists")
+      .on("postgres_changes", { event: "*", schema: "public", table: "memberships" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "attendance" }, bump)
+      .subscribe();
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   function openAdd() {
     setEditing(null);
@@ -74,45 +130,96 @@ export default function MembersPage() {
 
   return (
     <div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Members</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Track memberships, renewals, and payments — and nudge members on WhatsApp.
-          </p>
-        </div>
-        {canSendMessages && (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <UserRoundSearch className="size-4" /> Import from leads
-            </Button>
-            <Button onClick={openAdd} className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Plus className="size-4" /> Add member
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* View toggle */}
-      <div className="mt-5 inline-flex rounded-lg border border-border bg-muted/40 p-0.5">
-        {(["renewals", "followups", "inactive", "trials", "payments", "all", "checkin"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setView(v)}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              view === v
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
+      {/* App-bar actions — portalled into the shared header next to the
+          "Members" title, so the page doesn't own a second title row
+          (mirrors /leads). */}
+      <PageHeaderActions>
+        {/* Import — one button opening a small menu (from leads / from CSV),
+            mirroring the leads header's ghost secondary action. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            disabled={!canSendMessages}
+            title={
+              canSendMessages
+                ? undefined
+                : "Read-only — your role can't import or add members"
+            }
+            render={
+              <Button
+                variant="ghost"
+                className="text-muted-foreground hover:bg-muted"
+              />
+            }
           >
-            {VIEW_LABEL[v]}
-          </button>
-        ))}
-      </div>
+            <Download className="size-4" /> Import
+            <ChevronDown className="text-muted-foreground size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="bg-popover border-border min-w-48"
+          >
+            <DropdownMenuItem
+              onClick={() => setImportOpen(true)}
+              className="focus:bg-muted focus:text-foreground text-popover-foreground"
+            >
+              <UserRoundSearch className="size-4" /> Import from leads
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setImportCsvOpen(true)}
+              className="focus:bg-muted focus:text-foreground text-popover-foreground"
+            >
+              <FileSpreadsheet className="size-4" /> Import from CSV
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {/* Export — surfaces the All-members table's filter-aware CSV
+            export; only meaningful (and only wired) on that view. */}
+        {view === "all" && (
+          <Button
+            variant="ghost"
+            onClick={() => exportFnRef.current?.()}
+            className="text-muted-foreground hover:bg-muted"
+          >
+            <Upload className="size-4" /> Export
+          </Button>
+        )}
+        <GatedButton
+          canAct={canSendMessages}
+          gateReason="import or add members"
+          onClick={openAdd}
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          <Plus className="size-4" /> Add member
+        </GatedButton>
+      </PageHeaderActions>
 
-      <div className="mt-4">
+      {/* View tabs — portalled into the shared header's tab row so the
+          nav reads as part of the header, with the header divider falling
+          after it (see PageHeaderTabs / header.tsx). */}
+      <PageHeaderTabs>
+        <Tabs
+          value={view}
+          onValueChange={(v) => setView(v as View)}
+          className="pt-2 pb-0"
+        >
+          <TabsList variant="line" className="h-auto gap-5 p-0">
+            {(["renewals", "followups", "inactive", "trials", "payments", "all", "checkin"] as const).map((v) => (
+              <TabsTrigger
+                key={v}
+                value={v}
+                // Underline pinned to the row's bottom edge (overrides the
+                // master's -5px float) so it rests on the header divider —
+                // and never overflows into the scroll container.
+                className="flex-none px-0.5 pb-2 text-[0.9375rem] group-data-horizontal/tabs:after:bottom-0"
+              >
+                {VIEW_LABEL[v]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </PageHeaderTabs>
+
+      <div>
         {view === "renewals" ? (
           <RenewalActionLists
             readiness={readiness}
@@ -150,7 +257,10 @@ export default function MembersPage() {
           <MembersTable
             readiness={readiness}
             onSelect={openDetail}
+            onChanged={reload}
+            canEdit={canSendMessages}
             reloadKey={reloadKey}
+            onRegisterExport={registerExport}
           />
         ) : (
           <CheckInView reloadKey={reloadKey} onCheckedIn={reload} />
@@ -163,18 +273,33 @@ export default function MembersPage() {
         member={editing}
         onSaved={reload}
         onViewExisting={(contactId) => {
-          // The dedupe path hands back a contact id; the member's row is
-          // keyed by membership id, so just refresh the list — the member
-          // now shows there. (Opening their exact detail would need a
-          // contact→membership lookup we skip for MVP.)
-          void contactId;
-          reload();
+          // The dedupe path hands back a contact id; member detail is
+          // keyed by membership id, so resolve it and open their sheet.
+          void (async () => {
+            const membershipId = await membershipIdForContact(
+              createClient(),
+              contactId
+            );
+            if (membershipId) {
+              openDetail(membershipId);
+            } else {
+              // Contact exists but isn't a member — nothing to open.
+              toast.info("Already a contact, but not a member yet.");
+            }
+            reload();
+          })();
         }}
       />
 
       <ImportMembersDialog
         open={importOpen}
         onOpenChange={setImportOpen}
+        onSaved={reload}
+      />
+
+      <ImportMembersCsvDialog
+        open={importCsvOpen}
+        onOpenChange={setImportCsvOpen}
         onSaved={reload}
       />
 

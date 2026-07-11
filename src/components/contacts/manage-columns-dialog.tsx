@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Search, X, Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { GripVertical, X, Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CUSTOM_FIELD_TYPES } from '@/lib/contacts/field-mapping';
@@ -307,15 +308,11 @@ export function ManageColumnsDialog({
           {/* Left — catalogue + custom fields */}
           <div className="flex min-h-0 flex-col border-b border-border md:border-b-0 md:border-r">
             <div className="p-4 pb-2">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search columns…"
-                  className="bg-card pl-8"
-                />
-              </div>
+              <SearchInput
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search columns…"
+              />
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">

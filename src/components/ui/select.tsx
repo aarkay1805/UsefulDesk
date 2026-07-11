@@ -12,7 +12,7 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
     <SelectPrimitive.Group
       data-slot="select-group"
-      className={cn("scroll-my-1 p-1", className)}
+      className={cn("scroll-my-1", className)}
       {...props}
     />
   )
@@ -87,7 +87,12 @@ function SelectContent({
           {...props}
         >
           <SelectScrollUpButton />
-          <SelectPrimitive.List>{children}</SelectPrimitive.List>
+          {/* p-1 lives on the list (like DropdownMenuContent's popup) so
+              items get consistent inset whether or not they're wrapped in a
+              SelectGroup — a bare-item select must not render flush to the
+              popup edge. Kept off the popup itself so the scroll arrows span
+              full width. */}
+          <SelectPrimitive.List className="p-1">{children}</SelectPrimitive.List>
           <SelectScrollDownButton />
         </SelectPrimitive.Popup>
       </SelectPrimitive.Positioner>

@@ -41,6 +41,7 @@ export function BulkAddNoteDialog({
   onOpenChange,
   contactIds,
   onDone,
+  noun = 'lead',
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -48,6 +49,9 @@ export function BulkAddNoteDialog({
   contactIds: string[];
   /** Called after a successful write so the page can refresh. */
   onDone?: () => void;
+  /** What a contact is called in the toast/title — 'lead' here, 'member'
+   *  when the members bulk toolbar reuses this dialog. */
+  noun?: string;
 }) {
   const supabase = createClient();
   const { user, accountId } = useAuth();
@@ -144,7 +148,7 @@ export function BulkAddNoteDialog({
     }
 
     const n = inserted.length;
-    const noteMsg = `Note added to ${n} lead${n === 1 ? '' : 's'}`;
+    const noteMsg = `Note added to ${n} ${noun}${n === 1 ? '' : 's'}`;
     if (!draft.enabled) {
       toast.success(noteMsg);
     } else {
@@ -165,7 +169,7 @@ export function BulkAddNoteDialog({
       <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
-            Add note to {count} {count === 1 ? 'lead' : 'leads'}
+            Add note to {count} {noun}{count === 1 ? '' : 's'}
           </DialogTitle>
         </DialogHeader>
 

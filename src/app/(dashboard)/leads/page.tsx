@@ -62,10 +62,10 @@ import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
 import { EditFieldOptionsDialog } from '@/components/leads/edit-field-options-dialog';
 import { formatCustomFieldValue } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
+import { formatDay as formatDate } from '@/lib/dates/format';
 import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   TableBody,
   TableCell,
@@ -111,7 +111,6 @@ import {
   Settings,
   LayoutGrid,
   List,
-  Search,
   Columns3,
   ArrowUp,
   ArrowDown,
@@ -187,6 +186,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { useTablePrefs } from '@/hooks/use-table-prefs';
 import { GatedButton } from '@/components/ui/gated-button';
+import { SearchInput } from '@/components/ui/search-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Collapse } from '@/components/ui/collapse';
@@ -321,14 +321,6 @@ interface ColumnFilterProp {
   options: { value: string; label: string }[];
   selected: string[];
   onToggle: (value: string) => void;
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
 }
 
 function renderTags(c: ContactWithData) {
@@ -3263,15 +3255,12 @@ export default function LeadsPage() {
           filters / sort cluster trails on the right (HubSpot-style),
           with the leftover space opening up between the two groups. */}
       <div className="flex shrink-0 items-center justify-between gap-2">
-        <div className="relative max-w-[560px] min-w-0 flex-1">
-          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-          <Input
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search leads…"
-            className="border-border bg-card text-foreground placeholder:text-muted-foreground rounded-full pl-9"
-          />
-        </div>
+        <SearchInput
+          containerClassName="max-w-[560px] min-w-0 flex-1"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search leads…"
+        />
 
         <div className="flex shrink-0 items-center gap-2">
           {/* View type + table settings — one split button group
@@ -3527,33 +3516,25 @@ export default function LeadsPage() {
               )}
             </div>
           ) : (
-            <>
-              {boardLeads.length >= BOARD_LIMIT && (
-                <p className="text-muted-foreground mb-2 text-xs">
-                  Showing the {BOARD_LIMIT} most recent leads — use the table
-                  view to reach the rest.
-                </p>
-              )}
-              <LeadsBoardView
-                leads={boardLeads}
-                columns={fieldOptions.statuses}
-                onStatusPersisted={handleStatusPersisted}
-                onOpenLead={openDetail}
-                onEditLead={openEditForm}
-                onDeleteLead={confirmDelete}
-                canEdit={canEdit}
-                nameById={nameById}
-                avatarById={avatarById}
-                transfers={transfers}
-                assignmentRequests={assignmentRequests}
-                currentUserId={user?.id}
-                sourceLabel={fieldOptions.sourceLabel}
-                density={boardDensity}
-                sortWithin={boardSortWithin}
-                collapseEmpty={boardCollapseEmpty}
-                supabase={supabase}
-              />
-            </>
+            <LeadsBoardView
+              leads={boardLeads}
+              columns={fieldOptions.statuses}
+              onStatusPersisted={handleStatusPersisted}
+              onOpenLead={openDetail}
+              onEditLead={openEditForm}
+              onDeleteLead={confirmDelete}
+              canEdit={canEdit}
+              nameById={nameById}
+              avatarById={avatarById}
+              transfers={transfers}
+              assignmentRequests={assignmentRequests}
+              currentUserId={user?.id}
+              sourceLabel={fieldOptions.sourceLabel}
+              density={boardDensity}
+              sortWithin={boardSortWithin}
+              collapseEmpty={boardCollapseEmpty}
+              supabase={supabase}
+            />
           )}
         </div>
       ) : (
@@ -3985,6 +3966,7 @@ export default function LeadsPage() {
         onSortWithinChange={setBoardSortWithin}
         collapseEmpty={boardCollapseEmpty}
         onCollapseEmptyChange={setBoardCollapseEmpty}
+        boardLimit={BOARD_LIMIT}
       />
 
       {/* Edit columns — split-view picker (catalogue + custom fields on the

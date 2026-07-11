@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Search, Loader2, Check, UserCheck, Dumbbell } from "lucide-react";
+import { Loader2, Check, UserCheck, Dumbbell } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { istToday, effectiveStatus, daysUntil } from "@/lib/memberships/expiry";
 import type { Membership } from "@/types";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
 import { MembershipStatusBadge } from "./membership-status-badge";
 
@@ -91,15 +91,12 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="relative max-w-xs flex-1">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search a member to check in…"
-            className="bg-muted pl-8"
-          />
-        </div>
+        <SearchInput
+          containerClassName="max-w-xs flex-1"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search a member to check in…"
+        />
         <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm">
           <UserCheck className="size-4 text-emerald-700 dark:text-emerald-400" />
           <span className="font-medium text-foreground">{checkedToday.size}</span>

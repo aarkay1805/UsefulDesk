@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Search, UsersRound } from "lucide-react";
+import { Loader2, UsersRound } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Label } from "@/components/ui/label";
 
 /** Newest-first cap on the candidate list — keeps the dialog snappy on
@@ -265,15 +266,11 @@ function ImportForm({
         )}
 
         {/* Candidate picker */}
-        <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name or phone…"
-            className="bg-muted pl-8"
-          />
-        </div>
+        <SearchInput
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name or phone…"
+        />
 
         <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border">
           {loading ? (

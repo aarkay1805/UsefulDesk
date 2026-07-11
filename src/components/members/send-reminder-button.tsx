@@ -91,6 +91,42 @@ export function useReminderReadiness(): ReminderReadiness {
   return state;
 }
 
+/**
+ * Send the renewal template to one member via `/api/whatsapp/send`
+ * (contact_id path → the route find-or-creates the conversation, so a
+ * member who never messaged still gets reached). Throws on failure —
+ * callers own the toast/tally (the single button toasts per send, the
+ * bulk toolbar reports one tally).
+ */
+export async function sendRenewalReminder(
+  membership: Membership,
+  readiness: ReminderReadiness,
+  defaultCurrency: string
+): Promise<void> {
+  const params = [
+    membership.contact?.name?.trim() || "there",
+    membership.plan?.name || "membership",
+    membership.end_date,
+    formatCurrency(membership.fee_amount, defaultCurrency),
+  ];
+  const res = await fetch("/api/whatsapp/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contact_id: membership.contact_id,
+      message_type: "template",
+      template_name: RENEWAL_TEMPLATE_NAME,
+      template_language: readiness.templateLanguage,
+      template_message_params: { body: params },
+      template_params: params,
+    }),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(payload?.error || "Failed to send reminder");
+  }
+}
+
 interface SendReminderButtonProps {
   membership: Membership;
   readiness: ReminderReadiness;
@@ -134,28 +170,7 @@ export function SendReminderButton({
     }
     setSending(true);
     try {
-      const params = [
-        membership.contact?.name?.trim() || "there",
-        membership.plan?.name || "membership",
-        membership.end_date,
-        formatCurrency(membership.fee_amount, defaultCurrency),
-      ];
-      const res = await fetch("/api/whatsapp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contact_id: membership.contact_id,
-          message_type: "template",
-          template_name: RENEWAL_TEMPLATE_NAME,
-          template_language: readiness.templateLanguage,
-          template_message_params: { body: params },
-          template_params: params,
-        }),
-      });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(payload?.error || "Failed to send reminder");
-      }
+      await sendRenewalReminder(membership, readiness, defaultCurrency);
       setSent(true);
       toast.success("Reminder sent on WhatsApp");
       onSent?.();

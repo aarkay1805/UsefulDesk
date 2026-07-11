@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { formatDay } from "@/lib/dates/format";
 import {
   bucketFollowUps,
   REASON_LABEL,
@@ -19,6 +20,7 @@ import {
 import type { FollowUp } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { CompleteFollowUpDialog } from "./follow-up-dialog";
 import { useAccountStaff } from "./use-account-staff";
 
@@ -36,7 +38,7 @@ interface FollowUpListsProps {
  * on staff owns each chase and what happened.
  */
 export function FollowUpLists({ onSelect, reloadKey }: FollowUpListsProps) {
-  const { nameById } = useAccountStaff();
+  const { nameById, avatarById } = useAccountStaff();
 
   const [rows, setRows] = useState<FollowUp[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +84,7 @@ export function FollowUpLists({ onSelect, reloadKey }: FollowUpListsProps) {
           icon={<CircleAlert className="size-4 text-red-700 dark:text-red-400" />}
           rows={buckets.overdue}
           nameById={nameById}
+          avatarById={avatarById}
           onSelect={onSelect}
           onComplete={setCompleting}
           emptyLabel="Nothing overdue."
@@ -91,6 +94,7 @@ export function FollowUpLists({ onSelect, reloadKey }: FollowUpListsProps) {
           icon={<CalendarClock className="size-4 text-amber-700 dark:text-amber-400" />}
           rows={buckets.dueToday}
           nameById={nameById}
+          avatarById={avatarById}
           onSelect={onSelect}
           onComplete={setCompleting}
           emptyLabel="Nothing due today."
@@ -100,6 +104,7 @@ export function FollowUpLists({ onSelect, reloadKey }: FollowUpListsProps) {
           icon={<CalendarDays className="size-4 text-muted-foreground" />}
           rows={buckets.upcoming}
           nameById={nameById}
+          avatarById={avatarById}
           onSelect={onSelect}
           onComplete={setCompleting}
           emptyLabel="No upcoming follow-ups."
@@ -125,6 +130,7 @@ function TaskList({
   icon,
   rows,
   nameById,
+  avatarById,
   onSelect,
   onComplete,
   emptyLabel,
@@ -133,6 +139,7 @@ function TaskList({
   icon: React.ReactNode;
   rows: FollowUp[];
   nameById: Map<string, string>;
+  avatarById: Map<string, string | null>;
   onSelect: (membershipId: string) => void;
   onComplete: (f: FollowUp) => void;
   emptyLabel: string;
@@ -174,7 +181,7 @@ function TaskList({
                       {f.contact?.name || f.contact?.phone || "Unnamed"}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {REASON_LABEL[f.reason]} · due {f.due_date}
+                      {REASON_LABEL[f.reason]} · due {formatDay(f.due_date)}
                     </p>
                     {f.note && (
                       <p className="mt-0.5 truncate text-xs text-muted-foreground/80">
@@ -186,7 +193,16 @@ function TaskList({
                     variant={f.assigned_to ? "neutral" : "danger"}
                     className="shrink-0"
                   >
-                    <UserRound className="size-3" />
+                    {f.assigned_to ? (
+                      <UserAvatar
+                        name={owner}
+                        src={avatarById.get(f.assigned_to)}
+                        className="size-3.5"
+                        fallbackClassName="text-[8px]"
+                      />
+                    ) : (
+                      <UserRound className="size-3" />
+                    )}
                     {owner}
                   </Badge>
                 </div>
