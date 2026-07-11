@@ -32,22 +32,22 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
   const { locale, fmt } = useLocale();
   const [totals, setTotals] = useState<Totals>(ZERO);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
     (async () => {
+      setLoadError(null);
       const today = fmt.today();
       const monthStart = `${today.slice(0, 7)}-01`;
       const weekStart = istAddDays(today, -6);
       // Fetch from the earlier of the two window starts, as an instant at
       // that day's local midnight in the account's zone.
       const from = weekStart < monthStart ? weekStart : monthStart;
-      const fromInstant = (
-        dayStartInTz(from, locale.timeZone) ?? new Date()
-      ).toISOString();
+      const fromInstant = (dayStartInTz(from, locale.timeZone) ?? new Date()).toISOString();
 
-      const [{ data: pays }, { data: dues }] = await Promise.all([
+      const [paymentsResult, duesResult] = await Promise.all([
         supabase
           .from("payments")
           .select("amount, paid_at")
@@ -56,6 +56,14 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
         supabase.from("membership_dues").select("balance").gt("balance", 0),
       ]);
       if (cancelled) return;
+      const error = paymentsResult.error ?? duesResult.error;
+      if (error) {
+        setLoadError(error.message);
+        setLoading(false);
+        return;
+      }
+      const pays = paymentsResult.data;
+      const dues = duesResult.data;
 
       const t = { ...ZERO };
       for (const p of pays ?? []) {
@@ -76,9 +84,21 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
   }, [reloadKey, fmt, locale.timeZone]);
 
   const tiles = [
-    { label: "Collected today", value: totals.today, icon: <IndianRupee className="size-4 text-emerald-700 dark:text-emerald-400" /> },
-    { label: "Last 7 days", value: totals.week, icon: <CalendarDays className="size-4 text-emerald-700 dark:text-emerald-400" /> },
-    { label: "This month", value: totals.month, icon: <Wallet className="size-4 text-emerald-700 dark:text-emerald-400" /> },
+    {
+      label: "Collected today",
+      value: totals.today,
+      icon: <IndianRupee className="size-4 text-emerald-700 dark:text-emerald-400" />,
+    },
+    {
+      label: "Last 7 days",
+      value: totals.week,
+      icon: <CalendarDays className="size-4 text-emerald-700 dark:text-emerald-400" />,
+    },
+    {
+      label: "This month",
+      value: totals.month,
+      icon: <Wallet className="size-4 text-emerald-700 dark:text-emerald-400" />,
+    },
     {
       label: "Outstanding",
       value: totals.outstanding,
@@ -87,11 +107,22 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
     },
   ];
 
+  if (loadError) {
+    return (
+      <div
+        className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border px-3 py-3 text-sm"
+        role="alert"
+      >
+        Could not load payment totals: {loadError}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {tiles.map((t) => (
-        <div key={t.label} className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div key={t.label} className="border-border bg-card rounded-xl border p-4">
+          <div className="text-muted-foreground flex items-center gap-2 text-xs">
             {t.icon}
             {t.label}
           </div>

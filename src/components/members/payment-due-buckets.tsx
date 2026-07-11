@@ -36,6 +36,7 @@ export function PaymentDueBuckets({
   const upi = useUpiConfig();
   const [rows, setRows] = useState<DueMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
   const [payFor, setPayFor] = useState<Membership | null>(null);
 
@@ -48,24 +49,30 @@ export function PaymentDueBuckets({
     const supabase = createClient();
     let cancelled = false;
     (async () => {
+      setLoadError(null);
       // Real Membership rows (with contact/plan) for reuse in the reminder
       // button and payment dialog, plus balances from the dues view.
       const [membershipsRes, duesRes] = await Promise.all([
         supabase
           .from("memberships")
           .select(SELECT)
-          .eq("fee_status", "due")
           .neq("status", "cancelled")
           .order("start_date", { ascending: true }),
         supabase.from("membership_dues").select("membership_id, balance").gt("balance", 0),
       ]);
       if (cancelled) return;
+      const error = membershipsRes.error ?? duesRes.error;
+      if (error) {
+        setLoadError(error.message);
+        setLoading(false);
+        return;
+      }
 
       const balanceById = new Map<string, number>(
         (duesRes.data ?? []).map((d) => [d.membership_id as string, Number(d.balance) || 0]),
       );
       const merged: DueMember[] = ((membershipsRes.data as Membership[]) ?? [])
-        .map((m) => ({ ...m, balance: balanceById.get(m.id) ?? (Number(m.fee_amount) || 0) }))
+        .map((m) => ({ ...m, balance: balanceById.get(m.id) ?? 0 }))
         .filter((m) => m.balance > 0);
 
       setRows(merged);
@@ -78,8 +85,19 @@ export function PaymentDueBuckets({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+      <div className="text-muted-foreground flex items-center gap-2 py-10 text-sm">
         <Loader2 className="size-4 animate-spin" /> Loading dues…
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div
+        className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border px-3 py-3 text-sm"
+        role="alert"
+      >
+        Could not load payment dues: {loadError}
       </div>
     );
   }
@@ -143,11 +161,11 @@ function BucketCard({
   const today = fmt.today();
   const total = rows.reduce((s, m) => s + m.balance, 0);
   return (
-    <section className="flex flex-col rounded-xl border border-border bg-card">
-      <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+    <section className="border-border bg-card flex flex-col rounded-xl border">
+      <header className="border-border flex items-center gap-2 border-b px-3 py-2.5">
         <Wallet className="size-4 text-amber-700 dark:text-amber-400" />
-        <h3 className="text-sm font-medium text-foreground">{title}</h3>
-        <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+        <h3 className="text-foreground text-sm font-medium">{title}</h3>
+        <span className="bg-muted text-muted-foreground ml-auto rounded-full px-2 py-0.5 text-xs font-medium">
           {rows.length}
         </span>
       </header>
@@ -155,20 +173,20 @@ function BucketCard({
       {rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
           <CheckCircle2 className="size-6 text-emerald-700 dark:text-emerald-500/70" />
-          <p className="text-xs text-muted-foreground">Nothing here.</p>
+          <p className="text-muted-foreground text-xs">Nothing here.</p>
         </div>
       ) : (
         <>
-          <div className="border-b border-border px-3 py-1.5 text-xs text-muted-foreground">
+          <div className="border-border text-muted-foreground border-b px-3 py-1.5 text-xs">
             {fmt.money(total)} outstanding
           </div>
-          <ul className="divide-y divide-border">
+          <ul className="divide-border divide-y">
             {rows.map((m) => {
               const overdue = daysOverdue(m.start_date, today);
               return (
                 <li
                   key={m.id}
-                  className="cursor-pointer px-3 py-2.5 transition-colors hover:bg-muted/50"
+                  className="hover:bg-muted/50 cursor-pointer px-3 py-2.5 transition-colors"
                   onClick={() => onSelect(m.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -177,7 +195,7 @@ function BucketCard({
                       secondary={m.contact?.phone}
                       src={m.contact?.avatar_url}
                       meta={
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="text-muted-foreground truncate text-xs">
                           {m.plan?.name ?? "—"}
                           {overdue > 0 ? ` · ${overdue}d overdue` : " · due now"}
                         </p>
@@ -187,21 +205,13 @@ function BucketCard({
                       {fmt.money(m.balance)}
                     </span>
                   </div>
-                  <div
-                    className="mt-2 flex justify-end gap-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  <div className="mt-2 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                     <CopyUpiLinkButton
                       upi={upi}
                       amount={m.balance}
                       note={`${m.plan?.name ?? "Membership"} fee`}
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onRecord(m)}
-                    >
+                    <Button type="button" variant="outline" size="sm" onClick={() => onRecord(m)}>
                       <Wallet className="size-3.5" /> Record
                     </Button>
                     <SendReminderButton membership={m} readiness={readiness} onSent={onSent} />

@@ -1,19 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, Loader2, RefreshCw, Wallet } from "lucide-react";
+import { Loader2, RefreshCw, Wallet } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/hooks/use-locale";
-import {
-  isProjectedInvoice,
-  periodStatus,
-} from "@/lib/memberships/periods";
-import type {
-  MembershipPeriodInvoice,
-  Payment,
-  PaymentMethod,
-} from "@/types";
+import { isProjectedInvoice } from "@/lib/memberships/periods";
+import type { MembershipPeriodInvoice, Payment, PaymentMethod } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +16,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { InvoiceStatusBadge } from "./membership-status-badge";
+import { Badge } from "@/components/ui/badge";
+import { PaymentProofLink } from "./payment-proof-link";
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "Cash",
@@ -64,6 +58,7 @@ export function InvoiceDetailDialog({
   const { fmt } = useLocale();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const projected = invoice ? isProjectedInvoice(invoice.id) : false;
 
@@ -74,15 +69,22 @@ export function InvoiceDetailDialog({
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setLoadError(null);
       // Payments reconcile to a period by matching period_end (the same
       // key the invoice view uses).
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("payments")
         .select("*")
         .eq("membership_id", invoice.membership_id)
         .eq("period_end", invoice.period_end)
         .order("paid_at", { ascending: false });
       if (cancelled) return;
+      if (error) {
+        setPayments([]);
+        setLoadError(error.message);
+        setLoading(false);
+        return;
+      }
       setPayments((data as Payment[]) ?? []);
       setLoading(false);
     })();
@@ -94,8 +96,9 @@ export function InvoiceDetailDialog({
   if (!invoice) return null;
 
   const today = fmt.today();
-  const status = periodStatus(invoice, today);
   const balance = Number(invoice.balance);
+  const lifecycle =
+    invoice.state === "void" ? "Void" : invoice.period_start > today ? "Upcoming" : "Issued";
   // Use the view's reconciled total, not fee − balance: a period can be
   // OVER-paid (old data stamped several payments onto one period_end), so
   // fee − balance would understate what the payment list below actually sums to.
@@ -107,7 +110,16 @@ export function InvoiceDetailDialog({
         <DialogHeader>
           <div className="flex items-center gap-2">
             <DialogTitle>Invoice</DialogTitle>
-            <InvoiceStatusBadge status={status} />
+            <Badge variant={projected ? "info" : balance <= 0 ? "success" : "warning"}>
+              {projected ? "Estimate" : balance <= 0 ? "Paid" : "Due"}
+            </Badge>
+            <Badge
+              variant={
+                lifecycle === "Void" ? "neutral" : lifecycle === "Upcoming" ? "info" : "secondary"
+              }
+            >
+              {lifecycle}
+            </Badge>
           </div>
           <DialogDescription>
             {fmt.date(invoice.period_start)} – {fmt.date(invoice.period_end)}
@@ -116,21 +128,21 @@ export function InvoiceDetailDialog({
 
         <div className="space-y-4">
           {/* Money summary */}
-          <dl className="grid grid-cols-3 gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+          <dl className="border-border bg-muted/30 grid grid-cols-3 gap-3 rounded-lg border px-3 py-2.5">
             <div>
-              <dt className="text-xs text-muted-foreground">Invoice total</dt>
+              <dt className="text-muted-foreground text-xs">Invoice total</dt>
               <dd className="mt-0.5 text-sm font-semibold tabular-nums">
                 {fmt.money(invoice.fee_amount)}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Paid</dt>
-              <dd className="mt-0.5 text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+              <dt className="text-muted-foreground text-xs">Paid</dt>
+              <dd className="mt-0.5 text-sm font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
                 {fmt.money(Math.max(amountPaid, 0))}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Balance</dt>
+              <dt className="text-muted-foreground text-xs">Balance</dt>
               <dd
                 className={`mt-0.5 text-sm font-semibold tabular-nums ${
                   balance > 0 ? "text-amber-700 dark:text-amber-400" : "text-foreground"
@@ -143,15 +155,22 @@ export function InvoiceDetailDialog({
 
           {/* Payments in this period */}
           {projected ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               Not billed yet — this is the next cycle. Renew to collect it.
             </p>
           ) : loading ? (
-            <div className="flex justify-center py-4 text-muted-foreground">
+            <div className="text-muted-foreground flex justify-center py-4">
               <Loader2 className="size-5 animate-spin" />
             </div>
+          ) : loadError ? (
+            <p
+              className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border px-3 py-2 text-sm"
+              role="alert"
+            >
+              Could not load this period&apos;s transactions: {loadError}
+            </p>
           ) : payments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               No payments recorded for this period yet.
             </p>
           ) : (
@@ -159,25 +178,26 @@ export function InvoiceDetailDialog({
               {payments.map((p) => (
                 <div
                   key={p.id}
-                  className="flex items-center gap-3 rounded-lg border border-border px-3 py-2 text-sm"
+                  className={
+                    p.status === "void"
+                      ? "border-border flex items-center gap-3 rounded-lg border px-3 py-2 text-sm opacity-65"
+                      : "border-border flex items-center gap-3 rounded-lg border px-3 py-2 text-sm"
+                  }
                 >
                   <span className="text-muted-foreground">{fmt.date(p.paid_at)}</span>
                   <span className="text-muted-foreground">{METHOD_LABEL[p.method]}</span>
-                  <span className="flex-1 truncate text-muted-foreground">
-                    {p.note || ""}
+                  <span className="text-muted-foreground flex-1 truncate">{p.note || ""}</span>
+                  {p.status === "void" && <Badge variant="neutral">Voided</Badge>}
+                  <PaymentProofLink payment={p} />
+                  <span
+                    className={
+                      p.status === "void"
+                        ? "font-medium tabular-nums line-through"
+                        : "font-medium tabular-nums"
+                    }
+                  >
+                    {fmt.money(p.amount)}
                   </span>
-                  {p.screenshot_url && (
-                    <a
-                      href={p.screenshot_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground hover:text-foreground"
-                      title="View screenshot"
-                    >
-                      <ExternalLink className="size-4" />
-                    </a>
-                  )}
-                  <span className="font-medium tabular-nums">{fmt.money(p.amount)}</span>
                 </div>
               ))}
             </div>

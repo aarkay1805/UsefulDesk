@@ -31,8 +31,8 @@ interface MemberDangerZoneProps {
 }
 
 /**
- * Settings / danger zone. Delete permanently removes the member and all
- * associated data (membership, payments, attendance, notes) via the
+ * Settings / danger zone. Delete permanently removes personal/member
+ * data while retaining anonymized payment ledger rows for accounting via the
  * delete_member RPC — which re-checks owner/admin server-side, so the
  * UI gate isn't the only guard. (Merge intentionally deferred.)
  */
@@ -68,9 +68,9 @@ export function MemberDangerZone({
           <div>
             <p className="text-sm font-medium text-destructive">Delete member</p>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Permanently delete this member and all associated data —
-              membership, payments, attendance, and notes. This can&apos;t be
-              undone.
+              Permanently delete this member&apos;s profile, membership,
+              attendance, and notes. Payment ledger entries are retained
+              without the member link for accounting. This can&apos;t be undone.
             </p>
           </div>
           <Button
@@ -90,9 +90,9 @@ export function MemberDangerZone({
           <DialogHeader>
             <DialogTitle>Delete {memberName || "this member"}?</DialogTitle>
             <DialogDescription>
-              This permanently removes the member and every record tied to them
-              — membership, payment history, attendance, and notes. This action
-              cannot be undone.
+              This permanently removes the member profile, membership,
+              attendance, and notes. Payment ledger entries are retained and
+              anonymized for accounting. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

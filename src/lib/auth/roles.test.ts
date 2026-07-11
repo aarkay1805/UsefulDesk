@@ -5,6 +5,7 @@ import {
   canDeleteAccount,
   canDeleteAnyNote,
   canDeleteMember,
+  canCorrectPayments,
   canEditSettings,
   canManageMembers,
   canReassignLeadsDirectly,
@@ -110,6 +111,13 @@ describe("capability predicates", () => {
     expect(canSendMessages("admin")).toBe(true);
     expect(canSendMessages("agent")).toBe(true);
     expect(canSendMessages("viewer")).toBe(false);
+  });
+
+  it("canCorrectPayments: admin+ only", () => {
+    expect(canCorrectPayments("owner")).toBe(true);
+    expect(canCorrectPayments("admin")).toBe(true);
+    expect(canCorrectPayments("agent")).toBe(false);
+    expect(canCorrectPayments("viewer")).toBe(false);
   });
 
   it("canViewOnly: viewer only", () => {

@@ -5,13 +5,8 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/hooks/use-locale";
-import {
-  daysBetween,
-  istAddDays,
-} from "@/lib/memberships/expiry";
-import { insertRenewalPeriod, syncCurrentPeriod } from "@/lib/memberships/periods";
+import { daysBetween, istAddDays } from "@/lib/memberships/expiry";
 import type { Membership, PaymentMethod } from "@/types";
 import { useMembershipPlans } from "./use-membership-plans";
 import {
@@ -54,7 +49,6 @@ export function RenewMembershipDialog({
   variant = "renew",
 }: RenewMembershipDialogProps) {
   const supabase = createClient();
-  const { accountId, user } = useAuth();
   const { fmt } = useLocale();
   const { plans } = useMembershipPlans(true);
   const isConvert = variant === "convert";
@@ -65,6 +59,7 @@ export function RenewMembershipDialog({
   const [collectAmount, setCollectAmount] = useState(String(membership.fee_amount ?? ""));
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [saving, setSaving] = useState(false);
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 
   const selectedPlan = plans.find((p) => p.id === planId);
 
@@ -75,6 +70,7 @@ export function RenewMembershipDialog({
     setCollectPayment(true);
     setCollectAmount(String(membership.fee_amount ?? ""));
     setMethod("cash");
+    setIdempotencyKey(crypto.randomUUID());
   }, [open, membership]);
 
   // Seed the fee (and the amount to collect) from the picked plan.
@@ -97,87 +93,33 @@ export function RenewMembershipDialog({
   const newEnd = selectedPlan ? istAddDays(base, selectedPlan.duration_days) : null;
 
   async function handleRenew() {
-    if (!accountId || !user) return;
     if (!selectedPlan || !newEnd) return toast.error("Pick a plan");
     const fee = feeAmount === "" ? selectedPlan.price : Number(feeAmount);
     if (!Number.isFinite(fee) || fee < 0) return toast.error("Enter a valid fee");
 
     // Collected now; a partial amount leaves the new period 'due'.
-    const collected = collectPayment
-      ? collectAmount === ""
-        ? fee
-        : Number(collectAmount)
-      : 0;
+    const collected = collectPayment ? (collectAmount === "" ? fee : Number(collectAmount)) : 0;
     if (collectPayment && (!Number.isFinite(collected) || collected < 0)) {
       return toast.error("Enter a valid amount");
+    }
+    if (collected > fee) {
+      return toast.error("Collected amount cannot exceed the fee");
     }
 
     setSaving(true);
     try {
-      const feeStatus = collected >= fee ? "paid" : "due";
-      const { error: mErr } = await supabase
-        .from("memberships")
-        .update({
-          plan_id: planId,
-          start_date: base,
-          end_date: newEnd,
-          status: "active",
-          fee_amount: fee,
-          fee_status: feeStatus,
-          frozen_at: null,
-          // Converting flips the row off trial and records when — the
-          // renewal path leaves both untouched.
-          ...(isConvert
-            ? { is_trial: false, converted_at: new Date().toISOString() }
-            : {}),
-        })
-        .eq("id", membership.id);
-      if (mErr) throw mErr;
-
-      // Periods (057): a renewal opens a NEW cycle (the old one stays as
-      // history/arrears); a trial-convert reuses the current cycle,
-      // updating its dates/fee. Best-effort — the membership pointer +
-      // dues view already reflect the change if this lags.
-      if (isConvert) {
-        await syncCurrentPeriod(supabase, membership.id, {
-          plan_id: planId,
-          period_start: base,
-          period_end: newEnd,
-          fee_amount: fee,
-        });
-      } else {
-        await insertRenewalPeriod(supabase, membership, {
-          plan_id: planId,
-          start: base,
-          end: newEnd,
-          fee,
-        });
-      }
-
-      if (collectPayment && collected > 0) {
-        const { error: pErr } = await supabase.from("payments").insert({
-          account_id: accountId,
-          membership_id: membership.id,
-          contact_id: membership.contact_id,
-          plan_id: planId,
-          user_id: user.id,
-          amount: collected,
-          method,
-          status: "paid",
-          period_start: base,
-          period_end: newEnd,
-        });
-        if (pErr) {
-          toast.warning(
-            isConvert
-              ? "Converted, but the payment couldn't be recorded."
-              : "Renewed, but the payment couldn't be recorded.",
-          );
-          onOpenChange(false);
-          onSaved();
-          return;
-        }
-      }
+      const { error } = await supabase.rpc("renew_membership_transaction", {
+        p_membership_id: membership.id,
+        p_plan_id: planId,
+        p_period_start: base,
+        p_period_end: newEnd,
+        p_fee_amount: fee,
+        p_collect_amount: collected,
+        p_method: method,
+        p_is_conversion: isConvert,
+        p_idempotency_key: idempotencyKey,
+      });
+      if (error) throw error;
 
       toast.success(isConvert ? "Trial converted to member" : "Membership renewed");
       onOpenChange(false);
@@ -203,12 +145,14 @@ export function RenewMembershipDialog({
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="rn-plan" className="text-muted-foreground">Plan</Label>
+            <Label htmlFor="rn-plan" className="text-muted-foreground">
+              Plan
+            </Label>
             <select
               id="rn-plan"
               value={planId}
               onChange={(e) => setPlanId(e.target.value)}
-              className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:ring-1"
             >
               <option value="">Select a plan…</option>
               {plans.map((p) => (
@@ -220,14 +164,16 @@ export function RenewMembershipDialog({
           </div>
 
           {newEnd && (
-            <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+            <div className="border-border bg-muted/40 rounded-lg border px-3 py-2 text-sm">
               <span className="text-muted-foreground">New expiry: </span>
-              <span className="font-medium text-foreground">{newEnd}</span>
+              <span className="text-foreground font-medium">{newEnd}</span>
             </div>
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="rn-fee" className="text-muted-foreground">Fee</Label>
+            <Label htmlFor="rn-fee" className="text-muted-foreground">
+              Fee
+            </Label>
             <Input
               id="rn-fee"
               type="number"
@@ -238,13 +184,13 @@ export function RenewMembershipDialog({
             />
           </div>
 
-          <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
-            <label className="flex items-center gap-2 text-sm text-foreground">
+          <div className="border-border bg-muted/40 space-y-2 rounded-lg border p-3">
+            <label className="text-foreground flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={collectPayment}
                 onChange={(e) => setCollectPayment(e.target.checked)}
-                className="size-4 accent-primary"
+                className="accent-primary size-4"
               />
               {isConvert ? "Record the first payment" : "Record payment for this renewal"}
             </label>
@@ -256,15 +202,17 @@ export function RenewMembershipDialog({
                   value={collectAmount}
                   onChange={(e) => setCollectAmount(e.target.value)}
                   placeholder="Amount"
-                  className="h-8 bg-muted"
+                  className="bg-muted h-8"
                 />
                 <select
                   value={method}
                   onChange={(e) => setMethod(e.target.value as PaymentMethod)}
-                  className="h-8 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-8 w-full rounded-lg border px-2.5 text-sm outline-none focus:ring-1"
                 >
                   {PAYMENT_METHODS.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
                   ))}
                 </select>
               </div>

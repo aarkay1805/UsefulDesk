@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -30,12 +24,8 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/hooks/use-locale";
-import { canDeleteMember } from "@/lib/auth/roles";
-import {
-  effectiveStatus,
-  daysUntil,
-  unfreezeEndDate,
-} from "@/lib/memberships/expiry";
+import { canCorrectPayments, canDeleteMember } from "@/lib/auth/roles";
+import { effectiveStatus, daysUntil, unfreezeEndDate } from "@/lib/memberships/expiry";
 import type {
   Membership,
   Payment,
@@ -51,15 +41,10 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardAction,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableHeader,
@@ -79,28 +64,22 @@ import {
   setCurrentPeriodState,
   syncCurrentPeriod,
   projectNextInvoice,
-  periodStatus,
+  isCollectiblePeriod,
 } from "@/lib/memberships/periods";
-import {
-  MembershipStatusBadge,
-  FeeStatusBadge,
-  TrialBadge,
-  InvoiceStatusBadge,
-} from "./membership-status-badge";
+import { MembershipStatusBadge, FeeStatusBadge, TrialBadge } from "./membership-status-badge";
 import { InvoiceDetailDialog } from "./invoice-detail-dialog";
 import { RenewMembershipDialog } from "./renew-membership-dialog";
 import { AvatarEditorDialog } from "./avatar-editor-dialog";
 import { RecordPaymentDialog } from "./record-payment-dialog";
 import { ContactNotesThread } from "@/components/contacts/contact-notes-thread";
 import { CopyUpiLinkButton, useUpiConfig } from "./copy-upi-link-button";
-import {
-  SendReminderButton,
-  type ReminderReadiness,
-} from "./send-reminder-button";
+import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
 import { BmiCard } from "./bmi-card";
 import { MemberPersonalInfo } from "./member-personal-info";
 import { MemberCommunication } from "./member-communication";
 import { MemberDangerZone } from "./member-danger-zone";
+import { PaymentProofLink } from "./payment-proof-link";
+import { VoidPaymentDialog } from "./void-payment-dialog";
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "Cash",
@@ -135,8 +114,8 @@ interface MemberDetailViewProps {
 function Stat({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-sm font-medium text-foreground">{children}</dd>
+      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dd className="text-foreground mt-0.5 text-sm font-medium">{children}</dd>
     </div>
   );
 }
@@ -177,6 +156,8 @@ export function MemberDetailView({
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [activeInvoice, setActiveInvoice] = useState<MembershipPeriodInvoice | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
   // Bumped to re-pull this sheet after a mutation (renew/payment/freeze/check-in).
   const [nonce, setNonce] = useState(0);
 
@@ -188,18 +169,23 @@ export function MemberDetailView({
     if (!open || !membershipId) return;
     let cancelled = false;
     (async () => {
-      const { data: m } = await supabase
+      setLoadError(null);
+      const { data: m, error: memberError } = await supabase
         .from("memberships")
         .select("*, contact:contacts(*), plan:membership_plans(*)")
         .eq("id", membershipId)
         .maybeSingle();
       if (cancelled) return;
+      if (memberError) {
+        setLoadError(memberError.message);
+        return;
+      }
       if (!m) {
-        setMembership(null);
+        setLoadError("Member not found or you no longer have access.");
         return;
       }
 
-      const [{ data: pays }, { data: atts }, { data: invs }] = await Promise.all([
+      const [paymentsResult, attendanceResult, invoicesResult] = await Promise.all([
         supabase
           .from("payments")
           .select("*")
@@ -218,10 +204,15 @@ export function MemberDetailView({
           .order("period_start", { ascending: false }),
       ]);
       if (cancelled) return;
+      const childError = paymentsResult.error ?? attendanceResult.error ?? invoicesResult.error;
+      if (childError) {
+        setLoadError(childError.message);
+        return;
+      }
       setMembership(m as Membership);
-      setPayments((pays as Payment[]) ?? []);
-      setVisits((atts as Attendance[]) ?? []);
-      setInvoices((invs as MembershipPeriodInvoice[]) ?? []);
+      setPayments((paymentsResult.data as Payment[]) ?? []);
+      setVisits((attendanceResult.data as Attendance[]) ?? []);
+      setInvoices((invoicesResult.data as MembershipPeriodInvoice[]) ?? []);
     })();
     return () => {
       cancelled = true;
@@ -252,9 +243,7 @@ export function MemberDetailView({
 
   function jumpTo(id: string) {
     setActiveSection(id);
-    document
-      .getElementById(`sec-${id}`)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   // Refetch this sheet AND tell the parent list to refresh.
@@ -316,8 +305,7 @@ export function MemberDetailView({
       .eq("id", membership.id)
       .select("id");
     // Void the current cycle's invoice; settled past cycles stay paid (057).
-    if (!error && data?.length)
-      await setCurrentPeriodState(supabase, membership.id, "void");
+    if (!error && data?.length) await setCurrentPeriodState(supabase, membership.id, "void");
     setBusy(false);
     if (error || !data?.length)
       return toast.error(error?.message ?? "Couldn't cancel — check your access.");
@@ -333,8 +321,7 @@ export function MemberDetailView({
       .update({ status: "active" })
       .eq("id", membership.id)
       .select("id");
-    if (!error && data?.length)
-      await setCurrentPeriodState(supabase, membership.id, "open");
+    if (!error && data?.length) await setCurrentPeriodState(supabase, membership.id, "open");
     setBusy(false);
     if (error || !data?.length)
       return toast.error(error?.message ?? "Couldn't reactivate — check your access.");
@@ -362,24 +349,30 @@ export function MemberDetailView({
   const eff = membership ? effectiveStatus(membership, today) : null;
   const days = membership ? daysUntil(membership.end_date, today) : 0;
 
-  // Outstanding balance for the current period, derived from the loaded
-  // ledger (payments stamped with this period's end_date).
+  // Current-cycle money comes from the invoice read model. The local
+  // ledger fallback only covers pre-057 data that has no period row.
   const collectedCurrent = membership
     ? payments
         .filter((p) => p.status === "paid" && p.period_end === membership.end_date)
         .reduce((s, p) => s + (Number(p.amount) || 0), 0)
     : 0;
-  const balance = membership
-    ? Math.max(Number(membership.fee_amount) - collectedCurrent, 0)
-    : 0;
+  const currentInvoice = membership
+    ? (invoices.find((inv) => inv.period_end === membership.end_date) ?? null)
+    : null;
+  const currentFee = Number(currentInvoice?.fee_amount ?? membership?.fee_amount ?? 0);
+  const currentPaid = Number(currentInvoice?.amount_paid ?? collectedCurrent);
+  const balance =
+    membership?.status === "cancelled" || currentInvoice?.state === "void"
+      ? 0
+      : Math.max(Number(currentInvoice?.balance ?? currentFee - currentPaid), 0);
 
   // Invoice timeline: persisted periods (past + current, real arrears)
   // plus the single projected NEXT cycle (display-only). Newest first so
   // Upcoming reads at the top, history descends below.
   const projectedNext = membership ? projectNextInvoice(membership, today) : null;
-  const displayInvoices: MembershipPeriodInvoice[] = membership
-    ? [...(projectedNext ? [projectedNext] : []), ...invoices]
-    : [];
+  const canCollectCurrent = membership
+    ? isCollectiblePeriod(currentInvoice, membership.status)
+    : false;
 
   function openInvoice(inv: MembershipPeriodInvoice) {
     setActiveInvoice(inv);
@@ -391,20 +384,6 @@ export function MemberDetailView({
     setPayPeriod(inv.period_end === membership?.end_date ? null : inv);
     setPayOpen(true);
   }
-  // Method is a payment attribute, not an invoice one — a cycle can have
-  // 0 (upcoming) or several payments. Show the one method, "Multiple" if
-  // mixed, "—" if none.
-  function periodMethod(inv: MembershipPeriodInvoice): string {
-    const methods = new Set(
-      payments
-        .filter((p) => p.status === "paid" && p.period_end === inv.period_end)
-        .map((p) => METHOD_LABEL[p.method]),
-    );
-    if (methods.size === 0) return "—";
-    if (methods.size === 1) return [...methods][0];
-    return "Multiple";
-  }
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -414,8 +393,26 @@ export function MemberDetailView({
         // variant to actually widen (same trick as the contact sheet).
         className="w-full gap-0 p-0 data-[side=right]:sm:max-w-[1200px]"
       >
-        {!membership || membership.id !== membershipId ? (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
+        {loadError ? (
+          <div className="flex h-full items-center justify-center p-6">
+            <div className="border-destructive/30 bg-destructive/10 max-w-sm rounded-xl border p-4 text-center">
+              <p className="text-destructive text-sm font-medium">
+                Could not load this member safely
+              </p>
+              <p className="text-muted-foreground mt-1 text-sm">{loadError}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => setNonce((n) => n + 1)}
+              >
+                <RefreshCw className="size-3.5" /> Try again
+              </Button>
+            </div>
+          </div>
+        ) : !membership || membership.id !== membershipId ? (
+          <div className="text-muted-foreground flex h-full items-center justify-center">
             <Loader2 className="size-5 animate-spin" />
           </div>
         ) : (
@@ -456,7 +453,7 @@ export function MemberDetailView({
                     </SheetTitle>
                     {membership.is_trial && <TrialBadge />}
                     {eff && <MembershipStatusBadge status={eff} daysToExpiry={days} />}
-                    {!membership.is_trial && (
+                    {!membership.is_trial && membership.status !== "cancelled" && (
                       <FeeStatusBadge status={membership.fee_status} />
                     )}
                   </div>
@@ -503,15 +500,12 @@ export function MemberDetailView({
               </div>
             </SheetHeader>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto bg-muted/20">
+            <div ref={scrollRef} className="bg-muted/20 flex-1 overflow-y-auto">
               {/* Jump nav — reads as part of the header (white), divider
                   after the tabs; sticky under it while scrolling. */}
-              <div className="sticky top-0 z-10 border-b border-border bg-background">
-                <div className="overflow-x-auto px-4 sm:px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <Tabs
-                    value={activeSection}
-                    onValueChange={(v) => v && jumpTo(v)}
-                  >
+              <div className="border-border bg-background sticky top-0 z-10 border-b">
+                <div className="[scrollbar-width:none] overflow-x-auto px-4 sm:px-5 [&::-webkit-scrollbar]:hidden">
+                  <Tabs value={activeSection} onValueChange={(v) => v && jumpTo(v)}>
                     <TabsList variant="line" className="h-11">
                       {SECTIONS.map((s) => (
                         <TabsTrigger key={s.id} value={s.id} className="flex-none">
@@ -545,10 +539,7 @@ export function MemberDetailView({
                               >
                                 <MoreHorizontal className="size-4" />
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                align="end"
-                                className="min-w-52"
-                              >
+                              <DropdownMenuContent align="end" className="min-w-52">
                                 <DropdownMenuItem onClick={() => onEdit(membership)}>
                                   <Pencil className="size-4" /> Edit membership
                                 </DropdownMenuItem>
@@ -598,21 +589,27 @@ export function MemberDetailView({
                             <Stat label="Expires">
                               {fmt.date(membership.end_date)}
                               {eff === "active" && (
-                                <span className="ml-1 text-xs font-normal text-muted-foreground">
-                                  ({days < 0 ? `${-days}d ago` : days === 0 ? "today" : `in ${days}d`})
+                                <span className="text-muted-foreground ml-1 text-xs font-normal">
+                                  (
+                                  {days < 0
+                                    ? `${-days}d ago`
+                                    : days === 0
+                                      ? "today"
+                                      : `in ${days}d`}
+                                  )
                                 </span>
                               )}
                             </Stat>
                           </dl>
                           {membership.status === "frozen" && membership.frozen_at && (
-                            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
                               <Snowflake className="size-3.5" />
-                              Frozen since {fmt.date(membership.frozen_at)} — the paused
-                              days are added back on resume.
+                              Frozen since {fmt.date(membership.frozen_at)} — the paused days are
+                              added back on resume.
                             </p>
                           )}
                           {membership.notes && (
-                            <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                            <p className="border-border bg-muted/40 text-muted-foreground rounded-lg border px-3 py-2 text-sm">
                               {membership.notes}
                             </p>
                           )}
@@ -624,17 +621,20 @@ export function MemberDetailView({
                     <Section id="payments">
                       <Card>
                         <CardHeader>
-                          <CardTitle>Payments</CardTitle>
-                          {!membership.is_trial && (
+                          <div>
+                            <CardTitle>Payments</CardTitle>
+                            <p className="text-muted-foreground mt-0.5 text-xs">
+                              Current balance, billing periods, and recorded transactions.
+                            </p>
+                          </div>
+                          {!membership.is_trial && canCollectCurrent && (
                             <CardAction className="flex items-center gap-2">
-                              {balance > 0 && (
-                                <CopyUpiLinkButton
-                                  upi={upi}
-                                  amount={balance}
-                                  note={`${membership.plan?.name ?? "Membership"} fee`}
-                                  size="sm"
-                                />
-                              )}
+                              <CopyUpiLinkButton
+                                upi={upi}
+                                amount={balance}
+                                note={`${membership.plan?.name ?? "Membership"} fee`}
+                                size="sm"
+                              />
                               {canSendMessages && (
                                 <Button
                                   size="sm"
@@ -650,62 +650,219 @@ export function MemberDetailView({
                             </CardAction>
                           )}
                         </CardHeader>
-                        <CardContent>
-                          {/* Invoices (057): one row per billing cycle —
-                              persisted past + current periods, plus the
-                              projected next (Upcoming). Click a row →
-                              InvoiceDetailDialog (payments / record against
-                              it). Trials don't bill (0-fee period hidden). */}
+                        <CardContent className="space-y-5">
                           {membership.is_trial ? (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-muted-foreground text-sm">
                               Trials are not billed. Convert to a member to start invoicing.
                             </p>
-                          ) : displayInvoices.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                              No invoices yet.
-                            </p>
                           ) : (
-                            <div className="overflow-hidden rounded-lg border border-border">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="hover:bg-transparent">
-                                    <TableHead className="text-xs">Due date</TableHead>
-                                    <TableHead className="text-xs">Method</TableHead>
-                                    <TableHead className="text-xs">Status</TableHead>
-                                    <TableHead className="text-right text-xs">Amount</TableHead>
-                                    <TableHead className="w-8" />
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {displayInvoices.map((inv) => {
-                                    const st = periodStatus(inv, today);
-                                    return (
-                                      <TableRow
-                                        key={inv.id}
-                                        onClick={() => openInvoice(inv)}
-                                        className="cursor-pointer"
+                            <>
+                              <dl className="border-border bg-muted/20 grid grid-cols-2 gap-3 rounded-xl border p-3 sm:grid-cols-4">
+                                <div>
+                                  <dt className="text-muted-foreground text-xs">Current invoice</dt>
+                                  <dd className="mt-1 font-semibold tabular-nums">
+                                    {fmt.money(currentFee)}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt className="text-muted-foreground text-xs">Paid</dt>
+                                  <dd className="mt-1 font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
+                                    {fmt.money(currentPaid)}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt className="text-muted-foreground text-xs">Remaining</dt>
+                                  <dd
+                                    className={
+                                      balance > 0
+                                        ? "mt-1 font-semibold text-amber-700 tabular-nums dark:text-amber-400"
+                                        : "mt-1 font-semibold tabular-nums"
+                                    }
+                                  >
+                                    {fmt.money(balance)}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt className="text-muted-foreground text-xs">Due from</dt>
+                                  <dd className="mt-1 font-medium">
+                                    {currentInvoice ? fmt.date(currentInvoice.period_start) : "—"}
+                                  </dd>
+                                </div>
+                              </dl>
+
+                              {membership.status === "cancelled" && (
+                                <p className="border-border bg-muted/30 text-muted-foreground rounded-lg border px-3 py-2 text-sm">
+                                  This membership is cancelled. Its current billing period is not
+                                  collectible.
+                                </p>
+                              )}
+
+                              {projectedNext && (
+                                <div className="border-border flex flex-wrap items-center gap-3 rounded-lg border border-dashed px-3 py-2.5">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium">Next renewal estimate</p>
+                                    <p className="text-muted-foreground text-xs">
+                                      {fmt.date(projectedNext.period_start)} –{" "}
+                                      {fmt.date(projectedNext.period_end)} ·{" "}
+                                      {fmt.money(projectedNext.fee_amount)}
+                                    </p>
+                                  </div>
+                                  <Badge variant="info">Estimate</Badge>
+                                </div>
+                              )}
+
+                              <div className="space-y-2">
+                                <h4 className="text-sm font-medium">Billing periods</h4>
+                                {invoices.length === 0 ? (
+                                  <p className="text-muted-foreground text-sm">
+                                    No billing periods yet.
+                                  </p>
+                                ) : (
+                                  <div className="border-border overflow-hidden rounded-lg border">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow className="hover:bg-transparent">
+                                          <TableHead className="text-xs">Period</TableHead>
+                                          <TableHead className="text-right text-xs">
+                                            Invoice
+                                          </TableHead>
+                                          <TableHead className="text-right text-xs">Paid</TableHead>
+                                          <TableHead className="text-right text-xs">
+                                            Balance
+                                          </TableHead>
+                                          <TableHead className="text-xs">Payment</TableHead>
+                                          <TableHead className="text-xs">Cycle</TableHead>
+                                          <TableHead className="w-8">
+                                            <span className="sr-only">Details</span>
+                                          </TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {invoices.map((inv) => {
+                                          const invBalance = Number(inv.balance);
+                                          const lifecycle =
+                                            inv.state === "void"
+                                              ? "Void"
+                                              : inv.period_start > today
+                                                ? "Upcoming"
+                                                : inv.period_end === membership.end_date
+                                                  ? "Current"
+                                                  : "Past";
+                                          return (
+                                            <TableRow key={inv.id}>
+                                              <TableCell className="font-medium">
+                                                {fmt.date(inv.period_start)} –{" "}
+                                                {fmt.date(inv.period_end)}
+                                              </TableCell>
+                                              <TableCell className="text-right tabular-nums">
+                                                {fmt.money(inv.fee_amount)}
+                                              </TableCell>
+                                              <TableCell className="text-right text-emerald-700 tabular-nums dark:text-emerald-400">
+                                                {fmt.money(inv.amount_paid)}
+                                              </TableCell>
+                                              <TableCell className="text-right font-medium tabular-nums">
+                                                {fmt.money(invBalance)}
+                                              </TableCell>
+                                              <TableCell>
+                                                <Badge
+                                                  variant={invBalance <= 0 ? "success" : "warning"}
+                                                >
+                                                  {invBalance <= 0 ? "Paid" : "Due"}
+                                                </Badge>
+                                              </TableCell>
+                                              <TableCell>
+                                                <Badge
+                                                  variant={
+                                                    lifecycle === "Void"
+                                                      ? "neutral"
+                                                      : lifecycle === "Upcoming"
+                                                        ? "info"
+                                                        : "secondary"
+                                                  }
+                                                >
+                                                  {lifecycle}
+                                                </Badge>
+                                              </TableCell>
+                                              <TableCell>
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost"
+                                                  size="icon-sm"
+                                                  onClick={() => openInvoice(inv)}
+                                                  aria-label={`View billing period starting ${fmt.date(inv.period_start)}`}
+                                                >
+                                                  <ChevronRight
+                                                    className="size-4"
+                                                    aria-hidden="true"
+                                                  />
+                                                </Button>
+                                              </TableCell>
+                                            </TableRow>
+                                          );
+                                        })}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="space-y-2">
+                                <h4 className="text-sm font-medium">Transactions</h4>
+                                {payments.length === 0 ? (
+                                  <p className="text-muted-foreground text-sm">
+                                    No payments recorded yet.
+                                  </p>
+                                ) : (
+                                  <ul className="divide-border border-border divide-y rounded-lg border">
+                                    {payments.map((payment) => (
+                                      <li
+                                        key={payment.id}
+                                        className={
+                                          payment.status === "void"
+                                            ? "flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm opacity-65"
+                                            : "flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm"
+                                        }
                                       >
-                                        <TableCell className="font-medium">
-                                          {fmt.date(inv.period_start)}
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                          {periodMethod(inv)}
-                                        </TableCell>
-                                        <TableCell>
-                                          <InvoiceStatusBadge status={st} />
-                                        </TableCell>
-                                        <TableCell className="text-right font-medium tabular-nums">
-                                          {fmt.money(inv.fee_amount)}
-                                        </TableCell>
-                                        <TableCell>
-                                          <ChevronRight className="size-4 text-muted-foreground" />
-                                        </TableCell>
-                                      </TableRow>
-                                    );
-                                  })}
-                                </TableBody>
-                              </Table>
-                            </div>
+                                        <span className="font-medium">
+                                          {fmt.date(payment.paid_at)}
+                                        </span>
+                                        <span className="text-muted-foreground">
+                                          {METHOD_LABEL[payment.method]}
+                                        </span>
+                                        <span className="text-muted-foreground min-w-0 flex-1 truncate">
+                                          {payment.note || "No note"}
+                                        </span>
+                                        {payment.status === "void" && (
+                                          <Badge variant="neutral">Voided</Badge>
+                                        )}
+                                        <PaymentProofLink payment={payment} />
+                                        <span
+                                          className={
+                                            payment.status === "void"
+                                              ? "font-semibold tabular-nums line-through"
+                                              : "font-semibold tabular-nums"
+                                          }
+                                        >
+                                          {fmt.money(payment.amount)}
+                                        </span>
+                                        {payment.status === "paid" &&
+                                          accountRole &&
+                                          canCorrectPayments(accountRole) && (
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => setPaymentToVoid(payment)}
+                                            >
+                                              <RotateCcw className="size-3.5" /> Void
+                                            </Button>
+                                          )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            </>
                           )}
                         </CardContent>
                       </Card>
@@ -734,27 +891,22 @@ export function MemberDetailView({
                         <CardHeader>
                           <CardTitle>Attendance</CardTitle>
                           <CardAction>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={checkIn}
-                              disabled={busy}
-                            >
+                            <Button size="sm" variant="outline" onClick={checkIn} disabled={busy}>
                               <UserCheck className="size-3.5" /> Check in
                             </Button>
                           </CardAction>
                         </CardHeader>
                         <CardContent>
                           {visits.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-muted-foreground text-sm">
                               No check-ins recorded yet.
                             </p>
                           ) : (
-                            <ul className="divide-y divide-border/50">
+                            <ul className="divide-border/50 divide-y">
                               {visits.map((v) => (
                                 <li
                                   key={v.id}
-                                  className="flex items-center gap-2 py-1.5 text-sm text-muted-foreground"
+                                  className="text-muted-foreground flex items-center gap-2 py-1.5 text-sm"
                                 >
                                   <UserCheck className="size-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
                                   {fmt.dateTime(v.checked_in_at)}
@@ -858,6 +1010,15 @@ export function MemberDetailView({
               canAct={canSendMessages}
               onRecord={recordForPeriod}
               onRenew={() => setRenewOpen(true)}
+            />
+            <VoidPaymentDialog
+              key={paymentToVoid?.id ?? "no-payment"}
+              payment={paymentToVoid}
+              open={!!paymentToVoid}
+              onOpenChange={(next) => {
+                if (!next) setPaymentToVoid(null);
+              }}
+              onVoided={refreshAll}
             />
             <AvatarEditorDialog
               open={avatarOpen}

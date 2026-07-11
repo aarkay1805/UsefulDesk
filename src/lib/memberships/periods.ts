@@ -38,6 +38,19 @@ export function periodStatus(
   return "unpaid";
 }
 
+/** Whether an operational payment may be added to a persisted period. */
+export function isCollectiblePeriod(
+  p: Pick<MembershipPeriodInvoice, "state" | "balance"> | null,
+  membershipStatus: Membership["status"],
+): boolean {
+  return (
+    !!p &&
+    p.state === "open" &&
+    membershipStatus !== "cancelled" &&
+    Number(p.balance) > 0
+  );
+}
+
 export const INVOICE_STATUS_LABEL: Record<InvoiceStatus, string> = {
   paid: "Paid",
   unpaid: "Unpaid",
@@ -73,6 +86,7 @@ export function projectNextInvoice(
     | "account_id"
     | "contact_id"
     | "plan_id"
+    | "start_date"
     | "end_date"
     | "fee_amount"
     | "status"
@@ -83,6 +97,10 @@ export function projectNextInvoice(
 ): MembershipPeriodInvoice | null {
   if (membership.is_trial) return null;
   if (membership.status === "cancelled") return null;
+  // An early renewal moves the membership pointer to a persisted future
+  // cycle. That future period is already the one upcoming invoice; do not
+  // fabricate another cycle after it.
+  if (membership.start_date > today) return null;
   // Only project while the current cycle is still live (ends strictly
   // after today), so the projected row is always genuinely Upcoming.
   if (membership.end_date <= today) return null;

@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { periodStatus, projectNextInvoice, isProjectedInvoice } from "./periods";
+import {
+  isCollectiblePeriod,
+  periodStatus,
+  projectNextInvoice,
+  isProjectedInvoice,
+} from "./periods";
 import type { Membership, MembershipPeriodInvoice } from "@/types";
 
 const TODAY = "2026-07-11";
@@ -37,14 +42,36 @@ describe("periodStatus", () => {
   });
 });
 
+describe("isCollectiblePeriod", () => {
+  it("only permits an open period with a positive balance", () => {
+    expect(isCollectiblePeriod(inv({ balance: 500 }), "active")).toBe(true);
+    expect(isCollectiblePeriod(inv({ balance: 0 }), "active")).toBe(false);
+    expect(isCollectiblePeriod(inv({ state: "void", balance: 500 }), "active")).toBe(false);
+  });
+
+  it("never permits collection from a cancelled membership", () => {
+    expect(isCollectiblePeriod(inv({ balance: 500 }), "cancelled")).toBe(false);
+  });
+});
+
 const baseMembership: Pick<
   Membership,
-  "id" | "account_id" | "contact_id" | "plan_id" | "end_date" | "fee_amount" | "status" | "is_trial" | "plan"
+  | "id"
+  | "account_id"
+  | "contact_id"
+  | "plan_id"
+  | "start_date"
+  | "end_date"
+  | "fee_amount"
+  | "status"
+  | "is_trial"
+  | "plan"
 > = {
   id: "m1",
   account_id: "a1",
   contact_id: "c1",
   plan_id: "p1",
+  start_date: "2026-07-11",
   end_date: "2026-08-10",
   fee_amount: 3999,
   status: "active",
@@ -94,5 +121,14 @@ describe("projectNextInvoice", () => {
 
   it("projects while the current cycle is still live", () => {
     expect(projectNextInvoice(baseMembership, TODAY)).not.toBeNull();
+  });
+
+  it("does not project a second invoice after an early renewal", () => {
+    expect(
+      projectNextInvoice(
+        { ...baseMembership, start_date: "2026-08-10", end_date: "2026-09-09" },
+        TODAY,
+      ),
+    ).toBeNull();
   });
 });

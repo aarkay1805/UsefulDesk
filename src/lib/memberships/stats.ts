@@ -76,14 +76,17 @@ export async function loadGymStats(
       .eq("is_trial", false)
       .eq("status", "active")
       .lt("end_date", today),
-    // Fee amounts for due memberships — one query yields both the count
-    // and the total (summed client-side; the set is small).
+    // Ledger-derived balances for due memberships — partial payments
+    // reduce the total instead of counting the full membership fee.
     db
-      .from("memberships")
-      .select("fee_amount")
-      .eq("fee_status", "due")
-      .neq("status", "cancelled"),
-    db.from("payments").select("amount").gte("paid_at", monthStartInstant),
+      .from("membership_dues")
+      .select("balance")
+      .gt("balance", 0),
+    db
+      .from("payments")
+      .select("amount")
+      .eq("status", "paid")
+      .gte("paid_at", monthStartInstant),
     db
       .from("attendance")
       .select("contact_id")
@@ -91,7 +94,7 @@ export async function loadGymStats(
   ]);
 
   const activeRows = (activeRes.data as { contact_id: string }[] | null) ?? [];
-  const dueRows = (dueRes.data as { fee_amount: number }[] | null) ?? [];
+  const dueRows = (dueRes.data as { balance: number }[] | null) ?? [];
   const paidRows = (paidRes.data as { amount: number }[] | null) ?? [];
   const attRows = (attRes.data as { contact_id: string }[] | null) ?? [];
 
@@ -103,7 +106,7 @@ export async function loadGymStats(
     expiring7: expiringRes.count ?? 0,
     expired: expiredRes.count ?? 0,
     feesDueCount: dueRows.length,
-    feesDueAmount: dueRows.reduce((s, r) => s + Number(r.fee_amount || 0), 0),
+    feesDueAmount: dueRows.reduce((s, r) => s + Number(r.balance || 0), 0),
     collectedThisMonth: paidRows.reduce((s, r) => s + Number(r.amount || 0), 0),
     inactive,
   };

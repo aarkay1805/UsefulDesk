@@ -232,10 +232,6 @@ export function MemberForm({
       const endDate = isTrial
         ? istAddDays(startDate, trialLen)
         : istAddDays(startDate, plan!.duration_days);
-      // Trials are free → 'paid' (nothing owed). A paid member is 'paid'
-      // only when the first payment is collected up front.
-      const feeStatus = isTrial ? "paid" : collectPayment ? "paid" : "due";
-
       const { data: mRow, error: mErr } = await supabase
         .from("memberships")
         .insert({
@@ -247,7 +243,6 @@ export function MemberForm({
           end_date: endDate,
           status: "active",
           fee_amount: fee,
-          fee_status: feeStatus,
           is_trial: isTrial,
           notes: notes.trim() || null,
         })
@@ -266,18 +261,16 @@ export function MemberForm({
       }
 
       // Optional first payment (never for a free trial).
-      if (collectPayment && !isTrial) {
-        const { error: pErr } = await supabase.from("payments").insert({
-          account_id: accountId,
-          membership_id: mRow.id,
-          contact_id: contactId,
-          plan_id: planId,
-          user_id: user.id,
-          amount: fee,
-          method: payMethod,
-          status: "paid",
-          period_start: startDate,
-          period_end: endDate,
+      if (collectPayment && !isTrial && fee > 0) {
+        const { error: pErr } = await supabase.rpc("record_membership_payment", {
+          p_membership_id: mRow.id,
+          p_period_end: endDate,
+          p_amount: fee,
+          p_method: payMethod,
+          p_paid_at: new Date().toISOString(),
+          p_note: "",
+          p_receipt_path: null,
+          p_idempotency_key: crypto.randomUUID(),
         });
         if (pErr) {
           // The membership is saved; a payment hiccup shouldn't block it.

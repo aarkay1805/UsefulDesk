@@ -1,12 +1,9 @@
 "use client";
 
 // BulkRecordPaymentDialog — settle fees for every selected member at
-// once. Two explicit actions so the books stay honest:
-//   · "Record payments" inserts one payments-ledger row per member for
-//     their outstanding balance (membership_dues), then marks them paid —
-//     the bulk sibling of RecordPaymentDialog's insert.
-//   · "Mark paid only" just flips fee_status (no ledger row) for owners
-//     reconciling outside the app.
+// once. "Record payments" writes one authoritative ledger row per member
+// for their outstanding balance. fee_status is derived by the database;
+// there is intentionally no ledger-less "mark paid" escape hatch.
 // Members with nothing outstanding are skipped, not failed; the toast
 // reports the tally. Updates chain .select('id') — an RLS-blocked write
 // returns zero rows, and that must read as failure, never silent success.
@@ -62,9 +59,7 @@ export function BulkRecordPaymentDialog({
   const [paidOn, setPaidOn] = useState(fmt.today());
   const [saving, setSaving] = useState(false);
   // Selected memberships joined with their outstanding balances.
-  const [rows, setRows] = useState<
-    { membership: Membership; balance: number }[] | null
-  >(null);
+  const [rows, setRows] = useState<{ membership: Membership; balance: number }[] | null>(null);
 
   // Fresh form each open — render-time reset (repo lint forbids setState
   // directly in effects for this).
@@ -95,16 +90,17 @@ export function BulkRecordPaymentDialog({
       ]);
       if (cancelled) return;
       const balanceById = new Map(
-        ((dues as { membership_id: string; balance: number }[]) ?? []).map(
-          (d) => [d.membership_id, Number(d.balance)]
-        )
+        ((dues as { membership_id: string; balance: number }[]) ?? []).map((d) => [
+          d.membership_id,
+          Number(d.balance),
+        ]),
       );
       setRows(
         ((memberships as Membership[]) ?? []).map((m) => ({
           membership: m,
           // No dues row → nothing collected this period → full fee due.
           balance: balanceById.get(m.id) ?? Number(m.fee_amount ?? 0),
-        }))
+        })),
       );
     })();
     return () => {
@@ -116,79 +112,36 @@ export function BulkRecordPaymentDialog({
   const totalDue = due.reduce((s, r) => s + r.balance, 0);
   const settled = (rows?.length ?? 0) - due.length;
 
-  async function markPaidOnly() {
-    if (due.length === 0) return;
-    setSaving(true);
-    const { data, error } = await supabase
-      .from("memberships")
-      .update({ fee_status: "paid" })
-      .in(
-        "id",
-        due.map((r) => r.membership.id)
-      )
-      .select("id");
-    setSaving(false);
-    if (error || !data || data.length === 0) {
-      toast.error("Failed to mark members paid — you may not have permission.");
-      return;
-    }
-    const skipped = due.length - data.length;
-    toast.success(
-      `${data.length} member${data.length === 1 ? "" : "s"} marked paid` +
-        (skipped ? ` · ${skipped} blocked` : "")
-    );
-    onOpenChange(false);
-    onDone();
-  }
-
   async function recordPayments() {
     if (!accountId || !user || due.length === 0) return;
     setSaving(true);
     // Anchor the picked calendar day at noon in the ACCOUNT's zone so it
     // reads back on the same day (same recipe as RecordPaymentDialog).
-    const paidAt = (
-      dateAtNoonInTz(paidOn, locale.timeZone) ?? new Date()
-    ).toISOString();
+    const paidAt = (dateAtNoonInTz(paidOn, locale.timeZone) ?? new Date()).toISOString();
 
     let recorded = 0;
     let failed = 0;
-    // Per-member insert+flip so one blocked row doesn't sink the batch.
+    // Per-member transactional RPC so one blocked row doesn't sink the batch.
     for (const { membership, balance } of due) {
-      const { error: pErr } = await supabase.from("payments").insert({
-        account_id: accountId,
-        membership_id: membership.id,
-        contact_id: membership.contact_id,
-        plan_id: membership.plan_id,
-        user_id: user.id,
-        amount: balance,
-        method,
-        status: "paid",
-        paid_at: paidAt,
-        period_start: membership.start_date,
-        period_end: membership.end_date,
+      const { error: pErr } = await supabase.rpc("record_membership_payment", {
+        p_membership_id: membership.id,
+        p_period_end: membership.end_date,
+        p_amount: balance,
+        p_method: method,
+        p_paid_at: paidAt,
+        p_note: "Bulk payment",
+        p_receipt_path: null,
+        p_idempotency_key: crypto.randomUUID(),
       });
       if (pErr) {
         failed++;
-        continue;
-      }
-      const { data: updated } = await supabase
-        .from("memberships")
-        .update({ fee_status: "paid" })
-        .eq("id", membership.id)
-        .select("id");
-      if (!updated || updated.length === 0) {
-        // Ledger row landed but the flip was blocked — count it as
-        // recorded; the dues view still shows the true balance.
-        recorded++;
         continue;
       }
       recorded++;
     }
     setSaving(false);
 
-    const parts = [
-      `${recorded} payment${recorded === 1 ? "" : "s"} recorded`,
-    ];
+    const parts = [`${recorded} payment${recorded === 1 ? "" : "s"} recorded`];
     if (settled) parts.push(`${settled} already settled`);
     if (failed) parts.push(`${failed} failed`);
     (failed && !recorded ? toast.error : toast.success)(parts.join(" · "));
@@ -202,29 +155,29 @@ export function BulkRecordPaymentDialog({
         <DialogHeader>
           <DialogTitle>Record payments</DialogTitle>
           <DialogDescription>
-            Settle the outstanding balance for {membershipIds.length} selected
-            member{membershipIds.length === 1 ? "" : "s"}.
+            Settle the outstanding balance for {membershipIds.length} selected member
+            {membershipIds.length === 1 ? "" : "s"}.
           </DialogDescription>
         </DialogHeader>
 
         {rows === null ? (
-          <div className="flex items-center justify-center py-8 text-muted-foreground">
+          <div className="text-muted-foreground flex items-center justify-center py-8">
             <Loader2 className="size-5 animate-spin" />
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+            <div className="border-border bg-muted/40 rounded-lg border px-3 py-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Outstanding</span>
                 <span className="font-medium text-amber-700 dark:text-amber-400">
-                  {fmt.money(totalDue)} · {due.length}{" "}
-                  member{due.length === 1 ? "" : "s"}
+                  {fmt.money(totalDue)} · {due.length} member
+                  {due.length === 1 ? "" : "s"}
                 </span>
               </div>
               {settled > 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {settled} selected member{settled === 1 ? " has" : "s have"}{" "}
-                  nothing due and will be skipped.
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {settled} selected member{settled === 1 ? " has" : "s have"} nothing due and will
+                  be skipped.
                 </p>
               )}
             </div>
@@ -238,7 +191,7 @@ export function BulkRecordPaymentDialog({
                   id="brp-method"
                   value={method}
                   onChange={(e) => setMethod(e.target.value as PaymentMethod)}
-                  className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:ring-1"
                 >
                   {PAYMENT_METHODS.map((m) => (
                     <option key={m.value} value={m.value}>
@@ -261,24 +214,14 @@ export function BulkRecordPaymentDialog({
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Each member&apos;s payment is recorded for their own outstanding
-              balance. Use &ldquo;Mark paid only&rdquo; if the money was
-              reconciled outside UsefulDesk.
+            <p className="text-muted-foreground text-xs">
+              Each member&apos;s payment is recorded for their own outstanding balance and
+              immediately reconciled to their billing period.
             </p>
           </div>
         )}
 
-        <DialogFooter className="sm:justify-between">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={markPaidOnly}
-            disabled={saving || rows === null || due.length === 0}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Mark paid only
-          </Button>
+        <DialogFooter>
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
