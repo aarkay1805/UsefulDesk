@@ -117,7 +117,7 @@ export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
         METHOD_LABEL[p.method],
         Number(p.amount),
         p.status,
-        esc(staffNameById.get(p.user_id) ?? ""),
+        esc(p.user_id ? (staffNameById.get(p.user_id) ?? "") : "Auto-pay"),
         esc(p.note),
       ].join(","),
     );
@@ -214,9 +214,11 @@ export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
                 meta={
                   <p className="text-muted-foreground truncate text-xs">
                     {METHOD_LABEL[p.method]} · {fmt.date(p.paid_at)}
-                    {staffNameById.has(p.user_id)
-                      ? ` · by ${staffNameById.get(p.user_id)}`
-                      : ""}
+                    {!p.user_id
+                      ? " · Auto-pay"
+                      : staffNameById.has(p.user_id)
+                        ? ` · by ${staffNameById.get(p.user_id)}`
+                        : ""}
                     {p.note ? ` · ${p.note}` : ""}
                   </p>
                 }

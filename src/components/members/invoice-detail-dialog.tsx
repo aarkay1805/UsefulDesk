@@ -270,18 +270,22 @@ export function InvoiceDetailDialog({
                       {fmt.money(p.amount)}
                     </span>
                   </SummaryRow>
-                  {staffNameById.has(p.user_id) && (
-                    <SummaryRow label="Recorded by">
-                      <span className="inline-flex items-center gap-1.5">
-                        <UserAvatar
-                          name={staffNameById.get(p.user_id) ?? "?"}
-                          src={staffAvatarById.get(p.user_id)}
-                          className="size-5"
-                          fallbackClassName="text-[9px]"
-                        />
-                        {staffNameById.get(p.user_id)}
-                      </span>
-                    </SummaryRow>
+                  {!p.user_id ? (
+                    <SummaryRow label="Recorded by">Auto-pay</SummaryRow>
+                  ) : (
+                    staffNameById.has(p.user_id) && (
+                      <SummaryRow label="Recorded by">
+                        <span className="inline-flex items-center gap-1.5">
+                          <UserAvatar
+                            name={staffNameById.get(p.user_id) ?? "?"}
+                            src={staffAvatarById.get(p.user_id)}
+                            className="size-5"
+                            fallbackClassName="text-[9px]"
+                          />
+                          {staffNameById.get(p.user_id)}
+                        </span>
+                      </SummaryRow>
+                    )
                   )}
                   {p.note && <SummaryRow label="Note">{p.note}</SummaryRow>}
                   {(p.screenshot_url || p.screenshot_path) && (

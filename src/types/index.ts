@@ -796,6 +796,10 @@ export interface Membership {
    *  trial. */
   converted_at?: string | null;
   notes?: string;
+  /** Who chases dues (migration 059). 'manual' = renewal cron + WhatsApp
+   *  remind (default, today's flow); 'auto' = a live UPI/card mandate
+   *  collects. Flipped by the mandate lifecycle RPCs, never by hand. */
+  collection_mode?: MembershipCollectionMode;
   created_at: string;
   updated_at: string;
   /** Hydrated by queries that embed `contacts(*)` / `membership_plans(*)`. */
@@ -810,8 +814,10 @@ export interface Payment {
   contact_id: string | null;
   /** Snapshot of the plan billed at pay time. */
   plan_id: string | null;
-  /** Who recorded the payment. */
-  user_id: string;
+  /** Who recorded the payment. Null for a gateway auto-debit row
+   *  (`source='auto'`), which has no human recorder — render "Auto-pay"
+   *  instead of a person (migration 059). */
+  user_id: string | null;
   amount: number;
   method: PaymentMethod;
   status: PaymentStatus;
@@ -831,7 +837,57 @@ export interface Payment {
   voided_by?: string | null;
   void_reason?: string | null;
   note?: string;
+  /** How the money arrived (migration 059). 'manual' = staff-recorded
+   *  cash/UPI/card (default, unchanged); 'auto' = gateway mandate debit. */
+  source?: PaymentSource;
+  /** The mandate that produced an auto row (null for manual). */
+  mandate_id?: string | null;
+  /** Gateway payment id — reconcile + dedupe key for auto rows. */
+  gateway_payment_id?: string | null;
   created_at: string;
+}
+
+/** How a membership's recurring dues are collected (migration 059). */
+export type MembershipCollectionMode = 'manual' | 'auto';
+
+/** Provenance of a ledger row (migration 059). */
+export type PaymentSource = 'manual' | 'auto';
+
+export type MandateStatus =
+  | 'pending'
+  | 'active'
+  | 'paused'
+  | 'revoked'
+  | 'expired'
+  | 'failed';
+
+/**
+ * A saved recurring auto-debit mandate (migration 059) — one live mandate
+ * (`status='active'`) per membership. The gateway (Razorpay) owns the RBI
+ * eMandate + 24h pre-debit notice; we store the reusable token to charge
+ * against and the display VPA. Webhook events flip `status` and, through
+ * activate/revoke, the membership's `collection_mode`.
+ */
+export interface PaymentMandate {
+  id: string;
+  account_id: string;
+  membership_id: string;
+  contact_id: string | null;
+  gateway: string;
+  gateway_customer_id?: string | null;
+  gateway_token_id?: string | null;
+  gateway_subscription_id?: string | null;
+  /** Masked payer VPA, display only. */
+  vpa?: string | null;
+  method: 'upi' | 'card' | 'emandate';
+  /** Mandate ceiling; RBI ≤ ₹15,000 for per-charge no-AFA. */
+  max_amount?: number | null;
+  frequency?: 'monthly' | 'quarterly' | null;
+  status: MandateStatus;
+  authed_at?: string | null;
+  next_charge_at?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
