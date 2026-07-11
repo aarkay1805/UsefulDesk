@@ -84,6 +84,7 @@ import { MemberCommunication } from "./member-communication";
 import { MemberDangerZone } from "./member-danger-zone";
 import { PaymentProofLink } from "./payment-proof-link";
 import { VoidPaymentDialog } from "./void-payment-dialog";
+import { useAccountStaff } from "./use-account-staff";
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "Cash",
@@ -146,6 +147,9 @@ export function MemberDetailView({
   const { user, canSendMessages, accountRole } = useAuth();
   const { locale, fmt } = useLocale();
   const upi = useUpiConfig();
+  // "Recorded by" on ledger rows — who took the cash is the first
+  // reconciliation question in a multi-staff gym.
+  const { nameById: staffNameById, avatarById: staffAvatarById } = useAccountStaff();
 
   const [membership, setMembership] = useState<Membership | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -796,6 +800,19 @@ export function MemberDetailView({
                                         <span className="text-muted-foreground min-w-0 flex-1 truncate">
                                           {payment.note || "No note"}
                                         </span>
+                                        {staffNameById.has(payment.user_id) && (
+                                          <span
+                                            title={`Recorded by ${staffNameById.get(payment.user_id)}`}
+                                            className="inline-flex cursor-help"
+                                          >
+                                            <UserAvatar
+                                              name={staffNameById.get(payment.user_id) ?? "?"}
+                                              src={staffAvatarById.get(payment.user_id)}
+                                              className="size-5"
+                                              fallbackClassName="text-[9px]"
+                                            />
+                                          </span>
+                                        )}
                                         {payment.status === "void" && (
                                           <VoidedPaymentBadge
                                             payment={payment}

@@ -114,13 +114,14 @@ export function BulkRecordPaymentDialog({
 
   async function recordPayments() {
     if (!accountId || !user || due.length === 0) return;
+    if (paidOn > fmt.today()) return toast.error("The payment date cannot be in the future");
     setSaving(true);
     // Anchor the picked calendar day at noon in the ACCOUNT's zone so it
     // reads back on the same day (same recipe as RecordPaymentDialog).
     const paidAt = (dateAtNoonInTz(paidOn, locale.timeZone) ?? new Date()).toISOString();
 
     let recorded = 0;
-    let failed = 0;
+    const failedNames: string[] = [];
     // Per-member transactional RPC so one blocked row doesn't sink the batch.
     for (const { membership, balance } of due) {
       const { error: pErr } = await supabase.rpc("record_membership_payment", {
@@ -134,7 +135,7 @@ export function BulkRecordPaymentDialog({
         p_idempotency_key: crypto.randomUUID(),
       });
       if (pErr) {
-        failed++;
+        failedNames.push(membership.contact?.name || membership.contact?.phone || "Unnamed member");
         continue;
       }
       recorded++;
@@ -143,8 +144,13 @@ export function BulkRecordPaymentDialog({
 
     const parts = [`${recorded} payment${recorded === 1 ? "" : "s"} recorded`];
     if (settled) parts.push(`${settled} already settled`);
-    if (failed) parts.push(`${failed} failed`);
-    (failed && !recorded ? toast.error : toast.success)(parts.join(" · "));
+    if (failedNames.length) {
+      // Name WHO failed — "2 failed" leaves the owner hunting.
+      const shown = failedNames.slice(0, 3).join(", ");
+      const extra = failedNames.length > 3 ? ` +${failedNames.length - 3} more` : "";
+      parts.push(`failed: ${shown}${extra}`);
+    }
+    (failedNames.length && !recorded ? toast.error : toast.success)(parts.join(" · "));
     onOpenChange(false);
     onDone();
   }
@@ -182,6 +188,30 @@ export function BulkRecordPaymentDialog({
               )}
             </div>
 
+            {/* Per-member preview — the owner sees exactly who gets
+                charged what BEFORE committing, not one aggregate. */}
+            {due.length > 0 && (
+              <div className="border-border max-h-44 overflow-y-auto rounded-lg border">
+                <ul className="divide-border divide-y">
+                  {due.map(({ membership, balance }) => (
+                    <li
+                      key={membership.id}
+                      className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm"
+                    >
+                      <span className="text-foreground min-w-0 truncate">
+                        {membership.contact?.name ||
+                          membership.contact?.phone ||
+                          "Unnamed member"}
+                      </span>
+                      <span className="shrink-0 font-medium tabular-nums">
+                        {fmt.money(balance)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="brp-method" className="text-muted-foreground">
@@ -208,6 +238,7 @@ export function BulkRecordPaymentDialog({
                   id="brp-date"
                   type="date"
                   value={paidOn}
+                  max={fmt.today()}
                   onChange={(e) => setPaidOn(e.target.value)}
                   className="bg-muted"
                 />

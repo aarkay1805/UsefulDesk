@@ -165,6 +165,9 @@ export function RecordPaymentDialog({
   async function handleSave() {
     const amt = Number(amount);
     if (!dues || loadError) return toast.error("The balance is not available yet");
+    // ISO date strings compare lexically == chronologically. Backdating
+    // is legitimate (cash noted late); future-dating is a typo.
+    if (paidOn > fmt.today()) return toast.error("The payment date cannot be in the future");
     const validation = validatePaymentAmount(amt, dues.balance);
     if (validation === "invalid" || validation === "not_positive") {
       return toast.error("Enter an amount greater than zero");
@@ -269,6 +272,26 @@ export function RecordPaymentDialog({
                 onChange={(e) => setAmount(e.target.value)}
                 className="bg-muted"
               />
+              {dues && dues.balance > 0 && (
+                <div className="flex gap-1.5">
+                  {/* Installments are constant — one tap for the two
+                      common splits instead of mental arithmetic. */}
+                  <button
+                    type="button"
+                    onClick={() => setAmount(String(dues.balance))}
+                    className="border-border text-muted-foreground hover:bg-muted hover:text-foreground rounded-md border px-2 py-0.5 text-xs transition-colors"
+                  >
+                    Full {fmt.moneyShort(dues.balance)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAmount(String(Math.round((dues.balance / 2) * 100) / 100))}
+                    className="border-border text-muted-foreground hover:bg-muted hover:text-foreground rounded-md border px-2 py-0.5 text-xs transition-colors"
+                  >
+                    Half {fmt.moneyShort(Math.round((dues.balance / 2) * 100) / 100)}
+                  </button>
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="rp-method" className="text-muted-foreground">
@@ -289,6 +312,23 @@ export function RecordPaymentDialog({
             </div>
           </div>
 
+          {dues &&
+            dues.balance > 0 &&
+            validatePaymentAmount(Number(amount), dues.balance) === "valid" && (
+              <p className="text-muted-foreground text-xs">
+                {Number(amount) >= dues.balance ? (
+                  <>This payment settles the period.</>
+                ) : (
+                  <>
+                    Remaining after this payment:{" "}
+                    <span className="text-foreground font-medium">
+                      {fmt.money(dues.balance - Number(amount))}
+                    </span>
+                  </>
+                )}
+              </p>
+            )}
+
           <div className="space-y-1.5">
             <Label htmlFor="rp-date" className="text-muted-foreground">
               Paid on
@@ -297,6 +337,7 @@ export function RecordPaymentDialog({
               id="rp-date"
               type="date"
               value={paidOn}
+              max={fmt.today()}
               onChange={(e) => setPaidOn(e.target.value)}
               className="bg-muted"
             />

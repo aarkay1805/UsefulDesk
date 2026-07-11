@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Receipt } from "lucide-react";
+import { Download, Loader2, Receipt } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/hooks/use-locale";
 import type { Payment, PaymentMethod, Contact } from "@/types";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { MemberIdentity } from "./member-identity";
 import { PaymentProofLink } from "./payment-proof-link";
 import { VoidedPaymentBadge } from "./membership-status-badge";
+import { useAccountStaff } from "./use-account-staff";
 
 interface PaymentsLedgerProps {
   /** Bump to refetch after a payment is recorded elsewhere. */
@@ -51,6 +53,7 @@ const FILTERS: { value: MethodFilter; label: string }[] = [
  */
 export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
   const { fmt } = useLocale();
+  const { nameById: staffNameById } = useAccountStaff();
   const [rows, setRows] = useState<LedgerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<MethodFilter>("all");
@@ -85,25 +88,100 @@ export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
     [rows, filter],
   );
 
+  // Per-method collected totals over the loaded rows, voids excluded —
+  // the numbers an owner matches against the cash drawer / UPI app /
+  // bank statement. Scoped to what's listed (see LEDGER_LIMIT notice).
+  const totals = useMemo(() => {
+    const byMethod = new Map<PaymentMethod, number>();
+    let all = 0;
+    for (const r of rows) {
+      if (r.status !== "paid") continue;
+      const amt = Number(r.amount) || 0;
+      all += amt;
+      byMethod.set(r.method, (byMethod.get(r.method) ?? 0) + amt);
+    }
+    return { all, byMethod };
+  }, [rows]);
+
+  function exportCsv() {
+    const esc = (v: string | number | null | undefined) => {
+      const s = String(v ?? "");
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = ["Paid on", "Member", "Phone", "Method", "Amount", "Status", "Recorded by", "Note"];
+    const lines = filtered.map((p) =>
+      [
+        fmt.date(p.paid_at),
+        esc(p.contact?.name),
+        esc(p.contact?.phone),
+        METHOD_LABEL[p.method],
+        Number(p.amount),
+        p.status,
+        esc(staffNameById.get(p.user_id) ?? ""),
+        esc(p.note),
+      ].join(","),
+    );
+    const blob = new Blob([[header.join(","), ...lines].join("\n")], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `payments-${filter === "all" ? "all-methods" : filter}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-3">
-      <div className="border-border bg-muted/40 inline-flex flex-wrap gap-1 rounded-lg border p-0.5">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => setFilter(f.value)}
-            className={cn(
-              "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-              filter === f.value
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="border-border bg-muted/40 inline-flex flex-wrap gap-1 rounded-lg border p-0.5">
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setFilter(f.value)}
+              className={cn(
+                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                filter === f.value
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          onClick={exportCsv}
+          disabled={loading || !!loadError || filtered.length === 0}
+        >
+          <Download className="size-3.5" /> Export CSV
+        </Button>
       </div>
+
+      {!loading && !loadError && rows.length > 0 && (
+        <dl className="border-border bg-muted/20 flex flex-wrap gap-x-5 gap-y-1 rounded-lg border px-3 py-2 text-xs">
+          <div className="flex items-baseline gap-1.5">
+            <dt className="text-muted-foreground">Collected</dt>
+            <dd className="text-foreground font-semibold tabular-nums">{fmt.money(totals.all)}</dd>
+          </div>
+          {FILTERS.filter((f) => f.value !== "all").map((f) => {
+            const amt = totals.byMethod.get(f.value as PaymentMethod) ?? 0;
+            if (amt <= 0) return null;
+            return (
+              <div key={f.value} className="flex items-baseline gap-1.5">
+                <dt className="text-muted-foreground">{f.label}</dt>
+                <dd className="text-foreground font-medium tabular-nums">{fmt.money(amt)}</dd>
+              </div>
+            );
+          })}
+        </dl>
+      )}
 
       {loading ? (
         <div className="text-muted-foreground flex items-center gap-2 py-10 text-sm">
@@ -136,6 +214,9 @@ export function PaymentsLedger({ reloadKey }: PaymentsLedgerProps) {
                 meta={
                   <p className="text-muted-foreground truncate text-xs">
                     {METHOD_LABEL[p.method]} · {fmt.date(p.paid_at)}
+                    {staffNameById.has(p.user_id)
+                      ? ` · by ${staffNameById.get(p.user_id)}`
+                      : ""}
                     {p.note ? ` · ${p.note}` : ""}
                   </p>
                 }

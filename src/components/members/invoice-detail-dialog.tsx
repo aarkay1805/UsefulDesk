@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PaymentProofLink } from "./payment-proof-link";
 import { VoidedPaymentBadge } from "./membership-status-badge";
+import { CopyUpiLinkButton, useUpiConfig } from "./copy-upi-link-button";
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "Cash",
@@ -57,6 +58,7 @@ export function InvoiceDetailDialog({
 }: InvoiceDetailDialogProps) {
   const supabase = createClient();
   const { fmt } = useLocale();
+  const upi = useUpiConfig();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -227,16 +229,22 @@ export function InvoiceDetailDialog({
             </Button>
           )}
           {canAct && !projected && balance > 0 && invoice.state !== "void" && (
-            <Button
-              type="button"
-              onClick={() => {
-                onOpenChange(false);
-                onRecord(invoice);
-              }}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <Wallet className="size-4" /> Record payment
-            </Button>
+            <>
+              {/* Arrears are exactly when a payment link gets sent —
+                  same Copy-UPI as the current-cycle header, for THIS
+                  period's outstanding balance. */}
+              <CopyUpiLinkButton upi={upi} amount={balance} note="Membership fee" size="default" />
+              <Button
+                type="button"
+                onClick={() => {
+                  onOpenChange(false);
+                  onRecord(invoice);
+                }}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Wallet className="size-4" /> Record payment
+              </Button>
+            </>
           )}
         </DialogFooter>
       </DialogContent>
