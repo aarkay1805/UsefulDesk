@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Loader2, RefreshCw, RotateCcw, Wallet } from "lucide-react";
+import { Loader2, RefreshCw, RotateCcw, Wallet, Repeat } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/hooks/use-locale";
@@ -260,7 +260,16 @@ export function InvoiceDetailDialog({
                 </div>
                 <dl className="border-border divide-border divide-y rounded-lg border">
                   <SummaryRow label="Paid on">{fmt.date(p.paid_at)}</SummaryRow>
-                  <SummaryRow label="Method">{METHOD_LABEL[p.method]}</SummaryRow>
+                  <SummaryRow label="Method">
+                    <span className="inline-flex items-center gap-1.5">
+                      {METHOD_LABEL[p.method]}
+                      {p.source === "auto" && (
+                        <Badge variant="info" className="gap-1">
+                          <Repeat className="size-3" /> Auto
+                        </Badge>
+                      )}
+                    </span>
+                  </SummaryRow>
                   <SummaryRow label="Amount">
                     <span
                       className={

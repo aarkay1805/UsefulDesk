@@ -164,21 +164,19 @@ async function handleEvent(
       const membershipId = sub.notes?.membership_id;
       if (!membershipId) throw new Error("charge missing membership_id in notes");
       const mandateId = await mandateIdForSubscription(admin, accountId, sub.id);
-      const { error } = await admin.rpc("record_gateway_payment", {
+      // record_gateway_charge settles the current cycle on the first
+      // charge and auto-renews (opens the next period + rolls the
+      // membership forward) on every subsequent one — one transaction,
+      // idempotent on the gateway payment id (migration 060).
+      const { error } = await admin.rpc("record_gateway_charge", {
         p_account_id: accountId,
         p_membership_id: membershipId,
         p_gateway_payment_id: payment.id,
         p_amount: toRupees(payment.amount),
         p_method: payment.method === "card" ? "card" : "upi",
-        // Settle the membership's current open period. NOTE (MVP gap):
-        // this records the collection but does not yet EXTEND the
-        // membership to the next cycle — auto-renew on charge is the next
-        // build (call renew_membership_transaction here). Tracked in the
-        // UPI AutoPay PRD.
-        p_period_end: null,
         p_mandate_id: mandateId,
       });
-      if (error) throw new Error(`record_gateway_payment: ${error.message}`);
+      if (error) throw new Error(`record_gateway_charge: ${error.message}`);
       return;
     }
 
