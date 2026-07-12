@@ -6,7 +6,50 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+/**
+ * Base UI's `Select.Value` resolves the trigger label ONLY from the root's
+ * `items` prop — never from mounted `SelectItem` children — so without it a
+ * selected value renders raw (a plan UUID, "male" instead of "Male"). Derive
+ * `items` from the JSX children so every call-site gets a proper label for
+ * free; an explicit `items` prop still wins. Null-valued items ("No plan")
+ * are deliberately skipped: registering a null-item label makes Base UI
+ * render it in place of the placeholder, which the clearable-select idiom
+ * relies on.
+ */
+function collectSelectItems(
+  node: React.ReactNode,
+  out: { value: unknown; label: React.ReactNode }[]
+) {
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement(child)) return
+    const props = child.props as { value?: unknown; children?: React.ReactNode }
+    if (child.type === SelectItem) {
+      if (props.value != null) out.push({ value: props.value, label: props.children })
+      return
+    }
+    if (props.children != null) collectSelectItems(props.children, out)
+  })
+}
+
+function Select<Value, Multiple extends boolean | undefined = false>({
+  items,
+  children,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const derivedItems = React.useMemo(() => {
+    if (items) return items
+    const collected: { value: unknown; label: React.ReactNode }[] = []
+    collectSelectItems(children, collected)
+    return collected.length
+      ? (collected as ReadonlyArray<{ value: Value; label: React.ReactNode }>)
+      : undefined
+  }, [items, children])
+  return (
+    <SelectPrimitive.Root items={derivedItems} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

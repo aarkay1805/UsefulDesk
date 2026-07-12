@@ -29,9 +29,18 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from '@/components/ui/accordion';
+import { WhatsAppEmbeddedSignup } from './whatsapp-embedded-signup';
 import type { WhatsAppConfig as WhatsAppConfigType } from '@/types';
 
 const MASKED_TOKEN = '••••••••••••••••';
+
+// Embedded Signup is the default connect path when the platform's
+// Meta app id + signup configuration id are exposed to the client;
+// without them the manual credential form is the only path and it
+// renders expanded instead of tucked behind "Advanced".
+const EMBEDDED_SIGNUP_AVAILABLE = Boolean(
+  process.env.NEXT_PUBLIC_META_APP_ID && process.env.NEXT_PUBLIC_META_ES_CONFIG_ID,
+);
 
 type ConnectionStatus = 'connected' | 'disconnected' | 'unknown';
 type ResetReason = 'token_corrupted' | 'meta_api_error' | null;
@@ -578,6 +587,23 @@ export function WhatsAppConfig() {
           </Alert>
         )}
 
+        {/* Embedded Signup — the default connect path (renders only
+            when the Meta app id + config id env vars are set). */}
+        <WhatsAppEmbeddedSignup
+          hasExistingConfig={Boolean(config)}
+          onConnected={() => {
+            if (accountId) void fetchConfig(accountId);
+          }}
+        />
+
+        {/* Manual setup — the original credential form. Collapsed
+            behind "Advanced" when Embedded Signup is available. */}
+        <Accordion defaultValue={EMBEDDED_SIGNUP_AVAILABLE ? [] : ['manual']}>
+          <AccordionItem value="manual" className="border-border">
+            <AccordionTrigger className="text-muted-foreground hover:text-foreground hover:no-underline">
+              Manual setup (advanced)
+            </AccordionTrigger>
+            <AccordionContent className="space-y-6 pt-2">
         {/* API Credentials */}
         <Card>
           <CardHeader>
@@ -732,22 +758,26 @@ export function WhatsAppConfig() {
           </CardContent>
         </Card>
 
+        <Button
+          onClick={handleSave}
+          disabled={saving}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Save Configuration'
+          )}
+        </Button>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-3">
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Configuration'
-            )}
-          </Button>
           <Button
             variant="outline"
             onClick={handleTestConnection}

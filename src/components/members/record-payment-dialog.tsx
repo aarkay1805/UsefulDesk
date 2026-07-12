@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -343,12 +344,11 @@ export function RecordPaymentDialog({
             <Label htmlFor="rp-date" className="text-muted-foreground">
               Paid on
             </Label>
-            <Input
+            <DatePicker
               id="rp-date"
-              type="date"
               value={paidOn}
               max={fmt.today()}
-              onChange={(e) => setPaidOn(e.target.value)}
+              onChange={setPaidOn}
               className="bg-muted"
             />
           </div>

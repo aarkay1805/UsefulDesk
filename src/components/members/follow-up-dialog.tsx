@@ -29,7 +29,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -198,11 +198,10 @@ function AssignForm({
               <Label htmlFor="fu-due" className="text-muted-foreground">
                 Due
               </Label>
-              <Input
+              <DatePicker
                 id="fu-due"
-                type="date"
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                onChange={setDueDate}
                 className="bg-muted"
               />
             </div>

@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/search-input";
 import { Label } from "@/components/ui/label";
@@ -245,11 +246,10 @@ function ImportForm({
             <Label htmlFor="im-start" className="text-muted-foreground">
               Start date
             </Label>
-            <Input
+            <DatePicker
               id="im-start"
-              type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={setStartDate}
               className="bg-muted"
             />
           </div>

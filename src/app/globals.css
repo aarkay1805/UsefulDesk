@@ -122,10 +122,9 @@ html[data-mode="dark"] {
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(0.28 0.01 260);
   --input: oklch(0.28 0.01 260);
-  /* 3:1 against both the card (0.18) and the app bg (0.13) — the resting
-   * outline is the only affordance on an empty field. Deliberately much
-   * lighter than --border (decorative separators stay subtle). */
-  --input-border: oklch(0.5 0.01 260);
+  /* Matches --border (the outline-button resting gray) so inputs and
+   * outline buttons share one light border. */
+  --input-border: oklch(0.28 0.01 260);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
@@ -162,9 +161,9 @@ html[data-mode="light"] {
   --destructive: oklch(0.514 0.21 27.325);
   --border: oklch(0.922 0.004 260);
   --input: oklch(0.922 0.004 260);
-  /* 3:1 against white/near-white surfaces (light inputs have no fill, so
-   * the border carries identification entirely). Darker than --border. */
-  --input-border: oklch(0.62 0.02 260);
+  /* Matches --border (the outline-button resting gray) so inputs and
+   * outline buttons share one light border. */
+  --input-border: oklch(0.922 0.004 260);
   --chart-2: oklch(0.6 0.1 260);
   --chart-3: oklch(0.7 0.06 260);
   --chart-4: oklch(0.8 0.04 260);

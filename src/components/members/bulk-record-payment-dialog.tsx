@@ -26,7 +26,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -244,12 +244,11 @@ export function BulkRecordPaymentDialog({
                 <Label htmlFor="brp-date" className="text-muted-foreground">
                   Paid on
                 </Label>
-                <Input
+                <DatePicker
                   id="brp-date"
-                  type="date"
                   value={paidOn}
                   max={fmt.today()}
-                  onChange={(e) => setPaidOn(e.target.value)}
+                  onChange={setPaidOn}
                   className="bg-muted"
                 />
               </div>

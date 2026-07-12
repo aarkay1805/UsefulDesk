@@ -42,6 +42,7 @@ import {
 } from '@/components/members/use-account-staff';
 import type { ContactNote } from '@/types';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -709,12 +710,11 @@ function FollowUpRow({
               </DropdownMenuContent>
             </DropdownMenu>
             {draft.dueId === 'custom' && (
-              <input
-                type="date"
+              <DatePicker
                 value={draft.customDate}
                 min={fmt.today()}
-                onChange={(e) => onPatch({ customDate: e.target.value })}
-                className="h-7 rounded-lg border border-border bg-card px-2 text-sm text-foreground outline-none focus:border-primary"
+                onChange={(v) => onPatch({ customDate: v })}
+                className="h-7 w-auto border-border bg-card px-2 text-sm"
                 aria-label="Follow-up date"
               />
             )}

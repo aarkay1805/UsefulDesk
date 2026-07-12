@@ -26,15 +26,22 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+// Sentinel value for the "Trial / free pass" item in the plan dropdown —
+// trial is picked like a plan, not toggled via a separate checkbox. Never
+// collides with real plan ids (uuids).
+const TRIAL_PLAN_VALUE = "__trial__";
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "cash", label: "Cash" },
@@ -183,7 +190,7 @@ export function MemberForm({
       if (!Number.isFinite(trialLen) || trialLen <= 0)
         return toast.error("Enter a valid trial length in days");
     } else if (!planId) {
-      return toast.error("Pick a membership plan");
+      return toast.error("Pick a membership plan (or Trial / free pass)");
     }
 
     // Plan is required for a paid member, optional for a trial.
@@ -425,37 +432,35 @@ export function MemberForm({
               />
             </div>
 
-            <label className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={isTrial}
-                onChange={(e) => setIsTrial(e.target.checked)}
-                className="mt-0.5 size-4 accent-primary"
-              />
-              <span>
-                This is a trial / free pass
-                <span className="block text-xs text-muted-foreground">
-                  A free pass with its own length — convert to a paid plan later.
-                </span>
-              </span>
-            </label>
-
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="mf-plan" className="text-muted-foreground">
-                  Plan {!isTrial && <span className="text-red-700 dark:text-red-400">*</span>}
+                  Plan <span className="text-red-700 dark:text-red-400">*</span>
                 </Label>
                 <Select
-                  value={planId || undefined}
-                  onValueChange={(v) => setPlanId(v ?? "")}
+                  value={isTrial ? TRIAL_PLAN_VALUE : planId || undefined}
+                  onValueChange={(v) => {
+                    if (!v) return;
+                    if (v === TRIAL_PLAN_VALUE) {
+                      setIsTrial(true);
+                      setPlanId("");
+                    } else {
+                      setIsTrial(false);
+                      setPlanId(v);
+                    }
+                  }}
                 >
                   <SelectTrigger id="mf-plan" className="w-full bg-muted">
                     <SelectValue placeholder="Select a plan…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* A trial's plan is optional — keep it clearable once
-                        picked (null value re-shows the placeholder). */}
-                    {isTrial && <SelectItem value={null}>No plan</SelectItem>}
+                    {/* Trial is picked here like a plan — the fields below
+                        switch to trial length / no fee when selected. */}
+                    <SelectItem value={TRIAL_PLAN_VALUE}>
+                      Trial / free pass ·{" "}
+                      <span className="text-muted-foreground">no fee</span>
+                    </SelectItem>
+                    <SelectSeparator />
                     {plans.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {/* Owners pick by price as much as by name — show it. */}
@@ -483,11 +488,10 @@ export function MemberForm({
 
               <div className="space-y-2">
                 <Label htmlFor="mf-start" className="text-muted-foreground">Start date</Label>
-                <Input
+                <DatePicker
                   id="mf-start"
-                  type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={setStartDate}
                   className="bg-muted"
                 />
               </div>
@@ -507,7 +511,7 @@ export function MemberForm({
                   className="bg-muted"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Ends {fmt.date(istAddDays(startDate, Number(trialDays) || 0))} · free pass, no fee.
+                  Ends {fmt.date(istAddDays(startDate, Number(trialDays) || 0))} · free pass, no fee — convert to a paid plan later.
                 </p>
               </div>
             ) : (
