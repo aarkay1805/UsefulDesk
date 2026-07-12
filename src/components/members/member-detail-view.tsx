@@ -19,14 +19,25 @@ import {
   Ban,
   RotateCcw,
   ChevronRight,
+  Repeat,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/hooks/use-locale";
-import { canCorrectPayments, canDeleteMember } from "@/lib/auth/roles";
+import {
+  canCorrectPayments,
+  canDeleteMember,
+  canManageMandates,
+} from "@/lib/auth/roles";
 import { effectiveStatus, daysUntil, unfreezeEndDate } from "@/lib/memberships/expiry";
-import type { Membership, Payment, Attendance, MembershipPeriodInvoice } from "@/types";
+import type {
+  Membership,
+  Payment,
+  Attendance,
+  MembershipPeriodInvoice,
+  PaymentMandate,
+} from "@/types";
 import {
   Sheet,
   SheetContent,
@@ -64,6 +75,7 @@ import { InvoiceDetailDialog } from "./invoice-detail-dialog";
 import { RenewMembershipDialog } from "./renew-membership-dialog";
 import { AvatarEditorDialog } from "./avatar-editor-dialog";
 import { RecordPaymentDialog } from "./record-payment-dialog";
+import { SetUpAutoPayDialog } from "./set-up-autopay-dialog";
 import { ContactNotesThread } from "@/components/contacts/contact-notes-thread";
 import { CopyUpiLinkButton, useUpiConfig } from "./copy-upi-link-button";
 import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
@@ -143,6 +155,8 @@ export function MemberDetailView({
   // after refreshAll instead of a stale snapshot.
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [autoPayOpen, setAutoPayOpen] = useState(false);
+  const [mandate, setMandate] = useState<PaymentMandate | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
   // Bumped to re-pull this sheet after a mutation (renew/payment/freeze/check-in).
@@ -172,24 +186,36 @@ export function MemberDetailView({
         return;
       }
 
-      const [paymentsResult, attendanceResult, invoicesResult] = await Promise.all([
-        supabase
-          .from("payments")
-          .select("*")
-          .eq("membership_id", membershipId)
-          .order("paid_at", { ascending: false }),
-        supabase
-          .from("attendance")
-          .select("*")
-          .eq("membership_id", membershipId)
-          .order("checked_in_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("membership_period_invoices")
-          .select("*")
-          .eq("membership_id", membershipId)
-          .order("period_start", { ascending: false }),
-      ]);
+      const [paymentsResult, attendanceResult, invoicesResult, mandateResult] =
+        await Promise.all([
+          supabase
+            .from("payments")
+            .select("*")
+            .eq("membership_id", membershipId)
+            .order("paid_at", { ascending: false }),
+          supabase
+            .from("attendance")
+            .select("*")
+            .eq("membership_id", membershipId)
+            .order("checked_in_at", { ascending: false })
+            .limit(20),
+          supabase
+            .from("membership_period_invoices")
+            .select("*")
+            .eq("membership_id", membershipId)
+            .order("period_start", { ascending: false }),
+          // The live auto-debit mandate (if any). Not load-critical — a
+          // failure here just hides the auto-pay status, never blocks the
+          // sheet.
+          supabase
+            .from("payment_mandates")
+            .select("*")
+            .eq("membership_id", membershipId)
+            .in("status", ["pending", "active"])
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]);
       if (cancelled) return;
       const childError = paymentsResult.error ?? attendanceResult.error ?? invoicesResult.error;
       if (childError) {
@@ -200,6 +226,7 @@ export function MemberDetailView({
       setPayments((paymentsResult.data as Payment[]) ?? []);
       setVisits((attendanceResult.data as Attendance[]) ?? []);
       setInvoices((invoicesResult.data as MembershipPeriodInvoice[]) ?? []);
+      setMandate((mandateResult.data as PaymentMandate | null) ?? null);
     })();
     return () => {
       cancelled = true;
@@ -508,6 +535,17 @@ export function MemberDetailView({
                                 <DropdownMenuItem onClick={() => onEdit(membership)}>
                                   <Pencil className="size-4" /> Edit membership
                                 </DropdownMenuItem>
+                                {accountRole &&
+                                  canManageMandates(accountRole) &&
+                                  membership.status === "active" &&
+                                  !membership.is_trial &&
+                                  !mandate && (
+                                    <DropdownMenuItem
+                                      onClick={() => setAutoPayOpen(true)}
+                                    >
+                                      <Repeat className="size-4" /> Set up auto-pay
+                                    </DropdownMenuItem>
+                                  )}
                                 {membership.status === "frozen" ? (
                                   <DropdownMenuItem onClick={unfreeze} disabled={busy}>
                                     <Play className="size-4" /> Resume membership
@@ -568,6 +606,20 @@ export function MemberDetailView({
                               )}
                             </Stat>
                           </dl>
+                          {mandate && (
+                            <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                              <Repeat className="size-3.5" />
+                              {mandate.status === "active" ? (
+                                <>
+                                  Auto-pay on
+                                  {mandate.vpa ? ` · ${mandate.vpa}` : " · UPI AutoPay"}
+                                  {" — renewals collect automatically."}
+                                </>
+                              ) : (
+                                <>Auto-pay mandate pending the member&apos;s approval.</>
+                              )}
+                            </p>
+                          )}
                           {membership.status === "frozen" && membership.frozen_at && (
                             <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
                               <Snowflake className="size-3.5" />
@@ -870,6 +922,12 @@ export function MemberDetailView({
                   : undefined
               }
               onSaved={refreshAll}
+            />
+            <SetUpAutoPayDialog
+              open={autoPayOpen}
+              onOpenChange={setAutoPayOpen}
+              membership={membership}
+              onStarted={refreshAll}
             />
             <InvoiceDetailDialog
               open={invoiceOpen}
