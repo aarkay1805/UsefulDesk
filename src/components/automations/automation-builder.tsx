@@ -37,6 +37,15 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -299,9 +308,6 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
   )
 }
 
-const SELECT_CLASS =
-  "w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none"
-
 /** Tag dropdown by name + color, storing the tag's id. Falls back to a
  *  raw id input when no tags exist yet. */
 function TagSelect({
@@ -330,23 +336,23 @@ function TagSelect({
         style={{ backgroundColor: selected?.color ?? "transparent" }}
         aria-hidden
       />
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={SELECT_CLASS}
-      >
-        <option value="">Select a tag…</option>
-        {tags.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-        {/* Preserve a saved tag that's since been deleted so editing an
-            existing automation doesn't silently drop it. */}
-        {value && !selected && (
-          <option value={value}>{value} (unknown tag)</option>
-        )}
-      </select>
+      <Select value={value || undefined} onValueChange={(v) => onChange(v ?? "")}>
+        <SelectTrigger className="w-full bg-muted">
+          <SelectValue placeholder="Select a tag…" />
+        </SelectTrigger>
+        <SelectContent>
+          {tags.map((t) => (
+            <SelectItem key={t.id} value={t.id}>
+              {t.name}
+            </SelectItem>
+          ))}
+          {/* Preserve a saved tag that's since been deleted so editing an
+              existing automation doesn't silently drop it. */}
+          {value && !selected && (
+            <SelectItem value={value}>{value} (unknown tag)</SelectItem>
+          )}
+        </SelectContent>
+      </Select>
     </div>
   )
 }
@@ -367,27 +373,29 @@ function ContactFieldSelect({
   const knownCustom =
     customValue && customFields.some((f) => `custom:${f.id}` === customValue)
   return (
-    <select
-      value={value || "name"}
-      onChange={(e) => onChange(e.target.value)}
-      className={SELECT_CLASS}
-    >
-      <option value="name">Name</option>
-      <option value="email">Email</option>
-      <option value="company">Company</option>
-      {customFields.length > 0 && (
-        <optgroup label="Custom fields">
-          {customFields.map((f) => (
-            <option key={f.id} value={`custom:${f.id}`}>
-              {f.field_name}
-            </option>
-          ))}
-        </optgroup>
-      )}
-      {customValue && !knownCustom && (
-        <option value={customValue}>{customValue} (unknown field)</option>
-      )}
-    </select>
+    <Select value={value || "name"} onValueChange={(v) => onChange(v ?? "")}>
+      <SelectTrigger className="w-full bg-muted">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="name">Name</SelectItem>
+        <SelectItem value="email">Email</SelectItem>
+        <SelectItem value="company">Company</SelectItem>
+        {customFields.length > 0 && (
+          <SelectGroup>
+            <SelectLabel>Custom fields</SelectLabel>
+            {customFields.map((f) => (
+              <SelectItem key={f.id} value={`custom:${f.id}`}>
+                {f.field_name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        )}
+        {customValue && !knownCustom && (
+          <SelectItem value={customValue}>{customValue} (unknown field)</SelectItem>
+        )}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -413,21 +421,21 @@ function AgentSelect({
   }
   const selected = members.find((m) => m.user_id === value)
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={SELECT_CLASS}
-    >
-      <option value="">Select an agent…</option>
-      {members.map((m) => (
-        <option key={m.user_id} value={m.user_id}>
-          {m.full_name || m.email || m.user_id}
-        </option>
-      ))}
-      {value && !selected && (
-        <option value={value}>{value} (unknown agent)</option>
-      )}
-    </select>
+    <Select value={value || undefined} onValueChange={(v) => onChange(v ?? "")}>
+      <SelectTrigger className="w-full bg-muted">
+        <SelectValue placeholder="Select an agent…" />
+      </SelectTrigger>
+      <SelectContent>
+        {members.map((m) => (
+          <SelectItem key={m.user_id} value={m.user_id}>
+            {m.full_name || m.email || m.user_id}
+          </SelectItem>
+        ))}
+        {value && !selected && (
+          <SelectItem value={value}>{value} (unknown agent)</SelectItem>
+        )}
+      </SelectContent>
+    </Select>
   )
 }
 
@@ -476,10 +484,10 @@ function DealPipelineFields({
   return (
     <>
       <FieldBlock label="Pipeline">
-        <select
-          value={pipelineId}
-          onChange={(e) => {
-            const nextPipelineId = e.target.value
+        <Select
+          value={pipelineId || undefined}
+          onValueChange={(v) => {
+            const nextPipelineId = v ?? ""
             const firstStage = stages.find(
               (s) => s.pipeline_id === nextPipelineId
             )
@@ -488,40 +496,50 @@ function DealPipelineFields({
               stage_id: firstStage?.id ?? "",
             })
           }}
-          className={SELECT_CLASS}
         >
-          <option value="">Select a pipeline…</option>
-          {pipelines.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-          {pipelineId && !selectedPipeline && (
-            <option value={pipelineId}>{pipelineId} (unknown pipeline)</option>
-          )}
-        </select>
+          <SelectTrigger className="w-full bg-muted">
+            <SelectValue placeholder="Select a pipeline…" />
+          </SelectTrigger>
+          <SelectContent>
+            {pipelines.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
+            ))}
+            {pipelineId && !selectedPipeline && (
+              <SelectItem value={pipelineId}>
+                {pipelineId} (unknown pipeline)
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
       </FieldBlock>
       <FieldBlock label="Stage">
-        <select
-          value={stageId}
-          onChange={(e) =>
-            onChange({ pipeline_id: pipelineId, stage_id: e.target.value })
+        <Select
+          value={stageId || undefined}
+          onValueChange={(v) =>
+            onChange({ pipeline_id: pipelineId, stage_id: v ?? "" })
           }
-          className={SELECT_CLASS}
           disabled={!pipelineId || stageOptions.length === 0}
         >
-          <option value="">
-            {pipelineId ? "Select a stage…" : "Select a pipeline first…"}
-          </option>
-          {stageOptions.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-          {stageId && pipelineId && !selectedStage && (
-            <option value={stageId}>{stageId} (unknown stage)</option>
-          )}
-        </select>
+          <SelectTrigger className="w-full bg-muted">
+            <SelectValue
+              placeholder={
+                pipelineId ? "Select a stage…" : "Select a pipeline first…"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {stageOptions.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
+            ))}
+            {stageId && pipelineId && !selectedStage && (
+              <SelectItem value={stageId}>{stageId} (unknown stage)</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
       </FieldBlock>
     </>
   )
@@ -576,29 +594,32 @@ function SendTemplateFields({
 
   return (
     <FieldBlock label="Template">
-      <select
-        value={current}
-        onChange={(e) => {
-          const [name, lang] = e.target.value.split("::")
+      <Select
+        value={current || undefined}
+        onValueChange={(v) => {
+          const [name, lang] = (v ?? "").split("::")
           onChange({ template_name: name ?? "", language: lang ?? "" })
         }}
-        className={SELECT_CLASS}
       >
-        <option value="">Select a template…</option>
-        {templates.map((t) => {
-          const lang = t.language ?? "en_US"
-          return (
-            <option key={t.id} value={toValue(t.name, lang)}>
-              {t.name} ({lang})
-            </option>
-          )
-        })}
-        {current && !hasMatch && (
-          <option value={current}>
-            {templateName} ({language || "unknown"}) — not in approved list
-          </option>
-        )}
-      </select>
+        <SelectTrigger className="w-full bg-muted">
+          <SelectValue placeholder="Select a template…" />
+        </SelectTrigger>
+        <SelectContent>
+          {templates.map((t) => {
+            const lang = t.language ?? "en_US"
+            return (
+              <SelectItem key={t.id} value={toValue(t.name, lang)}>
+                {t.name} ({lang})
+              </SelectItem>
+            )
+          })}
+          {current && !hasMatch && (
+            <SelectItem value={current}>
+              {templateName} ({language || "unknown"}) — not in approved list
+            </SelectItem>
+          )}
+        </SelectContent>
+      </Select>
     </FieldBlock>
   )
 }
@@ -803,17 +824,21 @@ function TriggerCard({
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
                 Trigger type
               </label>
-              <select
+              <Select
                 value={type}
-                onChange={(e) => onTypeChange(e.target.value as AutomationTriggerType)}
-                className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none"
+                onValueChange={(v) => onTypeChange(v as AutomationTriggerType)}
               >
-                {TRIGGER_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRIGGER_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="mt-1 text-[11px] text-muted-foreground">
                 {TRIGGER_OPTIONS.find((o) => o.value === type)?.hint}
               </p>
@@ -868,7 +893,7 @@ function KeywordMatchConfig({
   // when the trigger type changes, so the seed stays in sync.
   const [draft, setDraft] = useState(keywords.join(", "))
 
-  // Persist the default the <select> displays. The dropdown falls back to
+  // Persist the default the Select displays. The dropdown falls back to
   // "contains" for display, but leaving it untouched would otherwise omit
   // match_type from the saved config — and activation validation then
   // rejected it (trigger.match_type). Seed once on mount; the component
@@ -913,14 +938,20 @@ function KeywordMatchConfig({
         <label className="mb-1 block text-xs font-medium text-muted-foreground">
           Match type
         </label>
-        <select
+        <Select
           value={config?.match_type ?? "contains"}
-          onChange={(e) => onChange({ ...config, match_type: e.target.value as "exact" | "contains" })}
-          className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground focus:outline-none"
+          onValueChange={(v) =>
+            onChange({ ...config, match_type: v as "exact" | "contains" })
+          }
         >
-          <option value="contains">Contains</option>
-          <option value="exact">Exact</option>
-        </select>
+          <SelectTrigger className="w-full bg-muted">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="contains">Contains</SelectItem>
+            <SelectItem value="exact">Exact</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   )
@@ -1231,14 +1262,18 @@ function StepEditor({
       return (
         <>
           <FieldBlock label="Mode">
-            <select
+            <Select
               value={(cfg.mode as string) ?? "round_robin"}
-              onChange={(e) => set({ mode: e.target.value })}
-              className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground"
+              onValueChange={(v) => set({ mode: v })}
             >
-              <option value="round_robin">Round-robin</option>
-              <option value="specific">Specific agent</option>
-            </select>
+              <SelectTrigger className="w-full bg-muted">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="round_robin">Round-robin</SelectItem>
+                <SelectItem value="specific">Specific agent</SelectItem>
+              </SelectContent>
+            </Select>
           </FieldBlock>
           {cfg.mode === "specific" && (
             <FieldBlock label="Agent">
@@ -1272,31 +1307,39 @@ function StepEditor({
     case "set_lead_status":
       return (
         <FieldBlock label="Status">
-          <select
+          <Select
             value={(cfg.status as string) ?? "interested"}
-            onChange={(e) => set({ status: e.target.value })}
-            className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground"
+            onValueChange={(v) => set({ status: v })}
           >
-            {statuses.map((col) => (
-              <option key={col.key} value={col.key}>
-                {col.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full bg-muted">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {statuses.map((col) => (
+                <SelectItem key={col.key} value={col.key}>
+                  {col.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FieldBlock>
       )
     case "assign_lead":
       return (
         <>
           <FieldBlock label="Mode">
-            <select
+            <Select
               value={(cfg.mode as string) ?? "round_robin"}
-              onChange={(e) => set({ mode: e.target.value })}
-              className={SELECT_CLASS}
+              onValueChange={(v) => set({ mode: v })}
             >
-              <option value="round_robin">Round-robin</option>
-              <option value="specific">Specific teammate</option>
-            </select>
+              <SelectTrigger className="w-full bg-muted">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="round_robin">Round-robin</SelectItem>
+                <SelectItem value="specific">Specific teammate</SelectItem>
+              </SelectContent>
+            </Select>
           </FieldBlock>
           {cfg.mode === "specific" && (
             <FieldBlock label="Teammate">
@@ -1322,15 +1365,19 @@ function StepEditor({
         <>
           <div className="grid grid-cols-2 gap-2">
             <FieldBlock label="Task type">
-              <select
+              <Select
                 value={(cfg.task_type as string) ?? "call"}
-                onChange={(e) => set({ task_type: e.target.value })}
-                className={SELECT_CLASS}
+                onValueChange={(v) => set({ task_type: v })}
               >
-                <option value="call">Call</option>
-                <option value="email">Email</option>
-                <option value="todo">To-do</option>
-              </select>
+                <SelectTrigger className="w-full bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="call">Call</SelectItem>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="todo">To-do</SelectItem>
+                </SelectContent>
+              </Select>
             </FieldBlock>
             <FieldBlock label="Due in (days)">
               <Input
@@ -1345,14 +1392,18 @@ function StepEditor({
             </FieldBlock>
           </div>
           <FieldBlock label="Assign to">
-            <select
+            <Select
               value={(cfg.assign_mode as string) ?? "lead_owner"}
-              onChange={(e) => set({ assign_mode: e.target.value })}
-              className={SELECT_CLASS}
+              onValueChange={(v) => set({ assign_mode: v })}
             >
-              <option value="lead_owner">Lead&apos;s owner</option>
-              <option value="specific">Specific teammate</option>
-            </select>
+              <SelectTrigger className="w-full bg-muted">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lead_owner">Lead&apos;s owner</SelectItem>
+                <SelectItem value="specific">Specific teammate</SelectItem>
+              </SelectContent>
+            </Select>
           </FieldBlock>
           {cfg.assign_mode === "specific" && (
             <FieldBlock label="Teammate">
@@ -1410,15 +1461,19 @@ function StepEditor({
             />
           </FieldBlock>
           <FieldBlock label="Unit">
-            <select
+            <Select
               value={(cfg.unit as string) ?? "hours"}
-              onChange={(e) => set({ unit: e.target.value })}
-              className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground"
+              onValueChange={(v) => set({ unit: v })}
             >
-              <option value="minutes">Minutes</option>
-              <option value="hours">Hours</option>
-              <option value="days">Days</option>
-            </select>
+              <SelectTrigger className="w-full bg-muted">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="minutes">Minutes</SelectItem>
+                <SelectItem value="hours">Hours</SelectItem>
+                <SelectItem value="days">Days</SelectItem>
+              </SelectContent>
+            </Select>
           </FieldBlock>
         </div>
       )
@@ -1426,16 +1481,20 @@ function StepEditor({
       return (
         <>
           <FieldBlock label="Subject">
-            <select
+            <Select
               value={(cfg.subject as string) ?? "tag_presence"}
-              onChange={(e) => set({ subject: e.target.value })}
-              className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground"
+              onValueChange={(v) => set({ subject: v })}
             >
-              <option value="tag_presence">Tag presence</option>
-              <option value="contact_field">Contact field</option>
-              <option value="message_content">Message content</option>
-              <option value="time_of_day">Time of day</option>
-            </select>
+              <SelectTrigger className="w-full bg-muted">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tag_presence">Tag presence</SelectItem>
+                <SelectItem value="contact_field">Contact field</SelectItem>
+                <SelectItem value="message_content">Message content</SelectItem>
+                <SelectItem value="time_of_day">Time of day</SelectItem>
+              </SelectContent>
+            </Select>
           </FieldBlock>
           <FieldBlock label="Operand">
             <Input

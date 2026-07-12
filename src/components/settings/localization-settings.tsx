@@ -23,6 +23,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Card,
   CardContent,
   CardHeader,
@@ -79,9 +88,6 @@ function localeOptions(current: string): string[] {
     new Set([...Object.values(COUNTRY_PRESETS).map((p) => p.locale), current])
   ).sort();
 }
-
-const selectClass =
-  'h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60';
 
 export function LocalizationSettings() {
   const supabase = createClient();
@@ -176,66 +182,82 @@ export function LocalizationSettings() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label className="text-muted-foreground">Country</Label>
-              <select
+              <Select
                 value={
                   COUNTRY_PRESETS[draft.countryCode] ? draft.countryCode : 'ZZ'
                 }
-                onChange={(e) => applyCountry(e.target.value)}
+                onValueChange={(v) => v && applyCountry(v)}
                 disabled={disabled}
-                className={selectClass}
               >
-                {COUNTRY_OPTIONS.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRY_OPTIONS.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-2">
               <Label className="text-muted-foreground">Time zone</Label>
-              <select
+              <Select
                 value={draft.timeZone}
-                onChange={(e) => set('timeZone', e.target.value)}
+                onValueChange={(v) => v && set('timeZone', v)}
                 disabled={disabled}
-                className={selectClass}
               >
-                {suggestedZones.length > 0 && (
-                  <optgroup label="Suggested">
-                    {suggestedZones.map((tz) => (
-                      <option key={`s-${tz}`} value={tz}>
+                <SelectTrigger className="w-full bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {suggestedZones.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Suggested</SelectLabel>
+                      {suggestedZones.map((tz) => (
+                        <SelectItem key={`s-${tz}`} value={tz}>
+                          {tz.replace(/_/g, ' ')}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  <SelectGroup>
+                    <SelectLabel>All time zones</SelectLabel>
+                    {timeZones.map((tz) => (
+                      <SelectItem key={tz} value={tz}>
                         {tz.replace(/_/g, ' ')}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </optgroup>
-                )}
-                <optgroup label="All time zones">
-                  {timeZones.map((tz) => (
-                    <option key={tz} value={tz}>
-                      {tz.replace(/_/g, ' ')}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-2">
               <Label className="text-muted-foreground">Currency</Label>
-              <select
+              <Select
                 value={draft.currency}
-                onChange={(e) => set('currency', e.target.value)}
+                onValueChange={(v) => v && set('currency', v)}
                 disabled={disabled}
-                className={selectClass}
               >
-                {!CURRENCIES.some((c) => c.code === draft.currency) && (
-                  <option value={draft.currency}>{draft.currency}</option>
-                )}
-                {CURRENCIES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.code} — {c.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {!CURRENCIES.some((c) => c.code === draft.currency) && (
+                    <SelectItem value={draft.currency}>
+                      {draft.currency}
+                    </SelectItem>
+                  )}
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.code} — {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-muted-foreground text-xs">
                 Also editable under Payments &amp; currency — same setting.
               </p>
@@ -257,82 +279,98 @@ export function LocalizationSettings() {
 
             <div className="grid gap-2">
               <Label className="text-muted-foreground">Date format</Label>
-              <select
+              <Select
                 value={draft.dateOrder}
-                onChange={(e) => set('dateOrder', e.target.value as DateOrder)}
+                onValueChange={(v) => set('dateOrder', v as DateOrder)}
                 disabled={disabled}
-                className={selectClass}
               >
-                {DATE_ORDER_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.hint}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DATE_ORDER_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.hint}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-2">
               <Label className="text-muted-foreground">Time format</Label>
-              <select
+              <Select
                 value={draft.timeFormat}
-                onChange={(e) =>
-                  set('timeFormat', e.target.value as TimeFormatPref)
-                }
+                onValueChange={(v) => set('timeFormat', v as TimeFormatPref)}
                 disabled={disabled}
-                className={selectClass}
               >
-                <option value="12h">12-hour (9:00 pm)</option>
-                <option value="24h">24-hour (21:00)</option>
-              </select>
+                <SelectTrigger className="w-full bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="12h">12-hour (9:00 pm)</SelectItem>
+                  <SelectItem value="24h">24-hour (21:00)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-2">
               <Label className="text-muted-foreground">Week starts on</Label>
-              <select
+              <Select
                 value={String(draft.weekStart)}
-                onChange={(e) =>
-                  set('weekStart', Number(e.target.value) as WeekStart)
-                }
+                onValueChange={(v) => set('weekStart', Number(v) as WeekStart)}
                 disabled={disabled}
-                className={selectClass}
               >
-                {WEEK_START_OPTIONS.map((o) => (
-                  <option key={o.value} value={String(o.value)}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {WEEK_START_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={String(o.value)}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-2">
               <Label className="text-muted-foreground">Measurement</Label>
-              <select
+              <Select
                 value={draft.measurementSystem}
-                onChange={(e) =>
-                  set('measurementSystem', e.target.value as MeasurementSystem)
+                onValueChange={(v) =>
+                  set('measurementSystem', v as MeasurementSystem)
                 }
                 disabled={disabled}
-                className={selectClass}
               >
-                <option value="metric">Metric (kg, cm)</option>
-                <option value="imperial">Imperial (lb, ft)</option>
-              </select>
+                <SelectTrigger className="w-full bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="metric">Metric (kg, cm)</SelectItem>
+                  <SelectItem value="imperial">Imperial (lb, ft)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid gap-2 sm:col-span-2">
               <Label className="text-muted-foreground">Formatting locale</Label>
-              <select
+              <Select
                 value={draft.locale}
-                onChange={(e) => set('locale', e.target.value)}
+                onValueChange={(v) => v && set('locale', v)}
                 disabled={disabled}
-                className={selectClass}
               >
-                {localeOptions(draft.locale).map((tag) => (
-                  <option key={tag} value={tag}>
-                    {tag}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {localeOptions(draft.locale).map((tag) => (
+                    <SelectItem key={tag} value={tag}>
+                      {tag}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-muted-foreground text-xs">
                 Advanced — controls digit grouping and month names (en-IN groups
                 ₹1,00,000; en-US groups $100,000).

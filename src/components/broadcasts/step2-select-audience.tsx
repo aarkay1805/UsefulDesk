@@ -5,6 +5,13 @@ import { createClient } from '@/lib/supabase/client';
 import { CustomField, Tag } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Users,
   Tags,
   Filter,
@@ -346,33 +353,40 @@ export function Step2SelectAudience({
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_140px_minmax(0,1fr)]">
-              <select
-                value={audience.customField?.fieldId ?? ''}
-                onChange={(e) => updateCustomField({ fieldId: e.target.value })}
-                className="h-9 rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              <Select
+                value={audience.customField?.fieldId || undefined}
+                onValueChange={(v) => updateCustomField({ fieldId: v ?? '' })}
               >
-                <option value="">Select field…</option>
-                {customFields.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.field_name}
-                  </option>
-                ))}
-              </select>
-              <select
+                <SelectTrigger className="w-full bg-muted">
+                  <SelectValue placeholder="Select field…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customFields.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.field_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
                 value={audience.customField?.operator ?? 'is'}
-                onChange={(e) =>
+                onValueChange={(v) =>
                   updateCustomField({
-                    operator: e.target.value as CustomFieldOperator,
+                    operator: v as CustomFieldOperator,
                   })
                 }
-                className="h-9 rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               >
-                {OPERATOR_OPTIONS.map((op) => (
-                  <option key={op.value} value={op.value}>
-                    {op.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {OPERATOR_OPTIONS.map((op) => (
+                    <SelectItem key={op.value} value={op.value}>
+                      {op.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <input
                 type="text"
                 value={audience.customField?.value ?? ''}

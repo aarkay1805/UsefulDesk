@@ -212,6 +212,43 @@ export async function getSubscribedApps(
 }
 
 // ============================================================
+// Embedded Signup (Facebook Login for Business)
+// ============================================================
+
+export interface ExchangeEmbeddedSignupCodeArgs {
+  appId: string
+  appSecret: string
+  code: string
+}
+
+/**
+ * Exchange the authorization code returned by the Embedded Signup
+ * popup (FB.login with response_type:'code') for a business
+ * integration system-user access token scoped to the customer's
+ * WABA under our app. Per Meta's current behaviour these tokens do
+ * not expire. No redirect_uri is involved in the ES exchange.
+ */
+export async function exchangeEmbeddedSignupCode(
+  args: ExchangeEmbeddedSignupCodeArgs
+): Promise<string> {
+  const { appId, appSecret, code } = args
+  const params = new URLSearchParams({
+    client_id: appId,
+    client_secret: appSecret,
+    code,
+  })
+  const response = await fetch(`${META_API_BASE}/oauth/access_token?${params.toString()}`)
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = (await response.json()) as { access_token?: string }
+  if (!data.access_token) {
+    throw new Error('Meta accepted the signup code but returned no access token.')
+  }
+  return data.access_token
+}
+
+// ============================================================
 // Sending
 // ============================================================
 

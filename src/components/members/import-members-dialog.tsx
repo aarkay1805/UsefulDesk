@@ -23,6 +23,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/search-input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /** Newest-first cap on the candidate list — keeps the dialog snappy on
  *  big books; the search box narrows within the loaded set. */
@@ -218,19 +225,21 @@ function ImportForm({
             <Label htmlFor="im-plan" className="text-muted-foreground">
               Plan <span className="text-red-700 dark:text-red-400">*</span>
             </Label>
-            <select
-              id="im-plan"
-              value={planId}
-              onChange={(e) => setPlanId(e.target.value)}
-              className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            <Select
+              value={planId || undefined}
+              onValueChange={(v) => setPlanId(v ?? "")}
             >
-              <option value="">Select…</option>
-              {plans.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} · {p.duration_days}d · {fmt.money(p.price)}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="im-plan" className="w-full bg-muted">
+                <SelectValue placeholder="Select…" />
+              </SelectTrigger>
+              <SelectContent>
+                {plans.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name} · {p.duration_days}d · {fmt.money(p.price)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="im-start" className="text-muted-foreground">

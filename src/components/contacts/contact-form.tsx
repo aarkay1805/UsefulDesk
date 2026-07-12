@@ -26,6 +26,13 @@ import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertTriangle } from 'lucide-react';
 
@@ -404,18 +411,25 @@ export function ContactForm({
             <Label htmlFor="cf-lead-status" className="text-muted-foreground">
               Lead status
             </Label>
-            <select
-              id="cf-lead-status"
-              value={leadStatus}
-              onChange={(e) => setLeadStatus(e.target.value as '' | LeadStatus)}
-              className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            {/* '' means the default 'new' status — modelled as the null item,
+                with the new-status label as the placeholder shown for it. */}
+            <Select
+              value={leadStatus || null}
+              onValueChange={(v) => setLeadStatus((v ?? '') as '' | LeadStatus)}
             >
-              {statuses.map((col) => (
-                <option key={col.key} value={col.key === 'new' ? '' : col.key}>
-                  {col.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="cf-lead-status" className="w-full bg-muted">
+                <SelectValue
+                  placeholder={statuses.find((col) => col.key === 'new')?.label ?? 'New'}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {statuses.map((col) => (
+                  <SelectItem key={col.key} value={col.key === 'new' ? null : col.key}>
+                    {col.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -423,37 +437,43 @@ export function ContactForm({
               <Label htmlFor="cf-source" className="text-muted-foreground">
                 Source
               </Label>
-              <select
-                id="cf-source"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              <Select
+                value={source || null}
+                onValueChange={(v) => setSource(v ?? '')}
               >
-                <option value="">—</option>
-                {sources.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="cf-source" className="w-full bg-muted">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={null}>—</SelectItem>
+                  {sources.map((o) => (
+                    <SelectItem key={o.key} value={o.key}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="cf-gender" className="text-muted-foreground">
                 Gender
               </Label>
-              <select
-                id="cf-gender"
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              <Select
+                value={gender || null}
+                onValueChange={(v) => setGender(v ?? '')}
               >
-                <option value="">—</option>
-                {genders.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="cf-gender" className="w-full bg-muted">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={null}>—</SelectItem>
+                  {genders.map((o) => (
+                    <SelectItem key={o.key} value={o.key}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

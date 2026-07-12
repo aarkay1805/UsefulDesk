@@ -189,6 +189,45 @@ webhook's authenticated/halted confirmations.
 4. Dunning: extend the renewal cron for failed-auto members.
 5. Update `CLAUDE.md` (data-model + Member-detail bullets) in the same change.
 
+## Future: one-click "Connect Razorpay" (OAuth onboarding)
+
+The current settings UI asks a gym owner to paste `key_id` / `key_secret` /
+`webhook_secret` — fine for self-onboarded pilots, but a typical gym owner won't
+do it. Razorpay offers the Stripe-Connect / Meta-embedded-signup equivalent:
+
+- **Razorpay OAuth (Technology Partner program)** — a "Connect Razorpay" button
+  → owner authorises on Razorpay → we receive an **access token** (Bearer,
+  90-day + refresh token) that **replaces key_id/key_secret** for all
+  server-to-server calls. No keys, no webhook setup by the owner.
+- **Embedded / co-branded onboarding (Custom Onboarding SDK)** — owners without
+  a Razorpay account complete **KYC inside our app**, never logging into
+  Razorpay.
+
+Still **Model 1**: each gym stays its own sub-merchant, money settles to their
+bank, UsefulDesk never holds funds — OAuth only grants delegated API access.
+
+**Adoption cost:** become a Razorpay Technology Partner (application + approval,
+days–weeks) · register an OAuth app (`client_id`/`client_secret`) · build a
+Connect button + callback route (code → token exchange) + per-account token
+storage & **refresh logic** (90-day expiry) · give `razorpay.ts` a **Bearer-auth
+mode** alongside the existing Basic-auth key path.
+
+**Clean swap — the current build already abstracts this.** `RazorpayCredentials`
++ `account_payment_credentials` are the only creds surface; OAuth is additive:
+add `access_token` / `refresh_token` / `token_expires_at` columns, the connect +
+callback routes, and a Bearer mode in `razorpay.ts`. Everything downstream
+(mandate route, webhook, RPCs, UI) is unchanged. Keep the key-paste path as a
+power-user fallback.
+
+**Sequencing:** (1) pilot with key-paste (current) → (2) apply for Technology
+Partner → (3) build OAuth "Connect Razorpay" once approved → (4) keep both
+paths (OAuth default, keys advanced). Runs parallel to the account-KYC /
+recurring-clearance track, which gates going live either way.
+
+Docs: [Razorpay OAuth](https://razorpay.com/docs/partners/technology-partners/onboard-businesses/integrate-oauth/) ·
+[Embedded onboarding](https://razorpay.com/docs/partners/technology-partners/onboard-businesses/) ·
+[Custom Onboarding SDK](https://razorpay.com/docs/partners/technology-partners/onboard-businesses/onboarding-sdk/)
+
 ## Deferred
 
 Card eMandate (add after UPI is proven), e-NACH for high-value / annual,

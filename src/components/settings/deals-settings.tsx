@@ -13,6 +13,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Card,
   CardContent,
   CardHeader,
@@ -94,18 +101,22 @@ export function DealsSettings() {
         <CardContent className="space-y-4">
           <div className="grid gap-2 sm:max-w-xs">
             <Label className="text-muted-foreground">Currency</Label>
-            <select
+            <Select
               value={selected}
-              onChange={(e) => setSelected(e.target.value)}
+              onValueChange={(v) => v && setSelected(v)}
               disabled={!canEditSettings || profileLoading}
-              className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} — {c.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full bg-muted">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.code} — {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {!canEditSettings && (
               <p className="text-muted-foreground text-xs">
                 Only account admins can change the default currency.

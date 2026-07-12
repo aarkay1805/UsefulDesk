@@ -28,6 +28,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "cash", label: "Cash" },
@@ -64,7 +71,7 @@ export function MemberForm({
   const supabase = createClient();
   const { accountId, user } = useAuth();
   const { locale, fmt } = useLocale();
-  const { plans } = useMembershipPlans(true);
+  const { plans, loading: plansLoading, refresh: refreshPlans } = useMembershipPlans(true);
   const isEdit = !!member;
 
   const [name, setName] = useState("");
@@ -73,12 +80,19 @@ export function MemberForm({
   const [planId, setPlanId] = useState("");
   const [startDate, setStartDate] = useState(fmt.today());
   const [feeAmount, setFeeAmount] = useState("");
+  // Tracks whether the user typed the fee themselves. Until they do, the
+  // fee follows the selected plan's price — so switching plans can't
+  // leave a stale price from the previous pick.
+  const [feeTouched, setFeeTouched] = useState(false);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // First-payment capture (add mode only).
-  const [collectPayment, setCollectPayment] = useState(false);
+  // First-payment capture (add mode only). Defaults ON — a walk-in pays
+  // at signup; staff untick for the exception, not the rule. Amount
+  // defaults to the full fee but accepts a partial joining payment.
+  const [collectPayment, setCollectPayment] = useState(true);
   const [payMethod, setPayMethod] = useState<PaymentMethod>("cash");
+  const [payAmount, setPayAmount] = useState("");
 
   // Trial / lead: a free pass with its own length instead of a plan's
   // duration. Plan optional, no fee, no payment. Convert-to-member
@@ -92,6 +106,10 @@ export function MemberForm({
   const [checkingDup, setCheckingDup] = useState(false);
 
   const selectedPlan = plans.find((p) => p.id === planId);
+  // The fee the first payment settles against, mirroring submit's
+  // fallback: blank fee field = the plan's price.
+  const previewFee =
+    feeAmount === "" ? Number(selectedPlan?.price ?? 0) : Number(feeAmount) || 0;
 
   useEffect(() => {
     if (!open) return;
@@ -103,9 +121,13 @@ export function MemberForm({
     setPlanId(member?.plan_id ?? "");
     setStartDate(member?.start_date ?? fmt.today());
     setFeeAmount(member ? String(member.fee_amount) : "");
+    // An existing fee is authoritative — never auto-reseed it from a plan
+    // switch in edit mode; add mode follows the plan until the user types.
+    setFeeTouched(!!member);
     setNotes(member?.notes ?? "");
-    setCollectPayment(false);
+    setCollectPayment(!member);
     setPayMethod("cash");
+    setPayAmount("");
     setDupMatch(null);
     setIsTrial(member?.is_trial ?? false);
     // Seed trial length from the existing trial's span, else a 7-day default.
@@ -118,13 +140,23 @@ export function MemberForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, member]);
 
-  // When a plan is picked, seed the fee from its price (unless the user
-  // has already typed one, or we're editing an existing fee).
+  // The fee follows the selected plan's price until the user edits it
+  // (feeTouched) — so switching plans re-seeds instead of keeping the
+  // previous plan's stale price. Edit mode opens touched (existing fee).
   useEffect(() => {
-    if (!selectedPlan) return;
-    setFeeAmount((prev) => (prev === "" ? String(selectedPlan.price) : prev));
+    if (!selectedPlan || feeTouched) return;
+    setFeeAmount(String(selectedPlan.price));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId]);
+
+  // The no-plans hint links to Settings in a new tab; refetch plans when
+  // the user tabs back so the plan they just created is pickable without
+  // reopening the dialog.
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("focus", refreshPlans);
+    return () => window.removeEventListener("focus", refreshPlans);
+  }, [open, refreshPlans]);
 
   async function checkDuplicate() {
     if (isEdit || !accountId) return;
@@ -161,6 +193,17 @@ export function MemberForm({
     // Trials are free; a paid member's fee seeds from the plan price.
     const fee = isTrial ? 0 : feeAmount === "" ? plan!.price : Number(feeAmount);
     if (!Number.isFinite(fee) || fee < 0) return toast.error("Enter a valid fee");
+
+    // First payment: blank = the full fee; a typed amount may be a
+    // partial joining payment but can't exceed the fee.
+    const collecting = collectPayment && !isTrial && fee > 0;
+    const payAmt = payAmount === "" ? fee : Number(payAmount);
+    if (collecting) {
+      if (!Number.isFinite(payAmt) || payAmt <= 0)
+        return toast.error("Enter a valid payment amount");
+      if (payAmt > fee)
+        return toast.error("The payment cannot exceed the fee");
+    }
 
     setSaving(true);
     try {
@@ -253,11 +296,11 @@ export function MemberForm({
       }
 
       // Optional first payment (never for a free trial).
-      if (collectPayment && !isTrial && fee > 0) {
+      if (collecting) {
         const { error: pErr } = await supabase.rpc("record_membership_payment", {
           p_membership_id: mRow.id,
           p_period_end: endDate,
-          p_amount: fee,
+          p_amount: payAmt,
           p_method: payMethod,
           p_paid_at: new Date().toISOString(),
           p_note: "",
@@ -273,7 +316,12 @@ export function MemberForm({
         }
       }
 
-      toast.success(isTrial ? "Trial added" : "Member added");
+      toast.success(isTrial ? "Trial added" : "Member added", {
+        // One tap to the new member's sheet (photo, auto-pay, notes).
+        action: onViewExisting
+          ? { label: "View", onClick: () => onViewExisting(contactId) }
+          : undefined,
+      });
       onOpenChange(false);
       onSaved();
     } catch (err) {
@@ -301,23 +349,16 @@ export function MemberForm({
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="mf-name" className="text-muted-foreground">Name</Label>
-              <Input
-                id="mf-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Full name"
-                className="bg-muted"
-              />
-            </div>
-
+            {/* Phone leads: it's the identity key — the dedupe check fires
+                off it, so an existing member surfaces before staff types
+                out the rest of the form. */}
             <div className="space-y-2">
               <Label htmlFor="mf-phone" className="text-muted-foreground">
                 Phone <span className="text-red-700 dark:text-red-400">*</span>
               </Label>
               <Input
                 id="mf-phone"
+                autoFocus={!isEdit}
                 value={phone}
                 onChange={(e) => {
                   setPhone(e.target.value);
@@ -362,6 +403,17 @@ export function MemberForm({
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="mf-name" className="text-muted-foreground">Name</Label>
+              <Input
+                id="mf-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Full name"
+                className="bg-muted"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="mf-email" className="text-muted-foreground">Email</Label>
               <Input
                 id="mf-email"
@@ -393,22 +445,38 @@ export function MemberForm({
                 <Label htmlFor="mf-plan" className="text-muted-foreground">
                   Plan {!isTrial && <span className="text-red-700 dark:text-red-400">*</span>}
                 </Label>
-                <select
-                  id="mf-plan"
-                  value={planId}
-                  onChange={(e) => setPlanId(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                <Select
+                  value={planId || undefined}
+                  onValueChange={(v) => setPlanId(v ?? "")}
                 >
-                  <option value="">Select a plan…</option>
-                  {plans.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} · {p.duration_days}d
-                    </option>
-                  ))}
-                </select>
-                {plans.length === 0 && (
+                  <SelectTrigger id="mf-plan" className="w-full bg-muted">
+                    <SelectValue placeholder="Select a plan…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* A trial's plan is optional — keep it clearable once
+                        picked (null value re-shows the placeholder). */}
+                    {isTrial && <SelectItem value={null}>No plan</SelectItem>}
+                    {plans.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {/* Owners pick by price as much as by name — show it. */}
+                        {p.name} · {p.duration_days}d ·{" "}
+                        <span className="tabular-nums">{fmt.money(p.price)}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!plansLoading && plans.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    No plans yet — add them in Settings → Membership plans.
+                    No plans yet —{" "}
+                    <a
+                      href="/settings?tab=plans"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium underline underline-offset-2 hover:no-underline"
+                    >
+                      create one in Settings
+                    </a>
+                    , then come back.
                   </p>
                 )}
               </div>
@@ -439,14 +507,14 @@ export function MemberForm({
                   className="bg-muted"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Ends {istAddDays(startDate, Number(trialDays) || 0)} · free pass, no fee.
+                  Ends {fmt.date(istAddDays(startDate, Number(trialDays) || 0))} · free pass, no fee.
                 </p>
               </div>
             ) : (
               <>
                 {selectedPlan && (
                   <p className="text-xs text-muted-foreground">
-                    Expires {istAddDays(startDate, selectedPlan.duration_days)} ({selectedPlan.duration_days} days).
+                    Expires {fmt.date(istAddDays(startDate, selectedPlan.duration_days))} ({selectedPlan.duration_days} days).
                   </p>
                 )}
 
@@ -457,7 +525,10 @@ export function MemberForm({
                     type="number"
                     min={0}
                     value={feeAmount}
-                    onChange={(e) => setFeeAmount(e.target.value)}
+                    onChange={(e) => {
+                      setFeeAmount(e.target.value);
+                      setFeeTouched(true);
+                    }}
                     placeholder={selectedPlan ? String(selectedPlan.price) : "0"}
                     className="bg-muted"
                   />
@@ -477,20 +548,72 @@ export function MemberForm({
                   Collect the first payment now
                 </label>
                 {collectPayment && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="mf-method" className="text-muted-foreground text-xs">
-                      Payment method
-                    </Label>
-                    <select
-                      id="mf-method"
-                      value={payMethod}
-                      onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
-                      className="h-8 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                    >
-                      {PAYMENT_METHODS.map((m) => (
-                        <option key={m.value} value={m.value}>{m.label}</option>
-                      ))}
-                    </select>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="mf-pay-amount" className="text-muted-foreground text-xs">
+                        Amount
+                      </Label>
+                      <Input
+                        id="mf-pay-amount"
+                        type="number"
+                        min={0.01}
+                        step="0.01"
+                        inputMode="decimal"
+                        value={payAmount}
+                        onChange={(e) => setPayAmount(e.target.value)}
+                        placeholder={previewFee > 0 ? String(previewFee) : "0"}
+                        className="h-8 bg-muted"
+                      />
+                      {previewFee > 0 && (
+                        <div className="flex gap-1.5">
+                          {/* Same one-tap splits as RecordPaymentDialog —
+                              partial joining payments are routine. */}
+                          <button
+                            type="button"
+                            onClick={() => setPayAmount(String(previewFee))}
+                            className="border-border text-muted-foreground hover:bg-muted hover:text-foreground rounded-md border px-2 py-0.5 text-xs tabular-nums transition-colors"
+                          >
+                            Full {fmt.moneyShort(previewFee)}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPayAmount(String(Math.round((previewFee / 2) * 100) / 100))}
+                            className="border-border text-muted-foreground hover:bg-muted hover:text-foreground rounded-md border px-2 py-0.5 text-xs tabular-nums transition-colors"
+                          >
+                            Half {fmt.moneyShort(Math.round((previewFee / 2) * 100) / 100)}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="mf-method" className="text-muted-foreground text-xs">
+                        Payment method
+                      </Label>
+                      <Select
+                        value={payMethod}
+                        onValueChange={(v) => setPayMethod(v as PaymentMethod)}
+                      >
+                        <SelectTrigger id="mf-method" className="w-full bg-muted">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PAYMENT_METHODS.map((m) => (
+                            <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {previewFee > 0 &&
+                      payAmount !== "" &&
+                      Number(payAmount) > 0 &&
+                      Number(payAmount) < previewFee && (
+                        <p className="text-muted-foreground text-xs sm:col-span-2">
+                          Remaining due after this payment:{" "}
+                          <span className="text-foreground font-medium tabular-nums">
+                            {fmt.money(previewFee - Number(payAmount))}
+                          </span>
+                        </p>
+                      )}
                   </div>
                 )}
               </div>

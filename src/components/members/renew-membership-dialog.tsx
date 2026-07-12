@@ -21,6 +21,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "cash", label: "Cash" },
@@ -149,19 +156,21 @@ export function RenewMembershipDialog({
             <Label htmlFor="rn-plan" className="text-muted-foreground">
               Plan
             </Label>
-            <select
-              id="rn-plan"
-              value={planId}
-              onChange={(e) => setPlanId(e.target.value)}
-              className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:ring-1"
+            <Select
+              value={planId || undefined}
+              onValueChange={(v) => setPlanId(v ?? "")}
             >
-              <option value="">Select a plan…</option>
-              {plans.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} · {p.duration_days}d · {fmt.money(p.price)}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="rn-plan" className="w-full bg-muted">
+                <SelectValue placeholder="Select a plan…" />
+              </SelectTrigger>
+              <SelectContent>
+                {plans.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name} · {p.duration_days}d · {fmt.money(p.price)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {newEnd && (
@@ -205,17 +214,21 @@ export function RenewMembershipDialog({
                   placeholder="Amount"
                   className="bg-muted h-8"
                 />
-                <select
+                <Select
                   value={method}
-                  onChange={(e) => setMethod(e.target.value as PaymentMethod)}
-                  className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-8 w-full rounded-lg border px-2.5 text-sm outline-none focus:ring-1"
+                  onValueChange={(v) => setMethod(v as PaymentMethod)}
                 >
-                  {PAYMENT_METHODS.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full bg-muted">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>

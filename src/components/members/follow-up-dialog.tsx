@@ -31,14 +31,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAccountStaff } from "./use-account-staff";
 
 const REASONS = Object.keys(REASON_LABEL) as FollowUpReason[];
 const OUTCOMES = Object.keys(OUTCOME_LABEL) as FollowUpOutcome[];
-
-const selectClass =
-  "h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary";
 
 interface FollowUpDialogProps {
   open: boolean;
@@ -151,19 +155,22 @@ function AssignForm({
             <Label htmlFor="fu-assignee" className="text-muted-foreground">
               Owner
             </Label>
-            <select
-              id="fu-assignee"
-              value={assignedTo}
-              onChange={(e) => setAssignedTo(e.target.value)}
-              className={selectClass}
+            <Select
+              value={assignedTo || undefined}
+              onValueChange={(v) => setAssignedTo(v ?? "")}
             >
-              {staff.map((s) => (
-                <option key={s.user_id} value={s.user_id}>
-                  {s.full_name}
-                  {s.user_id === user?.id ? " (me)" : ""}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="fu-assignee" className="w-full bg-muted">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {staff.map((s) => (
+                  <SelectItem key={s.user_id} value={s.user_id}>
+                    {s.full_name}
+                    {s.user_id === user?.id ? " (me)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
@@ -171,18 +178,21 @@ function AssignForm({
               <Label htmlFor="fu-reason" className="text-muted-foreground">
                 Reason
               </Label>
-              <select
-                id="fu-reason"
+              <Select
                 value={reason}
-                onChange={(e) => setReason(e.target.value as FollowUpReason)}
-                className={selectClass}
+                onValueChange={(v) => setReason(v as FollowUpReason)}
               >
-                {REASONS.map((r) => (
-                  <option key={r} value={r}>
-                    {REASON_LABEL[r]}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="fu-reason" className="w-full bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REASONS.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {REASON_LABEL[r]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="fu-due" className="text-muted-foreground">
@@ -307,18 +317,21 @@ function CompleteForm({
             <Label htmlFor="fu-outcome" className="text-muted-foreground">
               Outcome
             </Label>
-            <select
-              id="fu-outcome"
+            <Select
               value={outcome}
-              onChange={(e) => setOutcome(e.target.value as FollowUpOutcome)}
-              className={selectClass}
+              onValueChange={(v) => setOutcome(v as FollowUpOutcome)}
             >
-              {OUTCOMES.map((o) => (
-                <option key={o} value={o}>
-                  {OUTCOME_LABEL[o]}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="fu-outcome" className="w-full bg-muted">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {OUTCOMES.map((o) => (
+                  <SelectItem key={o} value={o}>
+                    {OUTCOME_LABEL[o]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">

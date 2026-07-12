@@ -88,7 +88,7 @@ import { VoidPaymentDialog } from "./void-payment-dialog";
 /** Jump-nav sections, in scroll order. Ids double as `#sec-<id>`. */
 const SECTIONS = [
   { id: "membership", label: "Membership" },
-  { id: "payments", label: "Payments" },
+  { id: "payments", label: "Billing" },
   { id: "notes", label: "Notes" },
   { id: "attendance", label: "Attendance" },
   { id: "communication", label: "Communication" },
@@ -361,6 +361,15 @@ export function MemberDetailView({
   const canCollectCurrent = membership
     ? isCollectiblePeriod(currentInvoice, membership.status)
     : false;
+  // Auto-pay setup is a BILLING action (lives in the Billing section):
+  // offered for an active, non-trial member who has no live mandate yet.
+  const canSetupAutoPay =
+    !!membership &&
+    !!accountRole &&
+    canManageMandates(accountRole) &&
+    membership.status === "active" &&
+    !membership.is_trial &&
+    !mandate;
 
   const activeInvoice = activeInvoiceId
     ? (invoices.find((inv) => inv.id === activeInvoiceId) ?? null)
@@ -535,17 +544,6 @@ export function MemberDetailView({
                                 <DropdownMenuItem onClick={() => onEdit(membership)}>
                                   <Pencil className="size-4" /> Edit membership
                                 </DropdownMenuItem>
-                                {accountRole &&
-                                  canManageMandates(accountRole) &&
-                                  membership.status === "active" &&
-                                  !membership.is_trial &&
-                                  !mandate && (
-                                    <DropdownMenuItem
-                                      onClick={() => setAutoPayOpen(true)}
-                                    >
-                                      <Repeat className="size-4" /> Set up auto-pay
-                                    </DropdownMenuItem>
-                                  )}
                                 {membership.status === "frozen" ? (
                                   <DropdownMenuItem onClick={unfreeze} disabled={busy}>
                                     <Play className="size-4" /> Resume membership
@@ -606,20 +604,6 @@ export function MemberDetailView({
                               )}
                             </Stat>
                           </dl>
-                          {mandate && (
-                            <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                              <Repeat className="size-3.5" />
-                              {mandate.status === "active" ? (
-                                <>
-                                  Auto-pay on
-                                  {mandate.vpa ? ` · ${mandate.vpa}` : " · UPI AutoPay"}
-                                  {" — renewals collect automatically."}
-                                </>
-                              ) : (
-                                <>Auto-pay mandate pending the member&apos;s approval.</>
-                              )}
-                            </p>
-                          )}
                           {membership.status === "frozen" && membership.frozen_at && (
                             <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
                               <Snowflake className="size-3.5" />
@@ -640,29 +624,43 @@ export function MemberDetailView({
                     <Section id="payments">
                       <Card>
                         <CardHeader>
-                          <CardTitle>Payments</CardTitle>
-                          {!membership.is_trial && canCollectCurrent && (
-                            <CardAction className="flex items-center gap-2">
-                              <CopyUpiLinkButton
-                                upi={upi}
-                                amount={balance}
-                                note={`${membership.plan?.name ?? "Membership"} fee`}
-                                size="sm"
-                              />
-                              {canSendMessages && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setPayPeriod(null);
-                                    setPayOpen(true);
-                                  }}
-                                >
-                                  <Wallet className="size-4" /> Record payment
-                                </Button>
-                              )}
-                            </CardAction>
-                          )}
+                          <CardTitle>Billing</CardTitle>
+                          {!membership.is_trial &&
+                            (canCollectCurrent || canSetupAutoPay) && (
+                              <CardAction className="flex items-center gap-2">
+                                {canCollectCurrent && (
+                                  <>
+                                    <CopyUpiLinkButton
+                                      upi={upi}
+                                      amount={balance}
+                                      note={`${membership.plan?.name ?? "Membership"} fee`}
+                                      size="sm"
+                                    />
+                                    {canSendMessages && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setPayPeriod(null);
+                                          setPayOpen(true);
+                                        }}
+                                      >
+                                        <Wallet className="size-4" /> Record payment
+                                      </Button>
+                                    )}
+                                  </>
+                                )}
+                                {canSetupAutoPay && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setAutoPayOpen(true)}
+                                  >
+                                    <Repeat className="size-4" /> Set up auto-pay
+                                  </Button>
+                                )}
+                              </CardAction>
+                            )}
                         </CardHeader>
                         <CardContent className="space-y-5">
                           {membership.is_trial ? (
@@ -675,6 +673,23 @@ export function MemberDetailView({
                                 <p className="border-border bg-muted/30 text-muted-foreground rounded-lg border px-3 py-2 text-sm">
                                   This membership is cancelled. Its current billing period is not
                                   collectible.
+                                </p>
+                              )}
+
+                              {mandate && (
+                                <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                                  <Repeat className="size-3.5" />
+                                  {mandate.status === "active" ? (
+                                    <>
+                                      Auto-pay on
+                                      {mandate.vpa
+                                        ? ` · ${mandate.vpa}`
+                                        : " · UPI AutoPay"}
+                                      {" — renewals collect automatically."}
+                                    </>
+                                  ) : (
+                                    <>Auto-pay mandate pending the member&apos;s approval.</>
+                                  )}
                                 </p>
                               )}
 
