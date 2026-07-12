@@ -6,6 +6,8 @@ import {
   canDeleteAnyNote,
   canDeleteMember,
   canCorrectPayments,
+  canManageMandates,
+  canConfigurePaymentGateway,
   canEditSettings,
   canManageMembers,
   canReassignLeadsDirectly,
@@ -118,6 +120,20 @@ describe("capability predicates", () => {
     expect(canCorrectPayments("admin")).toBe(true);
     expect(canCorrectPayments("agent")).toBe(false);
     expect(canCorrectPayments("viewer")).toBe(false);
+  });
+
+  it("canManageMandates: agent+ (set up / pause auto-debit)", () => {
+    expect(canManageMandates("owner")).toBe(true);
+    expect(canManageMandates("admin")).toBe(true);
+    expect(canManageMandates("agent")).toBe(true);
+    expect(canManageMandates("viewer")).toBe(false);
+  });
+
+  it("canConfigurePaymentGateway: admin+ (creds / cancel mandate)", () => {
+    expect(canConfigurePaymentGateway("owner")).toBe(true);
+    expect(canConfigurePaymentGateway("admin")).toBe(true);
+    expect(canConfigurePaymentGateway("agent")).toBe(false);
+    expect(canConfigurePaymentGateway("viewer")).toBe(false);
   });
 
   it("canViewOnly: viewer only", () => {

@@ -149,6 +149,25 @@ export function canCorrectPayments(role: AccountRole): boolean {
   return hasMinRole(role, "admin");
 }
 
+/**
+ * Owner / admin / agent: set up or pause a member's UPI/card auto-debit
+ * mandate (migration 059). Mirrors the payment_mandates agent write RLS.
+ * Cancelling a live mandate is admin-only — see canCancelMandate.
+ */
+export function canManageMandates(role: AccountRole): boolean {
+  return hasMinRole(role, "agent");
+}
+
+/**
+ * Owner / admin: cancel a live auto-debit mandate (destructive — stops
+ * the recurring collection) and edit the account's payment-gateway
+ * credentials. Mirrors the account_payment_credentials admin-only RLS
+ * and payment_mandates delete policy (migration 059).
+ */
+export function canConfigurePaymentGateway(role: AccountRole): boolean {
+  return hasMinRole(role, "admin");
+}
+
 /** Owner only: irreversible destructive operations. */
 export function canDeleteAccount(role: AccountRole): boolean {
   return role === "owner";

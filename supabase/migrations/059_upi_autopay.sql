@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS public.account_payment_credentials (
   account_id            UUID PRIMARY KEY REFERENCES public.accounts(id) ON DELETE CASCADE,
   gateway               TEXT NOT NULL DEFAULT 'razorpay',
   razorpay_key_id       TEXT,
+  razorpay_key_secret   TEXT,
   razorpay_webhook_secret TEXT,
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
