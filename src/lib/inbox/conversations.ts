@@ -5,12 +5,19 @@ import type { Conversation, Contact, Tag } from "@/types";
  * can filter conversations by contact tag without a second round-trip.
  * `contact_tags(tags(*))` returns the join rows; {@link normalizeConversation}
  * flattens them onto `contact.tags`.
+ *
+ * `memberships(id)` rides along so the row can tell a member (has a
+ * membership) from a lead (none) — a contact with NO membership is a lead
+ * (leads = contacts anti-join memberships). Flattened to `isMember`.
  */
 export const CONVERSATION_SELECT =
-  "*, contact:contacts(*, contact_tags(tags(*)))";
+  "*, contact:contacts(*, contact_tags(tags(*)), memberships(id))";
 
 /** Raw shape returned by {@link CONVERSATION_SELECT} before flattening. */
-type RawContact = Contact & { contact_tags?: { tags: Tag | null }[] };
+type RawContact = Contact & {
+  contact_tags?: { tags: Tag | null }[];
+  memberships?: { id: string }[];
+};
 type RawConversation = Omit<Conversation, "contact"> & {
   contact?: RawContact | null;
 };
@@ -24,9 +31,10 @@ export function normalizeConversation(raw: RawConversation): Conversation {
   const rawContact = raw.contact;
   if (!rawContact) return raw as Conversation;
 
-  const { contact_tags, ...contact } = rawContact;
+  const { contact_tags, memberships, ...contact } = rawContact;
   return {
     ...raw,
+    isMember: (memberships?.length ?? 0) > 0,
     contact: {
       ...contact,
       tags: (contact_tags ?? [])

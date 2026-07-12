@@ -853,9 +853,16 @@ export function MemberDetailView({
                       </Card>
                     </Section>
 
-                    {/* Communication — static preview for now. */}
+                    {/* Communication — template-send log (renewal
+                        reminders etc.), not a chat; replies live in the
+                        Inbox. Keyed by contact so switching members
+                        resets state. */}
                     <Section id="communication">
-                      <MemberCommunication />
+                      <MemberCommunication
+                        key={membership.contact_id}
+                        contactId={membership.contact_id}
+                        active={open}
+                      />
                     </Section>
 
                     {/* Personal information */}

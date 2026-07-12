@@ -230,6 +230,12 @@ export interface Conversation {
   created_at: string;
   updated_at: string;
   contact?: Contact;
+  /**
+   * Derived by {@link normalizeConversation}: true when the contact has a
+   * membership row (a member), false/undefined for a lead. Drives the
+   * Member/Lead pill in the Inbox conversation list.
+   */
+  isMember?: boolean;
 }
 
 // ============================================================

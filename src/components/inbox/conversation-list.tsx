@@ -12,6 +12,7 @@ import type { Conversation, ConversationStatus, Tag } from "@/types";
 import { ChevronDown, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { SearchInput } from "@/components/ui/search-input";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -41,11 +42,13 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
   closed: "bg-muted-foreground",
 };
 
-type InboxFilter = ConversationStatus | "all" | "unread";
+type InboxFilter = ConversationStatus | "all" | "unread" | "member" | "lead";
 
 const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = [
   { label: "All", value: "all" },
   { label: "Unread", value: "unread" },
+  { label: "Members", value: "member" },
+  { label: "Leads", value: "lead" },
   { label: "Open", value: "open" },
   { label: "Pending", value: "pending" },
   { label: "Closed", value: "closed" },
@@ -158,6 +161,10 @@ export function ConversationList({
 
     if (filter === "unread") {
       result = result.filter((c) => c.unread_count > 0);
+    } else if (filter === "member") {
+      result = result.filter((c) => c.isMember);
+    } else if (filter === "lead") {
+      result = result.filter((c) => !c.isMember);
     } else if (filter !== "all") {
       result = result.filter((c) => c.status === filter);
     }
@@ -452,9 +459,20 @@ function ConversationItem({
       {/* Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium text-foreground">
-            {displayName}
-          </span>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-sm font-medium text-foreground">
+              {displayName}
+            </span>
+            {/* Member vs lead — so staff know at a glance who they're
+                replying to. `isMember` is derived from the embedded
+                membership row in CONVERSATION_SELECT. */}
+            <Badge
+              variant={conversation.isMember ? "success" : "neutral"}
+              className="shrink-0 px-1.5 text-[10px]"
+            >
+              {conversation.isMember ? "Member" : "Lead"}
+            </Badge>
+          </div>
           <span className="shrink-0 text-[10px] text-muted-foreground">{timeAgo}</span>
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-2">
