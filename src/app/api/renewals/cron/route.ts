@@ -147,6 +147,12 @@ export async function GET(request: Request) {
       // Only `active` memberships expiring exactly on this date. Frozen /
       // cancelled are excluded in the query; an equality on the indexed
       // end_date column keeps this cheap.
+      //
+      // Skip members on auto-collection (`collection_mode='auto'`, migration
+      // 059): a live UPI-AutoPay mandate collects their renewal, so nagging
+      // them would double-contact. A FAILED mandate is already flipped back
+      // to 'manual' by revoke_mandate (webhook), so those members fall
+      // through to this reminder — that IS the dunning fallback.
       const { data, error: mErr } = await admin
         .from('memberships')
         .select(
@@ -154,6 +160,7 @@ export async function GET(request: Request) {
         )
         .eq('account_id', accountId)
         .eq('status', 'active')
+        .eq('collection_mode', 'manual')
         .eq('end_date', target.endDate)
 
       if (mErr) {
