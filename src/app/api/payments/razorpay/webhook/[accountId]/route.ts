@@ -144,12 +144,25 @@ async function handleEvent(
   const sub = event.payload.subscription?.entity;
   const payment = event.payload.payment?.entity;
 
+  // The subscription's notes carry the account that created the mandate.
+  // A mismatch means the gym pasted a DIFFERENT UsefulDesk account's
+  // webhook URL into Razorpay (both accounts sharing one Razorpay secret
+  // makes the signature pass) — every lookup below would silently miss,
+  // so fail loud and land the reason in the event row's _error.
+  const notesAccount = sub?.notes?.account_id;
+  if (notesAccount && notesAccount !== accountId) {
+    throw new Error(
+      `account mismatch: webhook URL is for account ${accountId} but the subscription belongs to ${notesAccount} — update the webhook URL in the Razorpay dashboard to this gym's URL from Settings → Payments & currency`,
+    );
+  }
+
   switch (event.event) {
     case "subscription.authenticated":
     case "subscription.activated": {
       if (!sub) return;
       const mandateId = await mandateIdForSubscription(admin, accountId, sub.id);
-      if (!mandateId) return;
+      if (!mandateId)
+        throw new Error(`no mandate found for subscription ${sub.id}`);
       const { error } = await admin.rpc("activate_mandate", {
         p_mandate_id: mandateId,
         p_token_id: sub.token_id ?? null,

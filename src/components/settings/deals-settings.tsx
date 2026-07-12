@@ -335,6 +335,10 @@ function RazorpayCard() {
                     {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
                   </Button>
                 </div>
+                <p className="text-muted-foreground text-xs">
+                  This URL is specific to this account — copy it while signed
+                  into the gym the mandates belong to.
+                </p>
               </div>
             </div>
             {!canEditSettings ? (
