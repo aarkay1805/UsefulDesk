@@ -22,13 +22,25 @@ export function useMembershipPlans(activeOnly = true) {
     const supabase = createClient();
     let cancelled = false;
     (async () => {
+      // pricing_options ride along (062) — a plan's price/duration live
+      // there now; the plan's own price/duration_days are legacy-frozen.
       const base = supabase
         .from("membership_plans")
-        .select("*")
-        .order("duration_days", { ascending: true });
+        .select("*, pricing_options:plan_pricing_options(*)")
+        .order("name", { ascending: true });
       const { data } = activeOnly ? await base.eq("is_active", true) : await base;
       if (cancelled) return;
-      setPlans((data as MembershipPlan[]) ?? []);
+      const rows = ((data as MembershipPlan[]) ?? []).map((p) => ({
+        ...p,
+        pricing_options: (p.pricing_options ?? [])
+          .slice()
+          .sort(
+            (a, b) =>
+              a.sort_order - b.sort_order ||
+              a.created_at.localeCompare(b.created_at),
+          ),
+      }));
+      setPlans(rows);
       setLoading(false);
     })();
     return () => {

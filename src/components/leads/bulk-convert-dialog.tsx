@@ -18,8 +18,14 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { useMembershipPlans } from '@/components/members/use-membership-plans';
-import { istAddDays } from '@/lib/memberships/expiry';
+import {
+  activeOptions,
+  durationLabel,
+  firstCycleFee,
+  optionEndDate,
+} from '@/lib/memberships/pricing';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
+import type { PlanPricingOption } from '@/types';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -63,6 +69,7 @@ export function BulkConvertDialog({
   const { plans } = useMembershipPlans(true);
 
   const [planId, setPlanId] = useState('');
+  const [optionId, setOptionId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(fmt.today());
   const [saving, setSaving] = useState(false);
 
@@ -73,6 +80,7 @@ export function BulkConvertDialog({
     setPrevOpen(open);
     if (open) {
       setPlanId('');
+      setOptionId(null);
       setStartDate(fmt.today());
       setSaving(false);
     }
@@ -80,9 +88,26 @@ export function BulkConvertDialog({
 
   const count = contactIds.length;
   const plan = plans.find((p) => p.id === planId);
+  const options = plan ? activeOptions(plan) : [];
+  const option = options.find((o) => o.id === optionId) ?? null;
+
+  function optionLabel(o: PlanPricingOption) {
+    return (
+      <>
+        {durationLabel(o.duration_count, o.duration_unit)} ·{' '}
+        <span className="tabular-nums">{fmt.money(o.price)}</span>
+        {o.setup_fee > 0 && (
+          <span className="text-muted-foreground">
+            {' '}
+            (+<span className="tabular-nums">{fmt.money(o.setup_fee)}</span> joining)
+          </span>
+        )}
+      </>
+    );
+  }
 
   async function handleConvert() {
-    if (!plan || count === 0) return;
+    if (!plan || !option || count === 0) return;
     if (!accountId || !user) {
       toast.error('Not authenticated');
       return;
@@ -93,7 +118,7 @@ export function BulkConvertDialog({
     }
 
     setSaving(true);
-    const endDate = istAddDays(startDate, plan.duration_days);
+    const endDate = optionEndDate(startDate, option);
     // One membership per lead. Insert individually so a lead that's somehow
     // already a member is skipped (unique violation) without failing rest.
     const results = await Promise.all(
@@ -105,10 +130,12 @@ export function BulkConvertDialog({
             contact_id: id,
             user_id: user.id,
             plan_id: plan.id,
+            pricing_option_id: option.id,
             start_date: startDate,
             end_date: endDate,
             status: 'active',
-            fee_amount: plan.price,
+            // New members owe the first-cycle fee: price + joining fee.
+            fee_amount: firstCycleFee(option),
             fee_status: 'due',
             is_trial: false,
           })
@@ -169,14 +196,7 @@ export function BulkConvertDialog({
                 render={<button type="button" className={TRIGGER_CLASS} />}
               >
                 <span className={cn('truncate', !plan && 'text-muted-foreground')}>
-                  {plan ? (
-                    <>
-                      {plan.name} · {plan.duration_days}d ·{' '}
-                      <span className="tabular-nums">{fmt.money(plan.price)}</span>
-                    </>
-                  ) : (
-                    'Select a plan'
-                  )}
+                  {plan ? plan.name : 'Select a plan'}
                 </span>
                 <ChevronDown className="text-muted-foreground size-4 shrink-0" />
               </DropdownMenuTrigger>
@@ -184,16 +204,28 @@ export function BulkConvertDialog({
                 align="start"
                 className="bg-popover border-border"
               >
-                {plans.map((p) => (
-                  <DropdownMenuItem
-                    key={p.id}
-                    onClick={() => setPlanId(p.id)}
-                    className="text-popover-foreground focus:bg-muted focus:text-foreground"
-                  >
-                    {p.name} · {p.duration_days}d ·{' '}
-                    <span className="tabular-nums">{fmt.money(p.price)}</span>
-                  </DropdownMenuItem>
-                ))}
+                {plans.map((p) => {
+                  const opts = activeOptions(p);
+                  return (
+                    <DropdownMenuItem
+                      key={p.id}
+                      onClick={() => {
+                        setPlanId(p.id);
+                        // A single option is the obvious pick.
+                        setOptionId(opts.length === 1 ? opts[0].id : null);
+                      }}
+                      className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                    >
+                      {p.name}
+                      {opts.length === 1 && (
+                        <span className="text-muted-foreground">
+                          {' '}· {durationLabel(opts[0].duration_count, opts[0].duration_unit)} ·{' '}
+                          <span className="tabular-nums">{fmt.money(opts[0].price)}</span>
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                  );
+                })}
               </DropdownMenuContent>
             </DropdownMenu>
             {plans.length === 0 && (
@@ -201,7 +233,43 @@ export function BulkConvertDialog({
                 No active plans. Create one in Settings → Membership plans.
               </p>
             )}
+            {plan && options.length === 0 && (
+              <p className="text-destructive text-xs">
+                This plan has no active billing option — add one in Settings →
+                Membership plans.
+              </p>
+            )}
           </div>
+
+          {plan && options.length > 1 && (
+            <div className="space-y-2">
+              <Label className="text-popover-foreground">Billing option</Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={<button type="button" className={TRIGGER_CLASS} />}
+                >
+                  <span className={cn('truncate', !option && 'text-muted-foreground')}>
+                    {option ? optionLabel(option) : 'Select a billing option'}
+                  </span>
+                  <ChevronDown className="text-muted-foreground size-4 shrink-0" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="bg-popover border-border"
+                >
+                  {options.map((o) => (
+                    <DropdownMenuItem
+                      key={o.id}
+                      onClick={() => setOptionId(o.id)}
+                      className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                    >
+                      {optionLabel(o)}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label className="text-popover-foreground">Start date</Label>
@@ -221,7 +289,7 @@ export function BulkConvertDialog({
           >
             Cancel
           </Button>
-          <Button onClick={handleConvert} disabled={!plan || saving}>
+          <Button onClick={handleConvert} disabled={!plan || !option || saving}>
             {saving && <Loader2 className="size-4 animate-spin" />}
             Convert
           </Button>

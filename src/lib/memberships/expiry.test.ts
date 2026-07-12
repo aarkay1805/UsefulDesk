@@ -2,10 +2,12 @@ import { describe, it, expect } from "vitest";
 import {
   istToday,
   istAddDays,
+  addDuration,
   daysBetween,
   daysUntil,
   effectiveStatus,
   computeRenewalEndDate,
+  computeRenewalEndDateFor,
   unfreezeEndDate,
 } from "./expiry";
 
@@ -31,6 +33,57 @@ describe("istAddDays", () => {
   });
   it("crosses a leap-year February correctly", () => {
     expect(istAddDays("2024-02-28", 1)).toBe("2024-02-29");
+  });
+});
+
+describe("addDuration", () => {
+  it("day/week delegate to plain day math", () => {
+    expect(addDuration("2026-07-11", 10, "day")).toBe("2026-07-21");
+    expect(addDuration("2026-07-11", 2, "week")).toBe("2026-07-25");
+  });
+
+  it("adds calendar months, clamping to the target month's length", () => {
+    expect(addDuration("2026-01-31", 1, "month")).toBe("2026-02-28");
+    expect(addDuration("2026-01-15", 1, "month")).toBe("2026-02-15");
+    expect(addDuration("2026-10-31", 2, "month")).toBe("2026-12-31");
+    expect(addDuration("2026-11-30", 3, "month")).toBe("2027-02-28");
+  });
+
+  it("clamps into a leap February correctly", () => {
+    expect(addDuration("2028-01-31", 1, "month")).toBe("2028-02-29");
+  });
+
+  it("adds years, clamping Feb 29", () => {
+    expect(addDuration("2026-07-11", 1, "year")).toBe("2027-07-11");
+    expect(addDuration("2028-02-29", 1, "year")).toBe("2029-02-28");
+  });
+
+  it("crosses year boundaries in month mode", () => {
+    expect(addDuration("2026-11-15", 3, "month")).toBe("2027-02-15");
+  });
+
+  it("returns malformed input unchanged", () => {
+    expect(addDuration("soon", 1, "month")).toBe("soon");
+  });
+});
+
+describe("computeRenewalEndDateFor", () => {
+  it("extends from the current expiry when it is in the future", () => {
+    expect(computeRenewalEndDateFor("2026-08-10", 1, "month", "2026-07-11")).toBe(
+      "2026-09-10",
+    );
+  });
+
+  it("restarts from today for an expired member", () => {
+    expect(computeRenewalEndDateFor("2026-06-01", 1, "month", "2026-07-11")).toBe(
+      "2026-08-11",
+    );
+  });
+
+  it("starts from today when there is no current expiry", () => {
+    expect(computeRenewalEndDateFor(null, 2, "week", "2026-07-11")).toBe(
+      "2026-07-25",
+    );
   });
 });
 

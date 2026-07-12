@@ -7,10 +7,11 @@ import { Loader2, UsersRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/hooks/use-locale";
-import { istAddDays } from "@/lib/memberships/expiry";
 import { isUniqueViolation } from "@/lib/contacts/dedupe";
+import { firstCycleFee, optionEndDate } from "@/lib/memberships/pricing";
 import type { Contact } from "@/types";
 import { useMembershipPlans } from "./use-membership-plans";
+import { PlanOptionPicker } from "./plan-option-picker";
 import {
   Dialog,
   DialogContent,
@@ -24,13 +25,6 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/search-input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 /** Newest-first cap on the candidate list — keeps the dialog snappy on
  *  big books; the search box narrows within the loaded set. */
@@ -84,11 +78,15 @@ function ImportForm({
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const [planId, setPlanId] = useState("");
+  const [optionId, setOptionId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(fmt.today());
   const [feeAmount, setFeeAmount] = useState("");
   const [saving, setSaving] = useState(false);
 
   const selectedPlan = plans.find((p) => p.id === planId);
+  const selectedOption =
+    selectedPlan?.pricing_options?.find((o) => o.id === optionId && o.is_active) ??
+    null;
 
   // Contacts who aren't members yet — the import candidates. Any
   // membership row (trial or paid, any status) disqualifies; those
@@ -123,12 +121,16 @@ function ImportForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Seed the fee from the picked plan unless the user already typed one.
+  // Seed the fee from the picked option unless the user already typed
+  // one. Existing contacts joining as members still owe the one-time
+  // joining fee (they're new members, unlike the CSV historical import).
   useEffect(() => {
-    if (!selectedPlan) return;
-    setFeeAmount((prev) => (prev === "" ? String(selectedPlan.price) : prev));
+    if (!selectedOption) return;
+    setFeeAmount((prev) =>
+      prev === "" ? String(firstCycleFee(selectedOption)) : prev,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planId]);
+  }, [optionId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -164,11 +166,14 @@ function ImportForm({
   async function handleImport() {
     if (!accountId || !user) return;
     if (selected.size === 0) return toast.error("Select at least one contact");
-    if (!selectedPlan) return toast.error("Pick a membership plan");
-    const fee = feeAmount === "" ? selectedPlan.price : Number(feeAmount);
+    if (!selectedPlan || !selectedOption) {
+      return toast.error("Pick a membership plan and billing option");
+    }
+    const fee =
+      feeAmount === "" ? firstCycleFee(selectedOption) : Number(feeAmount);
     if (!Number.isFinite(fee) || fee < 0) return toast.error("Enter a valid fee");
 
-    const endDate = istAddDays(startDate, selectedPlan.duration_days);
+    const endDate = optionEndDate(startDate, selectedOption);
     const rows = candidates
       .filter((c) => selected.has(c.id))
       .map((c) => ({
@@ -176,6 +181,7 @@ function ImportForm({
         contact_id: c.id,
         user_id: user.id,
         plan_id: selectedPlan.id,
+        pricing_option_id: selectedOption.id,
         start_date: startDate,
         end_date: endDate,
         status: "active",
@@ -222,26 +228,17 @@ function ImportForm({
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 py-2">
         {/* Shared membership settings */}
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="im-plan" className="text-muted-foreground">
-              Plan <span className="text-red-700 dark:text-red-400">*</span>
-            </Label>
-            <Select
-              value={planId || undefined}
-              onValueChange={(v) => setPlanId(v ?? "")}
-            >
-              <SelectTrigger id="im-plan" className="w-full bg-muted">
-                <SelectValue placeholder="Select…" />
-              </SelectTrigger>
-              <SelectContent>
-                {plans.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} · {p.duration_days}d · {fmt.money(p.price)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <PlanOptionPicker
+            idPrefix="im"
+            plans={plans}
+            planId={planId}
+            optionId={optionId}
+            required
+            onChange={(sel) => {
+              setPlanId(sel.planId);
+              setOptionId(sel.optionId);
+            }}
+          />
           <div className="space-y-1.5">
             <Label htmlFor="im-start" className="text-muted-foreground">
               Start date
@@ -263,14 +260,16 @@ function ImportForm({
               min={0}
               value={feeAmount}
               onChange={(e) => setFeeAmount(e.target.value)}
-              placeholder={selectedPlan ? String(selectedPlan.price) : "0"}
+              placeholder={
+                selectedOption ? String(firstCycleFee(selectedOption)) : "0"
+              }
               className="bg-muted"
             />
           </div>
         </div>
-        {selectedPlan && (
+        {selectedOption && (
           <p className="text-xs text-muted-foreground">
-            Everyone imported expires {istAddDays(startDate, selectedPlan.duration_days)}.
+            Everyone imported expires {fmt.date(optionEndDate(startDate, selectedOption))}.
           </p>
         )}
 

@@ -760,19 +760,66 @@ export type MembershipFeeStatus = 'paid' | 'due';
 export type PaymentMethod = 'cash' | 'upi' | 'card' | 'bank' | 'other';
 export type PaymentStatus = 'paid' | 'due' | 'void';
 
+/** What kind of product a plan is (migration 062).
+ *  'recurring'     — bills every cycle; renewal chase + autopay eligible.
+ *  'non_recurring' — fixed term, pay once; excluded from renewal
+ *                    reminders and the Renewals action lists.
+ *  'session_pack'  — punchcard: `sessions_count` sessions inside the
+ *                    option's validity window; check-in consumes them. */
+export type PlanType = 'recurring' | 'non_recurring' | 'session_pack';
+
+/** Calendar-accurate billing-cycle unit (migration 062). */
+export type DurationUnit = 'day' | 'week' | 'month' | 'year';
+
+/** Window an attendance limit counts visits over (migration 062).
+ *  'period' = the membership's current billing cycle. */
+export type AttendanceLimitInterval = 'period' | 'week' | 'month';
+
+/** One billing option a plan sells (migration 062) — e.g. "Gold" carries
+ *  monthly ₹1000 / quarterly ₹2700 / yearly ₹9000 rows. For a
+ *  session_pack the duration is the pack's validity window. */
+export interface PlanPricingOption {
+  id: string;
+  account_id: string;
+  plan_id: string;
+  duration_count: number;
+  duration_unit: DurationUnit;
+  price: number;
+  /** One-time joining/admission fee — billed on the FIRST cycle only
+   *  (folded into that cycle's fee_amount); renewals bill `price`. */
+  setup_fee: number;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MembershipPlan {
   id: string;
   account_id: string;
   name: string;
+  /** LEGACY (frozen since migration 062) — pricing lives on
+   *  `pricing_options`; kept only for rollback + the autopay fallback. */
   price: number;
-  /** Length of one membership period in days (30 = monthly, 365 = yearly). */
+  /** LEGACY (frozen since migration 062) — durations live on
+   *  `pricing_options` as count × unit. */
   duration_days: number;
   description?: string;
+  plan_type: PlanType;
+  /** Visit cap for recurring/non_recurring plans; null = unlimited.
+   *  Enforced as a warn-with-override at check-in, never a hard block. */
+  attendance_limit_count?: number | null;
+  attendance_limit_interval?: AttendanceLimitInterval | null;
+  /** session_pack only: sessions in the pack. Remaining is DERIVED from
+   *  attendance since the current cycle start — never stored. */
+  sessions_count?: number | null;
   /** Soft-archive flag — a plan in use can't be hard-deleted (FK RESTRICT),
    *  so the UI sets this false to hide it from new-membership selects. */
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /** Hydrated by queries that embed `plan_pricing_options(*)`. */
+  pricing_options?: PlanPricingOption[];
 }
 
 export interface Membership {
@@ -782,6 +829,9 @@ export interface Membership {
   /** Creator/audit — never used for tenancy. */
   user_id: string;
   plan_id: string | null;
+  /** The billing option the member is on (migration 062). Null on
+   *  legacy/trial rows; renew/edit/change RPCs keep it in sync. */
+  pricing_option_id?: string | null;
   /** 'YYYY-MM-DD' — no timezone; compared against IST "today". */
   start_date: string;
   /** 'YYYY-MM-DD' expiry — the hot column the renewal action lists scan. */
@@ -811,6 +861,8 @@ export interface Membership {
   /** Hydrated by queries that embed `contacts(*)` / `membership_plans(*)`. */
   contact?: Contact;
   plan?: MembershipPlan;
+  /** Hydrated by queries that embed `plan_pricing_options(*)`. */
+  pricing_option?: PlanPricingOption | null;
 }
 
 export interface Payment {

@@ -54,6 +54,20 @@ describe("isCollectiblePeriod", () => {
   });
 });
 
+const baseOption = {
+  id: "o1",
+  account_id: "a1",
+  plan_id: "p1",
+  duration_count: 1,
+  duration_unit: "month" as const,
+  price: 3999,
+  setup_fee: 500,
+  is_active: true,
+  sort_order: 0,
+  created_at: "",
+  updated_at: "",
+};
+
 const baseMembership: Pick<
   Membership,
   | "id"
@@ -66,6 +80,7 @@ const baseMembership: Pick<
   | "status"
   | "is_trial"
   | "plan"
+  | "pricing_option"
 > = {
   id: "m1",
   account_id: "a1",
@@ -82,31 +97,50 @@ const baseMembership: Pick<
     name: "Monthly",
     price: 3999,
     duration_days: 30,
+    plan_type: "recurring",
     is_active: true,
     created_at: "",
     updated_at: "",
   },
+  pricing_option: baseOption,
 };
 
 describe("projectNextInvoice", () => {
-  it("starts the next cycle when the current ends, one plan-duration long", () => {
+  it("starts the next cycle when the current ends, one option-duration long", () => {
     const next = projectNextInvoice(baseMembership)!;
     expect(next.period_start).toBe("2026-08-10");
-    expect(next.period_end).toBe("2026-09-09");
+    expect(next.period_end).toBe("2026-09-10"); // calendar month, not +30d
     expect(next.fee_amount).toBe(3999);
     expect(next.balance).toBe(3999);
     expect(isProjectedInvoice(next.id)).toBe(true);
   });
 
-  it("uses the plan price, not the (possibly discounted) current fee", () => {
-    const next = projectNextInvoice({ ...baseMembership, fee_amount: 0 })!;
+  it("uses the option price (no setup fee), not the current fee", () => {
+    // fee_amount 4499 = first cycle price + setup fee; the projection
+    // must bill the recurring price alone.
+    const next = projectNextInvoice({ ...baseMembership, fee_amount: 4499 })!;
     expect(next.fee_amount).toBe(3999);
   });
 
-  it("returns null for trials, cancelled, and planless memberships", () => {
+  it("returns null for trials, cancelled, and option-less memberships", () => {
     expect(projectNextInvoice({ ...baseMembership, is_trial: true }, TODAY)).toBeNull();
     expect(projectNextInvoice({ ...baseMembership, status: "cancelled" }, TODAY)).toBeNull();
-    expect(projectNextInvoice({ ...baseMembership, plan: undefined }, TODAY)).toBeNull();
+    expect(projectNextInvoice({ ...baseMembership, pricing_option: null }, TODAY)).toBeNull();
+  });
+
+  it("returns null for non-recurring and session-pack plans", () => {
+    expect(
+      projectNextInvoice(
+        { ...baseMembership, plan: { ...baseMembership.plan!, plan_type: "non_recurring" } },
+        TODAY,
+      ),
+    ).toBeNull();
+    expect(
+      projectNextInvoice(
+        { ...baseMembership, plan: { ...baseMembership.plan!, plan_type: "session_pack" } },
+        TODAY,
+      ),
+    ).toBeNull();
   });
 
   it("returns null for an expired member (no phantom past-dated Upcoming)", () => {

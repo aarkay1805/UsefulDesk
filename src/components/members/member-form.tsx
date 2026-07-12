@@ -15,8 +15,14 @@ import {
 import { useLocale } from "@/hooks/use-locale";
 import { istAddDays, daysBetween } from "@/lib/memberships/expiry";
 import { editMembershipCycle } from "@/lib/memberships/periods";
+import {
+  durationLabel,
+  firstCycleFee,
+  optionEndDate,
+} from "@/lib/memberships/pricing";
 import type { Membership, PaymentMethod } from "@/types";
 import { useMembershipPlans } from "./use-membership-plans";
+import { PlanOptionPicker, TRIAL_PLAN_VALUE } from "./plan-option-picker";
 import {
   Dialog,
   DialogContent,
@@ -33,15 +39,9 @@ import {
   Select,
   SelectContent,
   SelectItem,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// Sentinel value for the "Trial / free pass" item in the plan dropdown —
-// trial is picked like a plan, not toggled via a separate checkbox. Never
-// collides with real plan ids (uuids).
-const TRIAL_PLAN_VALUE = "__trial__";
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "cash", label: "Cash" },
@@ -85,6 +85,7 @@ export function MemberForm({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [planId, setPlanId] = useState("");
+  const [optionId, setOptionId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(fmt.today());
   const [feeAmount, setFeeAmount] = useState("");
   // Tracks whether the user typed the fee themselves. Until they do, the
@@ -113,10 +114,29 @@ export function MemberForm({
   const [checkingDup, setCheckingDup] = useState(false);
 
   const selectedPlan = plans.find((p) => p.id === planId);
+  const selectedOption =
+    selectedPlan?.pricing_options?.find((o) => o.id === optionId && o.is_active) ??
+    null;
   // The fee the first payment settles against, mirroring submit's
-  // fallback: blank fee field = the plan's price.
+  // fallback: blank fee field = the option's first-cycle fee (price +
+  // one-time joining fee, migration 062).
   const previewFee =
-    feeAmount === "" ? Number(selectedPlan?.price ?? 0) : Number(feeAmount) || 0;
+    feeAmount === ""
+      ? selectedOption
+        ? firstCycleFee(selectedOption)
+        : 0
+      : Number(feeAmount) || 0;
+
+  // Paid-membership expiry: the picked billing option drives it; a
+  // legacy membership without an option falls back to the plan's frozen
+  // duration_days so editing an un-migrated row still works.
+  function paidEndDate(): string | null {
+    if (selectedOption) return optionEndDate(startDate, selectedOption);
+    if (isEdit && selectedPlan?.duration_days) {
+      return istAddDays(startDate, selectedPlan.duration_days);
+    }
+    return null;
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -126,6 +146,7 @@ export function MemberForm({
     setPhone(member?.contact?.phone ?? seedContact?.phone ?? "");
     setEmail(member?.contact?.email ?? seedContact?.email ?? "");
     setPlanId(member?.plan_id ?? "");
+    setOptionId(member?.pricing_option_id ?? null);
     setStartDate(member?.start_date ?? fmt.today());
     setFeeAmount(member ? String(member.fee_amount) : "");
     // An existing fee is authoritative — never auto-reseed it from a plan
@@ -147,14 +168,15 @@ export function MemberForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, member]);
 
-  // The fee follows the selected plan's price until the user edits it
-  // (feeTouched) — so switching plans re-seeds instead of keeping the
-  // previous plan's stale price. Edit mode opens touched (existing fee).
+  // The fee follows the selected billing option's first-cycle fee
+  // (price + one-time joining fee) until the user edits it (feeTouched)
+  // — so switching options re-seeds instead of keeping a stale price.
+  // Edit mode opens touched (existing fee is authoritative).
   useEffect(() => {
-    if (!selectedPlan || feeTouched) return;
-    setFeeAmount(String(selectedPlan.price));
+    if (!selectedOption || feeTouched) return;
+    setFeeAmount(String(firstCycleFee(selectedOption)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planId]);
+  }, [optionId]);
 
   // The no-plans hint links to Settings in a new tab; refetch plans when
   // the user tabs back so the plan they just created is pickable without
@@ -193,12 +215,24 @@ export function MemberForm({
       return toast.error("Pick a membership plan (or Trial / free pass)");
     }
 
-    // Plan is required for a paid member, optional for a trial.
+    // Plan + billing option are required for a paid member; a legacy
+    // edit (no option on the row) may proceed on the plan's frozen days.
     const plan = plans.find((p) => p.id === planId);
     if (!isTrial && !plan) return toast.error("Selected plan is unavailable");
+    const endForPaid = paidEndDate();
+    if (!isTrial && !endForPaid) {
+      return toast.error("Pick a billing option for this plan");
+    }
 
-    // Trials are free; a paid member's fee seeds from the plan price.
-    const fee = isTrial ? 0 : feeAmount === "" ? plan!.price : Number(feeAmount);
+    // Trials are free; a paid member's fee seeds from the option's
+    // first-cycle fee (price + one-time joining fee).
+    const fee = isTrial
+      ? 0
+      : feeAmount === ""
+        ? selectedOption
+          ? firstCycleFee(selectedOption)
+          : Number(plan!.price)
+        : Number(feeAmount);
     if (!Number.isFinite(fee) || fee < 0) return toast.error("Enter a valid fee");
 
     // First payment: blank = the full fee; a typed amount may be a
@@ -216,9 +250,7 @@ export function MemberForm({
     try {
       // ---- EDIT: update contact + membership in place ----
       if (isEdit && member) {
-        const endDate = isTrial
-          ? istAddDays(startDate, trialLen)
-          : istAddDays(startDate, plan!.duration_days);
+        const endDate = isTrial ? istAddDays(startDate, trialLen) : endForPaid!;
         const { error: cErr } = await supabase
           .from("contacts")
           .update({
@@ -234,6 +266,7 @@ export function MemberForm({
         // edit can't leave the cycle keys diverged.
         const { error: mErr } = await editMembershipCycle(supabase, member.id, {
           plan_id: isTrial ? planId || null : planId,
+          pricing_option_id: isTrial ? null : optionId,
           period_start: startDate,
           period_end: endDate,
           fee_amount: fee,
@@ -271,9 +304,7 @@ export function MemberForm({
         contactId = data.id;
       }
 
-      const endDate = isTrial
-        ? istAddDays(startDate, trialLen)
-        : istAddDays(startDate, plan!.duration_days);
+      const endDate = isTrial ? istAddDays(startDate, trialLen) : endForPaid!;
       const { data: mRow, error: mErr } = await supabase
         .from("memberships")
         .insert({
@@ -281,6 +312,7 @@ export function MemberForm({
           contact_id: contactId,
           user_id: user.id,
           plan_id: isTrial ? planId || null : planId,
+          pricing_option_id: isTrial ? null : optionId,
           start_date: startDate,
           end_date: endDate,
           status: "active",
@@ -433,58 +465,41 @@ export function MemberForm({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="mf-plan" className="text-muted-foreground">
-                  Plan <span className="text-red-700 dark:text-red-400">*</span>
-                </Label>
-                <Select
-                  value={isTrial ? TRIAL_PLAN_VALUE : planId || undefined}
-                  onValueChange={(v) => {
-                    if (!v) return;
-                    if (v === TRIAL_PLAN_VALUE) {
-                      setIsTrial(true);
-                      setPlanId("");
-                    } else {
-                      setIsTrial(false);
-                      setPlanId(v);
-                    }
-                  }}
-                >
-                  <SelectTrigger id="mf-plan" className="w-full bg-muted">
-                    <SelectValue placeholder="Select a plan…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* Trial is picked here like a plan — the fields below
-                        switch to trial length / no fee when selected. */}
-                    <SelectItem value={TRIAL_PLAN_VALUE}>
-                      Trial / free pass ·{" "}
-                      <span className="text-muted-foreground">no fee</span>
-                    </SelectItem>
-                    <SelectSeparator />
-                    {plans.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {/* Owners pick by price as much as by name — show it. */}
-                        {p.name} · {p.duration_days}d ·{" "}
-                        <span className="tabular-nums">{fmt.money(p.price)}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {!plansLoading && plans.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    No plans yet —{" "}
-                    <a
-                      href="/settings?tab=plans"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-medium underline underline-offset-2 hover:no-underline"
-                    >
-                      create one in Settings
-                    </a>
-                    , then come back.
-                  </p>
-                )}
-              </div>
+              <PlanOptionPicker
+                idPrefix="mf"
+                plans={plans}
+                planId={isTrial ? TRIAL_PLAN_VALUE : planId}
+                optionId={optionId}
+                allowTrial
+                required
+                onChange={(sel) => {
+                  if (sel.planId === TRIAL_PLAN_VALUE) {
+                    setIsTrial(true);
+                    setPlanId("");
+                    setOptionId(null);
+                  } else {
+                    setIsTrial(false);
+                    setPlanId(sel.planId);
+                    setOptionId(sel.optionId);
+                  }
+                }}
+                footer={
+                  !plansLoading && plans.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No plans yet —{" "}
+                      <a
+                        href="/settings?tab=plans"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium underline underline-offset-2 hover:no-underline"
+                      >
+                        create one in Settings
+                      </a>
+                      , then come back.
+                    </p>
+                  ) : null
+                }
+              />
 
               <div className="space-y-2">
                 <Label htmlFor="mf-start" className="text-muted-foreground">Start date</Label>
@@ -516,9 +531,12 @@ export function MemberForm({
               </div>
             ) : (
               <>
-                {selectedPlan && (
+                {selectedPlan && paidEndDate() && (
                   <p className="text-xs text-muted-foreground">
-                    Expires {fmt.date(istAddDays(startDate, selectedPlan.duration_days))} ({selectedPlan.duration_days} days).
+                    Expires {fmt.date(paidEndDate()!)}
+                    {selectedOption &&
+                      ` (${durationLabel(selectedOption.duration_count, selectedOption.duration_unit)})`}
+                    .
                   </p>
                 )}
 
@@ -533,9 +551,19 @@ export function MemberForm({
                       setFeeAmount(e.target.value);
                       setFeeTouched(true);
                     }}
-                    placeholder={selectedPlan ? String(selectedPlan.price) : "0"}
+                    placeholder={
+                      selectedOption ? String(firstCycleFee(selectedOption)) : "0"
+                    }
                     className="bg-muted"
                   />
+                  {!isEdit && selectedOption && selectedOption.setup_fee > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      <span className="tabular-nums">{fmt.money(selectedOption.price)}</span> plan
+                      {" + "}
+                      <span className="tabular-nums">{fmt.money(selectedOption.setup_fee)}</span>{" "}
+                      joining fee — first cycle only.
+                    </p>
+                  )}
                 </div>
               </>
             )}

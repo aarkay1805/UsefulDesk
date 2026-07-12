@@ -1,5 +1,11 @@
 import { Badge } from "@/components/ui/badge";
-import type { MembershipStatus, MembershipFeeStatus, InvoiceStatus, Payment } from "@/types";
+import type {
+  MembershipStatus,
+  MembershipFeeStatus,
+  InvoiceStatus,
+  Payment,
+  PlanType,
+} from "@/types";
 
 /**
  * Coloured pills for a membership's effective status and its fee state.
@@ -99,6 +105,25 @@ export function VoidedPaymentBadge({
       <Badge variant="neutral">Voided</Badge>
     </span>
   );
+}
+
+/**
+ * Plan-type pill (migration 062) — what kind of product a plan is.
+ * Recurring is the default/neutral case; a fixed term reads info; a
+ * session pack violet (the same "different kind of row" colour trials use).
+ */
+const PLAN_TYPE_VARIANT: Record<
+  PlanType,
+  { label: string; variant: "neutral" | "info" | "violet" }
+> = {
+  recurring: { label: "Recurring", variant: "neutral" },
+  non_recurring: { label: "Fixed term", variant: "info" },
+  session_pack: { label: "Session pack", variant: "violet" },
+};
+
+export function PlanTypeBadge({ type }: { type: PlanType }) {
+  const t = PLAN_TYPE_VARIANT[type];
+  return <Badge variant={t.variant}>{t.label}</Badge>;
 }
 
 /**

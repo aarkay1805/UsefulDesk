@@ -29,12 +29,15 @@ import {
 } from "@/lib/payments/razorpay";
 import { upiAvailableFor } from "@/lib/payments/upi";
 
-/** Map a membership plan's duration to a Razorpay billing cadence. */
-function razorpayCadence(durationDays: number): {
+type RazorpayCadence = {
   period: RazorpayPlan["period"];
   interval: number;
   frequency: "monthly" | "quarterly";
-} | null {
+} | null;
+
+/** Day-range snap — kept for legacy day-unit options (the 062 backfill
+ *  mirrored duration_days as day-unit options) and un-optioned rows. */
+function cadenceFromDays(durationDays: number): RazorpayCadence {
   // Snap common gym cadences. Razorpay bills quarterly as monthly×3.
   if (durationDays >= 28 && durationDays <= 31) {
     return { period: "monthly", interval: 1, frequency: "monthly" };
@@ -47,6 +50,32 @@ function razorpayCadence(durationDays: number): {
   return null;
 }
 
+/** Map the membership's billing option (062) — or the plan's legacy
+ *  duration_days — to a Razorpay cadence. */
+function razorpayCadence(
+  option: { duration_count: number; duration_unit: string } | null,
+  legacyDurationDays: number,
+): RazorpayCadence {
+  if (option) {
+    const { duration_count: count, duration_unit: unit } = option;
+    if (unit === "month" && count === 1) {
+      return { period: "monthly", interval: 1, frequency: "monthly" };
+    }
+    if (unit === "month" && count === 3) {
+      return { period: "monthly", interval: 3, frequency: "quarterly" };
+    }
+    if (unit === "week" && count === 4) {
+      return { period: "monthly", interval: 1, frequency: "monthly" };
+    }
+    if (unit === "week" && (count === 12 || count === 13)) {
+      return { period: "monthly", interval: 3, frequency: "quarterly" };
+    }
+    if (unit === "day") return cadenceFromDays(count);
+    return null;
+  }
+  return cadenceFromDays(legacyDurationDays);
+}
+
 interface MembershipRow {
   id: string;
   account_id: string;
@@ -54,7 +83,16 @@ interface MembershipRow {
   fee_amount: number;
   status: string;
   is_trial: boolean;
-  plan: { name: string | null; duration_days: number | null } | null;
+  plan: {
+    name: string | null;
+    duration_days: number | null;
+    plan_type: string | null;
+  } | null;
+  pricing_option: {
+    duration_count: number;
+    duration_unit: string;
+    price: number;
+  } | null;
   contact: { name: string | null; phone: string | null } | null;
 }
 
@@ -78,7 +116,7 @@ export async function POST(request: Request) {
     const { data, error } = await ctx.supabase
       .from("memberships")
       .select(
-        "id, account_id, contact_id, fee_amount, status, is_trial, plan:membership_plans(name, duration_days), contact:contacts(name, phone)",
+        "id, account_id, contact_id, fee_amount, status, is_trial, plan:membership_plans(name, duration_days, plan_type), pricing_option:plan_pricing_options(duration_count, duration_unit, price), contact:contacts(name, phone)",
       )
       .eq("id", membershipId)
       .maybeSingle();
@@ -98,6 +136,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Only recurring plans auto-renew (062) — record_gateway_charge
+    // enforces this in the DB too; fail early with a clean message.
+    if (membership.plan && membership.plan.plan_type !== "recurring") {
+      return NextResponse.json(
+        { error: "Only recurring plans support auto-pay" },
+        { status: 400 },
+      );
+    }
+
     // INR-only rail (a currency condition, not a geo one).
     const { data: account } = await ctx.supabase
       .from("accounts")
@@ -112,8 +159,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const duration = membership.plan?.duration_days ?? 0;
-    const cadence = razorpayCadence(duration);
+    const cadence = razorpayCadence(
+      membership.pricing_option,
+      membership.plan?.duration_days ?? 0,
+    );
     if (!cadence) {
       return NextResponse.json(
         {
@@ -123,7 +172,10 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const fee = Number(membership.fee_amount);
+    // The recurring amount is the OPTION price — the membership's
+    // fee_amount may embed the one-time joining fee (first cycle, 062)
+    // and must not recur. Legacy fallback: the stored fee.
+    const fee = Number(membership.pricing_option?.price ?? membership.fee_amount);
     if (!(fee > 0)) {
       return NextResponse.json(
         { error: "This membership has no fee to auto-collect" },

@@ -111,8 +111,13 @@ export function RenewalActionLists({
       ]);
       if (cancelled) return;
 
-      setExpiring((expiringRes.data as Membership[]) ?? []);
-      setExpired((expiredRes.data as Membership[]) ?? []);
+      // Only RECURRING plans belong in the renewal chase (062):
+      // fixed-term plans expire quietly, session packs surface via
+      // session counts. NULL-plan legacy rows stay (pre-062 behavior).
+      const isChaseable = (m: Membership) =>
+        !m.plan || m.plan.plan_type === "recurring";
+      setExpiring(((expiringRes.data as Membership[]) ?? []).filter(isChaseable));
+      setExpired(((expiredRes.data as Membership[]) ?? []).filter(isChaseable));
       setLoading(false);
     })();
     return () => {

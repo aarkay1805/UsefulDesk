@@ -7,9 +7,11 @@ import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getErrorMessage } from "@/lib/errors";
 import { useLocale } from "@/hooks/use-locale";
-import { daysBetween, istAddDays } from "@/lib/memberships/expiry";
+import { daysBetween } from "@/lib/memberships/expiry";
+import { optionEndDate, renewalFee } from "@/lib/memberships/pricing";
 import type { Membership, PaymentMethod } from "@/types";
 import { useMembershipPlans } from "./use-membership-plans";
+import { PlanOptionPicker } from "./plan-option-picker";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +64,9 @@ export function RenewMembershipDialog({
   const isConvert = variant === "convert";
 
   const [planId, setPlanId] = useState(membership.plan_id ?? "");
+  const [optionId, setOptionId] = useState<string | null>(
+    membership.pricing_option_id ?? null,
+  );
   const [feeAmount, setFeeAmount] = useState(String(membership.fee_amount ?? ""));
   const [collectPayment, setCollectPayment] = useState(true);
   const [collectAmount, setCollectAmount] = useState(String(membership.fee_amount ?? ""));
@@ -70,10 +75,14 @@ export function RenewMembershipDialog({
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 
   const selectedPlan = plans.find((p) => p.id === planId);
+  const selectedOption =
+    selectedPlan?.pricing_options?.find((o) => o.id === optionId && o.is_active) ??
+    null;
 
   useEffect(() => {
     if (!open) return;
     setPlanId(membership.plan_id ?? "");
+    setOptionId(membership.pricing_option_id ?? null);
     setFeeAmount(String(membership.fee_amount ?? ""));
     setCollectPayment(true);
     setCollectAmount(String(membership.fee_amount ?? ""));
@@ -81,14 +90,16 @@ export function RenewMembershipDialog({
     setIdempotencyKey(crypto.randomUUID());
   }, [open, membership]);
 
-  // Seed the fee (and the amount to collect) from the picked plan.
+  // Seed the fee (and the amount to collect) from the picked billing
+  // option. A renewal bills the option price — never the joining fee.
   useEffect(() => {
-    if (selectedPlan) {
-      setFeeAmount(String(selectedPlan.price));
-      setCollectAmount(String(selectedPlan.price));
+    if (selectedOption) {
+      const fee = renewalFee(selectedOption);
+      setFeeAmount(String(fee));
+      setCollectAmount(String(fee));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planId]);
+  }, [optionId]);
 
   // New period extends from the later of current expiry or today, so a
   // member who renews early keeps their unexpired days. A conversion
@@ -98,11 +109,13 @@ export function RenewMembershipDialog({
     !isConvert && membership.end_date && daysBetween(today, membership.end_date) > 0
       ? membership.end_date
       : today;
-  const newEnd = selectedPlan ? istAddDays(base, selectedPlan.duration_days) : null;
+  const newEnd = selectedOption ? optionEndDate(base, selectedOption) : null;
 
   async function handleRenew() {
-    if (!selectedPlan || !newEnd) return toast.error("Pick a plan");
-    const fee = feeAmount === "" ? selectedPlan.price : Number(feeAmount);
+    if (!selectedPlan || !selectedOption || !newEnd) {
+      return toast.error("Pick a plan and billing option");
+    }
+    const fee = feeAmount === "" ? renewalFee(selectedOption) : Number(feeAmount);
     if (!Number.isFinite(fee) || fee < 0) return toast.error("Enter a valid fee");
 
     // Collected now; a partial amount leaves the new period 'due'.
@@ -126,6 +139,7 @@ export function RenewMembershipDialog({
         p_method: method,
         p_is_conversion: isConvert,
         p_idempotency_key: idempotencyKey,
+        p_pricing_option_id: optionId,
       });
       if (error) throw error;
 
@@ -152,26 +166,16 @@ export function RenewMembershipDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="rn-plan" className="text-muted-foreground">
-              Plan
-            </Label>
-            <Select
-              value={planId || undefined}
-              onValueChange={(v) => setPlanId(v ?? "")}
-            >
-              <SelectTrigger id="rn-plan" className="w-full bg-muted">
-                <SelectValue placeholder="Select a plan…" />
-              </SelectTrigger>
-              <SelectContent>
-                {plans.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} · {p.duration_days}d · {fmt.money(p.price)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <PlanOptionPicker
+            idPrefix="rn"
+            plans={plans}
+            planId={planId}
+            optionId={optionId}
+            onChange={(sel) => {
+              setPlanId(sel.planId);
+              setOptionId(sel.optionId);
+            }}
+          />
 
           {newEnd && (
             <div className="border-border bg-muted/40 rounded-lg border px-3 py-2 text-sm">
@@ -241,7 +245,7 @@ export function RenewMembershipDialog({
           <Button
             type="button"
             onClick={handleRenew}
-            disabled={saving || !selectedPlan}
+            disabled={saving || !selectedPlan || !selectedOption}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}

@@ -24,7 +24,8 @@ import type {
   Membership,
   MembershipPeriodInvoice,
 } from "@/types";
-import { istAddDays, istToday } from "./expiry";
+import { istToday } from "./expiry";
+import { optionEndDate, renewalFee } from "./pricing";
 
 /** Derive the invoice badge for a period. Void wins; then a covered
  *  balance is Paid; a cycle that hasn't started yet is Upcoming; the
@@ -72,14 +73,16 @@ export function isProjectedInvoice(id: string): boolean {
 
 /**
  * Build the NEXT cycle as a display-only invoice (not written). The next
- * cycle begins when the current one ends; its fee is the plan price
- * (fallback: the current fee). Returns null when there's nothing to
- * project — trials, cancelled memberships, a planless/duration-less
- * membership, OR an already-lapsed one (end_date on/before today). The
- * last guard is load-bearing: without it an EXPIRED member projects a
- * past-dated cycle that periodStatus() reads as a phantom "Unpaid"
- * invoice for a cycle that never happened. A lapsed member's next cycle
- * only becomes real on renewal.
+ * cycle begins when the current one ends; its length and fee come from
+ * the membership's pricing option (migration 062 — renewals bill the
+ * option price, never its setup fee). Returns null when there's nothing
+ * to project — trials, cancelled memberships, a non-recurring/pack plan
+ * (they don't renew), a membership without a pricing option, OR an
+ * already-lapsed one (end_date on/before today). The last guard is
+ * load-bearing: without it an EXPIRED member projects a past-dated cycle
+ * that periodStatus() reads as a phantom "Unpaid" invoice for a cycle
+ * that never happened. A lapsed member's next cycle only becomes real on
+ * renewal.
  */
 export function projectNextInvoice(
   membership: Pick<
@@ -94,6 +97,7 @@ export function projectNextInvoice(
     | "status"
     | "is_trial"
     | "plan"
+    | "pricing_option"
   >,
   today: string = istToday(),
 ): MembershipPeriodInvoice | null {
@@ -106,11 +110,13 @@ export function projectNextInvoice(
   // Only project while the current cycle is still live (ends strictly
   // after today), so the projected row is always genuinely Upcoming.
   if (membership.end_date <= today) return null;
-  const duration = membership.plan?.duration_days;
-  if (!duration) return null;
+  // Only a recurring plan has a next cycle to project.
+  if (membership.plan && membership.plan.plan_type !== "recurring") return null;
+  const option = membership.pricing_option;
+  if (!option) return null;
   const start = membership.end_date;
-  const end = istAddDays(start, duration);
-  const fee = Number(membership.plan?.price ?? membership.fee_amount);
+  const end = optionEndDate(start, option);
+  const fee = renewalFee(option);
   return {
     id: `${PROJECTED_INVOICE_PREFIX}${membership.id}`,
     account_id: membership.account_id,
@@ -146,6 +152,8 @@ export async function editMembershipCycle(
   membershipId: string,
   fields: {
     plan_id: string | null;
+    /** The billing option behind the fee/dates (062); null clears it. */
+    pricing_option_id: string | null;
     period_start: string;
     period_end: string;
     fee_amount: number;
@@ -161,6 +169,46 @@ export async function editMembershipCycle(
     p_fee_amount: fields.fee_amount,
     p_is_trial: fields.is_trial,
     p_notes: fields.notes,
+    p_pricing_option_id: fields.pricing_option_id,
+  });
+}
+
+/**
+ * Mid-cycle plan change (migration 061): truncate the current cycle at
+ * the switch date (re-invoiced at the pro-rated used value, payments
+ * re-stamped), open a new period on the new plan, roll the membership
+ * pointer, optionally record a first collection — one transaction.
+ * Quote the fee numbers with `planChangeQuote` (plan-change.ts).
+ */
+export async function changeMembershipPlan(
+  supabase: SupabaseClient,
+  membershipId: string,
+  fields: {
+    plan_id: string;
+    /** The new plan's chosen billing option (062). */
+    pricing_option_id: string | null;
+    switch_date: string;
+    period_end: string;
+    /** The truncated old cycle's re-invoiced fee (quote.oldCycleFee). */
+    old_fee_amount: number;
+    /** The new cycle's fee (quote.netFee, staff-overridable). */
+    fee_amount: number;
+    collect_amount: number;
+    method: string;
+    idempotency_key: string;
+  },
+) {
+  return supabase.rpc("change_membership_plan", {
+    p_membership_id: membershipId,
+    p_plan_id: fields.plan_id,
+    p_switch_date: fields.switch_date,
+    p_period_end: fields.period_end,
+    p_old_fee_amount: fields.old_fee_amount,
+    p_fee_amount: fields.fee_amount,
+    p_collect_amount: fields.collect_amount,
+    p_method: fields.method,
+    p_idempotency_key: fields.idempotency_key,
+    p_pricing_option_id: fields.pricing_option_id,
   });
 }
 

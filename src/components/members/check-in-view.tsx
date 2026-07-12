@@ -9,11 +9,19 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/hooks/use-locale";
 import { dayStartInTz } from "@/lib/locale/format";
 import { effectiveStatus, daysUntil } from "@/lib/memberships/expiry";
+import {
+  attendanceUsage,
+  checkInWarning,
+  membershipUsageWindowStart,
+  sessionsRemaining,
+  type CheckInWarning,
+} from "@/lib/memberships/attendance-limits";
 import type { Membership } from "@/types";
 import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
 import { MembershipStatusBadge } from "./membership-status-badge";
 import { MemberIdentity } from "./member-identity";
+import { AttendanceOverrideDialog } from "./attendance-override-dialog";
 
 interface CheckInViewProps {
   /** Bump to refetch after a mutation elsewhere. */
@@ -27,17 +35,24 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
   const { locale, fmt } = useLocale();
   const [rows, setRows] = useState<Membership[]>([]);
   const [checkedToday, setCheckedToday] = useState<Set<string>>(new Set());
+  /** membership_id → visits inside its plan's usage window (062). */
+  const [usage, setUsage] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [override, setOverride] = useState<{
+    membership: Membership;
+    warning: CheckInWarning;
+  } | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
     (async () => {
       // "Today" starts at local midnight in the ACCOUNT's zone.
+      const todayStr = fmt.today();
       const todayStart = (
-        dayStartInTz(fmt.today(), locale.timeZone) ?? new Date()
+        dayStartInTz(todayStr, locale.timeZone) ?? new Date()
       ).toISOString();
       const [membersRes, attRes] = await Promise.all([
         supabase
@@ -50,17 +65,58 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
           .gte("checked_in_at", todayStart),
       ]);
       if (cancelled) return;
-      setRows((membersRes.data as Membership[]) ?? []);
+      const members = (membersRes.data as Membership[]) ?? [];
+      setRows(members);
       const seen = new Set(
         ((attRes.data as { contact_id: string }[] | null) ?? []).map((r) => r.contact_id),
       );
       setCheckedToday(seen);
+
+      // Usage counts for limited plans + session packs — ONE query over
+      // the earliest window, bucketed per member's own window client-side.
+      const tracked = members
+        .map((m) => ({
+          m,
+          windowStart: membershipUsageWindowStart(m, todayStr, locale.weekStart),
+        }))
+        .filter((t): t is { m: Membership; windowStart: string } => !!t.windowStart);
+      if (tracked.length > 0) {
+        const minStart = tracked.reduce(
+          (min, t) => (t.windowStart < min ? t.windowStart : min),
+          tracked[0].windowStart,
+        );
+        const minInstant = (
+          dayStartInTz(minStart, locale.timeZone) ?? new Date(0)
+        ).toISOString();
+        const { data: visits } = await supabase
+          .from("attendance")
+          .select("membership_id, checked_in_at")
+          .in("membership_id", tracked.map((t) => t.m.id))
+          .gte("checked_in_at", minInstant);
+        if (cancelled) return;
+        const counts = new Map<string, number>();
+        const windowInstant = new Map(
+          tracked.map((t) => [
+            t.m.id,
+            (dayStartInTz(t.windowStart, locale.timeZone) ?? new Date(0)).toISOString(),
+          ]),
+        );
+        for (const v of (visits as { membership_id: string | null; checked_in_at: string }[]) ?? []) {
+          if (!v.membership_id) continue;
+          const start = windowInstant.get(v.membership_id);
+          if (!start || v.checked_in_at < start) continue;
+          counts.set(v.membership_id, (counts.get(v.membership_id) ?? 0) + 1);
+        }
+        setUsage(counts);
+      } else {
+        setUsage(new Map());
+      }
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [reloadKey, fmt, locale.timeZone]);
+  }, [reloadKey, fmt, locale.timeZone, locale.weekStart]);
 
   const today = fmt.today();
 
@@ -74,7 +130,25 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
     });
   }, [rows, search]);
 
-  async function checkIn(m: Membership) {
+  /** The plan-name + usage line under a member's identity. */
+  function rowMeta(m: Membership): { text: string; danger: boolean } {
+    const planName = m.plan?.name ?? "—";
+    const used = usage.get(m.id) ?? 0;
+    if (m.plan?.plan_type === "session_pack" && m.plan.sessions_count) {
+      const left = sessionsRemaining(m.plan.sessions_count, used);
+      return {
+        text: `${planName} · ${left} of ${m.plan.sessions_count} sessions left`,
+        danger: left === 0,
+      };
+    }
+    if (m.plan) {
+      const u = attendanceUsage(m.plan, used);
+      if (u.label) return { text: `${planName} · ${u.label}`, danger: u.exceeded };
+    }
+    return { text: planName, danger: false };
+  }
+
+  async function doInsert(m: Membership) {
     if (!user) return;
     setBusyId(m.id);
     try {
@@ -88,6 +162,12 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
       });
       if (error) throw error;
       setCheckedToday((prev) => new Set(prev).add(m.contact_id));
+      setUsage((prev) => {
+        const next = new Map(prev);
+        next.set(m.id, (next.get(m.id) ?? 0) + 1);
+        return next;
+      });
+      setOverride(null);
       toast.success(`${m.contact?.name || "Member"} checked in`);
       onCheckedIn?.();
     } catch (err) {
@@ -95,6 +175,38 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function checkIn(m: Membership) {
+    if (!user) return;
+    // Limit check (062): a fresh count keeps it honest across devices;
+    // over the limit → warn-with-override, never a hard block.
+    const windowStart = membershipUsageWindowStart(m, today, locale.weekStart);
+    if (m.plan && windowStart) {
+      setBusyId(m.id);
+      try {
+        const supabase = createClient();
+        const startInstant = (
+          dayStartInTz(windowStart, locale.timeZone) ?? new Date(0)
+        ).toISOString();
+        const { count } = await supabase
+          .from("attendance")
+          .select("id", { count: "exact", head: true })
+          .eq("membership_id", m.id)
+          .gte("checked_in_at", startInstant);
+        const used = count ?? 0;
+        setUsage((prev) => new Map(prev).set(m.id, used));
+        const warning = checkInWarning(m.plan, used);
+        if (warning) {
+          setBusyId(null);
+          setOverride({ membership: m, warning });
+          return;
+        }
+      } catch {
+        // Counting failed — never block the front desk; fall through.
+      }
+    }
+    await doInsert(m);
   }
 
   return (
@@ -129,6 +241,7 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
           {filtered.map((m) => {
             const done = checkedToday.has(m.contact_id);
             const eff = effectiveStatus(m, today);
+            const meta = rowMeta(m);
             return (
               <li
                 key={m.id}
@@ -140,8 +253,14 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
                   secondary={m.contact?.phone}
                   src={m.contact?.avatar_url}
                   meta={
-                    <p className="truncate text-xs text-muted-foreground">
-                      {m.plan?.name ?? "—"}
+                    <p
+                      className={`truncate text-xs ${
+                        meta.danger
+                          ? "text-red-700 dark:text-red-400"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {meta.text}
                     </p>
                   }
                 />
@@ -168,6 +287,14 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
           })}
         </ul>
       )}
+
+      <AttendanceOverrideDialog
+        open={!!override}
+        warning={override?.warning ?? null}
+        busy={!!override && busyId === override.membership.id}
+        onConfirm={() => override && doInsert(override.membership)}
+        onCancel={() => setOverride(null)}
+      />
     </div>
   );
 }

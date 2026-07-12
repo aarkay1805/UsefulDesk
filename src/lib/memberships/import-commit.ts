@@ -6,7 +6,7 @@
 // in the dialog (find-or-create contact, per-row membership insert).
 
 import { normalizeKey } from "@/lib/contacts/dedupe";
-import { istAddDays } from "@/lib/memberships/expiry";
+import { defaultOption, optionEndDate } from "@/lib/memberships/pricing";
 import type { DateOrder } from "@/lib/leads/import-coerce";
 import type { MembershipPlan } from "@/types";
 
@@ -191,19 +191,27 @@ export function parseFeeStatus(value: string): "paid" | "due" {
 /** The memberships-insert payload a valid row builds (sans ids). */
 export interface BuiltMembership {
   plan_id: string;
+  pricing_option_id: string;
   start_date: string;
   end_date: string;
   fee_amount: number;
   fee_status: "paid" | "due";
 }
 
-export type MemberRowError = "unknown-plan" | "bad-date" | "bad-fee";
+export type MemberRowError =
+  | "unknown-plan"
+  | "no-pricing"
+  | "bad-date"
+  | "bad-fee";
 
 /**
- * Build the membership payload for one mapped row. Defaults: start =
- * today (IST), end = start + plan duration when no explicit expiry, fee
- * = plan price, fee_status = 'due'. Returns errors instead of throwing
- * so the confirm step can tally skips per reason.
+ * Build the membership payload for one mapped row. The plan's DEFAULT
+ * pricing option (first active by sort — pricing.ts rule) drives the
+ * period: start = today (IST) unless mapped, end = option duration from
+ * start when no explicit expiry, fee = option price (NO setup fee —
+ * imports are existing members whose admission was already paid),
+ * fee_status = 'due'. Returns errors instead of throwing so the confirm
+ * step can tally skips per reason.
  */
 export function buildMembershipRow(
   row: MemberImportRow,
@@ -215,6 +223,8 @@ export function buildMembershipRow(
 
   const plan = resolvePlan(row.planName, plans);
   if (!plan) errors.push("unknown-plan");
+  const option = plan ? defaultOption(plan) : null;
+  if (plan && !option) errors.push("no-pricing");
 
   const start = row.startDate ? parseImportDate(row.startDate, order) : today;
   const endExplicit = row.endDate ? parseImportDate(row.endDate, order) : null;
@@ -229,16 +239,17 @@ export function buildMembershipRow(
     else errors.push("bad-fee");
   }
 
-  if (errors.length > 0 || !plan || !start) {
+  if (errors.length > 0 || !plan || !option || !start) {
     return { membership: null, errors };
   }
 
   return {
     membership: {
       plan_id: plan.id,
+      pricing_option_id: option.id,
       start_date: start,
-      end_date: endExplicit ?? istAddDays(start, plan.duration_days),
-      fee_amount: fee ?? Number(plan.price),
+      end_date: endExplicit ?? optionEndDate(start, option),
+      fee_amount: fee ?? Number(option.price),
       fee_status: parseFeeStatus(row.feeStatus),
     },
     errors,

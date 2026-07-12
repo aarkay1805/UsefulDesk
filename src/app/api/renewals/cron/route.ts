@@ -41,7 +41,7 @@ interface ReminderCandidate {
   fee_amount: number
   end_date: string
   contact: { id: string; name: string | null; phone: string | null } | null
-  plan: { name: string | null } | null
+  plan: { name: string | null; plan_type: string | null } | null
 }
 
 export async function GET(request: Request) {
@@ -156,7 +156,7 @@ export async function GET(request: Request) {
       const { data, error: mErr } = await admin
         .from('memberships')
         .select(
-          'id, contact_id, fee_amount, end_date, contact:contacts(id, name, phone), plan:membership_plans(name)',
+          'id, contact_id, fee_amount, end_date, contact:contacts(id, name, phone), plan:membership_plans(name, plan_type)',
         )
         .eq('account_id', accountId)
         .eq('status', 'active')
@@ -170,7 +170,14 @@ export async function GET(request: Request) {
       // The to-one embeds come back as single objects at runtime; the
       // untyped client infers them as arrays, so cast to the real shape
       // (same approach as members-table.tsx casting to Membership[]).
-      const memberships = (data ?? []) as unknown as ReminderCandidate[]
+      //
+      // Only RECURRING plans get renewal nags (062): fixed-term plans
+      // expire quietly and session packs surface via session counts.
+      // Filtered in TS, not `!inner`, so legacy NULL-plan rows keep
+      // their reminders (pre-062 behavior).
+      const memberships = ((data ?? []) as unknown as ReminderCandidate[]).filter(
+        (m) => !m.plan || m.plan.plan_type === 'recurring',
+      )
       if (memberships.length === 0) continue
 
       for (const m of memberships) {

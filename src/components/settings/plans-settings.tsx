@@ -2,55 +2,57 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Dumbbell, Loader2, Plus, Archive, Trash2, RotateCcw } from "lucide-react";
+import { Dumbbell, Loader2, Plus, Archive, Trash2, RotateCcw, Pencil } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/currency";
-import { isUniqueViolation } from "@/lib/contacts/dedupe";
+import { useLocale } from "@/hooks/use-locale";
+import { activeOptions, durationLabel } from "@/lib/memberships/pricing";
 import type { MembershipPlan } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { PlanTypeBadge } from "@/components/members/membership-status-badge";
+import { PlanEditorDialog } from "./plan-editor-dialog";
 import { SettingsPanelHead } from "./settings-panel-head";
 
-/** The one-click seed offered on an empty account (prices in the account currency). */
-const STARTER_PLANS = [
-  { name: "Monthly", price: 1000, duration_days: 30 },
-  { name: "Quarterly", price: 2700, duration_days: 90 },
-  { name: "Yearly", price: 9000, duration_days: 365 },
+/** The one-click seed on an empty account: ONE recurring plan with three
+ *  billing options (062) — not three separate plans. Prices in the
+ *  account currency; the legacy plan columns mirror the first option. */
+const STARTER_OPTIONS = [
+  { duration_count: 1, duration_unit: "month", price: 1000, setup_fee: 0, sort_order: 0 },
+  { duration_count: 3, duration_unit: "month", price: 2700, setup_fee: 0, sort_order: 1 },
+  { duration_count: 12, duration_unit: "month", price: 9000, setup_fee: 0, sort_order: 2 },
 ];
 
 /**
- * Membership plans — the catalogue a gym sells (name + price + duration
- * in days). Settings-class: the `membership_plans` RLS policies (031)
- * restrict writes to admins+, so non-admins see a read-only list.
+ * Membership plans — the catalogue a gym sells. Since migration 062 a
+ * plan is a TYPE (recurring / fixed term / session pack) plus one or
+ * more BILLING OPTIONS (`plan_pricing_options`: duration × price ×
+ * one-time joining fee), with optional attendance limits. Create/edit
+ * happens in PlanEditorDialog; this page lists, archives and deletes.
  *
- * A plan referenced by a membership can't be hard-deleted (FK RESTRICT),
- * so the row offers Archive (is_active=false) which hides it from new
- * membership selects while keeping existing memberships intact.
+ * Settings-class: RLS restricts writes to admins+, so non-admins see a
+ * read-only list. A plan referenced by a membership can't be
+ * hard-deleted (FK RESTRICT) — Archive hides it from pickers instead.
  */
 export function PlansSettings() {
   const supabase = createClient();
-  const { accountId, defaultCurrency, canEditSettings, user } = useAuth();
+  const { accountId, canEditSettings } = useAuth();
+  const { fmt } = useLocale();
 
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [seeding, setSeeding] = useState(false);
-
-  const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const [durationDays, setDurationDays] = useState("30");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<MembershipPlan | null>(null);
 
   const fetchPlans = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
       .from("membership_plans")
-      .select("*")
+      .select("*, pricing_options:plan_pricing_options(*)")
       .order("is_active", { ascending: false })
-      .order("duration_days", { ascending: true });
+      .order("name", { ascending: true });
     setPlans((data as MembershipPlan[]) ?? []);
     setLoading(false);
   }, [supabase]);
@@ -59,66 +61,54 @@ export function PlansSettings() {
     fetchPlans();
   }, [fetchPlans]);
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    if (!accountId || !user) return;
-    const trimmed = name.trim();
-    const priceNum = Number(price);
-    const days = Number(durationDays);
-    if (!trimmed) return toast.error("Plan name is required");
-    if (!Number.isFinite(priceNum) || priceNum < 0) return toast.error("Enter a valid price");
-    if (!Number.isInteger(days) || days <= 0) return toast.error("Duration must be a whole number of days");
+  function openCreate() {
+    setEditingPlan(null);
+    setEditorOpen(true);
+  }
 
-    setSaving(true);
-    try {
-      const { error } = await supabase.from("membership_plans").insert({
-        account_id: accountId,
-        name: trimmed,
-        price: priceNum,
-        duration_days: days,
-      });
-      if (error) {
-        if (isUniqueViolation(error)) {
-          toast.error("A plan with this name already exists");
-          return;
-        }
-        throw error;
-      }
-      toast.success("Plan added");
-      setName("");
-      setPrice("");
-      setDurationDays("30");
-      await fetchPlans();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to add plan");
-    } finally {
-      setSaving(false);
-    }
+  function openEdit(plan: MembershipPlan) {
+    setEditingPlan(plan);
+    setEditorOpen(true);
   }
 
   async function seedStarters() {
     if (!accountId) return;
     setSeeding(true);
     try {
-      const { error } = await supabase.from("membership_plans").insert(
-        STARTER_PLANS.map((p) => ({ ...p, account_id: accountId })),
-      );
+      const { data, error } = await supabase
+        .from("membership_plans")
+        .insert({
+          account_id: accountId,
+          name: "Standard",
+          plan_type: "recurring",
+          // Legacy mirror of the first option (062).
+          price: STARTER_OPTIONS[0].price,
+          duration_days: 30,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
-      toast.success("Starter plans added");
+      const { error: optError } = await supabase.from("plan_pricing_options").insert(
+        STARTER_OPTIONS.map((o) => ({ ...o, account_id: accountId, plan_id: data.id })),
+      );
+      if (optError) throw optError;
+      toast.success("Starter plan added");
       await fetchPlans();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to add starter plans");
+      toast.error(err instanceof Error ? err.message : "Failed to add the starter plan");
     } finally {
       setSeeding(false);
     }
   }
 
   async function setActive(plan: MembershipPlan, isActive: boolean) {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("membership_plans")
       .update({ is_active: isActive })
-      .eq("id", plan.id);
+      .eq("id", plan.id)
+      .select("id");
     if (error) return toast.error(error.message);
+    if (!data?.length) return toast.error("You don't have permission to change plans");
     toast.success(isActive ? "Plan restored" : "Plan archived");
     await fetchPlans();
   }
@@ -136,63 +126,60 @@ export function PlansSettings() {
       );
       return;
     }
-    const { error } = await supabase.from("membership_plans").delete().eq("id", plan.id);
+    const { data, error } = await supabase
+      .from("membership_plans")
+      .delete()
+      .eq("id", plan.id)
+      .select("id");
     if (error) return toast.error(error.message);
+    if (!data?.length) return toast.error("You don't have permission to delete plans");
     toast.success("Plan deleted");
     await fetchPlans();
+  }
+
+  /** "1 month ₹1,000 · 3 months ₹2,700" — the row's pricing summary. */
+  function optionsSummary(plan: MembershipPlan): string {
+    const opts = activeOptions(plan);
+    if (opts.length === 0) return "No billing options";
+    return opts
+      .map(
+        (o) =>
+          `${durationLabel(o.duration_count, o.duration_unit)} ${fmt.money(o.price)}${
+            o.setup_fee > 0 ? ` (+${fmt.money(o.setup_fee)} joining)` : ""
+          }`,
+      )
+      .join(" · ");
+  }
+
+  function accessSummary(plan: MembershipPlan): string | null {
+    if (plan.plan_type === "session_pack") {
+      return plan.sessions_count ? `${plan.sessions_count} sessions` : null;
+    }
+    if (plan.attendance_limit_count && plan.attendance_limit_interval) {
+      const interval = { period: "billing period", week: "week", month: "month" }[
+        plan.attendance_limit_interval
+      ];
+      return `${plan.attendance_limit_count} visits / ${interval}`;
+    }
+    return null;
   }
 
   return (
     <section className="max-w-2xl animate-in fade-in-50 duration-200">
       <SettingsPanelHead
         title="Membership plans"
-        description="What your gym sells — each plan's price and how many days it lasts. New members and renewals pick from these."
+        description="What your gym sells — plan types, billing options and joining fees. New members and renewals pick from these."
       />
 
       {canEditSettings && (
-        <Card className="mb-4">
-          <CardContent className="pt-4">
-            <form onSubmit={handleAdd} className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
-              <div className="grid gap-1.5">
-                <Label htmlFor="plan-name" className="text-muted-foreground">Plan name</Label>
-                <Input
-                  id="plan-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Monthly"
-                  className="bg-muted"
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="plan-price" className="text-muted-foreground">Price ({defaultCurrency})</Label>
-                <Input
-                  id="plan-price"
-                  type="number"
-                  min={0}
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="1000"
-                  className="bg-muted sm:w-28"
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="plan-days" className="text-muted-foreground">Days</Label>
-                <Input
-                  id="plan-days"
-                  type="number"
-                  min={1}
-                  value={durationDays}
-                  onChange={(e) => setDurationDays(e.target.value)}
-                  className="bg-muted sm:w-20"
-                />
-              </div>
-              <Button type="submit" disabled={saving} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-                Add
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        <div className="mb-4">
+          <Button
+            onClick={openCreate}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="size-4" /> Add plan
+          </Button>
+        </div>
       )}
 
       {loading ? (
@@ -205,10 +192,15 @@ export function PlansSettings() {
             <Dumbbell className="size-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">No membership plans yet.</p>
             {canEditSettings && (
-              <Button variant="outline" onClick={seedStarters} disabled={seeding}>
-                {seeding ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-                Add starter plans
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={seedStarters} disabled={seeding}>
+                  {seeding ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                  Add a starter plan
+                </Button>
+                <Button variant="outline" onClick={openCreate}>
+                  Create from scratch
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -224,6 +216,7 @@ export function PlansSettings() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-sm font-medium text-foreground">{plan.name}</span>
+                  <PlanTypeBadge type={plan.plan_type} />
                   {!plan.is_active && (
                     <span className="rounded-full border border-border bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                       Archived
@@ -231,14 +224,20 @@ export function PlansSettings() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  <span className="tabular-nums">
-                    {formatCurrency(plan.price, defaultCurrency)}
-                  </span>{" "}
-                  · {plan.duration_days} days
+                  <span className="tabular-nums">{optionsSummary(plan)}</span>
+                  {accessSummary(plan) && <> · {accessSummary(plan)}</>}
                 </p>
               </div>
               {canEditSettings && (
                 <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Edit"
+                    onClick={() => openEdit(plan)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
                   {plan.is_active ? (
                     <Button
                       variant="ghost"
@@ -278,6 +277,13 @@ export function PlansSettings() {
           Only account admins can change membership plans.
         </p>
       )}
+
+      <PlanEditorDialog
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        plan={editingPlan}
+        onSaved={fetchPlans}
+      />
     </section>
   );
 }

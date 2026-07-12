@@ -20,6 +20,7 @@ import {
   RotateCcw,
   ChevronRight,
   Repeat,
+  ArrowLeftRight,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -31,6 +32,14 @@ import {
   canManageMandates,
 } from "@/lib/auth/roles";
 import { effectiveStatus, daysUntil, unfreezeEndDate } from "@/lib/memberships/expiry";
+import { dayStartInTz } from "@/lib/locale/format";
+import {
+  attendanceUsage,
+  checkInWarning,
+  membershipUsageWindowStart,
+  sessionsRemaining,
+  type CheckInWarning,
+} from "@/lib/memberships/attendance-limits";
 import type {
   Membership,
   Payment,
@@ -71,8 +80,10 @@ import {
   isCollectiblePeriod,
 } from "@/lib/memberships/periods";
 import { MembershipStatusBadge, FeeStatusBadge, TrialBadge } from "./membership-status-badge";
+import { AttendanceOverrideDialog } from "./attendance-override-dialog";
 import { InvoiceDetailDialog } from "./invoice-detail-dialog";
 import { RenewMembershipDialog } from "./renew-membership-dialog";
+import { ChangePlanDialog } from "./change-plan-dialog";
 import { AvatarEditorDialog } from "./avatar-editor-dialog";
 import { RecordPaymentDialog } from "./record-payment-dialog";
 import { SetUpAutoPayDialog } from "./set-up-autopay-dialog";
@@ -143,9 +154,13 @@ export function MemberDetailView({
   const [payments, setPayments] = useState<Payment[]>([]);
   const [visits, setVisits] = useState<Attendance[]>([]);
   const [invoices, setInvoices] = useState<MembershipPeriodInvoice[]>([]);
+  /** Visits inside the plan's usage window (062) — null = untracked. */
+  const [usageCount, setUsageCount] = useState<number | null>(null);
+  const [overrideWarning, setOverrideWarning] = useState<CheckInWarning | null>(null);
   const [busy, setBusy] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
+  const [changePlanOpen, setChangePlanOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   // The period to record against (arrears); null = current period.
   const [payPeriod, setPayPeriod] = useState<MembershipPeriodInvoice | null>(null);
@@ -173,7 +188,9 @@ export function MemberDetailView({
       setLoadError(null);
       const { data: m, error: memberError } = await supabase
         .from("memberships")
-        .select("*, contact:contacts(*), plan:membership_plans(*)")
+        .select(
+          "*, contact:contacts(*), plan:membership_plans(*), pricing_option:plan_pricing_options(*)",
+        )
         .eq("id", membershipId)
         .maybeSingle();
       if (cancelled) return;
@@ -227,11 +244,33 @@ export function MemberDetailView({
       setVisits((attendanceResult.data as Attendance[]) ?? []);
       setInvoices((invoicesResult.data as MembershipPeriodInvoice[]) ?? []);
       setMandate((mandateResult.data as PaymentMandate | null) ?? null);
+
+      // Usage vs the plan's limit / pack size (062) — count visits in
+      // the plan's window. Not load-critical.
+      const windowStart = membershipUsageWindowStart(
+        m as Membership,
+        fmt.today(),
+        locale.weekStart,
+      );
+      if (windowStart) {
+        const startInstant = (
+          dayStartInTz(windowStart, locale.timeZone) ?? new Date(0)
+        ).toISOString();
+        const { count } = await supabase
+          .from("attendance")
+          .select("id", { count: "exact", head: true })
+          .eq("membership_id", membershipId)
+          .gte("checked_in_at", startInstant);
+        if (cancelled) return;
+        setUsageCount(count ?? 0);
+      } else {
+        setUsageCount(null);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, membershipId, nonce, supabase]);
+  }, [open, membershipId, nonce, supabase, fmt, locale.timeZone, locale.weekStart]);
 
   // Scrollspy — highlight whichever section sits near the top of the
   // scroll body. Re-arms once the sections mount (membership loaded).
@@ -319,7 +358,7 @@ export function MemberDetailView({
     refreshAll();
   }
 
-  async function checkIn() {
+  async function doCheckInInsert() {
     if (!membership || !user) return;
     setBusy(true);
     const { error } = await supabase.from("attendance").insert({
@@ -330,9 +369,46 @@ export function MemberDetailView({
       method: "manual",
     });
     setBusy(false);
+    setOverrideWarning(null);
     if (error) return toast.error(error.message);
     toast.success("Checked in");
     refreshAll();
+  }
+
+  async function checkIn() {
+    if (!membership || !user) return;
+    // Limit check (062): fresh count → warn-with-override, never a block.
+    const windowStart = membershipUsageWindowStart(
+      membership,
+      today,
+      locale.weekStart,
+    );
+    if (membership.plan && windowStart) {
+      setBusy(true);
+      try {
+        const startInstant = (
+          dayStartInTz(windowStart, locale.timeZone) ?? new Date(0)
+        ).toISOString();
+        const { count } = await supabase
+          .from("attendance")
+          .select("id", { count: "exact", head: true })
+          .eq("membership_id", membership.id)
+          .gte("checked_in_at", startInstant);
+        const used = count ?? 0;
+        setUsageCount(used);
+        const warning = checkInWarning(membership.plan, used);
+        if (warning) {
+          setBusy(false);
+          setOverrideWarning(warning);
+          return;
+        }
+      } catch {
+        // Counting failed — never block the front desk; fall through.
+      } finally {
+        setBusy(false);
+      }
+    }
+    await doCheckInInsert();
   }
 
   const today = fmt.today();
@@ -362,14 +438,30 @@ export function MemberDetailView({
     ? isCollectiblePeriod(currentInvoice, membership.status)
     : false;
   // Auto-pay setup is a BILLING action (lives in the Billing section):
-  // offered for an active, non-trial member who has no live mandate yet.
+  // offered for an active, non-trial member on a RECURRING plan (only
+  // recurring plans auto-renew, 062) who has no live mandate yet.
   const canSetupAutoPay =
     !!membership &&
     !!accountRole &&
     canManageMandates(accountRole) &&
     membership.status === "active" &&
     !membership.is_trial &&
+    (!membership.plan || membership.plan.plan_type === "recurring") &&
     !mandate;
+
+  // Usage vs limit / sessions left (062) — the Attendance section line.
+  const usageLine = (() => {
+    if (!membership?.plan || usageCount === null) return null;
+    if (membership.plan.plan_type === "session_pack" && membership.plan.sessions_count) {
+      const left = sessionsRemaining(membership.plan.sessions_count, usageCount);
+      return {
+        text: `${left} of ${membership.plan.sessions_count} sessions left`,
+        danger: left === 0,
+      };
+    }
+    const u = attendanceUsage(membership.plan, usageCount);
+    return u.label ? { text: u.label, danger: u.exceeded } : null;
+  })();
 
   const activeInvoice = activeInvoiceId
     ? (invoices.find((inv) => inv.id === activeInvoiceId) ?? null)
@@ -541,6 +633,14 @@ export function MemberDetailView({
                                 <MoreHorizontal className="size-4" />
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="min-w-52">
+                                {/* Plan swap/upgrade — the intent behind most
+                                    "edit" clicks. Only an active paid cycle
+                                    can be switched mid-flight. */}
+                                {membership.status === "active" && !membership.is_trial && (
+                                  <DropdownMenuItem onClick={() => setChangePlanOpen(true)}>
+                                    <ArrowLeftRight className="size-4" /> Change plan
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem onClick={() => onEdit(membership)}>
                                   <Pencil className="size-4" /> Edit membership
                                 </DropdownMenuItem>
@@ -604,6 +704,23 @@ export function MemberDetailView({
                               )}
                             </Stat>
                           </dl>
+                          {membership.plan?.plan_type === "non_recurring" && (
+                            <p className="text-muted-foreground text-xs">
+                              Fixed-term plan — ends {fmt.date(membership.end_date)} and does
+                              not renew.
+                            </p>
+                          )}
+                          {membership.plan?.plan_type === "session_pack" && usageLine && (
+                            <p
+                              className={`text-xs ${
+                                usageLine.danger
+                                  ? "text-red-700 dark:text-red-400"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {usageLine.text}
+                            </p>
+                          )}
                           {membership.status === "frozen" && membership.frozen_at && (
                             <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
                               <Snowflake className="size-3.5" />
@@ -832,6 +949,13 @@ export function MemberDetailView({
                           </CardAction>
                         </CardHeader>
                         <CardContent>
+                          {usageLine && (
+                            <p className="mb-2 text-xs">
+                              <Badge variant={usageLine.danger ? "danger" : "info"}>
+                                {usageLine.text}
+                              </Badge>
+                            </p>
+                          )}
                           {visits.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
                               No check-ins recorded yet.
@@ -926,6 +1050,13 @@ export function MemberDetailView({
               variant="convert"
               onSaved={refreshAll}
             />
+            <ChangePlanDialog
+              open={changePlanOpen}
+              onOpenChange={setChangePlanOpen}
+              membership={membership}
+              currentInvoice={currentInvoice}
+              onSaved={refreshAll}
+            />
             <RecordPaymentDialog
               open={payOpen}
               onOpenChange={(o) => {
@@ -978,6 +1109,13 @@ export function MemberDetailView({
               name={membership.contact?.name || "Member"}
               currentUrl={membership.contact?.avatar_url}
               onSaved={refreshAll}
+            />
+            <AttendanceOverrideDialog
+              open={!!overrideWarning}
+              warning={overrideWarning}
+              busy={busy}
+              onConfirm={doCheckInInsert}
+              onCancel={() => setOverrideWarning(null)}
             />
           </>
         )}

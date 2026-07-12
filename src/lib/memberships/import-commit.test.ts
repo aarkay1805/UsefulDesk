@@ -11,10 +11,54 @@ import {
 } from "./import-commit";
 import type { MembershipPlan } from "@/types";
 
+function opt(
+  id: string,
+  planId: string,
+  count: number,
+  unit: "day" | "week" | "month" | "year",
+  price: number,
+) {
+  return {
+    id,
+    account_id: "a1",
+    plan_id: planId,
+    duration_count: count,
+    duration_unit: unit,
+    price,
+    setup_fee: 500, // must NOT leak into import fees
+    is_active: true,
+    sort_order: 0,
+    created_at: "",
+    updated_at: "",
+  };
+}
+
 const PLANS = [
-  { id: "p-month", name: "Monthly", price: 1500, duration_days: 30 },
-  { id: "p-quarter", name: "Quarterly", price: 4000, duration_days: 90 },
-] as MembershipPlan[];
+  {
+    id: "p-month",
+    name: "Monthly",
+    price: 1500,
+    duration_days: 30,
+    plan_type: "recurring",
+    pricing_options: [opt("o-month", "p-month", 30, "day", 1500)],
+  },
+  {
+    id: "p-quarter",
+    name: "Quarterly",
+    price: 4000,
+    duration_days: 90,
+    plan_type: "recurring",
+    pricing_options: [opt("o-quarter", "p-quarter", 3, "month", 4000)],
+  },
+  {
+    id: "p-bare",
+    name: "Bare",
+    price: 0,
+    duration_days: 30,
+    plan_type: "recurring",
+    pricing_options: [],
+  },
+] as unknown as MembershipPlan[];
 
 const TODAY = "2026-07-11";
 
@@ -101,16 +145,27 @@ describe("buildMembershipRow", () => {
     feeStatus: "",
   };
 
-  it("defaults start=today, end=start+duration, fee=plan price, status=due", () => {
+  it("defaults start=today, end=option duration, fee=option price (no setup fee), status=due", () => {
     const { membership, errors } = buildMembershipRow(base, PLANS, "DMY", TODAY);
     expect(errors).toEqual([]);
     expect(membership).toEqual({
       plan_id: "p-month",
+      pricing_option_id: "o-month",
       start_date: TODAY,
       end_date: "2026-08-10",
-      fee_amount: 1500,
+      fee_amount: 1500, // option price alone — setup_fee (500) excluded
       fee_status: "due",
     });
+  });
+
+  it("computes calendar-month ends for month-unit options", () => {
+    const { membership } = buildMembershipRow(
+      { ...base, planName: "Quarterly", startDate: "15/06/2026" },
+      PLANS,
+      "DMY",
+      TODAY
+    );
+    expect(membership?.end_date).toBe("2026-09-15"); // 3 calendar months, not +90d
   });
 
   it("honours explicit dates, fee (₹/commas), and paid status", () => {
@@ -129,11 +184,23 @@ describe("buildMembershipRow", () => {
     );
     expect(membership).toEqual({
       plan_id: "p-quarter",
+      pricing_option_id: "o-quarter",
       start_date: "2026-06-15",
       end_date: "2026-09-14",
       fee_amount: 4000,
       fee_status: "paid",
     });
+  });
+
+  it("errors on a plan with no active pricing option", () => {
+    const { membership, errors } = buildMembershipRow(
+      { ...base, planName: "Bare" },
+      PLANS,
+      "DMY",
+      TODAY
+    );
+    expect(membership).toBeNull();
+    expect(errors).toContain("no-pricing");
   });
 
   it("reports unknown plans and bad dates as errors, not throws", () => {
