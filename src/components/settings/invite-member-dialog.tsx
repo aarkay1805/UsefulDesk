@@ -211,7 +211,7 @@ export function InviteMemberDialog({
                 <Input
                   readOnly
                   value={result.url}
-                  className="bg-muted border-border text-foreground font-mono text-xs"
+                  className="border-border text-foreground font-mono text-xs"
                   onFocus={(e) => e.currentTarget.select()}
                 />
                 <Button
@@ -284,7 +284,7 @@ export function InviteMemberDialog({
                   value={role}
                   onValueChange={(v) => v && setRole(v as InviteRole)}
                 >
-                  <SelectTrigger className="w-full bg-muted border-border text-foreground">
+                  <SelectTrigger className="w-full border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -304,7 +304,7 @@ export function InviteMemberDialog({
                   value={expiry}
                   onValueChange={(v) => v && setExpiry(v)}
                 >
-                  <SelectTrigger className="w-full bg-muted border-border text-foreground">
+                  <SelectTrigger className="w-full border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -327,7 +327,7 @@ export function InviteMemberDialog({
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
                   maxLength={MAX_LABEL_LEN}
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                  className="border-border text-foreground placeholder:text-muted-foreground"
                 />
                 <p className="text-xs text-muted-foreground">
                   Helps you remember who you sent the link to in the pending

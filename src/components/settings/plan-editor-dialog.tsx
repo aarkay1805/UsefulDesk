@@ -9,6 +9,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/hooks/use-locale";
 import { getErrorMessage } from "@/lib/errors";
 import { isUniqueViolation } from "@/lib/contacts/dedupe";
+import { currencySymbol } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 import type {
   AttendanceLimitInterval,
   DurationUnit,
@@ -24,8 +26,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Collapse } from "@/components/ui/collapse";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -38,17 +45,17 @@ const PLAN_TYPES: { value: PlanType; label: string; hint: string }[] = [
   {
     value: "recurring",
     label: "Recurring",
-    hint: "Bills every cycle — renewal reminders and auto-pay apply.",
+    hint: "Bills every cycle, renewal reminders and auto-pay apply.",
   },
   {
     value: "non_recurring",
     label: "Fixed term",
-    hint: "Pay once for a fixed period (bootcamp, challenge) — no renewal chase.",
+    hint: "Pay once for a fixed period, no renewal chase.",
   },
   {
     value: "session_pack",
     label: "Session pack",
-    hint: "A punchcard of sessions — each check-in uses one.",
+    hint: "A punch card of sessions, each check-in uses one.",
   },
 ];
 
@@ -59,13 +66,59 @@ const DURATION_UNITS: { value: DurationUnit; label: string }[] = [
   { value: "year", label: "Year(s)" },
 ];
 
-const LIMIT_INTERVALS: { value: AttendanceLimitInterval; label: string }[] = [
-  { value: "period", label: "per billing period" },
-  { value: "week", label: "per week" },
-  { value: "month", label: "per month" },
-];
+/**
+ * The duration on a pricing row means a different thing per plan type —
+ * a recurring plan BILLS every N months, a fixed-term plan EXPIRES after
+ * them, a pack stays VALID for them. Same column, three vocabularies, so
+ * the copy is a per-type map rather than a `session_pack ? … : …` split
+ * that silently gave fixed term the recurring words.
+ */
+const PLAN_COPY: Record<
+  PlanType,
+  { section: string; duration: string; add: string; rowNoun: string }
+> = {
+  recurring: {
+    section: "Billing options",
+    duration: "Bill every",
+    add: "Add billing option",
+    rowNoun: "billing option",
+  },
+  non_recurring: {
+    section: "Pricing",
+    duration: "Expire plan in",
+    add: "Add another price",
+    rowNoun: "price",
+  },
+  session_pack: {
+    section: "Pricing & validity",
+    duration: "Valid for",
+    add: "Add another price",
+    rowNoun: "price",
+  },
+};
 
-/** One editable pricing-option row. `id` present = persisted. */
+/** `period` = the membership's own cycle, which a fixed-term plan calls its term. */
+function limitIntervals(
+  planType: PlanType,
+): { value: AttendanceLimitInterval; label: string }[] {
+  return [
+    {
+      value: "period",
+      label:
+        planType === "non_recurring" ? "per term" : "per billing period",
+    },
+    { value: "week", label: "per week" },
+    { value: "month", label: "per month" },
+  ];
+}
+
+/**
+ * One editable pricing-option row. `id` present = persisted.
+ *
+ * `setup_fee` has no field in this form (the editor sells duration × price
+ * only) but is carried through so a persisted row keeps whatever joining fee
+ * it already has instead of being silently zeroed on the next save.
+ */
 interface OptionRow {
   id?: string;
   duration_count: string;
@@ -106,8 +159,8 @@ interface PlanEditorDialogProps {
 
 /**
  * Create/edit a membership plan (migration 062): type, billing options
- * (duration × price × one-time joining fee), attendance limit
- * (recurring/fixed term) or sessions count (session pack).
+ * (duration × price), optional visit limit (recurring/fixed term) or
+ * sessions count (session pack).
  *
  * Save order: plan upsert first (`.select('id')` — silent-RLS rule),
  * then diff the option rows: insert new, update edited, and for removed
@@ -124,7 +177,7 @@ export function PlanEditorDialog({
 }: PlanEditorDialogProps) {
   const supabase = createClient();
   const { accountId } = useAuth();
-  const { fmt } = useLocale();
+  const { locale } = useLocale();
   const isEdit = !!plan;
 
   const [name, setName] = useState("");
@@ -133,6 +186,8 @@ export function PlanEditorDialog({
   const [options, setOptions] = useState<OptionRow[]>([{ ...EMPTY_OPTION }]);
   /** Persisted option ids removed in this session — resolved on save. */
   const [removedIds, setRemovedIds] = useState<string[]>([]);
+  /** Visit limit is opt-in — unchecked (= unlimited) by default. */
+  const [limitEnabled, setLimitEnabled] = useState(false);
   const [limitCount, setLimitCount] = useState("");
   const [limitInterval, setLimitInterval] =
     useState<AttendanceLimitInterval>("period");
@@ -145,6 +200,7 @@ export function PlanEditorDialog({
     setName(plan?.name ?? "");
     setDescription(plan?.description ?? "");
     setPlanType(plan?.plan_type ?? "recurring");
+    setLimitEnabled(!!plan?.attendance_limit_count);
     setLimitCount(
       plan?.attendance_limit_count ? String(plan.attendance_limit_count) : "",
     );
@@ -192,9 +248,10 @@ export function PlanEditorDialog({
 
   async function handleSave() {
     if (!accountId) return;
+    const noun = PLAN_COPY[planType].rowNoun;
     const trimmed = name.trim();
     if (!trimmed) return toast.error("Plan name is required");
-    if (options.length === 0) return toast.error("Add at least one billing option");
+    if (options.length === 0) return toast.error(`Add at least one ${noun}`);
 
     const parsedOptions = options.map((o) => ({
       id: o.id,
@@ -205,19 +262,19 @@ export function PlanEditorDialog({
     }));
     for (const o of parsedOptions) {
       if (!Number.isInteger(o.duration_count) || o.duration_count <= 0) {
-        return toast.error("Each billing option needs a whole-number duration");
+        return toast.error(`Each ${noun} needs a whole-number duration`);
       }
       if (!Number.isFinite(o.price) || o.price < 0) {
-        return toast.error("Enter a valid price for each billing option");
-      }
-      if (!Number.isFinite(o.setup_fee) || o.setup_fee < 0) {
-        return toast.error("Enter a valid joining fee for each billing option");
+        return toast.error(`Enter a valid price for each ${noun}`);
       }
     }
 
-    const limit = limitCount === "" ? null : Number(limitCount);
-    if (limit !== null && (!Number.isInteger(limit) || limit <= 0)) {
-      return toast.error("The visit limit must be a whole number");
+    const limit =
+      !limitEnabled || limitCount === "" ? null : Number(limitCount);
+    if (limitEnabled && planType !== "session_pack") {
+      if (limit === null || !Number.isInteger(limit) || limit <= 0) {
+        return toast.error("The visit limit must be a whole number");
+      }
     }
     const sessions = sessionsCount === "" ? null : Number(sessionsCount);
     if (planType === "session_pack") {
@@ -331,11 +388,12 @@ export function PlanEditorDialog({
     }
   }
 
-  const typeHint = PLAN_TYPES.find((t) => t.value === planType)?.hint;
+  const symbol = currencySymbol(locale.currency);
+  const copy = PLAN_COPY[planType];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit plan" : "New plan"}</DialogTitle>
           <DialogDescription>
@@ -345,77 +403,92 @@ export function PlanEditorDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="pe-name" className="text-muted-foreground">
-                Plan name
-              </Label>
-              <Input
-                id="pe-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Gold"
-                className="bg-muted"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="pe-type" className="text-muted-foreground">
-                Plan type
-              </Label>
-              <Select
-                value={planType}
-                onValueChange={(v) => v && setPlanType(v as PlanType)}
-                disabled={typeLocked}
-              >
-                <SelectTrigger id="pe-type" className="w-full bg-muted">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PLAN_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
+        {/* The scroller clips overflow on BOTH axes (an `overflow-y` that
+            isn't `visible` forces `overflow-x` to auto), so it needs inner
+            padding or every field's focus ring is sliced at the edges. The
+            negative margin keeps the fields aligned with the header. */}
+        <div className="-mx-1 max-h-[65vh] space-y-4 overflow-y-auto px-1 py-1">
+          {/* ---- Plan type: three open cards, so the owner sees what
+                  each type does without opening a dropdown. --------- */}
+          <div className="space-y-2">
+            <Label className="text-muted-foreground">Plan type</Label>
+            <RadioGroup
+              value={planType}
+              onValueChange={(v) => v && setPlanType(v as PlanType)}
+              disabled={typeLocked}
+              className="gap-2 sm:grid-cols-3"
+            >
+              {PLAN_TYPES.map((t) => (
+                <label
+                  key={t.value}
+                  className={cn(
+                    "flex items-start gap-3 rounded-lg border p-3 transition-colors",
+                    typeLocked
+                      ? "cursor-not-allowed opacity-60"
+                      : "cursor-pointer",
+                    planType === t.value
+                      ? "border-primary/40 bg-primary/[0.04]"
+                      : cn("border-border/80", !typeLocked && "hover:bg-muted/40"),
+                  )}
+                >
+                  <RadioGroupItem value={t.value} className="mt-0.5" />
+                  <span className="space-y-0.5">
+                    <span className="text-foreground block text-sm font-medium">
                       {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                    </span>
+                    <span className="text-muted-foreground block text-xs">
+                      {t.hint}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </RadioGroup>
+            {typeLocked && (
+              <p className="text-muted-foreground text-xs">
+                The type is locked because members are on this plan.
+              </p>
+            )}
           </div>
-          <p className="text-muted-foreground text-xs">
-            {typeLocked
-              ? "The type is locked because members are on this plan."
-              : typeHint}
-          </p>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="pe-name" className="text-muted-foreground">
+              Plan name
+            </Label>
+            <Input
+              id="pe-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Gold"
+            />
+          </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="pe-desc" className="text-muted-foreground">
               Description <span className="opacity-60">(optional)</span>
             </Label>
-            <Input
+            <Textarea
               id="pe-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Shown nowhere yet — internal note"
-              className="bg-muted"
             />
           </div>
 
-          {/* ---- Billing options ---------------------------------- */}
+          {/* ---- Pricing rows: every option row plus the add action
+                  live in ONE container. --------------------------- */}
           <div className="space-y-2">
-            <Label className="text-muted-foreground">
-              {planType === "session_pack" ? "Pricing & validity" : "Billing options"}
-            </Label>
-            <div className="space-y-2">
+            <Label className="text-muted-foreground">{copy.section}</Label>
+            <div className="border-border space-y-3 rounded-lg border p-3">
               {options.map((o, i) => (
                 <div
                   key={o.id ?? `new-${i}`}
-                  className="border-border bg-muted/40 rounded-lg border p-3"
+                  className="flex flex-wrap items-end gap-2"
                 >
-                  <div className="grid grid-cols-[4rem_1fr] gap-2 sm:grid-cols-[4rem_7rem_1fr_1fr_auto] sm:items-end">
-                    <div className="space-y-1">
-                      <span className="text-muted-foreground text-xs">
-                        {planType === "session_pack" ? "Valid for" : "Every"}
-                      </span>
+                  <div className="space-y-1">
+                    <span className="text-muted-foreground block text-xs">
+                      {copy.duration}
+                    </span>
+                    <div className="flex items-center gap-2">
                       <Input
                         type="number"
                         min={1}
@@ -423,18 +496,15 @@ export function PlanEditorDialog({
                         onChange={(e) =>
                           patchOption(i, { duration_count: e.target.value })
                         }
-                        className="bg-muted h-8"
+                        className="w-16"
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-muted-foreground text-xs">Unit</span>
                       <Select
                         value={o.duration_unit}
                         onValueChange={(v) =>
                           v && patchOption(i, { duration_unit: v as DurationUnit })
                         }
                       >
-                        <SelectTrigger className="bg-muted h-8 w-full">
+                        <SelectTrigger className="w-32">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -446,57 +516,41 @@ export function PlanEditorDialog({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1">
-                      <span className="text-muted-foreground text-xs">Price</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={o.price}
-                        onChange={(e) => patchOption(i, { price: e.target.value })}
-                        placeholder="1000"
-                        className="bg-muted h-8"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-muted-foreground text-xs">
-                        Joining fee
-                      </span>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={o.setup_fee}
-                        onChange={(e) =>
-                          patchOption(i, { setup_fee: e.target.value })
-                        }
-                        placeholder="0"
-                        className="bg-muted h-8"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      title="Remove option"
-                      onClick={() => removeOption(i)}
-                      disabled={options.length === 1}
-                    >
-                      <X className="size-4" />
-                    </Button>
                   </div>
+                  <div className="min-w-40 flex-1 space-y-1">
+                    <span className="text-muted-foreground block text-xs">
+                      Price
+                    </span>
+                    <CurrencyInput
+                      symbol={symbol}
+                      groupLocale={locale.locale}
+                      value={o.price}
+                      onValueChange={(v) => patchOption(i, { price: v })}
+                      placeholder="1000"
+                      className="tabular-nums"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    title={`Remove ${copy.rowNoun}`}
+                    onClick={() => removeOption(i)}
+                    disabled={options.length === 1}
+                  >
+                    <X className="size-4" />
+                  </Button>
                 </div>
               ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setOptions((rows) => [...rows, { ...EMPTY_OPTION }])}
+              >
+                <Plus className="size-4" /> {copy.add}
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setOptions((rows) => [...rows, { ...EMPTY_OPTION }])}
-            >
-              <Plus className="size-4" /> Add billing option
-            </Button>
-            <p className="text-muted-foreground text-xs">
-              The joining fee is one-time — it&apos;s added to the first bill only.
-            </p>
           </div>
 
           {/* ---- Access ------------------------------------------- */}
@@ -512,7 +566,7 @@ export function PlanEditorDialog({
                 value={sessionsCount}
                 onChange={(e) => setSessionsCount(e.target.value)}
                 placeholder="10"
-                className="bg-muted sm:w-32"
+                className="sm:w-32"
               />
               <p className="text-muted-foreground text-xs">
                 Each check-in uses one session. Staff see the remaining count and
@@ -520,57 +574,55 @@ export function PlanEditorDialog({
               </p>
             </div>
           ) : (
-            <div className="space-y-1.5">
-              <Label htmlFor="pe-limit" className="text-muted-foreground">
-                Visit limit <span className="opacity-60">(optional)</span>
-              </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="pe-limit"
-                  type="number"
-                  min={1}
-                  value={limitCount}
-                  onChange={(e) => setLimitCount(e.target.value)}
-                  placeholder="Unlimited"
-                  className="bg-muted w-28"
+            <div className="space-y-2">
+              {/* Off = unlimited; the fields only appear once the owner
+                  opts in to a cap. */}
+              <label className="flex w-fit cursor-pointer items-center gap-2">
+                <Checkbox
+                  checked={limitEnabled}
+                  onCheckedChange={(v) => setLimitEnabled(!!v)}
                 />
-                <Select
-                  value={limitInterval}
-                  onValueChange={(v) =>
-                    v && setLimitInterval(v as AttendanceLimitInterval)
-                  }
-                  disabled={limitCount === ""}
-                >
-                  <SelectTrigger className="bg-muted w-44">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LIMIT_INTERVALS.map((li) => (
-                      <SelectItem key={li.value} value={li.value}>
-                        {li.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <p className="text-muted-foreground text-xs">
-                Blank = unlimited. Over the limit, check-in warns staff but never
-                blocks — the owner stays in charge.
-              </p>
+                <span className="text-foreground text-sm">Visit limit</span>
+              </label>
+              {/* Collapse clips its box while animating — the -mx/px pair
+                  keeps the revealed fields' focus rings out of the clip. */}
+              <Collapse open={limitEnabled} className="-mx-1 px-1">
+                <div className="space-y-1.5 py-1">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="pe-limit"
+                      type="number"
+                      min={1}
+                      value={limitCount}
+                      onChange={(e) => setLimitCount(e.target.value)}
+                      placeholder="12"
+                      className="w-28"
+                    />
+                    <Select
+                      value={limitInterval}
+                      onValueChange={(v) =>
+                        v && setLimitInterval(v as AttendanceLimitInterval)
+                      }
+                    >
+                      <SelectTrigger className="w-44">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {limitIntervals(planType).map((li) => (
+                          <SelectItem key={li.value} value={li.value}>
+                            {li.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    Over the limit, check-in warns staff but never blocks — the
+                    owner stays in charge.
+                  </p>
+                </div>
+              </Collapse>
             </div>
-          )}
-
-          {options[0] && options[0].price !== "" && (
-            <p className="text-muted-foreground text-xs">
-              First bill on the first option:{" "}
-              <span className="text-foreground tabular-nums">
-                {fmt.money(
-                  (Number(options[0].price) || 0) +
-                    (Number(options[0].setup_fee) || 0),
-                )}
-              </span>
-              {Number(options[0].setup_fee) > 0 && " (incl. joining fee)"}
-            </p>
           )}
         </div>
 

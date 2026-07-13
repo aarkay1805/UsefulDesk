@@ -46,6 +46,14 @@ const PLAN_TYPE_SUFFIX: Record<MembershipPlan["plan_type"], string | null> = {
   session_pack: "session pack",
 };
 
+/** A row's duration only *bills* on a recurring plan — see PLAN_COPY in
+ *  plan-editor-dialog.tsx, which names the same thing on the authoring side. */
+const OPTION_LABEL: Record<MembershipPlan["plan_type"], string> = {
+  recurring: "Billing option",
+  non_recurring: "Term",
+  session_pack: "Pricing",
+};
+
 /**
  * The canonical plan + billing-option picker (migration 062) — every
  * flow that puts a member on a plan (add member, renew, convert, change
@@ -157,7 +165,7 @@ export function PlanOptionPicker({
       {selectedPlan && options.length > 1 && (
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-option`} className="text-muted-foreground">
-            Billing option
+            {OPTION_LABEL[selectedPlan.plan_type]}
           </Label>
           <Select
             value={optionId || undefined}
@@ -165,7 +173,11 @@ export function PlanOptionPicker({
             disabled={disabled}
           >
             <SelectTrigger id={`${idPrefix}-option`} className="w-full">
-              <SelectValue placeholder="Select a billing option…" />
+              <SelectValue
+                placeholder={`Select a ${OPTION_LABEL[
+                  selectedPlan.plan_type
+                ].toLowerCase()}…`}
+              />
             </SelectTrigger>
             <SelectContent>
               {options.map((o) => (
@@ -184,7 +196,7 @@ export function PlanOptionPicker({
 
       {selectedPlan && options.length === 0 && (
         <p className="text-destructive text-xs">
-          This plan has no active billing option — add one in Settings → Membership plans.
+          This plan has no active price — add one in Settings → Membership plans.
         </p>
       )}
     </div>

@@ -268,7 +268,7 @@ export function TemplatePicker({
                   value={headerText}
                   onChange={(e) => setHeaderText(e.target.value)}
                   placeholder="Value for the header variable"
-                  className="border-border bg-muted text-foreground placeholder:text-muted-foreground"
+                  className="border-border text-foreground placeholder:text-muted-foreground"
                 />
               </div>
             )}
@@ -283,7 +283,7 @@ export function TemplatePicker({
                     setParams(next);
                   }}
                   placeholder={`Value for {{${v}}}`}
-                  className="border-border bg-muted text-foreground placeholder:text-muted-foreground"
+                  className="border-border text-foreground placeholder:text-muted-foreground"
                 />
               </div>
             ))}
@@ -301,7 +301,7 @@ export function TemplatePicker({
                     }))
                   }
                   placeholder="URL suffix value"
-                  className="border-border bg-muted text-foreground placeholder:text-muted-foreground"
+                  className="border-border text-foreground placeholder:text-muted-foreground"
                 />
                 <p className="text-[10px] text-muted-foreground break-all">
                   Final URL: {slot.url.replace(/\{\{1\}\}/g, buttonParams[slot.index] || "{{1}}")}

@@ -324,7 +324,7 @@ function TagSelect({
         placeholder="Tag id"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-muted text-foreground"
+        className="text-foreground"
       />
     )
   }
@@ -337,7 +337,7 @@ function TagSelect({
         aria-hidden
       />
       <Select value={value || undefined} onValueChange={(v) => onChange(v ?? "")}>
-        <SelectTrigger className="w-full bg-muted">
+        <SelectTrigger className="w-full">
           <SelectValue placeholder="Select a tag…" />
         </SelectTrigger>
         <SelectContent>
@@ -374,7 +374,7 @@ function ContactFieldSelect({
     customValue && customFields.some((f) => `custom:${f.id}` === customValue)
   return (
     <Select value={value || "name"} onValueChange={(v) => onChange(v ?? "")}>
-      <SelectTrigger className="w-full bg-muted">
+      <SelectTrigger className="w-full">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -415,14 +415,14 @@ function AgentSelect({
         placeholder="Agent id"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-muted text-foreground"
+        className="text-foreground"
       />
     )
   }
   const selected = members.find((m) => m.user_id === value)
   return (
     <Select value={value || undefined} onValueChange={(v) => onChange(v ?? "")}>
-      <SelectTrigger className="w-full bg-muted">
+      <SelectTrigger className="w-full">
         <SelectValue placeholder="Select an agent…" />
       </SelectTrigger>
       <SelectContent>
@@ -461,7 +461,7 @@ function DealPipelineFields({
             onChange={(e) =>
               onChange({ pipeline_id: e.target.value, stage_id: stageId })
             }
-            className="bg-muted text-foreground"
+            className="text-foreground"
           />
         </FieldBlock>
         <FieldBlock label="Stage id">
@@ -470,7 +470,7 @@ function DealPipelineFields({
             onChange={(e) =>
               onChange({ pipeline_id: pipelineId, stage_id: e.target.value })
             }
-            className="bg-muted text-foreground"
+            className="text-foreground"
           />
         </FieldBlock>
       </>
@@ -497,7 +497,7 @@ function DealPipelineFields({
             })
           }}
         >
-          <SelectTrigger className="w-full bg-muted">
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Select a pipeline…" />
           </SelectTrigger>
           <SelectContent>
@@ -522,7 +522,7 @@ function DealPipelineFields({
           }
           disabled={!pipelineId || stageOptions.length === 0}
         >
-          <SelectTrigger className="w-full bg-muted">
+          <SelectTrigger className="w-full">
             <SelectValue
               placeholder={
                 pipelineId ? "Select a stage…" : "Select a pipeline first…"
@@ -568,7 +568,7 @@ function SendTemplateFields({
             onChange={(e) =>
               onChange({ template_name: e.target.value, language })
             }
-            className="bg-muted text-foreground"
+            className="text-foreground"
           />
         </FieldBlock>
         <FieldBlock label="Language">
@@ -577,7 +577,7 @@ function SendTemplateFields({
             onChange={(e) =>
               onChange({ template_name: templateName, language: e.target.value })
             }
-            className="bg-muted text-foreground"
+            className="text-foreground"
           />
         </FieldBlock>
       </>
@@ -601,7 +601,7 @@ function SendTemplateFields({
           onChange({ template_name: name ?? "", language: lang ?? "" })
         }}
       >
-        <SelectTrigger className="w-full bg-muted">
+        <SelectTrigger className="w-full">
           <SelectValue placeholder="Select a template…" />
         </SelectTrigger>
         <SelectContent>
@@ -828,7 +828,7 @@ function TriggerCard({
                 value={type}
                 onValueChange={(v) => onTypeChange(v as AutomationTriggerType)}
               >
-                <SelectTrigger className="w-full bg-muted">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -867,7 +867,7 @@ function TriggerCard({
                 onChange={(e) =>
                   onConfigChange({ ...config, schedule: e.target.value })
                 }
-                className="bg-muted text-foreground"
+                className="text-foreground"
               />
             )}
           </div>
@@ -931,7 +931,7 @@ function KeywordMatchConfig({
             }
           }}
           placeholder="e.g. pricing, demo request, talk to sales"
-          className="bg-muted text-foreground"
+          className="text-foreground"
         />
       </div>
       <div>
@@ -944,7 +944,7 @@ function KeywordMatchConfig({
             onChange({ ...config, match_type: v as "exact" | "contains" })
           }
         >
-          <SelectTrigger className="w-full bg-muted">
+          <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -1236,7 +1236,7 @@ function StepEditor({
             value={(cfg.text as string) ?? ""}
             onChange={(e) => set({ text: e.target.value })}
             placeholder="Hi! Thanks for reaching out…"
-            className="min-h-24 bg-muted text-foreground"
+            className="min-h-24 text-foreground"
           />
         </FieldBlock>
       )
@@ -1266,7 +1266,7 @@ function StepEditor({
               value={(cfg.mode as string) ?? "round_robin"}
               onValueChange={(v) => set({ mode: v })}
             >
-              <SelectTrigger className="w-full bg-muted">
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1299,7 +1299,7 @@ function StepEditor({
               value={(cfg.value as string) ?? ""}
               onChange={(e) => set({ value: e.target.value })}
               placeholder="Text or {{ vars.x }} / {{ message.text }}"
-              className="bg-muted text-foreground"
+              className="text-foreground"
             />
           </FieldBlock>
         </>
@@ -1311,7 +1311,7 @@ function StepEditor({
             value={(cfg.status as string) ?? "interested"}
             onValueChange={(v) => set({ status: v })}
           >
-            <SelectTrigger className="w-full bg-muted">
+            <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1332,7 +1332,7 @@ function StepEditor({
               value={(cfg.mode as string) ?? "round_robin"}
               onValueChange={(v) => set({ mode: v })}
             >
-              <SelectTrigger className="w-full bg-muted">
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1369,7 +1369,7 @@ function StepEditor({
                 value={(cfg.task_type as string) ?? "call"}
                 onValueChange={(v) => set({ task_type: v })}
               >
-                <SelectTrigger className="w-full bg-muted">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1387,7 +1387,7 @@ function StepEditor({
                 onChange={(e) =>
                   set({ due_in_days: Math.max(0, Number(e.target.value)) })
                 }
-                className="bg-muted text-foreground"
+                className="text-foreground"
               />
             </FieldBlock>
           </div>
@@ -1396,7 +1396,7 @@ function StepEditor({
               value={(cfg.assign_mode as string) ?? "lead_owner"}
               onValueChange={(v) => set({ assign_mode: v })}
             >
-              <SelectTrigger className="w-full bg-muted">
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1418,7 +1418,7 @@ function StepEditor({
               value={(cfg.note as string) ?? ""}
               onChange={(e) => set({ note: e.target.value })}
               placeholder="Why chase — supports {{ vars.x }}"
-              className="bg-muted text-foreground"
+              className="text-foreground"
             />
           </FieldBlock>
         </>
@@ -1435,7 +1435,7 @@ function StepEditor({
             <Input
               value={(cfg.title as string) ?? ""}
               onChange={(e) => set({ title: e.target.value })}
-              className="bg-muted text-foreground"
+              className="text-foreground"
             />
           </FieldBlock>
           <FieldBlock label="Value">
@@ -1443,7 +1443,7 @@ function StepEditor({
               type="number"
               value={(cfg.value as number) ?? 0}
               onChange={(e) => set({ value: Number(e.target.value) })}
-              className="bg-muted text-foreground"
+              className="text-foreground"
             />
           </FieldBlock>
         </>
@@ -1457,7 +1457,7 @@ function StepEditor({
               min={1}
               value={(cfg.amount as number) ?? 1}
               onChange={(e) => set({ amount: Math.max(1, Number(e.target.value)) })}
-              className="bg-muted text-foreground"
+              className="text-foreground"
             />
           </FieldBlock>
           <FieldBlock label="Unit">
@@ -1465,7 +1465,7 @@ function StepEditor({
               value={(cfg.unit as string) ?? "hours"}
               onValueChange={(v) => set({ unit: v })}
             >
-              <SelectTrigger className="w-full bg-muted">
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1485,7 +1485,7 @@ function StepEditor({
               value={(cfg.subject as string) ?? "tag_presence"}
               onValueChange={(v) => set({ subject: v })}
             >
-              <SelectTrigger className="w-full bg-muted">
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1509,7 +1509,7 @@ function StepEditor({
               }
               value={(cfg.operand as string) ?? ""}
               onChange={(e) => set({ operand: e.target.value })}
-              className="bg-muted text-foreground"
+              className="text-foreground"
             />
           </FieldBlock>
           {(cfg.subject === "contact_field" || cfg.subject === "message_content") && (
@@ -1517,7 +1517,7 @@ function StepEditor({
               <Input
                 value={(cfg.value as string) ?? ""}
                 onChange={(e) => set({ value: e.target.value })}
-                className="bg-muted text-foreground"
+                className="text-foreground"
               />
             </FieldBlock>
           )}
@@ -1530,14 +1530,14 @@ function StepEditor({
             <Input
               value={(cfg.url as string) ?? ""}
               onChange={(e) => set({ url: e.target.value })}
-              className="bg-muted text-foreground"
+              className="text-foreground"
             />
           </FieldBlock>
           <FieldBlock label="Body template (JSON)">
             <Textarea
               value={(cfg.body_template as string) ?? ""}
               onChange={(e) => set({ body_template: e.target.value })}
-              className="min-h-20 bg-muted font-mono text-xs text-foreground"
+              className="min-h-20 font-mono text-xs text-foreground"
             />
           </FieldBlock>
         </>

@@ -106,7 +106,7 @@ export function DealsSettings() {
               onValueChange={(v) => v && setSelected(v)}
               disabled={!canEditSettings || profileLoading}
             >
-              <SelectTrigger className="w-full bg-muted">
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -286,7 +286,6 @@ function RazorpayCard() {
                   onChange={(e) => setKeyId(e.target.value)}
                   placeholder="rzp_live_XXXXXXXX"
                   disabled={!canEditSettings || !loaded}
-                  className="bg-muted"
                 />
               </div>
               <div className="grid gap-2">
@@ -300,7 +299,6 @@ function RazorpayCard() {
                   onChange={(e) => setKeySecret(e.target.value)}
                   placeholder={loaded?.hasSecret ? '•••••••• saved — enter to replace' : 'Key secret'}
                   disabled={!canEditSettings || !loaded}
-                  className="bg-muted"
                 />
               </div>
               <div className="grid gap-2">
@@ -314,7 +312,6 @@ function RazorpayCard() {
                   onChange={(e) => setWebhookSecret(e.target.value)}
                   placeholder={loaded?.hasWebhook ? '•••••••• saved — enter to replace' : 'Webhook signing secret'}
                   disabled={!canEditSettings || !loaded}
-                  className="bg-muted"
                 />
               </div>
               <div className="grid gap-2">
@@ -472,7 +469,6 @@ function UpiCard() {
                   onChange={(e) => setVpa(e.target.value)}
                   placeholder="gym@okhdfcbank"
                   disabled={!canEditSettings || !loaded}
-                  className="bg-muted"
                 />
               </div>
               <div className="grid gap-2">
@@ -485,7 +481,6 @@ function UpiCard() {
                   onChange={(e) => setPayeeName(e.target.value)}
                   placeholder="Iron Fitness"
                   disabled={!canEditSettings || !loaded}
-                  className="bg-muted"
                 />
               </div>
             </div>

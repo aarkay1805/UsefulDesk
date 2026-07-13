@@ -27,9 +27,11 @@ const STARTER_OPTIONS = [
 /**
  * Membership plans — the catalogue a gym sells. Since migration 062 a
  * plan is a TYPE (recurring / fixed term / session pack) plus one or
- * more BILLING OPTIONS (`plan_pricing_options`: duration × price ×
- * one-time joining fee), with optional attendance limits. Create/edit
- * happens in PlanEditorDialog; this page lists, archives and deletes.
+ * more BILLING OPTIONS (`plan_pricing_options`: duration × price), with
+ * optional attendance limits. Create/edit happens in PlanEditorDialog;
+ * this page lists, archives and deletes. A legacy `setup_fee` still
+ * renders on an option that carries one, but the editor no longer sells
+ * joining fees.
  *
  * Settings-class: RLS restricts writes to admins+, so non-admins see a
  * read-only list. A plan referenced by a membership can't be
@@ -168,7 +170,7 @@ export function PlansSettings() {
     <section className="max-w-2xl animate-in fade-in-50 duration-200">
       <SettingsPanelHead
         title="Membership plans"
-        description="What your gym sells — plan types, billing options and joining fees. New members and renewals pick from these."
+        description="What your gym sells — plan types and their billing options. New members and renewals pick from these."
       />
 
       {canEditSettings && (

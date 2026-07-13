@@ -619,7 +619,7 @@ export function WhatsAppConfig() {
                 placeholder="e.g. 100234567890123"
                 value={phoneNumberId}
                 onChange={(e) => setPhoneNumberId(e.target.value)}
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                className="border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
 
@@ -629,7 +629,7 @@ export function WhatsAppConfig() {
                 placeholder="e.g. 100234567890456"
                 value={wabaId}
                 onChange={(e) => setWabaId(e.target.value)}
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                className="border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
 
@@ -650,7 +650,7 @@ export function WhatsAppConfig() {
                       setTokenEdited(true);
                     }
                   }}
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground pr-10"
+                  className="border-border text-foreground placeholder:text-muted-foreground pr-10"
                 />
                 <button
                   type="button"
@@ -674,7 +674,7 @@ export function WhatsAppConfig() {
                   placeholder="Create a custom verify token"
                   value={verifyToken}
                   onChange={(e) => setVerifyToken(e.target.value)}
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                  className="border-border text-foreground placeholder:text-muted-foreground"
                 />
                 <Button
                   type="button"
@@ -706,7 +706,7 @@ export function WhatsAppConfig() {
                 onChange={(e) =>
                   setPin(e.target.value.replace(/\D/g, '').slice(0, 6))
                 }
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground tracking-widest"
+                className="border-border text-foreground placeholder:text-muted-foreground tracking-widest"
               />
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Needed only to wire <strong className="text-muted-foreground">inbound</strong> messages
@@ -743,7 +743,7 @@ export function WhatsAppConfig() {
                 <Input
                   readOnly
                   value={webhookUrl}
-                  className="bg-muted border-border text-muted-foreground font-mono text-sm"
+                  className="border-border text-muted-foreground font-mono text-sm"
                 />
                 <Button
                   variant="outline"

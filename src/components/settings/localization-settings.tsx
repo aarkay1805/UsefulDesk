@@ -189,7 +189,7 @@ export function LocalizationSettings() {
                 onValueChange={(v) => v && applyCountry(v)}
                 disabled={disabled}
               >
-                <SelectTrigger className="w-full bg-muted">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -209,7 +209,7 @@ export function LocalizationSettings() {
                 onValueChange={(v) => v && set('timeZone', v)}
                 disabled={disabled}
               >
-                <SelectTrigger className="w-full bg-muted">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -242,7 +242,7 @@ export function LocalizationSettings() {
                 onValueChange={(v) => v && set('currency', v)}
                 disabled={disabled}
               >
-                <SelectTrigger className="w-full bg-muted">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -273,7 +273,6 @@ export function LocalizationSettings() {
                 onChange={(e) => set('phoneCountryCode', e.target.value)}
                 placeholder="+91"
                 disabled={disabled}
-                className="bg-muted"
               />
             </div>
 
@@ -284,7 +283,7 @@ export function LocalizationSettings() {
                 onValueChange={(v) => set('dateOrder', v as DateOrder)}
                 disabled={disabled}
               >
-                <SelectTrigger className="w-full bg-muted">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -304,7 +303,7 @@ export function LocalizationSettings() {
                 onValueChange={(v) => set('timeFormat', v as TimeFormatPref)}
                 disabled={disabled}
               >
-                <SelectTrigger className="w-full bg-muted">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -321,7 +320,7 @@ export function LocalizationSettings() {
                 onValueChange={(v) => set('weekStart', Number(v) as WeekStart)}
                 disabled={disabled}
               >
-                <SelectTrigger className="w-full bg-muted">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -343,7 +342,7 @@ export function LocalizationSettings() {
                 }
                 disabled={disabled}
               >
-                <SelectTrigger className="w-full bg-muted">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -360,7 +359,7 @@ export function LocalizationSettings() {
                 onValueChange={(v) => v && set('locale', v)}
                 disabled={disabled}
               >
-                <SelectTrigger className="w-full bg-muted">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
