@@ -32,7 +32,7 @@ import {
   canManageMandates,
 } from "@/lib/auth/roles";
 import { effectiveStatus, daysUntil, unfreezeEndDate } from "@/lib/memberships/expiry";
-import { isRenewalChaseable } from "@/lib/memberships/pricing";
+import { isRenewalChaseable, durationLabel } from "@/lib/memberships/pricing";
 import {
   usageSummary,
   type CheckInWarning,
@@ -77,7 +77,12 @@ import {
   unfreezeMembership,
   isCollectiblePeriod,
 } from "@/lib/memberships/periods";
-import { MembershipStatusBadge, FeeStatusBadge, TrialBadge } from "./membership-status-badge";
+import {
+  MembershipStatusBadge,
+  FeeStatusBadge,
+  TrialBadge,
+  PlanTypeBadge,
+} from "./membership-status-badge";
 import { AttendanceOverrideDialog } from "./attendance-override-dialog";
 import { InvoiceDetailDialog } from "./invoice-detail-dialog";
 import { RenewMembershipDialog } from "./renew-membership-dialog";
@@ -447,6 +452,23 @@ export function MemberDetailView({
     ? { text: usageStats.label, danger: usageStats.danger }
     : null;
 
+  // Plan-type-aware billing summary for the Membership card. A recurring
+  // plan doesn't "expire" — it renews on end_date — so the date column and
+  // the amount column relabel by type (recurring | fixed-term | pack), and
+  // legacy null-plan rows read as recurring (same rule as the renewal chase).
+  const planType = membership?.plan?.plan_type ?? null;
+  const isRecurringMembership = isRenewalChaseable(membership?.plan);
+  const pricingOption = membership?.pricing_option ?? null;
+  const cadenceLabel = pricingOption
+    ? durationLabel(pricingOption.duration_count, pricingOption.duration_unit)
+    : null;
+  // The end_date column's meaning depends on plan type + whether it's passed.
+  const termLabel =
+    eff === "expired" ? "Expired" : isRecurringMembership ? "Renews" : "Expires";
+  const showRelativeTerm = eff === "active" || eff === "expired";
+  const relativeTerm =
+    days < 0 ? `${-days}d ago` : days === 0 ? "today" : `in ${days}d`;
+
   const activeInvoice = activeInvoiceId
     ? (invoices.find((inv) => inv.id === activeInvoiceId) ?? null)
     : null;
@@ -674,37 +696,64 @@ export function MemberDetailView({
                             </DropdownMenu>
                           </CardAction>
                         </CardHeader>
-                        <CardContent className="flex flex-col gap-3">
+                        <CardContent className="flex flex-col gap-4">
                           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                             <Stat label="Plan">{membership.plan?.name ?? "—"}</Stat>
-                            <Stat label="Fee">
-                              <span className="tabular-nums">
-                                {fmt.money(membership.fee_amount)}
-                              </span>
+                            <Stat label={isRecurringMembership ? "Billing" : "Fee"}>
+                              {isRecurringMembership && pricingOption ? (
+                                <span className="tabular-nums">
+                                  {fmt.money(pricingOption.price)}
+                                  {cadenceLabel && (
+                                    <span className="text-muted-foreground font-normal">
+                                      {" "}
+                                      / {cadenceLabel}
+                                    </span>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="tabular-nums">
+                                  {fmt.money(membership.fee_amount)}
+                                </span>
+                              )}
                               {balance > 0 && (
-                                <span className="ml-1 text-xs font-medium text-amber-700 tabular-nums dark:text-amber-400">
-                                  ({fmt.money(balance)} due)
+                                <span className="ml-1.5 text-xs font-medium text-amber-700 tabular-nums dark:text-amber-400">
+                                  {fmt.money(balance)} due
                                 </span>
                               )}
                             </Stat>
                             <Stat label="Started">{fmt.date(membership.start_date)}</Stat>
-                            <Stat label="Expires">
-                              {fmt.date(membership.end_date)}
-                              {eff === "active" && (
+                            <Stat label={termLabel}>
+                              <span className="tabular-nums">
+                                {fmt.date(membership.end_date)}
+                              </span>
+                              {showRelativeTerm && (
                                 <span className="text-muted-foreground ml-1 text-xs font-normal">
-                                  (
-                                  {days < 0
-                                    ? `${-days}d ago`
-                                    : days === 0
-                                      ? "today"
-                                      : `in ${days}d`}
-                                  )
+                                  ({relativeTerm})
                                 </span>
                               )}
                             </Stat>
                           </dl>
-                          {membership.plan?.plan_type === "non_recurring" && (
-                            <p className="text-muted-foreground text-xs">
+                          {isRecurringMembership && membership.status === "active" && (
+                            <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                              <Repeat className="size-3.5 shrink-0" />
+                              {mandate?.status === "active" ? (
+                                <>
+                                  Auto-renews
+                                  {cadenceLabel ? ` every ${cadenceLabel}` : ""} on{" "}
+                                  {fmt.date(membership.end_date)}.
+                                </>
+                              ) : (
+                                <>
+                                  Renews
+                                  {cadenceLabel ? ` every ${cadenceLabel}` : ""} — next cycle
+                                  starts {fmt.date(membership.end_date)}.
+                                </>
+                              )}
+                            </p>
+                          )}
+                          {planType === "non_recurring" && (
+                            <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                              <CalendarDays className="size-3.5 shrink-0" />
                               Fixed-term plan — ends {fmt.date(membership.end_date)} and does
                               not renew.
                             </p>
@@ -740,7 +789,12 @@ export function MemberDetailView({
                     <Section id="payments">
                       <Card>
                         <CardHeader>
-                          <CardTitle>Billing</CardTitle>
+                          <CardTitle className="flex items-center gap-2">
+                            Billing
+                            {membership.plan?.plan_type && (
+                              <PlanTypeBadge type={membership.plan.plan_type} />
+                            )}
+                          </CardTitle>
                           {!membership.is_trial &&
                             (canCollectCurrent || canSetupAutoPay) && (
                               <CardAction className="flex items-center gap-2">
