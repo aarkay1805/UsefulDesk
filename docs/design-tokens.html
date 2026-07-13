@@ -1,0 +1,1020 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UsefulDesk — Design Tokens</title>
+<style>
+  /* Minimal reset for the standalone document (the hosted Artifact adds its
+     own; this file is opened directly from disk, so it carries its own). */
+  html, body { margin: 0; padding: 0; }
+  html { background: oklch(0.13 0.01 260); }
+  * { box-sizing: border-box; }
+  /* =========================================================================
+     DESIGN-TOKEN REFERENCE — this page renders itself using the product's OWN
+     tokens, scoped under #ds so it never fights the Artifact viewer's own
+     :root[data-theme] light/dark toggle. The live switcher below drives
+     #ds[data-mode] (light|dark) and #ds[data-theme] (accent), mirroring
+     globals.css exactly. Values shown in each swatch are read live off the
+     CSS custom properties, so they are the real authored oklch strings.
+     ========================================================================= */
+
+  /* ---- MODE: neutral surfaces (mirror of globals.css MODE blocks) ---- */
+  #ds[data-mode="dark"] {
+    --background: oklch(0.13 0.01 260);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.18 0.01 260);
+    --card-2: oklch(0.205 0.01 260);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.18 0.01 260);
+    --popover-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.22 0.01 260);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.22 0.01 260);
+    --muted-foreground: oklch(0.65 0.01 260);
+    --accent: oklch(0.22 0.01 260);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(0.28 0.01 260);
+    --input: oklch(0.28 0.01 260);
+    --input-border: oklch(0.28 0.01 260);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.16 0.01 260);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.22 0.01 260);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(0.28 0.01 260);
+  }
+  #ds[data-mode="light"] {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.21 0.01 260);
+    --card: oklch(1 0 0);
+    --card-2: oklch(0.985 0.002 260);
+    --card-foreground: oklch(0.21 0.01 260);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.21 0.01 260);
+    --secondary: oklch(0.967 0.003 260);
+    --secondary-foreground: oklch(0.25 0.01 260);
+    --muted: oklch(0.967 0.003 260);
+    --muted-foreground: oklch(0.52 0.015 260);
+    --accent: oklch(0.96 0.004 260);
+    --accent-foreground: oklch(0.25 0.01 260);
+    --destructive: oklch(0.514 0.21 27.325);
+    --border: oklch(0.922 0.004 260);
+    --input: oklch(0.922 0.004 260);
+    --input-border: oklch(0.922 0.004 260);
+    --chart-2: oklch(0.6 0.1 260);
+    --chart-3: oklch(0.7 0.06 260);
+    --chart-4: oklch(0.8 0.04 260);
+    --chart-5: oklch(0.87 0.03 260);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.98 0.004 260);
+    --sidebar-foreground: oklch(0.21 0.01 260);
+    --sidebar-accent: oklch(0.96 0.004 260);
+    --sidebar-accent-foreground: oklch(0.25 0.01 260);
+    --sidebar-border: oklch(0.922 0.004 260);
+  }
+
+  /* ---- ACCENT: primary color (mirror of globals.css ACCENT blocks) ---- */
+  #ds[data-theme="violet"] {
+    --primary: oklch(0.54 0.24 293);
+    --primary-foreground: oklch(0.985 0 0);
+    --primary-hover: oklch(0.49 0.24 293);
+    --primary-soft: oklch(0.54 0.24 293 / 0.12);
+    --primary-soft-2: oklch(0.54 0.24 293 / 0.2);
+    --ring: oklch(0.54 0.24 293);
+    --chart-1: oklch(0.54 0.24 293);
+    --sidebar-primary: oklch(0.54 0.24 293);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-ring: oklch(0.54 0.24 293);
+  }
+  #ds[data-theme="emerald"] {
+    --primary: oklch(0.62 0.16 162);
+    --primary-foreground: oklch(0.16 0.02 162);
+    --primary-hover: oklch(0.68 0.15 162);
+    --primary-soft: oklch(0.62 0.16 162 / 0.12);
+    --primary-soft-2: oklch(0.62 0.16 162 / 0.22);
+    --ring: oklch(0.62 0.16 162);
+    --chart-1: oklch(0.62 0.16 162);
+    --chart-2: oklch(0.7 0.14 195);
+    --sidebar-primary: oklch(0.62 0.16 162);
+    --sidebar-primary-foreground: oklch(0.16 0.02 162);
+    --sidebar-ring: oklch(0.62 0.16 162);
+  }
+  #ds[data-theme="cobalt"] {
+    --primary: oklch(0.55 0.19 254);
+    --primary-foreground: oklch(0.985 0 0);
+    --primary-hover: oklch(0.5 0.19 254);
+    --primary-soft: oklch(0.55 0.19 254 / 0.12);
+    --primary-soft-2: oklch(0.55 0.19 254 / 0.22);
+    --ring: oklch(0.55 0.19 254);
+    --chart-1: oklch(0.55 0.19 254);
+    --chart-2: oklch(0.7 0.15 220);
+    --sidebar-primary: oklch(0.55 0.19 254);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-ring: oklch(0.55 0.19 254);
+  }
+  #ds[data-theme="amber"] {
+    --primary: oklch(0.745 0.16 65);
+    --primary-foreground: oklch(0.18 0.03 65);
+    --primary-hover: oklch(0.8 0.15 65);
+    --primary-soft: oklch(0.745 0.16 65 / 0.12);
+    --primary-soft-2: oklch(0.745 0.16 65 / 0.22);
+    --ring: oklch(0.745 0.16 65);
+    --chart-1: oklch(0.745 0.16 65);
+    --chart-2: oklch(0.7 0.15 35);
+    --sidebar-primary: oklch(0.745 0.16 65);
+    --sidebar-primary-foreground: oklch(0.18 0.03 65);
+    --sidebar-ring: oklch(0.745 0.16 65);
+  }
+  #ds[data-theme="rose"] {
+    --primary: oklch(0.58 0.21 16);
+    --primary-foreground: oklch(0.985 0 0);
+    --primary-hover: oklch(0.53 0.21 16);
+    --primary-soft: oklch(0.58 0.21 16 / 0.12);
+    --primary-soft-2: oklch(0.58 0.21 16 / 0.22);
+    --ring: oklch(0.58 0.21 16);
+    --chart-1: oklch(0.58 0.21 16);
+    --chart-2: oklch(0.7 0.18 340);
+    --sidebar-primary: oklch(0.58 0.21 16);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-ring: oklch(0.58 0.21 16);
+  }
+  /* Light + amber: darker ring only (mirror of the special-case block). */
+  #ds[data-mode="light"][data-theme="amber"] {
+    --ring: oklch(0.6 0.15 65);
+    --sidebar-ring: oklch(0.6 0.15 65);
+  }
+  /* Accent-as-text — resolves lazily against the live accent + mode. */
+  #ds {
+    --primary-text: color-mix(in oklch, var(--primary), var(--foreground) 38%);
+  }
+
+  /* ---- Radius scale (mirror of @theme inline) ---- */
+  #ds {
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+  }
+
+  /* ---- Page chrome ---- */
+  #ds {
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+      Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco,
+      Consolas, "Liberation Mono", monospace;
+    --page: min(1180px, 100% - 2.5rem);
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  #ds *,
+  #ds *::before,
+  #ds *::after { box-sizing: border-box; }
+  #ds :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* ---- Sticky control bar ---- */
+  #ds .bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: color-mix(in oklch, var(--background) 82%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  #ds .bar-inner {
+    width: var(--page);
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.85rem 1.4rem;
+    padding: 0.7rem 0;
+  }
+  #ds .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-right: auto;
+    font-weight: 620;
+    letter-spacing: -0.01em;
+  }
+  #ds .brand small {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    letter-spacing: 0;
+  }
+  #ds .ctl { display: flex; align-items: center; gap: 0.5rem; }
+  #ds .ctl-label {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--muted-foreground);
+  }
+  #ds .seg {
+    display: inline-flex;
+    padding: 3px;
+    gap: 2px;
+    background: var(--muted);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+  }
+  #ds .seg button {
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 550;
+    color: var(--muted-foreground);
+    background: transparent;
+    padding: 0.28rem 0.72rem;
+    border-radius: var(--radius-md);
+    transition: color 0.15s ease, background-color 0.15s ease;
+  }
+  #ds .seg button[aria-pressed="true"] {
+    background: var(--card);
+    color: var(--foreground);
+    box-shadow: 0 1px 2px oklch(0 0 0 / 0.14);
+  }
+  #ds .accents { display: inline-flex; gap: 0.4rem; }
+  #ds .swatch-btn {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    padding: 0;
+    cursor: pointer;
+    background: var(--sw);
+    box-shadow: 0 0 0 1px var(--border);
+    transition: transform 0.12s ease, border-color 0.12s ease;
+  }
+  #ds .swatch-btn:hover { transform: scale(1.12); }
+  #ds .swatch-btn[aria-pressed="true"] {
+    border-color: var(--background);
+    box-shadow: 0 0 0 2px var(--foreground);
+  }
+
+  /* ---- Layout ---- */
+  #ds main { width: var(--page); margin: 0 auto; padding: 3.2rem 0 6rem; }
+  #ds .lede {
+    max-width: 64ch;
+    margin: 0 0 3.4rem;
+  }
+  #ds .lede h1 {
+    font-size: clamp(1.9rem, 1.2rem + 2.4vw, 2.7rem);
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    font-weight: 680;
+    text-wrap: balance;
+    margin: 0 0 0.9rem;
+  }
+  #ds .lede p { color: var(--muted-foreground); font-size: 1.02rem; margin: 0 0 0.7rem; max-width: 60ch; }
+  #ds .lede .hint {
+    margin-top: 1.2rem;
+    padding: 0.85rem 1rem;
+    background: var(--primary-soft);
+    border: 1px solid color-mix(in oklch, var(--primary) 30%, transparent);
+    border-radius: var(--radius-lg);
+    font-size: 0.85rem;
+    color: var(--foreground);
+  }
+  #ds .lede .hint code { color: var(--primary-text); }
+
+  #ds section { margin-top: 3.6rem; scroll-margin-top: 5rem; }
+  #ds .sec-head { margin-bottom: 1.5rem; }
+  #ds .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--primary-text);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  #ds .sec-head h2 {
+    font-size: 1.4rem;
+    letter-spacing: -0.015em;
+    font-weight: 640;
+    margin: 0 0 0.45rem;
+  }
+  #ds .sec-head p { color: var(--muted-foreground); font-size: 0.92rem; margin: 0; max-width: 66ch; }
+  #ds .sub {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted-foreground);
+    margin: 2rem 0 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+  }
+  #ds .sub::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+  /* ---- Token chips (inline mono) ---- */
+  #ds code, #ds .tok {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    background: color-mix(in oklch, var(--foreground) 7%, transparent);
+    border: 1px solid var(--border);
+    padding: 0.08em 0.4em;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+  }
+
+  /* ---- Swatch grid ---- */
+  #ds .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+    gap: 0.9rem;
+  }
+  #ds .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+  }
+  #ds .chip {
+    height: 78px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    font-weight: 600;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+  }
+  #ds .chip::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 0 0 1px oklch(0.5 0 0 / 0.14);
+    pointer-events: none;
+  }
+  #ds .meta { padding: 0.7rem 0.8rem 0.85rem; }
+  #ds .meta .util {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    word-break: break-all;
+  }
+  #ds .meta .var {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted-foreground);
+    margin-top: 0.12rem;
+    word-break: break-all;
+  }
+  #ds .meta .val {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--muted-foreground);
+    margin-top: 0.45rem;
+    font-variant-numeric: tabular-nums;
+    word-break: break-all;
+  }
+  #ds .meta .desc {
+    font-size: 0.78rem;
+    color: var(--muted-foreground);
+    margin-top: 0.5rem;
+    line-height: 1.4;
+  }
+
+  /* ---- Status pills ---- */
+  #ds .pills { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-bottom: 1.1rem; }
+  #ds .pill {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+  #ds .pill-success { background: color-mix(in srgb, #10b981 10%, transparent); }
+  #ds .pill-danger  { background: color-mix(in srgb, #ef4444 10%, transparent); }
+  #ds .pill-warning { background: color-mix(in srgb, #f59e0b 10%, transparent); }
+  #ds .pill-info    { background: color-mix(in srgb, #0ea5e9 10%, transparent); }
+  #ds .pill-violet  { background: color-mix(in srgb, #8b5cf6 10%, transparent); }
+  #ds .pill-neutral { background: color-mix(in srgb, #64748b 10%, transparent); }
+  #ds[data-mode="dark"] .pill-success { color: #34d399; }
+  #ds[data-mode="dark"] .pill-danger  { color: #f87171; }
+  #ds[data-mode="dark"] .pill-warning { color: #fbbf24; }
+  #ds[data-mode="dark"] .pill-info    { color: #38bdf8; }
+  #ds[data-mode="dark"] .pill-violet  { color: #a78bfa; }
+  #ds[data-mode="dark"] .pill-neutral { color: #94a3b8; }
+  #ds[data-mode="light"] .pill-success { color: #047857; }
+  #ds[data-mode="light"] .pill-danger  { color: #b91c1c; }
+  #ds[data-mode="light"] .pill-warning { color: #b45309; }
+  #ds[data-mode="light"] .pill-info    { color: #0369a1; }
+  #ds[data-mode="light"] .pill-violet  { color: #6d28d9; }
+  #ds[data-mode="light"] .pill-neutral { color: #475569; }
+
+  /* ---- Radius samples ---- */
+  #ds .radius-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.9rem;
+  }
+  #ds .r-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  #ds .r-demo {
+    height: 74px;
+    background: var(--primary-soft-2);
+    border: 1.5px solid var(--primary);
+  }
+  #ds .r-name { font-family: var(--font-mono); font-size: 0.8rem; font-weight: 600; }
+  #ds .r-calc {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- Spacing scale ---- */
+  #ds .space-list {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 0.4rem 0;
+  }
+  #ds .space-row {
+    display: grid;
+    grid-template-columns: 4.5rem 4.5rem 1fr;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.3rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+  }
+  #ds .space-row + .space-row { border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent); }
+  #ds .space-row .name { font-weight: 600; }
+  #ds .space-row .dim { color: var(--muted-foreground); }
+  #ds .space-bar { height: 14px; background: var(--primary); border-radius: 3px; }
+
+  /* ---- Type scale ---- */
+  #ds .type-list {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+  }
+  #ds .type-row {
+    display: flex;
+    align-items: baseline;
+    gap: 1.4rem;
+    padding: 0.9rem 1.1rem;
+  }
+  #ds .type-row + .type-row { border-top: 1px solid color-mix(in oklch, var(--border) 60%, transparent); }
+  #ds .type-row .tag {
+    flex: 0 0 8.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  #ds .type-row .tag b { color: var(--foreground); font-weight: 600; display: block; font-size: 0.8rem; }
+  #ds .type-row .sample { line-height: 1.2; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---- Generic 2-col reference tables ---- */
+  #ds .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-xl); }
+  #ds table { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+  #ds thead th {
+    text-align: left;
+    background: var(--muted);
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 600;
+    padding: 0.6rem 0.9rem;
+    white-space: nowrap;
+  }
+  #ds tbody td { padding: 0.6rem 0.9rem; border-top: 1px solid var(--border); vertical-align: top; }
+  #ds tbody tr td:first-child { font-family: var(--font-mono); font-weight: 600; white-space: nowrap; }
+  #ds tbody td .muted { color: var(--muted-foreground); }
+  #ds td code { white-space: nowrap; }
+
+  /* ---- Weight + numeric demos ---- */
+  #ds .demo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.9rem; }
+  #ds .demo-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 1rem 1.1rem;
+  }
+  #ds .demo-card .big { font-size: 1.4rem; letter-spacing: -0.01em; }
+  #ds .demo-card .lbl { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted-foreground); margin-top: 0.5rem; }
+  #ds .tnum { font-variant-numeric: tabular-nums; }
+
+  #ds footer {
+    margin-top: 4.5rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.8rem;
+    color: var(--muted-foreground);
+  }
+  #ds footer code { font-size: 0.78rem; }
+
+  @media (max-width: 640px) {
+    #ds .brand { margin-right: 0; width: 100%; }
+    #ds .type-row { flex-direction: column; gap: 0.35rem; }
+    #ds .type-row .tag { flex-basis: auto; }
+    #ds .space-row { grid-template-columns: 3.6rem 3.6rem 1fr; gap: 0.6rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #ds, #ds * { transition: none !important; }
+  }
+</style>
+
+</head>
+<body>
+<div id="ds" data-mode="dark" data-theme="violet">
+  <div class="bar">
+    <div class="bar-inner">
+      <div class="brand">UsefulDesk Tokens <small>wacrm · globals.css</small></div>
+      <div class="ctl">
+        <span class="ctl-label">Mode</span>
+        <div class="seg" id="modeSeg" role="group" aria-label="Mode">
+          <button data-mode="light" aria-pressed="false">Light</button>
+          <button data-mode="dark" aria-pressed="true">Dark</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <span class="ctl-label">Accent</span>
+        <div class="accents" id="accentSeg" role="group" aria-label="Accent theme"></div>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <div class="lede">
+      <h1>The design-token foundation</h1>
+      <p>Every visual constant in the product, named the way the code names it. Not components — the raw layer beneath them: color, radius, spacing, type, and the vocabulary to reference them precisely.</p>
+      <p>Two orthogonal axes compose freely: <b>Mode</b> (light / dark — neutral surfaces) and <b>Accent</b> (the primary color only). Flip either control above and every swatch below re-resolves live, printing the real authored value.</p>
+      <div class="hint">
+        <b>Naming rule.</b> Each token is one CSS variable <code>--x</code> exposed as Tailwind utilities <code>bg-x</code> / <code>text-x</code> / <code>border-x</code> / <code>ring-x</code>. When talking to an AI agent, name the <b>token</b> (<code>bg-primary</code>, <code>text-muted-foreground</code>) — never a hex. Colors are authored in <code>oklch</code>.
+      </div>
+    </div>
+
+    <!-- ============ THEMING MODEL ============ -->
+    <section id="model">
+      <div class="sec-head">
+        <span class="eyebrow">Theming model</span>
+        <h2>Two axes, set on the &lt;html&gt; element</h2>
+        <p>Mode and accent set disjoint variables, so cascade order between them never matters. Both are replayed before first paint by a boot script and persisted to <code>localStorage</code>.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Selector / attribute</th><th>Controls</th><th>Values</th><th>Default · storage</th></tr></thead>
+          <tbody>
+            <tr><td>html[data-mode]</td><td class="muted">Neutral surfaces (bg, card, border, muted, sidebar)</td><td><code>light</code> · <code>dark</code></td><td class="muted"><code>dark</code> · <code>wacrm.mode</code></td></tr>
+            <tr><td>html[data-theme]</td><td class="muted">Primary/accent color only (<code>--primary*</code>, <code>--ring</code>, <code>--chart-1</code>, sidebar-primary)</td><td><code>violet · emerald · cobalt · amber · rose</code></td><td class="muted"><code>violet</code> · <code>wacrm.theme</code></td></tr>
+            <tr><td>@custom-variant dark</td><td class="muted">Maps the <code>dark:</code> utility variant to the attribute (not a <code>.dark</code> class)</td><td><code>&amp;:where(html[data-mode="dark"] …)</code></td><td class="muted">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ COLOR ============ -->
+    <section id="color">
+      <div class="sec-head">
+        <span class="eyebrow">Color tokens</span>
+        <h2>Semantic color variables</h2>
+        <p>Surfaces and text are neutral (mode-driven, hue-biased ~260° toward blue-violet — chosen, not a flat grey). The primary family is accent-driven. Values shown are read live off the CSS custom property.</p>
+      </div>
+
+      <div class="sub">Surfaces &amp; text</div>
+      <div class="grid" id="grid-surface"></div>
+
+      <div class="sub">Primary / accent family</div>
+      <div class="grid" id="grid-primary"></div>
+
+      <div class="sub">Lines, inputs &amp; focus</div>
+      <div class="grid" id="grid-line"></div>
+
+      <div class="sub">Feedback</div>
+      <div class="grid" id="grid-feedback"></div>
+
+      <div class="sub">Charts — <code>chart-1</code> is the accent, 2–5 a neutral ramp</div>
+      <div class="grid" id="grid-chart"></div>
+
+      <div class="sub">Sidebar surfaces</div>
+      <div class="grid" id="grid-sidebar"></div>
+    </section>
+
+    <!-- ============ STATUS PALETTE ============ -->
+    <section id="status">
+      <div class="sec-head">
+        <span class="eyebrow">Semantic status</span>
+        <h2>Status pill palette</h2>
+        <p>Fixed-status colors are <b>not</b> the accent. They come from Tailwind color literals via the <code>Badge</code> variants, all sharing one fill-only recipe — a tinted background, no border, mode-aware text.</p>
+      </div>
+      <div class="pills">
+        <span class="pill pill-success">Active</span>
+        <span class="pill pill-danger">Expired</span>
+        <span class="pill pill-warning">Due</span>
+        <span class="pill pill-info">Sent</span>
+        <span class="pill pill-violet">Trial</span>
+        <span class="pill pill-neutral">Lead</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Variant</th><th>Hue</th><th>Recipe</th><th>Used for</th></tr></thead>
+          <tbody>
+            <tr><td>success</td><td class="muted">emerald</td><td><code>bg-emerald-500/10 text-emerald-700 dark:text-emerald-400</code></td><td class="muted">active / paid / good</td></tr>
+            <tr><td>danger</td><td class="muted">red</td><td><code>bg-red-500/10 text-red-700 dark:text-red-400</code></td><td class="muted">expired / failed</td></tr>
+            <tr><td>warning</td><td class="muted">amber</td><td><code>bg-amber-500/10 text-amber-700 dark:text-amber-400</code></td><td class="muted">due / pending</td></tr>
+            <tr><td>info</td><td class="muted">sky</td><td><code>bg-sky-500/10 text-sky-700 dark:text-sky-400</code></td><td class="muted">sent / neutral-positive</td></tr>
+            <tr><td>violet</td><td class="muted">violet</td><td><code>bg-violet-500/10 text-violet-700 dark:text-violet-400</code></td><td class="muted">trial / special</td></tr>
+            <tr><td>neutral</td><td class="muted">slate</td><td><code>bg-slate-500/10 text-slate-600 dark:text-slate-400</code></td><td class="muted">tags / leads / un-coded</td></tr>
+            <tr><td>destructive</td><td class="muted">token</td><td><code>bg-destructive/10 text-destructive</code></td><td class="muted">delete / danger action</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="sub">Dynamic tinted — DB-driven hex (lead statuses, tags)</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Kind</th><th>Behavior</th></tr></thead>
+          <tbody>
+            <tr><td>--badge-tint</td><td class="muted">CSS var</td><td class="muted">Raw hex set inline from the DB color</td></tr>
+            <tr><td>.badge-tinted</td><td class="muted">utility class</td><td class="muted">Fill = tint at 10%; text derived per mode (mix 70% → white on dark, 65% → black on light) to stay ≥ 4.5:1</td></tr>
+            <tr><td>.tinted-text</td><td class="muted">utility class</td><td class="muted">Same readable text color alone, for non-pill elements (funnel counts, etc.)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ RADIUS ============ -->
+    <section id="radius">
+      <div class="sec-head">
+        <span class="eyebrow">Corner radius</span>
+        <h2>Radius scale</h2>
+        <p>One base <code>--radius</code> (<code>0.625rem</code> = 10px) drives a multiplied ramp. Exposed as <code>rounded-sm … rounded-4xl</code>. Flip the pieces below — they recompute against the base.</p>
+      </div>
+      <div class="radius-grid" id="radius-grid"></div>
+    </section>
+
+    <!-- ============ SPACING ============ -->
+    <section id="spacing">
+      <div class="sec-head">
+        <span class="eyebrow">Spacing</span>
+        <h2>Spacing scale — 4px base unit</h2>
+        <p>Tailwind's default <code>--spacing: 0.25rem</code> (4px). Every step is a multiple, shared by <code>p-*</code>, <code>m-*</code>, <code>gap-*</code>, <code>space-*</code>, <code>w-* / h-* / size-*</code>, <code>inset-*</code>. The values below are the ones this product actually leans on.</p>
+      </div>
+      <div class="space-list" id="space-list"></div>
+    </section>
+
+    <!-- ============ TYPOGRAPHY ============ -->
+    <section id="type">
+      <div class="sec-head">
+        <span class="eyebrow">Typography</span>
+        <h2>Type system</h2>
+        <p>Three font roles, the Tailwind type scale, and a numeric convention. (This reference renders in the system UI stack; the product loads <b>Inter</b> for <code>font-sans</code> via <code>next/font</code>.)</p>
+      </div>
+
+      <div class="sub">Font roles</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Utility</th><th>Variable</th><th>Resolves to</th></tr></thead>
+          <tbody>
+            <tr><td>font-sans</td><td>--font-sans</td><td class="muted">Inter (loaded via next/font) — body &amp; UI</td></tr>
+            <tr><td>font-heading</td><td>--font-heading</td><td class="muted">= --font-sans (headings share the body face)</td></tr>
+            <tr><td>font-mono</td><td>--font-mono → --font-geist-mono</td><td class="muted"><b>Geist Mono</b> (loaded via next/font), then a <code>ui-monospace, monospace</code> fallback chain — code, token names, numeric IDs</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="sub">Type scale — Tailwind defaults (font-size / line-height)</div>
+      <div class="type-list" id="type-list"></div>
+
+      <div class="sub">Weights</div>
+      <div class="demo-grid">
+        <div class="demo-card"><div class="big" style="font-weight:400">Renewals</div><div class="lbl">font-normal · 400</div></div>
+        <div class="demo-card"><div class="big" style="font-weight:500">Renewals</div><div class="lbl">font-medium · 500 · UI default</div></div>
+        <div class="demo-card"><div class="big" style="font-weight:600">Renewals</div><div class="lbl">font-semibold · 600</div></div>
+        <div class="demo-card"><div class="big" style="font-weight:700">Renewals</div><div class="lbl">font-bold · 700</div></div>
+      </div>
+
+      <div class="sub">Numeric convention</div>
+      <div class="demo-grid">
+        <div class="demo-card"><div class="big tnum">₹1,00,000</div><div class="lbl">tabular-nums · every money value</div></div>
+        <div class="demo-card"><div class="big" style="font-variant-numeric:normal">₹1,00,000</div><div class="lbl">default (proportional) — avoid for money</div></div>
+      </div>
+    </section>
+
+    <!-- ============ SIZING ============ -->
+    <section id="sizing">
+      <div class="sec-head">
+        <span class="eyebrow">Sizing conventions</span>
+        <h2>Control heights &amp; icon sizes</h2>
+        <p>Not tokens — fixed conventions baked into the <code>ui/</code> primitives. Match them so new surfaces line up with existing ones.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Element</th><th>Height / size</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Button · default</td><td><code>h-8</code> (32px)</td><td class="muted">px-2.5, gap-1.5, text-sm, rounded-lg</td></tr>
+            <tr><td>Button · xs / sm / lg</td><td><code>h-6 / h-7 / h-9</code></td><td class="muted">24 / 28 / 36px</td></tr>
+            <tr><td>Button · icon set</td><td><code>size-8</code> · xs <code>size-6</code> · sm <code>size-7</code> · lg <code>size-9</code></td><td class="muted">square icon buttons</td></tr>
+            <tr><td>Input · Select · DatePicker</td><td><code>h-8</code> (32px)</td><td class="muted">border-input-border, bg-transparent (unfilled)</td></tr>
+            <tr><td>Badge</td><td><code>h-5</code> (20px)</td><td class="muted">px-2, text-xs, rounded-4xl</td></tr>
+            <tr><td>Icon (default in controls)</td><td><code>size-4</code> (16px)</td><td class="muted">sm <code>size-3.5</code> · xs / badge <code>size-3</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ ALPHA + STATE ============ -->
+    <section id="alpha">
+      <div class="sec-head">
+        <span class="eyebrow">Alpha &amp; state</span>
+        <h2>Opacity convention &amp; focus recipe</h2>
+        <p>Tints reuse a token at a slash-opacity rather than a new variable — <code>token/NN</code>. Learn the ladder and every tint reads consistently.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Pattern</th><th>Meaning</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td>/10</td><td class="muted">Tinted status/badge fill; subtle danger surface</td><td><code>bg-destructive/10</code>, <code>bg-emerald-500/10</code></td></tr>
+            <tr><td>/20 – /30</td><td class="muted">Stronger tint / hover on a tinted fill</td><td><code>bg-muted/20</code>, <code>hover:bg-destructive/20</code></td></tr>
+            <tr><td>/50</td><td class="muted">Focus ring opacity; disabled input fill</td><td><code>ring-ring/50</code>, <code>disabled:bg-input/50</code></td></tr>
+            <tr><td>/80</td><td class="muted">Hovered primary fill (light-mode accents darken)</td><td><code>hover:bg-primary/80</code></td></tr>
+            <tr><td>dark:bg-input/30</td><td class="muted">The unfilled-field fill in dark mode only</td><td><code>bg-transparent dark:bg-input/30</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="sub">Focus ring (all interactive controls)</div>
+      <div class="lede" style="margin:0">
+        <div class="hint" style="margin-top:0"><code>focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50</code> — a 3px ring in <code>--ring</code> at 50%, plus the border flips to the ring color. <code>aria-invalid</code> swaps <code>--ring</code> for <code>--destructive</code>.</div>
+      </div>
+    </section>
+
+    <!-- ============ CHEAT SHEET ============ -->
+    <section id="cheatsheet">
+      <div class="sec-head">
+        <span class="eyebrow">Glossary</span>
+        <h2>When to reach for which token</h2>
+        <p>The quick map for picking a token by intent — the fastest reference for a new screen or an AI prompt.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>I want…</th><th>Use</th></tr></thead>
+          <tbody>
+            <tr><td class="muted" style="font-family:inherit;font-weight:400">The page canvas</td><td><code>bg-background</code></td></tr>
+            <tr><td class="muted" style="font-family:inherit;font-weight:400">A raised panel / card</td><td><code>bg-card border-border</code> (tile / hover: <code>bg-card-2</code>)</td></tr>
+            <tr><td class="muted" style="font-family:inherit;font-weight:400">Primary body text</td><td><code>text-foreground</code></td></tr>
+            <tr><td class="muted" style="font-family:inherit;font-weight:400">Secondary / caption text</td><td><code>text-muted-foreground</code></td></tr>
+            <tr><td class="muted" style="font-family:inherit;font-weight:400">A filled primary button</td><td><code>bg-primary text-primary-foreground</code></td></tr>
+            <tr><td class="muted" style="font-family:inherit;font-weight:400">An accent link / emphasized label</td><td><code>text-primary-text</code> <span class="muted">(not text-primary — fails contrast as text)</span></td></tr>
+            <tr><td class="muted" style="font-family:inherit;font-weight:400">A tinted-accent surface (active pill)</td><td><code>bg-primary-soft</code> / <code>bg-primary-soft-2</code></td></tr>
+            <tr><td class="muted" style="font-family:inherit;font-weight:400">A decorative divider / border</td><td><code>border-border</code></td></tr>
+            <tr><td class="muted" style="font-family:inherit;font-weight:400">A form-control outline</td><td><code>border-input-border</code> <span class="muted">(3:1 — stronger than border)</span></td></tr>
+            <tr><td class="muted" style="font-family:inherit;font-weight:400">A muted fill (header, chip, skeleton)</td><td><code>bg-muted</code> <span class="muted">(never on form fields)</span></td></tr>
+            <tr><td class="muted" style="font-family:inherit;font-weight:400">A destructive action</td><td><code>text-destructive</code> / <code>bg-destructive/10</code></td></tr>
+            <tr><td class="muted" style="font-family:inherit;font-weight:400">A status pill</td><td><code>Badge variant=success|danger|warning|info|violet|neutral</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      Source of truth: <code>src/app/globals.css</code> (tokens) · <code>src/lib/themes.ts</code> (accent + mode catalog) · <code>components.json</code> (shadcn <code>base-nova</code>, lucide icons). Radius/color exposed to Tailwind via <code>@theme inline</code>. Colors authored in <code>oklch</code>; spacing/type from Tailwind v4 defaults. This page mirrors those definitions and reads live values off the CSS variables.
+    </footer>
+  </main>
+</div>
+
+<script>
+(function () {
+  var ds = document.getElementById("ds");
+
+  // Accent catalog (mirror of themes.ts THEMES; swatch = --primary of each).
+  var ACCENTS = [
+    { id: "violet",  name: "Violet",  sw: "oklch(0.54 0.24 293)" },
+    { id: "emerald", name: "Emerald", sw: "oklch(0.62 0.16 162)" },
+    { id: "cobalt",  name: "Cobalt",  sw: "oklch(0.55 0.19 254)" },
+    { id: "amber",   name: "Amber",   sw: "oklch(0.745 0.16 65)" },
+    { id: "rose",    name: "Rose",    sw: "oklch(0.58 0.21 16)" }
+  ];
+
+  // ----- Color token definitions. `on` = text color var for the "Aa" preview. -----
+  var SURFACE = [
+    { u: "bg-background", v: "--background", on: "--foreground", d: "App canvas" },
+    { u: "text-foreground", v: "--foreground", on: "--background", d: "Primary text / ink" },
+    { u: "bg-card", v: "--card", on: "--card-foreground", d: "Card surface" },
+    { u: "bg-card-2", v: "--card-2", on: "--card-foreground", d: "Tile / hover surface" },
+    { u: "text-card-foreground", v: "--card-foreground", on: "--card", d: "Text on cards" },
+    { u: "bg-popover", v: "--popover", on: "--popover-foreground", d: "Menu / popover surface" },
+    { u: "bg-secondary", v: "--secondary", on: "--secondary-foreground", d: "Secondary button / surface" },
+    { u: "bg-muted", v: "--muted", on: "--muted-foreground", d: "Muted fill (headers, chips, skeletons)" },
+    { u: "text-muted-foreground", v: "--muted-foreground", on: "--background", d: "Secondary / subtle text" },
+    { u: "bg-accent", v: "--accent", on: "--accent-foreground", d: "Neutral hover / active surface" }
+  ];
+  var PRIMARY = [
+    { u: "bg-primary", v: "--primary", on: "--primary-foreground", d: "Accent fill (buttons, active)" },
+    { u: "text-primary-foreground", v: "--primary-foreground", on: "--primary", d: "Text on a primary fill" },
+    { u: "hover:bg-primary-hover", v: "--primary-hover", on: "--primary-foreground", d: "Hovered primary button" },
+    { u: "bg-primary-soft", v: "--primary-soft", on: "--primary-text", d: "Tinted accent surface (~12%)" },
+    { u: "bg-primary-soft-2", v: "--primary-soft-2", on: "--primary-text", d: "Stronger accent tint (~20%)" },
+    { u: "text-primary-text", v: "--primary-text", on: "--background", d: "Accent AS text — self-adjusts per mode" }
+  ];
+  var LINE = [
+    { u: "border-border", v: "--border", on: "--foreground", d: "Decorative border / divider" },
+    { u: "bg-input", v: "--input", on: "--foreground", d: "Input fill token" },
+    { u: "border-input-border", v: "--input-border", on: "--foreground", d: "Form-control outline (WCAG 3:1)" },
+    { u: "ring-ring", v: "--ring", on: "--primary-foreground", d: "Focus ring" }
+  ];
+  var FEEDBACK = [
+    { u: "text-destructive", v: "--destructive", on: "--background", d: "Danger / delete / error" }
+  ];
+  var CHART = [
+    { u: "text-chart-1", v: "--chart-1", on: "--background", d: "Series 1 = accent" },
+    { u: "text-chart-2", v: "--chart-2", on: "--background", d: "Series 2" },
+    { u: "text-chart-3", v: "--chart-3", on: "--background", d: "Series 3" },
+    { u: "text-chart-4", v: "--chart-4", on: "--background", d: "Series 4" },
+    { u: "text-chart-5", v: "--chart-5", on: "--background", d: "Series 5" }
+  ];
+  var SIDEBAR = [
+    { u: "bg-sidebar", v: "--sidebar", on: "--sidebar-foreground", d: "Left nav panel" },
+    { u: "text-sidebar-foreground", v: "--sidebar-foreground", on: "--sidebar", d: "Nav text" },
+    { u: "bg-sidebar-accent", v: "--sidebar-accent", on: "--sidebar-accent-foreground", d: "Nav hover / active" },
+    { u: "border-sidebar-border", v: "--sidebar-border", on: "--sidebar-foreground", d: "Nav divider" },
+    { u: "bg-sidebar-primary", v: "--sidebar-primary", on: "--sidebar-primary-foreground", d: "Active nav accent" },
+    { u: "ring-sidebar-ring", v: "--sidebar-ring", on: "--sidebar-primary-foreground", d: "Nav focus ring" }
+  ];
+
+  function swatchCard(t) {
+    var el = document.createElement("div");
+    el.className = "card";
+    el.innerHTML =
+      '<div class="chip" style="background:var(' + t.v + ');color:var(' + t.on + ')">Aa</div>' +
+      '<div class="meta">' +
+        '<div class="util">' + t.u + '</div>' +
+        '<div class="var">' + t.v + '</div>' +
+        '<div class="val" data-var="' + t.v + '">—</div>' +
+        '<div class="desc">' + t.d + '</div>' +
+      "</div>";
+    return el;
+  }
+  function fillGrid(id, arr) {
+    var g = document.getElementById(id);
+    arr.forEach(function (t) { g.appendChild(swatchCard(t)); });
+  }
+  fillGrid("grid-surface", SURFACE);
+  fillGrid("grid-primary", PRIMARY);
+  fillGrid("grid-line", LINE);
+  fillGrid("grid-feedback", FEEDBACK);
+  fillGrid("grid-chart", CHART);
+  fillGrid("grid-sidebar", SIDEBAR);
+
+  // ----- Radius scale -----
+  var RADII = [
+    { u: "rounded-none", v: null, f: "0" },
+    { u: "rounded-sm", v: "--radius-sm", f: "base × 0.6" },
+    { u: "rounded-md", v: "--radius-md", f: "base × 0.8" },
+    { u: "rounded-lg", v: "--radius-lg", f: "base × 1.0" },
+    { u: "rounded-xl", v: "--radius-xl", f: "base × 1.4" },
+    { u: "rounded-2xl", v: "--radius-2xl", f: "base × 1.8" },
+    { u: "rounded-3xl", v: "--radius-3xl", f: "base × 2.2" },
+    { u: "rounded-4xl", v: "--radius-4xl", f: "base × 2.6" },
+    { u: "rounded-full", v: null, f: "9999px" }
+  ];
+  var rg = document.getElementById("radius-grid");
+  RADII.forEach(function (r) {
+    var radius = r.u === "rounded-full" ? "9999px" : (r.v ? "var(" + r.v + ")" : "0");
+    var px = r.u === "rounded-full" ? "pill" : (r.v ? "" : "0px");
+    var el = document.createElement("div");
+    el.className = "r-card";
+    el.innerHTML =
+      '<div class="r-demo" style="border-radius:' + radius + '"></div>' +
+      '<div><div class="r-name">' + r.u + '</div>' +
+      '<div class="r-calc">' + r.f + (px ? " · " + px : ' · <span data-radius="' + r.v + '">—</span>') + "</div></div>";
+    rg.appendChild(el);
+  });
+
+  // ----- Spacing scale (the values this product uses) -----
+  var SPACE = [
+    ["px", "1px", 1], ["0.5", "2px", 2], ["1", "4px", 4], ["1.5", "6px", 6],
+    ["2", "8px", 8], ["2.5", "10px", 10], ["3", "12px", 12], ["3.5", "14px", 14],
+    ["4", "16px", 16], ["5", "20px", 20], ["6", "24px", 24], ["8", "32px", 32],
+    ["10", "40px", 40], ["12", "48px", 48], ["16", "64px", 64]
+  ];
+  var sl = document.getElementById("space-list");
+  SPACE.forEach(function (s) {
+    var rem = (s[2] / 16);
+    var row = document.createElement("div");
+    row.className = "space-row";
+    row.innerHTML =
+      '<span class="name">' + s[0] + "</span>" +
+      '<span class="dim">' + s[1] + "</span>" +
+      '<span><span class="space-bar" style="width:' + s[2] + 'px"></span></span>';
+    sl.appendChild(row);
+  });
+
+  // ----- Type scale (Tailwind defaults) -----
+  var TYPE = [
+    ["text-xs", "0.75rem", "1rem", "12 / 16"],
+    ["text-sm", "0.875rem", "1.25rem", "14 / 20 · UI default"],
+    ["text-base", "1rem", "1.5rem", "16 / 24"],
+    ["text-lg", "1.125rem", "1.75rem", "18 / 28"],
+    ["text-xl", "1.25rem", "1.75rem", "20 / 28"],
+    ["text-2xl", "1.5rem", "2rem", "24 / 32"],
+    ["text-3xl", "1.875rem", "2.25rem", "30 / 36"],
+    ["text-4xl", "2.25rem", "2.5rem", "36 / 40"]
+  ];
+  var tl = document.getElementById("type-list");
+  TYPE.forEach(function (t) {
+    var row = document.createElement("div");
+    row.className = "type-row";
+    row.innerHTML =
+      '<div class="tag"><b>' + t[0] + "</b>" + t[3] + "</div>" +
+      '<div class="sample" style="font-size:' + t[1] + '">Expiring in 7 days</div>';
+    tl.appendChild(row);
+  });
+
+  // ----- Live value readouts -----
+  var baseRadiusPx = 10; // --radius 0.625rem
+  function refreshValues() {
+    var cs = getComputedStyle(ds);
+    // color swatches
+    document.querySelectorAll(".val[data-var]").forEach(function (n) {
+      var val = cs.getPropertyValue(n.getAttribute("data-var")).trim();
+      n.textContent = val || "—";
+    });
+    // radius px
+    document.querySelectorAll("[data-radius]").forEach(function (n) {
+      var name = n.getAttribute("data-radius");
+      var map = { "--radius-sm": 0.6, "--radius-md": 0.8, "--radius-lg": 1, "--radius-xl": 1.4, "--radius-2xl": 1.8, "--radius-3xl": 2.2, "--radius-4xl": 2.6 };
+      var px = Math.round(baseRadiusPx * (map[name] || 1) * 10) / 10;
+      n.textContent = px + "px";
+    });
+  }
+
+  // ----- Controls -----
+  var accentSeg = document.getElementById("accentSeg");
+  ACCENTS.forEach(function (a) {
+    var b = document.createElement("button");
+    b.className = "swatch-btn";
+    b.style.setProperty("--sw", a.sw);
+    b.title = a.name;
+    b.setAttribute("aria-label", a.name);
+    b.setAttribute("aria-pressed", a.id === "violet" ? "true" : "false");
+    b.addEventListener("click", function () {
+      ds.setAttribute("data-theme", a.id);
+      accentSeg.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+      b.setAttribute("aria-pressed", "true");
+      refreshValues();
+    });
+    accentSeg.appendChild(b);
+  });
+
+  var modeSeg = document.getElementById("modeSeg");
+  modeSeg.querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      ds.setAttribute("data-mode", b.getAttribute("data-mode"));
+      modeSeg.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+      b.setAttribute("aria-pressed", "true");
+      refreshValues();
+    });
+  });
+
+  refreshValues();
+})();
+</script>
+</body>
+</html>
