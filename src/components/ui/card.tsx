@@ -35,7 +35,15 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
         // sibling cards. content-center keeps the title optically centred in
         // that reserved row; it's a no-op once a description makes the header
         // taller than the minimum.
-        "group/card-header @container/card-header grid min-h-7 auto-rows-min content-center items-center gap-1 rounded-t-xl px-4 group-data-[size=sm]/card:px-3 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-4 group-data-[size=sm]/card:[.border-b]:pb-3",
+        //
+        // The action only spans two rows when there IS a second row to span.
+        // A blanket row-span-2 on CardAction invents an implicit row in a
+        // description-less header, and the grid then distributes the action's
+        // 28px across both tracks (≈25px + gap + 3px) — so the header grew
+        // taller AND the title landed at a different offset than in a header
+        // with no action at all. Scoping the span here keeps a description-less
+        // header a single 28px row in both states.
+        "group/card-header @container/card-header grid min-h-7 auto-rows-min content-center items-center gap-1 rounded-t-xl px-4 group-data-[size=sm]/card:px-3 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] has-data-[slot=card-description]:[&>[data-slot=card-action]]:row-span-2 [.border-b]:pb-4 group-data-[size=sm]/card:[.border-b]:pb-3",
         className
       )}
       {...props}
@@ -72,10 +80,10 @@ function CardAction({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="card-action"
       className={cn(
         // self-center (not self-start): the action sits on the title's optical
-        // centre line instead of hanging off the top of it. With a description
-        // present the action spans both rows, so it centres against the whole
-        // title+description block.
-        "col-start-2 row-span-2 row-start-1 self-center justify-self-end",
+        // centre line instead of hanging off the top of it. The row-span-2 (to
+        // clear a description) is applied by CardHeader, and only when a
+        // description exists — see the note there.
+        "col-start-2 row-start-1 self-center justify-self-end",
         className
       )}
       {...props}

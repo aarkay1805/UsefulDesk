@@ -954,7 +954,7 @@ export function MemberDetailView({
                                                   ₹0.32 pro-rated stub isn't a
                                                   debt. */}
                                               <TableCell
-                                                className={`hidden text-right font-medium tabular-nums sm:table-cell ${
+                                                className={`hidden text-right tabular-nums sm:table-cell ${
                                                   isChargeableAmount(invBalance)
                                                     ? "text-amber-700 dark:text-amber-400"
                                                     : ""

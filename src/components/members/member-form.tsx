@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, Info } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -10,10 +10,12 @@ import {
   findExistingContact,
   isExactMatch,
   isUniqueViolation,
+  normalizeKey,
   type ExistingContact,
 } from "@/lib/contacts/dedupe";
 import { useLocale } from "@/hooks/use-locale";
 import { istAddDays, daysBetween } from "@/lib/memberships/expiry";
+import { membershipIdForContact } from "@/lib/memberships/lookup";
 import { editMembershipCycle } from "@/lib/memberships/periods";
 import {
   durationLabel,
@@ -108,10 +110,25 @@ export function MemberForm({
   const [isTrial, setIsTrial] = useState(false);
   const [trialDays, setTrialDays] = useState("7");
 
+  // A phone that already belongs to a contact. `isMember` splits the two
+  // outcomes: a plain contact gets the membership attached (fine), an
+  // existing member is a dead end (UNIQUE(account_id, contact_id)).
   const [dupMatch, setDupMatch] = useState<
-    { contact: ExistingContact; exact: boolean } | null
+    { contact: ExistingContact; exact: boolean; isMember: boolean } | null
   >(null);
   const [checkingDup, setCheckingDup] = useState(false);
+
+  // Converting a known lead (the lead sheet's "Convert to member" seeds the
+  // form). The contact is expected to exist, so the dedupe warning would be
+  // telling staff what they just asked for — they get a plain info line
+  // instead. Editing the phone away from the seed drops back to the normal
+  // add-mode dedupe path.
+  const isConvert =
+    !isEdit &&
+    !!seedContact?.phone &&
+    !!phone.trim() &&
+    normalizeKey(phone) === normalizeKey(seedContact.phone);
+  const convertName = (name.trim() || seedContact?.name?.trim() || "This contact");
 
   const selectedPlan = plans.find((p) => p.id === planId);
   // An ARCHIVED option still resolves when it's the membership's own
@@ -200,13 +217,19 @@ export function MemberForm({
   async function checkDuplicate() {
     if (isEdit || !accountId) return;
     const value = phone.trim();
-    if (!value) return setDupMatch(null);
+    if (!value || isConvert) return setDupMatch(null);
     setCheckingDup(true);
     try {
       const existing = await findExistingContact(supabase, accountId, value);
-      setDupMatch(
-        existing ? { contact: existing, exact: isExactMatch(existing, value) } : null,
-      );
+      if (!existing) return setDupMatch(null);
+      // An exact match may already hold a membership — surface that here
+      // rather than at submit, where the unique violation only produces a
+      // toast after the form is filled out.
+      const exact = isExactMatch(existing, value);
+      const isMember = exact
+        ? !!(await membershipIdForContact(supabase, existing.id))
+        : false;
+      setDupMatch({ contact: existing, exact, isMember });
     } finally {
       setCheckingDup(false);
     }
@@ -216,6 +239,15 @@ export function MemberForm({
     e.preventDefault();
     if (!phone.trim()) return toast.error("Phone number is required");
     if (!accountId || !user) return toast.error("Your profile is not linked to an account.");
+    // Known-member dedupe hit: the membership insert would fail on
+    // UNIQUE(account_id, contact_id) anyway — send staff to the member
+    // instead of letting them fill out a form that can't save.
+    if (dupMatch?.isMember) {
+      toast.error("This person is already a member.");
+      onOpenChange(false);
+      onViewExisting?.(dupMatch.contact.id);
+      return;
+    }
 
     const trialLen = Number(trialDays);
     if (isTrial) {
@@ -298,6 +330,25 @@ export function MemberForm({
       const existing = await findExistingContact(supabase, accountId, phone.trim());
       if (existing) {
         contactId = existing.id;
+        // The form's fields are authoritative over the existing record —
+        // staff correcting a lead's name/email on the way in expects it to
+        // stick (it used to be silently dropped). Only non-empty values are
+        // written, so a blank field can't wipe what the contact already has.
+        const patch: Record<string, string> = {};
+        if (name.trim() && name.trim() !== (existing.name ?? "")) patch.name = name.trim();
+        if (email.trim() && email.trim() !== ((existing.email as string | null) ?? ""))
+          patch.email = email.trim();
+        if (phone.trim() && phone.trim() !== existing.phone) patch.phone = phone.trim();
+        if (Object.keys(patch).length) {
+          // Silent-RLS rule: a blocked update returns no error and no rows.
+          const { data: updated, error: uErr } = await supabase
+            .from("contacts")
+            .update(patch)
+            .eq("id", contactId)
+            .select("id");
+          if (uErr) throw uErr;
+          if (!updated?.length) throw new Error("You do not have access to update this contact.");
+        }
       } else {
         const { data, error } = await supabase
           .from("contacts")
@@ -390,11 +441,15 @@ export function MemberForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[calc(100vh-4rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
         <DialogHeader className="shrink-0 p-4 pb-2">
-          <DialogTitle>{isEdit ? "Edit member" : "Add member"}</DialogTitle>
+          <DialogTitle>
+            {isEdit ? "Edit member" : isConvert ? "Convert to member" : "Add member"}
+          </DialogTitle>
           <DialogDescription>
             {isEdit
               ? "Update this member's details."
-              : "Add a member and start their membership."}
+              : isConvert
+                ? "Start a membership for this contact."
+                : "Add a member and start their membership."}
           </DialogDescription>
         </DialogHeader>
 
@@ -422,14 +477,27 @@ export function MemberForm({
                     : "+91 98765 43210"
                 }
               />
-              {dupMatch ? (
+              {isConvert ? (
+                /* Convert-from-lead: the contact existing is the whole point,
+                   so this states what happens next, not a hazard. */
+                <div className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">
+                  <Info className="mt-0.5 size-3.5 shrink-0" />
+                  <p>
+                    {convertName} will be converted to a member. Pick a membership
+                    plan below to start their membership — any details you change
+                    here update their existing record.
+                  </p>
+                </div>
+              ) : dupMatch ? (
                 <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-300">
                   <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                   <div className="space-y-1">
                     <p>
-                      {dupMatch.exact
-                        ? "This number is already a contact — a membership will be attached to them."
-                        : "A contact with a very similar number already exists."}
+                      {dupMatch.isMember
+                        ? `${dupMatch.contact.name || "This person"} already has a membership — open their profile to renew or edit it.`
+                        : dupMatch.exact
+                          ? `This number already belongs to ${dupMatch.contact.name || "an existing contact"}. No duplicate is created — the membership attaches to that record, and any details you change here update it.`
+                          : "A contact with a very similar number already exists."}
                     </p>
                     {onViewExisting && (
                       <button
@@ -682,7 +750,7 @@ export function MemberForm({
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {saving && <Loader2 className="size-4 animate-spin" />}
-              {isEdit ? "Save" : "Add member"}
+              {isEdit ? "Save" : isConvert ? "Convert to member" : "Add member"}
             </Button>
           </DialogFooter>
         </form>
