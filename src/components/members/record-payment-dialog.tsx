@@ -278,7 +278,6 @@ export function RecordPaymentDialog({
                 inputMode="decimal"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="bg-muted"
               />
               {dues && dues.balance > 0 && (
                 <div className="flex gap-1.5">
@@ -309,7 +308,7 @@ export function RecordPaymentDialog({
                 value={method}
                 onValueChange={(v) => setMethod(v as PaymentMethod)}
               >
-                <SelectTrigger id="rp-method" className="w-full bg-muted">
+                <SelectTrigger id="rp-method" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -349,7 +348,6 @@ export function RecordPaymentDialog({
               value={paidOn}
               max={fmt.today()}
               onChange={setPaidOn}
-              className="bg-muted"
             />
           </div>
 
@@ -399,7 +397,6 @@ export function RecordPaymentDialog({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Optional"
-              className="bg-muted"
             />
           </div>
         </div>

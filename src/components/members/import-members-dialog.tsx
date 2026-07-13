@@ -247,7 +247,6 @@ function ImportForm({
               id="im-start"
               value={startDate}
               onChange={setStartDate}
-              className="bg-muted"
             />
           </div>
           <div className="space-y-1.5">
@@ -263,7 +262,6 @@ function ImportForm({
               placeholder={
                 selectedOption ? String(firstCycleFee(selectedOption)) : "0"
               }
-              className="bg-muted"
             />
           </div>
         </div>

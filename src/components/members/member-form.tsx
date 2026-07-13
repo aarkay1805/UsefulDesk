@@ -409,7 +409,6 @@ export function MemberForm({
                     ? `${locale.phoneCountryCode} 98765 43210`
                     : "+91 98765 43210"
                 }
-                className="bg-muted"
               />
               {dupMatch ? (
                 <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-300">
@@ -448,7 +447,6 @@ export function MemberForm({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Full name"
-                className="bg-muted"
               />
             </div>
 
@@ -460,7 +458,6 @@ export function MemberForm({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="member@example.com"
-                className="bg-muted"
               />
             </div>
 
@@ -507,7 +504,6 @@ export function MemberForm({
                   id="mf-start"
                   value={startDate}
                   onChange={setStartDate}
-                  className="bg-muted"
                 />
               </div>
             </div>
@@ -523,7 +519,6 @@ export function MemberForm({
                   min={1}
                   value={trialDays}
                   onChange={(e) => setTrialDays(e.target.value)}
-                  className="bg-muted"
                 />
                 <p className="text-xs text-muted-foreground">
                   Ends {fmt.date(istAddDays(startDate, Number(trialDays) || 0))} · free pass, no fee — convert to a paid plan later.
@@ -554,7 +549,6 @@ export function MemberForm({
                     placeholder={
                       selectedOption ? String(firstCycleFee(selectedOption)) : "0"
                     }
-                    className="bg-muted"
                   />
                   {!isEdit && selectedOption && selectedOption.setup_fee > 0 && (
                     <p className="text-xs text-muted-foreground">
@@ -594,7 +588,7 @@ export function MemberForm({
                         value={payAmount}
                         onChange={(e) => setPayAmount(e.target.value)}
                         placeholder={previewFee > 0 ? String(previewFee) : "0"}
-                        className="h-8 bg-muted"
+                        className="h-8"
                       />
                       {previewFee > 0 && (
                         <div className="flex gap-1.5">
@@ -625,7 +619,7 @@ export function MemberForm({
                         value={payMethod}
                         onValueChange={(v) => setPayMethod(v as PaymentMethod)}
                       >
-                        <SelectTrigger id="mf-method" className="w-full bg-muted">
+                        <SelectTrigger id="mf-method" className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -658,7 +652,6 @@ export function MemberForm({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Optional"
-                className="bg-muted"
               />
             </div>
           </div>

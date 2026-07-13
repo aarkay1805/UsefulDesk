@@ -194,7 +194,6 @@ export function RenewMembershipDialog({
               min={0}
               value={feeAmount}
               onChange={(e) => setFeeAmount(e.target.value)}
-              className="bg-muted"
             />
           </div>
 
@@ -216,13 +215,13 @@ export function RenewMembershipDialog({
                   value={collectAmount}
                   onChange={(e) => setCollectAmount(e.target.value)}
                   placeholder="Amount"
-                  className="bg-muted h-8"
+                  className="h-8"
                 />
                 <Select
                   value={method}
                   onValueChange={(v) => setMethod(v as PaymentMethod)}
                 >
-                  <SelectTrigger className="w-full bg-muted">
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

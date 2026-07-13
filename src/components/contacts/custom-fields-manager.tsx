@@ -185,7 +185,7 @@ export function CustomFieldsPanel() {
             }
           }}
           placeholder="New field name…"
-          className="bg-muted text-foreground"
+          className="text-foreground"
         />
         <Button
           onClick={handleCreate}

@@ -325,7 +325,7 @@ export function ImportMembersCsvDialog({
                       })
                     }
                   >
-                    <SelectTrigger className="bg-muted">
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

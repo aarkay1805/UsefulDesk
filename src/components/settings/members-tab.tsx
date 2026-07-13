@@ -452,7 +452,7 @@ export function MembersTab() {
                         }
                       >
                         <SelectTrigger
-                          className="w-32 bg-muted border-border text-foreground"
+                          className="w-32 border-border text-foreground"
                           disabled={isBusy}
                         >
                           <SelectValue />

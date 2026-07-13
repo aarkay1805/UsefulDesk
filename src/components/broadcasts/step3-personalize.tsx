@@ -265,7 +265,7 @@ export function Step3Personalize({
                   ? 'mp4'
                   : 'pdf'
             }`}
-            className="border-border bg-muted text-foreground placeholder:text-muted-foreground"
+            className="border-border text-foreground placeholder:text-muted-foreground"
           />
           <p className="mt-1.5 text-xs text-muted-foreground">
             Public URL of the {mediaHeaderType} sent as the message header.
@@ -328,7 +328,7 @@ export function Step3Personalize({
                         })
                       }
                     >
-                      <SelectTrigger className="w-full border-border bg-muted text-foreground">
+                      <SelectTrigger className="w-full border-border text-foreground">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="border-border bg-popover">
@@ -352,7 +352,7 @@ export function Step3Personalize({
                           updateVariable(key, { value: e.target.value })
                         }
                         placeholder="Enter value..."
-                        className="border-border bg-muted text-foreground placeholder:text-muted-foreground"
+                        className="border-border text-foreground placeholder:text-muted-foreground"
                       />
                     ) : mapping.type === 'field' ? (
                       <Select
@@ -361,7 +361,7 @@ export function Step3Personalize({
                           updateVariable(key, { value: val || '' })
                         }
                       >
-                        <SelectTrigger className="w-full border-border bg-muted text-foreground">
+                        <SelectTrigger className="w-full border-border text-foreground">
                           <SelectValue placeholder="Select field..." />
                         </SelectTrigger>
                         <SelectContent className="border-border bg-popover">
@@ -379,7 +379,7 @@ export function Step3Personalize({
                           updateVariable(key, { value: val || '' })
                         }
                       >
-                        <SelectTrigger className="w-full border-border bg-muted text-foreground">
+                        <SelectTrigger className="w-full border-border text-foreground">
                           <SelectValue
                             placeholder={
                               loadingFields

@@ -328,7 +328,7 @@ export function ContactForm({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="John Doe"
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              className="border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
 
@@ -345,7 +345,7 @@ export function ContactForm({
               }}
               onBlur={checkDuplicate}
               placeholder="+1 234 567 8900"
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              className="border-border text-foreground placeholder:text-muted-foreground"
             />
             {dupMatch ? (
               <div
@@ -390,7 +390,7 @@ export function ContactForm({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="john@example.com"
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              className="border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
 
@@ -403,7 +403,7 @@ export function ContactForm({
               value={company}
               onChange={(e) => setCompany(e.target.value)}
               placeholder="Acme Inc."
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              className="border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
 
@@ -417,7 +417,7 @@ export function ContactForm({
               value={leadStatus || null}
               onValueChange={(v) => setLeadStatus((v ?? '') as '' | LeadStatus)}
             >
-              <SelectTrigger id="cf-lead-status" className="w-full bg-muted">
+              <SelectTrigger id="cf-lead-status" className="w-full">
                 <SelectValue
                   placeholder={statuses.find((col) => col.key === 'new')?.label ?? 'New'}
                 />
@@ -441,7 +441,7 @@ export function ContactForm({
                 value={source || null}
                 onValueChange={(v) => setSource(v ?? '')}
               >
-                <SelectTrigger id="cf-source" className="w-full bg-muted">
+                <SelectTrigger id="cf-source" className="w-full">
                   <SelectValue placeholder="—" />
                 </SelectTrigger>
                 <SelectContent>
@@ -462,7 +462,7 @@ export function ContactForm({
                 value={gender || null}
                 onValueChange={(v) => setGender(v ?? '')}
               >
-                <SelectTrigger id="cf-gender" className="w-full bg-muted">
+                <SelectTrigger id="cf-gender" className="w-full">
                   <SelectValue placeholder="—" />
                 </SelectTrigger>
                 <SelectContent>
@@ -535,7 +535,7 @@ export function ContactForm({
                           }))
                         }
                         placeholder={`Enter ${field.field_name}...`}
-                        className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                        className="border-border text-foreground placeholder:text-muted-foreground"
                       />
                     ) : (
                       <Input
@@ -549,7 +549,7 @@ export function ContactForm({
                           }))
                         }
                         placeholder={`Enter ${field.field_name}...`}
-                        className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                        className="border-border text-foreground placeholder:text-muted-foreground"
                       />
                     )}
                   </div>

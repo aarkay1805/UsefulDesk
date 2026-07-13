@@ -159,7 +159,7 @@ function AssignForm({
               value={assignedTo || undefined}
               onValueChange={(v) => setAssignedTo(v ?? "")}
             >
-              <SelectTrigger id="fu-assignee" className="w-full bg-muted">
+              <SelectTrigger id="fu-assignee" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -182,7 +182,7 @@ function AssignForm({
                 value={reason}
                 onValueChange={(v) => setReason(v as FollowUpReason)}
               >
-                <SelectTrigger id="fu-reason" className="w-full bg-muted">
+                <SelectTrigger id="fu-reason" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -202,7 +202,6 @@ function AssignForm({
                 id="fu-due"
                 value={dueDate}
                 onChange={setDueDate}
-                className="bg-muted"
               />
             </div>
           </div>
@@ -216,7 +215,7 @@ function AssignForm({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="e.g. Promised to decide after salary day"
-              className="min-h-[60px] resize-none bg-muted text-sm"
+              className="min-h-[60px] resize-none text-sm"
             />
           </div>
         </div>
@@ -320,7 +319,7 @@ function CompleteForm({
               value={outcome}
               onValueChange={(v) => setOutcome(v as FollowUpOutcome)}
             >
-              <SelectTrigger id="fu-outcome" className="w-full bg-muted">
+              <SelectTrigger id="fu-outcome" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -342,7 +341,7 @@ function CompleteForm({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="e.g. Renewed for 3 months, paid via UPI"
-              className="min-h-[60px] resize-none bg-muted text-sm"
+              className="min-h-[60px] resize-none text-sm"
             />
           </div>
         </div>

@@ -228,7 +228,7 @@ export function BulkRecordPaymentDialog({
                   value={method}
                   onValueChange={(v) => setMethod(v as PaymentMethod)}
                 >
-                  <SelectTrigger id="brp-method" className="w-full bg-muted">
+                  <SelectTrigger id="brp-method" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -249,7 +249,6 @@ export function BulkRecordPaymentDialog({
                   value={paidOn}
                   max={fmt.today()}
                   onChange={setPaidOn}
-                  className="bg-muted"
                 />
               </div>
             </div>

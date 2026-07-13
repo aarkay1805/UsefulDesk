@@ -357,7 +357,7 @@ export function Step2SelectAudience({
                 value={audience.customField?.fieldId || undefined}
                 onValueChange={(v) => updateCustomField({ fieldId: v ?? '' })}
               >
-                <SelectTrigger className="w-full bg-muted">
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select field…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -376,7 +376,7 @@ export function Step2SelectAudience({
                   })
                 }
               >
-                <SelectTrigger className="w-full bg-muted">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -392,7 +392,7 @@ export function Step2SelectAudience({
                 value={audience.customField?.value ?? ''}
                 onChange={(e) => updateCustomField({ value: e.target.value })}
                 placeholder="Value"
-                className="h-9 rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+                className="h-9 rounded-lg border border-border px-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
               />
             </div>
           )}

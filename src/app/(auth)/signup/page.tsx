@@ -189,7 +189,7 @@ function SignupPageInner() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+                className="border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
               />
             </div>
 
@@ -198,7 +198,7 @@ function SignupPageInner() {
                 Where is your business?
               </Label>
               <Select value={country} onValueChange={(v) => v && setCountry(v)}>
-                <SelectTrigger id="country" className="w-full bg-muted">
+                <SelectTrigger id="country" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -226,7 +226,7 @@ function SignupPageInner() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+                className="border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
               />
             </div>
 
@@ -241,7 +241,7 @@ function SignupPageInner() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+                className="border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
               />
             </div>
 
@@ -256,7 +256,7 @@ function SignupPageInner() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+                className="border-border text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
               />
             </div>
 

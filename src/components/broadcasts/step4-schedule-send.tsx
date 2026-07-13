@@ -106,7 +106,7 @@ export function Step4ScheduleSend({
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
           placeholder="e.g. Summer Sale Announcement"
-          className="border-border bg-muted text-foreground placeholder:text-muted-foreground"
+          className="border-border text-foreground placeholder:text-muted-foreground"
         />
       </div>
 

@@ -1487,7 +1487,7 @@ export function ImportWizard({
                 }
               }}
               placeholder="e.g. Lead Source"
-              className="bg-muted text-foreground"
+              className="text-foreground"
             />
           </div>
 
@@ -1497,7 +1497,7 @@ export function ImportWizard({
               value={newFieldType}
               onValueChange={(v) => v && setNewFieldType(v)}
             >
-              <SelectTrigger className="w-full bg-muted">
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

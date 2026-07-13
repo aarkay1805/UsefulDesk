@@ -78,7 +78,7 @@ export function TransferRequestDialog({
             onChange={(e) => setNote(e.target.value)}
             placeholder="Add context for your teammate…"
             rows={3}
-            className="bg-muted text-foreground"
+            className="text-foreground"
           />
         </div>
 

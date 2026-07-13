@@ -306,7 +306,7 @@ function OptionsEditor({
               }
             }}
             placeholder="Add an option…"
-            className="bg-muted border-border text-foreground h-7 flex-1 rounded-full px-3.5 placeholder:text-muted-foreground"
+            className="border-border text-foreground h-7 flex-1 rounded-full px-3.5 placeholder:text-muted-foreground"
           />
           {/* Cancel + Add reveal only once the user types, sliding in.
               Colour is chosen afterwards from the created row's swatches. */}
@@ -400,7 +400,7 @@ function OptionRow({
               // --badge-tint; the inline background is the 10% fill (inline
               // beats Input's dark:bg-input/30 so the tint always shows).
               'tinted-text'
-            : 'bg-muted text-foreground'
+            : 'text-foreground'
         )}
         style={
           isStatus

@@ -118,7 +118,7 @@ export function PlanOptionPicker({
           onValueChange={handlePlanChange}
           disabled={disabled}
         >
-          <SelectTrigger id={`${idPrefix}-plan`} className="w-full bg-muted">
+          <SelectTrigger id={`${idPrefix}-plan`} className="w-full">
             <SelectValue placeholder="Select a plan…" />
           </SelectTrigger>
           <SelectContent>
@@ -153,7 +153,7 @@ export function PlanOptionPicker({
             onValueChange={handleOptionChange}
             disabled={disabled}
           >
-            <SelectTrigger id={`${idPrefix}-option`} className="w-full bg-muted">
+            <SelectTrigger id={`${idPrefix}-option`} className="w-full">
               <SelectValue placeholder="Select a billing option…" />
             </SelectTrigger>
             <SelectContent>

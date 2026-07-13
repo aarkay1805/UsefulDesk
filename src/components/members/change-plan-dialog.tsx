@@ -215,7 +215,6 @@ export function ChangePlanDialog({
               value={switchDate}
               onChange={setSwitchDate}
               min={minSwitch}
-              className="bg-muted"
             />
             <p className="text-muted-foreground text-xs">
               The current cycle ends on this day and is re-invoiced for the days
@@ -277,7 +276,6 @@ export function ChangePlanDialog({
                 setFeeAmount(e.target.value);
                 setFeeTouched(true);
               }}
-              className="bg-muted"
             />
           </div>
 
@@ -302,10 +300,10 @@ export function ChangePlanDialog({
                     setCollectTouched(true);
                   }}
                   placeholder="Amount"
-                  className="bg-muted h-8"
+                  className="h-8"
                 />
                 <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod)}>
-                  <SelectTrigger className="w-full bg-muted">
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
