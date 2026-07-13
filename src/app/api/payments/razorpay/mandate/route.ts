@@ -28,6 +28,7 @@ import {
   type RazorpayPlan,
 } from "@/lib/payments/razorpay";
 import { upiAvailableFor } from "@/lib/payments/upi";
+import { isRenewalChaseable } from "@/lib/memberships/pricing";
 
 type RazorpayCadence = {
   period: RazorpayPlan["period"];
@@ -138,7 +139,7 @@ export async function POST(request: Request) {
 
     // Only recurring plans auto-renew (062) — record_gateway_charge
     // enforces this in the DB too; fail early with a clean message.
-    if (membership.plan && membership.plan.plan_type !== "recurring") {
+    if (!isRenewalChaseable(membership.plan)) {
       return NextResponse.json(
         { error: "Only recurring plans support auto-pay" },
         { status: 400 },

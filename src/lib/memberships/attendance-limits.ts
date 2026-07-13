@@ -113,6 +113,34 @@ export function membershipUsageWindowStart(
   return null;
 }
 
+/**
+ * The one-line usage rendering both check-in surfaces share — "7 of 10
+ * sessions left" (packs, danger when exhausted) or "9/12 this month"
+ * (limited plans, danger when exceeded). Null = nothing to show
+ * (unlimited plan). Kept beside checkInWarning so the row label and the
+ * warning threshold can't drift apart.
+ */
+export function usageSummary(
+  plan: Pick<
+    MembershipPlan,
+    | "plan_type"
+    | "attendance_limit_count"
+    | "attendance_limit_interval"
+    | "sessions_count"
+  >,
+  used: number,
+): { label: string; danger: boolean } | null {
+  if (plan.plan_type === "session_pack" && plan.sessions_count) {
+    const left = sessionsRemaining(plan.sessions_count, used);
+    return {
+      label: `${left} of ${plan.sessions_count} sessions left`,
+      danger: left === 0,
+    };
+  }
+  const usage = attendanceUsage(plan, used);
+  return usage.label ? { label: usage.label, danger: usage.exceeded } : null;
+}
+
 export interface CheckInWarning {
   title: string;
   body: string;

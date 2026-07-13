@@ -135,12 +135,22 @@ SELECT p.account_id, p.id, p.duration_days, 'day', p.price, 0, 0
 FROM membership_plans p
 WHERE NOT EXISTS (SELECT 1 FROM plan_pricing_options o WHERE o.plan_id = p.id);
 
--- (2) Point memberships at their plan's (single, backfilled) option.
+-- (2) Point memberships at their plan's DEFAULT option (first active by
+-- sort — the pricing.ts no-picker rule). DISTINCT ON keeps a re-run
+-- deterministic once plans carry several options (a bare join would pick
+-- an arbitrary one); trials stay NULL (they're unbilled — the documented
+-- convention, and member-form inserts them with NULL).
 UPDATE memberships m
 SET pricing_option_id = o.id
-FROM plan_pricing_options o
+FROM (
+  SELECT DISTINCT ON (plan_id) id, plan_id
+  FROM plan_pricing_options
+  WHERE is_active
+  ORDER BY plan_id, sort_order, created_at
+) o
 WHERE m.plan_id = o.plan_id
-  AND m.pricing_option_id IS NULL;
+  AND m.pricing_option_id IS NULL
+  AND m.is_trial = FALSE;
 
 -- (3) Stamp current periods for traceability (best-effort).
 UPDATE membership_periods pp
@@ -350,7 +360,9 @@ DROP FUNCTION IF EXISTS public.renew_membership_transaction(
   UUID, UUID, DATE, DATE, NUMERIC, NUMERIC, TEXT, BOOLEAN, UUID
 );
 
-CREATE FUNCTION public.renew_membership_transaction(
+-- OR REPLACE keeps a re-apply idempotent: the overload risk is only the
+-- OLD signature, which the DROP above removes.
+CREATE OR REPLACE FUNCTION public.renew_membership_transaction(
   p_membership_id UUID,
   p_plan_id UUID,
   p_period_start DATE,
@@ -532,7 +544,7 @@ DROP FUNCTION IF EXISTS public.edit_membership_cycle(
   UUID, UUID, DATE, DATE, NUMERIC, BOOLEAN, TEXT
 );
 
-CREATE FUNCTION public.edit_membership_cycle(
+CREATE OR REPLACE FUNCTION public.edit_membership_cycle(
   p_membership_id UUID,
   p_plan_id UUID,
   p_period_start DATE,
@@ -653,7 +665,7 @@ DROP FUNCTION IF EXISTS public.change_membership_plan(
   UUID, UUID, DATE, DATE, NUMERIC, NUMERIC, NUMERIC, TEXT, UUID
 );
 
-CREATE FUNCTION public.change_membership_plan(
+CREATE OR REPLACE FUNCTION public.change_membership_plan(
   p_membership_id UUID,
   p_plan_id UUID,
   p_switch_date DATE,

@@ -10,12 +10,10 @@ import { useLocale } from "@/hooks/use-locale";
 import { dayStartInTz } from "@/lib/locale/format";
 import { effectiveStatus, daysUntil } from "@/lib/memberships/expiry";
 import {
-  attendanceUsage,
-  checkInWarning,
-  membershipUsageWindowStart,
-  sessionsRemaining,
+  usageSummary,
   type CheckInWarning,
 } from "@/lib/memberships/attendance-limits";
+import { fetchCheckInUsage, fetchUsageCounts } from "@/lib/memberships/check-in";
 import type { Membership } from "@/types";
 import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
@@ -72,51 +70,20 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
       );
       setCheckedToday(seen);
 
-      // Usage counts for limited plans + session packs — ONE query over
-      // the earliest window, bucketed per member's own window client-side.
-      const tracked = members
-        .map((m) => ({
-          m,
-          windowStart: membershipUsageWindowStart(m, todayStr, locale.weekStart),
-        }))
-        .filter((t): t is { m: Membership; windowStart: string } => !!t.windowStart);
-      if (tracked.length > 0) {
-        const minStart = tracked.reduce(
-          (min, t) => (t.windowStart < min ? t.windowStart : min),
-          tracked[0].windowStart,
-        );
-        const minInstant = (
-          dayStartInTz(minStart, locale.timeZone) ?? new Date(0)
-        ).toISOString();
-        const { data: visits } = await supabase
-          .from("attendance")
-          .select("membership_id, checked_in_at")
-          .in("membership_id", tracked.map((t) => t.m.id))
-          .gte("checked_in_at", minInstant);
-        if (cancelled) return;
-        const counts = new Map<string, number>();
-        const windowInstant = new Map(
-          tracked.map((t) => [
-            t.m.id,
-            (dayStartInTz(t.windowStart, locale.timeZone) ?? new Date(0)).toISOString(),
-          ]),
-        );
-        for (const v of (visits as { membership_id: string | null; checked_in_at: string }[]) ?? []) {
-          if (!v.membership_id) continue;
-          const start = windowInstant.get(v.membership_id);
-          if (!start || v.checked_in_at < start) continue;
-          counts.set(v.membership_id, (counts.get(v.membership_id) ?? 0) + 1);
-        }
-        setUsage(counts);
-      } else {
-        setUsage(new Map());
-      }
+      // Usage counts for limited plans + session packs — one server-side
+      // GROUP BY (migration 063 RPC), each membership against its OWN
+      // window. Replaces the raw-rows fetch over the global earliest
+      // window, which the PostgREST max-rows cap could silently truncate
+      // into an undercount.
+      const counts = await fetchUsageCounts(supabase, members, todayStr, locale);
+      if (cancelled) return;
+      setUsage(counts);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [reloadKey, fmt, locale.timeZone, locale.weekStart]);
+  }, [reloadKey, fmt, locale]);
 
   const today = fmt.today();
 
@@ -133,18 +100,8 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
   /** The plan-name + usage line under a member's identity. */
   function rowMeta(m: Membership): { text: string; danger: boolean } {
     const planName = m.plan?.name ?? "—";
-    const used = usage.get(m.id) ?? 0;
-    if (m.plan?.plan_type === "session_pack" && m.plan.sessions_count) {
-      const left = sessionsRemaining(m.plan.sessions_count, used);
-      return {
-        text: `${planName} · ${left} of ${m.plan.sessions_count} sessions left`,
-        danger: left === 0,
-      };
-    }
-    if (m.plan) {
-      const u = attendanceUsage(m.plan, used);
-      if (u.label) return { text: `${planName} · ${u.label}`, danger: u.exceeded };
-    }
+    const s = m.plan ? usageSummary(m.plan, usage.get(m.id) ?? 0) : null;
+    if (s) return { text: `${planName} · ${s.label}`, danger: s.danger };
     return { text: planName, danger: false };
   }
 
@@ -180,30 +137,16 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
   async function checkIn(m: Membership) {
     if (!user) return;
     // Limit check (062): a fresh count keeps it honest across devices;
-    // over the limit → warn-with-override, never a hard block.
-    const windowStart = membershipUsageWindowStart(m, today, locale.weekStart);
-    if (m.plan && windowStart) {
-      setBusyId(m.id);
-      try {
-        const supabase = createClient();
-        const startInstant = (
-          dayStartInTz(windowStart, locale.timeZone) ?? new Date(0)
-        ).toISOString();
-        const { count } = await supabase
-          .from("attendance")
-          .select("id", { count: "exact", head: true })
-          .eq("membership_id", m.id)
-          .gte("checked_in_at", startInstant);
-        const used = count ?? 0;
-        setUsage((prev) => new Map(prev).set(m.id, used));
-        const warning = checkInWarning(m.plan, used);
-        if (warning) {
-          setBusyId(null);
-          setOverride({ membership: m, warning });
-          return;
-        }
-      } catch {
-        // Counting failed — never block the front desk; fall through.
+    // over the limit → warn-with-override, never a hard block. A failed
+    // count returns null — never block the front desk.
+    setBusyId(m.id);
+    const result = await fetchCheckInUsage(createClient(), m, today, locale);
+    if (result) {
+      setUsage((prev) => new Map(prev).set(m.id, result.used));
+      if (result.warning) {
+        setBusyId(null);
+        setOverride({ membership: m, warning: result.warning });
+        return;
       }
     }
     await doInsert(m);

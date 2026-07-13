@@ -5,6 +5,7 @@ import {
   attendanceWindowStart,
   checkInWarning,
   sessionsRemaining,
+  usageSummary,
 } from "./attendance-limits";
 import type { MembershipPlan } from "@/types";
 
@@ -91,5 +92,47 @@ describe("checkInWarning", () => {
 
   it("never warns for an unlimited plan", () => {
     expect(checkInWarning(limitedPlan({ attendance_limit_count: null }), 999)).toBeNull();
+  });
+});
+
+describe("usageSummary", () => {
+  it("labels a limited plan and flags danger only when exceeded", () => {
+    expect(usageSummary(limitedPlan(), 9)).toEqual({
+      label: "9/12 this month",
+      danger: false,
+    });
+    expect(usageSummary(limitedPlan(), 12)).toEqual({
+      label: "12/12 this month",
+      danger: true,
+    });
+  });
+
+  it("labels a session pack and flags danger only when exhausted", () => {
+    const pack = limitedPlan({
+      plan_type: "session_pack",
+      attendance_limit_count: null,
+      attendance_limit_interval: null,
+      sessions_count: 10,
+    });
+    expect(usageSummary(pack, 3)).toEqual({
+      label: "7 of 10 sessions left",
+      danger: false,
+    });
+    expect(usageSummary(pack, 10)).toEqual({
+      label: "0 of 10 sessions left",
+      danger: true,
+    });
+  });
+
+  it("returns null for an unlimited plan", () => {
+    expect(usageSummary(limitedPlan({ attendance_limit_count: null }), 99)).toBeNull();
+  });
+
+  it("stays consistent with checkInWarning at the threshold", () => {
+    // The row label and the override dialog must agree: danger ⇔ warning.
+    for (const used of [11, 12]) {
+      const summary = usageSummary(limitedPlan(), used);
+      expect(summary?.danger).toBe(checkInWarning(limitedPlan(), used) !== null);
+    }
   });
 });

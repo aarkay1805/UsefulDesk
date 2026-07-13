@@ -91,15 +91,21 @@ export function RenewMembershipDialog({
   }, [open, membership]);
 
   // Seed the fee (and the amount to collect) from the picked billing
-  // option. A renewal bills the option price — never the joining fee.
+  // option. A renewal bills the option price — never the joining fee, so
+  // this must override the open-effect's fee_amount seed (which embeds
+  // the setup fee on a first-cycle member). Keyed on the RESOLVED option
+  // id, not optionId: at mount/open the plans list may not be loaded yet,
+  // and the membership's pre-set optionId never changes on the default
+  // path, so an optionId-keyed effect never fires and the joining fee
+  // would be re-billed. No-option (legacy) rows keep the fee_amount seed.
+  const selectedOptionId = selectedOption?.id ?? null;
   useEffect(() => {
-    if (selectedOption) {
-      const fee = renewalFee(selectedOption);
-      setFeeAmount(String(fee));
-      setCollectAmount(String(fee));
-    }
+    if (!open || !selectedOptionId || !selectedOption) return;
+    const fee = renewalFee(selectedOption);
+    setFeeAmount(String(fee));
+    setCollectAmount(String(fee));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [optionId]);
+  }, [open, selectedOptionId]);
 
   // New period extends from the later of current expiry or today, so a
   // member who renews early keeps their unexpired days. A conversion

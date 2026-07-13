@@ -135,24 +135,6 @@ export function computeRenewalEndDate(
 }
 
 /**
- * Option-aware sibling of `computeRenewalEndDate` (migration 062): same
- * later-of-expiry-or-today base, but the extension is a calendar-accurate
- * pricing-option duration instead of raw days.
- */
-export function computeRenewalEndDateFor(
-  currentEnd: string | null | undefined,
-  count: number,
-  unit: DurationUnit,
-  today: string = istToday(),
-): string {
-  let base = today;
-  if (currentEnd && daysBetween(today, currentEnd) > 0) {
-    base = currentEnd;
-  }
-  return addDuration(base, count, unit);
-}
-
-/**
  * New expiry after unfreezing. Pushes `endDate` forward by the number
  * of days the membership sat frozen (today − frozenAt), so a member
  * gets back exactly the time they lost. If `frozenAt` is missing or in

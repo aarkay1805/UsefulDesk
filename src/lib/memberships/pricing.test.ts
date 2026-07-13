@@ -5,6 +5,7 @@ import {
   defaultOption,
   durationLabel,
   firstCycleFee,
+  isRenewalChaseable,
   optionEndDate,
   renewalFee,
 } from "./pricing";
@@ -90,5 +91,16 @@ describe("durationLabel", () => {
     expect(durationLabel(3, "month")).toBe("3 months");
     expect(durationLabel(90, "day")).toBe("90 days");
     expect(durationLabel(1, "year")).toBe("1 year");
+  });
+});
+
+describe("isRenewalChaseable", () => {
+  it("chases recurring plans and legacy NULL-plan rows only", () => {
+    expect(isRenewalChaseable({ plan_type: "recurring" })).toBe(true);
+    // Load-bearing: pre-062 rows without a plan keep their reminders.
+    expect(isRenewalChaseable(null)).toBe(true);
+    expect(isRenewalChaseable(undefined)).toBe(true);
+    expect(isRenewalChaseable({ plan_type: "non_recurring" })).toBe(false);
+    expect(isRenewalChaseable({ plan_type: "session_pack" })).toBe(false);
   });
 });

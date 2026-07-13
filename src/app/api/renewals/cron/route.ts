@@ -9,6 +9,7 @@ import {
   RENEWAL_TEMPLATE_NAME,
   targetEndDates,
 } from '@/lib/memberships/renewal-reminders'
+import { isRenewalChaseable } from '@/lib/memberships/pricing'
 
 /**
  * Auto renewal reminders — the scheduled half of the renewal wedge.
@@ -171,12 +172,10 @@ export async function GET(request: Request) {
       // untyped client infers them as arrays, so cast to the real shape
       // (same approach as members-table.tsx casting to Membership[]).
       //
-      // Only RECURRING plans get renewal nags (062): fixed-term plans
-      // expire quietly and session packs surface via session counts.
-      // Filtered in TS, not `!inner`, so legacy NULL-plan rows keep
-      // their reminders (pre-062 behavior).
+      // Only RECURRING plans get renewal nags (062). Filtered in TS, not
+      // `!inner`, so legacy NULL-plan rows keep their reminders.
       const memberships = ((data ?? []) as unknown as ReminderCandidate[]).filter(
-        (m) => !m.plan || m.plan.plan_type === 'recurring',
+        (m) => isRenewalChaseable(m.plan),
       )
       if (memberships.length === 0) continue
 
