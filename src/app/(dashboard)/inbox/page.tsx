@@ -48,8 +48,8 @@ export default function InboxPage() {
   const [resyncToken, setResyncToken] = useState(0);
 
   /**
-   * Whether the desktop contact sidebar (tags / deals / notes) is shown.
-   * Defaults to `true` (the historical behaviour) and is restored from
+   * Whether the desktop contact panel (the shared lead detail surface) is
+   * shown. Defaults to `true` (the historical behaviour) and is restored from
    * localStorage after mount. We deliberately do NOT read localStorage in
    * the initializer: the server renders with `true`, so reading a stored
    * `false` synchronously would produce a hydration mismatch. The effect
@@ -387,6 +387,27 @@ export default function InboxPage() {
     setResyncToken((n) => n + 1);
   }, []);
 
+  // The contact panel renders the real lead detail surface now, so agents
+  // can edit the contact (name, status, tags, owner…) without leaving the
+  // inbox. Re-pull our copy of the row: the thread header and the
+  // conversation list render the contact joined onto the conversation, so
+  // they'd otherwise keep showing the pre-edit name.
+  //
+  // Dep is the whole `activeContact` object (not `activeContact.id`) so the
+  // React Compiler's inference agrees with the manual dep list — same
+  // reason as the copy-phone callback that used to live in ContactSidebar.
+  const handleContactUpdated = useCallback(async () => {
+    setResyncToken((n) => n + 1);
+    if (!activeContact) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("contacts")
+      .select("*")
+      .eq("id", activeContact.id)
+      .single();
+    if (data) setActiveContact(data);
+  }, [activeContact]);
+
   const handleConversationsLoaded = useCallback(
     (loaded: Conversation[]) => {
       setConversations(loaded);
@@ -549,7 +570,26 @@ export default function InboxPage() {
   const hasActiveConv = !!activeConversation;
 
   return (
-    <div className="-m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6">
+    // The inbox is the one full-bleed page: it cancels the shell's page
+    // padding entirely so the three columns run edge-to-edge and their
+    // borders butt right up against the app bar's bottom divider.
+    //
+    // Each edge must be cancelled by the amount `main` actually pads on
+    // THAT edge — `main` is `px-4 pt-3 pb-4 sm:px-6 sm:pb-6`, so the top is
+    // pt-3 (12px) at BOTH breakpoints while the sides/bottom are 16/24px.
+    // The old `-m-4 sm:-m-6` negated all four sides by one value, over-
+    // cancelling the top by 4px (mobile) / 12px (desktop) and sliding the
+    // whole inbox UP UNDERNEATH the app bar (the column headers sat tucked
+    // behind the divider). Hence `-mt-3` — exact, and no sm: variant since
+    // pt-3 doesn't change at sm.
+    //
+    // Height is parent-relative on purpose, NOT `calc(100vh - <header>)`:
+    // the app bar measures 57px, not 3.5rem, so viewport math is off by its
+    // border and overshoots — it put a 16px scrollbar on `main`. `100%` is
+    // main's content box; adding back the padding we negate on both the top
+    // and bottom ends the box exactly at the viewport bottom whatever the
+    // header's height (and closes the 11px dead strip the old calc left).
+    <div className="-mx-4 -mt-3 -mb-4 flex h-[calc(100%+1.75rem)] flex-col overflow-hidden sm:-mx-6 sm:-mb-6 sm:h-[calc(100%+2.25rem)]">
       {/* WhatsApp connection banner — in the flex column, not absolute,
           so it pushes the panels down instead of overlapping them. */}
       {whatsappConnected === false && (
@@ -619,7 +659,10 @@ export default function InboxPage() {
             toggle — which is itself desktop-only — never affects it. */}
         {contactPanelOpen && (
           <div className="hidden lg:block">
-            <ContactSidebar contact={activeContact} />
+            <ContactSidebar
+              contact={activeContact}
+              onUpdated={handleContactUpdated}
+            />
           </div>
         )}
       </div>
