@@ -84,7 +84,7 @@ const PLAN_COPY: Record<
     rowNoun: "billing option",
   },
   non_recurring: {
-    section: "Pricing",
+    section: "Pricing & expiry",
     duration: "Expire plan in",
     add: "Add another price",
     rowNoun: "price",
