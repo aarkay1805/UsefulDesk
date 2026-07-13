@@ -9,6 +9,7 @@ import { useLocale } from "@/hooks/use-locale";
 import { getErrorMessage } from "@/lib/errors";
 import { dateAtNoonInTz } from "@/lib/locale/format";
 import { validatePaymentAmount } from "@/lib/payments/validation";
+import { isChargeableAmount } from "@/lib/memberships/periods";
 import {
   uploadPrivateAccountMedia,
   deleteAccountMedia,
@@ -112,7 +113,7 @@ export function RecordPaymentDialog({
     if (period) {
       const balance = Number(period.balance);
       setDues({ balance, collected: targetFee - balance });
-      setAmount(balance > 0 ? String(balance) : "");
+      setAmount(isChargeableAmount(balance) ? String(balance) : "");
       return;
     }
     (async () => {
@@ -131,7 +132,7 @@ export function RecordPaymentDialog({
       const balance = data ? Number(data.balance) : fee;
       const collected = data ? Number(data.collected_current) : 0;
       setDues({ balance, collected });
-      setAmount(balance > 0 ? String(balance) : "");
+      setAmount(isChargeableAmount(balance) ? String(balance) : "");
     })();
     return () => {
       cancelled = true;
@@ -238,7 +239,7 @@ export function RecordPaymentDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {dues && dues.balance > 0 && (
+          {dues && isChargeableAmount(dues.balance) && (
             <div className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
               <span className="text-muted-foreground">Balance due</span>
               <span className="font-medium text-amber-700 tabular-nums dark:text-amber-400">
@@ -259,7 +260,7 @@ export function RecordPaymentDialog({
               Could not load the current balance. Close this dialog and try again.
             </p>
           )}
-          {dues && dues.balance <= 0 && !loadError && (
+          {dues && !isChargeableAmount(dues.balance) && !loadError && (
             <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
               This billing period is already settled.
             </p>
@@ -279,7 +280,7 @@ export function RecordPaymentDialog({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
               />
-              {dues && dues.balance > 0 && (
+              {dues && isChargeableAmount(dues.balance) && (
                 <div className="flex gap-1.5">
                   {/* Installments are constant — one tap for the two
                       common splits instead of mental arithmetic. */}
@@ -323,7 +324,7 @@ export function RecordPaymentDialog({
           </div>
 
           {dues &&
-            dues.balance > 0 &&
+            isChargeableAmount(dues.balance) &&
             validatePaymentAmount(Number(amount), dues.balance) === "valid" && (
               <p className="text-muted-foreground text-xs">
                 {Number(amount) >= dues.balance ? (
@@ -408,7 +409,9 @@ export function RecordPaymentDialog({
           <Button
             type="button"
             onClick={handleSave}
-            disabled={saving || uploading || !dues || !!loadError || dues.balance <= 0}
+            disabled={
+              saving || uploading || !dues || !!loadError || !isChargeableAmount(dues.balance)
+            }
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}

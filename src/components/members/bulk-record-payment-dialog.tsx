@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/hooks/use-locale";
 import { dateAtNoonInTz } from "@/lib/locale/format";
+import { isChargeableAmount } from "@/lib/memberships/periods";
 import type { Membership, PaymentMethod } from "@/types";
 import {
   Dialog,
@@ -115,7 +116,9 @@ export function BulkRecordPaymentDialog({
     };
   }, [open, membershipIds, supabase]);
 
-  const due = (rows ?? []).filter((r) => r.balance > 0);
+  // Sub-display-unit residues (₹0.32 plan-change stubs) render as ₹0 and
+  // the ledger rejects a payment against them — they count as settled.
+  const due = (rows ?? []).filter((r) => isChargeableAmount(r.balance));
   const totalDue = due.reduce((s, r) => s + r.balance, 0);
   const settled = (rows?.length ?? 0) - due.length;
 

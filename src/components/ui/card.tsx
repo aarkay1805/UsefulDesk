@@ -25,7 +25,17 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-4 group-data-[size=sm]/card:px-3 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-4 group-data-[size=sm]/card:[.border-b]:pb-3",
+        // min-h-7 + content-center: the header reserves the height of a
+        // header action (every one is 28px — Button size="sm" h-7 /
+        // size="icon-sm" size-7) whether or not the card HAS one, so a card
+        // with actions and a card without (e.g. Notes) have identical header
+        // height and identical space before their content. Without it the
+        // header is content-sized, so an action-bearing header ran 6px taller
+        // than a bare title and the gap to CardContent visibly jumped between
+        // sibling cards. content-center keeps the title optically centred in
+        // that reserved row; it's a no-op once a description makes the header
+        // taller than the minimum.
+        "group/card-header @container/card-header grid min-h-7 auto-rows-min content-center items-center gap-1 rounded-t-xl px-4 group-data-[size=sm]/card:px-3 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-4 group-data-[size=sm]/card:[.border-b]:pb-3",
         className
       )}
       {...props}
@@ -61,7 +71,11 @@ function CardAction({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-action"
       className={cn(
-        "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
+        // self-center (not self-start): the action sits on the title's optical
+        // centre line instead of hanging off the top of it. With a description
+        // present the action spans both rows, so it centres against the whole
+        // title+description block.
+        "col-start-2 row-span-2 row-start-1 self-center justify-self-end",
         className
       )}
       {...props}

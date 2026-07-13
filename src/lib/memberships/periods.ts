@@ -27,16 +27,62 @@ import type {
 import { istToday } from "./expiry";
 import { optionEndDate, renewalFee } from "./pricing";
 
-/** Derive the invoice badge for a period. Void wins; then a covered
- *  balance is Paid; a cycle that hasn't started yet is Upcoming; the
- *  rest is Unpaid (current-or-past with money owed). ISO 'YYYY-MM-DD'
- *  compares lexically == chronologically. */
+/**
+ * Money is rendered without minor units (`formatCurrency` — 0 fraction
+ * digits), so anything below half a currency unit prints as "₹0". A
+ * pro-rated cycle routinely leaves such a residue: a mid-cycle plan
+ * change re-invoices the truncated cycle at its used value (₹0.32 for a
+ * one-day stub). That is not a debt — it is unchaseable (the ledger's
+ * ≤-balance guard would reject even a ₹1 payment against it) and a "Due"
+ * pill on a row reading ₹0 / ₹0 / ₹0 reads as a bug to the owner. Treat
+ * a sub-display-unit amount as zero everywhere money is judged.
+ */
+export const SETTLED_BALANCE_EPSILON = 0.5;
+
+/** Whether an amount is real money at display precision (≥ half a unit). */
+export function isChargeableAmount(amount: number | string): boolean {
+  return Number(amount) >= SETTLED_BALANCE_EPSILON;
+}
+
+/**
+ * A cycle's PAYMENT axis (orthogonal to its lifecycle: current/past/
+ * upcoming/void). `no_charge` = nothing was billed AND nothing was
+ * collected — a zero-fee cycle or a pro-rated stub that rounds to zero;
+ * it is neither Paid (no money moved) nor Due (nothing is owed). An
+ * over-paid stub (fee ≈ 0 but money collected) is Paid, not No charge.
+ */
+export type InvoicePaymentState = "paid" | "due" | "no_charge";
+
+export function invoicePaymentState(
+  p: Pick<MembershipPeriodInvoice, "fee_amount" | "amount_paid" | "balance">,
+): InvoicePaymentState {
+  if (!isChargeableAmount(p.fee_amount) && !isChargeableAmount(p.amount_paid)) {
+    return "no_charge";
+  }
+  return isChargeableAmount(p.balance) ? "due" : "paid";
+}
+
+export const INVOICE_PAYMENT_LABEL: Record<InvoicePaymentState, string> = {
+  paid: "Paid",
+  due: "Due",
+  no_charge: "No charge",
+};
+
+/** Derive the invoice badge for a period. Void wins; then a cycle that
+ *  billed nothing is No charge; a covered balance is Paid; a cycle that
+ *  hasn't started yet is Upcoming; the rest is Unpaid (current-or-past
+ *  with money owed). ISO 'YYYY-MM-DD' compares lexically == chronologically. */
 export function periodStatus(
-  p: Pick<MembershipPeriodInvoice, "state" | "balance" | "period_start">,
+  p: Pick<
+    MembershipPeriodInvoice,
+    "state" | "fee_amount" | "amount_paid" | "balance" | "period_start"
+  >,
   today: string = istToday(),
 ): InvoiceStatus {
   if (p.state === "void") return "void";
-  if (Number(p.balance) <= 0) return "paid";
+  const pay = invoicePaymentState(p);
+  if (pay === "no_charge") return "no_charge";
+  if (pay === "paid") return "paid";
   if (p.period_start > today) return "upcoming";
   return "unpaid";
 }
@@ -50,7 +96,7 @@ export function isCollectiblePeriod(
     !!p &&
     p.state === "open" &&
     membershipStatus !== "cancelled" &&
-    Number(p.balance) > 0
+    isChargeableAmount(p.balance)
   );
 }
 
@@ -59,6 +105,7 @@ export const INVOICE_STATUS_LABEL: Record<InvoiceStatus, string> = {
   unpaid: "Unpaid",
   upcoming: "Upcoming",
   void: "Void",
+  no_charge: "No charge",
 };
 
 /**

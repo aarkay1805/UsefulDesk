@@ -986,9 +986,11 @@ export type MembershipPeriodState = 'open' | 'void';
 /**
  * The DERIVED invoice status of a billing period — never stored (it
  * needs the account's "today" in its timezone). Computed by
- * `periodStatus()` in src/lib/memberships/periods.ts.
+ * `periodStatus()` in src/lib/memberships/periods.ts. `no_charge` = the
+ * cycle billed and collected nothing (a zero-fee cycle, or a pro-rated
+ * stub whose fee rounds to zero at display precision).
  */
-export type InvoiceStatus = 'paid' | 'unpaid' | 'upcoming' | 'void';
+export type InvoiceStatus = 'paid' | 'unpaid' | 'upcoming' | 'void' | 'no_charge';
 
 /**
  * One persisted billing cycle = one invoice (migration 057). The

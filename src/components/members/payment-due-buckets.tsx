@@ -6,6 +6,7 @@ import { Wallet, CheckCircle2, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/hooks/use-locale";
 import { bucketForDue, daysOverdue, DUE_BUCKETS, type DueBucket } from "@/lib/memberships/dues";
+import { isChargeableAmount } from "@/lib/memberships/periods";
 import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
 import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
@@ -71,9 +72,12 @@ export function PaymentDueBuckets({
       const balanceById = new Map<string, number>(
         (duesRes.data ?? []).map((d) => [d.membership_id as string, Number(d.balance) || 0]),
       );
+      // A sub-display-unit residue (a ₹0.32 pro-rated stub) is not a debt
+      // — it renders as ₹0 and can't be collected, so it must not put a
+      // member on the chase list.
       const merged: DueMember[] = ((membershipsRes.data as Membership[]) ?? [])
         .map((m) => ({ ...m, balance: balanceById.get(m.id) ?? 0 }))
-        .filter((m) => m.balance > 0);
+        .filter((m) => isChargeableAmount(m.balance));
 
       setRows(merged);
       setLoading(false);

@@ -76,12 +76,15 @@ import {
   setMembershipCancellation,
   unfreezeMembership,
   isCollectiblePeriod,
+  invoicePaymentState,
+  isChargeableAmount,
 } from "@/lib/memberships/periods";
 import {
   MembershipStatusBadge,
   FeeStatusBadge,
   TrialBadge,
   PlanTypeBadge,
+  InvoicePaymentBadge,
 } from "./membership-status-badge";
 import { AttendanceOverrideDialog } from "./attendance-override-dialog";
 import { InvoiceDetailDialog } from "./invoice-detail-dialog";
@@ -581,7 +584,10 @@ export function MemberDetailView({
                 </div>
                 {/* Actions take their own full-width row on mobile (the
                     identity block above is already tight at 390px), and the
-                    two buttons split it evenly. */}
+                    buttons split it evenly. Renew is NOT here — it's a
+                    lifecycle action in the Membership ⋯ menu; as a header
+                    primary it read as "the thing to do" on every member,
+                    including one who just paid. */}
                 <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-none">
                   <SendReminderButton
                     membership={membership}
@@ -589,19 +595,12 @@ export function MemberDetailView({
                     onSent={() => {}}
                     size="default"
                   />
-                  {membership.is_trial ? (
+                  {membership.is_trial && (
                     <Button
                       onClick={() => setConvertOpen(true)}
                       className="bg-primary text-primary-foreground hover:bg-primary/90"
                     >
                       <UserPlus className="size-4" /> Convert to member
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => setRenewOpen(true)}
-                      className="bg-primary text-primary-foreground hover:bg-primary/90"
-                    >
-                      <RefreshCw className="size-4" /> Renew
                     </Button>
                   )}
                 </div>
@@ -654,6 +653,18 @@ export function MemberDetailView({
                                 <MoreHorizontal className="size-4" />
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="min-w-52">
+                                {/* Renew — opens the next billing cycle. Lives
+                                    here (not as a header primary) because it's
+                                    only the right move near/after expiry; the
+                                    Billing section's Upcoming invoice offers it
+                                    too, but that row is absent once a
+                                    membership has lapsed, so this is the path
+                                    that always works. */}
+                                {membership.status === "active" && !membership.is_trial && (
+                                  <DropdownMenuItem onClick={() => setRenewOpen(true)}>
+                                    <RefreshCw className="size-4" /> Renew membership
+                                  </DropdownMenuItem>
+                                )}
                                 {/* Plan swap/upgrade — the intent behind most
                                     "edit" clicks. Only an active paid cycle
                                     can be switched mid-flight. */}
@@ -713,11 +724,6 @@ export function MemberDetailView({
                               ) : (
                                 <span className="tabular-nums">
                                   {fmt.money(membership.fee_amount)}
-                                </span>
-                              )}
-                              {balance > 0 && (
-                                <span className="ml-1.5 text-xs font-medium text-amber-700 tabular-nums dark:text-amber-400">
-                                  {fmt.money(balance)} due
                                 </span>
                               )}
                             </Stat>
@@ -899,6 +905,10 @@ export function MemberDetailView({
                                       <TableBody>
                                         {invoices.map((inv) => {
                                           const invBalance = Number(inv.balance);
+                                          // Payment axis is epsilon-aware: a
+                                          // pro-rated stub (₹0.32) renders ₹0,
+                                          // so it must not read "Due".
+                                          const payState = invoicePaymentState(inv);
                                           const lifecycle =
                                             inv.state === "void"
                                               ? "Void"
@@ -935,15 +945,25 @@ export function MemberDetailView({
                                               <TableCell className="hidden text-right text-emerald-700 tabular-nums sm:table-cell dark:text-emerald-400">
                                                 {fmt.money(inv.amount_paid)}
                                               </TableCell>
-                                              <TableCell className="hidden text-right font-medium tabular-nums sm:table-cell">
+                                              {/* An outstanding balance is the
+                                                  only number here that asks for
+                                                  an action, so it carries the
+                                                  amber the Membership card used
+                                                  to duplicate. Epsilon-aware
+                                                  like the Payment badge — a
+                                                  ₹0.32 pro-rated stub isn't a
+                                                  debt. */}
+                                              <TableCell
+                                                className={`hidden text-right font-medium tabular-nums sm:table-cell ${
+                                                  isChargeableAmount(invBalance)
+                                                    ? "text-amber-700 dark:text-amber-400"
+                                                    : ""
+                                                }`}
+                                              >
                                                 {fmt.money(invBalance)}
                                               </TableCell>
                                               <TableCell>
-                                                <Badge
-                                                  variant={invBalance <= 0 ? "success" : "warning"}
-                                                >
-                                                  {invBalance <= 0 ? "Paid" : "Due"}
-                                                </Badge>
+                                                <InvoicePaymentBadge state={payState} />
                                               </TableCell>
                                               <TableCell className="hidden sm:table-cell">
                                                 <Badge

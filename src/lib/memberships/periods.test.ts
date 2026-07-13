@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   isCollectiblePeriod,
+  invoicePaymentState,
+  isChargeableAmount,
   periodStatus,
   projectNextInvoice,
   isProjectedInvoice,
@@ -9,10 +11,25 @@ import type { Membership, MembershipPeriodInvoice } from "@/types";
 
 const TODAY = "2026-07-11";
 
-function inv(
-  over: Partial<MembershipPeriodInvoice>,
-): Pick<MembershipPeriodInvoice, "state" | "balance" | "period_start"> {
-  return { state: "open", balance: 0, period_start: "2026-06-01", ...over };
+type InvoiceFacts = Pick<
+  MembershipPeriodInvoice,
+  "state" | "fee_amount" | "amount_paid" | "balance" | "period_start"
+>;
+
+/** A billed cycle by default (fee 999); `amount_paid` follows the balance
+ *  unless a case states it (over-payment, zero-fee stub). */
+function inv(over: Partial<MembershipPeriodInvoice>): InvoiceFacts {
+  const base = {
+    state: "open" as const,
+    fee_amount: 999,
+    balance: 0,
+    period_start: "2026-06-01",
+    ...over,
+  };
+  return {
+    ...base,
+    amount_paid: over.amount_paid ?? Number(base.fee_amount) - Number(base.balance),
+  };
 }
 
 describe("periodStatus", () => {
@@ -22,6 +39,32 @@ describe("periodStatus", () => {
 
   it("a covered balance (<= 0) is paid, even for a past cycle", () => {
     expect(periodStatus(inv({ balance: 0, period_start: "2026-01-01" }), TODAY)).toBe("paid");
+  });
+
+  it("a cycle that billed and collected nothing is no_charge, not unpaid", () => {
+    // A pro-rated plan-change stub: fee ₹0.32, nothing collected. Money
+    // renders without minor units, so "Due" on a ₹0/₹0/₹0 row is a bug.
+    expect(
+      periodStatus(inv({ fee_amount: 0.32, amount_paid: 0, balance: 0.32 }), TODAY),
+    ).toBe("no_charge");
+    expect(periodStatus(inv({ fee_amount: 0, amount_paid: 0, balance: 0 }), TODAY)).toBe(
+      "no_charge",
+    );
+  });
+
+  it("a zero-fee stub that DID collect money is paid, not no_charge", () => {
+    expect(
+      periodStatus(inv({ fee_amount: 0.32, amount_paid: 500, balance: 0 }), TODAY),
+    ).toBe("paid");
+  });
+
+  it("a sub-unit residue on a billed cycle is paid, not unpaid", () => {
+    expect(
+      periodStatus(
+        inv({ fee_amount: 999, amount_paid: 998.7, balance: 0.3, period_start: "2026-07-01" }),
+        TODAY,
+      ),
+    ).toBe("paid");
   });
 
   it("a future cycle with an outstanding balance is upcoming", () => {
@@ -42,10 +85,29 @@ describe("periodStatus", () => {
   });
 });
 
+describe("invoicePaymentState", () => {
+  it("splits paid / due / no_charge at display precision", () => {
+    expect(invoicePaymentState(inv({ balance: 500 }))).toBe("due");
+    expect(invoicePaymentState(inv({ balance: 0 }))).toBe("paid");
+    expect(invoicePaymentState(inv({ fee_amount: 0.4, amount_paid: 0, balance: 0.4 }))).toBe(
+      "no_charge",
+    );
+  });
+
+  it("isChargeableAmount treats sub-half-unit money as zero", () => {
+    expect(isChargeableAmount(0.49)).toBe(false);
+    expect(isChargeableAmount(0.5)).toBe(true);
+    expect(isChargeableAmount(1)).toBe(true);
+  });
+});
+
 describe("isCollectiblePeriod", () => {
   it("only permits an open period with a positive balance", () => {
     expect(isCollectiblePeriod(inv({ balance: 500 }), "active")).toBe(true);
     expect(isCollectiblePeriod(inv({ balance: 0 }), "active")).toBe(false);
+    // A residue below display precision can't be collected (the ledger's
+    // ≤-balance guard rejects even a ₹1 payment against it).
+    expect(isCollectiblePeriod(inv({ balance: 0.32 }), "active")).toBe(false);
     expect(isCollectiblePeriod(inv({ state: "void", balance: 500 }), "active")).toBe(false);
   });
 

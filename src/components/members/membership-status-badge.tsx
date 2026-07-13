@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import type { InvoicePaymentState } from "@/lib/memberships/periods";
 import type {
   MembershipStatus,
   MembershipFeeStatus,
@@ -66,10 +67,33 @@ const INVOICE_VARIANT: Record<
   unpaid: { label: "Unpaid", variant: "warning" },
   upcoming: { label: "Upcoming", variant: "info" },
   void: { label: "Void", variant: "neutral" },
+  no_charge: { label: "No charge", variant: "neutral" },
 };
 
 export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   const s = INVOICE_VARIANT[status];
+  return <Badge variant={s.variant}>{s.label}</Badge>;
+}
+
+/**
+ * The PAYMENT axis of a billing period (the invoice table's "Payment"
+ * column + the invoice dialog's summary row) — kept separate from the
+ * cycle's lifecycle pill (Current/Past/Upcoming/Void). "No charge" is
+ * the neutral case: the cycle billed nothing and collected nothing (a
+ * pro-rated stub from a plan change, or a zero-fee cycle), so neither
+ * "Paid" nor "Due" would be true. Derive with `invoicePaymentState()`.
+ */
+const INVOICE_PAYMENT_VARIANT: Record<
+  InvoicePaymentState,
+  { label: string; variant: "success" | "warning" | "neutral" }
+> = {
+  paid: { label: "Paid", variant: "success" },
+  due: { label: "Due", variant: "warning" },
+  no_charge: { label: "No charge", variant: "neutral" },
+};
+
+export function InvoicePaymentBadge({ state }: { state: InvoicePaymentState }) {
+  const s = INVOICE_PAYMENT_VARIANT[state];
   return <Badge variant={s.variant}>{s.label}</Badge>;
 }
 

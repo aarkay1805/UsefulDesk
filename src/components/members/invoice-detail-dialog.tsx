@@ -5,7 +5,11 @@ import { Loader2, RefreshCw, RotateCcw, Wallet, Repeat } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/hooks/use-locale";
-import { isProjectedInvoice } from "@/lib/memberships/periods";
+import {
+  isProjectedInvoice,
+  invoicePaymentState,
+  isChargeableAmount,
+} from "@/lib/memberships/periods";
 import type { MembershipPeriodInvoice, Payment, PaymentMethod } from "@/types";
 import {
   Dialog,
@@ -19,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { PaymentProofLink } from "./payment-proof-link";
-import { VoidedPaymentBadge } from "./membership-status-badge";
+import { VoidedPaymentBadge, InvoicePaymentBadge } from "./membership-status-badge";
 import { CopyUpiLinkButton, useUpiConfig } from "./copy-upi-link-button";
 import { useAccountStaff } from "./use-account-staff";
 
@@ -152,7 +156,11 @@ export function InvoiceDetailDialog({
     voidableCount === 1 &&
     (lifecycle === "Current" || lifecycle === "Past");
   const showRenew = canAct && projected;
-  const showCollect = canAct && !projected && balance > 0 && invoice.state !== "void";
+  // Money below display precision (a ₹0.32 plan-change stub) isn't
+  // collectible — the ledger's ≤-balance guard would reject any whole-unit
+  // payment against it, so don't offer Record / Copy-UPI on one.
+  const showCollect =
+    canAct && !projected && isChargeableAmount(balance) && invoice.state !== "void";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -181,7 +189,7 @@ export function InvoiceDetailDialog({
             <SummaryRow label="Balance">
               <span
                 className={
-                  balance > 0
+                  isChargeableAmount(balance)
                     ? "text-amber-700 tabular-nums dark:text-amber-400"
                     : "tabular-nums"
                 }
@@ -190,9 +198,11 @@ export function InvoiceDetailDialog({
               </span>
             </SummaryRow>
             <SummaryRow label="Payment">
-              <Badge variant={projected ? "info" : balance <= 0 ? "success" : "warning"}>
-                {projected ? "Estimate" : balance <= 0 ? "Paid" : "Due"}
-              </Badge>
+              {projected ? (
+                <Badge variant="info">Estimate</Badge>
+              ) : (
+                <InvoicePaymentBadge state={invoicePaymentState(invoice)} />
+              )}
             </SummaryRow>
             <SummaryRow label="Cycle">
               <Badge
