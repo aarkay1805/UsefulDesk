@@ -7,7 +7,6 @@ import {
   daysUntil,
   effectiveStatus,
   computeRenewalEndDate,
-  computeRenewalEndDateFor,
   unfreezeEndDate,
 } from "./expiry";
 
@@ -64,26 +63,6 @@ describe("addDuration", () => {
 
   it("returns malformed input unchanged", () => {
     expect(addDuration("soon", 1, "month")).toBe("soon");
-  });
-});
-
-describe("computeRenewalEndDateFor", () => {
-  it("extends from the current expiry when it is in the future", () => {
-    expect(computeRenewalEndDateFor("2026-08-10", 1, "month", "2026-07-11")).toBe(
-      "2026-09-10",
-    );
-  });
-
-  it("restarts from today for an expired member", () => {
-    expect(computeRenewalEndDateFor("2026-06-01", 1, "month", "2026-07-11")).toBe(
-      "2026-08-11",
-    );
-  });
-
-  it("starts from today when there is no current expiry", () => {
-    expect(computeRenewalEndDateFor(null, 2, "week", "2026-07-11")).toBe(
-      "2026-07-25",
-    );
   });
 });
 

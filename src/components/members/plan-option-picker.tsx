@@ -75,11 +75,22 @@ export function PlanOptionPicker({
   const options = selectedPlan ? activeOptions(selectedPlan) : [];
   const selectedOption = options.find((o) => o.id === optionId) ?? null;
 
-  function optionLabel(o: PlanPricingOption): string {
-    const base = `${durationLabel(o.duration_count, o.duration_unit)} · ${fmt.money(o.price)}`;
-    return o.setup_fee > 0
-      ? `${base} (+${fmt.money(o.setup_fee)} joining fee)`
-      : base;
+  // Money sits in tabular-nums (repo convention) — these labels render in
+  // real DOM (SelectItems + the single-option summary), not native options.
+  function optionLabel(o: PlanPricingOption): ReactNode {
+    return (
+      <>
+        {durationLabel(o.duration_count, o.duration_unit)} ·{" "}
+        <span className="tabular-nums">{fmt.money(o.price)}</span>
+        {o.setup_fee > 0 && (
+          <>
+            {" "}
+            (+<span className="tabular-nums">{fmt.money(o.setup_fee)}</span>{" "}
+            joining fee)
+          </>
+        )}
+      </>
+    );
   }
 
   function planLabel(p: MembershipPlan): string {

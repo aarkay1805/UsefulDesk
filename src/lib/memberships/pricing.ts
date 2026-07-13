@@ -49,6 +49,21 @@ export function renewalFee(option: Pick<PlanPricingOption, "price">): number {
   return Number(option.price);
 }
 
+/**
+ * Whether a membership participates in the renewal chase (cron
+ * reminders, Renewals action lists, auto-pay eligibility). Only
+ * RECURRING plans renew; fixed-term plans expire quietly and session
+ * packs surface via session counts. A NULL plan = a legacy row that
+ * keeps its reminders (pre-062 behavior) — that `!plan ||` branch is
+ * load-bearing, which is why this is a named predicate and not an
+ * inline comparison at each surface (same rule as roles.ts).
+ */
+export function isRenewalChaseable(
+  plan: { plan_type: MembershipPlan["plan_type"] | string | null } | null | undefined,
+): boolean {
+  return !plan || plan.plan_type === "recurring";
+}
+
 const UNIT_LABEL: Record<DurationUnit, string> = {
   day: "day",
   week: "week",

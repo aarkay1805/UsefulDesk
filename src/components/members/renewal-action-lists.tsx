@@ -18,6 +18,7 @@ import {
   daysUntil,
   effectiveStatus,
 } from "@/lib/memberships/expiry";
+import { isRenewalChaseable } from "@/lib/memberships/pricing";
 import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -111,11 +112,8 @@ export function RenewalActionLists({
       ]);
       if (cancelled) return;
 
-      // Only RECURRING plans belong in the renewal chase (062):
-      // fixed-term plans expire quietly, session packs surface via
-      // session counts. NULL-plan legacy rows stay (pre-062 behavior).
-      const isChaseable = (m: Membership) =>
-        !m.plan || m.plan.plan_type === "recurring";
+      // Only RECURRING plans belong in the renewal chase (062).
+      const isChaseable = (m: Membership) => isRenewalChaseable(m.plan);
       setExpiring(((expiringRes.data as Membership[]) ?? []).filter(isChaseable));
       setExpired(((expiredRes.data as Membership[]) ?? []).filter(isChaseable));
       setLoading(false);

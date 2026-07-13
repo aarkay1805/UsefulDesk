@@ -32,14 +32,12 @@ import {
   canManageMandates,
 } from "@/lib/auth/roles";
 import { effectiveStatus, daysUntil, unfreezeEndDate } from "@/lib/memberships/expiry";
-import { dayStartInTz } from "@/lib/locale/format";
+import { isRenewalChaseable } from "@/lib/memberships/pricing";
 import {
-  attendanceUsage,
-  checkInWarning,
-  membershipUsageWindowStart,
-  sessionsRemaining,
+  usageSummary,
   type CheckInWarning,
 } from "@/lib/memberships/attendance-limits";
+import { fetchCheckInUsage } from "@/lib/memberships/check-in";
 import type {
   Membership,
   Payment,
@@ -247,30 +245,19 @@ export function MemberDetailView({
 
       // Usage vs the plan's limit / pack size (062) — count visits in
       // the plan's window. Not load-critical.
-      const windowStart = membershipUsageWindowStart(
+      const usage = await fetchCheckInUsage(
+        supabase,
         m as Membership,
         fmt.today(),
-        locale.weekStart,
+        locale,
       );
-      if (windowStart) {
-        const startInstant = (
-          dayStartInTz(windowStart, locale.timeZone) ?? new Date(0)
-        ).toISOString();
-        const { count } = await supabase
-          .from("attendance")
-          .select("id", { count: "exact", head: true })
-          .eq("membership_id", membershipId)
-          .gte("checked_in_at", startInstant);
-        if (cancelled) return;
-        setUsageCount(count ?? 0);
-      } else {
-        setUsageCount(null);
-      }
+      if (cancelled) return;
+      setUsageCount(usage ? usage.used : null);
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, membershipId, nonce, supabase, fmt, locale.timeZone, locale.weekStart]);
+  }, [open, membershipId, nonce, supabase, fmt, locale]);
 
   // Scrollspy — highlight whichever section sits near the top of the
   // scroll body. Re-arms once the sections mount (membership loaded).
@@ -378,34 +365,15 @@ export function MemberDetailView({
   async function checkIn() {
     if (!membership || !user) return;
     // Limit check (062): fresh count → warn-with-override, never a block.
-    const windowStart = membershipUsageWindowStart(
-      membership,
-      today,
-      locale.weekStart,
-    );
-    if (membership.plan && windowStart) {
-      setBusy(true);
-      try {
-        const startInstant = (
-          dayStartInTz(windowStart, locale.timeZone) ?? new Date(0)
-        ).toISOString();
-        const { count } = await supabase
-          .from("attendance")
-          .select("id", { count: "exact", head: true })
-          .eq("membership_id", membership.id)
-          .gte("checked_in_at", startInstant);
-        const used = count ?? 0;
-        setUsageCount(used);
-        const warning = checkInWarning(membership.plan, used);
-        if (warning) {
-          setBusy(false);
-          setOverrideWarning(warning);
-          return;
-        }
-      } catch {
-        // Counting failed — never block the front desk; fall through.
-      } finally {
-        setBusy(false);
+    // A failed count returns null — never block the front desk.
+    setBusy(true);
+    const result = await fetchCheckInUsage(supabase, membership, today, locale);
+    setBusy(false);
+    if (result) {
+      setUsageCount(result.used);
+      if (result.warning) {
+        setOverrideWarning(result.warning);
+        return;
       }
     }
     await doCheckInInsert();
@@ -446,22 +414,16 @@ export function MemberDetailView({
     canManageMandates(accountRole) &&
     membership.status === "active" &&
     !membership.is_trial &&
-    (!membership.plan || membership.plan.plan_type === "recurring") &&
+    isRenewalChaseable(membership.plan) &&
     !mandate;
 
   // Usage vs limit / sessions left (062) — the Attendance section line.
-  const usageLine = (() => {
-    if (!membership?.plan || usageCount === null) return null;
-    if (membership.plan.plan_type === "session_pack" && membership.plan.sessions_count) {
-      const left = sessionsRemaining(membership.plan.sessions_count, usageCount);
-      return {
-        text: `${left} of ${membership.plan.sessions_count} sessions left`,
-        danger: left === 0,
-      };
-    }
-    const u = attendanceUsage(membership.plan, usageCount);
-    return u.label ? { text: u.label, danger: u.exceeded } : null;
-  })();
+  const usagePlan = membership?.plan ?? null;
+  const usageStats =
+    usagePlan && usageCount !== null ? usageSummary(usagePlan, usageCount) : null;
+  const usageLine = usageStats
+    ? { text: usageStats.label, danger: usageStats.danger }
+    : null;
 
   const activeInvoice = activeInvoiceId
     ? (invoices.find((inv) => inv.id === activeInvoiceId) ?? null)

@@ -114,9 +114,16 @@ export function MemberForm({
   const [checkingDup, setCheckingDup] = useState(false);
 
   const selectedPlan = plans.find((p) => p.id === planId);
+  // An ARCHIVED option still resolves when it's the membership's own
+  // (edit mode) — otherwise a routine edit of a member whose option was
+  // retired would fall back to the plan's frozen legacy duration and
+  // silently rewrite their cycle length. New picks stay active-only.
   const selectedOption =
-    selectedPlan?.pricing_options?.find((o) => o.id === optionId && o.is_active) ??
-    null;
+    selectedPlan?.pricing_options?.find(
+      (o) =>
+        o.id === optionId &&
+        (o.is_active || (isEdit && o.id === member?.pricing_option_id)),
+    ) ?? null;
   // The fee the first payment settles against, mirroring submit's
   // fallback: blank fee field = the option's first-cycle fee (price +
   // one-time joining fee, migration 062).
@@ -128,12 +135,15 @@ export function MemberForm({
       : Number(feeAmount) || 0;
 
   // Paid-membership expiry: the picked billing option drives it; a
-  // legacy membership without an option falls back to the plan's frozen
-  // duration_days so editing an un-migrated row still works.
+  // legacy membership without an option (edit mode, plan unchanged)
+  // keeps its CURRENT cycle length — never the plan's frozen
+  // duration_days, which mirrors the first option and may not be this
+  // member's duration.
   function paidEndDate(): string | null {
     if (selectedOption) return optionEndDate(startDate, selectedOption);
-    if (isEdit && selectedPlan?.duration_days) {
-      return istAddDays(startDate, selectedPlan.duration_days);
+    if (isEdit && member && planId === member.plan_id) {
+      const len = daysBetween(member.start_date, member.end_date);
+      if (Number.isFinite(len) && len > 0) return istAddDays(startDate, len);
     }
     return null;
   }
@@ -226,12 +236,14 @@ export function MemberForm({
 
     // Trials are free; a paid member's fee seeds from the option's
     // first-cycle fee (price + one-time joining fee).
+    // No-option (legacy edit) rows fall back to the membership's own fee,
+    // not the plan's frozen price (which mirrors the first option only).
     const fee = isTrial
       ? 0
       : feeAmount === ""
         ? selectedOption
           ? firstCycleFee(selectedOption)
-          : Number(plan!.price)
+          : Number(member?.fee_amount ?? 0)
         : Number(feeAmount);
     if (!Number.isFinite(fee) || fee < 0) return toast.error("Enter a valid fee");
 
