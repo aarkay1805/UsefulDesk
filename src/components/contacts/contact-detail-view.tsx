@@ -32,11 +32,13 @@ export function ContactDetailView({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        // The sheet master caps side=right at sm:max-w-sm (384px) via a
-        // data-variant, which beats a plain sm:max-w-*. Match the
-        // variant to actually widen: 500px fits the follow-up row on
-        // one line.
-        className="bg-popover border-border text-popover-foreground data-[side=right]:sm:max-w-[500px] w-full p-0"
+        // The sheet master sets `data-[side=right]:w-3/4` + `:sm:max-w-sm`
+        // (384px), and tailwind-merge only dedupes utilities of the SAME
+        // variant — so BOTH overrides must carry the data-[side=right]:
+        // prefix. A bare `w-full` loses and pins the sheet to 75vw, which
+        // only showed up on a phone (on desktop the max-w capped it first).
+        // 500px fits the follow-up row on one line.
+        className="bg-popover border-border text-popover-foreground p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-[500px]"
       >
         <ContactDetailContent
           contactId={contactId}

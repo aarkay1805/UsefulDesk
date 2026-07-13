@@ -11,14 +11,14 @@ import type { Conversation, Message, Contact, ConversationStatus } from "@/types
 import { useRealtime } from "@/hooks/use-realtime";
 import { ConversationList } from "@/components/inbox/conversation-list";
 import { MessageThread } from "@/components/inbox/message-thread";
-import { ContactSidebar } from "@/components/inbox/contact-sidebar";
+import {
+  ContactSidebar,
+  ContactProfileSheet,
+} from "@/components/inbox/contact-sidebar";
+import { useMatchMedia } from "@/hooks/use-match-media";
 import { toast } from "sonner";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Remembers the agent's show/hide choice for the desktop contact panel
-// across reloads and sessions (device-scoped, like the theme prefs).
-const CONTACT_PANEL_STORAGE_KEY = "wacrm:inbox:contact-panel-open";
 
 export default function InboxPage() {
   const router = useRouter();
@@ -49,32 +49,30 @@ export default function InboxPage() {
 
   /**
    * Whether the desktop contact panel (the shared lead detail surface) is
-   * shown. Defaults to `true` (the historical behaviour) and is restored from
-   * localStorage after mount. We deliberately do NOT read localStorage in
-   * the initializer: the server renders with `true`, so reading a stored
-   * `false` synchronously would produce a hydration mismatch. The effect
-   * below reconciles to the stored value right after mount instead.
+   * shown. Starts CLOSED: selecting a conversation opens the chat and
+   * nothing else — the panel is revealed on demand by clicking the
+   * contact's avatar (in the conversation row or the thread header) or the
+   * header's panel toggle. Once open it's sticky: it follows whichever
+   * conversation you select until you close it.
+   *
+   * Deliberately NOT persisted. It used to default `true` and round-trip
+   * through localStorage, which meant a stored `true` would re-open it on
+   * every load and defeat the default.
    */
-  const [contactPanelOpen, setContactPanelOpen] = useState(true);
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(CONTACT_PANEL_STORAGE_KEY);
-      if (stored !== null) setContactPanelOpen(stored === "true");
-    } catch {
-      // localStorage can throw in private-browsing / sandboxed contexts.
-    }
-  }, []);
+  const [contactPanelOpen, setContactPanelOpen] = useState(false);
+
+  // `lg` — the breakpoint at which the inbox stops being a single pane and
+  // the profile can live as a third column instead of an overlay Sheet.
+  const isDesktop = useMatchMedia("(min-width: 1024px)");
 
   const handleToggleContactPanel = useCallback(() => {
-    setContactPanelOpen((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(CONTACT_PANEL_STORAGE_KEY, String(next));
-      } catch {
-        // Persistence is best-effort; ignore storage failures.
-      }
-      return next;
-    });
+    setContactPanelOpen((prev) => !prev);
+  }, []);
+
+  // Avatar click in the thread header — reveal, never hide (the toggle
+  // button owns hiding, so a second avatar click can't yank the panel away).
+  const handleOpenContactPanel = useCallback(() => {
+    setContactPanelOpen(true);
   }, []);
 
   // Fire the deep-link auto-select exactly once per URL — subsequent
@@ -496,6 +494,17 @@ export default function InboxPage() {
     [activeConversation?.id, router]
   );
 
+  // Avatar click in a conversation ROW: select that conversation and reveal
+  // the panel in one go. handleSelectConversation no-ops when the row is
+  // already active, so clicking the active row's avatar just opens the panel.
+  const handleOpenProfileFromList = useCallback(
+    (conv: Conversation) => {
+      handleSelectConversation(conv);
+      setContactPanelOpen(true);
+    },
+    [handleSelectConversation]
+  );
+
   // Mobile "back" — deselect the conversation so the list pane comes
   // back. Also clears the ?c= param so a refresh lands on the list
   // instead of re-opening the thread the user just backed out of.
@@ -616,6 +625,7 @@ export default function InboxPage() {
             onSelect={handleSelectConversation}
             conversations={conversations}
             onConversationsLoaded={handleConversationsLoaded}
+            onOpenProfile={handleOpenProfileFromList}
             resyncToken={resyncToken}
           />
         </div>
@@ -650,13 +660,12 @@ export default function InboxPage() {
             onRefresh={handleManualRefresh}
             contactPanelOpen={contactPanelOpen}
             onToggleContactPanel={handleToggleContactPanel}
+            onOpenContactPanel={handleOpenContactPanel}
           />
         </div>
 
-        {/* Right panel: Contact sidebar — desktop only, and only when the
-            agent hasn't collapsed it via the thread-header toggle (#258).
-            On mobile it's always hidden (the `lg:block` below), so the
-            toggle — which is itself desktop-only — never affects it. */}
+        {/* Right panel: contact profile — desktop only, opened on demand by
+            clicking a contact's avatar (or the thread-header toggle, #258). */}
         {contactPanelOpen && (
           <div className="hidden lg:block">
             <ContactSidebar
@@ -664,6 +673,20 @@ export default function InboxPage() {
               onUpdated={handleContactUpdated}
             />
           </div>
+        )}
+
+        {/* ...and its mobile face. Below lg the inbox is a single pane, so
+            there's no room for a third column — the same surface arrives as
+            an overlay Sheet. Gated in JS, not CSS: a Sheet portals to
+            <body>, so a `lg:hidden` wrapper would style the wrapper and let
+            the overlay open on desktop anyway, on top of the inline panel. */}
+        {!isDesktop && (
+          <ContactProfileSheet
+            open={contactPanelOpen}
+            onOpenChange={setContactPanelOpen}
+            contact={activeContact}
+            onUpdated={handleContactUpdated}
+          />
         )}
       </div>
     </div>

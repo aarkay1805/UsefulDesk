@@ -13,6 +13,7 @@ import { ChevronDown, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { SearchInput } from "@/components/ui/search-input";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -27,6 +28,11 @@ interface ConversationListProps {
   onSelect: (conversation: Conversation) => void;
   conversations: Conversation[];
   onConversationsLoaded: (conversations: Conversation[]) => void;
+  /**
+   * Clicking a row's avatar: select that conversation AND reveal the
+   * contact panel (which is closed by default).
+   */
+  onOpenProfile: (conversation: Conversation) => void;
   /**
    * Increment to force the fetch effect below to refire. The parent
    * bumps this on realtime reconnect / tab visibility → visible so the
@@ -59,6 +65,7 @@ export function ConversationList({
   onSelect,
   conversations,
   onConversationsLoaded,
+  onOpenProfile,
   resyncToken = 0,
 }: ConversationListProps) {
   const [search, setSearch] = useState("");
@@ -401,6 +408,7 @@ export function ConversationList({
                 conversation={conv}
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
+                onOpenProfile={onOpenProfile}
               />
             ))}
           </div>
@@ -414,20 +422,33 @@ interface ConversationItemProps {
   conversation: Conversation;
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
+  /** Avatar click — select this conversation AND reveal the contact panel. */
+  onOpenProfile: (conversation: Conversation) => void;
 }
 
 function ConversationItem({
   conversation,
   isActive,
   onSelect,
+  onOpenProfile,
 }: ConversationItemProps) {
   const contact = conversation.contact;
   const displayName = contact?.name || contact?.phone || "Unknown";
-  const initials = displayName.charAt(0).toUpperCase();
 
   const handleClick = useCallback(() => {
     onSelect(conversation);
   }, [onSelect, conversation]);
+
+  const handleAvatarClick = useCallback(
+    (e: React.MouseEvent) => {
+      // Don't let the row's own handler also fire — it would select the
+      // conversation without opening the panel, and onOpenProfile already
+      // selects it.
+      e.stopPropagation();
+      onOpenProfile(conversation);
+    },
+    [onOpenProfile, conversation]
+  );
 
   const timeAgo = conversation.last_message_at
     ? formatDistanceToNow(new Date(conversation.last_message_at), {
@@ -436,33 +457,49 @@ function ConversationItem({
     : "";
 
   return (
-    <button
+    // A plain clickable div, NOT a <button> and NOT role="button": the row
+    // now contains real buttons (avatar, name), and ARIA forbids focusable
+    // descendants inside a button — nesting them also pollutes the row's
+    // accessible name with the avatar's label. Exactly the leads board
+    // card's shape: the div's onClick is the pointer convenience, the NAME
+    // is the real button that carries the keyboard/AT path. A non-button
+    // clickable needs cursor-pointer spelled out, per the base cursor rule.
+    <div
       onClick={handleClick}
       className={cn(
-        "flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/50",
+        "flex w-full cursor-pointer items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/50",
         isActive && "border-l-2 border-primary bg-muted/70"
       )}
     >
-      {/* Avatar */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
-        {contact?.avatar_url ? (
-          <img
-            src={contact.avatar_url}
-            alt={displayName}
-            className="h-10 w-10 rounded-full object-cover"
-          />
-        ) : (
-          initials
-        )}
-      </div>
+      {/* Avatar — opens the contact profile instead of the conversation. */}
+      <button
+        type="button"
+        onClick={handleAvatarClick}
+        aria-label={`Open ${displayName}'s profile`}
+        title="Open profile"
+        className="shrink-0 rounded-full transition-opacity hover:opacity-80"
+      >
+        <UserAvatar
+          name={displayName}
+          src={contact?.avatar_url}
+          className="size-10"
+        />
+      </button>
 
       {/* Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-sm font-medium text-foreground">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClick();
+              }}
+              className="min-w-0 truncate text-left text-sm font-medium text-foreground hover:underline"
+            >
               {displayName}
-            </span>
+            </button>
             {/* Member vs lead — so staff know at a glance who they're
                 replying to. `isMember` is derived from the embedded
                 membership row in CONVERSATION_SELECT. */}
@@ -495,6 +532,6 @@ function ConversationItem({
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 }

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { format, isToday, isYesterday, differenceInHours } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -108,6 +109,8 @@ interface MessageThreadProps {
    */
   contactPanelOpen?: boolean;
   onToggleContactPanel?: () => void;
+  /** Header avatar click — reveal the contact panel (never hide it). */
+  onOpenContactPanel?: () => void;
 }
 
 // Older separators format through the account locale (fmt passed in —
@@ -168,6 +171,7 @@ export function MessageThread({
   onRefresh,
   contactPanelOpen,
   onToggleContactPanel,
+  onOpenContactPanel,
 }: MessageThreadProps) {
   const { user } = useAuth();
   const { fmt } = useLocale();
@@ -839,9 +843,22 @@ export function MessageThread({
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
-            {displayName.charAt(0).toUpperCase()}
-          </div>
+          {/* Avatar — opens the contact panel (closed by default). Routed
+              through UserAvatar so the member's uploaded photo shows here
+              too; this used to render the bare initial and ignore it. */}
+          <button
+            type="button"
+            onClick={onOpenContactPanel}
+            aria-label={`Open ${displayName}'s profile`}
+            title="Open profile"
+            className="flex-shrink-0 rounded-full transition-opacity hover:opacity-80"
+          >
+            <UserAvatar
+              name={displayName}
+              src={contact.avatar_url}
+              className="size-9"
+            />
+          </button>
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold text-foreground">{displayName}</h2>
             <p className="truncate text-xs text-muted-foreground">{contact.phone}</p>
