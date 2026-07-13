@@ -177,6 +177,7 @@ export function MemberDetailView({
 
   // Jump-nav active section (scrollspy).
   const scrollRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState<string>("membership");
 
   useEffect(() => {
@@ -280,6 +281,27 @@ export function MemberDetailView({
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, [membership?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep the lit tab visible. The strip scrolls sideways once the labels
+  // outgrow it (~4 of 7 fit at 390px), so on mobile the scrollspy could
+  // light a tab parked off-screen — the nav then reads as having no active
+  // section at all. Centre it in the strip instead of scrollIntoView(),
+  // which would also yank the vertical scroll body.
+  useEffect(() => {
+    const scroller = navRef.current;
+    if (!scroller) return;
+    const idx = SECTIONS.findIndex((s) => s.id === activeSection);
+    const tab = scroller.querySelectorAll<HTMLElement>('[data-slot="tabs-trigger"]')[idx];
+    if (!tab) return;
+    if (scroller.scrollWidth <= scroller.clientWidth) return; // nothing to scroll (desktop)
+    const left = tab.offsetLeft - (scroller.clientWidth - tab.offsetWidth) / 2;
+    scroller.scrollTo({
+      left: Math.max(0, left),
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  }, [activeSection]);
 
   function jumpTo(id: string) {
     setActiveSection(id);
@@ -568,7 +590,10 @@ export function MemberDetailView({
               {/* Jump nav — reads as part of the header (white), divider
                   after the tabs; sticky under it while scrolling. */}
               <div className="border-border bg-background sticky top-0 z-10 border-b">
-                <div className="[scrollbar-width:none] overflow-x-auto px-4 sm:px-5 [&::-webkit-scrollbar]:hidden">
+                <div
+                  ref={navRef}
+                  className="[scrollbar-width:none] overflow-x-auto px-4 sm:px-5 [&::-webkit-scrollbar]:hidden"
+                >
                   <Tabs value={activeSection} onValueChange={(v) => v && jumpTo(v)}>
                     <TabsList variant="line" className="h-11">
                       {SECTIONS.map((s) => (

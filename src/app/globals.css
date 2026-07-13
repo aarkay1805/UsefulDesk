@@ -311,6 +311,18 @@ html[data-mode="light"][data-theme="amber"] {
     @apply font-sans;
   }
 
+  /* Hand cursor on anything clickable. Tailwind v4's Preflight sets
+     `button { cursor: default }` (matching the UA default), so WITHOUT this
+     every button in the product — Renew, Add member, tabs, dropdown and
+     select triggers, icon buttons — showed an arrow while links, checkboxes
+     and table rows showed a hand. Fixing it per-component is what caused
+     that drift, so it lives here once. `:disabled` keeps the arrow (a
+     dead control must not advertise itself as clickable). */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
   /* Number inputs: hide the native increment/decrement spinners
      everywhere (they crowd small inline editors); stepping via the
      keyboard arrows / scroll still works. */
