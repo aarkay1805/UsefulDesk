@@ -44,8 +44,21 @@ function Select<Value, Multiple extends boolean | undefined = false>({
       ? (collected as ReadonlyArray<{ value: Value; label: React.ReactNode }>)
       : undefined
   }, [items, children])
+
+  // Base UI reads `value: undefined` as UNCONTROLLED, but "nothing picked yet"
+  // is written `value={x || undefined}` all over the app — so a Select started
+  // uncontrolled and became controlled on the first pick (React warns, and a
+  // programmatic reset can't move an uncontrolled trigger). Passing the `value`
+  // key at all means controlled, so an undefined value there really means null
+  // (= controlled, placeholder shown). A truly uncontrolled Select passes no
+  // `value` key (it uses `defaultValue`) and is left alone.
+  const rootProps =
+    "value" in props && props.value === undefined
+      ? { ...props, value: null }
+      : props
+
   return (
-    <SelectPrimitive.Root items={derivedItems} {...props}>
+    <SelectPrimitive.Root items={derivedItems} {...rootProps}>
       {children}
     </SelectPrimitive.Root>
   )

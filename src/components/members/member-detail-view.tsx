@@ -446,7 +446,13 @@ export function MemberDetailView({
         // The sheet master caps side=right at sm:max-w-sm via a
         // data-variant, which beats a plain sm:max-w-* — match the
         // variant to actually widen (same trick as the contact sheet).
-        className="w-full gap-0 p-0 data-[side=right]:sm:max-w-[1200px]"
+        // Grows to fill available space instead of leaving it empty with
+        // scrollbars inside (min() = viewport-minus-a-sliver, hard-capped at
+        // 1200px so it doesn't sprawl on an ultrawide). Width must also carry
+        // the data-[side=right] variant — the master sets
+        // data-[side=right]:w-3/4, and a bare w-full doesn't beat it
+        // (tailwind-merge only dedupes same-variant utilities).
+        className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-[min(1200px,calc(100vw-2rem))]"
       >
         {loadError ? (
           <div className="flex h-full items-center justify-center p-6">
@@ -486,8 +492,8 @@ export function MemberDetailView({
                     <UserAvatar
                       name={membership.contact?.name || "?"}
                       src={membership.contact?.avatar_url}
-                      className="size-14"
-                      fallbackClassName="text-lg"
+                      className="size-11 sm:size-14"
+                      fallbackClassName="text-base sm:text-lg"
                     />
                     <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover/avatar-edit:opacity-100">
                       <Camera className="size-5" />
@@ -497,13 +503,13 @@ export function MemberDetailView({
                   <UserAvatar
                     name={membership.contact?.name || "?"}
                     src={membership.contact?.avatar_url}
-                    className="size-14"
-                    fallbackClassName="text-lg"
+                    className="size-11 sm:size-14"
+                    fallbackClassName="text-base sm:text-lg"
                   />
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <SheetTitle className="text-lg">
+                    <SheetTitle className="text-base sm:text-lg">
                       {membership.contact?.name || "Unnamed member"}
                     </SheetTitle>
                     {membership.is_trial && <TrialBadge />}
@@ -529,7 +535,10 @@ export function MemberDetailView({
                     </span>
                   </SheetDescription>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                {/* Actions take their own full-width row on mobile (the
+                    identity block above is already tight at 390px), and the
+                    two buttons split it evenly. */}
+                <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-none">
                   <SendReminderButton
                     membership={membership}
                     readiness={readiness}
@@ -574,7 +583,10 @@ export function MemberDetailView({
 
               {/* Main column (sections) + sticky BMI rail. */}
               <div className="p-4 sm:p-5">
-                <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_310px]">
+                <div className="grid items-start gap-4 lg:grid-cols-[minmax(640px,1fr)_310px]">
+                  {/* min-w-0 (not a px floor) — the lg grid track already
+                      floors the column at 640px; a raw min-width would also
+                      apply on mobile and force the whole sheet to scroll. */}
                   <div className="flex min-w-0 flex-col gap-4">
                     {/* Membership */}
                     <Section id="membership">
@@ -782,16 +794,24 @@ export function MemberDetailView({
                                     <Table>
                                       <TableHeader>
                                         <TableRow className="hover:bg-transparent">
+                                          {/* Paid / Balance / Cycle drop below sm —
+                                              7 columns can't read at 390px, and the
+                                              row opens InvoiceDetailDialog, which
+                                              carries every one of them. */}
                                           <TableHead className="text-xs">Period</TableHead>
                                           <TableHead className="text-right text-xs">
                                             Invoice
                                           </TableHead>
-                                          <TableHead className="text-right text-xs">Paid</TableHead>
-                                          <TableHead className="text-right text-xs">
+                                          <TableHead className="hidden text-right text-xs sm:table-cell">
+                                            Paid
+                                          </TableHead>
+                                          <TableHead className="hidden text-right text-xs sm:table-cell">
                                             Balance
                                           </TableHead>
                                           <TableHead className="text-xs">Payment</TableHead>
-                                          <TableHead className="text-xs">Cycle</TableHead>
+                                          <TableHead className="hidden text-xs sm:table-cell">
+                                            Cycle
+                                          </TableHead>
                                           <TableHead className="w-8">
                                             <span className="sr-only">Details</span>
                                           </TableHead>
@@ -815,16 +835,28 @@ export function MemberDetailView({
                                               className="cursor-pointer"
                                             >
                                               <TableCell className="font-medium">
-                                                {fmt.date(inv.period_start)} –{" "}
-                                                {fmt.date(inv.period_end)}
+                                                {/* Stacked numeric range on mobile —
+                                                    a nowrap "19 Jul 2026 – 19 Aug
+                                                    2026" is 196px, over half the
+                                                    table's width at 390px. */}
+                                                <span className="flex flex-col leading-tight tabular-nums sm:hidden">
+                                                  <span>{fmt.dateShort(inv.period_start)}</span>
+                                                  <span className="text-muted-foreground">
+                                                    – {fmt.dateShort(inv.period_end)}
+                                                  </span>
+                                                </span>
+                                                <span className="hidden sm:inline">
+                                                  {fmt.date(inv.period_start)} –{" "}
+                                                  {fmt.date(inv.period_end)}
+                                                </span>
                                               </TableCell>
                                               <TableCell className="text-right tabular-nums">
                                                 {fmt.money(inv.fee_amount)}
                                               </TableCell>
-                                              <TableCell className="text-right text-emerald-700 tabular-nums dark:text-emerald-400">
+                                              <TableCell className="hidden text-right text-emerald-700 tabular-nums sm:table-cell dark:text-emerald-400">
                                                 {fmt.money(inv.amount_paid)}
                                               </TableCell>
-                                              <TableCell className="text-right font-medium tabular-nums">
+                                              <TableCell className="hidden text-right font-medium tabular-nums sm:table-cell">
                                                 {fmt.money(invBalance)}
                                               </TableCell>
                                               <TableCell>
@@ -834,7 +866,7 @@ export function MemberDetailView({
                                                   {invBalance <= 0 ? "Paid" : "Due"}
                                                 </Badge>
                                               </TableCell>
-                                              <TableCell>
+                                              <TableCell className="hidden sm:table-cell">
                                                 <Badge
                                                   variant={
                                                     lifecycle === "Void"
