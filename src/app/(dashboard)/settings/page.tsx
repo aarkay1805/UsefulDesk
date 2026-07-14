@@ -11,6 +11,7 @@ import { ProfileForm } from '@/components/settings/profile-form';
 import { SecurityPanel } from '@/components/settings/security-panel';
 import { AppearancePanel } from '@/components/settings/appearance-panel';
 import { WhatsAppConfig } from '@/components/settings/whatsapp-config';
+import { LeadCapturePanel } from '@/components/settings/lead-capture-panel';
 import { TemplateManager } from '@/components/settings/template-manager';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
 import { PlansSettings } from '@/components/settings/plans-settings';
@@ -60,6 +61,7 @@ export default function SettingsPage() {
     security: <SecurityPanel />,
     appearance: <AppearancePanel />,
     whatsapp: <WhatsAppConfig />,
+    capture: <LeadCapturePanel />,
     templates: <TemplateManager />,
     fields: <FieldsAndTagsPanel />,
     plans: <PlansSettings />,

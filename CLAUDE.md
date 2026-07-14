@@ -43,7 +43,9 @@ Don't preload them "just in case" — that's what made this file bloat in the fi
 - **Tenancy:** tenant = an `accounts` row; users belong to one via `profiles.account_id`. RBAC `owner > admin > agent > viewer` (`account_role_enum`), enforced by the RLS helper `is_account_member(account_id, min_role)` and mirrored in `src/lib/auth/roles.ts` + `useAuth()`. **Copy the RLS pattern from `supabase/migrations/017_account_sharing.sql`.**
 - **Role capabilities:** every "who can do X" check is a **named predicate** in `src/lib/auth/roles.ts` (+ a test in `roles.test.ts`), mirrored by an RLS policy. Adding a capability = one predicate + one policy. **No inline role comparisons at call-sites.**
 - **Authored content** (notes, comments, activity remarks) belongs to its **author**: only the author may edit; the author **or an admin/owner** may delete (moderation). Enforce in **BOTH** layers — RLS *and* UI (gate the affordance via a `roles.ts` predicate). **Never a UI-only gate.**
-- **Migrations:** sequential + idempotent in `supabase/migrations/` (enums in a `DO $$ IF NOT EXISTS` block, `CREATE TABLE/INDEX IF NOT EXISTS`, drop-then-create policies, reuse `update_updated_at_column()`). Latest = `063`. **Apply via the Supabase MCP `apply_migration`** against project `UsefulDesk` (`fwqthstqrkrwtaehefks`), then verify with a `pg_policies`/schema query. ⚠️ `supabase db push` **fails** on a migration-history mismatch with the MCP-applied timestamped file — always use MCP. Keep new files sequentially numbered.
+- **Migrations:** sequential + idempotent in `supabase/migrations/` (enums in a `DO $$ IF NOT EXISTS` block, `CREATE TABLE/INDEX IF NOT EXISTS`, drop-then-create policies, reuse `update_updated_at_column()`). Latest = `064`. **Apply via the Supabase MCP `apply_migration`** against project `UsefulDesk` (`fwqthstqrkrwtaehefks`), then verify with a `pg_policies`/schema query. ⚠️ `supabase db push` **fails** on a migration-history mismatch with the MCP-applied timestamped file — always use MCP. Keep new files sequentially numbered.
+- **Lead origin (`received_via`) is immutable and load-bearing.** Human origins (`manual`/`import`/NULL) render the owner; everything else renders an "Auto · <channel>" pill and is **ownership-LOCKED** (`050`/`052` refuse a transfer) — assign via the approval-gated `requestLeadAssignment` instead. **Auto-captured leads land `assigned_to = NULL`** (no round-robin exists; setting it fires `notify_lead_assigned` at someone who never agreed to own the lead). Any new capture path: pass `receivedVia` to `findOrCreateContact`, fire `new_contact_created` yourself (nothing else does), and **write a `contact_notes` row on dedupe too** — otherwise a repeat enquiry from a known number is invisible.
+- **Public (unauthenticated) endpoints:** token in the URL **path**, a `SECURITY DEFINER` RPC returning a **fixed shape** (a public endpoint leaks exactly what it selects), per-IP `checkRateLimit` *before* the DB, and a service-role write (RLS denies anon). On a public **write**: honeypot → **200, never 400** (a 400 tells the bot which field is the trap); identical success body whether the row was created or deduped (else it's a membership oracle); Turnstile fails **closed** in prod. The in-memory rate limiter is per-lambda — a speed bump, not a wall.
 
 ### Localization (never bypass)
 
@@ -75,7 +77,9 @@ Every account carries its own regional config on `accounts`: `country_code, loca
 
 ## Current state (keep ≤10 lines)
 
-Phase 1 (renewal wedge) and Phase 2 (India-first workflows) ship. Phase 3 is partial. Roadmap + what's left → [PRDs/roadmap.md](PRDs/roadmap.md).
+Phase 1 (renewal wedge) and Phase 2 (India-first workflows) ship — including lead capture (public form `/f/<token>` + Meta lead ads, migration `064`). Phase 3 is partial. Roadmap + what's left → [PRDs/roadmap.md](PRDs/roadmap.md).
+
+**Meta lead ads are built but dark** — the Settings card renders only once `NEXT_PUBLIC_META_LEADS_CONFIG_ID` is set, which waits on Meta App Review (`leads_retrieval` + `pages_manage_metadata`). Setting that env var is the entire launch.
 
 ---
 

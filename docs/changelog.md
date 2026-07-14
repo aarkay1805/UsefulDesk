@@ -283,3 +283,38 @@ PushPress-style plan restructure: `recurring` / `non_recurring` / `session_pack`
 Backfill: every plan got one day-unit option mirroring its legacy scalars; memberships + current periods were pointed at it. Verified via a rollback DO-block on live: calendar clamp (Jan 31 → Feb 28 → Mar 28), no-setup-fee renewal, idempotent retry, pack auto-renew rejection.
 
 Full model, `PLAN_COPY`, and the RPC-param gotcha → `docs/gym-domain.md`.
+
+---
+
+## Lead capture: public forms + Meta lead ads (Jul 2026, migration `064`)
+
+Closes Phase 2's last gap — until now a lead could only be *typed in, imported, or waited for*. Two inbound paths, one shared foundation.
+
+**Sequenced deliberately.** Meta needs App Review for `leads_retrieval` + `pages_manage_metadata` (weeks; resubmitting can re-queue the already-approved WhatsApp permissions). Forms have no such gate, so forms ship live and the Meta path sits **dark behind an unset `NEXT_PUBLIC_META_LEADS_CONFIG_ID`** — the card doesn't render until review clears.
+
+**Shared foundation.** `findOrCreateContact` (`src/lib/api/v1/contacts.ts`) gained optional `receivedVia` + `source` on `ContactInput` (not positional args → zero call-site churn; the public API still defaults to `'api'`, guarded by a test). New `addContactTags` — additive, unlike the sibling `setContactTags`, which *replaces* and would wipe a lead's existing tags on a second enquiry.
+
+- **Auto-captured leads land UNASSIGNED and ownership-LOCKED.** `user_id` = `resolveAuditUserId()`; `assigned_to` stays NULL (no round-robin exists, and setting it would fire `notify_lead_assigned` at someone who never agreed to own the lead). The lock is **free**: `050:137` / `052:93` already refuse a transfer when `received_via NOT IN ('manual','import')`, so adding `'form'` inherited it with zero SQL. Assignment still works via the approval-gated `request_lead_assignment`.
+- **Both paths always write a `contact_notes` row — on create AND on dedupe.** Without this a repeat enquiry from a known number is *completely invisible*: `findOrCreateContact` returns the existing row, `received_via` still reads `'manual'`, and no automation fires.
+- Both fire `new_contact_created` themselves. The trigger existed but was dispatched from exactly one place (the WhatsApp webhook) — nothing fires it for you.
+- Goal answer → a **tag**, not a new column (`GOAL_OPTIONS` in `leads/attributes.ts`). Keeps the blast radius at seven tags instead of ~8 files.
+
+**Capture forms** (`/f/<token>`, `src/app/f/`, `src/app/api/lead-forms/`). Bare top-level segment like `/join` — no `proxy.ts` change (`protectedPaths` is a prefix allowlist). Fixed field set, no builder. The submit route is **the product's only unauthenticated write**; defence order is rate-limit → honeypot → Turnstile → validate → write.
+
+- **The form token is PLAINTEXT, on purpose.** `account_invitations` hashes its token because that one grants *membership*, and pays for it by rotating on every copy. A form token grants no read of anything and lives in an Instagram bio, so it must be re-copyable. Revocation = `is_active` / rotate. Don't "fix" this.
+- **The honeypot returns 200, never 400** — a distinct status tells a bot which field is the trap.
+- **Success body is identical whether the contact was created or deduped**, or the endpoint becomes a free "is this number a lead at that gym?" oracle.
+- `lead_capture_submissions` snapshots `consent_text` per row (DPDP needs proof of *what* was agreed, not just that it was) and is `ON DELETE SET NULL` on `contact_id` — deleting a lead must not destroy its consent record. Service-role writes only; no client INSERT policy.
+- **Turnstile fails CLOSED in production** when `TURNSTILE_SECRET_KEY` is unset (503). The per-IP limiter is an in-memory Map, per-lambda — on Vercel's fan-out it's a speed bump, **Turnstile is the wall**.
+
+**Meta lead ads** (`src/app/api/meta/leads/`). Leadgen arrives on the **`page`** object, which gets its own callback URL + verify token — it cannot ride the WhatsApp webhook. Needs a **second FBLB config** (the WhatsApp Embedded Signup config is fixed-permission; page scopes can't be bolted on). `loadFbSdk` extracted to `src/lib/meta/fb-sdk.ts` so `FB.init` still runs once.
+
+- **Processes INLINE, not in `after()`** — a deliberate divergence from the WhatsApp webhook. Once you've 200'd, Meta never retries, so a failure afterwards loses the lead *forever*. Work first, let the status code tell the truth: on failure return 500 and Meta retries for up to 36h.
+- **Claims each lead in `webhook_events`** (`meta:leadgen:<id>`, the Razorpay `ignoreDuplicates` pattern) and **DELETEs its own claim on failure** — otherwise the retry is deduped away into silence. `064` had to `GRANT DELETE ON webhook_events TO service_role`; `059` granted only SELECT/INSERT/UPDATE. Pass `gateway:'meta'` explicitly — the column defaults to `'razorpay'`.
+- **Always long-lived-swap the user token first.** Page tokens inherit the lifetime of the token they came from: from a short-lived one they die in ~1h and ingestion stops *silently*.
+- Field mapping (`leads/meta-field-mapping.ts`) is three tiers — key-normalize → alias table → **shape fallback** (looks like an email / a phone). Custom question keys are arbitrary (derived from the question text), so a gym asking in Hindi still gets its leads.
+- **Email-only leads are SKIPPED, and counted.** `contacts.phone` is NOT NULL and a phone-less lead is unreachable on the WhatsApp wedge. Settings surfaces "N leads skipped — your Meta form doesn't ask for a phone number", which the gym can actually fix in Ads Manager.
+
+**The phone trap (`normalizeSubmittedPhone`, `leads/capture-form.ts` — used by BOTH paths).** A visitor types 10 local digits; `isValidE164` *happily accepts* a bare `9876543210`, so it stores looking clean and is then un-messageable on WhatsApp forever — silently breaking the whole wedge, on the happy path. So the account's dial code is prefixed unless the input is explicitly international. Watch the guard for `'9198765432'`: a real 10-digit Indian number that merely *starts* with `91` and must not be mistaken for one already carrying the country code.
+
+Verified against live: bare 10-digit → stored `919876543210`; dedupe → 1 contact / 2 submissions / 2 notes / identical response body; honeypot → 0 rows; 6th submit → 429; revoke → `revoked`; Meta handshake fails closed (403); tampered signature → 401; failed ingest → 500 **with the claim rolled back**; pre-claimed redelivery → 200 no-op.

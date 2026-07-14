@@ -179,6 +179,11 @@ export function SettingsOverview({
       ),
     },
     {
+      section: 'capture',
+      loading: false,
+      subtitle: 'Enquiry form & lead ads',
+    },
+    {
       section: 'members',
       loading: countsLoading,
       subtitle:

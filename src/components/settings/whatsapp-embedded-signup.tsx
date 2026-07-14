@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { loadFbSdk, type FbLoginResponse } from '@/lib/meta/fb-sdk';
 
 // Public identifiers — safe to ship to the browser. When either is
 // missing the component renders nothing and the manual credential
@@ -18,83 +19,12 @@ import {
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID;
 const ES_CONFIG_ID = process.env.NEXT_PUBLIC_META_ES_CONFIG_ID;
 
-// Must match META_API_VERSION in src/lib/whatsapp/meta-api.ts — the
-// popup session and the server-side code exchange should speak the
-// same Graph version.
-const FB_SDK_VERSION = 'v21.0';
-
-interface FbLoginResponse {
-  authResponse?: { code?: string } | null;
-  status?: string;
-}
-
-interface FbSdk {
-  init: (opts: {
-    appId: string;
-    autoLogAppEvents?: boolean;
-    xfbml?: boolean;
-    version: string;
-  }) => void;
-  login: (
-    callback: (response: FbLoginResponse) => void,
-    opts: {
-      config_id: string;
-      response_type: string;
-      override_default_response_type: boolean;
-      extras?: Record<string, unknown>;
-    },
-  ) => void;
-}
-
-declare global {
-  interface Window {
-    FB?: FbSdk;
-    fbAsyncInit?: () => void;
-  }
-}
-
 // The signup popup posts session info back via window message events
 // (sessionInfoVersion 3). FINISH carries the provisioned ids; the
 // OAuth code arrives separately through the FB.login callback.
 interface SignupSessionInfo {
   waba_id?: string;
   phone_number_id?: string;
-}
-
-let sdkPromise: Promise<FbSdk> | null = null;
-
-function loadFbSdk(appId: string): Promise<FbSdk> {
-  if (sdkPromise) return sdkPromise;
-  sdkPromise = new Promise<FbSdk>((resolve, reject) => {
-    if (window.FB) {
-      resolve(window.FB);
-      return;
-    }
-    window.fbAsyncInit = () => {
-      if (!window.FB) {
-        reject(new Error('Facebook SDK loaded but window.FB is missing.'));
-        return;
-      }
-      window.FB.init({
-        appId,
-        autoLogAppEvents: true,
-        xfbml: false,
-        version: FB_SDK_VERSION,
-      });
-      resolve(window.FB);
-    };
-    const script = document.createElement('script');
-    script.src = 'https://connect.facebook.net/en_US/sdk.js';
-    script.async = true;
-    script.defer = true;
-    script.crossOrigin = 'anonymous';
-    script.onerror = () => {
-      sdkPromise = null;
-      reject(new Error('Could not load the Facebook SDK (blocked by an ad-blocker?).'));
-    };
-    document.body.appendChild(script);
-  });
-  return sdkPromise;
 }
 
 interface WhatsAppEmbeddedSignupProps {

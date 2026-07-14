@@ -1,5 +1,7 @@
 /**
- * Meta WhatsApp Cloud API helpers.
+ * Meta Graph API helpers — WhatsApp Cloud API *and* Pages / Lead Ads.
+ * (The file lives under whatsapp/ for history; both surfaces are the
+ * same Graph API, the same app, and the same app secret.)
  *
  * Every function takes a single options object (named parameters) instead
  * of positional arguments. This was a deliberate choice after the same
@@ -246,6 +248,177 @@ export async function exchangeEmbeddedSignupCode(
     throw new Error('Meta accepted the signup code but returned no access token.')
   }
   return data.access_token
+}
+
+// ============================================================
+// Lead Ads (Pages)
+//
+// Facebook/Instagram lead ads deliver on the `page` webhook object, not
+// `whatsapp_business_account` — a different object, a different callback
+// URL, and a different set of permissions (pages_show_list,
+// leads_retrieval, pages_manage_metadata). Same app, same app secret, so
+// the signature verification is shared verbatim.
+//
+// `exchangeEmbeddedSignupCode` above is a plain FBLB code exchange and
+// works for this flow too, despite its WhatsApp-flavoured name.
+// ============================================================
+
+export interface ExchangeForLongLivedTokenArgs {
+  appId: string
+  appSecret: string
+  shortLivedToken: string
+}
+
+/**
+ * Swap a short-lived user token for a long-lived one (~60 days).
+ *
+ * ALWAYS do this before reading page tokens. Page tokens inherit the
+ * lifetime of the user token they were derived from: derive them from a
+ * short-lived token and they die in about an hour, at which point lead
+ * ingestion stops SILENTLY — the webhook keeps arriving and every Graph
+ * fetch fails. Derived from a long-lived token, page tokens do not
+ * expire at all.
+ */
+export async function exchangeForLongLivedUserToken(
+  args: ExchangeForLongLivedTokenArgs
+): Promise<{ accessToken: string; expiresIn: number | null }> {
+  const { appId, appSecret, shortLivedToken } = args
+  const params = new URLSearchParams({
+    grant_type: 'fb_exchange_token',
+    client_id: appId,
+    client_secret: appSecret,
+    fb_exchange_token: shortLivedToken,
+  })
+  const response = await fetch(
+    `${META_API_BASE}/oauth/access_token?${params.toString()}`
+  )
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = (await response.json()) as {
+    access_token?: string
+    expires_in?: number
+  }
+  if (!data.access_token) {
+    throw new Error('Meta returned no long-lived access token.')
+  }
+  // No expires_in on a never-expiring token — that's the good case.
+  return { accessToken: data.access_token, expiresIn: data.expires_in ?? null }
+}
+
+export interface MetaPage {
+  id: string
+  name: string
+  access_token: string
+}
+
+export interface ListPagesArgs {
+  userAccessToken: string
+}
+
+/**
+ * The Pages the user granted us. The FBLB popup already made them pick,
+ * so this returns exactly the granted set — there is no second picker
+ * to build.
+ */
+export async function listPagesWithTokens(
+  args: ListPagesArgs
+): Promise<MetaPage[]> {
+  const { userAccessToken } = args
+  const url = `${META_API_BASE}/me/accounts?fields=id,name,access_token&limit=100`
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${userAccessToken}` },
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = (await response.json()) as { data?: MetaPage[] }
+  return data.data ?? []
+}
+
+export interface PageLeadgenSubscriptionArgs {
+  pageId: string
+  pageAccessToken: string
+}
+
+/**
+ * Subscribe our app to this Page's `leadgen` field. Requires
+ * pages_manage_metadata. Idempotent.
+ */
+export async function subscribePageToLeadgen(
+  args: PageLeadgenSubscriptionArgs
+): Promise<void> {
+  const { pageId, pageAccessToken } = args
+  const params = new URLSearchParams({ subscribed_fields: 'leadgen' })
+  const response = await fetch(
+    `${META_API_BASE}/${pageId}/subscribed_apps?${params.toString()}`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${pageAccessToken}` },
+    }
+  )
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+}
+
+/** Unsubscribe on disconnect, so Meta stops delivering leads we'd drop. */
+export async function unsubscribePageFromLeadgen(
+  args: PageLeadgenSubscriptionArgs
+): Promise<void> {
+  const { pageId, pageAccessToken } = args
+  const response = await fetch(`${META_API_BASE}/${pageId}/subscribed_apps`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${pageAccessToken}` },
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+}
+
+/** One answer on a lead form. `name` is the field key; custom questions
+ *  get arbitrary keys derived from the question text. */
+export interface MetaFieldDatum {
+  name: string
+  values: string[]
+}
+
+export interface MetaLead {
+  id: string
+  created_time: string
+  field_data: MetaFieldDatum[]
+  form_id?: string
+  ad_id?: string
+  campaign_id?: string
+  /** 'fb' | 'ig' — which surface the lead came from. */
+  platform?: string
+  is_organic?: boolean
+}
+
+export interface FetchLeadgenLeadArgs {
+  leadgenId: string
+  accessToken: string
+}
+
+/**
+ * Fetch a lead's answers. The webhook carries only a `leadgen_id`; the
+ * actual field data must be pulled from the Graph API with a page token
+ * that has leads_retrieval.
+ */
+export async function fetchLeadgenLead(
+  args: FetchLeadgenLeadArgs
+): Promise<MetaLead> {
+  const { leadgenId, accessToken } = args
+  const fields =
+    'id,created_time,field_data,form_id,ad_id,campaign_id,platform,is_organic'
+  const response = await fetch(
+    `${META_API_BASE}/${leadgenId}?fields=${fields}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  )
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  return (await response.json()) as MetaLead
 }
 
 // ============================================================

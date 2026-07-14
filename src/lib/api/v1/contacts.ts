@@ -10,8 +10,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
-import { resolveImportTagIds } from '@/lib/contacts/resolve-import-tags';
+import {
+  assignImportedContactTags,
+  resolveImportTagIds,
+} from '@/lib/contacts/resolve-import-tags';
 import { sanitizePhoneForMeta, isValidE164 } from '@/lib/whatsapp/phone-utils';
+import type { ReceivedVia } from '@/types';
 
 /** Row select that embeds the contact's tags for serialization. */
 export const CONTACT_SELECT = '*, contact_tags(tags(*))';
@@ -98,6 +102,18 @@ export interface ContactInput {
   name?: string | null;
   email?: string | null;
   company?: string | null;
+  /** Origin channel (contacts.received_via, migrations 048/064).
+   *  Defaults to 'api' — this helper's original caller. The capture
+   *  form passes 'form', the Meta leadgen webhook passes 'meta'; both
+   *  are system-generated, so the lead lands ownership-locked (050/052
+   *  refuse a transfer when received_via is not manual/import). */
+  receivedVia?: ReceivedVia;
+  /** Acquisition source (contacts.source, migration 041). Orthogonal to
+   *  receivedVia: source is the free-text label the gym curates
+   *  ('instagram', 'walk_in'), receivedVia is the immutable technical
+   *  channel. Applied ONLY on create — a dedupe hit keeps the lead's
+   *  original source rather than rewriting attribution history. */
+  source?: string | null;
 }
 
 /**
@@ -132,9 +148,16 @@ export async function findOrCreateContact(
       name: input.name ?? sanitized,
       email: input.email ?? null,
       company: input.company ?? null,
-      // Origin (migration 048): created through the public API, not a
-      // human in the dashboard.
-      received_via: 'api',
+      source: input.source ?? null,
+      // Origin (migrations 048/064). Defaults to the public API — the
+      // original and, for a long time, only caller of this helper.
+      received_via: input.receivedVia ?? 'api',
+      // assigned_to is deliberately left NULL. An auto-captured lead has
+      // no human who "received" it, and this repo has no round-robin to
+      // pick one with; setting it here would also fire notify_lead_assigned
+      // (047) at a teammate who never agreed to own it. The lead lands
+      // Unassigned and the team assigns it through the approval-gated
+      // request_lead_assignment (052).
     })
     .select('id')
     .single();
@@ -151,6 +174,36 @@ export async function findOrCreateContact(
   }
 
   return { id: created.id, created: true };
+}
+
+/**
+ * ADD tags to a contact, leaving its existing tags alone.
+ *
+ * The sibling `setContactTags` REPLACES the tag set, which is wrong for
+ * an inbound capture: a lead that already carries "Trial expired" must
+ * not lose it because a form submission tagged them "Weight loss". The
+ * upsert ignores duplicates, so a repeat enquiry with the same goal is
+ * a no-op rather than an error.
+ */
+export async function addContactTags(
+  db: SupabaseClient,
+  accountId: string,
+  auditUserId: string,
+  contactId: string,
+  tagNames: string[]
+): Promise<void> {
+  if (tagNames.length === 0) return;
+  const { tagIdByKey } = await resolveImportTagIds(db, {
+    accountId,
+    userId: auditUserId,
+    tagNames,
+    canCreateTags: true,
+  });
+  await assignImportedContactTags(
+    db,
+    [{ contactId, tagNames }],
+    tagIdByKey
+  );
 }
 
 /**

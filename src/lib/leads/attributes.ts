@@ -28,8 +28,27 @@ export const GENDER_OPTIONS: AttributeOption[] = [
   { value: 'unspecified', label: 'Prefer not to say' },
 ];
 
+// Why a fixed list and not a `contacts.goal` column: the goal answer is
+// stored as a TAG (resolved through the normal tag path), so it is
+// already filterable on /leads and rendered on the lead card without a
+// new column, a widened lead_field_options CHECK, or an edit to the
+// column registry / filters / cell renderers / contact + member forms /
+// import wizard. Keeping the list closed keeps the blast radius at
+// seven tags, ever. Promote it to a real column only when a gym asks to
+// filter and report on it as a first-class dimension.
+export const GOAL_OPTIONS: AttributeOption[] = [
+  { value: 'weight_loss', label: 'Weight loss' },
+  { value: 'muscle_gain', label: 'Muscle gain' },
+  { value: 'general_fitness', label: 'General fitness' },
+  { value: 'strength', label: 'Strength & conditioning' },
+  { value: 'sports', label: 'Sports training' },
+  { value: 'rehab', label: 'Rehab / recovery' },
+  { value: 'other', label: 'Other' },
+];
+
 const SOURCE_LABELS = new Map(SOURCE_OPTIONS.map((o) => [o.value, o.label]));
 const GENDER_LABELS = new Map(GENDER_OPTIONS.map((o) => [o.value, o.label]));
+const GOAL_LABELS = new Map(GOAL_OPTIONS.map((o) => [o.value, o.label]));
 
 /** Display label for a stored source value (falls back to the raw value). */
 export function sourceLabel(value?: string | null): string {
@@ -41,6 +60,14 @@ export function sourceLabel(value?: string | null): string {
 export function genderLabel(value?: string | null): string {
   if (!value) return '—';
   return GENDER_LABELS.get(value) ?? value;
+}
+
+/** Display label for a capture-form goal. Returns null for an unknown or
+ *  absent value — callers tag the lead only when this resolves, so a
+ *  hand-crafted payload can't mint arbitrary tags. */
+export function goalLabel(value?: string | null): string | null {
+  if (!value) return null;
+  return GOAL_LABELS.get(value) ?? null;
 }
 
 // ---- Received-via (lead origin, migration 048) --------------------------
@@ -57,6 +84,7 @@ const AUTO_CHANNEL_LABELS: Record<ReceivedVia, string> = {
   meta: 'Meta',
   api: 'API',
   automation: 'Automation',
+  form: 'Form',
 };
 
 /** Whether a lead's origin was a human action (→ show the creator) rather

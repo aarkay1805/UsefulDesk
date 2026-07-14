@@ -118,7 +118,8 @@ export type ReceivedVia =
   | 'whatsapp'
   | 'meta'
   | 'api'
-  | 'automation';
+  | 'automation'
+  | 'form';
 
 export interface Contact {
   id: string;

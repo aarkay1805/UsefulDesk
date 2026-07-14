@@ -148,6 +148,16 @@ export const RATE_LIMITS = {
    *  instance deploy needs the Redis swap described at the top of
    *  this file (the per-key call sites don't change). */
   publicApi: { limit: 120, windowMs: 60_000 },
+  /** Public lead capture (per-IP). A real visitor submits once; 5/min
+   *  absorbs a double-tap plus a retry after a validation error. NOTE
+   *  the in-memory caveat at the top of this file: on Vercel's fan-out
+   *  each lambda holds its own Map, so this is a speed bump, not a
+   *  wall. Turnstile is the wall — see src/lib/security/turnstile.ts. */
+  leadCapture: { limit: 5, windowMs: 60_000 },
+  /** Public capture-form peek (per-IP). Same posture and same reasoning
+   *  as invitationPeek: a forwarded link may retry a few times on flaky
+   *  connectivity, and the 256-bit token makes enumeration theoretical. */
+  leadFormPeek: { limit: 30, windowMs: 60_000 },
   /** AI draft-reply generation, per user. 20/min is generous for an
    *  agent clicking "Draft with AI" while working a thread, and bounds
    *  spend on the account's own LLM key against an accidental

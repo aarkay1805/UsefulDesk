@@ -6,6 +6,7 @@ import {
   Globe2,
   KeyRound,
   LayoutGrid,
+  Magnet,
   Palette,
   PlugZap,
   Shield,
@@ -29,6 +30,7 @@ export const SETTINGS_SECTIONS = [
   'security',
   'appearance',
   'whatsapp',
+  'capture',
   'templates',
   'fields',
   'plans',
@@ -57,6 +59,9 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
   appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
   whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace' },
+  // "Where do my leads come from" — the public capture form and (once
+  // Meta App Review clears) Facebook/Instagram lead ads live together.
+  capture: { id: 'capture', label: 'Lead capture', icon: Magnet, group: 'workspace' },
   templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },
   fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'workspace' },
   plans: { id: 'plans', label: 'Membership plans', icon: Dumbbell, group: 'workspace' },

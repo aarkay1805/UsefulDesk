@@ -8,11 +8,12 @@ Membership plans · member records · renewal action lists (expiring / expired /
 
 ## ✅ Phase 2 — India-first workflows
 
-Shipped: templated WhatsApp follow-ups · trial tracking · payment-due buckets · manual reconciliation · **UPI AutoPay** · billing periods / invoices · the leads module (CSV import 2.0, ownership transfer, assignment approval, board) · attendance limits.
+Shipped: templated WhatsApp follow-ups · trial tracking · payment-due buckets · manual reconciliation · **UPI AutoPay** · billing periods / invoices · the leads module (CSV import 2.0, ownership transfer, assignment approval, board) · attendance limits · **lead capture — public forms + Meta lead ads** (migration `064`; consent captured + audited per submission).
 
 **Left:**
-- **Meta lead-ads capture.** `received_via='meta'` is a **reserved, unwired slot** — the Leads "Received By" column already renders "Auto · Meta", but **no code path creates a contact from a Meta lead ad**. When lead-ads capture is built, set `received_via: 'meta'` on that insert and the column lights up automatically. The same reserved slot exists for `'automation'` (a future "create contact" automation step). See `src/lib/leads/attributes.ts` (`autoReceivedLabel`) and the create-path list in migration `048`'s header.
-- Capture forms · booking · consent · lead scoring.
+- **Meta lead ads: waiting on Meta App Review** (`leads_retrieval` + `pages_manage_metadata` — needs Business Verification). The code is built and tested; the Settings card stays hidden while `NEXT_PUBLIC_META_LEADS_CONFIG_ID` is unset. **Set that env var once review clears — that's the whole launch.**
+- Booking · lead scoring.
+- `received_via='automation'` remains a **reserved, unwired slot** (a future "create contact" automation step) — set it on that insert and the Leads "Received By" column lights up automatically. See `src/lib/leads/attributes.ts` (`autoReceivedLabel`).
 
 ## 🚧 Phase 3 — retention & ops
 
