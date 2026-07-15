@@ -10,7 +10,11 @@ _Last reviewed: 2026-07-15. Keep this in sync with the code it describes — it 
 
 | # | Vendor | Meta-sourced data it touches | Where configured | Relationship |
 |---|--------|------------------------------|------------------|--------------|
+<<<<<<< HEAD
 | 1 | **Vercel** (serverless hosting) | All Platform Data **in transit**; env secrets (`META_APP_SECRET`, `ENCRYPTION_KEY`, Supabase keys); application / function logs | Production host of `desk.usefulmade.com` (deployed from GitHub `main`). Domain registrar is GoDaddy — DNS only, processes no Platform Data, not a subprocessor. | **Subprocessor** (separate company) |
+=======
+| 1 | **Hostinger** (Managed Node.js hosting) | All Platform Data **in transit**; env secrets (`META_APP_SECRET`, `ENCRYPTION_KEY`, Supabase keys); application logs (hPanel) | Production host of `desk.usefulmade.com`; documented in `README.md`, `next.config.ts` | **Subprocessor** (separate company) |
+>>>>>>> c0d9eb889fff39e43b9547471dc74f236e77cdd2
 | 2 | **Supabase** (Postgres, Auth, Storage) | Phone numbers, message content, profile names, WABA / phone IDs, **WhatsApp access tokens (AES-256-GCM encrypted at rest)**, chat media | `src/lib/supabase/*`; tables `contacts`, `conversations`, `messages`, `whatsapp_config`, `meta_page_config` | **Subprocessor** (separate company; primary datastore) |
 | 3 | **Meta / WhatsApp (Graph API)** | Everything — origin + destination of sends, tokens, media | `graph.facebook.com` in `src/lib/whatsapp/meta-api.ts` | Data **source** (Meta itself) |
 | 4 | **OpenAI** _(optional, per-account, BYO-key)_ | **WhatsApp message content** — recent conversation text sent for AI reply drafting + embeddings | `src/lib/ai/providers/openai.ts`, `src/lib/ai/context.ts` | Separate company; customer-elected, customer's own key |
@@ -32,9 +36,15 @@ _Last reviewed: 2026-07-15. Keep this in sync with the code it describes — it 
 
 **Storage.** All persisted in **Supabase Postgres**, tenant-isolated by Row-Level Security. WhatsApp access tokens and Page tokens are **AES-256-GCM encrypted** (`ENCRYPTION_KEY`); the Meta app secret lives only in the host environment, never in the database. Media is in Supabase Storage; private receipts use short-lived signed URLs (never persisted).
 
+<<<<<<< HEAD
 **Processing.** Runs on **Vercel** (serverless functions). Message content leaves the system only when an account opts into the AI assistant with its own OpenAI / Anthropic key, or configures an outbound webhook.
 
 **Third parties in the flow.** Supabase (store), Vercel (compute / transit), Meta Graph API (source / destination); optionally OpenAI / Anthropic (message content), Razorpay (contact PII), user-set webhooks (message content), Cloudflare Turnstile (spam gate).
+=======
+**Processing.** Runs on **Hostinger** (Node.js). Message content leaves the system only when an account opts into the AI assistant with its own OpenAI / Anthropic key, or configures an outbound webhook.
+
+**Third parties in the flow.** Supabase (store), Hostinger (compute / transit), Meta Graph API (source / destination); optionally OpenAI / Anthropic (message content), Razorpay (contact PII), user-set webhooks (message content), Cloudflare Turnstile (spam gate).
+>>>>>>> c0d9eb889fff39e43b9547471dc74f236e77cdd2
 
 **Retention / deletion.**
 - **Meta Data Deletion Request Callback** — `POST /api/meta/data-deletion` (HMAC-verified; returns `{ url, confirmation_code }`). Public status page at `/data-deletion`. See the changelog entry "Data deletion — Meta callback + account erasure (migration `066`)".
