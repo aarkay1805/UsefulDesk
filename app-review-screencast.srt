@@ -1,0 +1,79 @@
+1
+00:00:00,000 --> 00:00:04,000
+UsefulDesk — a WhatsApp-first CRM for gym businesses.
+
+2
+00:00:04,000 --> 00:00:08,000
+I'm on the Settings page. I'll connect a WhatsApp Business Account.
+
+3
+00:00:08,000 --> 00:00:12,000
+I click "Connect WhatsApp" to start Embedded Signup.
+
+4
+00:00:12,000 --> 00:00:15,000
+[public_profile] Facebook Login for Business opens.
+
+5
+00:00:15,000 --> 00:00:20,000
+I select my business portfolio.
+
+6
+00:00:20,000 --> 00:00:25,000
+[business_management] The app reads the business assets I share.
+
+7
+00:00:25,000 --> 00:00:31,000
+I create a new WhatsApp Business Account.
+
+8
+00:00:31,000 --> 00:00:37,000
+Using WhatsApp display only, so it provisions a test phone number.
+
+9
+00:00:37,000 --> 00:00:45,000
+[whatsapp_business_management] The app registers the number and subscribes the WABA for webhooks.
+
+10
+00:00:45,000 --> 00:00:50,000
+I complete the steps and the popup closes.
+
+11
+00:00:50,000 --> 00:00:55,000
+Back on the CRM: "Meta connected" — WhatsApp API successfully connected.
+
+12
+00:00:55,000 --> 00:01:00,000
+I verify with the built-in test API button. It returns success.
+
+13
+00:01:00,000 --> 00:01:05,000
+The credentials and phone number are live.
+
+14
+00:01:05,000 --> 00:01:12,000
+[whatsapp_business_messaging] I open WhatsApp on a real phone and send a message.
+
+15
+00:01:12,000 --> 00:01:18,000
+The message appears in my CRM's shared inbox.
+
+16
+00:01:18,000 --> 00:01:24,000
+I reply directly from the CRM inbox.
+
+17
+00:01:24,000 --> 00:01:30,000
+The reply is delivered and shows in the WhatsApp conversation on the phone.
+
+18
+00:01:30,000 --> 00:01:36,000
+A business connects its WhatsApp account via Embedded Signup.
+
+19
+00:01:36,000 --> 00:01:42,000
+Our platform then sends and receives messages on their behalf.
+
+20
+00:01:42,000 --> 00:01:48,000
+In production, gym owners connect their number to send renewal reminders and payment follow-ups.
