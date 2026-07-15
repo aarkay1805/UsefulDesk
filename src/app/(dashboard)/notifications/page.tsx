@@ -194,9 +194,18 @@ export default function NotificationsPage() {
         n.type === "lead_assignment_rejected" ||
         n.type === "lead_assignment_cancelled"
       ) {
-        // Lead-scoped notifications land on the Leads list; the lead's
-        // name is in the notification body for a quick search.
-        router.push("/leads");
+        // Lead-scoped notifications deep-link straight to the lead's
+        // detail sheet (leads are contacts). A follow-up reminder also
+        // asks the sheet to land on the notes/follow-up composer — the
+        // exact spot where the reminder gets actioned. When the row
+        // carries no contact (older rows), fall back to the list.
+        if (n.contact_id) {
+          const focus =
+            n.type === "follow_up_reminder" ? "&focus=followup" : "";
+          router.push(`/leads?contact=${n.contact_id}${focus}`);
+        } else {
+          router.push("/leads");
+        }
       }
     },
     [markRead, router],

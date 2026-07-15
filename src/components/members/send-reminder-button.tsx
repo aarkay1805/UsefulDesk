@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Loader2, MessageCircle, Check } from "lucide-react";
+import { Loader2, MessageCircle, Check, ArrowRight } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -10,11 +11,27 @@ import { useLocale } from "@/hooks/use-locale";
 import type { LocaleFormatters } from "@/lib/locale/format";
 import type { Membership } from "@/types";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { RENEWAL_TEMPLATE_NAME } from "@/lib/memberships/renewal-reminders";
 
 // RENEWAL_TEMPLATE_NAME now lives in the server-safe lib so the cron can
 // share it; re-exported here to keep existing import sites working.
 export { RENEWAL_TEMPLATE_NAME };
+
+export interface ReminderResolution {
+  /** CTA label, e.g. "Open WhatsApp settings". */
+  label: string;
+  /** Where the fix lives. */
+  href: string;
+}
 
 export interface ReminderReadiness {
   loading: boolean;
@@ -22,6 +39,8 @@ export interface ReminderReadiness {
   ready: boolean;
   /** Human-readable blocker when not ready. */
   reason: string | null;
+  /** How to clear the blocker (settings deep-link), when there is one. */
+  resolution: ReminderResolution | null;
   /** The approved template's language, passed through on send. */
   templateLanguage: string;
 }
@@ -38,6 +57,7 @@ export function useReminderReadiness(): ReminderReadiness {
     loading: true,
     ready: false,
     reason: null,
+    resolution: null,
     templateLanguage: "en_US",
   });
 
@@ -62,7 +82,8 @@ export function useReminderReadiness(): ReminderReadiness {
         setState({
           loading: false,
           ready: false,
-          reason: "Connect WhatsApp in Settings to send reminders.",
+          reason: "WhatsApp isn't connected yet. Connect it to send renewal reminders.",
+          resolution: { label: "Connect WhatsApp", href: "/settings?tab=whatsapp" },
           templateLanguage: "en_US",
         });
         return;
@@ -71,7 +92,8 @@ export function useReminderReadiness(): ReminderReadiness {
         setState({
           loading: false,
           ready: false,
-          reason: `Create and approve the "${RENEWAL_TEMPLATE_NAME}" template in Settings → Templates.`,
+          reason: `The "${RENEWAL_TEMPLATE_NAME}" template isn't approved yet. Create it and get Meta approval to send reminders.`,
+          resolution: { label: "Go to Templates", href: "/settings?tab=templates" },
           templateLanguage: "en_US",
         });
         return;
@@ -80,6 +102,7 @@ export function useReminderReadiness(): ReminderReadiness {
         loading: false,
         ready: true,
         reason: null,
+        resolution: null,
         templateLanguage: template.language ?? "en_US",
       });
     })();
@@ -152,6 +175,7 @@ export function SendReminderButton({
   const { fmt } = useLocale();
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [blockerOpen, setBlockerOpen] = useState(false);
 
   const phone = membership.contact?.phone?.trim();
   const hasPhone = !!phone;
@@ -161,14 +185,22 @@ export function SendReminderButton({
     setSent(false);
   }, [membership.id, membership.end_date]);
 
+  // A missing phone is a per-member blocker with no settings fix; the
+  // readiness blockers (WhatsApp / template) carry a deep-link resolution.
   const blockedReason = !hasPhone
-    ? "This member has no phone number."
+    ? "This member has no phone number, so there's nothing to send the reminder to. Add a phone number to their contact first."
     : readiness.reason;
-  const disabled = sending || sent || !hasPhone || !readiness.ready;
+  const resolution = !hasPhone ? null : readiness.resolution;
+  const blocked = !hasPhone || !readiness.ready;
+
+  // While the readiness check is in flight, sit inert rather than pretend
+  // to be blocked.
+  const disabled = sending || sent || readiness.loading;
 
   const send = useCallback(async () => {
-    if (!readiness.ready || !hasPhone) {
-      if (blockedReason) toast.error(blockedReason);
+    // Blocked? Explain why (and how to fix) instead of failing silently.
+    if (blocked) {
+      setBlockerOpen(true);
       return;
     }
     setSending(true);
@@ -182,25 +214,51 @@ export function SendReminderButton({
     } finally {
       setSending(false);
     }
-  }, [readiness, hasPhone, blockedReason, membership, fmt, onSent]);
+  }, [blocked, readiness, membership, fmt, onSent]);
 
   return (
-    <Button
-      type="button"
-      variant={sent ? "outline" : "secondary"}
-      size={size}
-      onClick={send}
-      disabled={disabled}
-      title={blockedReason ?? "Send a WhatsApp renewal reminder"}
-    >
-      {sending ? (
-        <Loader2 className="size-3.5 animate-spin" />
-      ) : sent ? (
-        <Check className="size-3.5" />
-      ) : (
-        <MessageCircle className="size-3.5" />
-      )}
-      {sent ? "Reminded" : "Remind"}
-    </Button>
+    <>
+      <Button
+        type="button"
+        variant={sent ? "outline" : "secondary"}
+        size={size}
+        onClick={send}
+        disabled={disabled}
+        // Blocked buttons stay clickable so the reason dialog can open;
+        // dim them so they still read as not-ready.
+        className={blocked && !sent ? "opacity-60" : undefined}
+        title={blockedReason ?? "Send a WhatsApp renewal reminder"}
+      >
+        {sending ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : sent ? (
+          <Check className="size-3.5" />
+        ) : (
+          <MessageCircle className="size-3.5" />
+        )}
+        {sent ? "Reminded" : "Remind"}
+      </Button>
+
+      <Dialog open={blockerOpen} onOpenChange={setBlockerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Can&apos;t send this reminder yet</DialogTitle>
+            <DialogDescription>{blockedReason}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Close</DialogClose>
+            {resolution && (
+              <Button
+                render={<Link href={resolution.href} />}
+                onClick={() => setBlockerOpen(false)}
+              >
+                {resolution.label}
+                <ArrowRight className="size-3.5" />
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

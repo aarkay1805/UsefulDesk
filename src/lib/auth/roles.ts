@@ -15,6 +15,9 @@
 // changes a one-file diff.
 // ============================================================
 
+import type { ReceivedVia } from "@/types";
+import { isHumanReceived } from "@/lib/leads/attributes";
+
 export type AccountRole = "owner" | "admin" | "agent" | "viewer";
 
 /** Ordered list of every valid role, lowest privilege first. */
@@ -136,12 +139,53 @@ export function canResolveAnyLeadTransfer(role: AccountRole): boolean {
 
 /**
  * Owner / admin: hard-delete a MEMBER record and all its data
- * (membership, payments, attendance, notes). Stricter than the
- * agent-level contacts_delete RLS — mirrored by the delete_member
- * RPC's is_account_member(…, 'admin') guard (migration 056).
+ * (membership, payments, attendance, notes). Mirrored by the delete_member
+ * RPC's is_account_member(…, 'admin') guard (migration 056), via a SECURITY
+ * DEFINER RPC that also anonymizes the payment ledger. (Distinct from
+ * canDeleteLead, which lets an agent delete a lead they created — a member
+ * is never deleted through that path.)
  */
 export function canDeleteMember(role: AccountRole): boolean {
   return hasMinRole(role, "admin");
+}
+
+/** The lead facts a per-lead delete decision needs (all nullable). */
+export interface LeadDeleteContext {
+  /** contacts.created_by — the immutable original creator (migration 051). */
+  createdBy: string | null;
+  /** The acting user's auth id, to compare against createdBy. */
+  userId: string | null;
+  /** contacts.received_via — origin channel; auto origins are agent-locked. */
+  receivedVia?: ReceivedVia | null;
+}
+
+/**
+ * Owner / admin: hard-delete ANY lead, including auto-captured ones and
+ * leads created by other teammates. The managerial, unconditional tier —
+ * mirrored by the admin arm of the contacts_delete RLS (migration 066).
+ */
+export function canDeleteAnyLead(role: AccountRole): boolean {
+  return hasMinRole(role, "admin");
+}
+
+/**
+ * Can this role delete THIS specific lead? Destructive + unrecoverable, so:
+ *   · owner / admin → any lead (canDeleteAnyLead).
+ *   · agent → only a lead they personally created via a human action
+ *     (a manual/import origin whose created_by is them). Auto-captured leads
+ *     (WhatsApp/Meta/API/automation) and leads created by others are off-limits.
+ *   · viewer → never.
+ * The authored-content ownership rule (author-or-admin may delete), applied to
+ * leads. Mirrored exactly by the agent arm of the contacts_delete RLS (066).
+ */
+export function canDeleteLead(role: AccountRole, lead: LeadDeleteContext): boolean {
+  if (canDeleteAnyLead(role)) return true;
+  if (!hasMinRole(role, "agent")) return false;
+  return (
+    isHumanReceived(lead.receivedVia) &&
+    lead.createdBy != null &&
+    lead.createdBy === lead.userId
+  );
 }
 
 /** Owner / admin: reverse an incorrect financial ledger entry. */

@@ -321,9 +321,35 @@ Verified against live: bare 10-digit → stored `919876543210`; dedupe → 1 con
 
 ---
 
-## Lead delete → admin-only (migration `065`)
+## Lead delete — admin-any + agent-owns-their-own (migrations `065`, `066`)
 
-Deleting a lead is now **admin+**, enforced in both layers. New capability predicate `canDeleteLead` (`src/lib/auth/roles.ts`, admin+) + `useCan('delete-lead')` + the admin-level `contacts_delete` RLS (`065`, raised from the agent-level `017` policy). Member deletion is unaffected — it runs through the `delete_member` SECURITY DEFINER RPC (`056`) which already checked admin and bypasses table RLS.
+Deleting a lead is gated by the **authored-content ownership rule**, enforced in BOTH layers:
+- **owner/admin** → delete any lead (incl. auto-captured + teammates').
+- **agent** → only a lead THEY created via a human action — `created_by = self` AND `received_via` is human (NULL/`manual`/`import`). Auto-captured leads (whatsapp/meta/api/automation/form) and other people's leads are off-limits.
+- **viewer** → never.
 
-- **New affordance:** a "Delete lead" destructive button pinned below the scroll area in the shared lead sheet (`contact-detail-content.tsx`) — so it appears on BOTH the leads page and the inbox contact panel off the one component. Confirm `Dialog`; delete chains `.select('id')` and treats zero rows as failure (RLS-silent-fail gotcha). On success → `onUpdated()` + `onClose()`.
-- **Existing delete paths re-gated** from agent→admin so the new rule isn't a UI-only gate contradicting an agent-reachable path: leads table row-action `Delete`, bulk-toolbar `Delete` (`canAct={canDeleteLeads}`), and the board card menu (new `canDelete` prop threaded LeadsBoardView → LeadsBoard → LeadCardContext, split out of the agent-level `canEdit` that still gates Edit). Agents/viewers no longer see any Delete affordance.
+Two predicates in `src/lib/auth/roles.ts`: `canDeleteAnyLead(role)` (admin+, the managerial tier) and the per-lead `canDeleteLead(role, {createdBy, userId, receivedVia})` (imports `isHumanReceived` from `leads/attributes`). NOT a `useCan` action — it's per-lead, so call the predicate directly with the row's facts. `065` first tightened `contacts_delete` RLS agent→admin; `066` is the live policy: `is_account_member(…,'admin') OR (…,'agent' AND created_by = auth.uid() AND received_via IS NULL/IN('manual','import'))`. Member deletion unaffected (SECURITY DEFINER `delete_member` RPC, `056`, bypasses RLS).
+
+- **New affordance:** "Delete lead" destructive button pinned below the scroll area in the shared lead sheet (`contact-detail-content.tsx`) — shows on BOTH the leads page sheet and the inbox contact panel off the one component. Confirm `Dialog`; delete chains `.select('id')`, treats zero rows as failure (RLS-silent-fail gotcha); on success → `onUpdated()` + `onClose()`.
+- **Every delete path gated by the same predicate** (no UI-only gate): leads table row-action + board card menu compute `canDeleteLead` per-row (board threads `accountRole` + reuses `currentUserId` through `LeadCardContext`, split out of the agent-level `canEdit` that still gates Edit). `handleDelete`/`handleBulkDelete` now `.select('id')` — bulk reports "N deleted · M skipped (you can only delete leads you created)" since RLS silently filters an agent's mixed selection. Bulk button stays agent+ (`canEdit`); RLS is the real filter.
+
+---
+
+## Reminder-blocker dialog + template presets
+
+Two small UX gaps on the renewal wedge's setup path.
+
+- **Remind button explains itself.** `SendReminderButton` was disabled-with-a-title-tooltip when WhatsApp/template aren't ready — invisible on touch, easy to miss. Now the blocked button stays clickable (dimmed) and opens a dialog with the reason **and a deep-link CTA to the fix** (`/settings?tab=whatsapp` or `?tab=templates`). `ReminderReadiness` gained a `resolution: {label, href} | null` set by the hook; no-phone is a per-member blocker with no CTA. Covers every call site (payments buckets, renewal + trial action lists).
+- **Template presets** (`src/lib/whatsapp/template-presets.ts`). Ready-made gym templates that pre-fill the New Template form — renewal reminder (the pinned `gym_renewal_reminder`, name locked so the Remind/cron wiring can't be renamed away), payment receipt, payment due, welcome, class booking (Utility); win-back + festival offer (Marketing, flagged as needing opt-in). Written to pass Meta review (transactional Utility copy, contiguous `{{1}}…` with 1:1 samples → clears `validateTemplatePayload`). Surfaced via a "Start from template" gallery dialog + empty-state CTA in `template-manager.tsx`; picking one drops its copy into the create form to customise + submit.
+
+---
+
+## Data deletion — Meta callback + account erasure (migration `066`)
+
+Closes the App Review gap: Meta requires a Data Deletion Request URL, and there was no data-subject erasure path.
+
+- **Meta Data Deletion Request Callback** — `POST /api/meta/data-deletion` (nodejs runtime). Parses + HMAC-verifies Meta's `signed_request` via `src/lib/meta/signed-request.ts` (signature is over the **encoded** payload segment, not the decoded JSON; rejects non-`HMAC-SHA256`, missing `user_id`, empty secret — colocated test). Fails closed with no `META_APP_SECRET`. Records a `data_deletion_requests` row and returns `{ url, confirmation_code }`. Set this route as the app's "Data Deletion Request URL" in the Meta dashboard.
+- **Public status page** — `src/app/data-deletion/page.tsx` (`force-dynamic`, unauthenticated; the confirmation code is the capability). `?code=` → looks the request up with the service role and shows status; no code → deletion instructions (doubles as the "Data Deletion Instructions URL"). Note: FB Login here only grants business assets — we store no FB *profile* keyed by ASID, so a callback usually has no profile PII to erase.
+- **Account erasure** — `DELETE /api/account`, owner-only (`canDeleteAccount`, already existed) + exact account-name confirmation in `{ confirm }`. Deleting the `accounts` row cascades every `account_id` FK (all tenant Platform Data incl. encrypted `whatsapp_config` tokens); the two things Postgres FKs don't reach — Supabase Storage media (`account-<id>/` prefix across `chat-media`/`flow-media`/`profile-avatars`) and members' `auth.users` login identities — are purged explicitly (self deleted last). Admin-client delete chains `.select('id')` and treats empty as failure (RLS-silent-write gotcha).
+- **`data_deletion_requests` table** (`066`) — audit log for both flows. **No FK to accounts on purpose** (an `ON DELETE CASCADE` would erase the trail the erasure creates). RLS enabled, **zero policies** → service-role-only.
+- **UI trigger** — `AccountDangerZone` (`src/components/settings/account-danger-zone.tsx`) renders at the bottom of Settings → Members, **self-gated to owner** via `useCan('delete-account')` (returns null otherwise). Type-the-account-name-to-confirm dialog → `DELETE /api/account` → hard-nav to `/` (proxy bounces the now-unauthenticated session to sign-in).

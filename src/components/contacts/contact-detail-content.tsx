@@ -15,6 +15,7 @@ import {
 } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
 import {
+  canDeleteLead,
   canReassignLeadsDirectly,
   canRequestLeadTransfer,
 } from '@/lib/auth/roles';
@@ -37,6 +38,15 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import {
   DropdownMenu,
@@ -69,6 +79,7 @@ import {
   StickyNote,
   MessageCircle,
   UserPlus,
+  Trash2,
 } from 'lucide-react';
 
 const SECTION_IDS = ['details', 'tags', 'notes'];
@@ -113,6 +124,12 @@ interface ContactDetailContentProps {
   actions?: ContactQuickActionId[];
   /** Sections that start collapsed (the narrow inbox panel collapses Details). */
   collapsedSections?: string[];
+  /**
+   * When set, the surface lands on that section as it opens — a follow-up
+   * reminder notification passes `followup` to open Notes and focus the
+   * composer where the reminder gets actioned.
+   */
+  initialFocus?: 'followup' | null;
   /** Fires after any write so the host can refresh its own list. */
   onUpdated: () => void;
   /** Dismiss the host — used when an action navigates away. */
@@ -135,6 +152,7 @@ export function ContactDetailContent({
   variant = 'sheet',
   actions = ALL_QUICK_ACTIONS,
   collapsedSections,
+  initialFocus = null,
   onUpdated,
   onClose,
 }: ContactDetailContentProps) {
@@ -171,6 +189,11 @@ export function ContactDetailContent({
   // the confirm dialog. Admins reassign instantly and never open this.
   const [transferTarget, setTransferTarget] = useState<string | null>(null);
   const [transferSubmitting, setTransferSubmitting] = useState(false);
+
+  // Hard-delete this lead — gated by canDeleteLead (admins: any; agents:
+  // only their own human-created leads), mirrored by contacts_delete RLS (066).
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Accordion sections — open by default unless the host collapses them.
   // Serialised so an inline `collapsedSections={['details']}` prop can't
@@ -254,16 +277,33 @@ export function ContactDetailContent({
   useEffect(() => {
     if (active && contactId) {
       const collapsed = collapsedKey ? collapsedKey.split(',') : [];
-      setOpenSections(SECTION_IDS.filter((id) => !collapsed.includes(id)));
+      // A `followup` deep link forces Notes open even if the host would
+      // otherwise collapse it, so the composer is reachable.
+      const openIds = SECTION_IDS.filter(
+        (id) => !collapsed.includes(id) || (initialFocus === 'followup' && id === 'notes'),
+      );
+      setOpenSections(openIds);
       fetchContact();
       fetchConversation();
       fetchTags();
       fetchCustomFields();
+      // Land the user on the follow-up composer once the panel mounts.
+      if (initialFocus === 'followup') {
+        const t = setTimeout(() => {
+          noteInputRef.current?.focus();
+          noteInputRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
+        }, 150);
+        return () => clearTimeout(t);
+      }
     }
   }, [
     active,
     contactId,
     collapsedKey,
+    initialFocus,
     fetchContact,
     fetchConversation,
     fetchTags,
@@ -348,6 +388,39 @@ export function ContactDetailContent({
     ? canReassignLeadsDirectly(accountRole)
     : false;
   const canTransfer = accountRole ? canRequestLeadTransfer(accountRole) : false;
+  // Admins delete any lead; an agent only a lead they created via a human
+  // action (auto-captured + teammates' leads are off-limits) — mirrored by
+  // the contacts_delete RLS (migration 066).
+  const canDelete = !!(
+    accountRole &&
+    contact &&
+    canDeleteLead(accountRole, {
+      createdBy: contact.created_by ?? null,
+      userId: user?.id ?? null,
+      receivedVia: contact.received_via ?? null,
+    })
+  );
+
+  // Hard-delete. Chain .select('id') so an RLS-blocked delete (returns no
+  // error + zero rows) is treated as a failure rather than a false success.
+  async function deleteLead() {
+    if (!contactId) return;
+    setDeleting(true);
+    const { data, error } = await supabase
+      .from('contacts')
+      .delete()
+      .eq('id', contactId)
+      .select('id');
+    setDeleting(false);
+    if (error || !data || data.length === 0) {
+      toast.error('Failed to delete lead');
+      return;
+    }
+    toast.success('Lead deleted');
+    setDeleteOpen(false);
+    onUpdated();
+    onClose?.();
+  }
 
   async function transferOwner(next: string | null): Promise<boolean> {
     if (!contact || !next) return false;
@@ -961,6 +1034,22 @@ export function ContactDetailContent({
             </AccordionItem>
           </Accordion>
         </div>
+
+        {/* Danger zone — admin-only hard delete. Pinned below the scroll
+            area so it never crowds the fields; hidden entirely for roles
+            that can't delete (the RLS would refuse them anyway). */}
+        {canDelete && (
+          <div className="border-t border-border/50 p-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDeleteOpen(true)}
+              className="w-full justify-center text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="size-4" /> Delete lead
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Overlays. Nested inside the host's Sheet on /leads — the same
@@ -997,6 +1086,32 @@ export function ContactDetailContent({
         submitting={transferSubmitting}
         onConfirm={submitTransferRequest}
       />
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              Delete {contact.name?.trim() || contact.phone}?
+            </DialogTitle>
+            <DialogDescription>
+              This permanently deletes the lead and its notes, tags, and
+              custom values. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={deleteLead} disabled={deleting}>
+              {deleting && <Loader2 className="size-4 animate-spin" />}
+              <Trash2 className="size-4" /> Delete lead
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

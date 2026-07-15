@@ -15,6 +15,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import type { Contact, LeadStatus, LeadTransfer, Tag } from "@/types";
+import { canDeleteLead, type AccountRole } from "@/lib/auth/roles";
 import {
   columnToStatus,
   leadColumnKey,
@@ -67,6 +68,9 @@ interface LeadCardContext {
   onEditLead: (lead: Contact) => void;
   onDeleteLead: (lead: Contact) => void;
   canEdit: boolean;
+  /** Acting user's role — with currentUserId, drives the per-lead delete
+   *  gate (canDeleteLead: admins any, agents only their own human leads). */
+  accountRole: AccountRole | null;
   nameById: ReadonlyMap<string, string>;
   avatarById: ReadonlyMap<string, string | null>;
   transfers: Record<string, LeadTransfer>;
@@ -92,6 +96,8 @@ interface LeadsBoardProps {
   onDeleteLead: (lead: Contact) => void;
   /** Viewers can look but not drag/edit/delete. */
   canEdit: boolean;
+  /** Acting user's role — drives the per-lead delete gate (see ctx). */
+  accountRole: AccountRole | null;
   /** Teammate lookups (useAccountStaff) — assignee avatar + pending chips. */
   nameById: ReadonlyMap<string, string>;
   avatarById: ReadonlyMap<string, string | null>;
@@ -250,6 +256,13 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
 
 /** Card ⋮ — the table row menu, verbatim: View details / Edit / Delete. */
 function CardMenu({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
+  const canDelete = ctx.accountRole
+    ? canDeleteLead(ctx.accountRole, {
+        createdBy: lead.created_by ?? null,
+        userId: ctx.currentUserId ?? null,
+        receivedVia: lead.received_via ?? null,
+      })
+    : false;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -280,17 +293,19 @@ function CardMenu({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
           View details
         </DropdownMenuItem>
         {ctx.canEdit && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              ctx.onEditLead(lead);
+            }}
+            className="text-popover-foreground focus:bg-muted focus:text-foreground"
+          >
+            <Pencil className="size-4" />
+            Edit
+          </DropdownMenuItem>
+        )}
+        {canDelete && (
           <>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
-                ctx.onEditLead(lead);
-              }}
-              className="text-popover-foreground focus:bg-muted focus:text-foreground"
-            >
-              <Pencil className="size-4" />
-              Edit
-            </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem
               variant="destructive"
@@ -584,6 +599,7 @@ export function LeadsBoard({
   onEditLead,
   onDeleteLead,
   canEdit,
+  accountRole,
   nameById,
   avatarById,
   transfers,
@@ -641,6 +657,7 @@ export function LeadsBoard({
       onEditLead,
       onDeleteLead,
       canEdit,
+      accountRole,
       nameById,
       avatarById,
       transfers,
@@ -654,6 +671,7 @@ export function LeadsBoard({
       onEditLead,
       onDeleteLead,
       canEdit,
+      accountRole,
       nameById,
       avatarById,
       transfers,

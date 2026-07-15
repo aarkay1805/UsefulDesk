@@ -3,7 +3,9 @@ import {
   ACCOUNT_ROLES,
   type AccountRole,
   canDeleteAccount,
+  canDeleteAnyLead,
   canDeleteAnyNote,
+  canDeleteLead,
   canDeleteMember,
   canCorrectPayments,
   canManageMandates,
@@ -169,6 +171,68 @@ describe("capability predicates", () => {
     expect(canResolveAnyLeadTransfer("admin")).toBe(true);
     expect(canResolveAnyLeadTransfer("agent")).toBe(false);
     expect(canResolveAnyLeadTransfer("viewer")).toBe(false);
+  });
+
+  it("canDeleteAnyLead: admin+ only", () => {
+    expect(canDeleteAnyLead("owner")).toBe(true);
+    expect(canDeleteAnyLead("admin")).toBe(true);
+    expect(canDeleteAnyLead("agent")).toBe(false);
+    expect(canDeleteAnyLead("viewer")).toBe(false);
+  });
+
+  describe("canDeleteLead (per-lead)", () => {
+    const ME = "user-me";
+    const OTHER = "user-other";
+
+    it("admin/owner delete any lead — incl. auto-captured and others'", () => {
+      for (const role of ["owner", "admin"] as const) {
+        expect(
+          canDeleteLead(role, { createdBy: OTHER, userId: ME, receivedVia: "meta" }),
+        ).toBe(true);
+        expect(
+          canDeleteLead(role, { createdBy: null, userId: ME, receivedVia: "whatsapp" }),
+        ).toBe(true);
+      }
+    });
+
+    it("agent deletes only a human-origin lead they created", () => {
+      // own + manual → yes
+      expect(
+        canDeleteLead("agent", { createdBy: ME, userId: ME, receivedVia: "manual" }),
+      ).toBe(true);
+      // own + import → yes
+      expect(
+        canDeleteLead("agent", { createdBy: ME, userId: ME, receivedVia: "import" }),
+      ).toBe(true);
+      // own + NULL origin (treated as human) → yes
+      expect(
+        canDeleteLead("agent", { createdBy: ME, userId: ME, receivedVia: null }),
+      ).toBe(true);
+    });
+
+    it("agent CANNOT delete auto-captured leads even if created_by is them", () => {
+      for (const via of ["whatsapp", "meta", "api", "automation", "form"] as const) {
+        expect(
+          canDeleteLead("agent", { createdBy: ME, userId: ME, receivedVia: via }),
+        ).toBe(false);
+      }
+    });
+
+    it("agent CANNOT delete a teammate's lead", () => {
+      expect(
+        canDeleteLead("agent", { createdBy: OTHER, userId: ME, receivedVia: "manual" }),
+      ).toBe(false);
+      // no recorded creator → not theirs
+      expect(
+        canDeleteLead("agent", { createdBy: null, userId: ME, receivedVia: "manual" }),
+      ).toBe(false);
+    });
+
+    it("viewer can never delete", () => {
+      expect(
+        canDeleteLead("viewer", { createdBy: ME, userId: ME, receivedVia: "manual" }),
+      ).toBe(false);
+    });
   });
 
   it("canDeleteMember: admin+ only", () => {

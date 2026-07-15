@@ -12,6 +12,8 @@ import {
   Pencil,
   RotateCcw,
   Upload,
+  LayoutTemplate,
+  Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -51,6 +53,10 @@ import {
   extractVariableIndices,
   TEMPLATE_LIMITS,
 } from '@/lib/whatsapp/template-validators';
+import {
+  TEMPLATE_PRESETS,
+  type TemplatePreset,
+} from '@/lib/whatsapp/template-presets';
 
 const CATEGORIES = ['Marketing', 'Utility', 'Authentication'] as const;
 type HeaderFormat = 'none' | 'text' | 'image' | 'video' | 'document';
@@ -137,6 +143,11 @@ export function TemplateManager() {
   // submit handler from POST /submit to PATCH /[id] and changes the
   // dialog title + CTA. Set to the template id to pre-fill from a row.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Preset gallery — pick a ready-made gym template to pre-fill the form.
+  const [presetPickerOpen, setPresetPickerOpen] = useState(false);
+  // Set when a pinned preset (gym_renewal_reminder) is applied: locks the
+  // name field so the Remind button / cron wiring can't be renamed away.
+  const [nameLocked, setNameLocked] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // Template selected for the confirm-delete dialog. The destructive
   // action goes through this two-step so a slip on the trash icon
@@ -231,8 +242,32 @@ export function TemplateManager() {
     };
   }
 
+  // Drop a preset's copy into the create form so the gym can tweak and
+  // submit. Never an edit — presets always mint a new template.
+  function applyPreset(preset: TemplatePreset) {
+    const f = preset.fields;
+    setEditingId(null);
+    setNameLocked(!!preset.pinned);
+    setForm({
+      ...emptyForm,
+      name: f.name,
+      category: f.category,
+      language: 'en_US',
+      header_format: f.header_format,
+      header_content: f.header_content ?? '',
+      header_sample: f.header_sample ?? '',
+      body_text: f.body_text,
+      body_samples: [...f.body_samples],
+      footer_text: f.footer_text ?? '',
+      buttons: f.buttons ? [...f.buttons] : [],
+    });
+    setPresetPickerOpen(false);
+    setDialogOpen(true);
+  }
+
   function openEdit(template: MessageTemplate) {
     setEditingId(template.id);
+    setNameLocked(false);
     setForm({
       name: template.name,
       category: template.category,
@@ -251,6 +286,7 @@ export function TemplateManager() {
 
   function openCreate() {
     setEditingId(null);
+    setNameLocked(false);
     setForm(emptyForm);
     setDialogOpen(true);
   }
@@ -497,6 +533,14 @@ export function TemplateManager() {
               <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Syncing…' : 'Sync from Meta'}
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => setPresetPickerOpen(true)}
+              title="Start from a ready-made gym template"
+            >
+              <LayoutTemplate className="size-4" />
+              Start from template
+            </Button>
             <Button onClick={openCreate}>
               <Plus className="size-4" />
               New Template
@@ -510,8 +554,13 @@ export function TemplateManager() {
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <p className="text-muted-foreground text-sm">No templates yet.</p>
             <p className="text-muted-foreground text-xs mt-1">
-              Create your first message template to get started.
+              Start from a ready-made gym template — renewal reminders,
+              receipts, welcome messages — then customise and submit.
             </p>
+            <Button className="mt-4" onClick={() => setPresetPickerOpen(true)}>
+              <LayoutTemplate className="size-4" />
+              Browse templates
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -634,6 +683,7 @@ export function TemplateManager() {
           setDialogOpen(open);
           if (!open) {
             setEditingId(null);
+            setNameLocked(false);
             setForm(emptyForm);
           }
         }}
@@ -669,13 +719,15 @@ export function TemplateManager() {
                 placeholder="e.g. order_confirmation"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                disabled={editingId !== null}
+                disabled={editingId !== null || nameLocked}
                 className="border-border text-foreground placeholder:text-muted-foreground disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <p className="text-[11px] text-muted-foreground">
                 {editingId
                   ? 'Name is fixed once a template exists on Meta — create a new template to change it.'
-                  : 'Lowercase letters, digits, and underscores only.'}
+                  : nameLocked
+                    ? 'This name is required — the Remind button and auto-reminders send against exactly this template.'
+                    : 'Lowercase letters, digits, and underscores only.'}
               </p>
             </div>
 
@@ -1080,6 +1132,84 @@ export function TemplateManager() {
               ) : (
                 'Submit for Approval'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preset gallery — ready-made gym templates. Selecting one drops
+          its copy into the create form for the gym to customise + submit. */}
+      <Dialog open={presetPickerOpen} onOpenChange={setPresetPickerOpen}>
+        <DialogContent className="bg-popover border-border sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-popover-foreground">
+              Start from a template
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Ready-made gym messages, written to pass Meta review. Pick one,
+              tweak the wording to your brand, then submit for approval.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {TEMPLATE_PRESETS.map((preset) => (
+              <Card
+                key={preset.id}
+                className={
+                  preset.pinned ? 'border-primary/40' : undefined
+                }
+              >
+                <CardContent className="space-y-2 pt-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-medium text-foreground">
+                          {preset.title}
+                        </h4>
+                        <Badge
+                          className={`text-xs border ${categoryColors[preset.category] || ''}`}
+                        >
+                          {preset.category}
+                        </Badge>
+                        {preset.pinned && (
+                          <Badge className="text-xs border border-primary/40 bg-primary/10 text-primary-text">
+                            <Sparkles className="size-3" />
+                            Powers Remind
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {preset.blurb}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => applyPreset(preset)}
+                      className="shrink-0"
+                    >
+                      Use this
+                    </Button>
+                  </div>
+                  <p className="rounded bg-muted/50 px-2.5 py-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                    {preset.fields.body_text}
+                  </p>
+                  {preset.note && (
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {preset.note}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <DialogFooter className="bg-popover border-border">
+            <Button
+              variant="outline"
+              onClick={() => setPresetPickerOpen(false)}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

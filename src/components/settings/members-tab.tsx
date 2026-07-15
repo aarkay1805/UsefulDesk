@@ -71,6 +71,7 @@ import {
 } from '@/components/presence/presence-dot';
 import { InviteMemberDialog } from './invite-member-dialog';
 import { SettingsPanelHead } from './settings-panel-head';
+import { AccountDangerZone } from './account-danger-zone';
 import { ROLE_META } from './role-meta';
 
 interface Member {
@@ -601,6 +602,10 @@ export function MembersTab() {
           )}
         </div>
       </RequireRole>
+
+      {/* Owner-only danger zone. Self-gates via useCan — renders null
+          for everyone below owner. */}
+      <AccountDangerZone />
 
       <InviteMemberDialog
         open={inviteOpen}

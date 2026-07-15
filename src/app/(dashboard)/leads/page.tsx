@@ -168,6 +168,8 @@ import {
   respondLeadTransfer,
 } from '@/lib/leads/transfers';
 import {
+  canDeleteAnyLead,
+  canDeleteLead,
   canReassignLeadsDirectly,
   canRequestLeadTransfer,
   canResolveAnyLeadTransfer,
@@ -879,6 +881,22 @@ export default function LeadsPage() {
   // Lead-transfer capabilities (migration 050). admin/owner reassign
   // instantly + get bulk assign; agents open an accept-gated request.
   const role = profile?.account_role ?? null;
+  // Delete gating (migration 066). Admins delete any lead; an agent only a
+  // lead they created via a human action (auto-captured + teammates' leads
+  // are off-limits). canDeleteAny → the bulk-delete "some may be skipped"
+  // hint; canDeleteThisLead gates the per-row + board menus. RLS mirrors both.
+  const canDeleteAny = role ? canDeleteAnyLead(role) : false;
+  const canDeleteThisLead = useCallback(
+    (c: Contact) =>
+      role
+        ? canDeleteLead(role, {
+            createdBy: c.created_by ?? null,
+            userId: user?.id ?? null,
+            receivedVia: c.received_via ?? null,
+          })
+        : false,
+    [role, user?.id],
+  );
   const canReassignDirect = role ? canReassignLeadsDirectly(role) : false;
   const canTransfer = role ? canRequestLeadTransfer(role) : false;
   const canResolveAnyTransfer = role ? canResolveAnyLeadTransfer(role) : false;
@@ -985,6 +1003,22 @@ export default function LeadsPage() {
   const [editContactTags, setEditContactTags] = useState<ContactTag[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContactId, setDetailContactId] = useState<string | null>(null);
+  // Where the detail sheet should land on open. A follow-up-reminder
+  // notification deep-links with `?focus=followup` so the sheet opens on
+  // the notes/follow-up composer instead of the top of the record.
+  const [detailFocus, setDetailFocus] = useState<'followup' | null>(null);
+  // Deep link from a notification: `?contact=<id>` opens that lead's
+  // detail sheet, and `?focus=followup` (follow-up reminders) lands it on
+  // the notes/follow-up composer. Runs only when the params change, so
+  // manually closing the sheet doesn't fight the URL.
+  const urlContact = searchParams.get('contact');
+  const urlFocus = searchParams.get('focus');
+  useEffect(() => {
+    if (!urlContact) return;
+    setDetailContactId(urlContact);
+    setDetailFocus(urlFocus === 'followup' ? 'followup' : null);
+    setDetailOpen(true);
+  }, [urlContact, urlFocus]);
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
@@ -2284,8 +2318,9 @@ export default function LeadsPage() {
     setFormOpen(true);
   }
 
-  function openDetail(contactId: string) {
+  function openDetail(contactId: string, focus: 'followup' | null = null) {
     setDetailContactId(contactId);
+    setDetailFocus(focus);
     setDetailOpen(true);
   }
 
@@ -2298,13 +2333,17 @@ export default function LeadsPage() {
     if (!deleteTarget) return;
     setDeleting(true);
 
-    const { error } = await supabase
+    // .select('id') so an RLS-blocked delete (no error, zero rows — e.g. an
+    // agent hitting a lead they didn't create) surfaces as a failure rather
+    // than a false "deleted" toast.
+    const { data, error } = await supabase
       .from('contacts')
       .delete()
-      .eq('id', deleteTarget.id);
+      .eq('id', deleteTarget.id)
+      .select('id');
 
-    if (error) {
-      toast.error('Failed to delete lead');
+    if (error || !data || data.length === 0) {
+      toast.error("Failed to delete lead — you can only delete leads you created");
     } else {
       toast.success('Lead deleted');
       refreshAll();
@@ -2463,12 +2502,30 @@ export default function LeadsPage() {
     if (ids.length === 0) return;
     setDeleting(true);
 
-    const { error } = await supabase.from('contacts').delete().in('id', ids);
+    // RLS decides which of the selected leads the caller may actually delete
+    // (admins: all; agents: only their own human-created leads). .select('id')
+    // returns the rows that were really removed, so we can report the skipped
+    // remainder honestly instead of claiming a full delete the DB refused.
+    const { data, error } = await supabase
+      .from('contacts')
+      .delete()
+      .in('id', ids)
+      .select('id');
 
     if (error) {
       toast.error('Failed to delete leads');
     } else {
-      toast.success(`${ids.length} lead${ids.length === 1 ? '' : 's'} deleted`);
+      const removed = data?.length ?? 0;
+      const skipped = ids.length - removed;
+      if (removed === 0) {
+        toast.error('You can only delete leads you created');
+      } else if (skipped > 0) {
+        toast.success(
+          `${removed} lead${removed === 1 ? '' : 's'} deleted · ${skipped} skipped (you can only delete leads you created)`,
+        );
+      } else {
+        toast.success(`${removed} lead${removed === 1 ? '' : 's'} deleted`);
+      }
       setSelected(new Set());
       refreshAll();
     }
@@ -3366,6 +3423,7 @@ export default function LeadsPage() {
               onEditLead={openEditForm}
               onDeleteLead={confirmDelete}
               canEdit={canEdit}
+              accountRole={role}
               nameById={nameById}
               avatarById={avatarById}
               transfers={transfers}
@@ -3720,14 +3778,18 @@ export default function LeadsPage() {
                                   <Pencil className="size-4" />
                                   Edit
                                 </DropdownMenuItem>
-                                <DropdownMenuSeparator className="bg-border" />
-                                <DropdownMenuItem
-                                  variant="destructive"
-                                  onClick={() => confirmDelete(contact)}
-                                >
-                                  <Trash2 className="size-4" />
-                                  Delete
-                                </DropdownMenuItem>
+                                {canDeleteThisLead(contact) && (
+                                  <>
+                                    <DropdownMenuSeparator className="bg-border" />
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      onClick={() => confirmDelete(contact)}
+                                    >
+                                      <Trash2 className="size-4" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -3847,6 +3909,7 @@ export default function LeadsPage() {
         open={detailOpen}
         onOpenChange={setDetailOpen}
         contactId={detailContactId}
+        initialFocus={detailFocus}
         onUpdated={refreshAll}
       />
 
@@ -3951,6 +4014,12 @@ export default function LeadsPage() {
               </span>
               ? This action cannot be undone.
             </DialogDescription>
+            {!canDeleteAny && (
+              <p className="text-muted-foreground mt-1 text-xs">
+                Only leads you created will be deleted — leads created by others
+                or captured automatically are skipped.
+              </p>
+            )}
           </DialogHeader>
           <DialogFooter className="bg-popover border-border">
             <Button

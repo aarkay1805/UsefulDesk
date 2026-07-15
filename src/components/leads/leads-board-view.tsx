@@ -10,6 +10,7 @@ import {
 } from '@/components/leads/leads-board';
 import type { LeadColumn } from '@/lib/leads/status';
 import type { Contact, LeadStatus, LeadTransfer } from '@/types';
+import type { AccountRole } from '@/lib/auth/roles';
 import type { createClient } from '@/lib/supabase/client';
 
 interface LeadsBoardViewProps {
@@ -19,6 +20,7 @@ interface LeadsBoardViewProps {
   leads: BoardLead[];
   columns: LeadColumn[];
   canEdit: boolean;
+  accountRole: AccountRole | null;
   nameById: ReadonlyMap<string, string>;
   avatarById: ReadonlyMap<string, string | null>;
   transfers: Record<string, LeadTransfer>;
@@ -52,6 +54,7 @@ export function LeadsBoardView({
   leads: leadsProp,
   columns,
   canEdit,
+  accountRole,
   nameById,
   avatarById,
   transfers,
@@ -121,6 +124,7 @@ export function LeadsBoardView({
       onEditLead={onEditLead}
       onDeleteLead={onDeleteLead}
       canEdit={canEdit}
+      accountRole={accountRole}
       nameById={nameById}
       avatarById={avatarById}
       transfers={transfers}

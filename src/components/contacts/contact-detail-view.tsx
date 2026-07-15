@@ -19,6 +19,8 @@ interface ContactDetailViewProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contactId: string | null;
+  /** Section to land on when the sheet opens (deep links from notifications). */
+  initialFocus?: 'followup' | null;
   onUpdated: () => void;
 }
 
@@ -26,6 +28,7 @@ export function ContactDetailView({
   open,
   onOpenChange,
   contactId,
+  initialFocus = null,
   onUpdated,
 }: ContactDetailViewProps) {
   return (
@@ -44,6 +47,7 @@ export function ContactDetailView({
           contactId={contactId}
           active={open}
           variant="sheet"
+          initialFocus={initialFocus}
           onUpdated={onUpdated}
           onClose={() => onOpenChange(false)}
         />
