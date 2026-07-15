@@ -318,3 +318,12 @@ Closes Phase 2's last gap — until now a lead could only be *typed in, imported
 **The phone trap (`normalizeSubmittedPhone`, `leads/capture-form.ts` — used by BOTH paths).** A visitor types 10 local digits; `isValidE164` *happily accepts* a bare `9876543210`, so it stores looking clean and is then un-messageable on WhatsApp forever — silently breaking the whole wedge, on the happy path. So the account's dial code is prefixed unless the input is explicitly international. Watch the guard for `'9198765432'`: a real 10-digit Indian number that merely *starts* with `91` and must not be mistaken for one already carrying the country code.
 
 Verified against live: bare 10-digit → stored `919876543210`; dedupe → 1 contact / 2 submissions / 2 notes / identical response body; honeypot → 0 rows; 6th submit → 429; revoke → `revoked`; Meta handshake fails closed (403); tampered signature → 401; failed ingest → 500 **with the claim rolled back**; pre-claimed redelivery → 200 no-op.
+
+---
+
+## Lead delete → admin-only (migration `065`)
+
+Deleting a lead is now **admin+**, enforced in both layers. New capability predicate `canDeleteLead` (`src/lib/auth/roles.ts`, admin+) + `useCan('delete-lead')` + the admin-level `contacts_delete` RLS (`065`, raised from the agent-level `017` policy). Member deletion is unaffected — it runs through the `delete_member` SECURITY DEFINER RPC (`056`) which already checked admin and bypasses table RLS.
+
+- **New affordance:** a "Delete lead" destructive button pinned below the scroll area in the shared lead sheet (`contact-detail-content.tsx`) — so it appears on BOTH the leads page and the inbox contact panel off the one component. Confirm `Dialog`; delete chains `.select('id')` and treats zero rows as failure (RLS-silent-fail gotcha). On success → `onUpdated()` + `onClose()`.
+- **Existing delete paths re-gated** from agent→admin so the new rule isn't a UI-only gate contradicting an agent-reachable path: leads table row-action `Delete`, bulk-toolbar `Delete` (`canAct={canDeleteLeads}`), and the board card menu (new `canDelete` prop threaded LeadsBoardView → LeadsBoard → LeadCardContext, split out of the agent-level `canEdit` that still gates Edit). Agents/viewers no longer see any Delete affordance.
