@@ -287,7 +287,7 @@ export function Step2SelectAudience({
               className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
                 isSelected
                   ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                  : 'border-border bg-card/50 hover:border-border'
+                  : 'border-border bg-card/50 hover:border-border-hover'
               }`}
             >
               <div

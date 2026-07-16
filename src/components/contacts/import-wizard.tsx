@@ -1778,7 +1778,7 @@ function MapStep({
                   'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
                   mode === key
                     ? 'border-primary/40 bg-primary/[0.04]'
-                    : 'border-border/80 hover:bg-muted/40'
+                    : 'border-border/80 hover:border-border-hover'
                 )}
               >
                 <RadioGroupItem value={key} className="mt-0.5" />
@@ -2191,7 +2191,7 @@ function ConfirmStep({
                 'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
                 mode === key
                   ? 'border-primary/40 bg-primary/[0.04]'
-                  : 'border-border/80 hover:bg-muted/40'
+                  : 'border-border/80 hover:border-border-hover'
               )}
             >
               <RadioGroupItem value={key} className="mt-0.5" />

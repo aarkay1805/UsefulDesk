@@ -155,11 +155,15 @@ export function GymMetrics() {
   );
 }
 
+// The child is a Card, whose edge is `ring-1 ring-foreground/10` — it has no
+// border at all. So the hover has to strengthen the RING; the old
+// `[&>div]:hover:border-primary/50` was a silent no-op and these tiles had no
+// hover feedback.
 function TileLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link
       href={href}
-      className="block h-full rounded-xl outline-none transition-transform focus-visible:ring-2 focus-visible:ring-primary [&>div]:h-full [&>div]:transition-colors [&>div]:hover:border-primary/50"
+      className="block h-full rounded-xl outline-none transition-transform focus-visible:ring-2 focus-visible:ring-primary [&>div]:h-full [&>div]:transition-[box-shadow] hover:[&>div]:ring-border-hover"
     >
       {children}
     </Link>

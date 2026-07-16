@@ -35,6 +35,14 @@
    * box outline is the sole affordance. See the MODE blocks below. */
   --color-input-border: var(--input-border);
   --color-border: var(--border);
+  /* Hover edge for clickable cards. A card's hover feedback is the border
+   * STRENGTHENING, not the fill shifting — so this is the one hover token
+   * those boxes use, and they leave bg alone. Deliberately neutral: an
+   * accent-tinted hover collides with the emerald done-state on the
+   * onboarding rows once a gym picks the emerald accent. Mirrors intent
+   * per mode rather than the literal direction — darkens on light,
+   * lightens on dark (like --card-2). See the MODE blocks below. */
+  --color-border-hover: var(--border-hover);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
@@ -122,6 +130,10 @@ html[data-mode="dark"] {
    * 0.704 clears 5.8:1 even over the /10 tinted pill backgrounds. */
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(0.28 0.01 260);
+  /* LIGHTENS on hover (0.28 → 0.36): on dark, "darker" would push the edge
+   * toward the card fill (0.18) and dissolve it, reading as the card losing
+   * its border rather than gaining emphasis. */
+  --border-hover: oklch(0.36 0.012 260);
   --input: oklch(0.28 0.01 260);
   /* Matches --border (the outline-button resting gray) so inputs and
    * outline buttons share one light border. */
@@ -161,6 +173,10 @@ html[data-mode="light"] {
    * and white-on-solid also improves to 6.3:1). */
   --destructive: oklch(0.514 0.21 27.325);
   --border: oklch(0.922 0.004 260);
+  /* DARKENS on hover (0.922 → 0.87) — one step down, roughly gray-200 →
+   * gray-300. Enough to register against the white card fill without the
+   * edge reading as a selected/focus state. */
+  --border-hover: oklch(0.87 0.005 260);
   --input: oklch(0.922 0.004 260);
   /* Matches --border (the outline-button resting gray) so inputs and
    * outline buttons share one light border. */

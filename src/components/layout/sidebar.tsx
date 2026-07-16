@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
+import { useOnboardingStatus } from '@/hooks/use-onboarding-status';
 import { useTotalUnread } from '@/hooks/use-total-unread';
 import { useUnreadNotifications } from '@/hooks/use-unread-notifications';
 import {
@@ -16,6 +17,7 @@ import {
   LogOut,
   MessageSquare,
   Radio,
+  Rocket,
   Settings,
   Shield,
   User,
@@ -108,6 +110,7 @@ interface SidebarProps {
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
+  const onboarding = useOnboardingStatus();
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
   // Only surface the account-name strip when it actually carries
@@ -197,6 +200,34 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Main navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="flex flex-col gap-1">
+            {/* Get Started sits above the regular nav while onboarding is
+                live for this account (admin+, not yet complete/dismissed).
+                It auto-disappears once every step is done — the provider
+                stamps `onboarding_dismissed_at` and `active` flips off. */}
+            {onboarding.active && !onboarding.allDone && (
+              <li>
+                <Link
+                  href="/get-started"
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
+                    pathname.startsWith('/get-started')
+                      ? 'bg-primary/10 text-primary-text'
+                      : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground'
+                  )}
+                >
+                  <Rocket className="h-4 w-4" />
+                  <span className="flex-1">Get Started</span>
+                  {!onboarding.loading && (
+                    <span
+                      aria-label={`${onboarding.completedCount} of ${onboarding.total} setup steps complete`}
+                      className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
+                    >
+                      {onboarding.completedCount}/{onboarding.total}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            )}
             {navItems.map((item) => {
               const isActive =
                 pathname === item.href ||

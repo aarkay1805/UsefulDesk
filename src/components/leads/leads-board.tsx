@@ -365,7 +365,7 @@ const LeadCard = memo(function LeadCard({
     <div
       onClick={() => ctx.onOpenLead(lead.id)}
       className={cn(
-        "group/card w-full cursor-pointer rounded-lg border border-border bg-card p-3 text-left transition-colors [contain:layout] hover:border-primary/40 hover:bg-muted/60",
+        "group/card w-full cursor-pointer rounded-lg border border-border bg-card p-3 text-left transition-colors [contain:layout] hover:border-border-hover",
         isOverlay && "shadow-lg",
       )}
     >

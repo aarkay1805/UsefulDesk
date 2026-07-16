@@ -65,6 +65,9 @@ interface AccountSummary {
   week_start: number | null;
   phone_country_code: string | null;
   measurement_system: string | null;
+  /** When the Get Started onboarding was hidden (explicit dismiss or
+   *  auto-set once every step completed). Null = still show it. */
+  onboarding_dismissed_at: string | null;
 }
 
 interface AuthContextValue {
@@ -201,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // 055; every field is narrowed below / by
             // resolveAccountLocale for older schemas where it reads null.
             .select(
-              "id, name, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system",
+              "id, name, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system, onboarding_dismissed_at",
             )
             .eq("id", data.account_id)
             .maybeSingle();
@@ -225,6 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               week_start: account.week_start ?? null,
               phone_country_code: account.phone_country_code ?? null,
               measurement_system: account.measurement_system ?? null,
+              onboarding_dismissed_at: account.onboarding_dismissed_at ?? null,
             };
           }
         }

@@ -8,6 +8,7 @@ import {
 } from '@/components/layout/page-header-actions';
 
 const pageTitles: Record<string, string> = {
+  '/get-started': 'Get Started',
   '/dashboard': 'Dashboard',
   '/inbox': 'Inbox',
   '/notifications': 'Notifications',

@@ -94,7 +94,7 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
                 className={`flex flex-col gap-3 rounded-xl border p-4 text-left transition-all ${
                   isSelected
                     ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                    : 'border-border bg-card/50 hover:border-border hover:bg-card'
+                    : 'border-border bg-card/50 hover:border-border-hover'
                 }`}
               >
                 <div className="flex items-start justify-between">

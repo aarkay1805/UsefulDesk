@@ -428,7 +428,10 @@ export function PlanEditorDialog({
                       : "cursor-pointer",
                     planType === t.value
                       ? "border-primary/40 bg-primary/[0.04]"
-                      : cn("border-border/80", !typeLocked && "hover:bg-muted/40"),
+                      : cn(
+                          "border-border/80",
+                          !typeLocked && "hover:border-border-hover",
+                        ),
                   )}
                 >
                   <RadioGroupItem value={t.value} className="mt-0.5" />

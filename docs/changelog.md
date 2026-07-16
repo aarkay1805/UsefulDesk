@@ -353,3 +353,32 @@ Closes the App Review gap: Meta requires a Data Deletion Request URL, and there 
 - **Account erasure** — `DELETE /api/account`, owner-only (`canDeleteAccount`, already existed) + exact account-name confirmation in `{ confirm }`. Deleting the `accounts` row cascades every `account_id` FK (all tenant Platform Data incl. encrypted `whatsapp_config` tokens); the two things Postgres FKs don't reach — Supabase Storage media (`account-<id>/` prefix across `chat-media`/`flow-media`/`profile-avatars`) and members' `auth.users` login identities — are purged explicitly (self deleted last). Admin-client delete chains `.select('id')` and treats empty as failure (RLS-silent-write gotcha).
 - **`data_deletion_requests` table** (`066`) — audit log for both flows. **No FK to accounts on purpose** (an `ON DELETE CASCADE` would erase the trail the erasure creates). RLS enabled, **zero policies** → service-role-only.
 - **UI trigger** — `AccountDangerZone` (`src/components/settings/account-danger-zone.tsx`) renders at the bottom of Settings → Members, **self-gated to owner** via `useCan('delete-account')` (returns null otherwise). Type-the-account-name-to-confirm dialog → `DELETE /api/account` → hard-nav to `/` (proxy bounces the now-unauthenticated session to sign-in).
+
+---
+
+## Get Started onboarding checklist (migration `067`)
+
+PushPress-style setup guide for freshly created gyms: a `/get-started` page + sidebar item showing 6 auto-detected setup steps (connect WhatsApp, approve `gym_renewal_reminder`, first plan, first member, first paid payment, invite staff), a progress bar, and a "recommended next action" hero card deep-linking each step (`/settings?tab=…`, `/members`).
+
+- **State lives in ONE place** — `OnboardingProvider` (`src/hooks/use-onboarding-status.tsx`), mounted in `dashboard-shell.tsx` inside `AuthProvider`. Sidebar badge (`N/6`) and page share the fetch. Pure derivation (step defs, done-rules, recommended-next) is `src/lib/onboarding/steps.ts` + colocated test.
+- **Zero cost for mature accounts.** Provider short-circuits (no queries) unless admin+ AND `accounts.onboarding_dismissed_at IS NULL` (`067`, nullable timestamptz; existing 017 `accounts_update` RLS already covers the write — no new policy/predicate). When all 6 steps are detected complete the provider **auto-stamps the column once** (ref-guarded, `.select('id')` RLS-silent-fail check) — the sidebar item disappears forever; `/get-started` stays reachable and shows an all-done card. Explicit "Hide this page" button = same write early.
+- **Failed fetches can never auto-dismiss**: `deriveOnboardingSteps` treats null signals (failed roster/invite fetches) as incomplete, so `allDone` is only ever affirmative.
+- **Refetch-on-visit without setState-in-effect**: the provider keys its effect on `pathname.startsWith('/get-started')`, so landing on the page (e.g. returning from a completed step) refreshes state — the page itself never bumps a nonce in an effect.
+- **New `ui/progress.tsx` master component** (user-approved): determinate track+fill (`bg-muted`/`bg-primary`, progressbar aria). First consumer is the setup guide header.
+- Non-admins hitting the URL get a friendly "setup is handled by admins" card (no redirect). Row/tile anatomy copied from `settings-overview.tsx`; done-state = a filled emerald circle (see the card-hover section below — the original brand-tinted icon + outline tick was reworked).
+
+---
+
+## Card interaction states — neutral hover, `--border-hover` (no migration)
+
+Triggered by a real clash: the onboarding step rows tinted their leading icon `bg-primary-soft`/`text-primary` and their done-tick emerald. **`emerald` is a shipped accent theme** — so a gym on that accent saw pending rows and done rows in the same green. Brand and status collapsed into one colour.
+
+- **New token `--border-hover`** (`globals.css`, mapped as `--color-border-hover` → `hover:border-border-hover`). **Mirrors intent per mode, not direction**: darkens on light (`0.922 → 0.87`, ≈gray-200 → gray-300), **lightens on dark** (`0.28 → 0.36`). Darkening on dark would push the edge toward the card fill (`0.18`) and dissolve it — the card would read as *losing* its border on hover. Same logic `--card-2` already uses.
+- **Card hover = border only.** The fill no longer moves; `hover:bg-*` is gone from every clickable card. Deliberately **neutral, never accent-tinted** — that's what caused the clash. Rule → `docs/ui-patterns.md`.
+- **17 cards / 13 files converged onto one hover**, retiring two competing idioms (`hover:border-primary-soft-2 hover:bg-card-2` and the older `hover:bg-muted/60`).
+- **Four hovers never fired.** `flows:375`, `automations:280`, both `appearance-panel` cards: `hover:border-border` while already resting at `border-border` = no-op. `notifications:306` had `hover:border-border/70` — *weaker* on hover. All now respond.
+- **`gym-metrics.tsx` `TileLink` was dead too** — its child is a `Card`, whose edge is `ring-1 ring-foreground/10`, **not a border**. `[&>div]:hover:border-primary/50` targeted a border that doesn't exist. Retargeted to `hover:[&>div]:ring-border-hover`; those dashboard tiles have hover feedback for the first time.
+- **Onboarding rows**: leading icon → neutral `bg-muted text-foreground` on every step (done or not); trailing done-tick → filled `size-5` emerald circle + white `Check` (`strokeWidth={3}`), replacing the `size-4` `CheckCircle2` outline. `CheckCircle2` still used by the all-done card.
+- Selected/active states keep their `primary` tint — only the *unselected* hover went neutral. Untouched on purpose: tag pills, dashed dropzone, icon-circle buttons, table rows, canvas nodes, destructive/red.
+- `StepRow` (`get-started-view.tsx`) and the settings status tile (`settings-overview.tsx`) are **byte-identical boxes** — visual twins that must change together.
+- Verified: `tsc` + eslint clean, `next build` green, and both utilities confirmed in the emitted CSS (`.hover\:border-border-hover:hover{border-color:var(--border-hover)}`, `…ring-border-hover:hover>div{--tw-ring-color:var(--border-hover)}`).

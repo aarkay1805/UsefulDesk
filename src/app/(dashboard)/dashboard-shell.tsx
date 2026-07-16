@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
+import { OnboardingProvider } from '@/hooks/use-onboarding-status';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
@@ -62,7 +63,11 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <DashboardShellInner>{children}</DashboardShellInner>
+      {/* Needs useAuth, so it sits inside AuthProvider. Shares the Get
+          Started completion state between the sidebar and the page. */}
+      <OnboardingProvider>
+        <DashboardShellInner>{children}</DashboardShellInner>
+      </OnboardingProvider>
     </AuthProvider>
   );
 }

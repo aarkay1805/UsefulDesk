@@ -13,6 +13,20 @@ Drift is a real bug, not a nit. Example: `DropdownMenuContent` had `p-1` on the 
 
 When you spot a mismatch: **fix it at the master component** so every call-site converges, then cross-check the peers — menu ⇄ select ⇄ combobox ⇄ popover; search field; badge/pill family; segmented toggle.
 
+## Clickable cards — hover is the BORDER, never the fill
+
+A clickable card (any bordered box that navigates or acts — nav tile, action row, selectable option) hovers with **`hover:border-border-hover` and nothing else**. The fill does not move: no `hover:bg-*`.
+
+- **Never tint a card hover with the accent.** `--border-hover` is deliberately neutral. `hover:border-primary/40` collides with the emerald *done* state on the onboarding rows the moment a gym picks the **emerald accent** (a real, shipped theme) — brand and status become the same green.
+- Same reason, same rule for **leading icons** in those rows: neutral `bg-muted text-foreground`, not `bg-primary-soft text-primary`. Green appears once per row and only ever means done.
+- `--border-hover` **mirrors intent per mode, not direction** — darkens on light (`0.922 → 0.87`), *lightens* on dark (`0.28 → 0.36`). Darkening on dark would push the edge toward the card fill (`0.18`) and dissolve it, reading as the card *losing* its border. Same logic as `--card-2`.
+- **`hover:border-border` is a no-op** — the resting border is already `border-border`. Four cards shipped with that dead hover (and one with `hover:border-border/70`, which made the edge *weaker*). If you write a hover, check it changes something.
+- **`Card` (`ui/card.tsx`) has no border** — its edge is `ring-1 ring-foreground/10`. Hovering a `Card` must target the **ring** (`hover:[&>div]:ring-border-hover`), not a border that doesn't exist. `[&>div]:hover:border-primary/50` on the dashboard tiles was silently dead for exactly this reason.
+- **Selected/active states keep their `primary` tint** — only the *unselected* hover is neutral, so selection still reads as selection.
+- Out of scope (left on their own idioms): tag pills, dashed dropzones, icon-circle buttons, table rows, canvas nodes, destructive/red states.
+
+Canonical: `onboarding/get-started-view.tsx` (`StepRow`) and `settings/settings-overview.tsx` (status tile) — visual twins with byte-identical boxes. **Change one, change the other**, or they drift.
+
 ## ⚠️ Overriding a variant-prefixed class in a master (tailwind-merge)
 
 tailwind-merge only dedupes utilities of the **same variant**. So an override of a `data-[side=*]:`-prefixed class **must carry the same prefix** — a bare `w-full` at a call-site does NOT beat `ui/sheet.tsx`'s `data-[side=right]:w-3/4` (this silently pinned every sheet to 75vw until the member sheet was fixed to `data-[side=right]:w-full data-[side=right]:sm:max-w-[…]`). Same trap for any prefixed default in a master.
