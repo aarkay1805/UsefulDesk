@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import {
   activeMemberFilterCount,
+  CHURN_RISK_OPTIONS,
   EMPTY_MEMBER_FILTERS,
   MEMBER_STATUS_OPTIONS,
   type MemberFilters,
@@ -33,7 +34,7 @@ interface MembersFiltersProps {
 /**
  * The All-members Filters popover — the members-lightweight sibling of
  * the leads Filters panel (same trigger/badge/check-group recipe, member
- * facets only: plan, derived status, fee status).
+ * facets only: plan, derived status, fee status, and churn risk).
  */
 export function MembersFilters({ value, onChange, plans }: MembersFiltersProps) {
   const count = activeMemberFilterCount(value);
@@ -101,6 +102,14 @@ export function MembersFilters({ value, onChange, plans }: MembersFiltersProps) 
             options={FEE_STATUS_OPTIONS}
             selected={value.feeStatus}
             onToggle={(v) => toggle("feeStatus", v)}
+          />
+
+          <Separator className="my-3" />
+          <CheckGroup
+            label="Churn risk"
+            options={CHURN_RISK_OPTIONS}
+            selected={value.churnRisk}
+            onToggle={(v) => toggle("churnRisk", v)}
           />
         </div>
       </PopoverContent>

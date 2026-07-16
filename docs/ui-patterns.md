@@ -147,7 +147,7 @@ The three overlays (`TemplatePicker` / `MemberForm` / `TransferRequestDialog`) l
 - Freeze / add-column / edit-options / drag-handle / the greyed "smart property" placeholder are **optional props** — leads passes the full set, members mounts just Sort + Filter + Hide.
 - **The resize grip and any drag transform live on the owning `<th>`, never in `ColumnHeader`.**
 - Don't fork it — restyle via props. Leads' `HeaderCell` is a thin adapter; members renders it directly.
-- Members: column meta = `MEMBER_COLUMNS` (`members-table.tsx`), cells = `renderCell()`; header Filter submenus wire to the shared `MemberFilters` dims (plan/status/fee) so header filter ⇄ Filters panel can't drift. Layout (order/hidden/widths) persists in the `members-all` `useTablePrefs` blob; a toolbar "Columns" menu is the unhide surface. Drag-reorder + freeze deliberately skipped (~6 fixed columns).
+- Members: column meta = `MEMBER_COLUMNS` (`members-table.tsx`), cells = `renderCell()`; header Filter submenus wire to the shared `MemberFilters` dims (plan/status/fee) so header filter ⇄ Filters panel can't drift. Layout (order/hidden/widths) persists in the `members-all` `useTablePrefs` blob; a toolbar "Columns" menu is the unhide surface. Drag-reorder + freeze deliberately skipped (~7 fixed columns).
 
 ### Lead-field cells
 

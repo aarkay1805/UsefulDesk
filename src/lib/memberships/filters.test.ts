@@ -43,6 +43,10 @@ describe("applyMemberFilters", () => {
         calls.push(["in", { column, values }]);
         return q;
       },
+      eq(column: string, value: boolean) {
+        calls.push(["eq", { column, value }]);
+        return q;
+      },
       or(filters: string) {
         calls.push(["or", filters]);
         return q;
@@ -61,14 +65,47 @@ describe("applyMemberFilters", () => {
     const q = stub();
     applyMemberFilters(
       q,
-      { plans: ["p1"], feeStatus: ["due"], statuses: ["cancelled"] },
+      {
+        plans: ["p1"],
+        feeStatus: ["due"],
+        statuses: ["cancelled"],
+        churnRisk: ["yes"],
+      },
       TODAY
     );
     expect(q.calls).toEqual([
       ["in", { column: "plan_id", values: ["p1"] }],
       ["in", { column: "fee_status", values: ["due"] }],
+      ["eq", { column: "contact.churn_risk", value: true }],
       ["or", "status.eq.cancelled"],
     ]);
+  });
+
+  it("filters members not marked as churn risk", () => {
+    const q = stub();
+    applyMemberFilters(
+      q,
+      { plans: [], feeStatus: [], statuses: [], churnRisk: ["no"] },
+      TODAY
+    );
+    expect(q.calls).toEqual([
+      ["eq", { column: "contact.churn_risk", value: false }],
+    ]);
+  });
+
+  it("does not constrain churn risk when both values are selected", () => {
+    const q = stub();
+    applyMemberFilters(
+      q,
+      {
+        plans: [],
+        feeStatus: [],
+        statuses: [],
+        churnRisk: ["yes", "no"],
+      },
+      TODAY
+    );
+    expect(q.calls).toEqual([]);
   });
 });
 
@@ -80,6 +117,7 @@ describe("activeMemberFilterCount", () => {
         plans: ["a", "b"],
         statuses: ["active"],
         feeStatus: [],
+        churnRisk: [],
       })
     ).toBe(2);
   });

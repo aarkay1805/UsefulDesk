@@ -6,6 +6,12 @@
 
 ---
 
+## Member churn risk (migrations `068`–`069`)
+
+Staff can mark a member as a churn risk from a dedicated profile-rail card below BMI. The flag defaults off, uses the existing agent-write contact RLS, and appears as a Yes/No column in All members (including CSV export). Migration `069` removes the initially shipped churn-risk note field so member context stays in the existing Notes section. Key code: `churn-risk-card.tsx`, `members-table.tsx`, `068_member_churn_risk.sql`, `069_remove_churn_risk_note.sql`.
+
+---
+
 ## Milestone 1 — the renewal wedge (migration `031`) · built
 
 Members = a **top-level nav section** (`/members`) whose home is the Renewals action lists. Contacts stays the raw people+inbox table.

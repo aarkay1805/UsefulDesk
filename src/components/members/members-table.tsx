@@ -25,17 +25,20 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/hooks/use-locale";
 import { toCsv, downloadCsv } from "@/lib/csv/export";
 import { effectiveStatus, daysUntil } from "@/lib/memberships/expiry";
 import {
   applyMemberFilters,
+  CHURN_RISK_OPTIONS,
   EMPTY_MEMBER_FILTERS,
   MEMBER_STATUS_OPTIONS,
   type MemberFilters,
 } from "@/lib/memberships/filters";
 import type { Membership } from "@/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapse } from "@/components/ui/collapse";
@@ -64,6 +67,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LeadsSort, type SortState } from "@/components/leads/leads-sort";
+import { EditableCell } from "@/components/leads/editable-cell";
 import {
   ColumnHeader,
   type ColumnFilterProp,
@@ -101,7 +105,7 @@ const SORT_COLUMNS: { key: string; label: string }[] = [
 
 // Which shared-filter dimension a column's header three-dot Filter submenu
 // writes to. Absent = the header shows no Filter item (free-text columns).
-type MemberFilterDim = "plans" | "statuses" | "feeStatus";
+type MemberFilterDim = "plans" | "statuses" | "feeStatus" | "churnRisk";
 
 // Column metadata for the all-members grid. Mirrors the leads table's
 // ColumnDef but lighter (no custom fields, no freeze/drag). `sortKey` is
@@ -154,6 +158,13 @@ const MEMBER_COLUMNS: MemberColumn[] = [
     filterDim: "feeStatus",
   },
   {
+    key: "churnRisk",
+    label: "Churn risk",
+    defaultWidth: 120,
+    minWidth: 100,
+    filterDim: "churnRisk",
+  },
+  {
     key: "reminder",
     label: "Reminder",
     defaultWidth: 130,
@@ -173,6 +184,11 @@ const FEE_STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "paid", label: "Paid" },
   { value: "due", label: "Due" },
 ];
+
+const CHURN_RISK_CELL_OPTIONS = CHURN_RISK_OPTIONS.map((option) => ({
+  ...option,
+  color: option.value === "yes" ? "#ef4444" : "#64748b",
+}));
 
 interface MembersTablePrefs {
   pageSize: number;
@@ -253,6 +269,14 @@ export function MembersTable({
   const [payOpen, setPayOpen] = useState(false);
   const [remindOpen, setRemindOpen] = useState(false);
   const [reminding, setReminding] = useState(false);
+
+  // Inline churn-risk editing mirrors the leads table's status editor:
+  // one active cell, an explicit dropdown choice, and a visible save state.
+  const [editingCell, setEditingCell] = useState<{
+    id: string;
+    key: "churnRisk";
+  } | null>(null);
+  const [savingCell, setSavingCell] = useState(false);
 
   // Freeze the last non-zero count so the collapsing toolbar never
   // flashes "0 selected" mid-exit (leads pattern, render-time adjust).
@@ -370,12 +394,48 @@ export function MembersTable({
         ? plans.map((p) => ({ value: p.id, label: p.name }))
         : col.filterDim === "statuses"
           ? MEMBER_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
-          : FEE_STATUS_OPTIONS;
+          : col.filterDim === "feeStatus"
+            ? FEE_STATUS_OPTIONS
+            : CHURN_RISK_OPTIONS;
     return {
       options,
       selected: (filters[col.filterDim] as string[]) ?? [],
       onToggle: (v) => toggleColumnFilter(col.filterDim!, v),
     };
+  }
+
+  async function commitChurnRisk(membership: Membership, rawValue: string) {
+    const next = rawValue === "yes";
+    setSavingCell(true);
+    try {
+      // Returning the id distinguishes a successful write from an
+      // RLS-blocked update that affected zero rows.
+      const { data, error } = await supabase
+        .from("contacts")
+        .update({ churn_risk: next })
+        .eq("id", membership.contact_id)
+        .select("id")
+        .maybeSingle();
+
+      if (error || !data) {
+        toast.error(getErrorMessage(error, "Failed to update churn risk"));
+        return;
+      }
+
+      setRows((current) =>
+        current.map((row) =>
+          row.id === membership.id && row.contact
+            ? {
+                ...row,
+                contact: { ...row.contact, churn_risk: next },
+              }
+            : row
+        )
+      );
+    } finally {
+      setSavingCell(false);
+      setEditingCell(null);
+    }
   }
 
   // Cell body per column key — reaches fmt/readiness/todayDisplay closures.
@@ -412,6 +472,12 @@ export function MembersTable({
               {fmt.money(m.fee_amount)}
             </span>
           </div>
+        );
+      case "churnRisk":
+        return m.contact?.churn_risk ? (
+          <Badge variant="danger">Yes</Badge>
+        ) : (
+          <span className="text-muted-foreground">No</span>
         );
       case "reminder":
         return <SendReminderButton membership={m} readiness={readiness} />;
@@ -543,7 +609,7 @@ export function MembersTable({
     }
     const all = (data as Membership[]) ?? [];
     const csv = toCsv(
-      ["Name", "Phone", "Email", "Plan", "Start", "Expiry", "Status", "Fee", "Fee status"],
+      ["Name", "Phone", "Email", "Plan", "Start", "Expiry", "Status", "Fee", "Fee status", "Churn risk"],
       all.map((m) => [
         m.contact?.name ?? "",
         m.contact?.phone ?? "",
@@ -554,6 +620,7 @@ export function MembersTable({
         effectiveStatus(m, today),
         fmt.money(m.fee_amount),
         m.fee_status,
+        m.contact?.churn_risk ? "Yes" : "No",
       ])
     );
     downloadCsv(`members-${today}.csv`, csv);
@@ -642,7 +709,6 @@ export function MembersTable({
               render={
                 <Button
                   variant="outline"
-                  size="sm"
                   className="border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                 />
               }
@@ -847,6 +913,7 @@ export function MembersTable({
                       key={col.key}
                       className={cn(
                         "overflow-hidden",
+                        col.key === "churnRisk" && canEdit && "p-0",
                         col.align === "right" && "text-right"
                       )}
                       onClick={
@@ -855,7 +922,26 @@ export function MembersTable({
                           : undefined
                       }
                     >
-                      {renderCell(col.key, m)}
+                      {col.key === "churnRisk" && canEdit ? (
+                        <EditableCell
+                          editing={
+                            editingCell?.id === m.id &&
+                            editingCell.key === "churnRisk"
+                          }
+                          saving={savingCell}
+                          kind="status"
+                          value={m.contact?.churn_risk ? "yes" : "no"}
+                          options={CHURN_RISK_CELL_OPTIONS}
+                          display={renderCell(col.key, m)}
+                          onStart={() =>
+                            setEditingCell({ id: m.id, key: "churnRisk" })
+                          }
+                          onCommit={(value) => commitChurnRisk(m, value)}
+                          onCancel={() => setEditingCell(null)}
+                        />
+                      ) : (
+                        renderCell(col.key, m)
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>

@@ -97,6 +97,7 @@ import { ContactNotesThread } from "@/components/contacts/contact-notes-thread";
 import { CopyUpiLinkButton, useUpiConfig } from "./copy-upi-link-button";
 import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
 import { BmiCard } from "./bmi-card";
+import { ChurnRiskCard } from "./churn-risk-card";
 import { MemberPersonalInfo } from "./member-personal-info";
 import { MemberCommunication } from "./member-communication";
 import { MemberDangerZone } from "./member-danger-zone";
@@ -1108,7 +1109,7 @@ export function MemberDetailView({
                     </Section>
                   </div>
 
-                  {/* Rail — BMI only, sticky just under the jump nav. top
+                  {/* Rail — profile signals, sticky just under the jump nav. top
                       offset stays below the nav height but under the rail's
                       natural position, so it rests level with the Membership
                       card and only pins once scrolled. */}
@@ -1118,6 +1119,13 @@ export function MemberDetailView({
                       heightCm={membership.contact?.height_cm}
                       weightKg={membership.contact?.weight_kg}
                       measurementSystem={locale.measurementSystem}
+                      canEdit={canSendMessages}
+                      onSaved={refreshAll}
+                    />
+                    <ChurnRiskCard
+                      key={`${membership.contact_id}-${membership.contact?.churn_risk}`}
+                      contactId={membership.contact_id}
+                      churnRisk={membership.contact?.churn_risk}
                       canEdit={canSendMessages}
                       onSaved={refreshAll}
                     />

@@ -143,6 +143,8 @@ export interface Contact {
   //    measurements backing the BMI widget + Personal Information. ──
   height_cm?: number | null;
   weight_kg?: number | null;
+  /** Staff-managed retention signal (migration 068). */
+  churn_risk?: boolean;
   date_of_birth?: string | null;
   nickname?: string | null;
   address_line1?: string | null;
