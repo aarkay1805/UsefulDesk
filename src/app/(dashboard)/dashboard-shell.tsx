@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { OnboardingProvider } from '@/hooks/use-onboarding-status';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
+import { cn } from '@/lib/utils';
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
@@ -15,6 +16,8 @@ import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const isLeadsPage = pathname.startsWith('/leads');
 
   // Sidebar drawer state — only used on mobile. On lg+ the sidebar is
   // always visible and this stays at `false` (ignored by the component).
@@ -48,11 +51,14 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
-        {/* Thinner horizontal padding on mobile so cards have room to
-            breathe. Top padding matches the pages' gap-3 row rhythm so
-            the first toolbar row sits as close to the app bar as the
-            rows below sit to each other. */}
-        <main className="flex-1 overflow-y-auto px-4 pt-3 pb-4 sm:px-6 sm:pb-6">
+        {/* Leads is a flush data surface; other routes keep the standard
+            gap between the app bar and their first content row. */}
+        <main
+          className={cn(
+            'flex-1 overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6',
+            isLeadsPage ? 'pt-0' : 'pt-3'
+          )}
+        >
           {children}
         </main>
       </div>
