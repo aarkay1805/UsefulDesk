@@ -12,6 +12,7 @@ import {
   Loader2,
   MessageCircle,
   Receipt,
+  Repeat,
   Rocket,
   UsersRound,
 } from 'lucide-react';
@@ -29,6 +30,7 @@ const STEP_ICONS: Record<OnboardingStepId, typeof MessageCircle> = {
   template: BadgeCheck,
   plan: Layers,
   member: Dumbbell,
+  autopay: Repeat,
   payment: Receipt,
   staff: UsersRound,
 };
@@ -36,6 +38,7 @@ const STEP_ICONS: Record<OnboardingStepId, typeof MessageCircle> = {
 const GROUP_LABELS: { key: OnboardingStep['group']; label: string }[] = [
   { key: 'messaging', label: 'Set up messaging' },
   { key: 'gym', label: 'Run your gym' },
+  { key: 'payments', label: 'Collect payments' },
 ];
 
 function StepRow({ step }: { step: OnboardingStep }) {

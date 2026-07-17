@@ -7,10 +7,11 @@
 // and CSV export), and the Collapse bulk toolbar. Deliberately NOT the
 // leads grid — no column customization; members stay lightweight.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Check,
+  Ban,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/hooks/use-locale";
+import { useAuth } from "@/hooks/use-auth";
 import { toCsv, downloadCsv } from "@/lib/csv/export";
 import { effectiveStatus, daysUntil } from "@/lib/memberships/expiry";
 import {
@@ -37,7 +39,7 @@ import {
   MEMBER_STATUS_OPTIONS,
   type MemberFilters,
 } from "@/lib/memberships/filters";
-import type { Membership } from "@/types";
+import type { LeadTransfer, Membership } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -69,6 +71,20 @@ import {
 import { LeadsSort, type SortState } from "@/components/leads/leads-sort";
 import { EditableCell } from "@/components/leads/editable-cell";
 import {
+  AssigneeDisplay,
+  PendingAssigneeDisplay,
+  TransferPendingDisplay,
+  assigneeCellOptions,
+} from "@/components/leads/lead-cell-renderers";
+import {
+  cancelLeadAssignment,
+  fetchPendingTransfers,
+  pendingTransferMap,
+  requestLeadAssignment,
+  respondLeadAssignment,
+} from "@/lib/leads/transfers";
+import { canResolveAnyLeadTransfer } from "@/lib/auth/roles";
+import {
   ColumnHeader,
   type ColumnFilterProp,
   type SortDir,
@@ -83,6 +99,7 @@ import { MembersFilters } from "./members-filters";
 import { MemberIdentity } from "./member-identity";
 import { BulkRecordPaymentDialog } from "./bulk-record-payment-dialog";
 import { useMembershipPlans } from "./use-membership-plans";
+import { useAccountStaff } from "./use-account-staff";
 import {
   SendReminderButton,
   sendRenewalReminder,
@@ -134,7 +151,13 @@ const MEMBER_COLUMNS: MemberColumn[] = [
     required: true,
     sortKey: "name",
   },
-  { key: "plan", label: "Plan", defaultWidth: 150, minWidth: 100, filterDim: "plans" },
+  {
+    key: "plan",
+    label: "Plan",
+    defaultWidth: 150,
+    minWidth: 100,
+    filterDim: "plans",
+  },
   {
     key: "expiry",
     label: "Expiry",
@@ -148,6 +171,12 @@ const MEMBER_COLUMNS: MemberColumn[] = [
     defaultWidth: 140,
     minWidth: 110,
     filterDim: "statuses",
+  },
+  {
+    key: "assignee",
+    label: "Assigned to",
+    defaultWidth: 170,
+    minWidth: 130,
   },
   {
     key: "fee",
@@ -243,6 +272,11 @@ export function MembersTable({
 }: MembersTableProps) {
   const supabase = useMemo(() => createClient(), []);
   const { fmt } = useLocale();
+  const { user, profile } = useAuth();
+  const { staff, nameById, avatarById } = useAccountStaff();
+  const canResolveAnyAssignment = profile?.account_role
+    ? canResolveAnyLeadTransfer(profile.account_role)
+    : false;
   // Include archived plans so members on a retired plan still filter.
   const { plans } = useMembershipPlans(false);
 
@@ -270,13 +304,46 @@ export function MembersTable({
   const [remindOpen, setRemindOpen] = useState(false);
   const [reminding, setReminding] = useState(false);
 
-  // Inline churn-risk editing mirrors the leads table's status editor:
-  // one active cell, an explicit dropdown choice, and a visible save state.
+  // Inline editing mirrors the leads table: one active cell, an explicit
+  // dropdown choice, and a visible save state.
   const [editingCell, setEditingCell] = useState<{
     id: string;
-    key: "churnRisk";
+    key: "assignee" | "churnRisk";
   } | null>(null);
   const [savingCell, setSavingCell] = useState(false);
+
+  // Pending assignment approvals use the same contacts-level workflow as
+  // Leads. A member is backed by a contact, so requests are keyed by the
+  // embedded contact id and can be rendered with the identical overlay.
+  const [assignmentRequests, setAssignmentRequests] = useState<
+    Record<string, LeadTransfer>
+  >({});
+  const [assignmentNonce, setAssignmentNonce] = useState(0);
+  const fetchAssignmentRequests = useCallback(async () => {
+    const transfers = await fetchPendingTransfers(supabase);
+    setAssignmentRequests(pendingTransferMap(transfers, "assignment"));
+  }, [supabase]);
+
+  useEffect(() => {
+    void fetchAssignmentRequests();
+  }, [fetchAssignmentRequests, reloadKey]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("member-assignment-requests")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "lead_transfers" },
+        () => {
+          void fetchAssignmentRequests();
+          setAssignmentNonce((nonce) => nonce + 1);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, fetchAssignmentRequests]);
 
   // Freeze the last non-zero count so the collapsing toolbar never
   // flashes "0 selected" mid-exit (leads pattern, render-time adjust).
@@ -315,21 +382,23 @@ export function MembersTable({
     () =>
       orderedKeys
         .map((k) => MEMBER_COLUMN_BY_KEY[k])
-        .filter((c): c is MemberColumn => Boolean(c) && !prefs.hidden.includes(c.key)),
+        .filter(
+          (c): c is MemberColumn => Boolean(c) && !prefs.hidden.includes(c.key)
+        ),
     [orderedKeys, prefs.hidden]
   );
 
   // Live width while dragging a resize grip (transient — commits on release).
-  const [resizing, setResizing] = useState<{ key: string; width: number } | null>(
-    null
-  );
+  const [resizing, setResizing] = useState<{
+    key: string;
+    width: number;
+  } | null>(null);
   function widthOf(col: MemberColumn) {
     if (resizing?.key === col.key) return resizing.width;
     return prefs.widths[col.key] ?? col.defaultWidth;
   }
   const totalWidth =
-    CHECKBOX_COL_WIDTH +
-    visibleColumns.reduce((sum, c) => sum + widthOf(c), 0);
+    CHECKBOX_COL_WIDTH + visibleColumns.reduce((sum, c) => sum + widthOf(c), 0);
 
   // Column resize — drag the header's right edge (leads pattern). Width
   // tracks the pointer live and commits to prefs on release.
@@ -393,7 +462,10 @@ export function MembersTable({
       col.filterDim === "plans"
         ? plans.map((p) => ({ value: p.id, label: p.name }))
         : col.filterDim === "statuses"
-          ? MEMBER_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
+          ? MEMBER_STATUS_OPTIONS.map((o) => ({
+              value: o.value,
+              label: o.label,
+            }))
           : col.filterDim === "feeStatus"
             ? FEE_STATUS_OPTIONS
             : CHURN_RISK_OPTIONS;
@@ -438,6 +510,161 @@ export function MembersTable({
     }
   }
 
+  async function commitAssignee(membership: Membership, rawValue: string) {
+    const contact = membership.contact;
+    if (!contact) return;
+    const target = rawValue || null;
+    if (target === (contact.assigned_to ?? null)) {
+      setEditingCell(null);
+      return;
+    }
+
+    setSavingCell(true);
+    try {
+      const outcome = await requestLeadAssignment(supabase, contact.id, target);
+      if (outcome === "approved") {
+        setRows((current) =>
+          current.map((row) =>
+            row.id === membership.id && row.contact
+              ? {
+                  ...row,
+                  contact: {
+                    ...row.contact,
+                    assigned_to: target,
+                    pending_invitation_id: null,
+                    pending_assignee_name: null,
+                  },
+                }
+              : row
+          )
+        );
+        toast.success(target ? "Member assigned" : "Member unassigned");
+      } else {
+        await fetchAssignmentRequests();
+        toast.success("Sent to the contact owner for approval");
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to update assignee"));
+    } finally {
+      setSavingCell(false);
+      setEditingCell(null);
+    }
+  }
+
+  async function handleAssignmentAction(
+    requestId: string,
+    action: "approve" | "reject" | "cancel"
+  ) {
+    try {
+      if (action === "cancel") {
+        await cancelLeadAssignment(supabase, requestId);
+        toast.success("Request withdrawn");
+      } else {
+        await respondLeadAssignment(supabase, requestId, action === "approve");
+        toast.success(
+          action === "approve" ? "Assignment approved" : "Assignment rejected"
+        );
+      }
+      await fetchAssignmentRequests();
+      setAssignmentNonce((nonce) => nonce + 1);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Action failed"));
+    }
+  }
+
+  function renderAssignee(membership: Membership) {
+    const contact = membership.contact;
+    if (!contact) {
+      return <span className="text-muted-foreground text-sm">Unassigned</span>;
+    }
+
+    const request = assignmentRequests[contact.id];
+    if (request) {
+      const fromId = request.from_user_id ?? contact.assigned_to ?? null;
+      const targetName = request.to_user_id
+        ? (nameById.get(request.to_user_id) ?? "Teammate")
+        : "Unassign";
+      const badge = (
+        <TransferPendingDisplay
+          ownerName={fromId ? (nameById.get(fromId) ?? "Unassigned") : null}
+          ownerAvatarUrl={fromId ? avatarById.get(fromId) : null}
+          targetName={targetName}
+        />
+      );
+      const canApprove =
+        request.approver_user_id === user?.id || canResolveAnyAssignment;
+      const canCancel =
+        request.requested_by === user?.id || canResolveAnyAssignment;
+      if (!canApprove && !canCancel) return badge;
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                className="max-w-full min-w-0 text-left"
+                onClick={(event) => event.stopPropagation()}
+              />
+            }
+          >
+            {badge}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="border-border bg-popover min-w-48"
+          >
+            {canApprove && (
+              <>
+                <DropdownMenuItem
+                  onClick={() =>
+                    void handleAssignmentAction(request.id, "approve")
+                  }
+                  className="text-popover-foreground focus:bg-muted"
+                >
+                  <Check className="size-4" />
+                  Approve assignment
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    void handleAssignmentAction(request.id, "reject")
+                  }
+                  className="text-popover-foreground focus:bg-muted"
+                >
+                  <X className="size-4" />
+                  Reject
+                </DropdownMenuItem>
+              </>
+            )}
+            {canCancel && (
+              <DropdownMenuItem
+                onClick={() =>
+                  void handleAssignmentAction(request.id, "cancel")
+                }
+                className="text-popover-foreground focus:bg-muted"
+              >
+                <Ban className="size-4" />
+                Withdraw request
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
+
+    if (contact.pending_invitation_id && contact.pending_assignee_name) {
+      return <PendingAssigneeDisplay name={contact.pending_assignee_name} />;
+    }
+    if (!contact.assigned_to) {
+      return <span className="text-muted-foreground text-sm">Unassigned</span>;
+    }
+    return (
+      <AssigneeDisplay
+        name={nameById.get(contact.assigned_to) ?? "Teammate"}
+        avatarUrl={avatarById.get(contact.assigned_to)}
+      />
+    );
+  }
+
   // Cell body per column key — reaches fmt/readiness/todayDisplay closures.
   function renderCell(key: string, m: Membership) {
     switch (key) {
@@ -451,7 +678,7 @@ export function MembersTable({
         );
       case "plan":
         return (
-          <span className="truncate text-muted-foreground">
+          <span className="text-muted-foreground truncate">
             {m.plan?.name ?? "—"}
           </span>
         );
@@ -464,11 +691,13 @@ export function MembersTable({
         const days = daysUntil(m.end_date, todayDisplay);
         return <MembershipStatusBadge status={eff} daysToExpiry={days} />;
       }
+      case "assignee":
+        return renderAssignee(m);
       case "fee":
         return (
           <div className="flex items-center gap-1.5">
             <FeeStatusBadge status={m.fee_status} />
-            <span className="text-xs text-muted-foreground tabular-nums">
+            <span className="text-muted-foreground text-xs tabular-nums">
               {fmt.money(m.fee_amount)}
             </span>
           </div>
@@ -526,7 +755,17 @@ export function MembersTable({
     return () => {
       cancelled = true;
     };
-  }, [supabase, reloadKey, search, filters, sort, page, pageSize, fmt]);
+  }, [
+    supabase,
+    reloadKey,
+    assignmentNonce,
+    search,
+    filters,
+    sort,
+    page,
+    pageSize,
+    fmt,
+  ]);
 
   const totalPages = Math.ceil(totalCount / pageSize);
   const hasPrev = page > 0;
@@ -609,7 +848,19 @@ export function MembersTable({
     }
     const all = (data as Membership[]) ?? [];
     const csv = toCsv(
-      ["Name", "Phone", "Email", "Plan", "Start", "Expiry", "Status", "Fee", "Fee status", "Churn risk"],
+      [
+        "Name",
+        "Phone",
+        "Email",
+        "Plan",
+        "Start",
+        "Expiry",
+        "Status",
+        "Assigned to",
+        "Fee",
+        "Fee status",
+        "Churn risk",
+      ],
       all.map((m) => [
         m.contact?.name ?? "",
         m.contact?.phone ?? "",
@@ -618,13 +869,19 @@ export function MembersTable({
         m.start_date,
         m.end_date,
         effectiveStatus(m, today),
+        m.contact?.pending_assignee_name ??
+          (m.contact?.assigned_to
+            ? (nameById.get(m.contact.assigned_to) ?? "Teammate")
+            : "Unassigned"),
         fmt.money(m.fee_amount),
         m.fee_status,
         m.contact?.churn_risk ? "Yes" : "No",
       ])
     );
     downloadCsv(`members-${today}.csv`, csv);
-    toast.success(`Exported ${all.length} member${all.length === 1 ? "" : "s"}`);
+    toast.success(
+      `Exported ${all.length} member${all.length === 1 ? "" : "s"}`
+    );
   }
 
   // Keep a live handle on handleExport (it closes over the current
@@ -716,7 +973,10 @@ export function MembersTable({
               <Columns3 className="size-4" />
               Columns
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-48 border-border bg-popover">
+            <DropdownMenuContent
+              align="end"
+              className="border-border bg-popover min-w-48"
+            >
               {MEMBER_COLUMNS.map((col) => {
                 const shown = !prefs.hidden.includes(col.key);
                 return (
@@ -748,20 +1008,23 @@ export function MembersTable({
 
       {/* Bulk-selection toolbar (leads pattern — Collapse + frozen count). */}
       <Collapse open={selected.size > 0}>
-        <div className="flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-card px-1.5 py-1">
+        <div className="border-border bg-card flex flex-wrap items-center gap-0.5 rounded-lg border px-1.5 py-1">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
                 <button
                   type="button"
-                  className="group flex h-7 items-center gap-1 whitespace-nowrap rounded-md px-2 text-[0.8rem] font-semibold text-foreground hover:bg-muted"
+                  className="group text-foreground hover:bg-muted flex h-7 items-center gap-1 rounded-md px-2 text-[0.8rem] font-semibold whitespace-nowrap"
                 />
               }
             >
               {bulkCount} member{bulkCount === 1 ? "" : "s"} selected
-              <ChevronDown className="size-4 text-muted-foreground transition-transform duration-150 group-data-[popup-open]:rotate-180" />
+              <ChevronDown className="text-muted-foreground size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-56 border-border bg-popover">
+            <DropdownMenuContent
+              align="start"
+              className="border-border bg-popover min-w-56"
+            >
               <DropdownMenuItem
                 onClick={clearSelection}
                 className="text-popover-foreground focus:bg-muted focus:text-foreground"
@@ -779,7 +1042,7 @@ export function MembersTable({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="mx-0.5 h-4 w-px bg-border" />
+          <div className="bg-border mx-0.5 h-4 w-px" />
 
           <GatedButton
             variant="ghost"
@@ -820,7 +1083,7 @@ export function MembersTable({
             size="icon-sm"
             onClick={clearSelection}
             aria-label="Clear selection"
-            className="ml-auto text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground ml-auto"
           >
             <X />
           </Button>
@@ -828,20 +1091,20 @@ export function MembersTable({
       </Collapse>
 
       {loading && rows.length === 0 ? (
-        <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+        <div className="text-muted-foreground flex items-center gap-2 py-10 text-sm">
           <Loader2 className="size-4 animate-spin" /> Loading members…
         </div>
       ) : rows.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-12 text-center">
-          <Dumbbell className="size-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
+        <div className="border-border flex flex-col items-center gap-2 rounded-lg border border-dashed py-12 text-center">
+          <Dumbbell className="text-muted-foreground size-8" />
+          <p className="text-muted-foreground text-sm">
             {totalCount === 0 && !search.trim()
               ? "No members yet. Add your first member."
               : "No members match your search or filters."}
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border border-border">
+        <div className="border-border rounded-lg border">
           <Table className="table-fixed" style={{ minWidth: totalWidth }}>
             <colgroup>
               <col style={{ width: CHECKBOX_COL_WIDTH }} />
@@ -865,7 +1128,7 @@ export function MembersTable({
                 {visibleColumns.map((col) => (
                   <TableHead
                     key={col.key}
-                    className="relative text-muted-foreground select-none"
+                    className="text-muted-foreground relative select-none"
                   >
                     <ColumnHeader
                       label={col.label}
@@ -879,7 +1142,9 @@ export function MembersTable({
                         col.sortKey && sortByColumn(col.sortKey, dir)
                       }
                       filter={filterFor(col)}
-                      onHide={col.required ? undefined : () => hideColumn(col.key)}
+                      onHide={
+                        col.required ? undefined : () => hideColumn(col.key)
+                      }
                     />
                     {/* Resize grip on the right edge (leads pattern). */}
                     <span
@@ -899,7 +1164,10 @@ export function MembersTable({
                   className="cursor-pointer"
                   onClick={() => onSelect(m.id)}
                 >
-                  <TableCell className="px-0" onClick={(e) => e.stopPropagation()}>
+                  <TableCell
+                    className="px-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <div className="flex items-center justify-center">
                       <Checkbox
                         checked={selected.has(m.id)}
@@ -913,7 +1181,9 @@ export function MembersTable({
                       key={col.key}
                       className={cn(
                         "overflow-hidden",
-                        col.key === "churnRisk" && canEdit && "p-0",
+                        (col.key === "assignee" || col.key === "churnRisk") &&
+                          canEdit &&
+                          "p-0",
                         col.align === "right" && "text-right"
                       )}
                       onClick={
@@ -922,7 +1192,24 @@ export function MembersTable({
                           : undefined
                       }
                     >
-                      {col.key === "churnRisk" && canEdit ? (
+                      {col.key === "assignee" && canEdit ? (
+                        <EditableCell
+                          editing={
+                            editingCell?.id === m.id &&
+                            editingCell.key === "assignee"
+                          }
+                          saving={savingCell}
+                          kind="select"
+                          value={m.contact?.assigned_to ?? ""}
+                          options={assigneeCellOptions(staff)}
+                          display={renderCell(col.key, m)}
+                          onStart={() =>
+                            setEditingCell({ id: m.id, key: "assignee" })
+                          }
+                          onCommit={(value) => void commitAssignee(m, value)}
+                          onCancel={() => setEditingCell(null)}
+                        />
+                      ) : col.key === "churnRisk" && canEdit ? (
                         <EditableCell
                           editing={
                             editingCell?.id === m.id &&
@@ -950,8 +1237,8 @@ export function MembersTable({
           </Table>
 
           {/* Pager footer (leads pattern) */}
-          <div className="flex items-center justify-between border-t border-border px-3 py-2">
-            <p className="text-xs text-muted-foreground">
+          <div className="border-border flex items-center justify-between border-t px-3 py-2">
+            <p className="text-muted-foreground text-xs">
               {totalCount > 0
                 ? `${totalCount} member${totalCount === 1 ? "" : "s"}`
                 : "No members"}
@@ -966,7 +1253,7 @@ export function MembersTable({
               >
                 <ChevronLeft className="size-4" />
               </Button>
-              <span className="px-2 text-xs text-muted-foreground">
+              <span className="text-muted-foreground px-2 text-xs">
                 Page {page + 1} of {Math.max(totalPages, 1)}
               </span>
               <Button

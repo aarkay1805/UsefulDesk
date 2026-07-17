@@ -11,6 +11,7 @@ const nothingDone: OnboardingRawStatus = {
   templateApproved: false,
   planCount: 0,
   membershipCount: 0,
+  razorpayConnected: false,
   paidPaymentCount: 0,
   teamSize: 1,
   pendingInvites: 0,
@@ -21,6 +22,7 @@ const everythingDone: OnboardingRawStatus = {
   templateApproved: true,
   planCount: 3,
   membershipCount: 12,
+  razorpayConnected: true,
   paidPaymentCount: 5,
   teamSize: 2,
   pendingInvites: 0,
@@ -59,6 +61,21 @@ describe("deriveOnboardingSteps", () => {
     expect(result.completedCount).toBe(ONBOARDING_STEP_COUNT);
     expect(result.allDone).toBe(true);
     expect(result.recommended).toBeNull();
+  });
+
+  it("groups Razorpay setup before the first payment", () => {
+    const paymentSteps = deriveOnboardingSteps(nothingDone).steps.filter(
+      (step) => step.group === "payments",
+    );
+
+    expect(paymentSteps.map((step) => step.id)).toEqual(["autopay", "payment"]);
+    expect(paymentSteps[0]?.done).toBe(false);
+    expect(
+      deriveOnboardingSteps({
+        ...nothingDone,
+        razorpayConnected: true,
+      }).steps.find((step) => step.id === "autopay")?.done,
+    ).toBe(true);
   });
 
   describe("staff step", () => {

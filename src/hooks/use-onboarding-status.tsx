@@ -88,8 +88,16 @@ export function OnboardingProvider({
       // allSettled: one failed signal must not blank the checklist. A
       // failed fetch derives as "not done" (steps.ts treats nulls as
       // incomplete), so we can never auto-dismiss off missing data.
-      const [config, template, plans, memberships, payments, team, invites] =
-        await Promise.allSettled([
+      const [
+        config,
+        template,
+        plans,
+        memberships,
+        paymentCredentials,
+        payments,
+        team,
+        invites,
+      ] = await Promise.allSettled([
           supabase.from("whatsapp_config").select("status").maybeSingle(),
           supabase
             .from("message_templates")
@@ -102,6 +110,10 @@ export function OnboardingProvider({
           supabase
             .from("memberships")
             .select("id", { count: "exact", head: true }),
+          supabase
+            .from("account_payment_credentials")
+            .select("razorpay_key_id, razorpay_key_secret, razorpay_webhook_secret")
+            .maybeSingle(),
           supabase
             .from("payments")
             .select("id", { count: "exact", head: true })
@@ -126,6 +138,11 @@ export function OnboardingProvider({
           template.status === "fulfilled" && (template.value.count ?? 0) > 0,
         planCount: count(plans),
         membershipCount: count(memberships),
+        razorpayConnected:
+          paymentCredentials.status === "fulfilled" &&
+          !!paymentCredentials.value.data?.razorpay_key_id &&
+          !!paymentCredentials.value.data?.razorpay_key_secret &&
+          !!paymentCredentials.value.data?.razorpay_webhook_secret,
         paidPaymentCount: count(payments),
         teamSize:
           team.status === "fulfilled" && Array.isArray(team.value?.members)

@@ -8,16 +8,18 @@ export type OnboardingStepId =
   | "template"
   | "plan"
   | "member"
+  | "autopay"
   | "payment"
   | "staff";
 
-export type OnboardingStepGroup = "messaging" | "gym";
+export type OnboardingStepGroup = "messaging" | "gym" | "payments";
 
 export interface OnboardingRawStatus {
   whatsappConnected: boolean;
   templateApproved: boolean;
   planCount: number;
   membershipCount: number;
+  razorpayConnected: boolean;
   paidPaymentCount: number;
   /** Team roster size incl. self; null = fetch failed (treated as incomplete). */
   teamSize: number | null;
@@ -92,20 +94,28 @@ const STEP_DEFINITIONS: StepDefinition[] = [
     isDone: (raw) => raw.membershipCount > 0,
   },
   {
-    id: "payment",
-    title: "Record your first payment",
-    subtitle: "Log a payment from a member's profile to track collections",
-    href: "/members",
-    group: "gym",
-    isDone: (raw) => raw.paidPaymentCount > 0,
-  },
-  {
     id: "staff",
     title: "Invite your staff",
     subtitle: "Give trainers and front-desk staff their own access",
     href: "/settings?tab=members",
     group: "gym",
     isDone: (raw) => (raw.teamSize ?? 0) > 1 || (raw.pendingInvites ?? 0) > 0,
+  },
+  {
+    id: "autopay",
+    title: "Set up auto-pay for members",
+    subtitle: "Connect your Razorpay account to collect membership payments automatically",
+    href: "/settings?tab=deals",
+    group: "payments",
+    isDone: (raw) => raw.razorpayConnected,
+  },
+  {
+    id: "payment",
+    title: "Record your first payment",
+    subtitle: "Log a payment from a member's profile to track collections",
+    href: "/members",
+    group: "payments",
+    isDone: (raw) => raw.paidPaymentCount > 0,
   },
 ];
 
