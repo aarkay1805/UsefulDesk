@@ -67,6 +67,13 @@ import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Button } from '@/components/ui/button';
 import {
+  Toolbar,
+  ToolbarButton,
+  ToolbarSeparator,
+  ToolbarToggleGroup,
+  ToolbarToggleItem,
+} from '@/components/ui/toolbar';
+import {
   TableBody,
   TableCell,
   TableHead,
@@ -3150,137 +3157,89 @@ export default function LeadsPage() {
         </GatedButton>
       </PageHeaderActions>
 
-      {/* Row 2 — search capped on the left; view / settings / columns /
-          filters / sort cluster trails on the right (HubSpot-style),
-          with the leftover space opening up between the two groups. */}
-      <div className="flex shrink-0 items-center justify-between gap-2">
-        <SearchInput
-          containerClassName="max-w-[560px] min-w-0 flex-1"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search leads…"
-        />
+      {/* One bounded data surface: search + table actions form its header,
+          and the active table/board view lives directly underneath. */}
+      <section className="border-border bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border">
+        <div className="border-border flex shrink-0 flex-wrap items-center gap-2 border-b p-2">
+          <SearchInput
+            containerClassName="min-w-48 w-full max-w-[360px] flex-1 basis-64"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search leads…"
+          />
 
-        <div className="flex shrink-0 items-center gap-2">
-          {/* View type + table settings — one split button group
-              (HubSpot-style): the view picker is the main segment, the
-              gear a fused right segment. Segments share the middle
-              border via -ml-px; focus rings pop above it with z-10. */}
-          <div className="flex items-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      // The settings gear is fused on the right in BOTH views.
-                      'border-border text-muted-foreground hover:bg-muted rounded-r-none focus-visible:z-10'
-                    )}
-                  />
-                }
-              >
-                {view === 'table' ? (
-                  <List className="size-4" />
-                ) : (
-                  <LayoutGrid className="size-4" />
-                )}
-                <span className="hidden sm:inline">
-                  {view === 'table' ? 'Table view' : 'Board view'}
-                </span>
-                <ChevronDown className="text-muted-foreground size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="bg-popover border-border min-w-44"
-              >
-                <DropdownMenuItem
-                  onClick={() => setLeadsView('table')}
-                  className={cn(
-                    'focus:bg-muted focus:text-foreground',
-                    view === 'table'
-                      ? 'text-primary-text'
-                      : 'text-popover-foreground'
-                  )}
+          {/* Data and presentation actions follow the search, matching the
+              reading order in the table header. Filters stay available in
+              both views because they also constrain the CSV export. */}
+          <div className="flex shrink-0 items-center gap-2">
+            <LeadsFilters
+              value={filters}
+              onChange={setFilters}
+              staff={staff}
+              tags={allTags}
+              statuses={fieldOptions.statuses}
+              sources={fieldOptions.sources}
+              genders={fieldOptions.genders}
+              pendingInvites={pendingAssignees}
+            />
+            {view === 'table' && (
+              <>
+                <LeadsSort
+                  value={sort}
+                  onChange={(next) => {
+                    setPrefs((p) => ({ ...p, sort: next }));
+                    setPage(0);
+                  }}
+                  columns={sortableColumns}
+                />
+                <Button
+                  variant="ghost"
+                  onClick={() => setManageColumnsOpen(true)}
+                  className="text-muted-foreground hover:bg-muted"
                 >
-                  <List className="size-4" />
-                  Table view
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setLeadsView('board')}
-                  className={cn(
-                    'focus:bg-muted focus:text-foreground',
-                    view === 'board'
-                      ? 'text-primary-text'
-                      : 'text-popover-foreground'
-                  )}
-                >
-                  <LayoutGrid className="size-4" />
-                  Board view
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {/* Settings gear — fused right segment, both views. Opens the
-                active view's own settings (table: pagination / cell text;
-                board: card density / sort). */}
-            <Button
-              variant="outline"
-              size="icon"
+                  <Columns3 className="size-4" />
+                  <span className="hidden xl:inline">Edit columns</span>
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* The view picker is the trailing control, with the active view's
+              settings fused into the same compact toolbar. */}
+          <Toolbar className="ml-auto" aria-label="Lead view controls">
+            <ToolbarToggleGroup<LeadsView>
+              aria-label="Lead view"
+              value={[view]}
+              onValueChange={(nextViews) => {
+                const nextView = nextViews[0];
+                if (nextView) setLeadsView(nextView);
+              }}
+            >
+              <ToolbarToggleItem value="table" aria-label="Table view">
+                <List className="size-4" />
+                <span className="hidden xl:inline">Table view</span>
+              </ToolbarToggleItem>
+              <ToolbarToggleItem value="board" aria-label="Board view">
+                <LayoutGrid className="size-4" />
+                <span className="hidden xl:inline">Board view</span>
+              </ToolbarToggleItem>
+            </ToolbarToggleGroup>
+            <ToolbarSeparator />
+            <ToolbarButton
               onClick={() => setViewSettingsOpen(true)}
               aria-label={view === 'board' ? 'Board settings' : 'Table settings'}
               title={view === 'board' ? 'Board settings' : 'Table settings'}
-              className="border-border text-muted-foreground hover:bg-muted -ml-px rounded-l-none focus-visible:z-10"
             >
               <Settings className="size-4" />
-            </Button>
-          </div>
-
-          {view === 'table' && (
-            <Button
-              variant="outline"
-              onClick={() => setManageColumnsOpen(true)}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              <Columns3 className="size-4" />
-              <span className="hidden sm:inline">Edit columns</span>
-            </Button>
-          )}
-          {/* Filters constrain the DATA (both views + the CSV export), so
-              the panel lives in both — unlike Sort / Edit columns, which
-              are table presentation only. Without this, a filter set in
-              the table would silently keep applying to the export while
-              being invisible (and uncloseable) from the board. */}
-          <LeadsFilters
-            value={filters}
-            onChange={setFilters}
-            staff={staff}
-            tags={allTags}
-            statuses={fieldOptions.statuses}
-            sources={fieldOptions.sources}
-            genders={fieldOptions.genders}
-            pendingInvites={pendingAssignees}
-          />
-          {view === 'table' && (
-            <LeadsSort
-              value={sort}
-              onChange={(next) => {
-                setPrefs((p) => ({ ...p, sort: next }));
-                setPage(0);
-              }}
-              columns={sortableColumns}
-            />
-          )}
+            </ToolbarButton>
+          </Toolbar>
         </div>
-      </div>
 
-      {/* Bulk-selection toolbar — one encapsulated row below the search
-          toolbar, above the table. `Collapse` (Motion) animates the height +
-          fade on both entering and exiting multi-select mode and unmounts the
-          row when empty, so the flex gap above the table closes on its own
-          (no `-mt-3` hack). `bulkCount` (frozen in the caller) keeps the count
-          from flashing "0" during the exit. */}
-      {view === 'table' && (
-        <Collapse open={selected.size > 0}>
-            <div className="border-border bg-card flex flex-wrap items-center gap-0.5 rounded-lg border px-1.5 py-1">
+        {/* Selection actions belong to the same surface and appear as a
+            second header row only while records are selected. */}
+        {view === 'table' && (
+          <Collapse open={selected.size > 0}>
+            <div className="border-border bg-muted/20 flex flex-wrap items-center gap-0.5 border-b px-1.5 py-1">
               {/* Selection count + scope menu (None / All in Leads) */}
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -3375,11 +3334,11 @@ export default function LeadsPage() {
                 <X />
               </Button>
             </div>
-        </Collapse>
-      )}
+          </Collapse>
+        )}
 
-      {view === 'board' ? (
-        <div className="min-h-0 flex-1">
+        {view === 'board' ? (
+          <div className="min-h-0 flex-1 overflow-auto p-3">
           {boardLoading && boardLeads.length === 0 ? (
             <div className="flex gap-3">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -3442,7 +3401,7 @@ export default function LeadsPage() {
           {/* Table — this is the single bounded scroll region. It fills the
               remaining height (flex-1) so its horizontal scrollbar stays in view
               at the bottom edge and the header sticks while the body scrolls. */}
-          <div className="border-border bg-card min-h-0 flex-1 overflow-auto rounded-lg border">
+          <div className="min-h-0 flex-1 overflow-auto">
             {/* DndContext wraps the whole <table>, never a <tr>: it emits a
                 hidden accessibility live-region <div>, which is invalid HTML
                 inside a <tr> (hydration error). SortableContext renders no
@@ -3822,7 +3781,7 @@ export default function LeadsPage() {
 
           {/* Footer — pinned below the scroll region: record count left,
               pager right. Always visible. */}
-          <div className="flex shrink-0 items-center justify-between">
+          <div className="border-border flex shrink-0 items-center justify-between border-t px-3 py-2">
             <p className="text-muted-foreground text-xs">
               {totalCount > 0
                 ? `Showing ${page * pageSize + 1}-${Math.min((page + 1) * pageSize, totalCount)} of ${totalCount}`
@@ -3853,7 +3812,8 @@ export default function LeadsPage() {
             </div>
           </div>
         </>
-      )}
+        )}
+      </section>
 
       {/* Table settings side sheet — pagination, cell text. */}
       <ViewSettingsSheet

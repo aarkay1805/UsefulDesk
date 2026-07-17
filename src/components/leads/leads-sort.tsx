@@ -40,8 +40,8 @@ export function LeadsSort({ value, onChange, columns }: LeadsSortProps) {
       <PopoverTrigger
         render={
           <Button
-            variant="outline"
-            className="border-border text-muted-foreground hover:bg-muted"
+            variant="ghost"
+            className="text-muted-foreground hover:bg-muted"
           />
         }
       >
