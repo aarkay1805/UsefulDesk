@@ -15,11 +15,11 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Columns3,
   Dumbbell,
   ListChecks,
   Loader2,
   MessageCircle,
+  Settings,
   StickyNote,
   Wallet,
   X,
@@ -945,330 +945,345 @@ export function MembersTable({
 
   return (
     <div className="space-y-3">
-      {/* Toolbar — search + sort + filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchInput
-          containerClassName="max-w-xs flex-1 basis-52"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Search members…"
-        />
-        <div className="ml-auto flex items-center gap-2">
-          <LeadsSort
-            value={prefs.sort}
-            onChange={(next) => setPrefs((p) => ({ ...p, sort: next }))}
-            columns={SORT_COLUMNS}
+      {/* Match the Leads data surface: search and table actions live inside
+          the same rounded container as the selection row and table. */}
+      <section className="border-border bg-card overflow-hidden rounded-2xl border">
+        <div className="border-border flex flex-wrap items-center gap-2 border-b p-2">
+          <SearchInput
+            containerClassName="min-w-48 w-full max-w-[360px] flex-1 basis-64"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search members…"
           />
-          <MembersFilters value={filters} onChange={setFilters} plans={plans} />
+
+          {/* Data controls stay beside search; column management is the
+              trailing gear, matching the Leads table interaction. */}
+          <div className="flex shrink-0 items-center gap-2">
+            <MembersFilters
+              value={filters}
+              onChange={setFilters}
+              plans={plans}
+            />
+            <LeadsSort
+              value={prefs.sort}
+              onChange={(next) => setPrefs((p) => ({ ...p, sort: next }))}
+              columns={SORT_COLUMNS}
+            />
+          </div>
+
           {/* Show/hide columns — the unhide surface for header "Hide column". */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="outline"
-                  className="border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-                />
-              }
-            >
-              <Columns3 className="size-4" />
-              Columns
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="border-border bg-popover min-w-48"
-            >
-              {MEMBER_COLUMNS.map((col) => {
-                const shown = !prefs.hidden.includes(col.key);
-                return (
-                  <DropdownMenuItem
-                    key={col.key}
-                    closeOnClick={false}
-                    disabled={col.required}
-                    onClick={() => toggleColumnVisible(col.key)}
-                    className="text-popover-foreground focus:bg-muted focus:text-foreground gap-2"
-                  >
-                    <span
-                      className={cn(
-                        "flex size-4 shrink-0 items-center justify-center rounded-[4px] border",
-                        shown
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-input-border bg-card"
-                      )}
-                    >
-                      {shown && <Check className="size-3.5" />}
-                    </span>
-                    <span className="truncate">{col.label}</span>
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      {/* Bulk-selection toolbar (leads pattern — Collapse + frozen count). */}
-      <Collapse open={selected.size > 0}>
-        <div className="border-border bg-card flex flex-wrap items-center gap-0.5 rounded-lg border px-1.5 py-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <button
-                  type="button"
-                  className="group text-foreground hover:bg-muted flex h-7 items-center gap-1 rounded-md px-2 text-[0.8rem] font-semibold whitespace-nowrap"
-                />
-              }
-            >
-              {bulkCount} member{bulkCount === 1 ? "" : "s"} selected
-              <ChevronDown className="text-muted-foreground size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="border-border bg-popover min-w-56"
-            >
-              <DropdownMenuItem
-                onClick={clearSelection}
-                className="text-popover-foreground focus:bg-muted focus:text-foreground"
+          <div className="ml-auto flex shrink-0 items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Manage columns"
+                    title="Manage columns"
+                    className="text-muted-foreground hover:bg-muted hover:text-foreground"
+                  />
+                }
               >
-                <X className="size-4" />
-                None
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={selectAllMatching}
-                className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                <Settings className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="border-border bg-popover min-w-48"
               >
-                <ListChecks className="size-4" />
-                All {totalCount} matching
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <div className="bg-border mx-0.5 h-4 w-px" />
-
-          <GatedButton
-            variant="ghost"
-            size="sm"
-            canAct={canEdit}
-            gateReason="send reminders"
-            onClick={() => setRemindOpen(true)}
-            className="text-foreground"
-          >
-            <MessageCircle />
-            Remind
-          </GatedButton>
-          <GatedButton
-            variant="ghost"
-            size="sm"
-            canAct={canEdit}
-            gateReason="add notes"
-            onClick={() => setNoteOpen(true)}
-            className="text-foreground"
-          >
-            <StickyNote />
-            Add note
-          </GatedButton>
-          <GatedButton
-            variant="ghost"
-            size="sm"
-            canAct={canEdit}
-            gateReason="record payments"
-            onClick={() => setPayOpen(true)}
-            className="text-foreground"
-          >
-            <Wallet />
-            Record payment
-          </GatedButton>
-
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={clearSelection}
-            aria-label="Clear selection"
-            className="text-muted-foreground hover:text-foreground ml-auto"
-          >
-            <X />
-          </Button>
-        </div>
-      </Collapse>
-
-      {loading && rows.length === 0 ? (
-        <div className="text-muted-foreground flex items-center gap-2 py-10 text-sm">
-          <Loader2 className="size-4 animate-spin" /> Loading members…
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="border-border flex flex-col items-center gap-2 rounded-lg border border-dashed py-12 text-center">
-          <Dumbbell className="text-muted-foreground size-8" />
-          <p className="text-muted-foreground text-sm">
-            {totalCount === 0 && !search.trim()
-              ? "No members yet. Add your first member."
-              : "No members match your search or filters."}
-          </p>
-        </div>
-      ) : (
-        <div className="border-border rounded-lg border">
-          <Table className="table-fixed" style={{ minWidth: totalWidth }}>
-            <colgroup>
-              <col style={{ width: CHECKBOX_COL_WIDTH }} />
-              {visibleColumns.map((col) => (
-                <col key={col.key} style={{ width: widthOf(col) }} />
-              ))}
-            </colgroup>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="px-0">
-                  <div className="flex items-center justify-center">
-                    <Checkbox
-                      checked={allOnPageSelected}
-                      indeterminate={!allOnPageSelected && someOnPageSelected}
-                      onCheckedChange={toggleSelectAll}
-                      disabled={rows.length === 0}
-                      aria-label="Select all members on this page"
-                    />
-                  </div>
-                </TableHead>
-                {visibleColumns.map((col) => (
-                  <TableHead
-                    key={col.key}
-                    className="text-muted-foreground relative select-none"
-                  >
-                    <ColumnHeader
-                      label={col.label}
-                      sortable={Boolean(col.sortKey)}
-                      sortDir={
-                        col.sortKey && sort?.key === col.sortKey
-                          ? sort.dir
-                          : null
-                      }
-                      onSort={(dir) =>
-                        col.sortKey && sortByColumn(col.sortKey, dir)
-                      }
-                      filter={filterFor(col)}
-                      onHide={
-                        col.required ? undefined : () => hideColumn(col.key)
-                      }
-                    />
-                    {/* Resize grip on the right edge (leads pattern). */}
-                    <span
-                      role="separator"
-                      aria-orientation="vertical"
-                      onMouseDown={(e) => startResize(e, col)}
-                      className="border-border hover:border-primary absolute top-2 right-0 bottom-2 w-1.5 cursor-col-resize border-r hover:border-r-2"
-                    />
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((m) => (
-                <TableRow
-                  key={m.id}
-                  className="cursor-pointer"
-                  onClick={() => onSelect(m.id)}
-                >
-                  <TableCell
-                    className="px-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex items-center justify-center">
-                      <Checkbox
-                        checked={selected.has(m.id)}
-                        onCheckedChange={() => toggleSelect(m)}
-                        aria-label={`Select ${m.contact?.name || "member"}`}
-                      />
-                    </div>
-                  </TableCell>
-                  {visibleColumns.map((col) => (
-                    <TableCell
+                {MEMBER_COLUMNS.map((col) => {
+                  const shown = !prefs.hidden.includes(col.key);
+                  return (
+                    <DropdownMenuItem
                       key={col.key}
-                      className={cn(
-                        "overflow-hidden",
-                        (col.key === "assignee" || col.key === "churnRisk") &&
-                          canEdit &&
-                          "p-0",
-                        col.align === "right" && "text-right"
-                      )}
-                      onClick={
-                        col.key === "reminder"
-                          ? (e) => e.stopPropagation()
-                          : undefined
-                      }
+                      closeOnClick={false}
+                      disabled={col.required}
+                      onClick={() => toggleColumnVisible(col.key)}
+                      className="text-popover-foreground focus:bg-muted focus:text-foreground gap-2"
                     >
-                      {col.key === "assignee" && canEdit ? (
-                        <EditableCell
-                          editing={
-                            editingCell?.id === m.id &&
-                            editingCell.key === "assignee"
-                          }
-                          saving={savingCell}
-                          kind="select"
-                          value={m.contact?.assigned_to ?? ""}
-                          options={assigneeCellOptions(staff)}
-                          display={renderCell(col.key, m)}
-                          onStart={() =>
-                            setEditingCell({ id: m.id, key: "assignee" })
-                          }
-                          onCommit={(value) => void commitAssignee(m, value)}
-                          onCancel={() => setEditingCell(null)}
-                        />
-                      ) : col.key === "churnRisk" && canEdit ? (
-                        <EditableCell
-                          editing={
-                            editingCell?.id === m.id &&
-                            editingCell.key === "churnRisk"
-                          }
-                          saving={savingCell}
-                          kind="status"
-                          value={m.contact?.churn_risk ? "yes" : "no"}
-                          options={CHURN_RISK_CELL_OPTIONS}
-                          display={renderCell(col.key, m)}
-                          onStart={() =>
-                            setEditingCell({ id: m.id, key: "churnRisk" })
-                          }
-                          onCommit={(value) => commitChurnRisk(m, value)}
-                          onCancel={() => setEditingCell(null)}
-                        />
-                      ) : (
-                        renderCell(col.key, m)
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          {/* Pager footer (leads pattern) */}
-          <div className="border-border flex items-center justify-between border-t px-3 py-2">
-            <p className="text-muted-foreground text-xs">
-              {totalCount > 0
-                ? `${totalCount} member${totalCount === 1 ? "" : "s"}`
-                : "No members"}
-            </p>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon-sm"
-                disabled={!hasPrev}
-                onClick={() => setPage((p) => p - 1)}
-                className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <span className="text-muted-foreground px-2 text-xs">
-                Page {page + 1} of {Math.max(totalPages, 1)}
-              </span>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                disabled={!hasNext}
-                onClick={() => setPage((p) => p + 1)}
-                className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
-            </div>
+                      <span
+                        className={cn(
+                          "flex size-4 shrink-0 items-center justify-center rounded-[4px] border",
+                          shown
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-input-border bg-card"
+                        )}
+                      >
+                        {shown && <Check className="size-3.5" />}
+                      </span>
+                      <span className="truncate">{col.label}</span>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-      )}
+
+        {/* Bulk-selection toolbar (leads pattern — Collapse + frozen count). */}
+        <Collapse open={selected.size > 0}>
+          <div className="border-border bg-muted/20 flex flex-wrap items-center gap-0.5 border-b px-1.5 py-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type="button"
+                    className="group text-foreground hover:bg-muted flex h-7 items-center gap-1 rounded-md px-2 text-[0.8rem] font-semibold whitespace-nowrap"
+                  />
+                }
+              >
+                {bulkCount} member{bulkCount === 1 ? "" : "s"} selected
+                <ChevronDown className="text-muted-foreground size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="border-border bg-popover min-w-56"
+              >
+                <DropdownMenuItem
+                  onClick={clearSelection}
+                  className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                >
+                  <X className="size-4" />
+                  None
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={selectAllMatching}
+                  className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                >
+                  <ListChecks className="size-4" />
+                  All {totalCount} matching
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <div className="bg-border mx-0.5 h-4 w-px" />
+
+            <GatedButton
+              variant="ghost"
+              size="sm"
+              canAct={canEdit}
+              gateReason="send reminders"
+              onClick={() => setRemindOpen(true)}
+              className="text-foreground"
+            >
+              <MessageCircle />
+              Remind
+            </GatedButton>
+            <GatedButton
+              variant="ghost"
+              size="sm"
+              canAct={canEdit}
+              gateReason="add notes"
+              onClick={() => setNoteOpen(true)}
+              className="text-foreground"
+            >
+              <StickyNote />
+              Add note
+            </GatedButton>
+            <GatedButton
+              variant="ghost"
+              size="sm"
+              canAct={canEdit}
+              gateReason="record payments"
+              onClick={() => setPayOpen(true)}
+              className="text-foreground"
+            >
+              <Wallet />
+              Record payment
+            </GatedButton>
+
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={clearSelection}
+              aria-label="Clear selection"
+              className="text-muted-foreground hover:text-foreground ml-auto"
+            >
+              <X />
+            </Button>
+          </div>
+        </Collapse>
+
+        {loading && rows.length === 0 ? (
+          <div className="text-muted-foreground flex items-center gap-2 py-10 text-sm">
+            <Loader2 className="size-4 animate-spin" /> Loading members…
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-center">
+            <Dumbbell className="text-muted-foreground size-8" />
+            <p className="text-muted-foreground text-sm">
+              {totalCount === 0 && !search.trim()
+                ? "No members yet. Add your first member."
+                : "No members match your search or filters."}
+            </p>
+          </div>
+        ) : (
+          <div className="min-w-0">
+            <Table className="table-fixed" style={{ minWidth: totalWidth }}>
+              <colgroup>
+                <col style={{ width: CHECKBOX_COL_WIDTH }} />
+                {visibleColumns.map((col) => (
+                  <col key={col.key} style={{ width: widthOf(col) }} />
+                ))}
+              </colgroup>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="px-0">
+                    <div className="flex items-center justify-center">
+                      <Checkbox
+                        checked={allOnPageSelected}
+                        indeterminate={!allOnPageSelected && someOnPageSelected}
+                        onCheckedChange={toggleSelectAll}
+                        disabled={rows.length === 0}
+                        aria-label="Select all members on this page"
+                      />
+                    </div>
+                  </TableHead>
+                  {visibleColumns.map((col) => (
+                    <TableHead
+                      key={col.key}
+                      className="text-muted-foreground relative select-none"
+                    >
+                      <ColumnHeader
+                        label={col.label}
+                        sortable={Boolean(col.sortKey)}
+                        sortDir={
+                          col.sortKey && sort?.key === col.sortKey
+                            ? sort.dir
+                            : null
+                        }
+                        onSort={(dir) =>
+                          col.sortKey && sortByColumn(col.sortKey, dir)
+                        }
+                        filter={filterFor(col)}
+                        onHide={
+                          col.required ? undefined : () => hideColumn(col.key)
+                        }
+                      />
+                      {/* Resize grip on the right edge (leads pattern). */}
+                      <span
+                        role="separator"
+                        aria-orientation="vertical"
+                        onMouseDown={(e) => startResize(e, col)}
+                        className="border-border hover:border-primary absolute top-2 right-0 bottom-2 w-1.5 cursor-col-resize border-r hover:border-r-2"
+                      />
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((m) => (
+                  <TableRow
+                    key={m.id}
+                    className="cursor-pointer"
+                    onClick={() => onSelect(m.id)}
+                  >
+                    <TableCell
+                      className="px-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-center">
+                        <Checkbox
+                          checked={selected.has(m.id)}
+                          onCheckedChange={() => toggleSelect(m)}
+                          aria-label={`Select ${m.contact?.name || "member"}`}
+                        />
+                      </div>
+                    </TableCell>
+                    {visibleColumns.map((col) => (
+                      <TableCell
+                        key={col.key}
+                        className={cn(
+                          "overflow-hidden",
+                          (col.key === "assignee" || col.key === "churnRisk") &&
+                            canEdit &&
+                            "p-0",
+                          col.align === "right" && "text-right"
+                        )}
+                        onClick={
+                          col.key === "reminder"
+                            ? (e) => e.stopPropagation()
+                            : undefined
+                        }
+                      >
+                        {col.key === "assignee" && canEdit ? (
+                          <EditableCell
+                            editing={
+                              editingCell?.id === m.id &&
+                              editingCell.key === "assignee"
+                            }
+                            saving={savingCell}
+                            kind="select"
+                            value={m.contact?.assigned_to ?? ""}
+                            options={assigneeCellOptions(staff)}
+                            display={renderCell(col.key, m)}
+                            onStart={() =>
+                              setEditingCell({ id: m.id, key: "assignee" })
+                            }
+                            onCommit={(value) => void commitAssignee(m, value)}
+                            onCancel={() => setEditingCell(null)}
+                          />
+                        ) : col.key === "churnRisk" && canEdit ? (
+                          <EditableCell
+                            editing={
+                              editingCell?.id === m.id &&
+                              editingCell.key === "churnRisk"
+                            }
+                            saving={savingCell}
+                            kind="status"
+                            value={m.contact?.churn_risk ? "yes" : "no"}
+                            options={CHURN_RISK_CELL_OPTIONS}
+                            display={renderCell(col.key, m)}
+                            onStart={() =>
+                              setEditingCell({ id: m.id, key: "churnRisk" })
+                            }
+                            onCommit={(value) => commitChurnRisk(m, value)}
+                            onCancel={() => setEditingCell(null)}
+                          />
+                        ) : (
+                          renderCell(col.key, m)
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            {/* Pager footer (leads pattern) */}
+            <div className="border-border flex items-center justify-between border-t px-3 py-2">
+              <p className="text-muted-foreground text-xs">
+                {totalCount > 0
+                  ? `${totalCount} member${totalCount === 1 ? "" : "s"}`
+                  : "No members"}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={!hasPrev}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <span className="text-muted-foreground px-2 text-xs">
+                  Page {page + 1} of {Math.max(totalPages, 1)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={!hasNext}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* Bulk dialogs */}
       <BulkAddNoteDialog

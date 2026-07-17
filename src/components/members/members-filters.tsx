@@ -50,8 +50,8 @@ export function MembersFilters({ value, onChange, plans }: MembersFiltersProps) 
       <PopoverTrigger
         render={
           <Button
-            variant="outline"
-            className="border-border text-muted-foreground hover:bg-muted"
+            variant="ghost"
+            className="text-muted-foreground hover:bg-muted"
           />
         }
       >

@@ -81,6 +81,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -114,7 +121,6 @@ import {
   Settings,
   LayoutGrid,
   List,
-  Columns3,
   X,
   Check,
   Ban,
@@ -123,7 +129,7 @@ import { PageHeaderActions } from '@/components/layout/page-header-actions';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportWizard } from '@/components/contacts/import-wizard';
-import { ViewSettingsSheet } from '@/components/leads/view-settings-sheet';
+import { BoardSettingsSheet } from '@/components/leads/view-settings-sheet';
 import {
   LeadsFilters,
   EMPTY_FILTERS,
@@ -192,7 +198,7 @@ import { cn } from '@/lib/utils';
 import { Collapse } from '@/components/ui/collapse';
 
 const DEFAULT_PAGE_SIZE = 25;
-const PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50];
+const PAGE_SIZE_OPTIONS = [10, 20, 25, 30, 40, 50];
 // Names this surface's saved view in `table_preferences` (per-user,
 // per-account). Was a global localStorage key until migration 053.
 const PREFS_VIEW_KEY = 'leads';
@@ -215,7 +221,6 @@ const ACTIONS_COL_WIDTH = 48;
 // the drag-shadow overlay in the table below).
 const DRAG_COLUMN_CLASS = 'relative z-20 bg-card';
 
-type ViewMode = 'wrap' | 'clip';
 type LeadsView = 'table' | 'board';
 
 interface TablePrefs {
@@ -223,7 +228,6 @@ interface TablePrefs {
   hidden: string[];
   widths: Record<string, number>;
   pageSize: number;
-  viewMode: ViewMode;
   view: LeadsView;
   // Active column sort (null = default created_at desc).
   sort: SortState | null;
@@ -243,7 +247,6 @@ const DEFAULT_PREFS: TablePrefs = {
   hidden: [],
   widths: {},
   pageSize: DEFAULT_PAGE_SIZE,
-  viewMode: 'clip',
   view: 'table',
   sort: null,
   frozenCount: 0,
@@ -979,7 +982,7 @@ export default function LeadsPage() {
     Record<string, string[]>
   >({});
 
-  // Table preferences (visibility, order, widths, page size, view mode),
+  // Table preferences (visibility, order, widths, page size),
   // persisted per-browser in localStorage.
   const [prefs, setPrefs] = useTablePrefs<TablePrefs>(
     PREFS_VIEW_KEY,
@@ -1028,7 +1031,7 @@ export default function LeadsPage() {
   }, [urlContact, urlFocus]);
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
+  const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);
   const [manageColumnsOpen, setManageColumnsOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
@@ -1095,7 +1098,6 @@ export default function LeadsPage() {
   );
 
   const pageSize = prefs.pageSize;
-  const viewMode = prefs.viewMode;
   const view = prefs.view ?? 'table';
   // Defensive reads — prefs saved before these fields existed omit them.
   const sort = prefs.sort ?? null;
@@ -2928,14 +2930,10 @@ export default function LeadsPage() {
     [visibleColumns]
   );
 
-  // ---- Display-menu actions ----------------------------------------------
+  // ---- View-control actions ----------------------------------------------
   function setPageSize(n: number) {
     setPrefs((p) => ({ ...p, pageSize: n }));
     setPage(0);
-  }
-
-  function setViewMode(mode: ViewMode) {
-    setPrefs((p) => ({ ...p, viewMode: mode }));
   }
 
   function setLeadsView(v: LeadsView) {
@@ -3113,8 +3111,6 @@ export default function LeadsPage() {
   }
   const dragColWidth = draggedWidth;
 
-  const cellClamp =
-    viewMode === 'clip' ? 'truncate' : 'whitespace-normal break-words';
   // checkbox + managed columns + actions + trailing spacer
   const totalCols = visibleColumns.length + 3;
 
@@ -3183,24 +3179,14 @@ export default function LeadsPage() {
               pendingInvites={pendingAssignees}
             />
             {view === 'table' && (
-              <>
-                <LeadsSort
-                  value={sort}
-                  onChange={(next) => {
-                    setPrefs((p) => ({ ...p, sort: next }));
-                    setPage(0);
-                  }}
-                  columns={sortableColumns}
-                />
-                <Button
-                  variant="ghost"
-                  onClick={() => setManageColumnsOpen(true)}
-                  className="text-muted-foreground hover:bg-muted"
-                >
-                  <Columns3 className="size-4" />
-                  <span className="hidden xl:inline">Edit columns</span>
-                </Button>
-              </>
+              <LeadsSort
+                value={sort}
+                onChange={(next) => {
+                  setPrefs((p) => ({ ...p, sort: next }));
+                  setPage(0);
+                }}
+                columns={sortableColumns}
+              />
             )}
           </div>
 
@@ -3226,9 +3212,13 @@ export default function LeadsPage() {
             </ToolbarToggleGroup>
             <ToolbarSeparator />
             <ToolbarButton
-              onClick={() => setViewSettingsOpen(true)}
-              aria-label={view === 'board' ? 'Board settings' : 'Table settings'}
-              title={view === 'board' ? 'Board settings' : 'Table settings'}
+              onClick={() =>
+                view === 'board'
+                  ? setBoardSettingsOpen(true)
+                  : setManageColumnsOpen(true)
+              }
+              aria-label={view === 'board' ? 'Board settings' : 'Manage columns'}
+              title={view === 'board' ? 'Board settings' : 'Manage columns'}
             >
               <Settings className="size-4" />
             </ToolbarButton>
@@ -3699,7 +3689,7 @@ export default function LeadsPage() {
                                     onCancel={() => setEditingCell(null)}
                                   />
                                 ) : (
-                                  <div className={cn('min-w-0', cellClamp)}>
+                                  <div className="min-w-0 truncate">
                                     {col.render(contact)}
                                   </div>
                                 )}
@@ -3780,51 +3770,75 @@ export default function LeadsPage() {
           </div>
 
           {/* Footer — pinned below the scroll region: record count left,
-              pager right. Always visible. */}
-          <div className="border-border flex shrink-0 items-center justify-between border-t px-3 py-2">
+              page-size control and pager right. Always visible. */}
+          <div className="border-border flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-3 py-2">
             <p className="text-muted-foreground text-xs">
               {totalCount > 0
                 ? `Showing ${page * pageSize + 1}-${Math.min((page + 1) * pageSize, totalCount)} of ${totalCount}`
                 : 'No records'}
             </p>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon-sm"
-                disabled={!hasPrev}
-                onClick={() => setPage((p) => p - 1)}
-                className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-              >
-                <ChevronLeft className="size-4" />
-              </Button>
-              <span className="text-muted-foreground px-2 text-xs">
-                Page {page + 1} of {Math.max(totalPages, 1)}
-              </span>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                disabled={!hasNext}
-                onClick={() => setPage((p) => p + 1)}
-                className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
-              >
-                <ChevronRight className="size-4" />
-              </Button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span
+                  id="leads-page-size-label"
+                  className="text-muted-foreground text-xs whitespace-nowrap"
+                >
+                  Records per page
+                </span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(value) => setPageSize(Number(value))}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    aria-labelledby="leads-page-size-label"
+                    className="min-w-[4.25rem]"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={!hasPrev}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <span className="text-muted-foreground px-2 text-xs whitespace-nowrap">
+                  Page {page + 1} of {Math.max(totalPages, 1)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={!hasNext}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </>
         )}
       </section>
 
-      {/* Table settings side sheet — pagination, cell text. */}
-      <ViewSettingsSheet
-        open={viewSettingsOpen}
-        onOpenChange={setViewSettingsOpen}
-        view={view}
-        pageSize={pageSize}
-        pageSizeOptions={PAGE_SIZE_OPTIONS}
-        onPageSizeChange={setPageSize}
-        cellText={viewMode}
-        onCellTextChange={setViewMode}
+      {/* Board-only display settings. In table view the gear opens the
+          column manager instead. */}
+      <BoardSettingsSheet
+        open={boardSettingsOpen}
+        onOpenChange={setBoardSettingsOpen}
         density={boardDensity}
         onDensityChange={setBoardDensity}
         sortWithin={boardSortWithin}

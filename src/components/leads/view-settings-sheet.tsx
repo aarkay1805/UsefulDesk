@@ -21,8 +21,6 @@ import type {
   BoardSortWithin,
 } from '@/components/leads/leads-board';
 
-type CellTextMode = 'wrap' | 'clip';
-
 const SORT_WITHIN_OPTIONS: { value: BoardSortWithin; label: string }[] = [
   { value: 'newest', label: 'Newest first' },
   { value: 'oldest', label: 'Oldest first' },
@@ -30,21 +28,9 @@ const SORT_WITHIN_OPTIONS: { value: BoardSortWithin; label: string }[] = [
   { value: 'updated', label: 'Recently updated' },
 ];
 
-interface ViewSettingsSheetProps {
+interface BoardSettingsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Which view's settings to show — the gear opens this same sheet from
-      both the table and the board. */
-  view: 'table' | 'board';
-
-  // Table display
-  pageSize: number;
-  pageSizeOptions: readonly number[];
-  onPageSizeChange: (n: number) => void;
-  cellText: CellTextMode;
-  onCellTextChange: (mode: CellTextMode) => void;
-
-  // Board display (Tier 1 + 2)
   density: BoardDensity;
   onDensityChange: (mode: BoardDensity) => void;
   sortWithin: BoardSortWithin;
@@ -56,19 +42,12 @@ interface ViewSettingsSheetProps {
   boardLimit: number;
 }
 
-// The gear settings side sheet — display prefs for whichever view is
-// active. Mirrors the profile detail side-sheet interaction (right
-// slide-over). Column management + custom fields live in the separate
-// "Edit columns" split-view dialog (table only).
-export function ViewSettingsSheet({
+// Board display preferences opened from the board view's gear. Table view's
+// gear opens the column manager directly; its page-size control lives in the
+// table footer.
+export function BoardSettingsSheet({
   open,
   onOpenChange,
-  view,
-  pageSize,
-  pageSizeOptions,
-  onPageSizeChange,
-  cellText,
-  onCellTextChange,
   density,
   onDensityChange,
   sortWithin,
@@ -76,8 +55,7 @@ export function ViewSettingsSheet({
   collapseEmpty,
   onCollapseEmptyChange,
   boardLimit,
-}: ViewSettingsSheetProps) {
-  const isBoard = view === 'board';
+}: BoardSettingsSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -86,103 +64,65 @@ export function ViewSettingsSheet({
       >
         <SheetHeader className="border-b border-border px-5 py-4">
           <SheetTitle className="text-base text-foreground">
-            {isBoard ? 'Board settings' : 'Table settings'}
+            Board settings
           </SheetTitle>
           <SheetDescription className="text-muted-foreground">
-            {isBoard
-              ? 'Configure how the leads board looks and behaves.'
-              : 'Configure how the leads table looks and behaves.'}
+            Configure how the leads board looks and behaves.
           </SheetDescription>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
-          {isBoard ? (
-            <Section title="Display">
-              <SettingRow
-                label="Card density"
-                description="How much detail each card shows."
-              >
-                <Segmented
-                  options={[
-                    { value: 'comfortable', label: 'Comfortable' },
-                    { value: 'compact', label: 'Compact' },
-                  ]}
-                  value={density}
-                  onChange={(v) => onDensityChange(v as BoardDensity)}
-                />
-              </SettingRow>
+          <Section title="Display">
+            <SettingRow
+              label="Card density"
+              description="How much detail each card shows."
+            >
+              <Segmented
+                options={[
+                  { value: 'comfortable', label: 'Comfortable' },
+                  { value: 'compact', label: 'Compact' },
+                ]}
+                value={density}
+                onChange={(v) => onDensityChange(v as BoardDensity)}
+              />
+            </SettingRow>
 
-              <SettingRow
-                label="Sort cards"
-                description="Order of cards within each status column."
+            <SettingRow
+              label="Sort cards"
+              description="Order of cards within each status column."
+            >
+              <Select
+                value={sortWithin}
+                onValueChange={(v) => onSortWithinChange(v as BoardSortWithin)}
               >
-                <Select
-                  value={sortWithin}
-                  onValueChange={(v) => onSortWithinChange(v as BoardSortWithin)}
-                >
-                  <SelectTrigger size="sm" className="min-w-[10rem]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SORT_WITHIN_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </SettingRow>
+                <SelectTrigger size="sm" className="min-w-[10rem]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_WITHIN_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingRow>
 
-              <SettingRow
-                label="Collapse empty columns"
-                description="Hide statuses with no leads. They reappear while you drag so you can still drop into an empty stage."
-              >
-                <Switch
-                  checked={collapseEmpty}
-                  onCheckedChange={onCollapseEmptyChange}
-                />
-              </SettingRow>
+            <SettingRow
+              label="Collapse empty columns"
+              description="Hide statuses with no leads. They reappear while you drag so you can still drop into an empty stage."
+            >
+              <Switch
+                checked={collapseEmpty}
+                onCheckedChange={onCollapseEmptyChange}
+              />
+            </SettingRow>
 
-              <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-                The board shows the {boardLimit} most recent leads. Switch to
-                the table view to page through all of them.
-              </p>
-            </Section>
-          ) : (
-            <Section title="Display">
-              <SettingRow label="Records per page">
-                <Select
-                  value={String(pageSize)}
-                  onValueChange={(v) => onPageSizeChange(Number(v))}
-                >
-                  <SelectTrigger size="sm" className="min-w-[4.25rem]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pageSizeOptions.map((n) => (
-                      <SelectItem key={n} value={String(n)}>
-                        {n}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </SettingRow>
-
-              <SettingRow
-                label="Cell text"
-                description="How text that overflows a cell is shown."
-              >
-                <Segmented
-                  options={[
-                    { value: 'clip', label: 'Clip' },
-                    { value: 'wrap', label: 'Wrap' },
-                  ]}
-                  value={cellText}
-                  onChange={(v) => onCellTextChange(v as CellTextMode)}
-                />
-              </SettingRow>
-            </Section>
-          )}
+            <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+              The board shows the {boardLimit} most recent leads. Switch to
+              the table view to page through all of them.
+            </p>
+          </Section>
         </div>
       </SheetContent>
     </Sheet>
