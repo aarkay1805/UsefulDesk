@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useOnboardingStatus } from '@/hooks/use-onboarding-status';
@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import type { AccountRole } from '@/lib/auth/roles';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 // Per-role chip metadata used in the sidebar's account strip + the
 // Members tab roster. Keeping this near both consumers in a single
@@ -85,16 +86,26 @@ interface NavItem {
   beta?: boolean;
 }
 
-const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/inbox', label: 'Inbox', icon: MessageSquare },
-  { href: '/notifications', label: 'Notifications', icon: Bell },
-  { href: '/leads', label: 'Leads', icon: Users },
-  { href: '/members', label: 'Members', icon: Dumbbell },
-  { href: '/broadcasts', label: 'Broadcasts', icon: Radio },
-  { href: '/automations', label: 'Automations', icon: Zap },
-  { href: '/flows', label: 'Flows', icon: Workflow, beta: true },
-  { href: '/agents', label: 'AI Agents', icon: Bot },
+const navSections: { key: string; items: NavItem[] }[] = [
+  {
+    key: 'members',
+    items: [
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/inbox', label: 'Inbox', icon: MessageSquare },
+      { href: '/notifications', label: 'Notifications', icon: Bell },
+      { href: '/leads', label: 'Leads', icon: Users },
+      { href: '/members', label: 'Members', icon: Dumbbell },
+    ],
+  },
+  {
+    key: 'tools',
+    items: [
+      { href: '/broadcasts', label: 'Broadcasts', icon: Radio },
+      { href: '/automations', label: 'Automations', icon: Zap },
+      { href: '/flows', label: 'Flows', icon: Workflow, beta: true },
+      { href: '/agents', label: 'AI Agents', icon: Bot },
+    ],
+  },
 ];
 
 const bottomNavItems = [
@@ -199,96 +210,106 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
         {/* Main navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <ul className="flex flex-col gap-1">
-            {/* Get Started sits above the regular nav while onboarding is
-                live for this account (admin+, not yet complete/dismissed).
-                It auto-disappears once every step is done — the provider
-                stamps `onboarding_dismissed_at` and `active` flips off. */}
-            {onboarding.active && !onboarding.allDone && (
-              <li>
-                <Link
-                  href="/get-started"
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                    pathname.startsWith('/get-started')
-                      ? 'bg-primary/10 text-primary-text'
-                      : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground'
+          {navSections.map((section, sectionIndex) => (
+            <Fragment key={section.key}>
+              {sectionIndex > 0 && <Separator className="my-4" />}
+              <ul className="flex flex-col gap-1">
+                {/* Get Started sits above the regular nav while onboarding is
+                    live for this account (admin+, not yet complete/dismissed).
+                    It auto-disappears once every step is done — the provider
+                    stamps `onboarding_dismissed_at` and `active` flips off. */}
+                {sectionIndex === 0 &&
+                  onboarding.active &&
+                  !onboarding.allDone && (
+                    <li>
+                      <Link
+                        href="/get-started"
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
+                          pathname.startsWith('/get-started')
+                            ? 'bg-primary/10 text-primary-text'
+                            : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground'
+                        )}
+                      >
+                        <Rocket className="h-4 w-4" />
+                        <span className="flex-1">Get Started</span>
+                        {!onboarding.loading && (
+                          <span
+                            aria-label={`${onboarding.completedCount} of ${onboarding.total} setup steps complete`}
+                            className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
+                          >
+                            {onboarding.completedCount}/{onboarding.total}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
                   )}
-                >
-                  <Rocket className="h-4 w-4" />
-                  <span className="flex-1">Get Started</span>
-                  {!onboarding.loading && (
-                    <span
-                      aria-label={`${onboarding.completedCount} of ${onboarding.total} setup steps complete`}
-                      className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
-                    >
-                      {onboarding.completedCount}/{onboarding.total}
-                    </span>
-                  )}
-                </Link>
-              </li>
-            )}
-            {navItems.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                {section.items.map((item) => {
+                  const isActive =
+                    pathname === item.href ||
+                    (item.href !== '/dashboard' &&
+                      pathname.startsWith(item.href));
 
-              const showUnreadDot =
-                item.href === '/inbox' && totalUnread > 0 && !isActive;
+                  const showUnreadDot =
+                    item.href === '/inbox' && totalUnread > 0 && !isActive;
 
-              // Unlike the inbox dot, the notifications count stays visible
-              // even while the page is active — it reflects unread state
-              // (cleared by marking notifications read), not "currently
-              // viewing this section".
-              const showNotificationBadge =
-                item.href === '/notifications' && unreadNotifications > 0;
+                  // Unlike the inbox dot, the notifications count stays visible
+                  // even while the page is active — it reflects unread state
+                  // (cleared by marking notifications read), not "currently
+                  // viewing this section".
+                  const showNotificationBadge =
+                    item.href === '/notifications' && unreadNotifications > 0;
 
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      // Taller on mobile so fingers can hit the row reliably (≥44px).
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                      isActive
-                        ? 'bg-primary/10 text-primary-text'
-                        : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground'
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{item.label}</span>
-                    {item.beta && (
-                      <span
-                        aria-label="Beta feature"
-                        className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-700 dark:text-amber-300 uppercase"
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          // Taller on mobile so fingers can hit the row reliably (≥44px).
+                          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
+                          isActive
+                            ? 'bg-primary/10 text-primary-text'
+                            : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground'
+                        )}
                       >
-                        Beta
-                      </span>
-                    )}
-                    {showUnreadDot && (
-                      <span
-                        aria-label={`${totalUnread} unread conversation${totalUnread === 1 ? '' : 's'}`}
-                        className="relative flex h-2 w-2"
-                      >
-                        <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
-                        <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
-                      </span>
-                    )}
-                    {showNotificationBadge && (
-                      <span
-                        aria-label={`${unreadNotifications} unread notification${unreadNotifications === 1 ? '' : 's'}`}
-                        className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
-                      >
-                        {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                        <item.icon className="h-4 w-4" />
+                        <span className="flex-1">{item.label}</span>
+                        {item.beta && (
+                          <span
+                            aria-label="Beta feature"
+                            className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-700 uppercase dark:text-amber-300"
+                          >
+                            Beta
+                          </span>
+                        )}
+                        {showUnreadDot && (
+                          <span
+                            aria-label={`${totalUnread} unread conversation${totalUnread === 1 ? '' : 's'}`}
+                            className="relative flex h-2 w-2"
+                          >
+                            <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+                            <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
+                          </span>
+                        )}
+                        {showNotificationBadge && (
+                          <span
+                            aria-label={`${unreadNotifications} unread notification${unreadNotifications === 1 ? '' : 's'}`}
+                            className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
+                          >
+                            {unreadNotifications > 9
+                              ? '9+'
+                              : unreadNotifications}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Fragment>
+          ))}
 
-          <div className="border-border my-4 border-t" />
+          <Separator className="my-4" />
 
           <ul className="flex flex-col gap-1">
             {bottomNavItems.map((item) => {
