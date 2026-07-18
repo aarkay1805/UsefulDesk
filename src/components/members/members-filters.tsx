@@ -1,6 +1,7 @@
 "use client";
 
 import { Filter } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import {
   Popover,
@@ -24,6 +25,10 @@ const FEE_STATUS_OPTIONS: { value: "paid" | "due"; label: string }[] = [
   { value: "due", label: "Fee due" },
 ];
 
+const FOLLOW_UP_OPTIONS: { value: "open"; label: string }[] = [
+  { value: "open", label: "Open follow-up" },
+];
+
 interface MembersFiltersProps {
   value: MemberFilters;
   onChange: (next: MemberFilters) => void;
@@ -38,6 +43,7 @@ interface MembersFiltersProps {
  */
 export function MembersFilters({ value, onChange, plans }: MembersFiltersProps) {
   const count = activeMemberFilterCount(value);
+  const reduceMotion = useReducedMotion();
 
   function toggle<K extends keyof MemberFilters>(key: K, v: string) {
     const cur = value[key] as string[];
@@ -47,14 +53,30 @@ export function MembersFilters({ value, onChange, plans }: MembersFiltersProps) 
 
   return (
     <Popover>
-      <PopoverTrigger render={<Button variant="ghost" />}>
-        <Filter className="size-4" />
+      <PopoverTrigger
+        render={<Button variant="ghost" className="relative gap-0" />}
+      >
+        <Filter className="mr-1.5 size-4" />
         Filters
-        {count > 0 && (
-          <span className="ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-            {count}
-          </span>
-        )}
+        <AnimatePresence initial={false} mode="popLayout">
+          {count > 0 && (
+            <motion.span
+              key="member-filter-count"
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+              transition={{
+                duration: reduceMotion ? 0 : 0.2,
+                ease: [0.2, 0, 0, 1],
+              }}
+              className="inline-flex origin-left"
+            >
+              <span className="ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                {count}
+              </span>
+            </motion.span>
+          )}
+        </AnimatePresence>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 p-0">
         <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
@@ -95,6 +117,14 @@ export function MembersFilters({ value, onChange, plans }: MembersFiltersProps) 
             options={FEE_STATUS_OPTIONS}
             selected={value.feeStatus}
             onToggle={(v) => toggle("feeStatus", v)}
+          />
+
+          <Separator className="my-3" />
+          <CheckGroup
+            label="Follow-ups"
+            options={FOLLOW_UP_OPTIONS}
+            selected={value.followUps}
+            onToggle={(v) => toggle("followUps", v)}
           />
 
           <Separator className="my-3" />

@@ -8,6 +8,7 @@
 // leads grid — no column customization; members stay lightweight.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 import {
   Check,
@@ -60,6 +61,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { GatedButton } from "@/components/ui/gated-button";
 import { SearchInput } from "@/components/ui/search-input";
+import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -68,6 +70,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Toggle } from "@/components/ui/toggle";
 import { LeadsSort, type SortState } from "@/components/leads/leads-sort";
 import { EditableCell } from "@/components/leads/editable-cell";
 import {
@@ -107,6 +110,24 @@ import {
 } from "./send-reminder-button";
 
 const PAGE_SIZE = 25;
+
+type QuickMemberFilter = "churnRisk" | "feesDue" | "followUps";
+
+const QUICK_MEMBER_FILTERS: { key: QuickMemberFilter; label: string }[] = [
+  { key: "churnRisk", label: "Churn risk" },
+  { key: "feesDue", label: "Fees due" },
+  { key: "followUps", label: "Follow-ups" },
+];
+
+// An open-follow-up filter needs an inner relation embed for PostgREST to
+// constrain the top-level membership rows. Keep literal select pairs for both
+// data shapes so Supabase can type-parse them, and use them in every data path.
+const MEMBER_SELECT = "*, contact:contacts!inner(*), plan:membership_plans(*)";
+const MEMBER_WITH_OPEN_FOLLOW_UP_SELECT =
+  "*, contact:contacts!inner(*), plan:membership_plans(*), open_follow_ups:follow_ups!inner(id)";
+const MEMBER_ID_SELECT = "id, contact_id, contact:contacts!inner(id)";
+const MEMBER_ID_WITH_OPEN_FOLLOW_UP_SELECT =
+  "id, contact_id, contact:contacts!inner(id), open_follow_ups:follow_ups!inner(id)";
 
 // Sortable columns for the toolbar Sort menu. `name` orders the parent by
 // the embedded contact (PostgREST `order=contact(name)`); the rest are
@@ -272,6 +293,7 @@ export function MembersTable({
 }: MembersTableProps) {
   const supabase = useMemo(() => createClient(), []);
   const { fmt } = useLocale();
+  const reduceMotion = useReducedMotion();
   const { user, profile } = useAuth();
   const { staff, nameById, avatarById } = useAccountStaff();
   const canResolveAnyAssignment = profile?.account_role
@@ -451,6 +473,35 @@ export function MembersTable({
         ? arr.filter((v) => v !== value)
         : [...arr, value];
       return { ...f, [dim]: next };
+    });
+  }
+
+  function quickFilterPressed(key: QuickMemberFilter): boolean {
+    switch (key) {
+      case "churnRisk":
+        return filters.churnRisk.length === 1 && filters.churnRisk[0] === "yes";
+      case "feesDue":
+        return filters.feeStatus.length === 1 && filters.feeStatus[0] === "due";
+      case "followUps":
+        return (
+          filters.followUps.length === 1 && filters.followUps[0] === "open"
+        );
+    }
+  }
+
+  // Quick chips intentionally replace their facet with the one useful value.
+  // This avoids surprising states when the full Filters panel had "No" or
+  // both values selected; tapping a chip always means exactly what it says.
+  function setQuickFilter(key: QuickMemberFilter, pressed: boolean) {
+    setFilters((current) => {
+      switch (key) {
+        case "churnRisk":
+          return { ...current, churnRisk: pressed ? ["yes"] : [] };
+        case "feesDue":
+          return { ...current, feeStatus: pressed ? ["due"] : [] };
+        case "followUps":
+          return { ...current, followUps: pressed ? ["open"] : [] };
+      }
     });
   }
 
@@ -718,11 +769,12 @@ export function MembersTable({
     (async () => {
       setLoading(true);
       const today = fmt.today();
-      let q = supabase
-        .from("memberships")
-        .select("*, contact:contacts!inner(*), plan:membership_plans(*)", {
-          count: "exact",
-        });
+      const memberships = supabase.from("memberships");
+      let q = filters.followUps.includes("open")
+        ? memberships.select(MEMBER_WITH_OPEN_FOLLOW_UP_SELECT, {
+            count: "exact",
+          })
+        : memberships.select(MEMBER_SELECT, { count: "exact" });
 
       const term = search.trim();
       if (term) {
@@ -794,9 +846,10 @@ export function MembersTable({
   // rows on other pages. Same query shape as the fetch, ids only.
   async function selectAllMatching() {
     const today = fmt.today();
-    let q = supabase
-      .from("memberships")
-      .select("id, contact_id, contact:contacts!inner(id)");
+    const memberships = supabase.from("memberships");
+    let q = filters.followUps.includes("open")
+      ? memberships.select(MEMBER_ID_WITH_OPEN_FOLLOW_UP_SELECT)
+      : memberships.select(MEMBER_ID_SELECT);
     const term = search.trim();
     if (term) {
       const like = `%${term}%`;
@@ -825,9 +878,10 @@ export function MembersTable({
   // the file matches the screen.
   async function handleExport() {
     const today = fmt.today();
-    let q = supabase
-      .from("memberships")
-      .select("*, contact:contacts!inner(*), plan:membership_plans(*)");
+    const memberships = supabase.from("memberships");
+    let q = filters.followUps.includes("open")
+      ? memberships.select(MEMBER_WITH_OPEN_FOLLOW_UP_SELECT)
+      : memberships.select(MEMBER_SELECT);
     const term = search.trim();
     if (term) {
       const like = `%${term}%`;
@@ -955,18 +1009,54 @@ export function MembersTable({
 
           {/* Data controls stay beside search; column management is the
               trailing gear, matching the Leads table interaction. */}
-          <div className="flex shrink-0 items-center gap-2">
-            <MembersFilters
-              value={filters}
-              onChange={setFilters}
-              plans={plans}
-            />
-            <LeadsSort
-              value={prefs.sort}
-              onChange={(next) => setPrefs((p) => ({ ...p, sort: next }))}
-              columns={SORT_COLUMNS}
-            />
-          </div>
+          <LayoutGroup id="member-table-filter-controls">
+            <div className="flex shrink-0 items-center gap-2">
+              <MembersFilters
+                value={filters}
+                onChange={setFilters}
+                plans={plans}
+              />
+              <motion.div
+                data-slot="member-filter-following-controls"
+                layout="position"
+                transition={{
+                  duration: reduceMotion ? 0 : 0.2,
+                  ease: [0.2, 0, 0, 1],
+                }}
+                className="flex items-center gap-2"
+              >
+                <LeadsSort
+                  value={prefs.sort}
+                  onChange={(next) => setPrefs((p) => ({ ...p, sort: next }))}
+                  columns={SORT_COLUMNS}
+                />
+                <Separator
+                  orientation="vertical"
+                  className="mx-0.5 h-5 data-vertical:self-center"
+                />
+                <div
+                  role="group"
+                  className="flex items-center gap-1.5"
+                  aria-label="Quick filters"
+                >
+                  {QUICK_MEMBER_FILTERS.map((filter) => (
+                    <Toggle
+                      key={filter.key}
+                      variant="outline"
+                      size="sm"
+                      pressed={quickFilterPressed(filter.key)}
+                      onPressedChange={(pressed) =>
+                        setQuickFilter(filter.key, pressed)
+                      }
+                      className="text-muted-foreground data-pressed:border-primary/30 data-pressed:bg-primary/10 data-pressed:text-primary-text dark:data-pressed:border-primary/40 dark:data-pressed:bg-primary/15 rounded-full px-3"
+                    >
+                      {filter.label}
+                    </Toggle>
+                  ))}
+                </div>
+              </motion.div>
+            </div>
+          </LayoutGroup>
 
           {/* Show/hide columns — the unhide surface for header "Hide column". */}
           <div className="ml-auto flex shrink-0 items-center">

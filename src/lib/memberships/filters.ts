@@ -29,6 +29,8 @@ export const MEMBER_STATUS_OPTIONS: {
 
 export type ChurnRiskFilter = "yes" | "no";
 
+export type FollowUpFilter = "open";
+
 export const CHURN_RISK_OPTIONS: {
   value: ChurnRiskFilter;
   label: string;
@@ -43,6 +45,7 @@ export interface MemberFilters {
   statuses: MemberStatusFilter[];
   feeStatus: ("paid" | "due")[];
   churnRisk: ChurnRiskFilter[];
+  followUps: FollowUpFilter[];
 }
 
 export const EMPTY_MEMBER_FILTERS: MemberFilters = {
@@ -50,6 +53,7 @@ export const EMPTY_MEMBER_FILTERS: MemberFilters = {
   statuses: [],
   feeStatus: [],
   churnRisk: [],
+  followUps: [],
 };
 
 /** Number of active filter groups — drives the Filters button badge. */
@@ -58,7 +62,8 @@ export function activeMemberFilterCount(f: MemberFilters): number {
     (f.plans.length ? 1 : 0) +
     (f.statuses.length ? 1 : 0) +
     (f.feeStatus.length ? 1 : 0) +
-    (f.churnRisk.length ? 1 : 0)
+    (f.churnRisk.length ? 1 : 0) +
+    (f.followUps.length ? 1 : 0)
   );
 }
 
@@ -97,7 +102,7 @@ export function memberStatusOrClause(
 // importing it (same pattern as the leads page's FilterableQuery).
 interface MemberFilterableQuery<Q> {
   in(column: string, values: readonly string[]): Q;
-  eq(column: string, value: boolean): Q;
+  eq(column: string, value: string | boolean): Q;
   or(filters: string): Q;
 }
 
@@ -115,6 +120,12 @@ export function applyMemberFilters<Q extends MemberFilterableQuery<Q>>(
   // matching the other multi-select facets when all options are checked.
   if (filters.churnRisk.length === 1) {
     q = q.eq("contact.churn_risk", filters.churnRisk[0] === "yes");
+  }
+  // The caller conditionally embeds this relation with `!inner` whenever
+  // the facet is active, so the related-row filter also constrains the
+  // top-level membership rows.
+  if (filters.followUps.includes("open")) {
+    q = q.eq("open_follow_ups.status", "open");
   }
   const orClause = memberStatusOrClause(filters.statuses, today);
   if (orClause) q = q.or(orClause);

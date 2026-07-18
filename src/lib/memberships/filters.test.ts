@@ -43,7 +43,7 @@ describe("applyMemberFilters", () => {
         calls.push(["in", { column, values }]);
         return q;
       },
-      eq(column: string, value: boolean) {
+      eq(column: string, value: string | boolean) {
         calls.push(["eq", { column, value }]);
         return q;
       },
@@ -61,7 +61,7 @@ describe("applyMemberFilters", () => {
     expect(q.calls).toEqual([]);
   });
 
-  it("applies plan, fee, and status facets", () => {
+  it("applies plan, fee, churn, follow-up, and status facets", () => {
     const q = stub();
     applyMemberFilters(
       q,
@@ -70,6 +70,7 @@ describe("applyMemberFilters", () => {
         feeStatus: ["due"],
         statuses: ["cancelled"],
         churnRisk: ["yes"],
+        followUps: ["open"],
       },
       TODAY
     );
@@ -77,6 +78,7 @@ describe("applyMemberFilters", () => {
       ["in", { column: "plan_id", values: ["p1"] }],
       ["in", { column: "fee_status", values: ["due"] }],
       ["eq", { column: "contact.churn_risk", value: true }],
+      ["eq", { column: "open_follow_ups.status", value: "open" }],
       ["or", "status.eq.cancelled"],
     ]);
   });
@@ -85,7 +87,13 @@ describe("applyMemberFilters", () => {
     const q = stub();
     applyMemberFilters(
       q,
-      { plans: [], feeStatus: [], statuses: [], churnRisk: ["no"] },
+      {
+        plans: [],
+        feeStatus: [],
+        statuses: [],
+        churnRisk: ["no"],
+        followUps: [],
+      },
       TODAY
     );
     expect(q.calls).toEqual([
@@ -102,6 +110,7 @@ describe("applyMemberFilters", () => {
         feeStatus: [],
         statuses: [],
         churnRisk: ["yes", "no"],
+        followUps: [],
       },
       TODAY
     );
@@ -114,10 +123,17 @@ describe("activeMemberFilterCount", () => {
     expect(activeMemberFilterCount(EMPTY_MEMBER_FILTERS)).toBe(0);
     expect(
       activeMemberFilterCount({
+        ...EMPTY_MEMBER_FILTERS,
+        followUps: ["open"],
+      })
+    ).toBe(1);
+    expect(
+      activeMemberFilterCount({
         plans: ["a", "b"],
         statuses: ["active"],
         feeStatus: [],
         churnRisk: [],
+        followUps: [],
       })
     ).toBe(2);
   });
