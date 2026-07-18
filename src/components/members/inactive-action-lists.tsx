@@ -18,6 +18,7 @@ import {
   daysSinceVisit,
 } from "@/lib/memberships/inactivity";
 import type { Contact, MemberActivity, Membership } from "@/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FollowUpDialog } from "./follow-up-dialog";
 import { MemberIdentity } from "./member-identity";
@@ -165,9 +166,9 @@ function RetentionList({
       <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         {icon}
         <h3 className="text-sm font-medium text-foreground">{title}</h3>
-        <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+        <Badge variant="neutral" className="ml-auto tabular-nums">
           {rows.length}
-        </span>
+        </Badge>
       </header>
 
       {rows.length === 0 ? (

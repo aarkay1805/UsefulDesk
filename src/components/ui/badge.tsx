@@ -29,10 +29,12 @@ const badgeVariants = cva(
         warning: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
         info: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
         violet: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
-        // Neutral slate pill (admin-made tags, counts): the fill-only
-        // tint recipe in slate — matches a #64748b colour-prop status
-        // badge, so slate reads as "neutral" across statuses and tags.
-        neutral: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
+        // Neutral slate pill (admin-made tags, counts): multiply lets the
+        // surface underneath influence the fill, so a neutral counter stays
+        // distinct on tinted controls. Dark mode keeps normal compositing —
+        // multiplying against a dark surface would erase its contrast.
+        neutral:
+          "bg-slate-500/10 text-slate-600 mix-blend-multiply dark:text-slate-400 dark:mix-blend-normal",
         // Colour-free variant used internally when the `color` prop is
         // set: `.badge-tinted` (globals.css, components layer) supplies
         // bg + text, so the variant must not emit colour utilities —

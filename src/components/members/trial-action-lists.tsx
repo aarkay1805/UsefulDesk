@@ -19,6 +19,7 @@ import {
   type PartitionedTrials,
 } from "@/lib/memberships/trials";
 import type { Membership } from "@/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrialBadge } from "./membership-status-badge";
 import { MemberIdentity } from "./member-identity";
@@ -164,9 +165,9 @@ function TrialList({
       <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         {meta.icon}
         <h3 className="text-sm font-medium text-foreground">{meta.label}</h3>
-        <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+        <Badge variant="neutral" className="ml-auto tabular-nums">
           {rows.length}
-        </span>
+        </Badge>
       </header>
 
       {rows.length === 0 ? (

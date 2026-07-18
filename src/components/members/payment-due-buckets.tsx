@@ -8,6 +8,7 @@ import { useLocale } from "@/hooks/use-locale";
 import { bucketForDue, daysOverdue, DUE_BUCKETS, type DueBucket } from "@/lib/memberships/dues";
 import { isChargeableAmount } from "@/lib/memberships/periods";
 import type { Membership } from "@/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
 import { RecordPaymentDialog } from "./record-payment-dialog";
@@ -164,9 +165,9 @@ function BucketCard({
       <header className="border-border flex items-center gap-2 border-b px-3 py-2.5">
         <Wallet className="size-4 text-amber-700 dark:text-amber-400" />
         <h3 className="text-foreground text-sm font-medium">{title}</h3>
-        <span className="bg-muted text-muted-foreground ml-auto rounded-full px-2 py-0.5 text-xs font-medium">
+        <Badge variant="neutral" className="ml-auto tabular-nums">
           {rows.length}
-        </span>
+        </Badge>
       </header>
 
       {rows.length === 0 ? (

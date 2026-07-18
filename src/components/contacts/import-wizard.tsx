@@ -71,6 +71,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxGroup } from '@/components/ui/combobox';
 import {
@@ -1618,11 +1619,11 @@ function UploadStep({
             >
               {truncateFilename(file.name)}
             </p>
-            <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+            <Badge variant="neutral" className="px-2.5 text-[11px]">
               {raw?.rows.length ?? 0} row{raw?.rows.length !== 1 ? 's' : ''} ·{' '}
               {raw?.headers.length ?? 0} column
               {raw?.headers.length !== 1 ? 's' : ''}
-            </span>
+            </Badge>
           </>
         ) : (
           <>
