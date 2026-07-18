@@ -1,9 +1,9 @@
-import type { Metadata, Viewport } from "next";
-import { Inter, Geist_Mono } from "next/font/google";
-import Script from "next/script";
-import "./globals.css";
-import { ThemeProvider } from "@/hooks/use-theme";
-import { ThemedToaster } from "@/components/themed-toaster";
+import type { Metadata, Viewport } from 'next';
+import { Inter, Geist_Mono } from 'next/font/google';
+import Script from 'next/script';
+import './globals.css';
+import { ThemeProvider } from '@/hooks/use-theme';
+import { ThemedToaster } from '@/components/themed-toaster';
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -11,33 +11,33 @@ import {
   MODES,
   STORAGE_KEY,
   THEME_IDS,
-} from "@/lib/themes";
+} from '@/lib/themes';
 
 const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
+  variable: '--font-sans',
+  subsets: ['latin'],
 });
 
 // Mono face for code, token names, and any `font-mono` surface. globals.css
 // maps `--font-mono → --font-geist-mono`; without this the variable was
 // undefined and `font-mono` silently fell back to the system monospace stack.
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "UsefulDesk",
-    template: "%s — UsefulDesk",
+    default: 'UsefulDesk',
+    template: '%s — UsefulDesk',
   },
-  description: "UsefulDesk — self-hostable CRM for WhatsApp.",
+  description: 'UsefulDesk — self-hostable CRM for WhatsApp.',
   robots: {
     index: false,
     follow: false,
   },
   icons: {
-    icon: [{ url: "/icon" }],
+    icon: [{ url: '/icon' }],
   },
   formatDetection: {
     email: false,
@@ -47,15 +47,16 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#020617",
-  colorScheme: "dark light",
+  themeColor: '#020617',
+  colorScheme: 'dark light',
 };
 
 // Inline boot script — runs before React hydrates so the user's
-// chosen accent (data-theme) AND mode (data-mode) are on the <html>
+// cached accent (data-theme) AND mode (data-mode) are on the <html>
 // element before first paint. Without this every page load flashes
 // the server-rendered defaults for a frame before the React tree
-// mounts and applies the picked values.
+// mounts and applies the picked values. After authentication, the
+// profile-backed preference replaces this paint cache if one is saved.
 //
 // Kept dependency-free (no imports, no JSX) — must be a string the
 // browser can run as a single <script>. Knowledge of valid ids is
@@ -114,7 +115,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
         />
       </head>
-      <body className="min-h-full bg-background text-foreground font-sans">
+      <body className="bg-background text-foreground min-h-full font-sans">
         <ThemeProvider>
           {children}
           <ThemedToaster />

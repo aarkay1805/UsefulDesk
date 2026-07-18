@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { OnboardingProvider } from '@/hooks/use-onboarding-status';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
+import { AccountAppearanceSync } from '@/components/layout/account-appearance-sync';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +46,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="bg-background flex h-screen overflow-hidden">
+      {/* Replaces the browser cache with this user's saved profile
+          preference as soon as authentication/profile loading settles. */}
+      <AccountAppearanceSync />
       {/* Reports this tab's online/away presence once we know a user is
           signed in. Headless — renders nothing. */}
       <PresenceHeartbeat />

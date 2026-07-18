@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   createContext,
@@ -9,27 +9,28 @@ import {
   useMemo,
   useRef,
   type ReactNode,
-} from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
-import { DEFAULT_CURRENCY } from "@/lib/currency";
+} from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
+import { DEFAULT_CURRENCY } from '@/lib/currency';
 import {
   resolveAccountLocale,
   DEFAULT_ACCOUNT_LOCALE,
   type AccountLocale,
-} from "@/lib/locale/config";
+} from '@/lib/locale/config';
 import {
   buildFormatters,
   DEFAULT_FORMATTERS,
   type LocaleFormatters,
-} from "@/lib/locale/format";
+} from '@/lib/locale/format';
 import {
   canEditSettings as canEditSettingsFor,
   canManageMembers as canManageMembersFor,
   canSendMessages as canSendMessagesFor,
   isAccountRole,
   type AccountRole,
-} from "@/lib/auth/roles";
+} from '@/lib/auth/roles';
+import { isMode, isThemeId, type Mode, type ThemeId } from '@/lib/themes';
 
 interface Profile {
   id: string;
@@ -45,6 +46,11 @@ interface Profile {
   beta_features: string[];
   account_id: string | null;
   account_role: AccountRole | null;
+  /** Personal appearance preferences. NULL means this profile has not
+   *  saved a server-side choice yet, so the existing browser cache is
+   *  retained for backwards compatibility. */
+  appearance_theme: ThemeId | null;
+  appearance_mode: Mode | null;
 }
 
 interface AccountSummary {
@@ -167,15 +173,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     lastFetchedUserIdRef.current = userId;
     try {
       const { data, error } = await supabase
-        .from("profiles")
+        .from('profiles')
         .select(
-          "id, full_name, email, avatar_url, role, beta_features, account_id, account_role",
+          'id, full_name, email, avatar_url, role, beta_features, account_id, account_role'
         )
-        .eq("user_id", userId)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (error) {
-        console.error("[AuthProvider] fetchProfile error:", {
+        console.error('[AuthProvider] fetchProfile error:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -186,6 +192,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data) {
+        // Keep the newly-added appearance columns out of the essential
+        // profile query above. During a rolling deploy, application code
+        // can arrive before migration 070; an unknown column would make
+        // PostgREST reject the entire select and blank account context.
+        // A separate optional read lets the rest of the profile continue
+        // to work until the migration is applied.
+        let appearanceTheme: ThemeId | null = null;
+        let appearanceMode: Mode | null = null;
+        const { data: appearance, error: appearanceError } = await supabase
+          .from('profiles')
+          .select('appearance_theme, appearance_mode')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (appearanceError) {
+          console.warn('[AuthProvider] appearance preferences unavailable:', {
+            message: appearanceError.message,
+            code: appearanceError.code,
+          });
+        } else if (appearance) {
+          appearanceTheme = isThemeId(appearance.appearance_theme)
+            ? appearance.appearance_theme
+            : null;
+          appearanceMode = isMode(appearance.appearance_mode)
+            ? appearance.appearance_mode
+            : null;
+        }
+
         // Load the account with a plain lookup by id instead of an
         // embedded FK join. The embed (`account:accounts!inner(...)`)
         // forces PostgREST to resolve the profiles.account_id →
@@ -199,17 +233,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let accountRow: AccountSummary | null = null;
         if (data.account_id) {
           const { data: account, error: accountErr } = await supabase
-            .from("accounts")
+            .from('accounts')
             // default_currency added in 021, localization columns in
             // 055; every field is narrowed below / by
             // resolveAccountLocale for older schemas where it reads null.
             .select(
-              "id, name, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system, onboarding_dismissed_at",
+              'id, name, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system, onboarding_dismissed_at'
             )
-            .eq("id", data.account_id)
+            .eq('id', data.account_id)
             .maybeSingle();
           if (accountErr) {
-            console.error("[AuthProvider] fetchAccount error:", {
+            console.error('[AuthProvider] fetchAccount error:', {
               message: accountErr.message,
               details: accountErr.details,
               hint: accountErr.hint,
@@ -255,13 +289,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           beta_features: data.beta_features ?? [],
           account_id: data.account_id ?? null,
           account_role: accountRole,
+          appearance_theme: appearanceTheme,
+          appearance_mode: appearanceMode,
         });
         setAccount(accountRow);
       } else {
         lastFetchedUserIdRef.current = null;
       }
     } catch (err) {
-      console.error("[AuthProvider] fetchProfile threw:", err);
+      console.error('[AuthProvider] fetchProfile threw:', err);
       lastFetchedUserIdRef.current = null;
     } finally {
       setProfileLoading(false);
@@ -274,7 +310,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const safetyTimer = setTimeout(() => {
       if (mounted) {
-        console.warn("[AuthProvider] getSession() timed out after 3s");
+        console.warn('[AuthProvider] getSession() timed out after 3s');
         setLoading(false);
         setProfileLoading(false);
       }
@@ -287,7 +323,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error,
         } = await supabase.auth.getSession();
 
-        if (error) console.error("[AuthProvider] getSession error:", error.message);
+        if (error)
+          console.error('[AuthProvider] getSession error:', error.message);
 
         if (!mounted) return;
         const currentUser = session?.user ?? null;
@@ -306,7 +343,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfileLoading(false);
         }
       } catch (err) {
-        console.error("[AuthProvider] init threw:", err);
+        console.error('[AuthProvider] init threw:', err);
       } finally {
         if (mounted) setLoading(false);
         clearTimeout(safetyTimer);
@@ -349,7 +386,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setProfile(null);
     setAccount(null);
-    window.location.href = "/login";
+    window.location.href = '/login';
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -366,10 +403,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {
       accountRole: role,
       accountId: profile?.account_id ?? null,
-      isOwner: role === "owner",
-      isAdmin: role === "admin",
-      isAgent: role === "agent",
-      isViewer: role === "viewer",
+      isOwner: role === 'owner',
+      isAdmin: role === 'admin',
+      isAgent: role === 'agent',
+      isViewer: role === 'viewer',
       canManageMembers: role ? canManageMembersFor(role) : false,
       canEditSettings: role ? canEditSettingsFor(role) : false,
       canSendMessages: role ? canSendMessagesFor(role) : false,
@@ -380,7 +417,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // only when the account row identity changes (fetch / refreshProfile
   // after a Settings → Localization save).
   const localized = useMemo(() => {
-    const cfg = account ? resolveAccountLocale(account) : DEFAULT_ACCOUNT_LOCALE;
+    const cfg = account
+      ? resolveAccountLocale(account)
+      : DEFAULT_ACCOUNT_LOCALE;
     return { locale: cfg, fmt: buildFormatters(cfg) };
   }, [account]);
 
@@ -421,7 +460,7 @@ export function useAuth(): AuthContextValue {
       loading: false,
       profileLoading: false,
       signOut: async () => {
-        window.location.href = "/login";
+        window.location.href = '/login';
       },
       refreshProfile: async () => {},
       account: null,
