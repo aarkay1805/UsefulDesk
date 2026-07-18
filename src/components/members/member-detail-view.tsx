@@ -134,11 +134,10 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** Section wrapper — id anchor + scroll-margin so the sticky nav
- *  doesn't overlap the heading when jumped to. */
+/** Section wrapper — id anchor for the jump nav and scrollspy. */
 function Section({ id, children }: { id: string; children: ReactNode }) {
   return (
-    <section id={`sec-${id}`} className="min-w-0 scroll-mt-14">
+    <section id={`sec-${id}`} className="min-w-0">
       {children}
     </section>
   );
@@ -186,7 +185,9 @@ export function MemberDetailView({
 
   // Jump-nav active section (scrollspy).
   const scrollRef = useRef<HTMLDivElement>(null);
+  const navContainerRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
+  const jumpTargetRef = useRef<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>("membership");
 
   useEffect(() => {
@@ -278,17 +279,39 @@ export function MemberDetailView({
     const els = SECTIONS.map((s) => document.getElementById(`sec-${s.id}`)).filter(
       (el): el is HTMLElement => el !== null,
     );
-    const io = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting);
-        if (visible.length === 0) return;
-        visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        setActiveSection(visible[0].target.id.replace("sec-", ""));
-      },
-      { root, rootMargin: "-56px 0px -60% 0px", threshold: 0 },
-    );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
+    let frame = 0;
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    const syncActiveSection = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const navHeight = navContainerRef.current?.offsetHeight ?? 0;
+        const navBottom = root.getBoundingClientRect().top + navHeight;
+        const atBottom = root.scrollTop + root.clientHeight >= root.scrollHeight - 1;
+        const active = atBottom
+          ? els.at(-1)
+          : (els.find((el) => el.getBoundingClientRect().bottom > navBottom) ?? els.at(-1));
+        if (active) setActiveSection(active.id.replace("sec-", ""));
+      });
+    };
+    const handleScroll = () => {
+      if (settleTimer) clearTimeout(settleTimer);
+      if (jumpTargetRef.current) {
+        settleTimer = setTimeout(() => {
+          jumpTargetRef.current = null;
+          syncActiveSection();
+        }, 100);
+        return;
+      }
+      syncActiveSection();
+      settleTimer = setTimeout(syncActiveSection, 100);
+    };
+    root.addEventListener("scroll", handleScroll, { passive: true });
+    syncActiveSection();
+    return () => {
+      root.removeEventListener("scroll", handleScroll);
+      if (settleTimer) clearTimeout(settleTimer);
+      cancelAnimationFrame(frame);
+    };
   }, [membership?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep the lit tab visible. The strip scrolls sideways once the labels
@@ -313,8 +336,23 @@ export function MemberDetailView({
   }, [activeSection]);
 
   function jumpTo(id: string) {
+    jumpTargetRef.current = id;
     setActiveSection(id);
-    document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const root = scrollRef.current;
+    const target = document.getElementById(`sec-${id}`);
+    if (!root || !target) return;
+    const navHeight = navContainerRef.current?.offsetHeight ?? 0;
+    const top =
+      target.getBoundingClientRect().top -
+      root.getBoundingClientRect().top +
+      root.scrollTop -
+      navHeight;
+    root.scrollTo({
+      top,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
   }
 
   // Refetch this sheet AND tell the parent list to refresh.
@@ -606,15 +644,18 @@ export function MemberDetailView({
             </SheetHeader>
 
             <div ref={scrollRef} className="bg-muted/20 flex-1 overflow-y-auto">
-              {/* Jump nav — reads as part of the header (white), divider
-                  after the tabs; sticky under it while scrolling. */}
-              <div className="border-border bg-background sticky top-0 z-10 border-b">
+              {/* Jump nav — reads as part of the sheet header, with the
+                  divider after the tabs; sticky under it while scrolling. */}
+              <div
+                ref={navContainerRef}
+                className="border-border bg-popover sticky top-0 z-10 border-b"
+              >
                 <div
                   ref={navRef}
                   className="[scrollbar-width:none] overflow-x-auto px-4 sm:px-5 [&::-webkit-scrollbar]:hidden"
                 >
                   <Tabs value={activeSection} onValueChange={(v) => v && jumpTo(v)}>
-                    <TabsList variant="line" className="h-11">
+                    <TabsList variant="line" aria-label="Member detail sections">
                       {SECTIONS.map((s) => (
                         <TabsTrigger key={s.id} value={s.id} className="flex-none">
                           {s.label}
@@ -1107,11 +1148,9 @@ export function MemberDetailView({
                     </Section>
                   </div>
 
-                  {/* Rail — profile signals, sticky just under the jump nav. top
-                      offset stays below the nav height but under the rail's
-                      natural position, so it rests level with the Membership
-                      card and only pins once scrolled. */}
-                  <div className="grid min-w-0 gap-4 lg:sticky lg:top-[52px] lg:self-start">
+                  {/* Rail — profile signals, sticky just under the shared
+                      line-tab nav while remaining level with Membership. */}
+                  <div className="grid min-w-0 gap-4 lg:sticky lg:top-9 lg:self-start">
                     <BmiCard
                       contactId={membership.contact_id}
                       heightCm={membership.contact?.height_cm}
