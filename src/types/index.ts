@@ -1051,6 +1051,8 @@ export interface Attendance {
   user_id: string;
   /** Real instant; rendered in IST. */
   checked_in_at: string;
+  /** Real instant; null while the member is still present. */
+  checked_out_at?: string | null;
   method: AttendanceMethod;
   note?: string;
   created_at: string;

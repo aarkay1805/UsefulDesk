@@ -30,35 +30,27 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RenewalActionLists } from '@/components/members/renewal-action-lists';
 import { FollowUpLists } from '@/components/members/follow-up-lists';
-import { InactiveActionLists } from '@/components/members/inactive-action-lists';
 import { TrialActionLists } from '@/components/members/trial-action-lists';
 import { MembersTable } from '@/components/members/members-table';
 import { MemberForm } from '@/components/members/member-form';
 import { ImportMembersDialog } from '@/components/members/import-members-dialog';
 import { ImportMembersCsvDialog } from '@/components/members/import-members-csv-dialog';
 import { MemberDetailView } from '@/components/members/member-detail-view';
-import { CheckInView } from '@/components/members/check-in-view';
+import { AttendanceView } from '@/components/members/attendance-view';
 import { PaymentSummaryTiles } from '@/components/members/payment-summary-tiles';
 import { PaymentsTable } from '@/components/members/payments-table';
 import { useReminderReadiness } from '@/components/members/send-reminder-button';
 
 type View =
-  | 'renewals'
-  | 'followups'
-  | 'inactive'
-  | 'trials'
-  | 'payments'
-  | 'all'
-  | 'checkin';
+  'renewals' | 'followups' | 'trials' | 'payments' | 'all' | 'attendance';
 
 const VIEW_LABEL: Record<View, string> = {
   renewals: 'Renewals',
   followups: 'Follow-ups',
-  inactive: 'Inactive',
   trials: 'Trials',
   payments: 'Payments',
   all: 'All members',
-  checkin: 'Check-in',
+  attendance: 'Attendance',
 };
 
 export default function MembersPage() {
@@ -199,11 +191,10 @@ export default function MembersPage() {
               [
                 'renewals',
                 'followups',
-                'inactive',
                 'trials',
                 'payments',
                 'all',
-                'checkin',
+                'attendance',
               ] as const
             ).map((v) => (
               <TabsTrigger
@@ -236,8 +227,6 @@ export default function MembersPage() {
             onChanged={reload}
             canEdit={canSendMessages}
           />
-        ) : view === 'inactive' ? (
-          <InactiveActionLists onSelect={openDetail} reloadKey={reloadKey} />
         ) : view === 'trials' ? (
           <TrialActionLists
             readiness={readiness}
@@ -265,7 +254,11 @@ export default function MembersPage() {
             onRegisterExport={registerExport}
           />
         ) : (
-          <CheckInView reloadKey={reloadKey} onCheckedIn={reload} />
+          <AttendanceView
+            reloadKey={reloadKey}
+            onAttendanceChanged={reload}
+            onSelect={openDetail}
+          />
         )}
       </div>
 
