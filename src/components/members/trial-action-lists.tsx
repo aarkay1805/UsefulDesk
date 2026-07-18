@@ -215,6 +215,7 @@ function TrialList({
                   />
                   <Button
                     type="button"
+                    variant="ghost"
                     size="sm"
                     onClick={() => onConvert(m)}
                   >

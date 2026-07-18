@@ -210,7 +210,7 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
                 <MembershipStatusBadge status={eff} daysToExpiry={daysUntil(m.end_date, today)} />
                 <Button
                   type="button"
-                  variant={done ? "outline" : "default"}
+                  variant="ghost"
                   size="sm"
                   disabled={done || busyId === m.id}
                   onClick={() => checkIn(m)}

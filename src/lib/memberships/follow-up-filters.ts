@@ -27,6 +27,17 @@ export const EMPTY_FOLLOW_UP_FILTERS: FollowUpFilters = {
   assignees: [],
 };
 
+/**
+ * The due-date chips are toggleable radio buttons: pressing one replaces the
+ * current bucket, while pressing the active chip again clears the facet.
+ */
+export function exclusiveFollowUpBucket(
+  bucket: FollowUpBucket,
+  pressed: boolean
+): FollowUpBucket[] {
+  return pressed ? [bucket] : [];
+}
+
 /** Number of active filter groups, used by the toolbar counter. */
 export function activeFollowUpFilterCount(filters: FollowUpFilters): number {
   return (

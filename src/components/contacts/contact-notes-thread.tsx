@@ -6,20 +6,12 @@
 // contact, so contact_notes / follow_ups apply unchanged — one thread
 // component, keyed by contactId, everywhere a person's notes render.
 //
-// Also the home of the composer building blocks (NoteComposerCard,
-// FollowUpDraft, resolveDueDate) — ContactDetailView re-exports them so
-// existing import sites (BulkAddNoteDialog) keep working.
+// NoteComposerCard stays here, while its follow-up fields and draft model
+// live in one shared component used by every manual creation entry point.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import {
-  Calendar,
-  Check,
-  ChevronDown,
-  Loader2,
-  Timer,
-  Trash2,
-} from 'lucide-react';
+import { Calendar, Check, Loader2, Trash2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -31,26 +23,22 @@ import {
   FOLLOW_UP_TASK_TYPES,
   followUpDueLabel,
   remindAtInTz,
-  REMINDER_SLOTS,
   slotFromRemindAt,
-  type FollowUpTaskType,
 } from '@/lib/leads/follow-up-dates';
 import { useLocale } from '@/hooks/use-locale';
 import {
   useAccountStaff,
   type StaffMember,
 } from '@/components/members/use-account-staff';
-import type { ContactNote } from '@/types';
-import { Button } from '@/components/ui/button';
-import { DatePicker } from '@/components/ui/date-picker';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  DEFAULT_FOLLOW_UP_DRAFT,
+  FollowUpFields,
+  resolveDueDate,
+  type FollowUpDraft,
+} from '@/components/follow-ups/follow-up-fields';
+import type { ContactNote, FollowUpReason } from '@/types';
+import { Button } from '@/components/ui/button';
 import { MotionList, MotionListItem } from '@/components/ui/motion-list';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Tooltip,
@@ -64,51 +52,24 @@ interface NoteFollowUp {
   id: string;
   status: string;
   task_type: string;
+  reason: FollowUpReason;
   due_date: string;
   assigned_to: string | null;
   remind_at: string | null;
 }
 
-/** Editor state for the composer's follow-up bar. */
-export interface FollowUpDraft {
-  enabled: boolean;
-  type: FollowUpTaskType;
-  /** duePresets() id, or 'custom'. */
-  dueId: string;
-  customDate: string;
-  /** '' = current user. */
-  assignee: string;
-  /** '' = no reminder; otherwise an IST slot like '08:00'. */
-  remindSlot: string;
-}
-
-export const DEFAULT_FOLLOW_UP_DRAFT: FollowUpDraft = {
-  enabled: false,
-  type: 'todo',
-  dueId: '3d',
-  customDate: '',
-  assignee: '',
-  remindSlot: '',
-};
-
-/** The concrete due date a draft resolves to (undefined = invalid).
- *  Pass `today` from the account zone (`fmt.today()`). */
-export function resolveDueDate(
-  draft: FollowUpDraft,
-  today?: string,
-): string | undefined {
-  return draft.dueId === 'custom'
-    ? draft.customDate || undefined
-    : duePresets(today).find((p) => p.id === draft.dueId)?.date;
-}
-
 /** Editor seed for an existing task: matching preset id or 'custom'. */
 function presetIdForDate(date: string, today?: string): string {
-  return duePresets(today).find((p) => p.date === date)?.id ?? 'custom';
+  return (
+    duePresets(today).find((preset) => preset.date === date)?.id ?? 'custom'
+  );
 }
 
 interface ContactNotesThreadProps {
   contactId: string | null;
+  /** Links note-created tasks to the member Follow-ups tab when hosted
+   *  inside a member profile. Contact/lead profiles intentionally omit it. */
+  membershipId?: string | null;
   /** Fetch trigger — the hosting sheet's `open`. */
   active: boolean;
   /** Focus target for the host's "Note" quick action. */
@@ -120,6 +81,7 @@ interface ContactNotesThreadProps {
 
 export function ContactNotesThread({
   contactId,
+  membershipId,
   active,
   textareaRef,
   onFollowUpChanged,
@@ -209,7 +171,9 @@ export function ContactNotesThread({
         .order('created_at', { ascending: false }),
       supabase
         .from('follow_ups')
-        .select('id, note_id, status, task_type, due_date, assigned_to, remind_at')
+        .select(
+          'id, note_id, status, task_type, reason, due_date, assigned_to, remind_at'
+        )
         .eq('contact_id', contactId)
         .not('note_id', 'is', null),
     ]);
@@ -276,10 +240,11 @@ export function ContactNotesThread({
       const { error: taskError } = await supabase.from('follow_ups').insert({
         account_id: accountId,
         contact_id: contactId,
+        membership_id: membershipId ?? null,
         note_id: insertedNote?.id ?? null,
         assigned_to: followUpDraft.assignee || authUser.id,
         created_by: authUser.id,
-        reason: 'other',
+        reason: followUpDraft.reason,
         task_type: followUpDraft.type,
         due_date: followUpDue,
         remind_at: followUpDraft.remindSlot
@@ -409,9 +374,11 @@ export function ContactNotesThread({
           .from('follow_ups')
           .update({
             task_type: draft.type,
+            reason: draft.reason,
             due_date: due,
             assigned_to: draft.assignee || authUser.id,
             remind_at: remind,
+            ...(membershipId ? { membership_id: membershipId } : {}),
           })
           .eq('id', existing.id);
         if (taskError) {
@@ -421,10 +388,11 @@ export function ContactNotesThread({
         const { error: taskError } = await supabase.from('follow_ups').insert({
           account_id: accountId,
           contact_id: contactId,
+          membership_id: membershipId ?? null,
           note_id: noteId,
           assigned_to: draft.assignee || authUser.id,
           created_by: authUser.id,
-          reason: 'other',
+          reason: draft.reason,
           task_type: draft.type,
           due_date: due,
           remind_at: remind,
@@ -463,7 +431,7 @@ export function ContactNotesThread({
           name={profile?.full_name || 'Me'}
           src={profile?.avatar_url}
         />
-        <div className="space-y-2 min-w-0">
+        <div className="min-w-0 space-y-2">
           <NoteComposerCard
             text={newNote}
             onTextChange={setNewNote}
@@ -485,7 +453,7 @@ export function ContactNotesThread({
             </Button>
             <div className="flex items-center gap-2">
               {draftSaved && (
-                <span className="text-xs text-muted-foreground">
+                <span className="text-muted-foreground text-xs">
                   Draft saved
                 </span>
               )}
@@ -509,10 +477,10 @@ export function ContactNotesThread({
       <div className="space-y-4">
         {loadingNotes ? (
           <div className="flex items-center justify-center py-6">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            <Loader2 className="text-muted-foreground size-5 animate-spin" />
           </div>
         ) : notes.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">
+          <p className="text-muted-foreground py-6 text-center text-sm">
             No notes yet.
           </p>
         ) : (
@@ -557,7 +525,7 @@ function StaffAvatar({ name, src }: { name: string; src?: string | null }) {
         }
       >
         <UserAvatar
-          className="size-9 border border-border/50"
+          className="border-border/50 size-9 border"
           name={name}
           src={src}
         />
@@ -592,185 +560,21 @@ export function NoteComposerCard({
   return (
     // bg-card (not bg-muted) — the switch's unchecked track is muted
     // grey and disappears on a grey card.
-    <div className="rounded-lg border border-border bg-card focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 transition-colors">
+    <div className="border-border bg-card focus-within:border-ring focus-within:ring-ring/50 rounded-lg border transition-colors focus-within:ring-3">
       <Textarea
         ref={textareaRef}
         autoFocus={autoFocus}
         value={text}
         onChange={(e) => onTextChange(e.target.value)}
         placeholder="Write a note..."
-        className="border-0 bg-transparent text-foreground placeholder:text-muted-foreground min-h-[64px] text-sm resize-none focus-visible:ring-0 focus-visible:border-transparent"
+        className="text-foreground placeholder:text-muted-foreground min-h-[64px] resize-none border-0 bg-transparent text-sm focus-visible:border-transparent focus-visible:ring-0"
       />
-      <FollowUpRow
+      <FollowUpFields
         draft={draft}
         onPatch={onPatch}
         staff={staff}
         currentUserId={currentUserId}
       />
-    </div>
-  );
-}
-
-// Follow-up bar attached under the note textarea — three states (per
-// the mocks): switch off = just the label row; on = task chips ("[Call ▾]
-// [In 3 days (Friday) ▾]") plus an "Assign to … / reminder" strip under
-// its own divider. Reminder defaults to none ("Set reminder").
-function FollowUpRow({
-  draft,
-  onPatch,
-  staff,
-  currentUserId,
-}: {
-  draft: FollowUpDraft;
-  onPatch: (patch: Partial<FollowUpDraft>) => void;
-  staff: StaffMember[];
-  currentUserId: string;
-}) {
-  const { fmt } = useLocale();
-  const presets = duePresets(fmt.today());
-  // Chip shows the preset label verbatim ("In 3 days (Friday)",
-  // "Tomorrow") — no connecting "in" between the two chips.
-  const dueLabel =
-    draft.dueId === 'custom'
-      ? draft.customDate || 'Custom date'
-      : presets.find((p) => p.id === draft.dueId)?.label ?? presets[3].label;
-  const effectiveAssignee = draft.assignee || currentUserId;
-  const assigneeMember = staff.find((s) => s.user_id === effectiveAssignee);
-  const assigneeLabel = assigneeMember
-    ? `${assigneeMember.full_name}${effectiveAssignee === currentUserId ? ' (Me)' : ''}`
-    : 'Me';
-  const remindLabel =
-    REMINDER_SLOTS.find((s) => s.value === draft.remindSlot)?.label ??
-    'Set reminder';
-
-  // Sizing/spacing per the Figma spec (node 38:793): a 12/8 padded bar
-  // with NO flex gap — each row self-pads (label row py-1, chips row
-  // py-2, so 12px between them and 16px under the chips). Chips are
-  // 14px text in 8/4 padded pills with 4px inner gaps; the footer line
-  // is 12px text, regular weight, 4px inner gaps and 16px between the
-  // two groups.
-  const chip =
-    'inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm text-foreground hover:bg-muted';
-  const textTrigger =
-    'inline-flex cursor-pointer items-center gap-1 py-1 text-xs text-foreground hover:text-primary-text';
-  const item = 'text-popover-foreground focus:bg-muted focus:text-foreground';
-
-  return (
-    <div className="border-t border-border">
-      <div className="flex flex-col px-3 py-2">
-        <div className="flex items-center justify-between gap-2 py-1">
-          <span className="text-sm text-foreground">Add a follow up task</span>
-          <Switch
-            checked={draft.enabled}
-            onCheckedChange={(v) => onPatch({ enabled: v === true })}
-            aria-label="Add a follow up task"
-          />
-        </div>
-
-        {/* What + when */}
-        {draft.enabled && (
-          <div className="flex flex-wrap items-center gap-2 py-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<button type="button" className={chip} />}>
-                {FOLLOW_UP_TASK_TYPES.find((t) => t.value === draft.type)?.label}
-                <ChevronDown className="size-3.5 text-muted-foreground" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-popover border-border min-w-28">
-                {FOLLOW_UP_TASK_TYPES.map((t) => (
-                  <DropdownMenuItem
-                    key={t.value}
-                    onClick={() => onPatch({ type: t.value })}
-                    className={item}
-                  >
-                    {t.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<button type="button" className={chip} />}>
-                {dueLabel}
-                <ChevronDown className="size-3.5 text-muted-foreground" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-popover border-border min-w-52">
-                {presets.map((p) => (
-                  <DropdownMenuItem
-                    key={p.id}
-                    onClick={() => onPatch({ dueId: p.id })}
-                    className={item}
-                  >
-                    {p.label}
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuItem
-                  onClick={() => onPatch({ dueId: 'custom' })}
-                  className={item}
-                >
-                  Custom date
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {draft.dueId === 'custom' && (
-              <DatePicker
-                value={draft.customDate}
-                min={fmt.today()}
-                onChange={(v) => onPatch({ customDate: v })}
-                className="h-7 w-auto border-border bg-card px-2 text-sm"
-                aria-label="Follow-up date"
-              />
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Who + reminder — its own strip under a full-width divider (per mock) */}
-      {draft.enabled && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border px-3 py-2">
-            <span className="flex items-center gap-1 text-xs">
-              <span className="text-muted-foreground">Assign to</span>
-              <DropdownMenu>
-                <DropdownMenuTrigger render={<button type="button" className={textTrigger} />}>
-                  {assigneeLabel}
-                  <ChevronDown className="size-3.5 text-muted-foreground" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="bg-popover border-border min-w-44">
-                  {staff.map((s) => (
-                    <DropdownMenuItem
-                      key={s.user_id}
-                      onClick={() => onPatch({ assignee: s.user_id })}
-                      className={item}
-                    >
-                      {s.user_id === currentUserId
-                        ? `${s.full_name} (Me)`
-                        : s.full_name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </span>
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<button type="button" className={textTrigger} />}>
-                <Timer className="size-4 text-muted-foreground" />
-                {remindLabel}
-                <ChevronDown className="size-3.5 text-muted-foreground" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-popover border-border min-w-36 max-h-64 overflow-y-auto">
-                <DropdownMenuItem onClick={() => onPatch({ remindSlot: '' })} className={item}>
-                  No reminder
-                </DropdownMenuItem>
-                {REMINDER_SLOTS.map((s) => (
-                  <DropdownMenuItem
-                    key={s.value}
-                    onClick={() => onPatch({ remindSlot: s.value })}
-                    className={item}
-                  >
-                    {s.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-        </div>
-      )}
     </div>
   );
 }
@@ -833,6 +637,7 @@ function NoteCard({
       followUp && followUp.status !== 'cancelled'
         ? {
             enabled: true,
+            reason: followUp.reason,
             type:
               FOLLOW_UP_TASK_TYPES.find((t) => t.value === followUp.task_type)
                 ?.value ?? 'todo',
@@ -865,7 +670,7 @@ function NoteCard({
   const assigneeName = followUp?.assigned_to
     ? followUp.assigned_to === currentUserId
       ? `Me (${nameById.get(followUp.assigned_to) ?? 'me'})`
-      : nameById.get(followUp.assigned_to) ?? 'Teammate'
+      : (nameById.get(followUp.assigned_to) ?? 'Teammate')
     : null;
 
   const createdOn = fmt.date(note.created_at);
@@ -873,13 +678,13 @@ function NoteCard({
   // Meta footer — always the card's own bottom strip (under a divider),
   // "Created on" first, then the assignee when the note spawned a task.
   const metaRow = (
-    <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+    <div className="text-muted-foreground flex items-center justify-between gap-2 text-xs">
       <span className="flex min-w-0 items-center gap-4">
         <span className="shrink-0">Created on {createdOn}</span>
         {assigneeName && (
           <span className="min-w-0 truncate">
             Assigned to{' '}
-            <span className="font-medium text-foreground">{assigneeName}</span>
+            <span className="text-foreground font-medium">{assigneeName}</span>
           </span>
         )}
       </span>
@@ -894,7 +699,7 @@ function NoteCard({
           }}
           aria-label="Delete note"
           title="Delete note"
-          className="shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+          className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
         >
           <Trash2 className="size-3.5" />
         </Button>
@@ -946,7 +751,7 @@ function NoteCard({
   return (
     <div className="grid grid-cols-[auto_1fr] gap-2.5">
       <StaffAvatar name={authorName} src={authorAvatarUrl} />
-      <div className="group min-w-0 rounded-lg border border-border/50 bg-card">
+      <div className="group border-border/50 bg-card min-w-0 rounded-lg border">
         <div
           className="cursor-pointer p-3"
           onClick={handleBodyClick}
@@ -955,7 +760,7 @@ function NoteCard({
         >
           <p
             className={cn(
-              'text-sm text-foreground whitespace-pre-wrap',
+              'text-foreground text-sm whitespace-pre-wrap',
               isLong && !expanded && 'line-clamp-3'
             )}
           >
@@ -968,7 +773,7 @@ function NoteCard({
                 e.stopPropagation();
                 setExpanded((v) => !v);
               }}
-              className="mt-1 cursor-pointer text-xs font-medium text-primary-text hover:underline"
+              className="text-primary-text mt-1 cursor-pointer text-xs font-medium hover:underline"
             >
               {expanded ? 'See less' : 'See more'}
             </button>
@@ -976,22 +781,26 @@ function NoteCard({
         </div>
 
         {followUp && (
-          <div className="border-t border-border/50 px-3 py-2.5">
+          <div className="border-border/50 border-t px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2.5">
                 {/* Leading calendar avatar — flags the strip as a task,
                     mirroring the author avatar's size/gap so the two
                     rows read as a set. */}
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-full">
                   <Calendar className="size-4" />
                 </span>
                 {/* 2px title→due gap per the Figma spec. Spans, not <p> —
                     the accordion content styles descendant <p>s with mb-4,
                     which would defeat the gap. */}
                 <div className="flex min-w-0 flex-col gap-0.5">
-                  <span className="text-sm text-foreground">Follow up</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {followUpDueLabel(followUp.task_type, followUp.due_date, fmt.today())}
+                  <span className="text-foreground text-sm">Follow up</span>
+                  <span className="text-muted-foreground truncate text-xs">
+                    {followUpDueLabel(
+                      followUp.task_type,
+                      followUp.due_date,
+                      fmt.today()
+                    )}
                   </span>
                 </div>
               </div>
@@ -1008,7 +817,7 @@ function NoteCard({
                   onClick={() => onMarkDone(note.id, followUp.id)}
                   aria-label="Mark as followed up"
                   title="Mark as followed up"
-                  className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-green-500 hover:text-green-700 dark:hover:text-green-400"
+                  className="border-border text-muted-foreground flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors hover:border-green-500 hover:text-green-700 dark:hover:text-green-400"
                 >
                   <Check className="size-4" />
                 </button>
@@ -1018,7 +827,7 @@ function NoteCard({
         )}
 
         {/* Meta footer strip — divider above, in every layout (per mock) */}
-        <div className="border-t border-border/50 px-3 py-2">{metaRow}</div>
+        <div className="border-border/50 border-t px-3 py-2">{metaRow}</div>
       </div>
     </div>
   );

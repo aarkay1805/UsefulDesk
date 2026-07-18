@@ -44,6 +44,7 @@ import {
 import { GatedButton } from '@/components/ui/gated-button';
 import { SearchInput } from '@/components/ui/search-input';
 import { Separator } from '@/components/ui/separator';
+import { Chip, ChipGroup } from '@/components/ui/chip';
 import {
   Table,
   TableBody,
@@ -52,7 +53,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Toggle } from '@/components/ui/toggle';
 import { EditableCell } from '@/components/leads/editable-cell';
 import {
   AssigneeDisplay,
@@ -70,15 +70,20 @@ import {
   BulkCompleteFollowUpsDialog,
   CompleteFollowUpDialog,
 } from './follow-up-dialog';
+import {
+  SendReminderButton,
+  type ReminderReadiness,
+} from './send-reminder-button';
 import { useAccountStaff } from './use-account-staff';
 
 const PAGE_SIZE = 25;
-const FOLLOW_UP_SELECT = '*, contact:contacts!inner(*)';
+const FOLLOW_UP_SELECT =
+  '*, contact:contacts!inner(*), membership:memberships(*, contact:contacts(*), plan:membership_plans(*))';
 const FOLLOW_UP_ID_SELECT = 'id, contact:contacts!inner(id)';
 const CHECKBOX_COL_WIDTH = 40;
 
 const SORT_COLUMNS: { key: string; label: string }[] = [
-  { key: 'customer', label: 'Customer' },
+  { key: 'customer', label: 'Name' },
   { key: 'due_date', label: 'Due date' },
   { key: 'reason', label: 'Reason' },
   { key: 'created_at', label: 'Created' },
@@ -99,7 +104,7 @@ interface FollowUpColumn {
 const FOLLOW_UP_COLUMNS: FollowUpColumn[] = [
   {
     key: 'customer',
-    label: 'Customer details',
+    label: 'Name',
     defaultWidth: 250,
     minWidth: 180,
     required: true,
@@ -124,8 +129,8 @@ const FOLLOW_UP_COLUMNS: FollowUpColumn[] = [
   {
     key: 'actions',
     label: 'Actions',
-    defaultWidth: 130,
-    minWidth: 110,
+    defaultWidth: 180,
+    minWidth: 170,
   },
   {
     key: 'assignee',
@@ -169,6 +174,7 @@ function useDebounced<T>(value: T, ms: number): T {
 }
 
 interface FollowUpListsProps {
+  readiness: ReminderReadiness;
   onSelect: (membershipId: string) => void;
   reloadKey: number;
   onChanged: () => void;
@@ -182,6 +188,7 @@ interface FollowUpListsProps {
  * task-specific columns.
  */
 export function FollowUpLists({
+  readiness,
   onSelect,
   reloadKey,
   onChanged,
@@ -346,12 +353,10 @@ export function FollowUpLists({
     };
   }
 
-  function setBucket(bucket: FollowUpBucket, pressed: boolean) {
+  function setBuckets(buckets: FollowUpBucket[]) {
     setFilters((current) => ({
       ...current,
-      buckets: pressed
-        ? [...current.buckets, bucket]
-        : current.buckets.filter((item) => item !== bucket),
+      buckets,
     }));
   }
 
@@ -449,16 +454,24 @@ export function FollowUpLists({
         );
       case 'actions':
         return (
-          <GatedButton
-            size="sm"
-            variant="outline"
-            canAct={canEdit}
-            gateReason="complete follow-ups"
-            onClick={() => setCompleting(followUp)}
-          >
-            <CircleCheck className="size-3.5" />
-            Done
-          </GatedButton>
+          <div className="flex items-center gap-1">
+            <GatedButton
+              size="sm"
+              variant="ghost"
+              canAct={canEdit}
+              gateReason="complete follow-ups"
+              onClick={() => setCompleting(followUp)}
+            >
+              <CircleCheck className="size-3.5" />
+              Done
+            </GatedButton>
+            {followUp.membership && (
+              <SendReminderButton
+                membership={followUp.membership}
+                readiness={readiness}
+              />
+            )}
+          </div>
         );
       case 'assignee':
         return renderAssignee(followUp);
@@ -615,26 +628,18 @@ export function FollowUpLists({
                   orientation="vertical"
                   className="mx-0.5 h-5 data-vertical:self-center"
                 />
-                <div
-                  role="group"
+                <ChipGroup<FollowUpBucket>
+                  selectionMode="single"
+                  value={filters.buckets}
+                  onValueChange={setBuckets}
                   aria-label="Due date quick filters"
-                  className="flex items-center gap-1.5"
                 >
                   {FOLLOW_UP_BUCKET_OPTIONS.map((option) => (
-                    <Toggle
-                      key={option.value}
-                      variant="outline"
-                      size="sm"
-                      pressed={filters.buckets.includes(option.value)}
-                      onPressedChange={(pressed) =>
-                        setBucket(option.value, pressed)
-                      }
-                      className="text-muted-foreground data-pressed:border-primary/30 data-pressed:bg-primary/10 data-pressed:text-primary-text dark:data-pressed:border-primary/40 dark:data-pressed:bg-primary/15 rounded-full px-3"
-                    >
+                    <Chip key={option.value} value={option.value}>
                       {option.label}
-                    </Toggle>
+                    </Chip>
                   ))}
-                </div>
+                </ChipGroup>
               </motion.div>
             </div>
           </LayoutGroup>

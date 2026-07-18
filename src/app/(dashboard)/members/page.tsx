@@ -39,7 +39,7 @@ import { ImportMembersCsvDialog } from '@/components/members/import-members-csv-
 import { MemberDetailView } from '@/components/members/member-detail-view';
 import { CheckInView } from '@/components/members/check-in-view';
 import { PaymentSummaryTiles } from '@/components/members/payment-summary-tiles';
-import { PaymentDueBuckets } from '@/components/members/payment-due-buckets';
+import { PaymentDueTable } from '@/components/members/payment-due-table';
 import { PaymentsLedger } from '@/components/members/payments-ledger';
 import { useReminderReadiness } from '@/components/members/send-reminder-button';
 
@@ -231,6 +231,7 @@ export default function MembersPage() {
           />
         ) : view === 'followups' ? (
           <FollowUpLists
+            readiness={readiness}
             onSelect={openDetail}
             reloadKey={reloadKey}
             onChanged={reload}
@@ -251,7 +252,7 @@ export default function MembersPage() {
               <h2 className="text-foreground text-sm font-medium">
                 Payment due
               </h2>
-              <PaymentDueBuckets
+              <PaymentDueTable
                 readiness={readiness}
                 onSelect={openDetail}
                 reloadKey={reloadKey}
@@ -262,7 +263,7 @@ export default function MembersPage() {
               <h2 className="text-foreground text-sm font-medium">
                 Recent payments
               </h2>
-              <PaymentsLedger reloadKey={reloadKey} />
+              <PaymentsLedger reloadKey={reloadKey} onSelect={openDetail} />
             </div>
           </div>
         ) : view === 'all' ? (

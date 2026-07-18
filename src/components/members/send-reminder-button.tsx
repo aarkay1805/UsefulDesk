@@ -220,7 +220,7 @@ export function SendReminderButton({
     <>
       <Button
         type="button"
-        variant={sent ? "outline" : "secondary"}
+        variant="ghost"
         size={size}
         onClick={send}
         disabled={disabled}

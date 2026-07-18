@@ -8,12 +8,14 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
-import { istAddDays } from '@/lib/memberships/expiry';
+import { remindAtInTz } from '@/lib/leads/follow-up-dates';
+import { defaultReason, OUTCOME_LABEL } from '@/lib/memberships/follow-ups';
 import {
-  defaultReason,
-  REASON_LABEL,
-  OUTCOME_LABEL,
-} from '@/lib/memberships/follow-ups';
+  DEFAULT_FOLLOW_UP_DRAFT,
+  FollowUpFields,
+  resolveDueDate,
+  type FollowUpDraft,
+} from '@/components/follow-ups/follow-up-fields';
 import type {
   FollowUp,
   FollowUpOutcome,
@@ -29,7 +31,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -41,7 +42,6 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useAccountStaff } from './use-account-staff';
 
-const REASONS = Object.keys(REASON_LABEL) as FollowUpReason[];
 const OUTCOMES = Object.keys(OUTCOME_LABEL) as FollowUpOutcome[];
 
 interface FollowUpDialogProps {
@@ -56,7 +56,7 @@ interface FollowUpDialogProps {
 }
 
 /**
- * Assign a follow-up: pick an owner, reason, due date, optional note.
+ * Create a follow-up with the same fields used by the notes composer.
  * The form body mounts fresh each open, so field state initializes per
  * member without an on-open reset effect (repo lint forbids setState
  * directly in effects).
@@ -70,7 +70,7 @@ export function FollowUpDialog({
 }: FollowUpDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-md">
         {open && (
           <AssignForm
             membership={membership}
@@ -97,21 +97,24 @@ function AssignForm({
 }) {
   const supabase = createClient();
   const { user } = useAuth();
-  const { fmt } = useLocale();
+  const { locale, fmt } = useLocale();
   const { staff } = useAccountStaff();
 
-  // Default owner = whoever is assigning; due tomorrow (chase lists
-  // are worked in the morning, so "today" would be instantly overdue).
-  const [assignedTo, setAssignedTo] = useState(user?.id ?? '');
-  const [reason, setReason] = useState<FollowUpReason>(
-    () => initialReason ?? defaultReason(membership, fmt.today())
-  );
-  const [dueDate, setDueDate] = useState(() => istAddDays(fmt.today(), 1));
+  // Renewal/retention assignment defaults to tomorrow while note-created
+  // tasks retain the shared composer's three-day default.
+  const [draft, setDraft] = useState<FollowUpDraft>(() => ({
+    ...DEFAULT_FOLLOW_UP_DRAFT,
+    enabled: true,
+    reason: initialReason ?? defaultReason(membership, fmt.today()),
+    dueId: 'tomorrow',
+    assignee: user?.id ?? '',
+  }));
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function handleAssign() {
     if (!user) return;
+    const dueDate = resolveDueDate(draft, fmt.today());
     if (!dueDate) return toast.error('Pick a due date');
 
     setSaving(true);
@@ -119,10 +122,14 @@ function AssignForm({
       account_id: membership.account_id,
       contact_id: membership.contact_id,
       membership_id: membership.id,
-      assigned_to: assignedTo || null,
+      assigned_to: draft.assignee || user.id,
       created_by: user.id,
-      reason,
+      reason: draft.reason,
+      task_type: draft.type,
       due_date: dueDate,
+      remind_at: draft.remindSlot
+        ? remindAtInTz(dueDate, draft.remindSlot, locale.timeZone)
+        : null,
       note: note.trim() || null,
     });
     setSaving(false);
@@ -135,7 +142,7 @@ function AssignForm({
       }
       return;
     }
-    toast.success('Follow-up assigned');
+    toast.success('Follow-up created');
     onClose();
     onSaved();
   }
@@ -143,64 +150,21 @@ function AssignForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Assign follow-up</DialogTitle>
+        <DialogTitle>Create follow-up</DialogTitle>
         <DialogDescription>
-          Give {membership.contact?.name || 'this member'}&apos;s next action an
-          owner and a due date.
+          Set {membership.contact?.name || 'this member'}&apos;s next action,
+          owner, and reminder.
         </DialogDescription>
       </DialogHeader>
 
       <div className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="fu-assignee" className="text-muted-foreground">
-            Owner
-          </Label>
-          <Select
-            value={assignedTo || undefined}
-            onValueChange={(v) => setAssignedTo(v ?? '')}
-          >
-            <SelectTrigger id="fu-assignee" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {staff.map((s) => (
-                <SelectItem key={s.user_id} value={s.user_id}>
-                  {s.full_name}
-                  {s.user_id === user?.id ? ' (me)' : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="fu-reason" className="text-muted-foreground">
-              Reason
-            </Label>
-            <Select
-              value={reason}
-              onValueChange={(v) => setReason(v as FollowUpReason)}
-            >
-              <SelectTrigger id="fu-reason" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REASONS.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {REASON_LABEL[r]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="fu-due" className="text-muted-foreground">
-              Due
-            </Label>
-            <DatePicker id="fu-due" value={dueDate} onChange={setDueDate} />
-          </div>
-        </div>
+        <FollowUpFields
+          draft={draft}
+          onPatch={(patch) => setDraft((current) => ({ ...current, ...patch }))}
+          staff={staff}
+          currentUserId={user?.id ?? ''}
+          showEnabledToggle={false}
+        />
 
         <div className="space-y-1.5">
           <Label htmlFor="fu-note" className="text-muted-foreground">
@@ -222,7 +186,7 @@ function AssignForm({
         </Button>
         <Button type="button" onClick={handleAssign} disabled={saving}>
           {saving && <Loader2 className="size-4 animate-spin" />}
-          Assign
+          Create follow-up
         </Button>
       </DialogFooter>
     </>
@@ -392,7 +356,8 @@ function CompleteForm({
   const supabase = createClient();
 
   const [outcome, setOutcome] = useState<FollowUpOutcome>('renewed');
-  const [note, setNote] = useState(followUp.note ?? '');
+  const existingNote = followUp.note?.trim() ?? '';
+  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function close(status: 'done' | 'cancelled') {
@@ -402,7 +367,7 @@ function CompleteForm({
       .update({
         status,
         outcome: status === 'done' ? outcome : null,
-        note: note.trim() || null,
+        note: note.trim() || existingNote || null,
         completed_at: new Date().toISOString(),
       })
       .eq('id', followUp.id);
@@ -455,7 +420,9 @@ function CompleteForm({
             id="fu-close-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="e.g. Renewed for 3 months, paid via UPI"
+            placeholder={
+              existingNote || 'e.g. Renewed for 3 months, paid via UPI'
+            }
             className="min-h-[60px] resize-none text-sm"
           />
         </div>

@@ -114,9 +114,7 @@ export function BulkAddNoteDialog({
       return;
     }
 
-    const noteIdByContact = new Map(
-      inserted.map((n) => [n.contact_id, n.id])
-    );
+    const noteIdByContact = new Map(inserted.map((n) => [n.contact_id, n.id]));
 
     // The optional follow-up rides along, one per contact. Insert them
     // individually so a lead that already has an open task is skipped
@@ -136,7 +134,7 @@ export function BulkAddNoteDialog({
             note_id: noteIdByContact.get(id) ?? null,
             assigned_to: draft.assignee || user.id,
             created_by: user.id,
-            reason: 'other',
+            reason: draft.reason,
             task_type: draft.type,
             due_date: due,
             remind_at: remind,
@@ -157,9 +155,12 @@ export function BulkAddNoteDialog({
       toast.success(noteMsg);
     } else {
       const parts = [noteMsg];
-      if (created) parts.push(`${created} follow-up${created === 1 ? '' : 's'} created`);
-      if (skipped) parts.push(`${skipped} skipped (already had an open follow-up)`);
-      if (failed) parts.push(`${failed} follow-up${failed === 1 ? '' : 's'} failed`);
+      if (created)
+        parts.push(`${created} follow-up${created === 1 ? '' : 's'} created`);
+      if (skipped)
+        parts.push(`${skipped} skipped (already had an open follow-up)`);
+      if (failed)
+        parts.push(`${failed} follow-up${failed === 1 ? '' : 's'} failed`);
       toast.success(parts.join(' · '));
     }
 
@@ -173,7 +174,8 @@ export function BulkAddNoteDialog({
       <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
-            Add note to {count} {noun}{count === 1 ? '' : 's'}
+            Add note to {count} {noun}
+            {count === 1 ? '' : 's'}
           </DialogTitle>
         </DialogHeader>
 

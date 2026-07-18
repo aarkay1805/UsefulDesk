@@ -1122,6 +1122,8 @@ export interface FollowUp {
   updated_at: string;
   /** Hydrated by queries that embed `contacts(*)`. */
   contact?: Contact;
+  /** Hydrated by queries that embed `memberships(*)`. */
+  membership?: Membership | null;
 }
 
 // ============================================================

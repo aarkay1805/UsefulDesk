@@ -4,11 +4,20 @@ import {
   activeFollowUpFilterCount,
   applyFollowUpFilters,
   EMPTY_FOLLOW_UP_FILTERS,
+  exclusiveFollowUpBucket,
   followUpDueOrClause,
   UNASSIGNED_FOLLOW_UP,
 } from './follow-up-filters';
 
 const TODAY = '2026-07-18';
+
+describe('exclusiveFollowUpBucket', () => {
+  it('replaces the active bucket and can toggle the selection off', () => {
+    expect(exclusiveFollowUpBucket('overdue', true)).toEqual(['overdue']);
+    expect(exclusiveFollowUpBucket('today', true)).toEqual(['today']);
+    expect(exclusiveFollowUpBucket('today', false)).toEqual([]);
+  });
+});
 
 describe('followUpDueOrClause', () => {
   it('returns null when no due bucket is selected', () => {

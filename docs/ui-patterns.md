@@ -3,7 +3,9 @@
 > Read this before writing ANY UI. Rules here are product-wide invariants, not suggestions.
 > Two meta-rules govern everything below:
 > 1. **Never hand-roll an element that exists in `src/components/ui/`.** If no primitive fits — **stop and ask the user**: new master component, or reuse a different one? Never silently roll an inline one-off.
-> 2. **Master components (`src/components/ui/*`) are single sources of truth.** Editing one changes every call-site — **warn the user first and list what it affects.** Restyle a single call-site via `className`/variants, never by forking.
+> 2. **Master components (`src/components/ui/*`) are single sources of truth.** Editing one changes every call-site — **warn the user first and list what it affects.** Never restyle a reused component at a call-site. Use its existing variants and size props exactly as defined; `className` may control only external layout such as width, margin, alignment, or responsive visibility. If the needed visual treatment does not exist, **stop and ask the user** whether to add a master variant or design a new component together.
+
+Visual references: [design tokens](design-tokens.html) · [atomic component sticker sheet](component-sticker-sheet.html)
 
 ## Token consistency (the rule that prevents drift)
 
@@ -11,7 +13,7 @@ Sibling components that read as the same *kind* of thing must share the same tok
 
 Drift is a real bug, not a nit. Example: `DropdownMenuContent` had `p-1` on the popup, `SelectContent` had none — so a bare-item `ui/select` rendered items flush to the popup edge while an identically-shaped dropdown looked padded. Fixed at the master (`p-1` moved onto the Select's `List`).
 
-When you spot a mismatch: **fix it at the master component** so every call-site converges, then cross-check the peers — menu ⇄ select ⇄ combobox ⇄ popover; search field; badge/pill family; segmented toggle.
+When you spot a mismatch: **fix it at the master component** so every call-site converges, then cross-check the peers — menu ⇄ select ⇄ combobox ⇄ popover; search field; badge/pill family; chips; segmented toolbar controls.
 
 ## Clickable cards — hover is the BORDER, never the fill
 
@@ -57,9 +59,15 @@ A `:disabled` control keeps the arrow (a dead affordance must not advertise itse
 
 **Fields are unfilled — never add `bg-muted` to one.** Every control (`Input`, `CurrencyInput`, `Textarea`, `SelectTrigger`, `DatePicker`, rare native `<input>`) renders on the primitive's `bg-transparent` (+ `dark:bg-input/30`). It reads as a field because of `border-input-border`, not a grey box. (~180 hand-added `bg-muted` fills were stripped across auth / contacts / leads / members / settings / broadcasts / automations / flows.) Don't reintroduce it; don't "fix" a plain-looking field by filling it.
 
-`bg-muted` stays correct for **non-field** surfaces (decorative/summary boxes `bg-muted/20`–`/40`, pills, badges, avatars, icon boxes, code chips, table headers, skeletons, message bubbles, segment toggles, Calendar's "today" cell) and for **state** styles (`hover:`/`focus:`/`data-[…]:`).
+Placeholder copy always uses the field primitive's `placeholder:text-muted-foreground`; never replace it with a prefilled controlled value merely to show guidance, and never override its colour at a call-site. Real user-entered values remain foreground text. When existing data is shown as placeholder guidance, preserve that data separately if the user submits without typing a replacement.
+
+`bg-muted` stays correct for **non-field** surfaces (decorative/summary boxes `bg-muted/20`–`/40`, pills, badges, avatars, icon boxes, code chips, table headers, skeletons, message bubbles, segmented toolbar controls, Calendar's "today" cell) and for **state** styles (`hover:`/`focus:`/`data-[…]:`).
 
 Deliberate filled exceptions (different pattern, not form fields): `SearchInput` and the chat surfaces (inbox `message-composer`, `contact-sidebar` note box, `ai-playground`).
+
+### Labels
+
+`Label` (`ui/label.tsx`) owns field-label typography. Its default is 14px medium; `size="sm"` is the documented compact-muted treatment: 12px, normal weight, `text-muted-foreground`, and 16px line height. Follow-up Reason, Next action, and Assign to all consume this exact master recipe. Sibling labels in one field group use the same size. Never override label typography with a call-site `className`.
 
 ### No native `<select>`, ever
 
@@ -140,6 +148,16 @@ The three overlays (`TemplatePicker` / `MemberForm` / `TransferRequestDialog`) l
 
 ## Tables
 
+### Product terminology and column labels
+
+Visible product vocabulary is a shared interface contract. The same data concept keeps the exact same label across pages, tabs, tables, sort menus, column menus, filters, exports, and empty states. Never rename a familiar column to make one section sound more contextual.
+
+- A member identity rendered with `MemberIdentity` is always **Name**. Do not relabel it as “Member,” “Customer,” “Customer details,” or “Member details.”
+- Reuse the canonical labels from the primary table for shared member columns: **Name**, **Plan**, **Expiry**, **Status**, **Assigned to**, **Fee**, and **Actions**.
+- Follow-up-specific concepts remain **Due date**, **Notes**, and **Reason** wherever they appear.
+- Internal field keys may differ, but user-facing labels must not. A new synonym requires explicit product agreement and an update to this vocabulary before implementation.
+- When adding or reviewing a table, compare every shared column and sort/filter label with the closest existing table before writing code.
+
 ### Column header
 
 `ColumnHeader` (`src/components/table/column-header.tsx`) is the single source of truth for the `/leads` table AND the All-members table: label + one double-sided sort toggle (`ChevronsUpDown`, cycles asc→desc, shows the active direction lit) + a three-dot overflow menu (Sort asc/desc, an Excel-style value **Filter** submenu, column actions).
@@ -160,11 +178,24 @@ The three overlays (`TemplatePicker` / `MemberForm` / `TransferRequestDialog`) l
 ## Badges / status pills
 
 `Badge` (`ui/badge.tsx`) is the canonical pill.
+- **Never override a Badge's height, typography, padding, radius, border, or colours with call-site `className`.** Use the unmodified primitive and its documented variant. Two badges in the same family must therefore have identical geometry and type treatment.
 - Fixed statuses → tinted variants (`success`/`danger`/`warning`/`info`/`violet`), **fill-only** recipe `bg-{c}/10 text-{c}-400`. No borders on pills.
 - Admin-created **tags always render `variant="neutral"`** — the slate fill-only tint (`bg-slate-500/10 text-slate-500`). Slate = the neutral, non-colour-coded look.
 - DB-driven hex colours (lead statuses) use the `color` prop → same fill-only recipe, inline.
 - Domain wrappers map domain state → variant (`MembershipStatusBadge`, `FeeStatusBadge`, `InvoiceStatusBadge`, `InvoicePaymentBadge`, `PlanTypeBadge`, `VoidedPaymentBadge` — all in `components/members/membership-status-badge.tsx`). Add a wrapper rather than repeating variant choices at call-sites.
-- Interactive chips (clickable tag toggles, removable filters) are **buttons**, not badges. Don't force them into `Badge`.
+- Interactive chips (clickable choices and filters) use **`Chip` inside `ChipGroup`**, not badges. Don't force them into `Badge`.
+- Follow-up due state is a status (`danger` for Overdue, `warning` for Due today, `neutral` for Upcoming); follow-up reason is a category (`neutral`). Their colours communicate different semantics, but both use the exact unmodified Badge geometry and typography.
+
+## Chips
+
+`Chip` + `ChipGroup` (`ui/chip.tsx`) are the single component family for compact pressed/unpressed choices. A Chip has exactly one visual recipe: a fully rounded outlined pill whose selected state uses the account primary tint. It must not look like an outline `Button`, and there are no square or rounded-rectangle Chip variants.
+
+- Every set lives in `ChipGroup` and explicitly declares `selectionMode="single"` or `selectionMode="multiple"`.
+- **Single selection** — one choice at a time, such as follow-up Reason or a mutually exclusive due-date bucket. A controlled required choice may ignore an empty change so one option always remains selected.
+- **Multiple selection** — zero or more independent choices, such as member quick filters.
+- Call-sites choose only the documented `size`; they never override radius, padding, colours, border, typography, hover, focus, selected state, or spacing between Chips.
+- Use the master default size for both filter sets and form choice sets so every product Chip has consistent geometry and typography.
+- Toolbar segments remain `ToolbarToggleGroup` / `ToolbarToggleItem`; they are controls inside the bounded Toolbar family, not Chips.
 
 ## Money numerals
 

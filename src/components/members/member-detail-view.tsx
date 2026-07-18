@@ -1021,6 +1021,7 @@ export function MemberDetailView({
                         <CardContent>
                           <ContactNotesThread
                             contactId={membership.contact_id}
+                            membershipId={membership.id}
                             active={open}
                             onFollowUpChanged={refreshAll}
                           />

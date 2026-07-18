@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { createPrivateMediaUrl } from "@/lib/storage/upload-media";
 import type { Payment } from "@/types";
+import { Button } from "@/components/ui/button";
 
 /**
  * Opens legacy public proofs or signs a fresh, short-lived URL for new
@@ -57,11 +58,12 @@ export function PaymentProofLink({ payment }: { payment: Payment }) {
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon-sm"
       onClick={openProof}
       disabled={loading}
-      className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex size-7 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       aria-label="View payment proof"
       title="View payment proof"
     >
@@ -70,6 +72,6 @@ export function PaymentProofLink({ payment }: { payment: Payment }) {
       ) : (
         <ExternalLink className="size-3.5" aria-hidden="true" />
       )}
-    </button>
+    </Button>
   );
 }

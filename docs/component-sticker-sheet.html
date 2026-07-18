@@ -1,0 +1,2540 @@
+<!doctype html>
+<html lang="en" data-mode="light" data-theme="violet">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A standalone visual reference for every shared atomic UI component in UsefulDesk."
+    />
+    <title>UsefulDesk atomic component sticker sheet</title>
+    <style>
+      :root,
+      html[data-mode="dark"] {
+        --background: oklch(0.13 0.01 260);
+        --foreground: oklch(0.985 0 0);
+        --card: oklch(0.18 0.01 260);
+        --card-2: oklch(0.205 0.01 260);
+        --card-foreground: oklch(0.985 0 0);
+        --popover: oklch(0.18 0.01 260);
+        --muted: oklch(0.22 0.01 260);
+        --muted-foreground: oklch(0.65 0.01 260);
+        --secondary: oklch(0.22 0.01 260);
+        --secondary-foreground: oklch(0.985 0 0);
+        --destructive: oklch(0.704 0.191 22.216);
+        --border: oklch(0.28 0.01 260);
+        --border-hover: oklch(0.36 0.012 260);
+        --input: oklch(0.28 0.01 260);
+        --input-border: oklch(0.28 0.01 260);
+        --shadow: 0 18px 50px rgb(0 0 0 / 0.28);
+        --radius: 10px;
+      }
+
+      html[data-mode="light"] {
+        --background: oklch(1 0 0);
+        --foreground: oklch(0.21 0.01 260);
+        --card: oklch(1 0 0);
+        --card-2: oklch(0.985 0.002 260);
+        --card-foreground: oklch(0.21 0.01 260);
+        --popover: oklch(1 0 0);
+        --muted: oklch(0.967 0.003 260);
+        --muted-foreground: oklch(0.52 0.015 260);
+        --secondary: oklch(0.967 0.003 260);
+        --secondary-foreground: oklch(0.25 0.01 260);
+        --destructive: oklch(0.514 0.21 27.325);
+        --border: oklch(0.922 0.004 260);
+        --border-hover: oklch(0.87 0.005 260);
+        --input: oklch(0.922 0.004 260);
+        --input-border: oklch(0.922 0.004 260);
+        --shadow: 0 18px 50px rgb(27 24 40 / 0.14);
+      }
+
+      :root,
+      html[data-theme="violet"] {
+        --primary: oklch(0.54 0.24 293);
+        --primary-foreground: oklch(0.985 0 0);
+        --primary-hover: oklch(0.49 0.24 293);
+        --primary-soft: oklch(0.54 0.24 293 / 0.12);
+        --primary-soft-2: oklch(0.54 0.24 293 / 0.2);
+        --ring: oklch(0.54 0.24 293);
+      }
+
+      html[data-theme="emerald"] {
+        --primary: oklch(0.62 0.16 162);
+        --primary-foreground: oklch(0.16 0.02 162);
+        --primary-hover: oklch(0.68 0.15 162);
+        --primary-soft: oklch(0.62 0.16 162 / 0.12);
+        --primary-soft-2: oklch(0.62 0.16 162 / 0.22);
+        --ring: oklch(0.62 0.16 162);
+      }
+
+      html[data-theme="cobalt"] {
+        --primary: oklch(0.55 0.19 254);
+        --primary-foreground: oklch(0.985 0 0);
+        --primary-hover: oklch(0.5 0.19 254);
+        --primary-soft: oklch(0.55 0.19 254 / 0.12);
+        --primary-soft-2: oklch(0.55 0.19 254 / 0.22);
+        --ring: oklch(0.55 0.19 254);
+      }
+
+      html[data-theme="amber"] {
+        --primary: oklch(0.745 0.16 65);
+        --primary-foreground: oklch(0.18 0.03 65);
+        --primary-hover: oklch(0.8 0.15 65);
+        --primary-soft: oklch(0.745 0.16 65 / 0.12);
+        --primary-soft-2: oklch(0.745 0.16 65 / 0.22);
+        --ring: oklch(0.745 0.16 65);
+      }
+
+      html[data-theme="rose"] {
+        --primary: oklch(0.58 0.21 16);
+        --primary-foreground: oklch(0.985 0 0);
+        --primary-hover: oklch(0.53 0.21 16);
+        --primary-soft: oklch(0.58 0.21 16 / 0.12);
+        --primary-soft-2: oklch(0.58 0.21 16 / 0.22);
+        --ring: oklch(0.58 0.21 16);
+      }
+
+      html[data-mode="light"][data-theme="amber"] {
+        --ring: oklch(0.6 0.15 65);
+      }
+
+      :root {
+        --primary-text: color-mix(in oklch, var(--primary), var(--foreground) 38%);
+        --success: oklch(0.48 0.14 160);
+        --warning: oklch(0.55 0.14 70);
+        --info: oklch(0.5 0.14 235);
+        color-scheme: dark;
+        font-family:
+          Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      html[data-mode="light"] {
+        color-scheme: light;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        min-width: 320px;
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+        font-size: 14px;
+        line-height: 1.5;
+        transition: background-color 160ms ease, color 160ms ease;
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        color: inherit;
+        font: inherit;
+      }
+
+      button:not(:disabled),
+      [role="button"]:not([aria-disabled="true"]) {
+        cursor: pointer;
+      }
+
+      button:disabled,
+      input:disabled,
+      textarea:disabled {
+        cursor: not-allowed;
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .skip-link {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 100;
+        transform: translateY(-150%);
+        border-radius: 8px;
+        background: var(--primary);
+        color: var(--primary-foreground);
+        padding: 8px 12px;
+      }
+
+      .skip-link:focus {
+        transform: translateY(0);
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        border-bottom: 1px solid var(--border);
+        background: color-mix(in oklab, var(--background) 92%, transparent);
+        backdrop-filter: blur(16px);
+      }
+
+      .topbar-inner,
+      main,
+      .footer-inner {
+        width: min(1520px, calc(100% - 40px));
+        margin-inline: auto;
+      }
+
+      .topbar-inner {
+        display: grid;
+        grid-template-columns: minmax(250px, 1fr) minmax(260px, 420px) auto;
+        align-items: center;
+        gap: 20px;
+        min-height: 76px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 36px;
+        height: 36px;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 10px;
+        background: var(--primary);
+        color: var(--primary-foreground);
+        font-weight: 750;
+        letter-spacing: -0.03em;
+      }
+
+      .brand h1 {
+        overflow: hidden;
+        margin: 0;
+        font-size: 17px;
+        font-weight: 650;
+        letter-spacing: -0.015em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .eyebrow,
+      .kicker {
+        color: var(--muted-foreground);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+      }
+
+      .search-wrap {
+        position: relative;
+      }
+
+      .search-wrap::before {
+        position: absolute;
+        top: 50%;
+        left: 12px;
+        width: 11px;
+        height: 11px;
+        transform: translateY(-58%);
+        border: 1.5px solid var(--muted-foreground);
+        border-radius: 50%;
+        content: "";
+        pointer-events: none;
+      }
+
+      .search-wrap::after {
+        position: absolute;
+        top: calc(50% + 5px);
+        left: 22px;
+        width: 5px;
+        height: 1.5px;
+        transform: rotate(45deg);
+        transform-origin: left center;
+        background: var(--muted-foreground);
+        content: "";
+        pointer-events: none;
+      }
+
+      .sheet-search {
+        width: 100%;
+        height: 36px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        outline: none;
+        background: var(--muted);
+        padding: 0 76px 0 34px;
+        transition: border-color 150ms ease, box-shadow 150ms ease;
+      }
+
+      .sheet-search:focus {
+        border-color: var(--ring);
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 25%, transparent);
+      }
+
+      .search-count {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        color: var(--muted-foreground);
+        font-size: 12px;
+        pointer-events: none;
+      }
+
+      .header-tools,
+      .mode-control,
+      .accent-control {
+        display: flex;
+        align-items: center;
+      }
+
+      .header-tools {
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .mode-control,
+      .accent-control {
+        height: 34px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: var(--background);
+      }
+
+      .icon-control {
+        display: grid;
+        width: 34px;
+        height: 32px;
+        place-items: center;
+        border: 0;
+        background: transparent;
+      }
+
+      .icon-control:hover {
+        background: var(--muted);
+      }
+
+      .accent-button {
+        position: relative;
+        width: 28px;
+        height: 32px;
+        border: 0;
+        background: transparent;
+      }
+
+      .accent-button::before {
+        display: block;
+        width: 12px;
+        height: 12px;
+        margin: auto;
+        border-radius: 50%;
+        background: var(--swatch);
+        content: "";
+      }
+
+      .accent-button[aria-pressed="true"]::after {
+        position: absolute;
+        right: 4px;
+        bottom: 3px;
+        left: 4px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--swatch);
+        content: "";
+      }
+
+      .section-nav {
+        overflow-x: auto;
+        border-top: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
+        scrollbar-width: none;
+      }
+
+      .section-nav::-webkit-scrollbar {
+        display: none;
+      }
+
+      .section-nav-inner {
+        display: flex;
+        width: min(1520px, calc(100% - 40px));
+        margin-inline: auto;
+        gap: 4px;
+        padding: 8px 0;
+      }
+
+      .section-nav a {
+        border-radius: 7px;
+        color: var(--muted-foreground);
+        padding: 5px 9px;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .section-nav a:hover {
+        background: var(--muted);
+        color: var(--foreground);
+      }
+
+      main {
+        padding: 46px 0 80px;
+      }
+
+      .intro {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.8fr);
+        gap: 32px;
+        align-items: end;
+        margin-bottom: 54px;
+      }
+
+      .intro h2 {
+        max-width: 800px;
+        margin: 7px 0 12px;
+        font-size: clamp(30px, 4vw, 54px);
+        line-height: 1.02;
+        letter-spacing: -0.045em;
+      }
+
+      .intro p {
+        max-width: 720px;
+        margin: 0;
+        color: var(--muted-foreground);
+        font-size: 15px;
+      }
+
+      .rules {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .rules li {
+        display: grid;
+        grid-template-columns: 22px 1fr;
+        gap: 9px;
+        color: var(--muted-foreground);
+        font-size: 13px;
+      }
+
+      .rule-number {
+        display: grid;
+        width: 22px;
+        height: 22px;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--primary-soft);
+        color: var(--primary-text);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .component-section {
+        scroll-margin-top: 130px;
+        margin-top: 54px;
+      }
+
+      .section-heading {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .section-heading h2 {
+        margin: 2px 0 0;
+        font-size: 23px;
+        letter-spacing: -0.025em;
+      }
+
+      .section-heading p {
+        max-width: 500px;
+        margin: 0;
+        color: var(--muted-foreground);
+        text-align: right;
+      }
+
+      .sticker-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+        gap: 14px;
+      }
+
+      .sticker {
+        display: flex;
+        min-width: 0;
+        min-height: 270px;
+        flex-direction: column;
+        overflow: visible;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--card);
+        transition: border-color 150ms ease, transform 150ms ease;
+      }
+
+      .sticker:hover {
+        border-color: var(--border-hover);
+      }
+
+      .sticker.wide {
+        grid-column: span 2;
+      }
+
+      .sticker-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        padding: 16px 17px 12px;
+      }
+
+      .sticker h3 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+
+      .sticker-description {
+        margin: 4px 0 0;
+        color: var(--muted-foreground);
+        font-size: 12px;
+      }
+
+      .source-file {
+        align-self: start;
+        border-radius: 5px;
+        background: var(--muted);
+        color: var(--muted-foreground);
+        padding: 3px 6px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 10px;
+        white-space: nowrap;
+      }
+
+      .specimen {
+        position: relative;
+        display: flex;
+        min-height: 170px;
+        flex: 1;
+        flex-direction: column;
+        justify-content: center;
+        gap: 14px;
+        overflow: visible;
+        border-top: 1px solid var(--border);
+        border-radius: 0 0 13px 13px;
+        background:
+          linear-gradient(var(--card-2), var(--card-2)) padding-box,
+          repeating-linear-gradient(
+              0deg,
+              transparent 0 23px,
+              color-mix(in oklab, var(--border) 34%, transparent) 24px
+            )
+            border-box;
+        padding: 22px;
+      }
+
+      .specimen.top {
+        justify-content: flex-start;
+      }
+
+      .specimen.center {
+        align-items: center;
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .caption {
+        color: var(--muted-foreground);
+        font-size: 11px;
+      }
+
+      .sample-label,
+      .field-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--foreground);
+        font-size: 14px;
+        font-weight: 550;
+        line-height: 1;
+      }
+
+      .sample-label.sm,
+      .field-label.sm {
+        color: var(--muted-foreground);
+        font-size: 12px;
+        font-weight: 400;
+        line-height: 16px;
+      }
+
+      .required {
+        color: var(--destructive);
+      }
+
+      .button {
+        display: inline-flex;
+        min-width: 0;
+        height: 32px;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        outline: none;
+        background: var(--primary);
+        color: var(--primary-foreground);
+        padding: 0 10px;
+        font-size: 14px;
+        font-weight: 550;
+        line-height: 1;
+        white-space: nowrap;
+        transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease,
+          transform 80ms ease;
+      }
+
+      .button:hover {
+        background: var(--primary-hover);
+      }
+
+      .button:active:not(:disabled) {
+        transform: translateY(1px);
+      }
+
+      .button.secondary {
+        background: var(--secondary);
+        color: var(--secondary-foreground);
+      }
+
+      .button.secondary:hover {
+        background: color-mix(in oklab, var(--secondary) 80%, var(--foreground));
+      }
+
+      .button.outline {
+        border-color: var(--border);
+        background: var(--background);
+        color: var(--foreground);
+      }
+
+      .button.outline:hover,
+      .button.ghost:hover {
+        background: var(--muted);
+      }
+
+      .button.ghost {
+        background: transparent;
+        color: var(--muted-foreground);
+      }
+
+      .button.destructive,
+      .button.destructive-ghost {
+        background: color-mix(in oklab, var(--destructive) 11%, transparent);
+        color: var(--destructive);
+      }
+
+      .button.destructive:hover,
+      .button.destructive-ghost:hover {
+        background: color-mix(in oklab, var(--destructive) 20%, transparent);
+      }
+
+      .button.link {
+        height: auto;
+        background: transparent;
+        color: var(--primary-text);
+        padding: 0;
+        text-decoration: underline;
+        text-decoration-color: transparent;
+        text-underline-offset: 4px;
+      }
+
+      .button.link:hover {
+        text-decoration-color: currentColor;
+      }
+
+      .button.xs {
+        height: 24px;
+        border-radius: 7px;
+        padding-inline: 8px;
+        font-size: 12px;
+      }
+
+      .button.sm {
+        height: 28px;
+        padding-inline: 10px;
+        font-size: 13px;
+      }
+
+      .button.lg {
+        height: 36px;
+      }
+
+      .button.icon {
+        width: 32px;
+        padding: 0;
+      }
+
+      .button:disabled {
+        opacity: 0.5;
+      }
+
+      .field,
+      .select-trigger,
+      .combobox-trigger,
+      .date-trigger,
+      textarea.field {
+        width: 100%;
+        min-width: 0;
+        border: 1px solid var(--input-border);
+        border-radius: 8px;
+        outline: none;
+        background: transparent;
+        transition: border-color 150ms ease, box-shadow 150ms ease;
+      }
+
+      .field,
+      .select-trigger,
+      .combobox-trigger,
+      .date-trigger {
+        height: 32px;
+        padding: 0 10px;
+      }
+
+      .field::placeholder,
+      textarea.field::placeholder {
+        color: var(--muted-foreground);
+      }
+
+      .field:focus,
+      textarea.field:focus {
+        border-color: var(--ring);
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 25%, transparent);
+      }
+
+      .field[aria-invalid="true"] {
+        border-color: var(--destructive);
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 16%, transparent);
+      }
+
+      .field:disabled,
+      textarea.field:disabled {
+        background: color-mix(in oklab, var(--input) 50%, transparent);
+        opacity: 0.55;
+      }
+
+      textarea.field {
+        min-height: 74px;
+        resize: vertical;
+        padding: 8px 10px;
+      }
+
+      .search-field-wrap,
+      .currency-wrap,
+      .inline-edit {
+        position: relative;
+      }
+
+      .search-field-wrap .field {
+        border-color: var(--border);
+        background: var(--muted);
+        padding-left: 31px;
+      }
+
+      .search-glyph {
+        position: absolute;
+        top: 50%;
+        left: 11px;
+        transform: translateY(-50%);
+        color: var(--muted-foreground);
+        font-size: 15px;
+        pointer-events: none;
+      }
+
+      .currency-symbol {
+        position: absolute;
+        top: 50%;
+        left: 10px;
+        transform: translateY(-50%);
+        color: var(--muted-foreground);
+        pointer-events: none;
+      }
+
+      .currency-wrap .field {
+        padding-left: 28px;
+      }
+
+      .select-trigger,
+      .combobox-trigger,
+      .date-trigger {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--foreground);
+        text-align: left;
+      }
+
+      .date-trigger {
+        justify-content: flex-start;
+      }
+
+      .trigger-glyph {
+        color: var(--muted-foreground);
+      }
+
+      .popover-anchor {
+        position: relative;
+      }
+
+      .popup {
+        position: absolute;
+        top: calc(100% + 7px);
+        left: 0;
+        z-index: 20;
+        width: min(270px, calc(100vw - 64px));
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: var(--popover);
+        box-shadow: var(--shadow);
+        padding: 5px;
+      }
+
+      .menu-label {
+        padding: 6px 8px 4px;
+        color: var(--muted-foreground);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+      }
+
+      .menu-item {
+        display: flex;
+        width: 100%;
+        min-height: 30px;
+        align-items: center;
+        gap: 8px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        padding: 5px 8px;
+        text-align: left;
+      }
+
+      .menu-item:hover,
+      .menu-item:focus-visible {
+        background: var(--muted);
+      }
+
+      .menu-shortcut {
+        margin-left: auto;
+        color: var(--muted-foreground);
+        font-size: 11px;
+      }
+
+      .menu-separator {
+        height: 1px;
+        margin: 4px -5px;
+        background: var(--border);
+      }
+
+      .badge {
+        display: inline-flex;
+        width: fit-content;
+        height: 20px;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        overflow: hidden;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        background: var(--primary);
+        color: var(--primary-foreground);
+        padding: 2px 8px;
+        font-size: 12px;
+        font-weight: 550;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .badge.secondary {
+        background: var(--secondary);
+        color: var(--secondary-foreground);
+      }
+
+      .badge.outline {
+        border-color: var(--border);
+        background: transparent;
+        color: var(--foreground);
+      }
+
+      .badge.ghost {
+        background: transparent;
+        color: var(--muted-foreground);
+      }
+
+      .badge.link {
+        background: transparent;
+        color: var(--primary-text);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .badge.danger {
+        background: color-mix(in oklab, oklch(0.63 0.24 28) 10%, transparent);
+        color: color-mix(in oklab, oklch(0.63 0.24 28), var(--foreground) 36%);
+      }
+
+      .badge.success {
+        background: color-mix(in oklab, oklch(0.65 0.17 155) 10%, transparent);
+        color: color-mix(in oklab, oklch(0.57 0.16 155), var(--foreground) 36%);
+      }
+
+      .badge.warning {
+        background: color-mix(in oklab, oklch(0.77 0.17 70) 10%, transparent);
+        color: color-mix(in oklab, oklch(0.62 0.16 65), var(--foreground) 40%);
+      }
+
+      .badge.info {
+        background: color-mix(in oklab, oklch(0.68 0.16 235) 10%, transparent);
+        color: color-mix(in oklab, oklch(0.56 0.16 235), var(--foreground) 36%);
+      }
+
+      .badge.violet {
+        background: color-mix(in oklab, oklch(0.62 0.22 295) 10%, transparent);
+        color: color-mix(in oklab, oklch(0.56 0.22 295), var(--foreground) 36%);
+      }
+
+      .badge.neutral {
+        background: color-mix(in oklab, oklch(0.56 0.03 260) 10%, transparent);
+        color: var(--muted-foreground);
+      }
+
+      .chip {
+        display: inline-flex;
+        height: 32px;
+        min-width: 32px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--input-border);
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted-foreground);
+        padding: 0 10px;
+        font-size: 14px;
+        font-weight: 550;
+      }
+
+      .chip:hover,
+      .chip[aria-pressed="true"] {
+        background: var(--muted);
+        color: var(--foreground);
+      }
+
+      .chip[aria-pressed="true"] {
+        border-color: color-mix(in oklab, var(--primary) 30%, transparent);
+        background: var(--primary-soft);
+        color: var(--primary-text);
+      }
+
+      .toolbar {
+        display: inline-flex;
+        height: 32px;
+        align-items: stretch;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--background);
+      }
+
+      .toolbar .tool {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        border: 0;
+        border-right: 1px solid var(--border);
+        background: transparent;
+        color: var(--muted-foreground);
+        padding: 0 10px;
+        font-weight: 550;
+      }
+
+      .toolbar .tool:last-child {
+        border-right: 0;
+      }
+
+      .toolbar .tool:hover {
+        background: var(--muted);
+        color: var(--foreground);
+      }
+
+      .toolbar .tool[aria-pressed="true"] {
+        background: var(--primary-soft);
+        color: var(--primary-text);
+      }
+
+      .inline-actions {
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        display: flex;
+        transform: translateY(-50%);
+        gap: 2px;
+      }
+
+      .inline-actions button {
+        display: grid;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        border: 0;
+        border-radius: 50%;
+        background: var(--card);
+        color: var(--muted-foreground);
+      }
+
+      .inline-actions .save {
+        color: var(--primary-text);
+      }
+
+      .choice-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .checkbox,
+      .radio {
+        display: grid;
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        appearance: none;
+        place-items: center;
+        border: 1px solid var(--input-border);
+        background: var(--card);
+      }
+
+      .checkbox {
+        border-radius: 4px;
+      }
+
+      .checkbox:checked,
+      .checkbox:indeterminate,
+      .radio:checked {
+        border-color: var(--primary);
+        background: var(--primary);
+      }
+
+      .checkbox:checked::after {
+        color: var(--primary-foreground);
+        content: "✓";
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .checkbox:indeterminate::after {
+        width: 9px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--primary-foreground);
+        content: "";
+      }
+
+      .radio {
+        border-radius: 50%;
+      }
+
+      .radio:checked::after {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--primary-foreground);
+        content: "";
+      }
+
+      .switch {
+        position: relative;
+        width: 36px;
+        height: 20px;
+        flex: 0 0 auto;
+        border: 2px solid transparent;
+        border-radius: 999px;
+        background: var(--muted);
+        padding: 0;
+        transition: background-color 150ms ease;
+      }
+
+      .switch::after {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--card);
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+        content: "";
+        transition: transform 150ms ease;
+      }
+
+      .switch[aria-checked="true"] {
+        background: var(--primary);
+      }
+
+      .switch[aria-checked="true"]::after {
+        transform: translateX(16px);
+      }
+
+      .avatar {
+        position: relative;
+        display: grid;
+        width: 32px;
+        height: 32px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 0;
+        border-radius: 50%;
+        outline: 0;
+        background: var(--muted);
+        color: var(--muted-foreground);
+        font-weight: 600;
+      }
+
+      .avatar.sm {
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+      }
+
+      .avatar.lg {
+        width: 40px;
+        height: 40px;
+      }
+
+      .avatar.primary {
+        background: var(--primary-soft);
+        color: var(--primary-text);
+      }
+
+      .avatar-badge {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 9px;
+        height: 9px;
+        border: 2px solid var(--card-2);
+        border-radius: 50%;
+        background: var(--primary);
+      }
+
+      .avatar-group {
+        display: flex;
+      }
+
+      .avatar-group .avatar {
+        margin-left: -8px;
+      }
+
+      .avatar-group .avatar:first-child {
+        margin-left: 0;
+      }
+
+      .progress {
+        width: 100%;
+        height: 6px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: var(--muted);
+      }
+
+      .progress > span {
+        display: block;
+        width: var(--value, 0%);
+        height: 100%;
+        border-radius: inherit;
+        background: var(--primary);
+        transition: width 500ms ease-out;
+      }
+
+      .sample-card {
+        overflow: hidden;
+        border-radius: 12px;
+        background: var(--card);
+        box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent);
+      }
+
+      .sample-card-header,
+      .sample-card-content,
+      .sample-card-footer {
+        padding: 13px 14px;
+      }
+
+      .sample-card-header {
+        display: flex;
+        min-height: 48px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .sample-card-title {
+        font-size: 15px;
+        font-weight: 650;
+      }
+
+      .sample-card-content {
+        padding-top: 0;
+        color: var(--muted-foreground);
+      }
+
+      .sample-card-footer {
+        border-top: 1px solid var(--border);
+        background: color-mix(in oklab, var(--muted) 50%, transparent);
+      }
+
+      .alert {
+        position: relative;
+        display: grid;
+        width: 100%;
+        gap: 2px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--card);
+        padding: 8px 10px;
+      }
+
+      .alert-title {
+        font-weight: 600;
+      }
+
+      .alert-description {
+        color: var(--muted-foreground);
+      }
+
+      .alert.destructive {
+        color: var(--destructive);
+      }
+
+      .alert.destructive .alert-description {
+        color: color-mix(in oklab, var(--destructive) 90%, var(--foreground));
+      }
+
+      .separator {
+        flex: 0 0 auto;
+        background: var(--border);
+      }
+
+      .separator.horizontal {
+        width: 100%;
+        height: 1px;
+      }
+
+      .separator.vertical {
+        width: 1px;
+        height: 34px;
+      }
+
+      .table-wrap {
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+      }
+
+      .sample-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        white-space: nowrap;
+      }
+
+      .sample-table th,
+      .sample-table td {
+        height: 38px;
+        border-bottom: 1px solid var(--border);
+        padding: 0 10px;
+      }
+
+      .sample-table th {
+        font-weight: 550;
+      }
+
+      .sample-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .sample-table tbody tr:hover {
+        background: color-mix(in oklab, var(--muted) 50%, transparent);
+      }
+
+      .scroll-box {
+        height: 140px;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        padding: 6px;
+        scrollbar-color: var(--border) transparent;
+        scrollbar-width: thin;
+      }
+
+      .scroll-row {
+        padding: 7px 8px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .scroll-row:last-child {
+        border-bottom: 0;
+      }
+
+      .accordion-item:not(:last-child) {
+        border-bottom: 1px solid var(--border);
+      }
+
+      .accordion-trigger {
+        display: flex;
+        width: 100%;
+        align-items: flex-start;
+        justify-content: space-between;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        padding: 10px 0;
+        font-weight: 550;
+        text-align: left;
+      }
+
+      .accordion-trigger:hover {
+        text-decoration: underline;
+      }
+
+      .accordion-panel {
+        padding: 0 0 10px;
+        color: var(--muted-foreground);
+      }
+
+      .collapse-panel {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--card);
+        padding: 10px;
+        transition: opacity 180ms ease, max-height 240ms ease, padding 240ms ease,
+          border-width 240ms ease;
+      }
+
+      .collapse-panel[hidden] {
+        display: block !important;
+        max-height: 0;
+        border-width: 0;
+        opacity: 0;
+        padding-block: 0;
+      }
+
+      .tabs-list {
+        display: inline-flex;
+        width: fit-content;
+        height: 32px;
+        align-items: center;
+        gap: 2px;
+        border-radius: 8px;
+        background: var(--muted);
+        padding: 3px;
+      }
+
+      .tab {
+        position: relative;
+        height: 26px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--muted-foreground);
+        padding: 0 8px;
+        font-weight: 550;
+      }
+
+      .tab[aria-selected="true"] {
+        border-color: var(--input-border);
+        background: var(--background);
+        color: var(--foreground);
+        box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+      }
+
+      .tabs-list.line {
+        gap: 5px;
+        border-radius: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .tabs-list.line .tab[aria-selected="true"] {
+        border-color: transparent;
+        background: transparent;
+        color: var(--primary-text);
+        box-shadow: none;
+      }
+
+      .tabs-list.line .tab[aria-selected="true"]::after {
+        position: absolute;
+        right: 0;
+        bottom: -4px;
+        left: 0;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--primary);
+        content: "";
+      }
+
+      .tab-panel {
+        min-height: 54px;
+        color: var(--muted-foreground);
+        padding-top: 10px;
+      }
+
+      .calendar {
+        width: 264px;
+        max-width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--popover);
+        padding: 9px;
+      }
+
+      .calendar-head {
+        display: flex;
+        height: 32px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 7px;
+      }
+
+      .calendar-title {
+        font-weight: 600;
+      }
+
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+      }
+
+      .weekday,
+      .day {
+        display: grid;
+        aspect-ratio: 1;
+        place-items: center;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        font-size: 12px;
+      }
+
+      .weekday {
+        color: var(--muted-foreground);
+      }
+
+      .day:hover {
+        background: var(--muted);
+      }
+
+      .day.today {
+        background: var(--muted);
+      }
+
+      .day[aria-selected="true"] {
+        background: var(--primary);
+        color: var(--primary-foreground);
+      }
+
+      .dialog-layer,
+      .sheet-layer {
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        display: grid;
+        background: rgb(0 0 0 / 0.48);
+        padding: 20px;
+      }
+
+      .dialog-layer {
+        place-items: center;
+      }
+
+      .dialog-box {
+        width: min(460px, 100%);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--card);
+        box-shadow: var(--shadow);
+        padding: 18px;
+      }
+
+      .dialog-box h3,
+      .sheet-box h3 {
+        margin: 0 0 4px;
+        font-size: 17px;
+      }
+
+      .dialog-box p,
+      .sheet-box p {
+        margin: 0;
+        color: var(--muted-foreground);
+      }
+
+      .dialog-footer,
+      .sheet-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 18px;
+      }
+
+      .sheet-layer {
+        justify-items: end;
+        padding: 0;
+      }
+
+      .sheet-box {
+        width: min(390px, 90vw);
+        height: 100%;
+        border-left: 1px solid var(--border);
+        background: var(--card);
+        box-shadow: var(--shadow);
+        padding: 20px;
+      }
+
+      .tooltip-wrap {
+        position: relative;
+        display: inline-flex;
+      }
+
+      .tooltip-bubble {
+        position: absolute;
+        bottom: calc(100% + 7px);
+        left: 50%;
+        z-index: 8;
+        width: max-content;
+        max-width: 200px;
+        transform: translateX(-50%) translateY(3px);
+        border-radius: 6px;
+        background: var(--foreground);
+        color: var(--background);
+        padding: 5px 7px;
+        font-size: 11px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 120ms ease, transform 120ms ease;
+      }
+
+      .tooltip-wrap:hover .tooltip-bubble,
+      .tooltip-wrap:focus-within .tooltip-bubble {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+
+      .motion-list {
+        display: grid;
+        gap: 6px;
+      }
+
+      .motion-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--card);
+        padding: 8px 10px;
+        animation: item-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      .animated-number {
+        font-size: 36px;
+        font-weight: 700;
+        letter-spacing: -0.035em;
+      }
+
+      .empty-state {
+        margin-top: 40px;
+        border: 1px dashed var(--border);
+        border-radius: 12px;
+        color: var(--muted-foreground);
+        padding: 38px;
+        text-align: center;
+      }
+
+      footer {
+        border-top: 1px solid var(--border);
+      }
+
+      .footer-inner {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        color: var(--muted-foreground);
+        padding: 24px 0;
+        font-size: 12px;
+      }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      @keyframes item-in {
+        from {
+          transform: translateY(-6px);
+          opacity: 0;
+        }
+      }
+
+      @media (max-width: 980px) {
+        .topbar-inner {
+          grid-template-columns: 1fr auto;
+          gap: 10px;
+          padding: 12px 0;
+        }
+
+        .search-wrap {
+          grid-column: 1 / -1;
+          grid-row: 2;
+        }
+
+        .intro {
+          grid-template-columns: 1fr;
+        }
+
+        .sticker.wide {
+          grid-column: auto;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .topbar-inner,
+        main,
+        .footer-inner,
+        .section-nav-inner {
+          width: min(100% - 24px, 1520px);
+        }
+
+        .brand h1 {
+          font-size: 15px;
+        }
+
+        .accent-control {
+          display: none;
+        }
+
+        .intro {
+          margin-bottom: 38px;
+        }
+
+        .section-heading {
+          align-items: start;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .section-heading p {
+          text-align: left;
+        }
+
+        .sticker-grid,
+        .split {
+          grid-template-columns: 1fr;
+        }
+
+        .specimen {
+          padding: 18px;
+        }
+
+        .footer-inner {
+          flex-direction: column;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      @media print {
+        .topbar {
+          position: static;
+        }
+
+        .section-nav,
+        .header-tools,
+        .search-wrap,
+        .button[data-print-hidden] {
+          display: none !important;
+        }
+
+        .sticker {
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#component-sheet">Skip to component sheet</a>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">UD</div>
+          <div>
+            <div class="eyebrow">Design system</div>
+            <h1>Atomic component sticker sheet</h1>
+          </div>
+        </div>
+        <label class="search-wrap">
+          <span class="sr-only" hidden>Search components</span>
+          <input
+            id="component-search"
+            class="sheet-search"
+            type="search"
+            placeholder="Search component, export, or behavior…"
+            autocomplete="off"
+          />
+          <span class="search-count" id="result-count" aria-live="polite">36 / 36</span>
+        </label>
+        <div class="header-tools">
+          <div class="accent-control" aria-label="Accent color">
+            <button class="accent-button" style="--swatch: oklch(0.54 0.24 293)" type="button" data-theme-button="violet" aria-label="Violet accent" aria-pressed="true"></button>
+            <button class="accent-button" style="--swatch: oklch(0.62 0.16 162)" type="button" data-theme-button="emerald" aria-label="Emerald accent" aria-pressed="false"></button>
+            <button class="accent-button" style="--swatch: oklch(0.55 0.19 254)" type="button" data-theme-button="cobalt" aria-label="Cobalt accent" aria-pressed="false"></button>
+            <button class="accent-button" style="--swatch: oklch(0.745 0.16 65)" type="button" data-theme-button="amber" aria-label="Amber accent" aria-pressed="false"></button>
+            <button class="accent-button" style="--swatch: oklch(0.58 0.21 16)" type="button" data-theme-button="rose" aria-label="Rose accent" aria-pressed="false"></button>
+          </div>
+          <div class="mode-control">
+            <button id="mode-toggle" class="icon-control" type="button" aria-label="Switch to dark mode" title="Switch color mode">◐</button>
+          </div>
+        </div>
+      </div>
+      <nav class="section-nav" aria-label="Component categories">
+        <div class="section-nav-inner">
+          <a href="#actions">Actions</a>
+          <a href="#inputs">Inputs &amp; selection</a>
+          <a href="#display">Data display</a>
+          <a href="#disclosure">Disclosure &amp; navigation</a>
+          <a href="#overlays">Overlays</a>
+          <a href="#motion">Motion</a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="component-sheet">
+      <section class="intro" aria-labelledby="sheet-title">
+        <div>
+          <div class="kicker">UsefulDesk · 36 shared UI source files</div>
+          <h2 id="sheet-title">One visual source for the product’s smallest building blocks.</h2>
+          <p>
+            This standalone reference mirrors <code>src/components/ui</code>. It is for review and discovery; the React primitives remain the implementation source of truth.
+          </p>
+        </div>
+        <ol class="rules" aria-label="Component usage rules">
+          <li><span class="rule-number">1</span><span>Reuse the shared primitive without call-site visual overrides.</span></li>
+          <li><span class="rule-number">2</span><span>Keep the same business field label wherever that field appears.</span></li>
+          <li><span class="rule-number">3</span><span>Create new styling together, then promote it into the shared component.</span></li>
+        </ol>
+      </section>
+
+      <section class="component-section" id="actions" data-section>
+        <div class="section-heading">
+          <div><div class="kicker">01 · 5 files</div><h2>Actions</h2></div>
+          <p>Buttons, chips, toolbars, and action helpers with the product’s canonical interaction states.</p>
+        </div>
+        <div class="sticker-grid">
+          <article class="sticker wide" data-component="button.tsx" data-keywords="button action cta variants default outline secondary ghost destructive link sizes icon">
+            <div class="sticker-header"><div><h3>Button</h3><p class="sticker-description">Seven variants and eight supported sizes.</p></div><code class="source-file">button.tsx</code></div>
+            <div class="specimen">
+              <div class="row">
+                <button class="button" type="button">Primary</button>
+                <button class="button outline" type="button">Outline</button>
+                <button class="button secondary" type="button">Secondary</button>
+                <button class="button ghost" type="button">Ghost</button>
+                <button class="button destructive-ghost" type="button">Remove</button>
+                <button class="button destructive" type="button">Delete</button>
+                <button class="button link" type="button">View details</button>
+              </div>
+              <div class="row">
+                <button class="button xs" type="button">Extra small</button>
+                <button class="button sm" type="button">Small</button>
+                <button class="button" type="button">Default</button>
+                <button class="button lg" type="button">Large</button>
+                <button class="button icon" type="button" aria-label="Add">＋</button>
+                <button class="button" type="button" disabled>Disabled</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="gated-button.tsx" data-keywords="gated button role permissions read only disabled tooltip">
+            <div class="sticker-header"><div><h3>GatedButton</h3><p class="sticker-description">Role-aware Button with a wrapper tooltip.</p></div><code class="source-file">gated-button.tsx</code></div>
+            <div class="specimen center">
+              <div class="row">
+                <button class="button" type="button">New broadcast</button>
+                <span title="Read-only — your role can't create broadcasts"><button class="button" type="button" disabled>New broadcast</button></span>
+              </div>
+              <div class="caption">Hover the disabled action to see the native gate explanation.</div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="chip.tsx" data-keywords="chip group selected pressed pill filter single selection multiple selection due today upcoming">
+            <div class="sticker-header"><div><h3>Chips</h3><p class="sticker-description">One pill visual with single- or multi-selection behavior.</p></div><code class="source-file">chip.tsx</code></div>
+            <div class="specimen">
+              <div class="stack"><span class="caption">Single selection</span><div class="row" data-single-chip role="group" aria-label="Due date">
+                <button class="chip" type="button" aria-pressed="false">Overdue</button>
+                <button class="chip" type="button" aria-pressed="true">Due today</button>
+                <button class="chip" type="button" aria-pressed="false">Upcoming</button>
+              </div></div>
+              <div class="stack"><span class="caption">Multiple selection</span><div class="row" data-multiple-chip role="group" aria-label="Quick filters">
+                <button class="chip" type="button" aria-pressed="true">Churn risk</button>
+                <button class="chip" type="button" aria-pressed="false">Fees due</button>
+                <button class="chip" type="button" aria-pressed="true">Follow-ups</button>
+              </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="toolbar.tsx" data-keywords="toolbar group button toggle group item separator segmented filters">
+            <div class="sticker-header"><div><h3>Toolbar family</h3><p class="sticker-description">Root, groups, buttons, toggle items, and separator.</p></div><code class="source-file">toolbar.tsx</code></div>
+            <div class="specimen center">
+              <div class="toolbar" role="toolbar" aria-label="List view controls">
+                <button class="tool" type="button" aria-pressed="true">All <span class="badge neutral">24</span></button>
+                <button class="tool" type="button" aria-pressed="false">Mine <span class="badge neutral">8</span></button>
+                <button class="tool" type="button">Sort ↕</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="inline-edit-actions.tsx" data-keywords="inline edit actions save confirm dismiss cancel loading field">
+            <div class="sticker-header"><div><h3>InlineEditActions</h3><p class="sticker-description">Floating confirm and dismiss pair for active editors.</p></div><code class="source-file">inline-edit-actions.tsx</code></div>
+            <div class="specimen">
+              <label class="stack"><span class="field-label">Phone number</span><span class="inline-edit"><input class="field" value="+91 98765 43210" aria-label="Phone number" style="padding-right: 62px" /><span class="inline-actions"><button class="save" type="button" aria-label="Save">✓</button><button type="button" aria-label="Cancel">×</button></span></span></label>
+              <div class="caption">The input host reserves right padding for both 24px actions.</div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section" id="inputs" data-section>
+        <div class="section-heading">
+          <div><div class="kicker">02 · 12 files</div><h2>Inputs &amp; selection</h2></div>
+          <p>Canonical fields stay unfilled; SearchInput is the deliberate muted-fill exception.</p>
+        </div>
+        <div class="sticker-grid">
+          <article class="sticker" data-component="input.tsx" data-keywords="input field text invalid disabled placeholder focus">
+            <div class="sticker-header"><div><h3>Input</h3><p class="sticker-description">Base one-line field and common states.</p></div><code class="source-file">input.tsx</code></div>
+            <div class="specimen">
+              <input class="field" type="text" placeholder="Default input" aria-label="Default input" />
+              <input class="field" type="email" value="invalid@" aria-invalid="true" aria-label="Invalid email" />
+              <input class="field" type="text" value="Disabled value" disabled aria-label="Disabled input" />
+            </div>
+          </article>
+
+          <article class="sticker" data-component="label.tsx" data-keywords="label field form required disabled text 14 12 small compact">
+            <div class="sticker-header"><div><h3>Label</h3><p class="sticker-description">14px default and 12px normal-weight muted labels bound to their controls.</p></div><code class="source-file">label.tsx</code></div>
+            <div class="specimen">
+              <label class="stack" for="label-sample"><span class="sample-label">Follow-up reason <span class="required" aria-hidden="true">*</span></span><input id="label-sample" class="field" placeholder="Enter a reason" /></label>
+              <span class="sample-label sm">Compact follow-up label</span>
+              <label class="sample-label" style="opacity: .5"><input class="checkbox" type="checkbox" disabled /> Disabled label</label>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="textarea.tsx" data-keywords="textarea multiline note message field">
+            <div class="sticker-header"><div><h3>Textarea</h3><p class="sticker-description">Growing multiline field with Input-aligned states.</p></div><code class="source-file">textarea.tsx</code></div>
+            <div class="specimen">
+              <label class="stack"><span class="field-label">Note</span><textarea class="field" placeholder="Add context for the next follow-up…"></textarea></label>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="search-input.tsx" data-keywords="search input toolbar picker muted fill icon query">
+            <div class="sticker-header"><div><h3>SearchInput</h3><p class="sticker-description">Single source for search fields across product surfaces.</p></div><code class="source-file">search-input.tsx</code></div>
+            <div class="specimen">
+              <label class="search-field-wrap"><span class="search-glyph" aria-hidden="true">⌕</span><input class="field" type="search" placeholder="Search members…" aria-label="Search members" /></label>
+              <div class="caption">Muted fill, border-border, fixed glyph, padding, and radius.</div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="currency-input.tsx" data-keywords="currency input amount symbol locale grouping rupee dollar">
+            <div class="sticker-header"><div><h3>CurrencyInput</h3><p class="sticker-description">Input composition with a locale-aware amount adornment.</p></div><code class="source-file">currency-input.tsx</code></div>
+            <div class="specimen">
+              <label class="stack"><span class="field-label">Membership value</span><span class="currency-wrap"><span class="currency-symbol" aria-hidden="true">₹</span><input class="field" inputmode="decimal" value="1,00,000" aria-label="Membership value" /></span></label>
+              <div class="caption">Grouped display; callers store the raw numeric value.</div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="date-picker.tsx" data-keywords="date picker calendar field popover today ymd locale">
+            <div class="sticker-header"><div><h3>DatePicker</h3><p class="sticker-description">Whole-field trigger with YYYY-MM-DD value contract.</p></div><code class="source-file">date-picker.tsx</code></div>
+            <div class="specimen">
+              <label class="stack"><span class="field-label">Due date</span><span class="popover-anchor"><button class="date-trigger" type="button" data-popup-target="date-menu" aria-controls="date-menu" aria-expanded="false"><span class="trigger-glyph">□</span><span id="date-value">18 Jul 2026</span></button><span class="popup" id="date-menu" hidden><span class="menu-label">Quick dates</span><button class="menu-item date-choice" type="button">Today <span class="menu-shortcut">18 Jul</span></button><button class="menu-item date-choice" type="button">Tomorrow <span class="menu-shortcut">19 Jul</span></button><div class="menu-separator"></div><button class="menu-item date-choice" type="button">Clear date</button></span></span></label>
+            </div>
+          </article>
+
+          <article class="sticker wide" data-component="calendar.tsx" data-keywords="calendar date month day picker navigation selected today dropdown">
+            <div class="sticker-header"><div><h3>Calendar</h3><p class="sticker-description">Design-system month grid used by DatePicker.</p></div><code class="source-file">calendar.tsx</code></div>
+            <div class="specimen center">
+              <div class="calendar" aria-label="July 2026 calendar">
+                <div class="calendar-head"><button class="button ghost icon" type="button" aria-label="Previous month">‹</button><span class="calendar-title">July 2026</span><button class="button ghost icon" type="button" aria-label="Next month">›</button></div>
+                <div class="calendar-grid" role="grid">
+                  <span class="weekday">Su</span><span class="weekday">Mo</span><span class="weekday">Tu</span><span class="weekday">We</span><span class="weekday">Th</span><span class="weekday">Fr</span><span class="weekday">Sa</span>
+                  <span></span><span></span><span></span>
+                  <button class="day" type="button">1</button><button class="day" type="button">2</button><button class="day" type="button">3</button><button class="day" type="button">4</button>
+                  <button class="day" type="button">5</button><button class="day" type="button">6</button><button class="day" type="button">7</button><button class="day" type="button">8</button><button class="day" type="button">9</button><button class="day" type="button">10</button><button class="day" type="button">11</button>
+                  <button class="day" type="button">12</button><button class="day" type="button">13</button><button class="day" type="button">14</button><button class="day" type="button">15</button><button class="day" type="button">16</button><button class="day" type="button">17</button><button class="day today" type="button" aria-selected="true">18</button>
+                  <button class="day" type="button">19</button><button class="day" type="button">20</button><button class="day" type="button">21</button><button class="day" type="button">22</button><button class="day" type="button">23</button><button class="day" type="button">24</button><button class="day" type="button">25</button>
+                  <button class="day" type="button">26</button><button class="day" type="button">27</button><button class="day" type="button">28</button><button class="day" type="button">29</button><button class="day" type="button">30</button><button class="day" type="button">31</button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="select.tsx" data-keywords="select trigger value content group label item separator dropdown scroll">
+            <div class="sticker-header"><div><h3>Select family</h3><p class="sticker-description">Short static lists with grouped menu parts.</p></div><code class="source-file">select.tsx</code></div>
+            <div class="specimen top">
+              <label class="stack"><span class="field-label">Owner</span><span class="popover-anchor"><button class="select-trigger" type="button" data-popup-target="select-menu" aria-controls="select-menu" aria-expanded="false"><span data-select-value>Meera Shah</span><span class="trigger-glyph">⌄</span></button><span class="popup" id="select-menu" hidden><span class="menu-label">Team</span><button class="menu-item select-choice" type="button">Meera Shah <span class="menu-shortcut">✓</span></button><button class="menu-item select-choice" type="button">Aarav Mehta</button><button class="menu-item select-choice" type="button">Priya Rao</button><div class="menu-separator"></div><button class="menu-item" type="button" disabled>Unassigned</button></span></span></label>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="combobox.tsx" data-keywords="combobox searchable select groups options footer create search popover">
+            <div class="sticker-header"><div><h3>Combobox</h3><p class="sticker-description">Searchable select for lists too long to scan.</p></div><code class="source-file">combobox.tsx</code></div>
+            <div class="specimen top">
+              <label class="stack"><span class="field-label">Map to field</span><span class="popover-anchor"><button class="combobox-trigger" type="button" data-popup-target="combo-menu" aria-controls="combo-menu" aria-expanded="false"><span data-combo-value>Email address</span><span class="trigger-glyph">⌄</span></button><span class="popup" id="combo-menu" hidden><span class="search-field-wrap" style="display:block; margin: 2px 2px 5px"><span class="search-glyph" aria-hidden="true">⌕</span><input id="combo-search" class="field" type="search" placeholder="Search fields…" aria-label="Search fields" /></span><span class="menu-label">Member</span><span id="combo-options"><button class="menu-item combo-choice" type="button">Email address <span class="menu-shortcut">Text · ✓</span></button><button class="menu-item combo-choice" type="button">Phone number <span class="menu-shortcut">Phone</span></button><button class="menu-item combo-choice" type="button">Renewal date <span class="menu-shortcut">Date</span></button></span><div class="menu-separator"></div><button class="menu-item" type="button" style="color: var(--primary-text)">＋ Create new field…</button></span></span></label>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="checkbox.tsx" data-keywords="checkbox checked unchecked indeterminate disabled selection">
+            <div class="sticker-header"><div><h3>Checkbox</h3><p class="sticker-description">Unchecked, checked, indeterminate, and disabled.</p></div><code class="source-file">checkbox.tsx</code></div>
+            <div class="specimen">
+              <label class="choice-row"><input class="checkbox" type="checkbox" /> Email reminder</label>
+              <label class="choice-row"><input class="checkbox" type="checkbox" checked /> Include a note</label>
+              <label class="choice-row"><input id="mixed-checkbox" class="checkbox" type="checkbox" /> Some members selected</label>
+              <label class="choice-row" style="opacity:.5"><input class="checkbox" type="checkbox" disabled /> Locked setting</label>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="radio-group.tsx" data-keywords="radio group item single selection checked">
+            <div class="sticker-header"><div><h3>RadioGroup family</h3><p class="sticker-description">Single-value selection with labelled items.</p></div><code class="source-file">radio-group.tsx</code></div>
+            <div class="specimen">
+              <label class="choice-row"><input class="radio" type="radio" name="reminder" checked /> 15 minutes before</label>
+              <label class="choice-row"><input class="radio" type="radio" name="reminder" /> 1 hour before</label>
+              <label class="choice-row"><input class="radio" type="radio" name="reminder" /> 1 day before</label>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="switch.tsx" data-keywords="switch on off checked unchecked setting toggle">
+            <div class="sticker-header"><div><h3>Switch</h3><p class="sticker-description">Binary setting with a primary checked state.</p></div><code class="source-file">switch.tsx</code></div>
+            <div class="specimen">
+              <div class="choice-row" style="justify-content:space-between"><span><strong>Reminder</strong><br /><span class="caption">Notify the assignee before this is due.</span></span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Reminder"></button></div>
+              <div class="choice-row" style="justify-content:space-between"><span>Repeat follow-up</span><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Repeat follow-up"></button></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section" id="display" data-section>
+        <div class="section-heading">
+          <div><div class="kicker">03 · 10 files</div><h2>Data display</h2></div>
+          <p>Identity, status, progress, containers, feedback, and structured data primitives.</p>
+        </div>
+        <div class="sticker-grid">
+          <article class="sticker" data-component="avatar.tsx" data-keywords="avatar image fallback badge group count sizes person identity borderless">
+            <div class="sticker-header"><div><h3>Avatar family</h3><p class="sticker-description">Root, image/fallback, badge, group, and count.</p></div><code class="source-file">avatar.tsx</code></div>
+            <div class="specimen">
+              <div class="row"><span class="avatar sm">A</span><span class="avatar">M<span class="avatar-badge"></span></span><span class="avatar lg">P</span></div>
+              <div class="avatar-group" aria-label="Assigned teammates"><span class="avatar primary">M</span><span class="avatar" style="background: color-mix(in oklab, oklch(0.68 0.16 235) 18%, var(--card)); color: var(--info)">A</span><span class="avatar" style="background: color-mix(in oklab, oklch(0.65 0.17 155) 18%, var(--card)); color: var(--success)">P</span><span class="avatar">+4</span></div>
+              <div class="caption">Avatars remain borderless across sizes and groups.</div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="user-avatar.tsx" data-keywords="user avatar person teammate photo initials fallback primary tint">
+            <div class="sticker-header"><div><h3>UserAvatar</h3><p class="sticker-description">Canonical person avatar with photo or initial fallback.</p></div><code class="source-file">user-avatar.tsx</code></div>
+            <div class="specimen center">
+              <div class="row"><span class="avatar primary lg">M<span class="avatar-badge"></span></span><span><strong>Meera Shah</strong><br /><span class="caption">Fallback initial · online</span></span></div>
+            </div>
+          </article>
+
+          <article class="sticker wide" data-component="badge.tsx" data-keywords="badge status pill tag default secondary destructive outline ghost link success danger warning info violet neutral tinted">
+            <div class="sticker-header"><div><h3>Badge</h3><p class="sticker-description">Canonical fill-only status pills plus core variants.</p></div><code class="source-file">badge.tsx</code></div>
+            <div class="specimen">
+              <div class="row"><span class="badge">Default</span><span class="badge secondary">Secondary</span><span class="badge outline">Outline</span><span class="badge ghost">Ghost</span><span class="badge link">Link</span></div>
+              <div class="row"><span class="badge success">Active</span><span class="badge danger">Overdue</span><span class="badge warning">Due today</span><span class="badge info">Scheduled</span><span class="badge violet">Renewal</span><span class="badge neutral">Admin tag</span><span class="badge" style="--badge-tint:#db2777;background:color-mix(in srgb,var(--badge-tint) 10%,transparent);color:color-mix(in oklab,var(--badge-tint) 65%,var(--foreground))">Dynamic tint</span></div>
+              <div class="caption">Status badges use tint fill without an outline. Do not override height, type, padding, radius, or color at call sites.</div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="animated-number.tsx" data-keywords="animated number counter kpi motion reduced motion format currency">
+            <div class="sticker-header"><div><h3>AnimatedNumber</h3><p class="sticker-description">Count-up KPI that honours reduced motion.</p></div><code class="source-file">animated-number.tsx</code></div>
+            <div class="specimen center">
+              <span class="animated-number" id="animated-number">1,248</span>
+              <span class="caption">Active members</span>
+              <button class="button outline sm" id="replay-number" type="button">Replay</button>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="progress.tsx" data-keywords="progress bar determinate value max percentage fill track">
+            <div class="sticker-header"><div><h3>Progress</h3><p class="sticker-description">Determinate muted track with primary fill.</p></div><code class="source-file">progress.tsx</code></div>
+            <div class="specimen">
+              <div class="stack"><div class="row" style="justify-content:space-between"><span>Profile completion</span><span class="caption" id="progress-label">72%</span></div><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="72"><span id="progress-fill" style="--value:72%"></span></div></div>
+              <button class="button outline sm" id="advance-progress" type="button">Advance</button>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="card.tsx" data-keywords="card header title description action content footer small container">
+            <div class="sticker-header"><div><h3>Card family</h3><p class="sticker-description">Container, header, title, description, action, content, and footer.</p></div><code class="source-file">card.tsx</code></div>
+            <div class="specimen">
+              <div class="sample-card">
+                <div class="sample-card-header"><span><span class="sample-card-title">Renewal summary</span><br /><span class="caption">July 2026</span></span><button class="button ghost icon" type="button" aria-label="More options">•••</button></div>
+                <div class="sample-card-content">18 members renew this month, with ₹2.4L in projected value.</div>
+                <div class="sample-card-footer"><button class="button link" type="button">Review renewals</button></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="alert.tsx" data-keywords="alert title description action feedback destructive error default">
+            <div class="sticker-header"><div><h3>Alert family</h3><p class="sticker-description">Default and destructive feedback containers.</p></div><code class="source-file">alert.tsx</code></div>
+            <div class="specimen">
+              <div class="alert" role="alert"><span class="alert-title">Import ready</span><span class="alert-description">248 rows passed validation.</span></div>
+              <div class="alert destructive" role="alert"><span class="alert-title">3 rows need attention</span><span class="alert-description">Email address is missing or invalid.</span><button class="button link" type="button" style="position:absolute;right:10px;top:9px;color:inherit">Review</button></div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="separator.tsx" data-keywords="separator divider horizontal vertical orientation">
+            <div class="sticker-header"><div><h3>Separator</h3><p class="sticker-description">Horizontal and vertical content division.</p></div><code class="source-file">separator.tsx</code></div>
+            <div class="specimen center">
+              <div class="row" style="width:100%"><span>Details</span><span class="separator vertical" role="separator" aria-orientation="vertical"></span><span>Activity</span></div>
+              <span class="separator horizontal" role="separator"></span>
+            </div>
+          </article>
+
+          <article class="sticker wide" data-component="table.tsx" data-keywords="table container header body footer row head cell caption data grid columns">
+            <div class="sticker-header"><div><h3>Table family</h3><p class="sticker-description">Responsive table container and every semantic table part.</p></div><code class="source-file">table.tsx</code></div>
+            <div class="specimen">
+              <div class="table-wrap">
+                <table class="sample-table">
+                  <caption style="caption-side:bottom;padding:9px;color:var(--muted-foreground)">Showing 2 of 1,248 members</caption>
+                  <thead><tr><th scope="col">Member details</th><th scope="col">Status</th><th scope="col">Renewal date</th><th scope="col">Owner</th></tr></thead>
+                  <tbody><tr><td><strong>Ananya Iyer</strong><br /><span class="caption">ananya@example.com</span></td><td><span class="badge success">Active</span></td><td>24 Jul 2026</td><td>Meera Shah</td></tr><tr><td><strong>Kabir Singh</strong><br /><span class="caption">kabir@example.com</span></td><td><span class="badge warning">Due today</span></td><td>18 Jul 2026</td><td>Aarav Mehta</td></tr></tbody>
+                  <tfoot><tr><td colspan="4" style="background:color-mix(in oklab,var(--muted) 50%,transparent);font-weight:550">Total projected renewal value · ₹2,40,000</td></tr></tfoot>
+                </table>
+              </div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="scroll-area.tsx" data-keywords="scroll area viewport scrollbar thumb overflow list">
+            <div class="sticker-header"><div><h3>ScrollArea family</h3><p class="sticker-description">Viewport, scrollbar, thumb, and corner.</p></div><code class="source-file">scroll-area.tsx</code></div>
+            <div class="specimen">
+              <div class="scroll-box" tabindex="0" aria-label="Recent activity">
+                <div class="scroll-row"><strong>Note added</strong><br /><span class="caption">Asked to call after 5pm.</span></div>
+                <div class="scroll-row"><strong>Follow-up assigned</strong><br /><span class="caption">Renewal · Meera Shah</span></div>
+                <div class="scroll-row"><strong>Status changed</strong><br /><span class="caption">Lead → Member</span></div>
+                <div class="scroll-row"><strong>Payment recorded</strong><br /><span class="caption">₹12,000 · UPI</span></div>
+                <div class="scroll-row"><strong>Tag added</strong><br /><span class="caption">Annual plan</span></div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section" id="disclosure" data-section>
+        <div class="section-heading">
+          <div><div class="kicker">04 · 3 files</div><h2>Disclosure &amp; navigation</h2></div>
+          <p>Reveal, collapse, and local navigation patterns with explicit active state.</p>
+        </div>
+        <div class="sticker-grid">
+          <article class="sticker" data-component="accordion.tsx" data-keywords="accordion item trigger content panel expanded disclosure faq">
+            <div class="sticker-header"><div><h3>Accordion family</h3><p class="sticker-description">Root, items, triggers, and animated panels.</p></div><code class="source-file">accordion.tsx</code></div>
+            <div class="specimen top">
+              <div class="accordion-item"><button class="accordion-trigger" type="button" data-disclosure="accordion-one" aria-expanded="true">What creates a follow-up?<span aria-hidden="true">⌃</span></button><div class="accordion-panel" id="accordion-one">Notes and renewal assignments use the same follow-up record and reminder behavior.</div></div>
+              <div class="accordion-item"><button class="accordion-trigger" type="button" data-disclosure="accordion-two" aria-expanded="false">Who can reassign it?<span aria-hidden="true">⌄</span></button><div class="accordion-panel" id="accordion-two" hidden>Teammates with member edit permission can change the owner.</div></div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="collapse.tsx" data-keywords="collapse height width reveal hide animate presence panel">
+            <div class="sticker-header"><div><h3>Collapse</h3><p class="sticker-description">Size-and-fade reveal on the height or width axis.</p></div><code class="source-file">collapse.tsx</code></div>
+            <div class="specimen">
+              <button class="button outline" type="button" data-disclosure="collapse-panel" aria-expanded="true">Toggle selected-member tools</button>
+              <div class="collapse-panel" id="collapse-panel"><div class="row"><strong>3 selected</strong><button class="button sm" type="button">Add note</button><button class="button ghost sm" type="button">Assign owner</button></div></div>
+            </div>
+          </article>
+
+          <article class="sticker wide" data-component="tabs.tsx" data-keywords="tabs list trigger content panel default line active navigation">
+            <div class="sticker-header"><div><h3>Tabs family</h3><p class="sticker-description">Default raised-chip and line navigation variants.</p></div><code class="source-file">tabs.tsx</code></div>
+            <div class="specimen">
+              <div data-tabs>
+                <div class="tabs-list" role="tablist" aria-label="Member detail sections"><button class="tab" type="button" role="tab" aria-selected="true" data-tab="tab-overview">Overview</button><button class="tab" type="button" role="tab" aria-selected="false" data-tab="tab-notes">Notes</button><button class="tab" type="button" role="tab" aria-selected="false" data-tab="tab-payments">Payments</button></div>
+                <div class="tab-panel" id="tab-overview" role="tabpanel">Member summary and current membership details.</div><div class="tab-panel" id="tab-notes" role="tabpanel" hidden>Notes, reminders, and linked follow-ups.</div><div class="tab-panel" id="tab-payments" role="tabpanel" hidden>Payment history and outstanding invoices.</div>
+              </div>
+              <div class="tabs-list line" role="tablist" aria-label="List sections"><button class="tab" type="button" role="tab" aria-selected="true">Members</button><button class="tab" type="button" role="tab" aria-selected="false">Follow-ups</button><button class="tab" type="button" role="tab" aria-selected="false">Renewals</button></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section" id="overlays" data-section>
+        <div class="section-heading">
+          <div><div class="kicker">05 · 5 files</div><h2>Overlays</h2></div>
+          <p>Layered content, menus, panels, and contextual explanation.</p>
+        </div>
+        <div class="sticker-grid">
+          <article class="sticker" data-component="dialog.tsx" data-keywords="dialog modal trigger portal overlay content header footer title description close">
+            <div class="sticker-header"><div><h3>Dialog family</h3><p class="sticker-description">Modal overlay with structured header and footer.</p></div><code class="source-file">dialog.tsx</code></div>
+            <div class="specimen center"><button class="button" type="button" data-open-layer="dialog-demo">Open dialog</button><span class="caption">Trigger · Portal · Overlay · Content · Close</span></div>
+          </article>
+
+          <article class="sticker" data-component="dropdown-menu.tsx" data-keywords="dropdown menu portal trigger content group label item checkbox radio shortcut submenu separator">
+            <div class="sticker-header"><div><h3>DropdownMenu family</h3><p class="sticker-description">Actions, check/radio items, shortcuts, and submenus.</p></div><code class="source-file">dropdown-menu.tsx</code></div>
+            <div class="specimen top center">
+              <span class="popover-anchor"><button class="button outline" type="button" data-popup-target="dropdown-demo" aria-controls="dropdown-demo" aria-expanded="false">Actions <span aria-hidden="true">⌄</span></button><span class="popup" id="dropdown-demo" hidden><span class="menu-label">Member</span><button class="menu-item" type="button">Open profile <span class="menu-shortcut">↵</span></button><button class="menu-item" type="button">Add note <span class="menu-shortcut">N</span></button><div class="menu-separator"></div><label class="menu-item"><input class="checkbox" type="checkbox" checked /> Show inactive fields</label><label class="menu-item"><input class="radio" type="radio" checked /> Compact rows</label><div class="menu-separator"></div><button class="menu-item" type="button" style="color:var(--destructive)">Archive member</button></span></span>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="popover.tsx" data-keywords="popover trigger content header title description contextual floating">
+            <div class="sticker-header"><div><h3>Popover family</h3><p class="sticker-description">Contextual content with optional header structure.</p></div><code class="source-file">popover.tsx</code></div>
+            <div class="specimen center">
+              <span class="popover-anchor"><button class="button outline" type="button" data-popup-target="popover-demo" aria-controls="popover-demo" aria-expanded="false">Reminder settings</button><span class="popup" id="popover-demo" hidden style="padding:12px"><strong>Reminder</strong><p class="caption" style="margin:2px 0 12px">Choose when the assignee should be notified.</p><label class="stack"><span class="field-label">Notify before</span><button class="select-trigger" type="button">1 hour <span>⌄</span></button></label></span></span>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="sheet.tsx" data-keywords="sheet drawer side panel trigger overlay content header footer title description close">
+            <div class="sticker-header"><div><h3>Sheet family</h3><p class="sticker-description">Edge-anchored panel for longer supporting workflows.</p></div><code class="source-file">sheet.tsx</code></div>
+            <div class="specimen center"><button class="button outline" type="button" data-open-layer="sheet-demo">Open sheet</button><span class="caption">Trigger · Overlay · Content · Header · Footer</span></div>
+          </article>
+
+          <article class="sticker" data-component="tooltip.tsx" data-keywords="tooltip provider trigger content hover focus explanation">
+            <div class="sticker-header"><div><h3>Tooltip family</h3><p class="sticker-description">Concise explanation on pointer hover or keyboard focus.</p></div><code class="source-file">tooltip.tsx</code></div>
+            <div class="specimen center">
+              <span class="tooltip-wrap"><button class="button outline icon" type="button" aria-describedby="tooltip-content">?</button><span class="tooltip-bubble" id="tooltip-content" role="tooltip">Renewal date comes from the active membership.</span></span>
+              <div class="caption">Hover or focus the help action.</div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="component-section" id="motion" data-section>
+        <div class="section-heading">
+          <div><div class="kicker">06 · 1 file</div><h2>Motion</h2></div>
+          <p>The shared list transition keeps add, remove, and reflow behavior consistent.</p>
+        </div>
+        <div class="sticker-grid">
+          <article class="sticker wide" data-component="motion-list.tsx" data-keywords="motion list item animate presence add remove reorder spring layout reduced motion">
+            <div class="sticker-header"><div><h3>MotionList family</h3><p class="sticker-description">Animated collection root and stable-key list item.</p></div><code class="source-file">motion-list.tsx</code></div>
+            <div class="specimen">
+              <div class="row"><button class="button sm" id="add-motion-item" type="button">Add follow-up</button><button class="button outline sm" id="remove-motion-item" type="button">Remove first</button></div>
+              <div class="motion-list" id="motion-list" aria-live="polite">
+                <div class="motion-item"><span><strong>Call about renewal</strong><br /><span class="caption">Due today · Meera Shah</span></span><span class="badge warning">Due today</span></div>
+                <div class="motion-item"><span><strong>Send plan options</strong><br /><span class="caption">19 Jul · Aarav Mehta</span></span><span class="badge info">Upcoming</span></div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <div class="empty-state" id="empty-state" hidden>
+        <strong>No components match this search.</strong><br />Try a component name such as “Badge”, an export such as “Trigger”, or a behavior such as “searchable”.
+      </div>
+    </main>
+
+    <footer>
+      <div class="footer-inner">
+        <span>Static review artifact · React source remains authoritative</span>
+        <span>Coverage: <strong id="coverage-count">36 / 36</strong> files from <code>src/components/ui</code></span>
+      </div>
+    </footer>
+
+    <div class="dialog-layer" id="dialog-demo" role="dialog" aria-modal="true" aria-labelledby="dialog-title" hidden>
+      <div class="dialog-box">
+        <h3 id="dialog-title">Create follow-up</h3>
+        <p>Assign one owner, reason, due date, and optional reminder.</p>
+        <div class="stack" style="margin-top:16px"><div class="stack"><span class="field-label sm" id="dialog-reason-label">Reason</span><div class="row" data-single-chip role="group" aria-labelledby="dialog-reason-label"><button class="chip" type="button" aria-pressed="true">Renewal</button><button class="chip" type="button" aria-pressed="false">Payment</button><button class="chip" type="button" aria-pressed="false">General</button></div></div><label class="stack"><span class="field-label">Note</span><textarea class="field" placeholder="Add context…"></textarea></label></div>
+        <div class="dialog-footer"><button class="button outline" type="button" data-close-layer="dialog-demo">Cancel</button><button class="button" type="button" data-close-layer="dialog-demo">Create follow-up</button></div>
+      </div>
+    </div>
+
+    <div class="sheet-layer" id="sheet-demo" role="dialog" aria-modal="true" aria-labelledby="sheet-title-demo" hidden>
+      <div class="sheet-box">
+        <div class="row" style="justify-content:space-between;align-items:flex-start"><span><h3 id="sheet-title-demo">Follow-up details</h3><p>Review and update this task.</p></span><button class="button ghost icon" type="button" data-close-layer="sheet-demo" aria-label="Close sheet">×</button></div>
+        <div class="stack" style="margin-top:24px"><label class="stack"><span class="field-label">Owner</span><button class="select-trigger" type="button">Meera Shah <span>⌄</span></button></label><label class="stack"><span class="field-label">Due date</span><button class="date-trigger" type="button"><span class="trigger-glyph">□</span><span>18 Jul 2026</span></button></label><div class="choice-row" style="justify-content:space-between"><span>Reminder</span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Reminder"></button></div></div>
+        <div class="sheet-footer"><button class="button destructive-ghost" type="button">Delete</button><button class="button" type="button" data-close-layer="sheet-demo">Save changes</button></div>
+      </div>
+    </div>
+    <script>
+      (function () {
+        "use strict";
+
+        var root = document.documentElement;
+        var expectedComponents = [
+          "accordion.tsx",
+          "alert.tsx",
+          "animated-number.tsx",
+          "avatar.tsx",
+          "badge.tsx",
+          "button.tsx",
+          "calendar.tsx",
+          "card.tsx",
+          "checkbox.tsx",
+          "collapse.tsx",
+          "combobox.tsx",
+          "currency-input.tsx",
+          "date-picker.tsx",
+          "dialog.tsx",
+          "dropdown-menu.tsx",
+          "gated-button.tsx",
+          "inline-edit-actions.tsx",
+          "input.tsx",
+          "label.tsx",
+          "motion-list.tsx",
+          "popover.tsx",
+          "progress.tsx",
+          "radio-group.tsx",
+          "scroll-area.tsx",
+          "search-input.tsx",
+          "select.tsx",
+          "separator.tsx",
+          "sheet.tsx",
+          "switch.tsx",
+          "table.tsx",
+          "tabs.tsx",
+          "textarea.tsx",
+          "chip.tsx",
+          "toolbar.tsx",
+          "tooltip.tsx",
+          "user-avatar.tsx"
+        ];
+        var stickers = Array.prototype.slice.call(document.querySelectorAll("[data-component]"));
+        var actualComponents = stickers.map(function (card) {
+          return card.getAttribute("data-component");
+        });
+        var complete = expectedComponents.every(function (name) {
+          return actualComponents.indexOf(name) !== -1;
+        });
+        document.getElementById("coverage-count").textContent = actualComponents.length + " / " + expectedComponents.length;
+        if (!complete || actualComponents.length !== expectedComponents.length) {
+          document.getElementById("coverage-count").textContent += " · check inventory";
+        }
+
+        var modeButton = document.getElementById("mode-toggle");
+        function setMode(mode) {
+          root.setAttribute("data-mode", mode);
+          modeButton.setAttribute("aria-label", "Switch to " + (mode === "light" ? "dark" : "light") + " mode");
+          modeButton.textContent = mode === "light" ? "◐" : "◑";
+        }
+        modeButton.addEventListener("click", function () {
+          setMode(root.getAttribute("data-mode") === "light" ? "dark" : "light");
+        });
+
+        document.querySelectorAll("[data-theme-button]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            root.setAttribute("data-theme", button.getAttribute("data-theme-button"));
+            document.querySelectorAll("[data-theme-button]").forEach(function (candidate) {
+              candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
+            });
+          });
+        });
+
+        var search = document.getElementById("component-search");
+        var resultCount = document.getElementById("result-count");
+        var emptyState = document.getElementById("empty-state");
+        function filterComponents() {
+          var query = search.value.trim().toLowerCase();
+          var visible = 0;
+          stickers.forEach(function (card) {
+            var haystack = (card.getAttribute("data-component") + " " + card.getAttribute("data-keywords") + " " + card.textContent).toLowerCase();
+            var show = !query || haystack.indexOf(query) !== -1;
+            card.hidden = !show;
+            if (show) visible += 1;
+          });
+          document.querySelectorAll("[data-section]").forEach(function (section) {
+            section.hidden = section.querySelectorAll("[data-component]:not([hidden])").length === 0;
+          });
+          resultCount.textContent = visible + " / " + stickers.length;
+          emptyState.hidden = visible !== 0;
+        }
+        search.addEventListener("input", filterComponents);
+
+        document.querySelectorAll("[data-single-chip]").forEach(function (group) {
+          group.addEventListener("click", function (event) {
+            var button = event.target.closest("button");
+            if (!button || !group.contains(button)) return;
+            group.querySelectorAll("button").forEach(function (candidate) {
+              candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
+            });
+          });
+        });
+
+        document.querySelectorAll("[data-multiple-chip]").forEach(function (group) {
+          group.addEventListener("click", function (event) {
+            var button = event.target.closest("button");
+            if (!button || !group.contains(button)) return;
+            button.setAttribute("aria-pressed", button.getAttribute("aria-pressed") === "true" ? "false" : "true");
+          });
+        });
+
+        document.querySelectorAll(".toolbar .tool[aria-pressed]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            button.parentElement.querySelectorAll(".tool[aria-pressed]").forEach(function (candidate) {
+              candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
+            });
+          });
+        });
+
+        document.querySelectorAll(".switch").forEach(function (button) {
+          button.addEventListener("click", function () {
+            button.setAttribute("aria-checked", button.getAttribute("aria-checked") === "true" ? "false" : "true");
+          });
+        });
+
+        function closePopups(except) {
+          document.querySelectorAll(".popup:not([hidden])").forEach(function (popup) {
+            if (popup === except) return;
+            popup.hidden = true;
+            var trigger = document.querySelector("[data-popup-target='" + popup.id + "']");
+            if (trigger) trigger.setAttribute("aria-expanded", "false");
+          });
+        }
+
+        document.querySelectorAll("[data-popup-target]").forEach(function (button) {
+          button.addEventListener("click", function (event) {
+            event.stopPropagation();
+            var popup = document.getElementById(button.getAttribute("data-popup-target"));
+            var willOpen = popup.hidden;
+            closePopups(popup);
+            popup.hidden = !willOpen;
+            button.setAttribute("aria-expanded", willOpen ? "true" : "false");
+            if (willOpen) {
+              var focusTarget = popup.querySelector("input");
+              if (focusTarget) window.setTimeout(function () { focusTarget.focus(); }, 0);
+            }
+          });
+        });
+
+        document.querySelectorAll(".popup").forEach(function (popup) {
+          popup.addEventListener("click", function (event) {
+            event.stopPropagation();
+          });
+        });
+
+        document.addEventListener("click", function () {
+          closePopups();
+        });
+
+        document.querySelectorAll(".select-choice").forEach(function (button) {
+          button.addEventListener("click", function () {
+            document.querySelector("[data-select-value]").textContent = button.childNodes[0].textContent.trim();
+            closePopups();
+          });
+        });
+
+        document.querySelectorAll(".combo-choice").forEach(function (button) {
+          button.addEventListener("click", function () {
+            document.querySelector("[data-combo-value]").textContent = button.childNodes[0].textContent.trim();
+            closePopups();
+          });
+        });
+
+        document.querySelectorAll(".date-choice").forEach(function (button) {
+          button.addEventListener("click", function () {
+            var label = button.childNodes[0].textContent.trim();
+            var dateValue = document.getElementById("date-value");
+            dateValue.textContent = label === "Clear date" ? "Pick a date" : label === "Tomorrow" ? "19 Jul 2026" : "18 Jul 2026";
+            closePopups();
+          });
+        });
+
+        var comboSearch = document.getElementById("combo-search");
+        comboSearch.addEventListener("input", function () {
+          var query = comboSearch.value.trim().toLowerCase();
+          document.querySelectorAll("#combo-options .menu-item").forEach(function (option) {
+            option.hidden = query && option.textContent.toLowerCase().indexOf(query) === -1;
+          });
+        });
+
+        document.querySelectorAll("[data-disclosure]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            var panel = document.getElementById(button.getAttribute("data-disclosure"));
+            var willOpen = button.getAttribute("aria-expanded") !== "true";
+            button.setAttribute("aria-expanded", willOpen ? "true" : "false");
+            panel.hidden = !willOpen;
+            var glyph = button.querySelector("[aria-hidden='true']");
+            if (glyph) glyph.textContent = willOpen ? "⌃" : "⌄";
+          });
+        });
+
+        document.querySelectorAll(".tabs-list").forEach(function (list) {
+          list.addEventListener("click", function (event) {
+            var tab = event.target.closest(".tab");
+            if (!tab || !list.contains(tab)) return;
+            list.querySelectorAll(".tab").forEach(function (candidate) {
+              candidate.setAttribute("aria-selected", candidate === tab ? "true" : "false");
+            });
+            if (tab.hasAttribute("data-tab")) {
+              var tabs = tab.closest("[data-tabs]");
+              tabs.querySelectorAll(".tab-panel").forEach(function (panel) {
+                panel.hidden = panel.id !== tab.getAttribute("data-tab");
+              });
+            }
+          });
+        });
+
+        document.querySelectorAll(".calendar .day").forEach(function (day) {
+          day.addEventListener("click", function () {
+            document.querySelectorAll(".calendar .day").forEach(function (candidate) {
+              candidate.setAttribute("aria-selected", candidate === day ? "true" : "false");
+            });
+          });
+        });
+
+        var lastLayerTrigger = null;
+        function openLayer(id, trigger) {
+          closePopups();
+          var layer = document.getElementById(id);
+          lastLayerTrigger = trigger;
+          layer.hidden = false;
+          document.body.style.overflow = "hidden";
+          var focusTarget = layer.querySelector("button, input, textarea, select, [tabindex='0']");
+          if (focusTarget) window.setTimeout(function () { focusTarget.focus(); }, 0);
+        }
+        function closeLayer(id) {
+          document.getElementById(id).hidden = true;
+          document.body.style.overflow = "";
+          if (lastLayerTrigger) lastLayerTrigger.focus();
+          lastLayerTrigger = null;
+        }
+
+        document.querySelectorAll("[data-open-layer]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            openLayer(button.getAttribute("data-open-layer"), button);
+          });
+        });
+        document.querySelectorAll("[data-close-layer]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            closeLayer(button.getAttribute("data-close-layer"));
+          });
+        });
+        document.querySelectorAll(".dialog-layer, .sheet-layer").forEach(function (layer) {
+          layer.addEventListener("click", function (event) {
+            if (event.target === layer) closeLayer(layer.id);
+          });
+        });
+
+        document.addEventListener("keydown", function (event) {
+          var openLayerElement = document.querySelector(".dialog-layer:not([hidden]), .sheet-layer:not([hidden])");
+          if (event.key === "Escape") {
+            if (openLayerElement) closeLayer(openLayerElement.id);
+            else closePopups();
+          }
+          if (event.key === "Tab" && openLayerElement) {
+            var focusable = Array.prototype.slice.call(openLayerElement.querySelectorAll("button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex='0']"));
+            if (!focusable.length) return;
+            var first = focusable[0];
+            var last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+              event.preventDefault();
+              last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+              event.preventDefault();
+              first.focus();
+            }
+          }
+        });
+
+        var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var animatedNumber = document.getElementById("animated-number");
+        function replayNumber() {
+          var target = 1248;
+          if (reducedMotion) {
+            animatedNumber.textContent = target.toLocaleString("en-IN");
+            return;
+          }
+          var start = performance.now();
+          function frame(now) {
+            var progress = Math.min((now - start) / 900, 1);
+            var eased = 1 - Math.pow(1 - progress, 3);
+            animatedNumber.textContent = Math.round(target * eased).toLocaleString("en-IN");
+            if (progress < 1) requestAnimationFrame(frame);
+          }
+          requestAnimationFrame(frame);
+        }
+        document.getElementById("replay-number").addEventListener("click", replayNumber);
+
+        var progressValue = 72;
+        document.getElementById("advance-progress").addEventListener("click", function () {
+          progressValue = progressValue >= 100 ? 24 : Math.min(progressValue + 14, 100);
+          document.getElementById("progress-fill").style.setProperty("--value", progressValue + "%");
+          document.getElementById("progress-label").textContent = progressValue + "%";
+          document.querySelector("[role='progressbar']").setAttribute("aria-valuenow", String(progressValue));
+        });
+
+        var motionList = document.getElementById("motion-list");
+        var motionItemCount = 2;
+        document.getElementById("add-motion-item").addEventListener("click", function () {
+          motionItemCount += 1;
+          var item = document.createElement("div");
+          item.className = "motion-item";
+          var details = document.createElement("span");
+          var title = document.createElement("strong");
+          title.textContent = "Follow up with member " + motionItemCount;
+          var breakElement = document.createElement("br");
+          var caption = document.createElement("span");
+          caption.className = "caption";
+          caption.textContent = "20 Jul · Priya Rao";
+          details.appendChild(title);
+          details.appendChild(breakElement);
+          details.appendChild(caption);
+          var status = document.createElement("span");
+          status.className = "badge info";
+          status.textContent = "Upcoming";
+          item.appendChild(details);
+          item.appendChild(status);
+          motionList.appendChild(item);
+        });
+        document.getElementById("remove-motion-item").addEventListener("click", function () {
+          if (motionList.firstElementChild) motionList.firstElementChild.remove();
+        });
+
+        var mixedCheckbox = document.getElementById("mixed-checkbox");
+        if (mixedCheckbox) mixedCheckbox.indeterminate = true;
+        replayNumber();
+      })();
+    </script>
+  </body>
+</html>

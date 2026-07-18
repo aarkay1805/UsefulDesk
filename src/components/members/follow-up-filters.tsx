@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   activeFollowUpFilterCount,
   EMPTY_FOLLOW_UP_FILTERS,
+  exclusiveFollowUpBucket,
   FOLLOW_UP_BUCKET_OPTIONS,
   UNASSIGNED_FOLLOW_UP,
   type FollowUpFilters as FollowUpFilterState,
@@ -47,6 +48,14 @@ export function FollowUpFilters({
       ? current.filter((item) => item !== choice)
       : [...current, choice];
     onChange({ ...value, [key]: next });
+  }
+
+  function toggleBucket(choice: string) {
+    const bucket = choice as FollowUpFilterState['buckets'][number];
+    onChange({
+      ...value,
+      buckets: exclusiveFollowUpBucket(bucket, !value.buckets.includes(bucket)),
+    });
   }
 
   const assigneeOptions = [
@@ -105,7 +114,7 @@ export function FollowUpFilters({
             label="Due date"
             options={FOLLOW_UP_BUCKET_OPTIONS}
             selected={value.buckets}
-            onToggle={(choice) => toggle('buckets', choice)}
+            onToggle={toggleBucket}
           />
 
           <Separator className="my-3" />

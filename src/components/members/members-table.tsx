@@ -62,6 +62,7 @@ import {
 import { GatedButton } from "@/components/ui/gated-button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Separator } from "@/components/ui/separator";
+import { Chip, ChipGroup } from "@/components/ui/chip";
 import {
   Table,
   TableBody,
@@ -70,7 +71,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Toggle } from "@/components/ui/toggle";
 import { LeadsSort, type SortState } from "@/components/leads/leads-sort";
 import { EditableCell } from "@/components/leads/editable-cell";
 import {
@@ -216,7 +216,7 @@ const MEMBER_COLUMNS: MemberColumn[] = [
   },
   {
     key: "reminder",
-    label: "Reminder",
+    label: "Actions",
     defaultWidth: 130,
     minWidth: 110,
     align: "right",
@@ -503,6 +503,20 @@ export function MembersTable({
           return { ...current, followUps: pressed ? ["open"] : [] };
       }
     });
+  }
+
+  function activeQuickFilters(): QuickMemberFilter[] {
+    return QUICK_MEMBER_FILTERS.filter(({ key }) =>
+      quickFilterPressed(key)
+    ).map(({ key }) => key);
+  }
+
+  function setQuickFilters(next: QuickMemberFilter[]) {
+    const current = activeQuickFilters();
+    const changed = QUICK_MEMBER_FILTERS.find(
+      ({ key }) => current.includes(key) !== next.includes(key)
+    )?.key;
+    if (changed) setQuickFilter(changed, next.includes(changed));
   }
 
   // Build the header Filter submenu prop for a column, or undefined for
@@ -1034,26 +1048,18 @@ export function MembersTable({
                   orientation="vertical"
                   className="mx-0.5 h-5 data-vertical:self-center"
                 />
-                <div
-                  role="group"
-                  className="flex items-center gap-1.5"
+                <ChipGroup<QuickMemberFilter>
+                  selectionMode="multiple"
+                  value={activeQuickFilters()}
+                  onValueChange={setQuickFilters}
                   aria-label="Quick filters"
                 >
                   {QUICK_MEMBER_FILTERS.map((filter) => (
-                    <Toggle
-                      key={filter.key}
-                      variant="outline"
-                      size="sm"
-                      pressed={quickFilterPressed(filter.key)}
-                      onPressedChange={(pressed) =>
-                        setQuickFilter(filter.key, pressed)
-                      }
-                      className="text-muted-foreground data-pressed:border-primary/30 data-pressed:bg-primary/10 data-pressed:text-primary-text dark:data-pressed:border-primary/40 dark:data-pressed:bg-primary/15 rounded-full px-3"
-                    >
+                    <Chip key={filter.key} value={filter.key}>
                       {filter.label}
-                    </Toggle>
+                    </Chip>
                   ))}
-                </div>
+                </ChipGroup>
               </motion.div>
             </div>
           </LayoutGroup>
