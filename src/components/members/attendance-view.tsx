@@ -28,6 +28,7 @@ import {
 import { istAddDays } from '@/lib/memberships/expiry';
 import { createClient } from '@/lib/supabase/client';
 import type { Attendance, Membership } from '@/types';
+import { ColumnHeader, type SortDir } from '@/components/table/column-header';
 import { AttendanceOverrideDialog } from './attendance-override-dialog';
 import { MemberIdentity } from './member-identity';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +49,12 @@ import {
 } from '@/components/ui/toolbar';
 
 type AttendanceBucket = 'present' | 'absent';
+type AttendanceSortKey = 'name' | 'checked_in_at' | 'checked_out_at';
+
+interface AttendanceSort {
+  key: AttendanceSortKey;
+  dir: SortDir;
+}
 
 interface AttendanceViewProps {
   /** Bump to refetch after a mutation elsewhere. */
@@ -79,6 +86,10 @@ export function AttendanceView({
   const [usage, setUsage] = useState<Map<string, number>>(new Map());
   const [bucket, setBucket] = useState<AttendanceBucket>('absent');
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<AttendanceSort>({
+    key: 'name',
+    dir: 'asc',
+  });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -159,16 +170,34 @@ export function AttendanceView({
     };
   }, [accountId, isToday, locale, reloadKey, selectedDate, today]);
 
-  const sortedRows = useMemo(
-    () =>
-      [...rows].sort((a, b) =>
-        (a.contact?.name ?? '').localeCompare(
-          b.contact?.name ?? '',
-          locale.locale
-        )
-      ),
-    [locale.locale, rows]
-  );
+  const sortedRows = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      const nameComparison = (a.contact?.name ?? '').localeCompare(
+        b.contact?.name ?? '',
+        locale.locale
+      );
+
+      if (sort.key === 'name') {
+        return nameComparison * (sort.dir === 'asc' ? 1 : -1);
+      }
+
+      const attendanceA = attendanceByContact.get(a.contact_id);
+      const attendanceB = attendanceByContact.get(b.contact_id);
+      const timeA = attendanceA?.[sort.key] ?? null;
+      const timeB = attendanceB?.[sort.key] ?? null;
+
+      // Keep members without a recorded time at the end in both directions.
+      // This leaves active (not-yet-checked-out) visits easy to find.
+      if (!timeA && !timeB) return nameComparison;
+      if (!timeA) return 1;
+      if (!timeB) return -1;
+
+      const timeComparison = timeA.localeCompare(timeB);
+      return timeComparison === 0
+        ? nameComparison
+        : timeComparison * (sort.dir === 'asc' ? 1 : -1);
+    });
+  }, [attendanceByContact, locale.locale, rows, sort]);
 
   const presentCount = useMemo(
     () =>
@@ -382,9 +411,30 @@ export function AttendanceView({
         <Table className="min-w-[680px]">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[46%] px-4">Name</TableHead>
-              <TableHead className="w-[18%]">Check-in</TableHead>
-              <TableHead className="w-[18%]">Check-out</TableHead>
+              <TableHead className="w-[46%] px-4">
+                <ColumnHeader
+                  label="Name"
+                  sortable
+                  sortDir={sort.key === 'name' ? sort.dir : null}
+                  onSort={(dir) => setSort({ key: 'name', dir })}
+                />
+              </TableHead>
+              <TableHead className="w-[18%]">
+                <ColumnHeader
+                  label="Check-in"
+                  sortable
+                  sortDir={sort.key === 'checked_in_at' ? sort.dir : null}
+                  onSort={(dir) => setSort({ key: 'checked_in_at', dir })}
+                />
+              </TableHead>
+              <TableHead className="w-[18%]">
+                <ColumnHeader
+                  label="Check-out"
+                  sortable
+                  sortDir={sort.key === 'checked_out_at' ? sort.dir : null}
+                  onSort={(dir) => setSort({ key: 'checked_out_at', dir })}
+                />
+              </TableHead>
               <TableHead className="w-[18%] pr-4 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
