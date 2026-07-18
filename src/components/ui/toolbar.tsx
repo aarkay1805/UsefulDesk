@@ -73,7 +73,7 @@ function ToolbarToggleItem({
       render={<TogglePrimitive />}
       className={cn(
         toolbarItemClasses,
-        'data-pressed:bg-primary/10 data-pressed:text-primary-text',
+        'data-pressed:bg-primary/10 data-pressed:text-primary-text data-pressed:[&_[data-slot=badge]]:bg-primary/20 data-pressed:[&_[data-slot=badge]]:text-primary-text',
         className
       )}
       {...props}
