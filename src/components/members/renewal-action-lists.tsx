@@ -5,9 +5,9 @@ import {
   CalendarClock,
   CircleAlert,
   CheckCircle2,
+  ListPlus,
   Loader2,
   RefreshCw,
-  UserRoundPlus,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
@@ -415,7 +415,7 @@ function RenewalTable({
                             variant="ghost"
                             onClick={() => onAssign(m)}
                           >
-                            <UserRoundPlus className="size-3.5" /> Assign
+                            <ListPlus className="size-3.5" /> Follow up
                           </Button>
                         )}
                         <Button

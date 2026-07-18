@@ -22,6 +22,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useLocale } from '@/hooks/use-locale';
 import { useTablePrefs } from '@/hooks/use-table-prefs';
 import {
+  activeFollowUpFilterCount,
   applyFollowUpFilters,
   EMPTY_FOLLOW_UP_FILTERS,
   FOLLOW_UP_BUCKET_OPTIONS,
@@ -42,7 +43,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { GatedButton } from '@/components/ui/gated-button';
-import { SearchInput } from '@/components/ui/search-input';
 import { Separator } from '@/components/ui/separator';
 import { Chip, ChipGroup } from '@/components/ui/chip';
 import {
@@ -164,15 +164,6 @@ const DEFAULT_PREFS: FollowUpTablePrefs = {
   widths: {},
 };
 
-function useDebounced<T>(value: T, ms: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timeout = window.setTimeout(() => setDebounced(value), ms);
-    return () => window.clearTimeout(timeout);
-  }, [value, ms]);
-  return debounced;
-}
-
 interface FollowUpListsProps {
   readiness: ReminderReadiness;
   onSelect: (membershipId: string) => void;
@@ -183,9 +174,9 @@ interface FollowUpListsProps {
 
 /**
  * The member Follow-ups tab as a contextual data table. It intentionally
- * mirrors All members (search, server pagination, shared filters/sort,
- * persisted columns, resize, selection, and bulk actions) while keeping only
- * task-specific columns.
+ * mirrors All members (server pagination, shared filters/sort, persisted
+ * columns, resize, selection, and bulk actions) while keeping only
+ * task-specific controls and columns.
  */
 export function FollowUpLists({
   readiness,
@@ -203,8 +194,6 @@ export function FollowUpLists({
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
-  const [searchInput, setSearchInput] = useState('');
-  const search = useDebounced(searchInput, 300);
   const [filters, setFilters] = useState<FollowUpFilterState>(
     EMPTY_FOLLOW_UP_FILTERS
   );
@@ -227,10 +216,10 @@ export function FollowUpLists({
     setBulkCount(selected.size);
   }
 
-  const querySig = JSON.stringify({ search, filters });
-  const [prevQuerySig, setPrevQuerySig] = useState(querySig);
-  if (querySig !== prevQuerySig) {
-    setPrevQuerySig(querySig);
+  const filterSig = JSON.stringify(filters);
+  const [prevFilterSig, setPrevFilterSig] = useState(filterSig);
+  if (filterSig !== prevFilterSig) {
+    setPrevFilterSig(filterSig);
     setPage(0);
     setSelected(new Set());
   }
@@ -491,14 +480,6 @@ export function FollowUpLists({
         .eq('status', 'open')
         .not('membership_id', 'is', null);
 
-      const term = search.trim();
-      if (term) {
-        const like = `%${term}%`;
-        query = query.or(
-          `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`,
-          { referencedTable: 'contact' }
-        );
-      }
       query = applyFollowUpFilters(query, filters, fmt.today());
 
       if (sort?.key === 'customer') {
@@ -528,7 +509,7 @@ export function FollowUpLists({
     return () => {
       cancelled = true;
     };
-  }, [supabase, reloadKey, search, filters, sort, page, pageSize, fmt]);
+  }, [supabase, reloadKey, filters, sort, page, pageSize, fmt]);
 
   const totalPages = Math.ceil(totalCount / pageSize);
   const hasPrev = page > 0;
@@ -561,14 +542,6 @@ export function FollowUpLists({
       .select(FOLLOW_UP_ID_SELECT)
       .eq('status', 'open')
       .not('membership_id', 'is', null);
-    const term = search.trim();
-    if (term) {
-      const like = `%${term}%`;
-      query = query.or(
-        `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`,
-        { referencedTable: 'contact' }
-      );
-    }
     query = applyFollowUpFilters(query, filters, fmt.today());
     const { data, error } = await query;
     if (error) {
@@ -595,13 +568,6 @@ export function FollowUpLists({
     <>
       <section className="border-border bg-card overflow-hidden rounded-2xl border">
         <div className="border-border flex flex-wrap items-center gap-2 border-b p-2">
-          <SearchInput
-            containerClassName="min-w-48 w-full max-w-[360px] flex-1 basis-64"
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search follow-ups…"
-          />
-
           <LayoutGroup id="follow-up-table-filter-controls">
             <div className="flex shrink-0 items-center gap-2">
               <FollowUpFilters
@@ -748,9 +714,9 @@ export function FollowUpLists({
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <ClipboardCheck className="text-muted-foreground size-8" />
             <p className="text-muted-foreground text-sm">
-              {totalCount === 0 && !search.trim()
+              {activeFollowUpFilterCount(filters) === 0
                 ? 'No open member follow-ups.'
-                : 'No follow-ups match your search or filters.'}
+                : 'No follow-ups match your filters.'}
             </p>
           </div>
         ) : (

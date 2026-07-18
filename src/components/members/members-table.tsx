@@ -17,11 +17,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Dumbbell,
+  Eye,
+  ListPlus,
   ListChecks,
   Loader2,
   MessageCircle,
+  MoreHorizontal,
+  Pencil,
+  RefreshCw,
   Settings,
   StickyNote,
+  UserPlus,
   Wallet,
   X,
 } from "lucide-react";
@@ -57,6 +63,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -101,6 +108,9 @@ import {
 import { MembersFilters } from "./members-filters";
 import { MemberIdentity } from "./member-identity";
 import { BulkRecordPaymentDialog } from "./bulk-record-payment-dialog";
+import { FollowUpDialog } from "./follow-up-dialog";
+import { RecordPaymentDialog } from "./record-payment-dialog";
+import { RenewMembershipDialog } from "./renew-membership-dialog";
 import { useMembershipPlans } from "./use-membership-plans";
 import { useAccountStaff } from "./use-account-staff";
 import {
@@ -217,8 +227,8 @@ const MEMBER_COLUMNS: MemberColumn[] = [
   {
     key: "reminder",
     label: "Actions",
-    defaultWidth: 130,
-    minWidth: 110,
+    defaultWidth: 150,
+    minWidth: 130,
     align: "right",
   },
 ];
@@ -271,11 +281,12 @@ function useDebounced<T>(value: T, ms: number): T {
 interface MembersTableProps {
   readiness: ReminderReadiness;
   onSelect: (membershipId: string) => void;
+  onEdit: (membership: Membership) => void;
   /** Bump to force a refetch after a mutation elsewhere. */
   reloadKey: number;
   /** Refresh the rest of the Members page after a bulk write here. */
   onChanged: () => void;
-  /** Gate on bulk actions (canSendMessages — agent+). */
+  /** Gate on row and bulk actions (canSendMessages — agent+). */
   canEdit: boolean;
   /** Lets the page surface this table's filter-aware CSV export in the
    *  app-bar header. The table hands up a caller (or null on unmount);
@@ -286,6 +297,7 @@ interface MembersTableProps {
 export function MembersTable({
   readiness,
   onSelect,
+  onEdit,
   reloadKey,
   onChanged,
   canEdit,
@@ -325,6 +337,11 @@ export function MembersTable({
   const [payOpen, setPayOpen] = useState(false);
   const [remindOpen, setRemindOpen] = useState(false);
   const [reminding, setReminding] = useState(false);
+
+  // Contextual row-action dialogs opened from the Actions overflow menu.
+  const [followUpFor, setFollowUpFor] = useState<Membership | null>(null);
+  const [renewFor, setRenewFor] = useState<Membership | null>(null);
+  const [paymentFor, setPaymentFor] = useState<Membership | null>(null);
 
   // Inline editing mirrors the leads table: one active cell, an explicit
   // dropdown choice, and a visible save state.
@@ -727,6 +744,74 @@ export function MembersTable({
     );
   }
 
+  function renderRowActions(m: Membership) {
+    const memberName = m.contact?.name?.trim() || "member";
+    const canRenewOrConvert = m.status === "active";
+    const canRecordPayment =
+      !m.is_trial && m.status !== "cancelled" && m.fee_status === "due";
+
+    return (
+      <div className="flex items-center justify-end gap-1">
+        <SendReminderButton membership={m} readiness={readiness} />
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`More actions for ${memberName}`}
+                title="More actions"
+              />
+            }
+          >
+            <MoreHorizontal className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-52">
+            <DropdownMenuItem onClick={() => onSelect(m.id)}>
+              <Eye className="size-4" />
+              View details
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canEdit} onClick={() => onEdit(m)}>
+              <Pencil className="size-4" />
+              Edit membership
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={!canEdit}
+              onClick={() => setFollowUpFor(m)}
+            >
+              <ListPlus className="size-4" />
+              Follow up
+            </DropdownMenuItem>
+            {canRenewOrConvert && (
+              <DropdownMenuItem
+                disabled={!canEdit}
+                onClick={() => setRenewFor(m)}
+              >
+                {m.is_trial ? (
+                  <UserPlus className="size-4" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}
+                {m.is_trial ? "Convert to member" : "Renew membership"}
+              </DropdownMenuItem>
+            )}
+            {canRecordPayment && (
+              <DropdownMenuItem
+                disabled={!canEdit}
+                onClick={() => setPaymentFor(m)}
+              >
+                <Wallet className="size-4" />
+                Record payment
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  }
+
   // Cell body per column key — reaches fmt/readiness/todayDisplay closures.
   function renderCell(key: string, m: Membership) {
     switch (key) {
@@ -771,7 +856,7 @@ export function MembersTable({
           <span className="text-muted-foreground">No</span>
         );
       case "reminder":
-        return <SendReminderButton membership={m} readiness={readiness} />;
+        return renderRowActions(m);
       default:
         return null;
     }
@@ -1366,6 +1451,32 @@ export function MembersTable({
           </div>
         )}
       </section>
+
+      {followUpFor && (
+        <FollowUpDialog
+          open
+          onOpenChange={(open) => !open && setFollowUpFor(null)}
+          membership={followUpFor}
+          onSaved={onChanged}
+        />
+      )}
+      {renewFor && (
+        <RenewMembershipDialog
+          open
+          onOpenChange={(open) => !open && setRenewFor(null)}
+          membership={renewFor}
+          variant={renewFor.is_trial ? "convert" : "renew"}
+          onSaved={onChanged}
+        />
+      )}
+      {paymentFor && (
+        <RecordPaymentDialog
+          open
+          onOpenChange={(open) => !open && setPaymentFor(null)}
+          membership={paymentFor}
+          onSaved={onChanged}
+        />
+      )}
 
       {/* Bulk dialogs */}
       <BulkAddNoteDialog

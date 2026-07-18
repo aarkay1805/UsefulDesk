@@ -1,27 +1,21 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import {
-  CheckCircle2,
-  Ghost,
-  Loader2,
-  MoonStar,
-  UserRoundPlus,
-} from "lucide-react";
+import { useEffect, useState } from 'react';
+import { CheckCircle2, Ghost, ListPlus, Loader2, MoonStar } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { useLocale } from "@/hooks/use-locale";
-import { INACTIVE_DAYS } from "@/lib/memberships/stats";
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { useLocale } from '@/hooks/use-locale';
+import { INACTIVE_DAYS } from '@/lib/memberships/stats';
 import {
   partitionInactivity,
   daysSinceVisit,
-} from "@/lib/memberships/inactivity";
-import type { Contact, MemberActivity, Membership } from "@/types";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { FollowUpDialog } from "./follow-up-dialog";
-import { MemberIdentity } from "./member-identity";
+} from '@/lib/memberships/inactivity';
+import type { Contact, MemberActivity, Membership } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { FollowUpDialog } from './follow-up-dialog';
+import { MemberIdentity } from './member-identity';
 
 interface InactiveActionListsProps {
   /** Opens the member detail sheet (keyed by membership id). */
@@ -36,7 +30,7 @@ function toMembership(r: MemberActivity): Membership {
     id: r.membership_id,
     account_id: r.account_id,
     contact_id: r.contact_id,
-    user_id: "",
+    user_id: '',
     plan_id: r.plan_id,
     start_date: r.start_date,
     end_date: r.end_date,
@@ -44,8 +38,8 @@ function toMembership(r: MemberActivity): Membership {
     fee_amount: r.fee_amount,
     fee_status: r.fee_status,
     is_trial: r.is_trial,
-    created_at: "",
-    updated_at: "",
+    created_at: '',
+    updated_at: '',
     contact: { name: r.contact_name, phone: r.contact_phone } as Contact,
   } as Membership;
 }
@@ -77,11 +71,11 @@ export function InactiveActionLists({
       // Current paying members only — expired/trial people are already
       // chased from the Renewals and Trials lists.
       const { data } = await supabase
-        .from("member_activity")
-        .select("*")
-        .eq("status", "active")
-        .eq("is_trial", false)
-        .gte("end_date", fmt.today());
+        .from('member_activity')
+        .select('*')
+        .eq('status', 'active')
+        .eq('is_trial', false)
+        .gte('end_date', fmt.today());
       if (cancelled) return;
       setRows((data as MemberActivity[]) ?? []);
       setLoading(false);
@@ -93,7 +87,7 @@ export function InactiveActionLists({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+      <div className="text-muted-foreground flex items-center gap-2 py-10 text-sm">
         <Loader2 className="size-4 animate-spin" /> Loading activity…
       </div>
     );
@@ -107,11 +101,13 @@ export function InactiveActionLists({
       <div className="grid gap-4 lg:grid-cols-2">
         <RetentionList
           title={`Inactive ${INACTIVE_DAYS}+ days`}
-          icon={<MoonStar className="size-4 text-amber-700 dark:text-amber-400" />}
+          icon={
+            <MoonStar className="size-4 text-amber-700 dark:text-amber-400" />
+          }
           rows={inactive}
           detail={(r) => {
             const days = daysSinceVisit(r, today);
-            return `${r.plan_name ?? "—"} · last visit ${days}d ago`;
+            return `${r.plan_name ?? '—'} · last visit ${days}d ago`;
           }}
           onSelect={onSelect}
           onAssign={canSendMessages ? setAssigning : undefined}
@@ -119,9 +115,9 @@ export function InactiveActionLists({
         />
         <RetentionList
           title="Never visited"
-          icon={<Ghost className="size-4 text-muted-foreground" />}
+          icon={<Ghost className="text-muted-foreground size-4" />}
           rows={neverVisited}
-          detail={(r) => `${r.plan_name ?? "—"} · member since ${r.start_date}`}
+          detail={(r) => `${r.plan_name ?? '—'} · member since ${r.start_date}`}
           onSelect={onSelect}
           onAssign={canSendMessages ? setAssigning : undefined}
           emptyLabel="Every member has checked in at least once."
@@ -162,10 +158,10 @@ function RetentionList({
   emptyLabel: string;
 }) {
   return (
-    <section className="flex flex-col rounded-xl border border-border bg-card">
-      <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+    <section className="border-border bg-card flex flex-col rounded-xl border">
+      <header className="border-border flex items-center gap-2 border-b px-3 py-2.5">
         {icon}
-        <h3 className="text-sm font-medium text-foreground">{title}</h3>
+        <h3 className="text-foreground text-sm font-medium">{title}</h3>
         <Badge variant="neutral" className="ml-auto tabular-nums">
           {rows.length}
         </Badge>
@@ -174,14 +170,14 @@ function RetentionList({
       {rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
           <CheckCircle2 className="size-6 text-emerald-700 dark:text-emerald-500/70" />
-          <p className="text-xs text-muted-foreground">{emptyLabel}</p>
+          <p className="text-muted-foreground text-xs">{emptyLabel}</p>
         </div>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="divide-border divide-y">
           {rows.map((r) => (
             <li
               key={r.membership_id}
-              className="cursor-pointer px-3 py-2.5 transition-colors hover:bg-muted/50"
+              className="hover:bg-muted/50 cursor-pointer px-3 py-2.5 transition-colors"
               onClick={() => onSelect(r.membership_id)}
             >
               <div className="flex items-center justify-between gap-2">
@@ -189,7 +185,7 @@ function RetentionList({
                   name={r.contact_name}
                   secondary={r.contact_phone}
                   meta={
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="text-muted-foreground truncate text-xs">
                       {detail(r)}
                     </p>
                   }
@@ -199,8 +195,12 @@ function RetentionList({
                     className="shrink-0"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <Button size="sm" variant="ghost" onClick={() => onAssign(r)}>
-                      <UserRoundPlus className="size-3.5" /> Assign
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onAssign(r)}
+                    >
+                      <ListPlus className="size-3.5" /> Follow up
                     </Button>
                   </div>
                 )}

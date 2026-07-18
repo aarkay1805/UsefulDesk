@@ -39,8 +39,7 @@ import { ImportMembersCsvDialog } from '@/components/members/import-members-csv-
 import { MemberDetailView } from '@/components/members/member-detail-view';
 import { CheckInView } from '@/components/members/check-in-view';
 import { PaymentSummaryTiles } from '@/components/members/payment-summary-tiles';
-import { PaymentDueTable } from '@/components/members/payment-due-table';
-import { PaymentsLedger } from '@/components/members/payments-ledger';
+import { PaymentsTable } from '@/components/members/payments-table';
 import { useReminderReadiness } from '@/components/members/send-reminder-button';
 
 type View =
@@ -248,28 +247,18 @@ export default function MembersPage() {
         ) : view === 'payments' ? (
           <div className="space-y-6">
             <PaymentSummaryTiles reloadKey={reloadKey} />
-            <div className="space-y-3">
-              <h2 className="text-foreground text-sm font-medium">
-                Payment due
-              </h2>
-              <PaymentDueTable
-                readiness={readiness}
-                onSelect={openDetail}
-                reloadKey={reloadKey}
-                onChanged={reload}
-              />
-            </div>
-            <div className="space-y-3">
-              <h2 className="text-foreground text-sm font-medium">
-                Recent payments
-              </h2>
-              <PaymentsLedger reloadKey={reloadKey} onSelect={openDetail} />
-            </div>
+            <PaymentsTable
+              readiness={readiness}
+              onSelect={openDetail}
+              reloadKey={reloadKey}
+              onChanged={reload}
+            />
           </div>
         ) : view === 'all' ? (
           <MembersTable
             readiness={readiness}
             onSelect={openDetail}
+            onEdit={editFromDetail}
             onChanged={reload}
             canEdit={canSendMessages}
             reloadKey={reloadKey}
