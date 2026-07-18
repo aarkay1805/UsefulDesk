@@ -11,6 +11,7 @@ import { useUnreadNotifications } from '@/hooks/use-unread-notifications';
 import {
   Bell,
   Bot,
+  ChartNoAxesCombined,
   Crown,
   Dumbbell,
   LayoutDashboard,
@@ -95,6 +96,7 @@ const navSections: { key: string; items: NavItem[] }[] = [
       { href: '/notifications', label: 'Notifications', icon: Bell },
       { href: '/leads', label: 'Leads', icon: Users },
       { href: '/members', label: 'Members', icon: Dumbbell },
+      { href: '/reports', label: 'Reports', icon: ChartNoAxesCombined },
     ],
   },
   {

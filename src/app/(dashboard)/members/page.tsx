@@ -53,6 +53,19 @@ const VIEW_LABEL: Record<View, string> = {
   attendance: 'Attendance',
 };
 
+const MEMBER_VIEWS = new Set<View>([
+  'renewals',
+  'followups',
+  'trials',
+  'payments',
+  'all',
+  'attendance',
+]);
+
+function isMemberView(value: string | null): value is View {
+  return value !== null && MEMBER_VIEWS.has(value as View);
+}
+
 export default function MembersPage() {
   const { canSendMessages } = useAuth();
   const readiness = useReminderReadiness();
@@ -67,6 +80,19 @@ export default function MembersPage() {
 
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  // Report action links deep-link to the relevant operating queue. Read the
+  // requested tab after hydration (the server cannot see window.location in
+  // this client page), then keep subsequent tab choices reflected in the URL.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('view');
+    if (isMemberView(requested)) {
+      // Synchronising component state from the browser URL is the purpose of
+      // this effect; it is not derived render state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setView(requested);
+    }
+  }, []);
 
   const reload = () => setReloadKey((k) => k + 1);
 
@@ -131,6 +157,13 @@ export default function MembersPage() {
     setFormOpen(true);
   }
 
+  function changeView(nextView: View) {
+    setView(nextView);
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', nextView);
+    window.history.replaceState(null, '', url);
+  }
+
   return (
     <div>
       {/* App-bar actions — portalled into the shared header next to the
@@ -183,7 +216,7 @@ export default function MembersPage() {
       <PageHeaderTabs>
         <Tabs
           value={view}
-          onValueChange={(v) => setView(v as View)}
+          onValueChange={(v) => changeView(v as View)}
           className="pt-2 pb-0"
         >
           <TabsList variant="line" className="h-auto gap-5 p-0">

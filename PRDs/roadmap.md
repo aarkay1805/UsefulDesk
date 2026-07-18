@@ -17,9 +17,9 @@ Shipped: templated WhatsApp follow-ups · trial tracking · payment-due buckets 
 
 ## 🚧 Phase 3 — retention & ops
 
-Built: attendance + plan visit limits / session packs.
+Built: attendance + plan visit limits / session packs · at-risk members via churn-risk flags · dormant recovery through Renewals · full owner reporting.
 
-Left: at-risk members · dormant recovery (reuse broadcasts) · trainer accountability · owner reporting.
+Left: trainer accountability.
 
 ## ⬜ Phase 4 — franchise / multi-branch
 
