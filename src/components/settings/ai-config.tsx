@@ -460,10 +460,9 @@ export function AiConfig() {
         <div className="flex items-center justify-between">
           {configured ? (
             <Button
-              variant="ghost"
+              variant="destructive-ghost"
               onClick={handleRemove}
               disabled={!canEdit || removing}
-              className="text-destructive hover:text-destructive"
             >
               {removing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

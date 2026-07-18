@@ -317,17 +317,18 @@ export default function BroadcastDetailPage() {
               Cancel
             </Button>
             <Button
+              variant="destructive"
               size="sm"
               onClick={handleDelete}
               disabled={deleting}
-              className="h-7 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+              className="h-7"
             >
               {deleting ? 'Deleting…' : 'Confirm'}
             </Button>
           </div>
         ) : (
           <Button
-            variant="outline"
+            variant="destructive-ghost"
             size="sm"
             disabled={broadcast.status === 'sending'}
             onClick={() => setConfirmDelete(true)}
@@ -336,7 +337,6 @@ export default function BroadcastDetailPage() {
                 ? 'Cannot delete while a broadcast is actively sending'
                 : 'Delete this broadcast'
             }
-            className="border-red-500/30 bg-transparent text-red-700 dark:text-red-400 hover:bg-red-500/10 disabled:opacity-40"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Delete

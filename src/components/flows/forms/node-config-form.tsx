@@ -310,10 +310,9 @@ function SendButtonsForm({
                 placeholder="Next node…"
               />
               <Button
-                variant="ghost"
+                variant="destructive-ghost"
                 size="sm"
                 onClick={() => removeButton(i)}
-                className="text-red-700 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
@@ -483,10 +482,10 @@ function SendListForm({
               />
               {sections.length > 1 && (
                 <Button
-                  variant="ghost"
+                  variant="destructive-ghost"
                   size="sm"
                   onClick={() => removeSection(sIdx)}
-                  className="shrink-0 text-red-700 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
+                  className="shrink-0"
                   aria-label="Remove section"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -536,10 +535,9 @@ function SendListForm({
                   placeholder="Next node…"
                 />
                 <Button
-                  variant="ghost"
+                  variant="destructive-ghost"
                   size="sm"
                   onClick={() => removeRow(sIdx, rIdx)}
-                  className="text-red-700 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>

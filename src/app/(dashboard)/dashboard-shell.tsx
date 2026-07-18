@@ -19,6 +19,11 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const isLeadsPage = pathname.startsWith('/leads');
+  const contentPaddingTop = isLeadsPage
+    ? 'pt-0'
+    : pathname === '/members'
+      ? 'pt-6'
+      : 'pt-3';
 
   // Sidebar drawer state — only used on mobile. On lg+ the sidebar is
   // always visible and this stays at `false` (ignored by the component).
@@ -55,12 +60,12 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
-        {/* Leads is a flush data surface; other routes keep the standard
-            gap between the app bar and their first content row. */}
+        {/* Leads is a flush data surface. Members uses a roomier 24px
+            separation; other routes retain the standard 12px gap. */}
         <main
           className={cn(
             'flex-1 overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6',
-            isLeadsPage ? 'pt-0' : 'pt-3'
+            contentPaddingTop
           )}
         >
           {children}

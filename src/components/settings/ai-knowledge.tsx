@@ -205,10 +205,10 @@ export function AiKnowledgeCard({
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          variant="destructive-ghost"
+                          size="icon"
                           onClick={() => void remove(doc.id)}
+                          aria-label="Delete knowledge document"
                           title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />

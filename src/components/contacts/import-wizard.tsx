@@ -1933,11 +1933,11 @@ function MapStep({
                               </Button>
                               <Button
                                 type="button"
-                                variant="ghost"
+                                variant="destructive-ghost"
                                 size="icon-sm"
                                 title="Delete field"
                                 onClick={() => onDeleteField(cfId)}
-                                className="shrink-0 text-muted-foreground hover:text-red-700 dark:hover:text-red-400"
+                                className="shrink-0"
                               >
                                 <Trash2 className="size-3.5" />
                               </Button>

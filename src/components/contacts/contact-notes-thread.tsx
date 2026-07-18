@@ -490,15 +490,16 @@ export function ContactNotesThread({
                 </span>
               )}
               {(newNote.trim() || draftSaved) && (
-                <button
+                <Button
                   type="button"
+                  variant="destructive-ghost"
+                  size="icon-sm"
                   onClick={discardDraft}
                   aria-label="Discard draft"
                   title="Discard draft"
-                  className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive cursor-pointer"
                 >
                   <Trash2 className="size-4" />
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -883,18 +884,20 @@ function NoteCard({
         )}
       </span>
       {(isOwner || canDeleteAny) && (
-        <button
+        <Button
           type="button"
+          variant="destructive-ghost"
+          size="icon-xs"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(note.id);
           }}
           aria-label="Delete note"
           title="Delete note"
-          className="shrink-0 cursor-pointer text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+          className="shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
         >
           <Trash2 className="size-3.5" />
-        </button>
+        </Button>
       )}
     </div>
   );

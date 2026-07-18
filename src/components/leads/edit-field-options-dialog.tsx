@@ -417,11 +417,11 @@ function OptionRow({
       )}
 
       <Button
-        variant="ghost"
+        variant="destructive-ghost"
         size="icon-sm"
         onClick={onRemove}
         aria-label={`Remove ${option.label}`}
-        className="text-muted-foreground hover:text-destructive shrink-0"
+        className="shrink-0"
       >
         <Trash2 className="size-4" />
       </Button>

@@ -605,13 +605,13 @@ function CustomCatalogueRow({
         <Pencil className="size-4" />
       </Button>
       <Button
-        variant="ghost"
+        variant="destructive-ghost"
         size="icon-sm"
         disabled={busy}
         onClick={onDelete}
         title="Delete field"
         className={cn(
-          'shrink-0 text-muted-foreground transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100',
+          'shrink-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100',
           // Stay visible while the delete is in flight.
           busy ? 'opacity-100' : 'opacity-0'
         )}

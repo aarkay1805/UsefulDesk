@@ -260,12 +260,12 @@ export function PlansSettings() {
                     </Button>
                   )}
                   <Button
-                    variant="ghost"
+                    variant="destructive-ghost"
                     size="icon-sm"
                     title="Delete"
                     onClick={() => deletePlan(plan)}
                   >
-                    <Trash2 className="size-4 text-destructive" />
+                    <Trash2 className="size-4" />
                   </Button>
                 </div>
               )}

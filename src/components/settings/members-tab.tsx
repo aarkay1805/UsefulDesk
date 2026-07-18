@@ -475,20 +475,14 @@ export function MembersTab() {
                       </span>
                     )}
 
-                    {/* Remove. Admin+ only; never on the owner row;
-                        never on yourself. Pre-polish styling was
-                        neutral-default + red-on-hover — the
-                        destructive intent was invisible until the
-                        user moused over. Now red is the default
-                        state with a darker shade on hover so the
-                        affordance reads at-a-glance. */}
+                    {/* Remove. Admin+ only; never on the owner row or yourself. */}
                     {canManageMembers && !isOwnerRow && !isSelf && (
                       <Button
-                        variant="outline"
-                        size="sm"
+                        variant="destructive-ghost"
+                        size="icon-sm"
                         onClick={() => setRemovingMember(member)}
                         disabled={isBusy}
-                        className="border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-800 dark:hover:text-red-200"
+                        aria-label={`Remove ${member.full_name || member.email}`}
                       >
                         <Trash2 className="size-4" />
                       </Button>
@@ -582,13 +576,10 @@ export function MembersTab() {
                         {copiedId === inv.id ? 'Copied' : 'Copy link'}
                       </Button>
 
-                      {/* Revoke: red default state, mirrors the
-                          members-tab Remove button. */}
                       <Button
-                        variant="outline"
+                        variant="destructive-ghost"
                         size="sm"
                         onClick={() => handleRevoke(inv)}
-                        className="border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300 hover:bg-red-500/20 hover:border-red-500/60 hover:text-red-800 dark:hover:text-red-200"
                       >
                         <MailX className="size-4" />
                         Revoke
@@ -644,9 +635,9 @@ export function MembersTab() {
               Cancel
             </Button>
             <Button
+              variant="destructive"
               onClick={handleRemove}
               disabled={!!pendingMemberAction}
-              className="bg-red-600 hover:bg-red-700 text-white"
             >
               {pendingMemberAction ? (
                 <>

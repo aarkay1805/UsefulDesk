@@ -107,10 +107,9 @@ export function EditorHeader() {
             </span>
           </Button>
           <Button
-            variant="ghost"
+            variant="destructive-ghost"
             size="sm"
             onClick={() => void deleteFlow()}
-            className="text-red-700 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Delete

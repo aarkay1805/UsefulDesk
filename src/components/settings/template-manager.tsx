@@ -647,7 +647,7 @@ export function TemplateManager() {
                       </Button>
                     )}
                     <Button
-                      variant="ghost"
+                      variant="destructive-ghost"
                       size="icon"
                       onClick={() => setTemplateToDelete(template)}
                       disabled={deletingId === template.id}
@@ -661,7 +661,6 @@ export function TemplateManager() {
                           ? 'Delete from Meta and locally'
                           : 'Delete locally'
                       }
-                      className="text-muted-foreground hover:text-red-700 dark:hover:text-red-400 hover:bg-red-500/10 dark:hover:bg-red-950/30 h-8 w-8"
                     >
                       {deletingId === template.id ? (
                         <Loader2 className="size-4 animate-spin" />
@@ -1052,10 +1051,10 @@ export function TemplateManager() {
                         />
                         <Button
                           type="button"
-                          variant="ghost"
-                          size="icon"
+                          variant="destructive-ghost"
+                          size="icon-sm"
                           onClick={() => removeButton(i)}
-                          className="text-muted-foreground hover:text-red-700 dark:hover:text-red-400 hover:bg-red-500/10 dark:hover:bg-red-950/30 size-7"
+                          aria-label="Remove template button"
                         >
                           <X className="size-3.5" />
                         </Button>
@@ -1243,9 +1242,9 @@ export function TemplateManager() {
               Cancel
             </Button>
             <Button
+              variant="destructive"
               onClick={confirmDelete}
               disabled={deletingId !== null}
-              className="bg-red-600 hover:bg-red-700 text-white"
             >
               {deletingId !== null ? (
                 <>

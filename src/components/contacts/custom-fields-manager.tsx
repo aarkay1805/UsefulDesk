@@ -268,12 +268,12 @@ function FieldRow({
         className="focus:border-primary h-8 border-transparent bg-transparent text-foreground hover:border-border"
       />
       <Button
-        variant="ghost"
+        variant="destructive-ghost"
         size="icon-sm"
         disabled={busy}
         onClick={() => onDelete(field)}
         title="Delete field"
-        className="shrink-0 text-muted-foreground hover:text-red-700 dark:hover:text-red-400"
+        className="shrink-0"
       >
         {busy ? (
           <Loader2 className="size-4 animate-spin" />

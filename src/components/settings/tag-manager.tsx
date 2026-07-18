@@ -165,14 +165,16 @@ export function TagManager() {
                     className="group inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-sm font-medium text-foreground transition-colors"
                   >
                     {tag.name}
-                    <button
+                    <Button
                       type="button"
+                      variant="destructive-ghost"
+                      size="icon-xs"
                       onClick={() => confirmDelete(tag)}
                       aria-label={`Delete ${tag.name}`}
-                      className="ml-0.5 rounded-full p-0.5 opacity-60 transition-opacity hover:bg-black/10 hover:opacity-100 dark:hover:bg-white/10"
+                      className="-my-1 -mr-1 rounded-full"
                     >
                       <X className="size-3" />
-                    </button>
+                    </Button>
                   </span>
                 ))}
               </div>
