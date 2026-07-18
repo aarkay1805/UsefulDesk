@@ -256,7 +256,6 @@ export function AvatarEditorDialog({
               <Button
                 onClick={save}
                 disabled={busy || !areaPx}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {busy && <Loader2 className="size-4 animate-spin" />}
                 Save photo
@@ -266,10 +265,9 @@ export function AvatarEditorDialog({
             <>
               {currentUrl ? (
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   onClick={remove}
                   disabled={busy}
-                  className="text-destructive hover:text-destructive"
                 >
                   {busy ? (
                     <Loader2 className="size-4 animate-spin" />

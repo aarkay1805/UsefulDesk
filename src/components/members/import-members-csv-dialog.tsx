@@ -428,7 +428,6 @@ export function ImportMembersCsvDialog({
               type="button"
               disabled={!phoneMapped}
               onClick={() => setStep("confirm")}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Continue
             </Button>
@@ -438,7 +437,6 @@ export function ImportMembersCsvDialog({
               type="button"
               onClick={handleImport}
               disabled={importing || !preview || preview.ready.length === 0}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {importing && <Loader2 className="size-4 animate-spin" />}
               Import {preview?.ready.length ?? 0} member

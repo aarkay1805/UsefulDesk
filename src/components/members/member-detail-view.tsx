@@ -597,10 +597,7 @@ export function MemberDetailView({
                     size="default"
                   />
                   {membership.is_trial && (
-                    <Button
-                      onClick={() => setConvertOpen(true)}
-                      className="bg-primary text-primary-foreground hover:bg-primary/90"
-                    >
+                    <Button onClick={() => setConvertOpen(true)}>
                       <UserPlus className="size-4" /> Convert to member
                     </Button>
                   )}

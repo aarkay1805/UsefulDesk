@@ -216,7 +216,6 @@ function TrialList({
                     type="button"
                     size="sm"
                     onClick={() => onConvert(m)}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     <UserPlus className="size-3.5" /> Convert
                   </Button>

@@ -344,7 +344,6 @@ function ImportForm({
           type="button"
           onClick={handleImport}
           disabled={saving || loading || selected.size === 0 || !selectedPlan}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           {saving && <Loader2 className="size-4 animate-spin" />}
           Import {selected.size > 0 ? selected.size : ""} member

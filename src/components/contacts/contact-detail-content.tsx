@@ -1041,10 +1041,10 @@ export function ContactDetailContent({
         {canDelete && (
           <div className="border-t border-border/50 p-4">
             <Button
-              variant="ghost"
+              variant="destructive-ghost"
               size="sm"
               onClick={() => setDeleteOpen(true)}
-              className="w-full justify-center text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="w-full justify-center"
             >
               <Trash2 className="size-4" /> Delete lead
             </Button>

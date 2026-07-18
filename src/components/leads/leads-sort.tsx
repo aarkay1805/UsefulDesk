@@ -37,14 +37,7 @@ export function LeadsSort({ value, onChange, columns }: LeadsSortProps) {
 
   return (
     <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="ghost"
-            className="text-muted-foreground hover:bg-muted"
-          />
-        }
-      >
+      <PopoverTrigger render={<Button variant="ghost" />}>
         <ArrowUpDown className="size-4" />
         Sort
       </PopoverTrigger>

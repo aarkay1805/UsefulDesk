@@ -611,7 +611,7 @@ export function MembersTable({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="start"
-            className="border-border bg-popover min-w-48"
+            className="min-w-48"
           >
             {canApprove && (
               <>
@@ -619,7 +619,6 @@ export function MembersTable({
                   onClick={() =>
                     void handleAssignmentAction(request.id, "approve")
                   }
-                  className="text-popover-foreground focus:bg-muted"
                 >
                   <Check className="size-4" />
                   Approve assignment
@@ -628,7 +627,6 @@ export function MembersTable({
                   onClick={() =>
                     void handleAssignmentAction(request.id, "reject")
                   }
-                  className="text-popover-foreground focus:bg-muted"
                 >
                   <X className="size-4" />
                   Reject
@@ -640,7 +638,6 @@ export function MembersTable({
                 onClick={() =>
                   void handleAssignmentAction(request.id, "cancel")
                 }
-                className="text-popover-foreground focus:bg-muted"
               >
                 <Ban className="size-4" />
                 Withdraw request
@@ -981,7 +978,6 @@ export function MembersTable({
                     size="icon-sm"
                     aria-label="Manage columns"
                     title="Manage columns"
-                    className="text-muted-foreground hover:bg-muted hover:text-foreground"
                   />
                 }
               >
@@ -989,7 +985,7 @@ export function MembersTable({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="border-border bg-popover min-w-48"
+                className="min-w-48"
               >
                 {MEMBER_COLUMNS.map((col) => {
                   const shown = !prefs.hidden.includes(col.key);
@@ -999,7 +995,7 @@ export function MembersTable({
                       closeOnClick={false}
                       disabled={col.required}
                       onClick={() => toggleColumnVisible(col.key)}
-                      className="text-popover-foreground focus:bg-muted focus:text-foreground gap-2"
+                      className="gap-2"
                     >
                       <span
                         className={cn(
@@ -1026,30 +1022,25 @@ export function MembersTable({
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
-                  <button
-                    type="button"
-                    className="group text-foreground hover:bg-muted flex h-7 items-center gap-1 rounded-md px-2 text-[0.8rem] font-semibold whitespace-nowrap"
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="group font-semibold"
                   />
                 }
               >
                 {bulkCount} member{bulkCount === 1 ? "" : "s"} selected
-                <ChevronDown className="text-muted-foreground size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
+                <ChevronDown className="size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="start"
-                className="border-border bg-popover min-w-56"
+                className="min-w-56"
               >
-                <DropdownMenuItem
-                  onClick={clearSelection}
-                  className="text-popover-foreground focus:bg-muted focus:text-foreground"
-                >
+                <DropdownMenuItem onClick={clearSelection}>
                   <X className="size-4" />
                   None
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={selectAllMatching}
-                  className="text-popover-foreground focus:bg-muted focus:text-foreground"
-                >
+                <DropdownMenuItem onClick={selectAllMatching}>
                   <ListChecks className="size-4" />
                   All {totalCount} matching
                 </DropdownMenuItem>
@@ -1064,7 +1055,6 @@ export function MembersTable({
               canAct={canEdit}
               gateReason="send reminders"
               onClick={() => setRemindOpen(true)}
-              className="text-foreground"
             >
               <MessageCircle />
               Remind
@@ -1075,7 +1065,6 @@ export function MembersTable({
               canAct={canEdit}
               gateReason="add notes"
               onClick={() => setNoteOpen(true)}
-              className="text-foreground"
             >
               <StickyNote />
               Add note
@@ -1086,7 +1075,6 @@ export function MembersTable({
               canAct={canEdit}
               gateReason="record payments"
               onClick={() => setPayOpen(true)}
-              className="text-foreground"
             >
               <Wallet />
               Record payment
@@ -1097,7 +1085,7 @@ export function MembersTable({
               size="icon-sm"
               onClick={clearSelection}
               aria-label="Clear selection"
-              className="text-muted-foreground hover:text-foreground ml-auto"
+              className="ml-auto"
             >
               <X />
             </Button>
@@ -1263,7 +1251,6 @@ export function MembersTable({
                   size="icon-sm"
                   disabled={!hasPrev}
                   onClick={() => setPage((p) => p - 1)}
-                  className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
                 >
                   <ChevronLeft className="size-4" />
                 </Button>
@@ -1275,7 +1262,6 @@ export function MembersTable({
                   size="icon-sm"
                   disabled={!hasNext}
                   onClick={() => setPage((p) => p + 1)}
-                  className="border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
                 >
                   <ChevronRight className="size-4" />
                 </Button>
@@ -1324,7 +1310,6 @@ export function MembersTable({
               onClick={sendBulkReminders}
               disabled={reminding || !readiness.ready}
               title={readiness.reason ?? undefined}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {reminding && <Loader2 className="size-4 animate-spin" />}
               Send reminders

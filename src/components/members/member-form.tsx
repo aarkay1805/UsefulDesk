@@ -747,7 +747,6 @@ export function MemberForm({
             <Button
               type="submit"
               disabled={saving || checkingDup}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {saving && <Loader2 className="size-4 animate-spin" />}
               {isEdit ? "Save" : isConvert ? "Convert to member" : "Add member"}

@@ -332,7 +332,6 @@ export function ChangePlanDialog({
             type="button"
             onClick={handleChange}
             disabled={saving || !selectedPlan || !selectedOption}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}
             Change plan

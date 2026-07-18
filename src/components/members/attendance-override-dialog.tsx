@@ -50,7 +50,6 @@ export function AttendanceOverrideDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {busy && <Loader2 className="size-4 animate-spin" />}
             Check in anyway

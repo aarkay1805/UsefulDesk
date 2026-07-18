@@ -228,7 +228,6 @@ function AssignForm({
             type="button"
             onClick={handleAssign}
             disabled={saving}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}
             Assign
@@ -352,7 +351,6 @@ function CompleteForm({
             variant="ghost"
             onClick={() => close("cancelled")}
             disabled={saving}
-            className="text-muted-foreground hover:text-foreground"
           >
             Cancel task
           </Button>
@@ -364,7 +362,6 @@ function CompleteForm({
               type="button"
               onClick={() => close("done")}
               disabled={saving}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {saving && <Loader2 className="size-4 animate-spin" />}
               Mark done

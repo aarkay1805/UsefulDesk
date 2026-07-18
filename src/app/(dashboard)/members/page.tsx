@@ -145,29 +145,17 @@ export default function MembersPage() {
                 : "Read-only — your role can't import or add members"
             }
             render={
-              <Button
-                variant="ghost"
-                className="text-muted-foreground hover:bg-muted"
-              />
+              <Button variant="ghost" />
             }
           >
             <Download className="size-4" /> Import
-            <ChevronDown className="text-muted-foreground size-4" />
+            <ChevronDown className="size-4" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="bg-popover border-border min-w-48"
-          >
-            <DropdownMenuItem
-              onClick={() => setImportOpen(true)}
-              className="focus:bg-muted focus:text-foreground text-popover-foreground"
-            >
+          <DropdownMenuContent align="end" className="min-w-48">
+            <DropdownMenuItem onClick={() => setImportOpen(true)}>
               <UserRoundSearch className="size-4" /> Import from leads
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setImportCsvOpen(true)}
-              className="focus:bg-muted focus:text-foreground text-popover-foreground"
-            >
+            <DropdownMenuItem onClick={() => setImportCsvOpen(true)}>
               <FileSpreadsheet className="size-4" /> Import from CSV
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -178,7 +166,6 @@ export default function MembersPage() {
           <Button
             variant="ghost"
             onClick={() => exportFnRef.current?.()}
-            className="text-muted-foreground hover:bg-muted"
           >
             <Upload className="size-4" /> Export
           </Button>
@@ -187,7 +174,6 @@ export default function MembersPage() {
           canAct={canSendMessages}
           gateReason="import or add members"
           onClick={openAdd}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="size-4" /> Add member
         </GatedButton>

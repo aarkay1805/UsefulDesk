@@ -47,14 +47,7 @@ export function MembersFilters({ value, onChange, plans }: MembersFiltersProps) 
 
   return (
     <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="ghost"
-            className="text-muted-foreground hover:bg-muted"
-          />
-        }
-      >
+      <PopoverTrigger render={<Button variant="ghost" />}>
         <Filter className="size-4" />
         Filters
         {count > 0 && (

@@ -3124,17 +3124,11 @@ export default function LeadsPage() {
           canAct={canEdit}
           gateReason="add or import leads"
           onClick={() => setImportOpen(true)}
-          className="text-muted-foreground hover:bg-muted"
         >
           <Download className="size-4" />
           Import
         </GatedButton>
-        <Button
-          variant="ghost"
-          onClick={handleExport}
-          disabled={exporting}
-          className="text-muted-foreground hover:bg-muted"
-        >
+        <Button variant="ghost" onClick={handleExport} disabled={exporting}>
           {exporting ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
@@ -3146,7 +3140,6 @@ export default function LeadsPage() {
           canAct={canEdit}
           gateReason="add or import leads"
           onClick={openAddForm}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground"
         >
           <Plus className="size-4" />
           Add Lead
@@ -3234,30 +3227,22 @@ export default function LeadsPage() {
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
-                    <button
-                      type="button"
-                      className="group text-foreground hover:bg-muted flex h-7 items-center gap-1 rounded-md px-2 text-[0.8rem] font-semibold whitespace-nowrap"
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="group font-semibold"
                     />
                   }
                 >
                   {bulkCount} record{bulkCount === 1 ? '' : 's'} selected
-                  <ChevronDown className="text-muted-foreground size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
+                  <ChevronDown className="size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  className="bg-popover border-border min-w-56"
-                >
-                  <DropdownMenuItem
-                    onClick={() => setSelected(new Set())}
-                    className="text-popover-foreground focus:bg-muted focus:text-foreground"
-                  >
+                <DropdownMenuContent align="start" className="min-w-56">
+                  <DropdownMenuItem onClick={() => setSelected(new Set())}>
                     <X className="size-4" />
                     None
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={selectAllMatching}
-                    className="text-popover-foreground focus:bg-muted focus:text-foreground"
-                  >
+                  <DropdownMenuItem onClick={selectAllMatching}>
                     <ListChecks className="size-4" />
                     All {totalCount} in Leads
                   </DropdownMenuItem>
@@ -3274,18 +3259,16 @@ export default function LeadsPage() {
                 canAct={canEdit}
                 gateReason="edit leads"
                 onClick={() => setBulkEditOpen(true)}
-                className="text-foreground"
               >
                 <Pencil />
                 Edit
               </GatedButton>
               <GatedButton
-                variant="ghost"
+                variant="destructive-ghost"
                 size="sm"
                 canAct={canEdit}
                 gateReason="delete leads"
                 onClick={() => setBulkDeleteOpen(true)}
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 />
                 Delete
@@ -3296,7 +3279,6 @@ export default function LeadsPage() {
                 canAct={canEdit}
                 gateReason="add notes"
                 onClick={() => setBulkNoteOpen(true)}
-                className="text-foreground"
               >
                 <StickyNote />
                 Add note
@@ -3307,7 +3289,6 @@ export default function LeadsPage() {
                 canAct={canEdit}
                 gateReason="convert leads to members"
                 onClick={() => setBulkConvertOpen(true)}
-                className="text-foreground"
               >
                 <UserCheck />
                 Convert to member
@@ -3319,7 +3300,7 @@ export default function LeadsPage() {
                 size="icon-sm"
                 onClick={() => setSelected(new Set())}
                 aria-label="Clear selection"
-                className="text-muted-foreground hover:text-foreground ml-auto"
+                className="ml-auto"
               >
                 <X />
               </Button>
@@ -3700,36 +3681,27 @@ export default function LeadsPage() {
                             <DropdownMenu>
                               <DropdownMenuTrigger
                                 render={
-                                  <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    className="text-muted-foreground hover:text-foreground"
-                                  />
+                                  <Button variant="ghost" size="icon-sm" />
                                 }
                               >
                                 <MoreHorizontal className="size-4" />
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                align="end"
-                                className="bg-popover border-border"
-                              >
+                              <DropdownMenuContent align="end">
                                 <DropdownMenuItem
                                   onClick={() => openDetail(contact.id)}
-                                  className="text-popover-foreground focus:bg-muted focus:text-foreground"
                                 >
                                   <Eye className="size-4" />
                                   View details
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => openEditForm(contact)}
-                                  className="text-popover-foreground focus:bg-muted focus:text-foreground"
                                 >
                                   <Pencil className="size-4" />
                                   Edit
                                 </DropdownMenuItem>
                                 {canDeleteThisLead(contact) && (
                                   <>
-                                    <DropdownMenuSeparator className="bg-border" />
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                       variant="destructive"
                                       onClick={() => confirmDelete(contact)}

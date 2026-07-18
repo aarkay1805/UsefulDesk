@@ -251,7 +251,6 @@ export function RenewMembershipDialog({
             type="button"
             onClick={handleRenew}
             disabled={saving || !selectedPlan || !selectedOption}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}
             {isConvert ? "Convert" : "Renew"}

@@ -214,7 +214,6 @@ export function CheckInView({ reloadKey, onCheckedIn }: CheckInViewProps) {
                   size="sm"
                   disabled={done || busyId === m.id}
                   onClick={() => checkIn(m)}
-                  className={done ? "" : "bg-primary text-primary-foreground hover:bg-primary/90"}
                 >
                   {busyId === m.id ? (
                     <Loader2 className="size-3.5 animate-spin" />

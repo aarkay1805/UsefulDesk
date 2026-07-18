@@ -272,7 +272,6 @@ export function BulkRecordPaymentDialog({
               type="button"
               onClick={recordPayments}
               disabled={saving || rows === null || due.length === 0}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {saving && <Loader2 className="size-4 animate-spin" />}
               Record payments

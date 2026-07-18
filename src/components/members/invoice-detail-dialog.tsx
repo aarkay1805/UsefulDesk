@@ -331,8 +331,8 @@ export function InvoiceDetailDialog({
             {showVoid && (
               <Button
                 type="button"
-                variant="outline"
-                className="text-destructive sm:mr-auto"
+                variant="destructive"
+                className="sm:mr-auto"
                 onClick={() => onVoidPayment!(voidablePayments[0])}
               >
                 <RotateCcw className="size-4" /> Void payment
@@ -345,7 +345,6 @@ export function InvoiceDetailDialog({
                   onOpenChange(false);
                   onRenew();
                 }}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <RefreshCw className="size-4" /> Renew
               </Button>
@@ -367,7 +366,6 @@ export function InvoiceDetailDialog({
                     onOpenChange(false);
                     onRecord(invoice);
                   }}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   <Wallet className="size-4" />
                   {lifecycle === "Upcoming" ? "Collect payment" : "Record payment"}
