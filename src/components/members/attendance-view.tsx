@@ -86,6 +86,7 @@ export function AttendanceView({
   const [usage, setUsage] = useState<Map<string, number>>(new Map());
   const [bucket, setBucket] = useState<AttendanceBucket>('absent');
   const [search, setSearch] = useState('');
+  const [planFilters, setPlanFilters] = useState<string[]>([]);
   const [sort, setSort] = useState<AttendanceSort>({
     key: 'name',
     dir: 'asc',
@@ -208,30 +209,69 @@ export function AttendanceView({
   );
   const absentCount = Math.max(0, rows.length - presentCount);
 
+  const planFilterOptions = useMemo(() => {
+    const options = new Map<string, string>();
+    rows.forEach((membership) => {
+      if (membership.plan_id && membership.plan) {
+        options.set(membership.plan_id, membership.plan.name);
+      }
+    });
+    return Array.from(options, ([value, label]) => ({ value, label })).sort(
+      (a, b) => a.label.localeCompare(b.label, locale.locale)
+    );
+  }, [locale.locale, rows]);
+
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase(locale.locale);
     return sortedRows.filter((membership) => {
       const isPresent = attendanceByContact.has(membership.contact_id);
       if ((bucket === 'present') !== isPresent) return false;
+      if (
+        planFilters.length > 0 &&
+        (!membership.plan_id || !planFilters.includes(membership.plan_id))
+      ) {
+        return false;
+      }
       if (!query) return true;
       const name =
         membership.contact?.name?.toLocaleLowerCase(locale.locale) ?? '';
       const phone = membership.contact?.phone ?? '';
       return name.includes(query) || phone.includes(query);
     });
-  }, [attendanceByContact, bucket, locale.locale, search, sortedRows]);
+  }, [
+    attendanceByContact,
+    bucket,
+    locale.locale,
+    planFilters,
+    search,
+    sortedRows,
+  ]);
 
-  /** The plan-name + current usage line under a member's identity. */
-  function rowMeta(membership: Membership): { text: string; danger: boolean } {
+  function togglePlanFilter(planId: string) {
+    setPlanFilters((current) =>
+      current.includes(planId)
+        ? current.filter((id) => id !== planId)
+        : [...current, planId]
+    );
+  }
+
+  /** The plan name + current usage shown in the dedicated Plan column. */
+  function rowPlan(membership: Membership): {
+    name: string;
+    usage: string | null;
+    danger: boolean;
+  } {
     const planName = membership.plan?.name ?? '—';
-    if (!isToday || !membership.plan) return { text: planName, danger: false };
+    if (!isToday || !membership.plan) {
+      return { name: planName, usage: null, danger: false };
+    }
     const summary = usageSummary(
       membership.plan,
       usage.get(membership.id) ?? 0
     );
     return summary
-      ? { text: `${planName} · ${summary.label}`, danger: summary.danger }
-      : { text: planName, danger: false };
+      ? { name: planName, usage: summary.label, danger: summary.danger }
+      : { name: planName, usage: null, danger: false };
   }
 
   async function doInsert(membership: Membership) {
@@ -408,10 +448,10 @@ export function AttendanceView({
           />
         </div>
 
-        <Table className="min-w-[680px]">
+        <Table className="min-w-[820px]">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[46%] px-4">
+              <TableHead className="w-[30%] px-4">
                 <ColumnHeader
                   label="Name"
                   sortable
@@ -419,7 +459,20 @@ export function AttendanceView({
                   onSort={(dir) => setSort({ key: 'name', dir })}
                 />
               </TableHead>
-              <TableHead className="w-[18%]">
+              <TableHead className="w-[20%]">
+                <ColumnHeader
+                  label="Plan"
+                  sortable={false}
+                  sortDir={null}
+                  onSort={() => undefined}
+                  filter={{
+                    options: planFilterOptions,
+                    selected: planFilters,
+                    onToggle: togglePlanFilter,
+                  }}
+                />
+              </TableHead>
+              <TableHead className="w-[15%]">
                 <ColumnHeader
                   label="Check-in"
                   sortable
@@ -427,7 +480,7 @@ export function AttendanceView({
                   onSort={(dir) => setSort({ key: 'checked_in_at', dir })}
                 />
               </TableHead>
-              <TableHead className="w-[18%]">
+              <TableHead className="w-[15%]">
                 <ColumnHeader
                   label="Check-out"
                   sortable
@@ -435,13 +488,13 @@ export function AttendanceView({
                   onSort={(dir) => setSort({ key: 'checked_out_at', dir })}
                 />
               </TableHead>
-              <TableHead className="w-[18%] pr-4 text-right">Actions</TableHead>
+              <TableHead className="w-[20%] pr-4 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={4} className="h-32 px-4 text-center">
+                <TableCell colSpan={5} className="h-32 px-4 text-center">
                   <span className="text-muted-foreground inline-flex items-center gap-2 text-sm">
                     <Loader2 className="size-4 animate-spin" /> Loading
                     attendance…
@@ -450,13 +503,13 @@ export function AttendanceView({
               </TableRow>
             ) : loadError ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={4} className="h-32 px-4 text-center">
+                <TableCell colSpan={5} className="h-32 px-4 text-center">
                   <span className="text-destructive text-sm">{loadError}</span>
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={4} className="h-40 px-4 text-center">
+                <TableCell colSpan={5} className="h-40 px-4 text-center">
                   <span className="text-muted-foreground inline-flex flex-col items-center gap-2 text-sm">
                     <Dumbbell className="size-7" />
                     {emptyMessage()}
@@ -468,7 +521,7 @@ export function AttendanceView({
                 const attendance = attendanceByContact.get(
                   membership.contact_id
                 );
-                const meta = rowMeta(membership);
+                const plan = rowPlan(membership);
                 const busy = busyId === membership.id;
                 return (
                   <TableRow
@@ -481,18 +534,23 @@ export function AttendanceView({
                         name={membership.contact?.name}
                         secondary={membership.contact?.phone}
                         src={membership.contact?.avatar_url}
-                        meta={
-                          <p
-                            className={
-                              meta.danger
-                                ? 'truncate text-xs text-red-foreground'
-                                : 'text-muted-foreground truncate text-xs'
-                            }
-                          >
-                            {meta.text}
-                          </p>
-                        }
                       />
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-muted-foreground block truncate">
+                        {plan.name}
+                      </span>
+                      {plan.usage && (
+                        <span
+                          className={
+                            plan.danger
+                              ? 'text-red-foreground block truncate text-xs'
+                              : 'text-muted-foreground block truncate text-xs'
+                          }
+                        >
+                          {plan.usage}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground tabular-nums">
                       {attendance ? fmt.time(attendance.checked_in_at) : '—'}

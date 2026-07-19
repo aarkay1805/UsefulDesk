@@ -6,6 +6,12 @@
 
 ---
 
+## Attendance member columns
+
+The Attendance register now keeps member identity in the canonical **Name** column and shows the membership plan in a dedicated **Plan** column immediately after it. Plan visit-limit usage remains visible in that Plan cell, and its canonical column menu now provides the same plan-value filter as All members. Key code: `src/components/members/attendance-view.tsx`.
+
+---
+
 ## Profile follow-up activity parity
 
 The shared profile timeline now includes standalone follow-ups created from row actions, including tasks with no optional note; note-linked tasks remain attached to their authored note, and all entries sort newest-first. Standalone and note-linked tasks now share one follow-up-first card hierarchy: task and due date, optional note, then created/assigned metadata. The profile section is canonically labelled **Notes & follow-ups** across lead and member surfaces. Key code: `src/components/contacts/contact-notes-thread.tsx` and `src/lib/follow-ups/profile-activity.ts`.

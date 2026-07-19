@@ -175,6 +175,7 @@ Visible product vocabulary is a shared interface contract. The same data concept
 - **The resize grip and any drag transform live on the owning `<th>`, never in `ColumnHeader`.**
 - Don't fork it — restyle via props. Leads' `HeaderCell` is a thin adapter; members renders it directly.
 - Members: column meta = `MEMBER_COLUMNS` (`members-table.tsx`), cells = `renderCell()`; header Filter submenus wire to the shared `MemberFilters` dims (plan/status/fee) so header filter ⇄ Filters panel can't drift. Layout (order/hidden/widths) persists in the `members-all` `useTablePrefs` blob; a toolbar "Columns" menu is the unhide surface. Drag-reorder + freeze deliberately skipped (~7 fixed columns).
+- Attendance keeps its columns fixed but still uses `ColumnHeader` for interactive headers. Its **Plan** menu mirrors the All-members plan-value filter; do not replace it with a plain text header or add a one-off filter control.
 
 ### Lead-field cells
 
