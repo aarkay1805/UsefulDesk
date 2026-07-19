@@ -6,6 +6,12 @@
 
 ---
 
+## Manual follow-up creation parity
+
+Lead and member action rows now share one `FollowUpButton` (`ListPlus` + **Follow up**) and one standalone create dialog/copy across All leads, First response, All members, Renewals, Trials, and Inactive. Manual creation is limited to that row dialog and the profile Notes composer; bulk Add note is note-only again. Lead creators omit member-only Reason chips and always persist the neutral `other` sentinel, while member creators retain contextual Reason choices. Key code: `src/components/follow-ups/follow-up-button.tsx`, `src/components/follow-ups/follow-up-dialog.tsx`, `src/components/follow-ups/follow-up-fields.tsx`, and `src/components/contacts/contact-notes-thread.tsx`.
+
+---
+
 ## Collapsible desktop navigation rail
 
 The primary desktop sidebar can now collapse from 240px to a 64px icon rail without affecting the mobile drawer. Width, labels, badges, and the account footer transition together; compact navigation keeps unread/onboarding indicators and exposes every destination through right-side tooltips. The active state and full account menu remain available in both modes. Key code: `src/components/layout/sidebar.tsx`.
@@ -96,7 +102,7 @@ Lead records on top of `contacts`: DB-driven lead status funnel (hex-coloured st
 **Bulk actions** (`bulk-*.tsx`) — row multi-select shows a toolbar below the search bar that animates open/closed (`Collapse`; the count is frozen mid-collapse so it can't flash "0").
 - **Edit** → `BulkEditDialog`: pick one property (status / assignee / source / gender / company / any custom field), set it, apply to all. (Assign is folded in here as "Assigned to" — no separate Assign button.)
 - **Delete** → confirm + `.in('id', ids)`.
-- **Add note** → `BulkAddNoteDialog`, reusing the detail sheet's exported `NoteComposerCard`. Notes batch-insert; follow-ups insert per contact honouring one-OPEN-task-per-contact (skips are tallied, not errors).
+- **Add note** → `BulkAddNoteDialog`. Notes batch-insert and the surface stays note-only; manual follow-ups belong to a person's row action or profile Notes composer.
 - **Convert to member** → `BulkConvertDialog`: plan + start date → one `active` membership per lead. Converted leads drop off the list (leads anti-join memberships).
 - **Reuse note:** these dialogs' value pickers use `DropdownMenu` + `Badge`/`SourceIcon`/`UserAvatar` in the trigger, not `ui/Select` — its item padding differs. (Its old raw-value-echo reason is gone since the Jul 2026 items-derivation fix.)
 

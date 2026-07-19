@@ -5,7 +5,6 @@ import {
   CalendarClock,
   CircleAlert,
   CheckCircle2,
-  ListPlus,
   Loader2,
   RefreshCw,
 } from 'lucide-react';
@@ -52,7 +51,8 @@ import {
   SendReminderButton,
   type ReminderReadiness,
 } from './send-reminder-button';
-import { FollowUpDialog } from './follow-up-dialog';
+import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
+import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
 import { RenewMembershipDialog } from './renew-membership-dialog';
 
 interface RenewalActionListsProps {
@@ -410,13 +410,7 @@ function RenewalTable({
                     >
                       <div className="flex items-center justify-end gap-1">
                         {onAssign && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => onAssign(m)}
-                          >
-                            <ListPlus className="size-3.5" /> Follow up
-                          </Button>
+                          <FollowUpButton onClick={() => onAssign(m)} />
                         )}
                         <Button
                           size="sm"

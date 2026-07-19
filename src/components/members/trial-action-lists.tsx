@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { useLocale } from "@/hooks/use-locale";
 import { daysUntil } from "@/lib/memberships/expiry";
 import {
@@ -21,6 +22,8 @@ import {
 import type { Membership } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FollowUpDialog } from "@/components/follow-ups/follow-up-dialog";
+import { FollowUpButton } from "@/components/follow-ups/follow-up-button";
 import { TrialBadge } from "./membership-status-badge";
 import { MemberIdentity } from "./member-identity";
 import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
@@ -66,6 +69,7 @@ export function TrialActionLists({
   onSelect,
   reloadKey,
 }: TrialActionListsProps) {
+  const { canSendMessages } = useAuth();
   const { fmt } = useLocale();
   const [trials, setTrials] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +79,7 @@ export function TrialActionLists({
 
   // The trial currently being converted (drives the shared dialog).
   const [converting, setConverting] = useState<Membership | null>(null);
+  const [followingUp, setFollowingUp] = useState<Membership | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -121,6 +126,7 @@ export function TrialActionLists({
             rows={buckets[key]}
             readiness={readiness}
             onSelect={onSelect}
+            onFollowUp={canSendMessages ? setFollowingUp : undefined}
             onConvert={setConverting}
             onChanged={reload}
           />
@@ -139,6 +145,19 @@ export function TrialActionLists({
           }}
         />
       )}
+
+      {followingUp && (
+        <FollowUpDialog
+          open
+          onOpenChange={(open) => !open && setFollowingUp(null)}
+          membership={followingUp}
+          initialReason="trial"
+          onSaved={() => {
+            setFollowingUp(null);
+            reload();
+          }}
+        />
+      )}
     </>
   );
 }
@@ -148,6 +167,7 @@ function TrialList({
   rows,
   readiness,
   onSelect,
+  onFollowUp,
   onConvert,
   onChanged,
 }: {
@@ -155,6 +175,7 @@ function TrialList({
   rows: Membership[];
   readiness: ReminderReadiness;
   onSelect: (id: string) => void;
+  onFollowUp?: (m: Membership) => void;
   onConvert: (m: Membership) => void;
   onChanged: () => void;
 }) {
@@ -208,6 +229,9 @@ function TrialList({
                   className="mt-2 flex justify-end gap-2"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {onFollowUp && (
+                    <FollowUpButton onClick={() => onFollowUp(m)} />
+                  )}
                   <SendReminderButton
                     membership={m}
                     readiness={readiness}

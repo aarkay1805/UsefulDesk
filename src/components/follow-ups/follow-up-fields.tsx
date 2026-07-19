@@ -67,6 +67,9 @@ interface FollowUpFieldsProps {
   onPatch: (patch: Partial<FollowUpDraft>) => void;
   staff: StaffMember[];
   currentUserId: string;
+  /** Member follow-ups explain the renewal/retention reason. Lead follow-ups
+   *  are general sales work and intentionally omit that taxonomy. */
+  showReason?: boolean;
   /** Notes can toggle a task on; standalone creation always shows the fields. */
   showEnabledToggle?: boolean;
   className?: string;
@@ -82,6 +85,7 @@ export function FollowUpFields({
   onPatch,
   staff,
   currentUserId,
+  showReason = true,
   showEnabledToggle = true,
   className,
 }: FollowUpFieldsProps) {
@@ -129,26 +133,28 @@ export function FollowUpFields({
 
         {fieldsVisible && (
           <div className={cn('space-y-3 py-1', showEnabledToggle && 'mt-2')}>
-            <div className="space-y-1.5">
-              <Label id={reasonLabelId} size="sm">
-                Reason
-              </Label>
-              <ChipGroup<FollowUpReason>
-                selectionMode="single"
-                value={[draft.reason]}
-                onValueChange={(reasons) => {
-                  const reason = reasons[0];
-                  if (reason) onPatch({ reason });
-                }}
-                aria-labelledby={reasonLabelId}
-              >
-                {REASONS.map((reason) => (
-                  <Chip key={reason} value={reason}>
-                    {REASON_LABEL[reason]}
-                  </Chip>
-                ))}
-              </ChipGroup>
-            </div>
+            {showReason && (
+              <div className="space-y-1.5">
+                <Label id={reasonLabelId} size="sm">
+                  Reason
+                </Label>
+                <ChipGroup<FollowUpReason>
+                  selectionMode="single"
+                  value={[draft.reason]}
+                  onValueChange={(reasons) => {
+                    const reason = reasons[0];
+                    if (reason) onPatch({ reason });
+                  }}
+                  aria-labelledby={reasonLabelId}
+                >
+                  {REASONS.map((reason) => (
+                    <Chip key={reason} value={reason}>
+                      {REASON_LABEL[reason]}
+                    </Chip>
+                  ))}
+                </ChipGroup>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label id={nextActionLabelId} size="sm">

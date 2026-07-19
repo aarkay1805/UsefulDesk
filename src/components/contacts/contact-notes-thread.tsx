@@ -6,8 +6,8 @@
 // contact, so contact_notes / follow_ups apply unchanged — one thread
 // component, keyed by contactId, everywhere a person's notes render.
 //
-// NoteComposerCard stays here, while its follow-up fields and draft model
-// live in one shared component used by every manual creation entry point.
+// NoteComposerCard stays private to this profile Notes surface, while its
+// follow-up fields and draft model are shared with the standalone dialog.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
 import { canDeleteAnyNote } from '@/lib/auth/roles';
+import { manualFollowUpReasonForWrite } from '@/lib/follow-ups/manual';
 import {
   duePresets,
   FOLLOW_UP_TASK_TYPES,
@@ -107,8 +108,8 @@ export function ContactNotesThread({
     followUp: NoteFollowUp;
   } | null>(null);
 
-  // Follow-up bar under the composer (HubSpot-style): task type + due
-  // chips plus assignee and an optional reminder time on the due date.
+  // Follow-up bar under the composer: task type + due date, assignee, and
+  // optional reminder. Member profiles also show the member-only Reason.
   const [followUpDraft, setFollowUpDraft] = useState<FollowUpDraft>(
     DEFAULT_FOLLOW_UP_DRAFT
   );
@@ -250,7 +251,10 @@ export function ContactNotesThread({
         note_id: insertedNote?.id ?? null,
         assigned_to: followUpDraft.assignee || authUser.id,
         created_by: authUser.id,
-        reason: followUpDraft.reason,
+        reason: manualFollowUpReasonForWrite(
+          Boolean(membershipId),
+          followUpDraft.reason
+        ),
         task_type: followUpDraft.type,
         due_date: followUpDue,
         remind_at: followUpDraft.remindSlot
@@ -380,7 +384,10 @@ export function ContactNotesThread({
           .from('follow_ups')
           .update({
             task_type: draft.type,
-            reason: draft.reason,
+            reason: manualFollowUpReasonForWrite(
+              Boolean(membershipId),
+              draft.reason
+            ),
             due_date: due,
             assigned_to: draft.assignee || authUser.id,
             remind_at: remind,
@@ -398,7 +405,10 @@ export function ContactNotesThread({
           note_id: noteId,
           assigned_to: draft.assignee || authUser.id,
           created_by: authUser.id,
-          reason: draft.reason,
+          reason: manualFollowUpReasonForWrite(
+            Boolean(membershipId),
+            draft.reason
+          ),
           task_type: draft.type,
           due_date: due,
           remind_at: remind,
@@ -445,6 +455,7 @@ export function ContactNotesThread({
             onPatch={patchFollowUpDraft}
             staff={staff}
             currentUserId={user?.id ?? ''}
+            showReason={Boolean(membershipId)}
             textareaRef={textareaRef}
           />
           <div className="flex items-center justify-between">
@@ -501,6 +512,7 @@ export function ContactNotesThread({
                   currentUserId={user?.id ?? ''}
                   nameById={nameById}
                   staff={staff}
+                  showReason={Boolean(membershipId)}
                   canDeleteAny={
                     accountRole ? canDeleteAnyNote(accountRole) : false
                   }
@@ -561,13 +573,14 @@ function StaffAvatar({ name, src }: { name: string; src?: string | null }) {
 // The composer card — borderless textarea + attached follow-up bar in
 // one bordered container. Shared by "write a note" and a saved note's
 // edit view (which swaps the footer CTA for Save/Cancel).
-export function NoteComposerCard({
+function NoteComposerCard({
   text,
   onTextChange,
   draft,
   onPatch,
   staff,
   currentUserId,
+  showReason,
   textareaRef,
   autoFocus,
 }: {
@@ -577,6 +590,7 @@ export function NoteComposerCard({
   onPatch: (patch: Partial<FollowUpDraft>) => void;
   staff: StaffMember[];
   currentUserId: string;
+  showReason: boolean;
   textareaRef?: React.Ref<HTMLTextAreaElement>;
   autoFocus?: boolean;
 }) {
@@ -597,6 +611,7 @@ export function NoteComposerCard({
         onPatch={onPatch}
         staff={staff}
         currentUserId={currentUserId}
+        showReason={showReason}
       />
     </div>
   );
@@ -617,6 +632,7 @@ function NoteCard({
   canDeleteAny,
   nameById,
   staff,
+  showReason,
   onMarkDone,
   onDelete,
   onSaveEdit,
@@ -630,6 +646,7 @@ function NoteCard({
   canDeleteAny: boolean;
   nameById: Map<string, string>;
   staff: StaffMember[];
+  showReason: boolean;
   onMarkDone: (noteId: string, followUpId: string) => void;
   onDelete: (noteId: string) => void;
   onSaveEdit: (
@@ -744,6 +761,7 @@ function NoteCard({
             onPatch={(patch) => setEditDraft((d) => ({ ...d, ...patch }))}
             staff={staff}
             currentUserId={currentUserId}
+            showReason={showReason}
             autoFocus
           />
           <div className="flex items-center gap-2">

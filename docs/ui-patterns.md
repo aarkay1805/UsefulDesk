@@ -146,7 +146,9 @@ The three overlays (`TemplatePicker` / `MemberForm` / `TransferRequestDialog`) l
 
 ## Notes thread
 
-`ContactNotesThread` (`components/contacts/contact-notes-thread.tsx`, keyed by `contactId`) — composer + note cards + follow-up-on-note + all mutations. Mounted by both the lead detail surface and the member detail sheet. `NoteComposerCard` / `FollowUpDraft` / `DEFAULT_FOLLOW_UP_DRAFT` / `resolveDueDate` live here and are re-exported from `contact-detail-view.tsx` for old import sites.
+`ContactNotesThread` (`components/contacts/contact-notes-thread.tsx`, keyed by `contactId`) — composer + note cards + follow-up-on-note + all mutations. Mounted by both the lead detail surface and the member detail sheet. Its private `NoteComposerCard` consumes the shared `FollowUpDraft` / `DEFAULT_FOLLOW_UP_DRAFT` / `resolveDueDate` model from `components/follow-ups/follow-up-fields.tsx`.
+
+`FollowUpButton` (`components/follow-ups/follow-up-button.tsx`) is the canonical manual row trigger everywhere: ghost/small, `ListPlus`, and the verb **Follow up**. It opens the shared `FollowUpDialog`; the only other manual creation path is the Notes composer inside a person's profile. Bulk Add note must stay note-only. Lead creators omit Reason chips and persist the schema's neutral `other` sentinel; member creators keep the contextual Reason choices. The noun remains hyphenated (**Follow-up**) in dialog titles, fields, queues, and statuses.
 
 `FollowUpTaskSummary` (`components/follow-ups/follow-up-task-summary.tsx`) is the canonical follow-up table cell: task-type icon + task label, with an optional note beneath. Lead queues use that base treatment; member queues additionally pass the member-only neutral Reason badge. Do not reconstruct this cell at a table call-site.
 

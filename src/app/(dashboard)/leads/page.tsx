@@ -201,6 +201,8 @@ import { cn } from '@/lib/utils';
 import { Collapse } from '@/components/ui/collapse';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LeadAccountabilityView } from '@/components/leads/lead-accountability-view';
+import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
+import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
 
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 20, 25, 30, 40, 50];
@@ -214,7 +216,7 @@ const BOARD_LIMIT = 500;
 
 // Fixed utility columns flank the managed columns and aren't user-editable.
 const CHECKBOX_COL_WIDTH = 44;
-const ACTIONS_COL_WIDTH = 48;
+const ACTIONS_COL_WIDTH = 150;
 
 // Applied to every cell of the column being dragged (header + body) so the
 // whole strip reads as "picked up": the opaque card surface, which cleanly
@@ -1031,6 +1033,7 @@ export default function LeadsPage() {
   const [editContactTags, setEditContactTags] = useState<ContactTag[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContactId, setDetailContactId] = useState<string | null>(null);
+  const [followUpFor, setFollowUpFor] = useState<ContactWithData | null>(null);
   // Where the detail sheet should land on open. A follow-up-reminder
   // notification deep-links with `?focus=followup` so the sheet opens on
   // the notes/follow-up composer instead of the top of the record.
@@ -3568,7 +3571,7 @@ export default function LeadsPage() {
                           );
                         })}
                       </SortableContext>
-                      <TableHead />
+                      <TableHead>Actions</TableHead>
                       <TableHead aria-hidden />
                     </TableRow>
                   </TableHeader>
@@ -3749,41 +3752,47 @@ export default function LeadsPage() {
                             );
                           })}
                           <TableCell onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger
-                                render={
-                                  <Button variant="ghost" size="icon-sm" />
-                                }
-                              >
-                                <MoreHorizontal className="size-4" />
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => openDetail(contact.id)}
+                            <div className="flex items-center justify-end gap-1">
+                              <FollowUpButton
+                                canAct={canEdit}
+                                onClick={() => setFollowUpFor(contact)}
+                              />
+                              <DropdownMenu>
+                                <DropdownMenuTrigger
+                                  render={
+                                    <Button variant="ghost" size="icon-sm" />
+                                  }
                                 >
-                                  <Eye className="size-4" />
-                                  View details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => openEditForm(contact)}
-                                >
-                                  <Pencil className="size-4" />
-                                  Edit
-                                </DropdownMenuItem>
-                                {canDeleteThisLead(contact) && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      variant="destructive"
-                                      onClick={() => confirmDelete(contact)}
-                                    >
-                                      <Trash2 className="size-4" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                                  <MoreHorizontal className="size-4" />
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => openDetail(contact.id)}
+                                  >
+                                    <Eye className="size-4" />
+                                    View details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => openEditForm(contact)}
+                                  >
+                                    <Pencil className="size-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  {canDeleteThisLead(contact) && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        variant="destructive"
+                                        onClick={() => confirmDelete(contact)}
+                                      >
+                                        <Trash2 className="size-4" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </TableCell>
                           <TableCell aria-hidden />
                         </TableRow>
@@ -3930,6 +3939,19 @@ export default function LeadsPage() {
         initialFocus={detailFocus}
         onUpdated={refreshAll}
       />
+
+      {followUpFor && (
+        <FollowUpDialog
+          open
+          onOpenChange={(open) => !open && setFollowUpFor(null)}
+          contactId={followUpFor.id}
+          contactName={followUpFor.name}
+          onSaved={() => {
+            setFollowUpFor(null);
+            refreshAll();
+          }}
+        />
+      )}
 
       {/* Agent peer-handoff confirm — sends the accept-gated transfer
           request (migration 050). Admins never reach this (instant). */}

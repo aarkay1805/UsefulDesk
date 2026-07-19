@@ -1,16 +1,8 @@
 'use client';
 
-// BulkAddNoteDialog — write one note (with an optional follow-up task)
-// onto every selected lead at once. It reuses the exact composer from the
-// lead detail sheet (NoteComposerCard + its follow-up bar), so the bulk
-// note-taking UX is identical to adding a note on a single lead — same
-// textarea, same "Add a follow up task" switch, task type / due / assignee
-// / reminder chips.
-//
-// Notes are append-only, so they insert as one batch. Follow-ups obey the
-// "one OPEN task per contact" rule, so they insert per contact and any
-// lead that already has an open follow-up is skipped (not an error) — the
-// toast reports the tally.
+// BulkAddNoteDialog — write one append-only note onto every selected person.
+// Manual follow-ups deliberately stay out of this bulk surface: they are
+// created only from a person's row action or their profile Notes section.
 
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
@@ -18,16 +10,6 @@ import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { useLocale } from '@/hooks/use-locale';
-import { useAccountStaff } from '@/components/members/use-account-staff';
-import { isUniqueViolation } from '@/lib/contacts/dedupe';
-import { remindAtInTz } from '@/lib/leads/follow-up-dates';
-import {
-  NoteComposerCard,
-  DEFAULT_FOLLOW_UP_DRAFT,
-  resolveDueDate,
-  type FollowUpDraft,
-} from '@/components/contacts/contact-detail-view';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +18,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 
 export function BulkAddNoteDialog({
   open,
@@ -56,11 +39,8 @@ export function BulkAddNoteDialog({
 }) {
   const supabase = createClient();
   const { user, accountId } = useAuth();
-  const { locale, fmt } = useLocale();
-  const { staff } = useAccountStaff();
 
   const [text, setText] = useState('');
-  const [draft, setDraft] = useState<FollowUpDraft>(DEFAULT_FOLLOW_UP_DRAFT);
   const [saving, setSaving] = useState(false);
 
   // Reset the composer each time the dialog opens — a fresh note every
@@ -71,7 +51,6 @@ export function BulkAddNoteDialog({
     setPrevOpen(open);
     if (open) {
       setText('');
-      setDraft(DEFAULT_FOLLOW_UP_DRAFT);
       setSaving(false);
     }
   }
@@ -81,12 +60,6 @@ export function BulkAddNoteDialog({
   async function handleAdd() {
     const trimmed = text.trim();
     if (!trimmed || count === 0) return;
-
-    const due = resolveDueDate(draft, fmt.today());
-    if (draft.enabled && !due) {
-      toast.error('Pick a follow-up date');
-      return;
-    }
 
     setSaving(true);
     if (!user || !accountId) {
@@ -114,55 +87,8 @@ export function BulkAddNoteDialog({
       return;
     }
 
-    const noteIdByContact = new Map(inserted.map((n) => [n.contact_id, n.id]));
-
-    // The optional follow-up rides along, one per contact. Insert them
-    // individually so a lead that already has an open task is skipped
-    // (unique violation) without failing the others.
-    let created = 0;
-    let skipped = 0;
-    let failed = 0;
-    if (draft.enabled && due) {
-      const remind = draft.remindSlot
-        ? remindAtInTz(due, draft.remindSlot, locale.timeZone)
-        : null;
-      const results = await Promise.all(
-        contactIds.map((id) =>
-          supabase.from('follow_ups').insert({
-            account_id: accountId,
-            contact_id: id,
-            note_id: noteIdByContact.get(id) ?? null,
-            assigned_to: draft.assignee || user.id,
-            created_by: user.id,
-            reason: draft.reason,
-            task_type: draft.type,
-            due_date: due,
-            remind_at: remind,
-            note: trimmed.slice(0, 200),
-          })
-        )
-      );
-      for (const r of results) {
-        if (!r.error) created++;
-        else if (isUniqueViolation(r.error)) skipped++;
-        else failed++;
-      }
-    }
-
     const n = inserted.length;
-    const noteMsg = `Note added to ${n} ${noun}${n === 1 ? '' : 's'}`;
-    if (!draft.enabled) {
-      toast.success(noteMsg);
-    } else {
-      const parts = [noteMsg];
-      if (created)
-        parts.push(`${created} follow-up${created === 1 ? '' : 's'} created`);
-      if (skipped)
-        parts.push(`${skipped} skipped (already had an open follow-up)`);
-      if (failed)
-        parts.push(`${failed} follow-up${failed === 1 ? '' : 's'} failed`);
-      toast.success(parts.join(' · '));
-    }
+    toast.success(`Note added to ${n} ${noun}${n === 1 ? '' : 's'}`);
 
     setSaving(false);
     onOpenChange(false);
@@ -180,14 +106,12 @@ export function BulkAddNoteDialog({
         </DialogHeader>
 
         <div className="py-2">
-          <NoteComposerCard
-            text={text}
-            onTextChange={setText}
-            draft={draft}
-            onPatch={(patch) => setDraft((d) => ({ ...d, ...patch }))}
-            staff={staff}
-            currentUserId={user?.id ?? ''}
+          <Textarea
             autoFocus
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            placeholder="Write a note..."
+            className="min-h-28 resize-none"
           />
         </div>
 

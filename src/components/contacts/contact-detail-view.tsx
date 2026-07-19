@@ -8,12 +8,6 @@ import { ContactDetailContent } from './contact-detail-content';
 // contact panel can mount the same component instead of carrying its own
 // fork. This file is now just the /leads Sheet host. Same reasoning as
 // contact-notes-thread.tsx, which the member detail sheet reuses.
-export { NoteComposerCard } from './contact-notes-thread';
-export {
-  DEFAULT_FOLLOW_UP_DRAFT,
-  resolveDueDate,
-  type FollowUpDraft,
-} from '@/components/follow-ups/follow-up-fields';
 
 interface ContactDetailViewProps {
   open: boolean;

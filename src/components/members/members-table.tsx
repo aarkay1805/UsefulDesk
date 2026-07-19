@@ -18,7 +18,6 @@ import {
   ChevronRight,
   Dumbbell,
   Eye,
-  ListPlus,
   ListChecks,
   Loader2,
   MessageCircle,
@@ -108,7 +107,8 @@ import {
 import { MembersFilters } from "./members-filters";
 import { MemberIdentity } from "./member-identity";
 import { BulkRecordPaymentDialog } from "./bulk-record-payment-dialog";
-import { FollowUpDialog } from "./follow-up-dialog";
+import { FollowUpDialog } from "@/components/follow-ups/follow-up-dialog";
+import { FollowUpButton } from "@/components/follow-ups/follow-up-button";
 import { RecordPaymentDialog } from "./record-payment-dialog";
 import { RenewMembershipDialog } from "./renew-membership-dialog";
 import { useMembershipPlans } from "./use-membership-plans";
@@ -227,8 +227,8 @@ const MEMBER_COLUMNS: MemberColumn[] = [
   {
     key: "reminder",
     label: "Actions",
-    defaultWidth: 150,
-    minWidth: 130,
+    defaultWidth: 240,
+    minWidth: 210,
     align: "right",
   },
 ];
@@ -338,7 +338,7 @@ export function MembersTable({
   const [remindOpen, setRemindOpen] = useState(false);
   const [reminding, setReminding] = useState(false);
 
-  // Contextual row-action dialogs opened from the Actions overflow menu.
+  // Contextual row-action dialogs opened from the Actions column.
   const [followUpFor, setFollowUpFor] = useState<Membership | null>(null);
   const [renewFor, setRenewFor] = useState<Membership | null>(null);
   const [paymentFor, setPaymentFor] = useState<Membership | null>(null);
@@ -752,6 +752,10 @@ export function MembersTable({
 
     return (
       <div className="flex items-center justify-end gap-1">
+        <FollowUpButton
+          canAct={canEdit}
+          onClick={() => setFollowUpFor(m)}
+        />
         <SendReminderButton membership={m} readiness={readiness} />
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -777,13 +781,6 @@ export function MembersTable({
               Edit membership
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={!canEdit}
-              onClick={() => setFollowUpFor(m)}
-            >
-              <ListPlus className="size-4" />
-              Follow up
-            </DropdownMenuItem>
             {canRenewOrConvert && (
               <DropdownMenuItem
                 disabled={!canEdit}

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
-  CalendarClock,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -101,6 +100,8 @@ import {
   type FollowUpBucketCounts,
 } from '@/components/follow-ups/follow-up-queue-controls';
 import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
+import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
+import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
 
 const FETCH_BATCH = 500;
 const PAGE_SIZE = 25;
@@ -326,6 +327,9 @@ export function LeadAccountabilityView({
     followUp: AccountabilityFollowUp;
     lead: AccountabilityLead;
   } | null>(null);
+  const [creatingFor, setCreatingFor] = useState<AccountabilityLead | null>(
+    null
+  );
 
   const orderedColumns = useMemo(() => {
     const known = LEAD_FOLLOW_UP_COLUMNS.map((column) => column.key);
@@ -829,16 +833,10 @@ export function LeadAccountabilityView({
             Complete
           </GatedButton>
         ) : (
-          <GatedButton
-            variant="ghost"
-            size="sm"
+          <FollowUpButton
             canAct={canEdit}
-            gateReason="add a follow-up"
-            onClick={() => onOpenLead(row.lead.id, true)}
-          >
-            <CalendarClock className="size-4" />
-            Add follow-up
-          </GatedButton>
+            onClick={() => setCreatingFor(row.lead)}
+          />
         );
       default:
         return null;
@@ -1274,6 +1272,18 @@ export function LeadAccountabilityView({
           }}
           context="lead"
           onSaved={refetch}
+        />
+      )}
+      {creatingFor && (
+        <FollowUpDialog
+          open
+          onOpenChange={(open) => !open && setCreatingFor(null)}
+          contactId={creatingFor.id}
+          contactName={creatingFor.name}
+          onSaved={() => {
+            setCreatingFor(null);
+            refetch();
+          }}
         />
       )}
       <BulkCompleteFollowUpsDialog

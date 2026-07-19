@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Ghost, ListPlus, Loader2, MoonStar } from 'lucide-react';
+import { CheckCircle2, Ghost, Loader2, MoonStar } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -13,8 +13,8 @@ import {
 } from '@/lib/memberships/inactivity';
 import type { Contact, MemberActivity, Membership } from '@/types';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { FollowUpDialog } from './follow-up-dialog';
+import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
+import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
 import { MemberIdentity } from './member-identity';
 
 interface InactiveActionListsProps {
@@ -195,13 +195,7 @@ function RetentionList({
                     className="shrink-0"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => onAssign(r)}
-                    >
-                      <ListPlus className="size-3.5" /> Follow up
-                    </Button>
+                    <FollowUpButton onClick={() => onAssign(r)} />
                   </div>
                 )}
               </div>
