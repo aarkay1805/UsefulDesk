@@ -140,11 +140,14 @@ async function fetchAllOpenLeadFollowUps(
 
 interface LeadAccountabilityViewProps {
   view: LeadAccountabilityView;
+  /** Bumped by the page after lead or follow-up mutations. */
+  refreshNonce: number;
   onOpenLead: (contactId: string, focusFollowUp: boolean) => void;
 }
 
 export function LeadAccountabilityView({
   view,
+  refreshNonce,
   onOpenLead,
 }: LeadAccountabilityViewProps) {
   const supabase = useMemo(() => createClient(), []);
@@ -171,6 +174,7 @@ export function LeadAccountabilityView({
 
   useEffect(() => {
     void nonce;
+    void refreshNonce;
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -201,7 +205,7 @@ export function LeadAccountabilityView({
     return () => {
       cancelled = true;
     };
-  }, [nonce, supabase, view]);
+  }, [nonce, refreshNonce, supabase, view]);
 
   const today = fmt.today();
   const allRows = useMemo(

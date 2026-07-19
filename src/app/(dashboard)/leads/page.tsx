@@ -988,6 +988,9 @@ export default function LeadsPage() {
   // one-frame "No leads yet" flash before the fetch effect fires.
   const [boardLoading, setBoardLoading] = useState(true);
   const [boardNonce, setBoardNonce] = useState(0);
+  // Follow-ups and First response own a separate lead/task snapshot. Keep
+  // it on the same mutation invalidation path as the table and board.
+  const [accountabilityNonce, setAccountabilityNonce] = useState(0);
 
   // Custom-field definitions — drive the dynamic columns.
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
@@ -1973,6 +1976,7 @@ export default function LeadsPage() {
     fetchPendingAssignees();
     fetchTransfers();
     setBoardNonce((n) => n + 1);
+    setAccountabilityNonce((n) => n + 1);
   }, [fetchContacts, fetchPendingAssignees, fetchTransfers]);
 
   // Agent peer-handoff confirm → send the pending request (migration 050).
@@ -3207,6 +3211,7 @@ export default function LeadsPage() {
         <LeadAccountabilityView
           key={activeView}
           view={activeView}
+          refreshNonce={accountabilityNonce}
           onOpenLead={(contactId, focusFollowUp) =>
             openDetail(contactId, focusFollowUp ? 'followup' : null)
           }

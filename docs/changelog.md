@@ -6,6 +6,12 @@
 
 ---
 
+## Live lead accountability refresh
+
+Lead edits made in the shared detail sheet now re-fetch the active Follow-ups or First response queue through the same page-level invalidation path as All leads and the board. Follow-up creates, edits, completions, and deletions from the Notes section also notify that path. Key code: `src/app/(dashboard)/leads/page.tsx`, `src/components/leads/lead-accountability-view.tsx`, and `src/components/contacts/contact-detail-content.tsx`.
+
+---
+
 ## Follow-up task-cell parity
 
 Lead and member follow-up tables now share `FollowUpTaskSummary` (`src/components/follow-ups/follow-up-task-summary.tsx`): the **Follow-up** column renders the task-type icon, task label, and optional note with one hierarchy. Member rows additionally retain their member-only neutral Reason badge; lead queues remain reason-free.

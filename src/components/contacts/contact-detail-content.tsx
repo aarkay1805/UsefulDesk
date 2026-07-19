@@ -1029,6 +1029,7 @@ export function ContactDetailContent({
                   contactId={contactId}
                   active={active}
                   textareaRef={noteInputRef}
+                  onFollowUpChanged={onUpdated}
                 />
               </AccordionContent>
             </AccordionItem>
