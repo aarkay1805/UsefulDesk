@@ -6,9 +6,15 @@
 
 ---
 
+## Repeating follow-up reminder ringtone
+
+Unread `follow_up_reminder` notifications now drive a dashboard-wide subtle ringtone: one minute of six-second pulses, five minutes silent, repeated for at most one hour after delivery. Reading the notification stops it through the existing realtime `read_at` flow, including from another open tab/device; reopening the app resumes only the current phase of still-unread reminders. Inbox and reminder tones share one gesture-unlocked Web Audio context and use generated sounds with no licensed asset. Key code: `src/hooks/use-follow-up-reminder-ringtone.ts`, `src/lib/notifications/reminder-ringtone.ts`, and `src/lib/notifications/notification-sounds.ts`.
+
+---
+
 ## Live Inbox dot and message chime
 
-The sidebar now keeps its Inbox unread dot visible anywhere in the app, including while Inbox itself is active, and plays a short generated two-note chime for each realtime inbound customer message. The sound uses Web Audio rather than a licensed asset and arms after the first pointer or keyboard interaction to respect browser autoplay rules; messages received before that remain visual-only. Key code: `src/hooks/use-total-unread.ts`, `src/lib/notifications/inbox-sound.ts`, and `src/components/layout/sidebar.tsx`.
+The sidebar now keeps its Inbox unread dot visible anywhere in the app, including while Inbox itself is active, and plays a short generated two-note chime for each realtime inbound customer message. The sound uses Web Audio rather than a licensed asset and arms after the first pointer or keyboard interaction to respect browser autoplay rules; messages received before that remain visual-only. Key code: `src/hooks/use-total-unread.ts`, `src/lib/notifications/notification-sounds.ts`, and `src/components/layout/sidebar.tsx`.
 
 ---
 

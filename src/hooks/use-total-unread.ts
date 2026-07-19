@@ -3,10 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Conversation, Message } from '@/types';
-import {
-  playInboxMessageTone,
-  unlockInboxSound,
-} from '@/lib/notifications/inbox-sound';
+import { playInboxMessageTone } from '@/lib/notifications/notification-sounds';
 
 interface UseTotalUnreadOptions {
   /** Play the generated inbox chime for each new inbound customer message. */
@@ -29,24 +26,6 @@ export function useTotalUnread({
   // Keep a live local mirror of {id: unread_count} so INSERT/UPDATE/DELETE
   // events can adjust the total in O(1) without refetching.
   const countsRef = useRef<Map<string, number>>(new Map());
-
-  // Autoplay policies require a user gesture before Web Audio may run. Arm
-  // the shared context on the first interaction; there is deliberately no
-  // prompt and no delayed playback for messages received before that point.
-  useEffect(() => {
-    if (!sound) return;
-
-    const unlock = () => void unlockInboxSound();
-    window.addEventListener('pointerdown', unlock, {
-      capture: true,
-      once: true,
-    });
-    window.addEventListener('keydown', unlock, { capture: true, once: true });
-    return () => {
-      window.removeEventListener('pointerdown', unlock, true);
-      window.removeEventListener('keydown', unlock, true);
-    };
-  }, [sound]);
 
   useEffect(() => {
     const supabase = createClient();

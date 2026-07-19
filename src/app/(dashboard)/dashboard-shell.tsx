@@ -8,6 +8,8 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { AccountAppearanceSync } from '@/components/layout/account-appearance-sync';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
+import { useNotificationAudio } from '@/hooks/use-notification-audio';
+import { useFollowUpReminderRingtone } from '@/hooks/use-follow-up-reminder-ringtone';
 import { cn } from '@/lib/utils';
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
@@ -29,6 +31,11 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   // always visible and this stays at `false` (ignored by the component).
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+  // Browser audio is armed only after interaction. The reminder listener is
+  // dashboard-wide so it survives navigation and stops on realtime read_at.
+  useNotificationAudio(Boolean(user));
+  useFollowUpReminderRingtone(Boolean(user));
 
   useEffect(() => {
     if (!loading && !user) {
