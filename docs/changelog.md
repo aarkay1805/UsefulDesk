@@ -6,6 +6,12 @@
 
 ---
 
+## Follow-up task-cell parity
+
+Lead and member follow-up tables now share `FollowUpTaskSummary` (`src/components/follow-ups/follow-up-task-summary.tsx`): the **Follow-up** column renders the task-type icon, task label, and optional note with one hierarchy. Member rows additionally retain their member-only neutral Reason badge; lead queues remain reason-free.
+
+---
+
 ## Search input interaction contract
 
 The shared `SearchInput` (`src/components/ui/search-input.tsx`) is now a controlled semantic search field with contextual accessible names at every call-site, a mobile Search keyboard action, Escape-to-clear, and a trailing clear button that appears only for editable non-empty values and returns focus to the field. Leads, Members, Attendance, accountability queues, Inbox, member import, and Manage Columns all inherit the same behavior.

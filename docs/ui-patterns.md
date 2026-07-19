@@ -146,6 +146,8 @@ The three overlays (`TemplatePicker` / `MemberForm` / `TransferRequestDialog`) l
 
 `ContactNotesThread` (`components/contacts/contact-notes-thread.tsx`, keyed by `contactId`) — composer + note cards + follow-up-on-note + all mutations. Mounted by both the lead detail surface and the member detail sheet. `NoteComposerCard` / `FollowUpDraft` / `DEFAULT_FOLLOW_UP_DRAFT` / `resolveDueDate` live here and are re-exported from `contact-detail-view.tsx` for old import sites.
 
+`FollowUpTaskSummary` (`components/follow-ups/follow-up-task-summary.tsx`) is the canonical follow-up table cell: task-type icon + task label, with an optional note beneath. Lead queues use that base treatment; member queues additionally pass the member-only neutral Reason badge. Do not reconstruct this cell at a table call-site.
+
 ## Tables
 
 ### Product terminology and column labels
@@ -154,7 +156,7 @@ Visible product vocabulary is a shared interface contract. The same data concept
 
 - A member identity rendered with `MemberIdentity` is always **Name**. Do not relabel it as “Member,” “Customer,” “Customer details,” or “Member details.”
 - Reuse the canonical labels from the primary table for shared member columns: **Name**, **Plan**, **Expiry**, **Status**, **Assigned to**, **Fee**, and **Actions**.
-- Follow-up-specific concepts remain **Due date**, **Notes**, and **Reason** wherever they appear.
+- Follow-up-specific concepts remain **Due date**, **Follow-up**, and **Reason** wherever they appear. The task column is always **Follow-up**, never “Notes” or “Next action”; its optional note is supporting text inside the cell.
 - In lead and follow-up surfaces, the accountable task is always called **Follow-up**. Use **No follow-up** and **Add follow-up**; never expose “next action” as a synonym.
 - Internal field keys may differ, but user-facing labels must not. A new synonym requires explicit product agreement and an update to this vocabulary before implementation.
 - When adding or reviewing a table, compare every shared column and sort/filter label with the closest existing table before writing code.

@@ -7,11 +7,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  CircleDot,
-  ClipboardList,
   Loader2,
-  Mail,
-  Phone,
   UserRoundSearch,
   Users,
 } from 'lucide-react';
@@ -30,7 +26,6 @@ import {
   type LeadAccountabilityScope,
   type LeadAccountabilityView,
 } from '@/lib/leads/accountability';
-import { FOLLOW_UP_TASK_TYPES } from '@/lib/leads/follow-up-dates';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
@@ -67,6 +62,7 @@ import {
   StatusBadge,
 } from '@/components/leads/lead-cell-renderers';
 import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-up-dialog';
+import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
 
 const FETCH_BATCH = 500;
 const PAGE_SIZE = 25;
@@ -79,12 +75,6 @@ type QueueFilter =
   | 'within_sla'
   | 'missing'
   | 'unassigned';
-
-const TASK_ICON: Record<string, typeof Phone> = {
-  call: Phone,
-  email: Mail,
-  todo: ClipboardList,
-};
 
 const ISSUE_BADGE: Record<
   Exclude<LeadAccountabilityIssue, 'upcoming'>,
@@ -455,14 +445,6 @@ export function LeadAccountabilityView({
               <TableBody>
                 {visibleRows.map((row) => {
                   const followUp = row.followUp;
-                  const TaskIcon = followUp
-                    ? (TASK_ICON[followUp.task_type] ?? ClipboardList)
-                    : CircleDot;
-                  const taskLabel = followUp
-                    ? (FOLLOW_UP_TASK_TYPES.find(
-                        (task) => task.value === followUp.task_type
-                      )?.label ?? 'Task')
-                    : 'Not scheduled';
                   return (
                     <TableRow
                       key={row.lead.id}
@@ -528,19 +510,10 @@ export function LeadAccountabilityView({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex min-w-0 items-center gap-2">
-                          <TaskIcon className="text-muted-foreground size-4 shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-foreground text-sm">
-                              {taskLabel}
-                            </p>
-                            {followUp?.note && (
-                              <p className="text-muted-foreground max-w-56 truncate text-xs">
-                                {followUp.note}
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                        <FollowUpTaskSummary
+                          taskType={followUp?.task_type}
+                          note={followUp?.note}
+                        />
                       </TableCell>
                       <TableCell>
                         {followUp ? (

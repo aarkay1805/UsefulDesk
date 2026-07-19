@@ -70,6 +70,7 @@ import {
   BulkCompleteFollowUpsDialog,
   CompleteFollowUpDialog,
 } from '@/components/follow-ups/complete-follow-up-dialog';
+import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
 import {
   SendReminderButton,
   type ReminderReadiness,
@@ -120,7 +121,7 @@ const FOLLOW_UP_COLUMNS: FollowUpColumn[] = [
   },
   {
     key: 'notes',
-    label: 'Notes',
+    label: 'Follow-up',
     defaultWidth: 320,
     minWidth: 190,
     sortKey: 'reason',
@@ -431,15 +432,11 @@ export function FollowUpLists({
       }
       case 'notes':
         return (
-          <div className="flex min-w-0 items-center gap-2">
-            <Badge variant="neutral">{REASON_LABEL[followUp.reason]}</Badge>
-            <span
-              className="text-muted-foreground min-w-0 truncate text-sm"
-              title={followUp.note ?? undefined}
-            >
-              {followUp.note || 'No note'}
-            </span>
-          </div>
+          <FollowUpTaskSummary
+            taskType={followUp.task_type}
+            note={followUp.note}
+            reason={followUp.reason}
+          />
         );
       case 'actions':
         return (
