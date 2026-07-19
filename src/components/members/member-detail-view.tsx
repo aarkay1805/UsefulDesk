@@ -107,7 +107,7 @@ import { VoidPaymentDialog } from "./void-payment-dialog";
 const SECTIONS = [
   { id: "membership", label: "Membership" },
   { id: "payments", label: "Billing" },
-  { id: "notes", label: "Notes" },
+  { id: "notes", label: "Notes and Follow-ups" },
   { id: "attendance", label: "Attendance" },
   { id: "communication", label: "Communication" },
   { id: "personal", label: "Personal info" },
@@ -1052,12 +1052,12 @@ export function MemberDetailView({
                       </Card>
                     </Section>
 
-                    {/* Notes — the same authored thread as the lead detail
+                    {/* Notes and Follow-ups — the same authored thread as the lead detail
                         sheet (a member IS a contact). */}
                     <Section id="notes">
                       <Card>
                         <CardHeader>
-                          <CardTitle>Notes</CardTitle>
+                          <CardTitle>Notes and Follow-ups</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <ContactNotesThread

@@ -122,7 +122,7 @@ A `type="number"` field can NEVER show separators — any new money field that s
 
 ## Contact / lead detail surface
 
-There is **ONE** lead/contact detail surface: **`ContactDetailContent`** (`components/contacts/contact-detail-content.tsx`) — identity header + quick-action row over the **Details / Tags / Notes** accordion. It owns its own fetches (`contacts`, `conversations`, `tags`+`contact_tags`, `custom_fields`+`contact_custom_values`), its own writes, and the shared option lists (`useLeadFieldOptions`).
+There is **ONE** lead/contact detail surface: **`ContactDetailContent`** (`components/contacts/contact-detail-content.tsx`) — identity header + quick-action row over the **Details / Tags / Notes and Follow-ups** accordion. It owns its own fetches (`contacts`, `conversations`, `tags`+`contact_tags`, `custom_fields`+`contact_custom_values`), its own writes, and the shared option lists (`useLeadFieldOptions`).
 
 It is **host-agnostic on purpose** (renders no Sheet chrome) and has exactly two hosts:
 - `ContactDetailView` (`contact-detail-view.tsx`) — a thin `/leads` Sheet wrapper.
@@ -148,7 +148,7 @@ The three overlays (`TemplatePicker` / `MemberForm` / `TransferRequestDialog`) l
 
 `ContactNotesThread` (`components/contacts/contact-notes-thread.tsx`, keyed by `contactId`) — composer + note cards + follow-up-on-note + all mutations. Mounted by both the lead detail surface and the member detail sheet. Its private `NoteComposerCard` consumes the shared `FollowUpDraft` / `DEFAULT_FOLLOW_UP_DRAFT` / `resolveDueDate` model from `components/follow-ups/follow-up-fields.tsx`.
 
-`FollowUpButton` (`components/follow-ups/follow-up-button.tsx`) is the canonical manual row trigger everywhere: ghost/small, `ListPlus`, and the verb **Follow up**. It opens the shared `FollowUpDialog`; the only other manual creation path is the Notes composer inside a person's profile. Bulk Add note must stay note-only. Lead creators omit Reason chips and persist the schema's neutral `other` sentinel; member creators keep the contextual Reason choices. The noun remains hyphenated (**Follow-up**) in dialog titles, fields, queues, and statuses.
+`FollowUpButton` (`components/follow-ups/follow-up-button.tsx`) is the canonical manual row trigger everywhere: ghost/small, `ListPlus`, and the verb **Follow up**. It opens the shared `FollowUpDialog`; the only other manual creation path is the composer inside the profile section canonically labelled **Notes and Follow-ups**. Bulk Add note must stay note-only. Lead creators omit Reason chips and persist the schema's neutral `other` sentinel; member creators keep the contextual Reason choices. The noun remains hyphenated (**Follow-up**) in dialog titles, fields, queues, and statuses.
 
 `FollowUpTaskSummary` (`components/follow-ups/follow-up-task-summary.tsx`) is the canonical follow-up table cell: task-type icon + task label, with an optional note beneath. Lead queues use that base treatment; member queues additionally pass the member-only neutral Reason badge. Do not reconstruct this cell at a table call-site.
 

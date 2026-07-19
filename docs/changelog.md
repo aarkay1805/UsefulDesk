@@ -8,7 +8,7 @@
 
 ## Manual follow-up creation parity
 
-Lead and member action rows now share one `FollowUpButton` (`ListPlus` + **Follow up**) and one standalone create dialog/copy across All leads, First response, All members, Renewals, Trials, and Inactive. Manual creation is limited to that row dialog and the profile Notes composer; bulk Add note is note-only again. Lead creators omit member-only Reason chips and always persist the neutral `other` sentinel, while member creators retain contextual Reason choices. Key code: `src/components/follow-ups/follow-up-button.tsx`, `src/components/follow-ups/follow-up-dialog.tsx`, `src/components/follow-ups/follow-up-fields.tsx`, and `src/components/contacts/contact-notes-thread.tsx`.
+Lead and member action rows now share one `FollowUpButton` (`ListPlus` + **Follow up**) and one standalone create dialog/copy across All leads, First response, All members, Renewals, Trials, and Inactive. Manual creation is limited to that row dialog and the profile **Notes and Follow-ups** composer; bulk Add note is note-only again. Lead creators omit member-only Reason chips and always persist the neutral `other` sentinel, while member creators retain contextual Reason choices. Key code: `src/components/follow-ups/follow-up-button.tsx`, `src/components/follow-ups/follow-up-dialog.tsx`, `src/components/follow-ups/follow-up-fields.tsx`, and `src/components/contacts/contact-notes-thread.tsx`.
 
 ---
 
