@@ -49,14 +49,14 @@ export function AssigneeDisplay({
 export function PendingAssigneeDisplay({ name }: { name: string }) {
   return (
     <span
-      className="flex min-w-0 items-center gap-1.5 text-amber-700 dark:text-amber-400"
+      className="flex min-w-0 items-center gap-1.5 text-amber-foreground"
       title={`Invite pending — ${name} hasn't joined yet`}
     >
       <UserAvatar
         name={name}
         src={null}
         className="size-5 shrink-0 opacity-90"
-        fallbackClassName="bg-amber-500/15 text-amber-700 text-[10px] dark:text-amber-400"
+        fallbackClassName="bg-amber-500/15 text-amber-foreground text-[10px]"
       />
       <span className="min-w-0 truncate text-sm">
         <span className="truncate">{name}</span>

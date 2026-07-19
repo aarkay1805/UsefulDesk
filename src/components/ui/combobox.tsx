@@ -183,7 +183,7 @@ export function Combobox({
                     </span>
                   )}
                   {o.value === value && (
-                    <Check className="size-3.5 shrink-0 text-primary" />
+                    <Check className="size-3.5 shrink-0 text-primary-text" />
                   )}
                 </button>
               ))}

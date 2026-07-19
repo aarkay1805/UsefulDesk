@@ -242,7 +242,7 @@ export function RecordPaymentDialog({
           {dues && isChargeableAmount(dues.balance) && (
             <div className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
               <span className="text-muted-foreground">Balance due</span>
-              <span className="font-medium text-amber-700 tabular-nums dark:text-amber-400">
+              <span className="font-medium text-amber-foreground tabular-nums">
                 {fmt.money(dues.balance)}
                 {dues.collected > 0 && (
                   <span className="text-muted-foreground ml-1 text-xs">
@@ -261,7 +261,7 @@ export function RecordPaymentDialog({
             </p>
           )}
           {dues && !isChargeableAmount(dues.balance) && !loadError && (
-            <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
+            <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-foreground">
               This billing period is already settled.
             </p>
           )}

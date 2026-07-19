@@ -15,6 +15,8 @@ Drift is a real bug, not a nit. Example: `DropdownMenuContent` had `p-1` on the 
 
 When you spot a mismatch: **fix it at the master component** so every call-site converges, then cross-check the peers — menu ⇄ select ⇄ combobox ⇄ popover; search field; badge/pill family; chips; segmented toolbar controls.
 
+**Semantic colour foregrounds never use a raw palette shade.** Use `text-{hue}-foreground` for coloured text/icons (`red`, `amber`, `emerald`, `blue`, and the other declared semantic hues). Each token starts from that hue's `-500` fill primitive and blends 45% toward the live page foreground, mirroring the adaptive contrast rule used by `text-primary-text`; this keeps the hue recognisable while clearing WCAG AA over its 10% subtle tint in light and dark modes. `text-destructive` aliases the same red foreground. A component may vary a subtle background's opacity, but not its foreground token. The only exception is `components/tremor/chart-colors.ts`, whose `-500` classes are data-mark colours locked to matching fills and strokes, not semantic product text.
+
 ## Clickable cards — hover is the BORDER, never the fill
 
 A clickable card (any bordered box that navigates or acts — nav tile, action row, selectable option) hovers with **`hover:border-border-hover` and nothing else**. The fill does not move: no `hover:bg-*`.
@@ -184,9 +186,9 @@ Visible product vocabulary is a shared interface contract. The same data concept
 
 `Badge` (`ui/badge.tsx`) is the canonical pill.
 - **Never override a Badge's height, typography, padding, radius, border, or colours with call-site `className`.** Use the unmodified primitive and its documented variant. Two badges in the same family must therefore have identical geometry and type treatment.
-- Fixed statuses → tinted variants (`success`/`danger`/`warning`/`info`/`violet`), **fill-only** recipe `bg-{c}/10 text-{c}-400`. No borders on pills.
-- Admin-created **tags always render `variant="neutral"`** — the slate fill-only tint (`bg-slate-500/10 text-slate-500`). Slate = the neutral, non-colour-coded look.
-- DB-driven hex colours (lead statuses) use the `color` prop → same fill-only recipe, inline.
+- Fixed statuses → tinted variants (`success`/`danger`/`warning`/`info`/`violet`/`orange`/`pink`), **fill-only** recipe `bg-{c}/10 text-{c}-foreground`. No borders on pills.
+- Admin-created **tags always render `variant="neutral"`** — the slate fill-only tint (`bg-slate-500/10 text-slate-foreground`). Slate = the neutral, non-colour-coded look.
+- DB-driven hex colours (lead statuses) use the `color` prop. Known colour-picker values resolve to the exact fixed semantic variant (legacy red hex → `danger`, green → `success`, yellow → `warning`, blue → `info`, etc.); only an unknown custom hex uses the contrast-derived `.badge-tinted` fallback. The editor preview and swatches use the same mapping from `lib/semantic-colors.ts`.
 - Domain wrappers map domain state → variant (`MembershipStatusBadge`, `FeeStatusBadge`, `InvoiceStatusBadge`, `InvoicePaymentBadge`, `PlanTypeBadge`, `VoidedPaymentBadge` — all in `components/members/membership-status-badge.tsx`). Add a wrapper rather than repeating variant choices at call-sites.
 - Interactive chips (clickable choices and filters) use **`Chip` inside `ChipGroup`**, not badges. Don't force them into `Badge`.
 - Follow-up due state is a status (`danger` for Overdue, `warning` for Due today, `neutral` for Upcoming); follow-up reason is a category (`neutral`). Their colours communicate different semantics, but both use the exact unmodified Badge geometry and typography.

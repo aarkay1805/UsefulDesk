@@ -293,7 +293,7 @@ export function Step2SelectAudience({
               <div
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                   isSelected
-                    ? 'bg-primary/10 text-primary'
+                    ? 'bg-primary/10 text-primary-text'
                     : 'bg-muted text-muted-foreground'
                 }`}
               >
@@ -314,7 +314,7 @@ export function Step2SelectAudience({
         <div className="rounded-xl border border-border bg-card/50 p-4">
           <p className="mb-3 text-sm font-medium text-foreground">Select Tags</p>
           {loadingTags ? (
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <Loader2 className="h-5 w-5 animate-spin text-primary-text" />
           ) : tags.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               No tags found. Create tags in Settings.
@@ -346,7 +346,7 @@ export function Step2SelectAudience({
         <div className="space-y-3 rounded-xl border border-border bg-card/50 p-4">
           <p className="text-sm font-medium text-foreground">Custom Field Filter</p>
           {loadingFields ? (
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <Loader2 className="h-5 w-5 animate-spin text-primary-text" />
           ) : customFields.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               No custom fields defined. Create one in Settings → Custom Fields.
@@ -402,7 +402,7 @@ export function Step2SelectAudience({
       {/* Exclude list — applies regardless of audience type */}
       <div className="rounded-xl border border-border bg-card/50 p-4">
         <div className="mb-3 flex items-center gap-2">
-          <X className="h-4 w-4 text-red-700 dark:text-red-400" />
+          <X className="h-4 w-4 text-red-foreground" />
           <p className="text-sm font-medium text-foreground">
             Exclude contacts with these tags
           </p>
@@ -420,7 +420,7 @@ export function Step2SelectAudience({
                   onClick={() => toggleExcludeTag(tag.id)}
                   className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                     isExcluded
-                      ? 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300'
+                      ? 'border-red-500/30 bg-red-500/10 text-red-foreground'
                       : 'border-border bg-muted text-muted-foreground hover:border-border'
                   }`}
                 >
@@ -437,12 +437,12 @@ export function Step2SelectAudience({
         <p className="mb-2 text-sm font-medium text-foreground">Audience Summary</p>
         {loadingCount ? (
           <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <Loader2 className="h-4 w-4 animate-spin text-primary-text" />
             <span className="text-xs text-muted-foreground">Calculating…</span>
           </div>
         ) : estimatedCount !== null ? (
           <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary" />
+            <Users className="h-4 w-4 text-primary-text" />
             <span className="text-sm text-foreground">
               {estimatedCount.toLocaleString()}
             </span>

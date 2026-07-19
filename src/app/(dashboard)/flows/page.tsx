@@ -62,7 +62,7 @@ const STATUS_LABELS: Record<FlowRow["status"], string> = {
 
 const STATUS_COLORS: Record<FlowRow["status"], string> = {
   draft: "border-border bg-muted text-muted-foreground",
-  active: "border-emerald-600/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  active: "border-emerald-600/40 bg-emerald-500/10 text-emerald-foreground",
   archived: "border-border bg-muted/50 text-muted-foreground",
 };
 
@@ -271,7 +271,7 @@ export default function FlowsPage() {
                       disabled={creating}
                       className="flex flex-col gap-2.5 rounded-lg border border-border bg-background p-4 text-left transition-colors hover:border-border-hover disabled:opacity-50"
                     >
-                      <Icon className="h-5 w-5 text-primary" />
+                      <Icon className="h-5 w-5 text-primary-text" />
                       <span className="text-sm font-semibold text-popover-foreground">
                         {t.name}
                       </span>
@@ -375,7 +375,7 @@ function FlowCard({
     <div className="flex flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:border-border-hover">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <Workflow className="h-4 w-4 shrink-0 text-primary" />
+          <Workflow className="h-4 w-4 shrink-0 text-primary-text" />
           <h3 className="truncate text-sm font-semibold text-foreground">
             {flow.name}
           </h3>

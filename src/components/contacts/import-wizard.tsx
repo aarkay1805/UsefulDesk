@@ -1331,7 +1331,7 @@ export function ImportWizard({
             {step === 2 && !result && !validation.ok && (
               <div className="flex flex-col gap-0.5">
                 {!validation.phoneMapped && (
-                  <p className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
+                  <p className="flex items-center gap-1.5 text-xs text-red-foreground">
                     <XCircle className="size-3.5 shrink-0" />
                     Map one column to{' '}
                     <span className="font-medium">Phone</span> to continue —
@@ -1339,7 +1339,7 @@ export function ImportWizard({
                   </p>
                 )}
                 {validation.duplicateTargets.length > 0 && (
-                  <p className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
+                  <p className="flex items-center gap-1.5 text-xs text-red-foreground">
                     <XCircle className="size-3.5 shrink-0" />
                     Each field can be mapped once. Duplicated:{' '}
                     {validation.duplicateTargets
@@ -1555,7 +1555,7 @@ function StepIndicator({ step, labels }: { step: number; labels: string[] }) {
               className={cn(
                 'flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors',
                 active && 'bg-primary text-primary-foreground',
-                done && 'bg-primary/20 text-primary',
+                done && 'bg-primary/20 text-primary-text',
                 !active && !done && 'bg-muted text-muted-foreground'
               )}
             >
@@ -1611,7 +1611,7 @@ function UploadStep({
         {file ? (
           <>
             <div className="bg-primary/15 ring-primary/25 flex size-10 items-center justify-center rounded-lg ring-1">
-              <FileText className="text-primary size-5" />
+              <FileText className="text-primary-text size-5" />
             </div>
             <p
               className="max-w-full truncate px-2 text-sm font-medium text-popover-foreground"
@@ -1808,7 +1808,7 @@ function MapStep({
           )}
 
           {mode !== 'add' && (
-            <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+            <p className="flex items-start gap-1.5 text-[11px] text-amber-foreground">
               <AlertTriangle className="mt-px size-3 shrink-0" />
               Updates applied via import cannot be undone.
             </p>
@@ -1972,7 +1972,7 @@ function MapStep({
                       </td>
                       <td className="px-3 py-2">
                         {isMapped ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-foreground">
                             <CheckCircle className="size-3.5 shrink-0" />
                             Mapped
                           </span>
@@ -1993,7 +1993,7 @@ function MapStep({
 
         <p className="text-[11px] text-muted-foreground">
           {unmappedCount === 0 ? (
-            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+            <span className="inline-flex items-center gap-1 text-emerald-foreground">
               <CheckCircle className="size-3" />
               All {mapping.length} columns mapped
             </span>
@@ -2049,7 +2049,7 @@ function ReviewStep({
           {mappedPreview.droppedNoPhone > 0 && (
             <div>
               <span className="text-muted-foreground">Rows without phone: </span>
-              <span className="font-medium text-amber-700 dark:text-amber-400">
+              <span className="font-medium text-amber-foreground">
                 {mappedPreview.droppedNoPhone} skipped
               </span>
             </div>
@@ -2059,7 +2059,7 @@ function ReviewStep({
               <span className="text-muted-foreground">
                 Wrong-format values:{' '}
               </span>
-              <span className="font-medium text-amber-700 dark:text-amber-400">
+              <span className="font-medium text-amber-foreground">
                 {mappedPreview.invalidCustomValues} will be skipped
               </span>
             </div>
@@ -2221,7 +2221,7 @@ function ConfirmStep({
         )}
 
         {mode !== 'add' && (
-          <p className="flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+          <p className="flex items-start gap-1.5 text-[11px] text-amber-foreground">
             <AlertTriangle className="mt-px size-3 shrink-0" />
             Updates applied via import cannot be undone.
           </p>
@@ -2295,9 +2295,9 @@ function ConfirmStep({
 function ContactsResultPanel({ result }: { result: ImportResult }) {
   const stats: [string, number, string][] = [
     ['imported', result.imported, 'text-primary-text'],
-    ['updated', result.updated, 'text-cyan-700 dark:text-cyan-400'],
-    ['skipped', result.skipped, 'text-amber-700 dark:text-amber-400'],
-    ['failed', result.failed, 'text-red-700 dark:text-red-400'],
+    ['updated', result.updated, 'text-cyan-foreground'],
+    ['skipped', result.skipped, 'text-amber-foreground'],
+    ['failed', result.failed, 'text-red-foreground'],
   ];
   return (
     <div className="rounded-xl border border-border bg-background/50 p-5">
@@ -2334,7 +2334,7 @@ function ContactsResultPanel({ result }: { result: ImportResult }) {
         </p>
       )}
       {result.invalidValues > 0 && (
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-foreground">
           <AlertTriangle className="size-3.5 shrink-0" />
           {result.invalidValues} value
           {result.invalidValues !== 1 ? 's' : ''} skipped — wrong format for
@@ -2361,12 +2361,12 @@ function LeadsResultPanel({
     {
       label: 'Leads added',
       n: result.imported,
-      className: 'text-emerald-700 dark:text-emerald-400',
+      className: 'text-emerald-foreground',
     },
     {
       label: 'Updated',
       n: result.updated,
-      className: 'text-cyan-700 dark:text-cyan-400',
+      className: 'text-cyan-foreground',
     },
     { label: 'Skipped', n: result.skipped, className: 'text-muted-foreground' },
   ];
@@ -2374,7 +2374,7 @@ function LeadsResultPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <CheckCircle className="size-5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+        <CheckCircle className="size-5 shrink-0 text-emerald-foreground" />
         <p className="text-sm font-medium text-popover-foreground">
           Import complete
         </p>
@@ -2402,7 +2402,7 @@ function LeadsResultPanel({
       </div>
 
       {result.failed > 0 && (
-        <p className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
+        <p className="flex items-center gap-1.5 text-xs text-red-foreground">
           <XCircle className="size-3.5 shrink-0" />
           {result.failed} row{result.failed !== 1 ? 's' : ''} failed to write.
         </p>
@@ -2447,7 +2447,7 @@ function LeadsResultPanel({
           {result.invalidValues > 0 && (
             <>
               {(result.tagsAssigned > 0 || result.customValues > 0) && ' · '}
-              <span className="text-amber-700 dark:text-amber-400">
+              <span className="text-amber-foreground">
                 {result.invalidValues} wrong-format value
                 {result.invalidValues !== 1 ? 's' : ''} skipped
               </span>

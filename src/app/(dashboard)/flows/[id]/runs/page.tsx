@@ -63,7 +63,7 @@ const STATUS_META: Record<
 > = {
   active: {
     label: "Active",
-    classes: "border-emerald-600/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    classes: "border-emerald-600/40 bg-emerald-500/10 text-emerald-foreground",
     icon: PlayCircle,
   },
   completed: {
@@ -73,7 +73,7 @@ const STATUS_META: Record<
   },
   handed_off: {
     label: "Handed off",
-    classes: "border-amber-600/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    classes: "border-amber-600/40 bg-amber-500/10 text-amber-foreground",
     icon: UserPlus,
   },
   timed_out: {
@@ -88,7 +88,7 @@ const STATUS_META: Record<
   },
   failed: {
     label: "Failed",
-    classes: "border-red-600/40 bg-red-500/10 text-red-700 dark:text-red-300",
+    classes: "border-red-600/40 bg-red-500/10 text-red-foreground",
     icon: CircleAlert,
   },
 };
@@ -292,15 +292,15 @@ function RunCard({
 }
 
 const EVENT_COLOR: Record<string, string> = {
-  started: "text-emerald-700 dark:text-emerald-300",
+  started: "text-emerald-foreground",
   node_entered: "text-muted-foreground",
-  message_sent: "text-sky-700 dark:text-sky-300",
+  message_sent: "text-sky-foreground",
   reply_received: "text-primary-text",
-  fallback_fired: "text-amber-700 dark:text-amber-300",
-  handoff: "text-amber-700 dark:text-amber-300",
+  fallback_fired: "text-amber-foreground",
+  handoff: "text-amber-foreground",
   timeout: "text-muted-foreground",
-  error: "text-red-700 dark:text-red-300",
-  completed: "text-emerald-700 dark:text-emerald-300",
+  error: "text-red-foreground",
+  completed: "text-emerald-foreground",
 };
 
 function EventLine({ ev }: { ev: EventRow }) {

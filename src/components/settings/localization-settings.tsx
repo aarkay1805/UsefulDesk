@@ -170,7 +170,7 @@ export function LocalizationSettings() {
       <Card>
         <CardHeader>
           <CardTitle className="text-foreground flex items-center gap-2">
-            <Globe2 className="text-primary size-4" />
+            <Globe2 className="text-primary-text size-4" />
             Region & formats
           </CardTitle>
           <CardDescription className="text-muted-foreground">

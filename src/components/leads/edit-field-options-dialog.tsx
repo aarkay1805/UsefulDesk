@@ -37,6 +37,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import {
+  LEAD_STATUS_COLOR_OPTIONS,
+  resolveSemanticColorPreset,
+} from '@/lib/semantic-colors';
 
 const FIELD_TITLES: Record<LeadFieldKind, string> = {
   status: 'status',
@@ -57,15 +61,7 @@ const FIELD_COLUMN: Record<LeadFieldKind, 'lead_status' | 'source' | 'gender'> =
  * Blue (#3b82f6) is intentionally omitted — it's permanently reserved
  * for the built-in "New lead" stage, so it must not be pickable here.
  */
-const STATUS_COLORS = [
-  '#eab308', // yellow
-  '#f97316', // orange
-  '#22c55e', // green
-  '#ef4444', // red
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#64748b', // slate
-];
+const STATUS_COLORS = LEAD_STATUS_COLOR_OPTIONS;
 
 interface EditFieldOptionsDialogProps {
   /** Which list to edit; null = closed. */
@@ -369,6 +365,8 @@ function OptionRow({
     useSortable({ id: option.key });
 
   const color = option.color ?? STATUS_COLORS[0];
+  const semanticPreset = resolveSemanticColorPreset(color);
+  const displayTint = semanticPreset?.tint ?? color;
 
   return (
     <div
@@ -397,16 +395,19 @@ function OptionRow({
           'h-7 flex-1 rounded-full border-transparent px-3.5 font-medium',
           isStatus
             ? // `tinted-text` derives a mode-aware readable colour from
-              // --badge-tint; the inline background is the 10% fill (inline
-              // beats Input's dark:bg-input/30 so the tint always shows).
+              // --badge-tint; known presets also supply the same canonical
+              // foreground as Badge. The inline 10% background beats Input's
+              // dark:bg-input/30 so the tint always shows.
               'tinted-text'
             : 'text-foreground'
         )}
         style={
           isStatus
             ? ({
-                '--badge-tint': color,
-                backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+                '--badge-tint': displayTint,
+                '--badge-foreground': semanticPreset?.foreground,
+                backgroundColor:
+                  'color-mix(in oklab, var(--badge-tint) 10%, transparent)',
               } as React.CSSProperties)
             : undefined
         }
@@ -438,26 +439,26 @@ function ColorSwatchPicker({
 }) {
   return (
     <div className="flex items-center gap-1" role="radiogroup" aria-label="Pill colour">
-      {STATUS_COLORS.map((c) => (
-        <button
-          key={c}
-          type="button"
-          role="radio"
-          aria-checked={value === c}
-          aria-label={`Colour ${c}`}
-          onClick={() => onChange(c)}
-          className={cn(
-            // Raw hex — same hue + saturation the pill derives from, at its
-            // own vivid lightness. This is a colour indicator, not text, so
-            // it doesn't follow the pill's darkened/lightened readable tint.
-            // Hairline boundary keeps light dots (yellow) perceivable against
-            // the card — a solid dot alone is ~1.8:1.
-            'size-4 cursor-pointer rounded-full border border-black/15 transition-transform hover:scale-110 dark:border-white/20',
-            value === c && 'ring-2 ring-ring ring-offset-1 ring-offset-card'
-          )}
-          style={{ backgroundColor: c }}
-        />
-      ))}
+      {STATUS_COLORS.map((c) => {
+        const displayColor = resolveSemanticColorPreset(c)?.tint ?? c;
+        return (
+          <button
+            key={c}
+            type="button"
+            role="radio"
+            aria-checked={value === c}
+            aria-label={`Colour ${c}`}
+            onClick={() => onChange(c)}
+            className={cn(
+              // The dot uses the same canonical primitive as its rendered
+              // badge. A hairline keeps light colours perceivable on the card.
+              'size-4 cursor-pointer rounded-full border border-black/15 transition-transform hover:scale-110 dark:border-white/20',
+              value === c && 'ring-2 ring-ring ring-offset-1 ring-offset-card'
+            )}
+            style={{ backgroundColor: displayColor }}
+          />
+        );
+      })}
     </div>
   );
 }

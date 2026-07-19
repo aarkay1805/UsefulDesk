@@ -189,7 +189,7 @@ export function TemplatePicker({
       <DialogContent className="border-border bg-popover sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-popover-foreground">
-            <LayoutTemplate className="h-4 w-4 text-primary" />
+            <LayoutTemplate className="h-4 w-4 text-primary-text" />
             {selected ? selected.name : "Send template"}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
@@ -203,7 +203,7 @@ export function TemplatePicker({
           <div className="max-h-[60vh] space-y-2 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <Loader2 className="h-5 w-5 animate-spin text-primary-text" />
               </div>
             ) : templates.length === 0 ? (
               <div className="rounded-md border border-border bg-background/50 p-6 text-center">

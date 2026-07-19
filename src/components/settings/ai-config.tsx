@@ -239,7 +239,7 @@ export function AiConfig() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="h-4 w-4 text-primary" /> Provider & key
+              <Sparkles className="h-4 w-4 text-primary-text" /> Provider & key
             </CardTitle>
             <CardDescription>
               Your key is encrypted at rest (AES-256-GCM) and never shown again

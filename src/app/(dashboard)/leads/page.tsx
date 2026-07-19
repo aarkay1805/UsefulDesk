@@ -3580,7 +3580,7 @@ export default function LeadsPage() {
                           className="py-12 text-center"
                         >
                           <div className="flex flex-col items-center gap-2">
-                            <Loader2 className="text-primary size-6 animate-spin" />
+                            <Loader2 className="text-primary-text size-6 animate-spin" />
                             <p className="text-muted-foreground text-sm">
                               Loading leads...
                             </p>

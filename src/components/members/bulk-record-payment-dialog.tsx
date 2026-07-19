@@ -185,7 +185,7 @@ export function BulkRecordPaymentDialog({
             <div className="border-border bg-muted/40 rounded-lg border px-3 py-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Outstanding</span>
-                <span className="font-medium text-amber-700 tabular-nums dark:text-amber-400">
+                <span className="font-medium text-amber-foreground tabular-nums">
                   {fmt.money(totalDue)} · {due.length} member
                   {due.length === 1 ? "" : "s"}
                 </span>

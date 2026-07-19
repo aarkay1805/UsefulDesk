@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Loader2, FileText, ArrowRight } from 'lucide-react';
 
 const categoryColors: Record<string, string> = {
-  Marketing: 'bg-purple-500/10 text-purple-700 dark:text-purple-400',
-  Utility: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
-  Authentication: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
+  Marketing: 'bg-purple-500/10 text-purple-foreground',
+  Utility: 'bg-blue-500/10 text-blue-foreground',
+  Authentication: 'bg-orange-500/10 text-orange-foreground',
 };
 
 interface Step1Props {
@@ -53,7 +53,7 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <Loader2 className="h-6 w-6 animate-spin text-primary-text" />
       </div>
     );
   }
@@ -61,7 +61,7 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
   if (error) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-2">
-        <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+        <p className="text-sm text-red-foreground">{error}</p>
       </div>
     );
   }

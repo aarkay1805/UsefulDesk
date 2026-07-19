@@ -485,7 +485,7 @@ export function AttendanceView({
                           <p
                             className={
                               meta.danger
-                                ? 'truncate text-xs text-red-700 dark:text-red-400'
+                                ? 'truncate text-xs text-red-foreground'
                                 : 'text-muted-foreground truncate text-xs'
                             }
                           >

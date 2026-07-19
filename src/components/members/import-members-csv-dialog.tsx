@@ -371,7 +371,7 @@ export function ImportMembersCsvDialog({
               </p>
             )}
             {!planMapped && (
-              <p className="text-xs text-amber-700 dark:text-amber-400">
+              <p className="text-xs text-amber-foreground">
                 No Plan column mapped — every row needs a plan name matching
                 one of your membership plans.
               </p>

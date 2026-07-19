@@ -84,7 +84,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-primary" />
+          <Bot className="h-4 w-4 text-primary-text" />
           <span className="text-sm font-medium text-foreground">Playground</span>
           <span className="text-xs text-muted-foreground">
             — test replies as if you were a customer
@@ -133,7 +133,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
             )}
           >
             {t.role === 'assistant' && (
-              <Bot className="mt-1 h-5 w-5 shrink-0 text-primary" />
+              <Bot className="mt-1 h-5 w-5 shrink-0 text-primary-text" />
             )}
             <div
               className={cn(
@@ -147,7 +147,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
               {t.role === 'assistant' && t.handoff && (
                 <p
                   className={cn(
-                    'flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400',
+                    'flex items-center gap-1 text-xs text-amber-foreground',
                     t.content && 'mt-1.5 border-t border-border/50 pt-1.5',
                   )}
                 >
@@ -164,7 +164,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
 
         {sending && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Bot className="h-5 w-5 text-primary" />
+            <Bot className="h-5 w-5 text-primary-text" />
             <Loader2 className="h-4 w-4 animate-spin" /> Thinking…
           </div>
         )}

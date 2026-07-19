@@ -52,7 +52,7 @@ export function SessionsCard() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
-            <LogOut className="size-4 text-primary" />
+            <LogOut className="size-4 text-primary-text" />
             Active sessions
           </CardTitle>
           <CardDescription className="text-muted-foreground">

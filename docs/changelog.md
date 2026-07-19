@@ -6,6 +6,12 @@
 
 ---
 
+## Semantic colour foreground consistency
+
+Coloured product text and icons now resolve through one adaptive foreground token per hue: its `-500` fill primitive blended 45% toward the live page foreground, following the themed-text contrast model and clearing WCAG AA over 10% subtle tints in both modes. `text-destructive` aliases the same red token, subtle primary treatments use `text-primary-text`, and badges/panels no longer pick ad hoc shades. Stored lead-status picker hex values resolve back to the exact semantic Badge variant, so a red lead status and a red fixed status share both foreground and tint primitives; arbitrary custom hex keeps the accessible derived fallback. Tremor's `-500` data-mark palette remains the explicit non-semantic exception. Key code: `src/app/globals.css`, `src/components/ui/badge.tsx`, `src/lib/semantic-colors.ts`, `src/lib/semantic-color-foregrounds.test.ts`.
+
+---
+
 ## WhatsApp settings layout
 
 The WhatsApp connection status and embedded-signup flow now use the full settings-panel width. The step-by-step Meta setup guide moved into the Manual setup accordion, where it sits beside the credential form on desktop and stacks below it on smaller screens. The split grid stays padded inside the accordion panel because its animation clips overflow and Card edges are outer rings. Key code: `src/components/settings/whatsapp-config.tsx`.

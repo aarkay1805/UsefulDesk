@@ -138,7 +138,7 @@ export default function AutomationsPage() {
   if (error) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-2">
-        <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+        <p className="text-sm text-red-foreground">{error}</p>
         <Button variant="outline" onClick={() => window.location.reload()}>
           Retry
         </Button>
@@ -149,7 +149,7 @@ export default function AutomationsPage() {
   if (automations === null) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <Loader2 className="h-6 w-6 animate-spin text-primary-text" />
       </div>
     )
   }
@@ -189,7 +189,7 @@ export default function AutomationsPage() {
                   onClick={() => startFromTemplate(slug)}
                   className="group flex flex-col items-start rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-border-hover"
                 >
-                  <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary/15">
+                  <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary-text group-hover:bg-primary/15">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="text-sm font-semibold text-foreground">{t.name}</div>
@@ -204,7 +204,7 @@ export default function AutomationsPage() {
       {automations.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/40">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <Zap className="h-6 w-6 text-primary" />
+            <Zap className="h-6 w-6 text-primary-text" />
           </div>
           <p className="mt-3 text-sm font-medium text-foreground">No automations yet</p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -283,7 +283,7 @@ function AutomationCard({
           className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10"
           aria-hidden
         >
-          <Zap className="h-5 w-5 text-primary" />
+          <Zap className="h-5 w-5 text-primary-text" />
         </div>
 
         <button

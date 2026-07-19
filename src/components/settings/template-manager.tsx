@@ -63,9 +63,9 @@ type HeaderFormat = 'none' | 'text' | 'image' | 'video' | 'document';
 const HEADER_FORMATS: HeaderFormat[] = ['none', 'text', 'image', 'video', 'document'];
 
 const categoryColors: Record<string, string> = {
-  Marketing: 'bg-purple-600/20 text-purple-700 dark:text-purple-400 border-purple-600/30',
-  Utility: 'bg-blue-600/20 text-blue-700 dark:text-blue-400 border-blue-600/30',
-  Authentication: 'bg-amber-600/20 text-amber-700 dark:text-amber-400 border-amber-600/30',
+  Marketing: 'bg-purple-600/20 text-purple-foreground border-purple-600/30',
+  Utility: 'bg-blue-600/20 text-blue-foreground border-blue-600/30',
+  Authentication: 'bg-amber-600/20 text-amber-foreground border-amber-600/30',
 };
 
 interface TemplateFormData {
@@ -484,7 +484,7 @@ export function TemplateManager() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin text-primary" />
+        <Loader2 className="size-6 animate-spin text-primary-text" />
       </div>
     );
   }
@@ -591,10 +591,10 @@ export function TemplateManager() {
                         <span
                           className={`text-[10px] uppercase font-medium ${
                             template.quality_score === 'GREEN'
-                              ? 'text-emerald-700 dark:text-emerald-400'
+                              ? 'text-emerald-foreground'
                               : template.quality_score === 'YELLOW'
-                                ? 'text-yellow-700 dark:text-yellow-400'
-                                : 'text-red-700 dark:text-red-400'
+                                ? 'text-yellow-foreground'
+                                : 'text-red-foreground'
                           }`}
                           title="Meta quality score"
                         >
@@ -611,7 +611,7 @@ export function TemplateManager() {
                       </p>
                     )}
                     {(template.rejection_reason || template.submission_error) && (
-                      <div className="flex items-start gap-1.5 text-xs text-red-700 dark:text-red-400 bg-red-500/10 border border-red-600/30 dark:bg-red-950/20 dark:border-red-900/40 rounded px-2 py-1.5">
+                      <div className="flex items-start gap-1.5 text-xs text-red-foreground bg-red-500/10 border border-red-600/30 dark:bg-red-950/20 dark:border-red-900/40 rounded px-2 py-1.5">
                         <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
                         <span>
                           {template.rejection_reason || template.submission_error}
@@ -700,7 +700,7 @@ export function TemplateManager() {
           </DialogHeader>
 
           {form.category === 'Authentication' && (
-            <div className="flex items-start gap-2 rounded border border-amber-600/30 bg-amber-500/10 dark:border-amber-700/40 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+            <div className="flex items-start gap-2 rounded border border-amber-600/30 bg-amber-500/10 dark:border-amber-700/40 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-foreground">
               <AlertCircle className="size-4 mt-0.5 shrink-0" />
               <p>
                 AUTHENTICATION templates have a fixed body + OTP button shape

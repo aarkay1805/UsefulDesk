@@ -44,6 +44,28 @@
    * lightens on dark (like --card-2). See the MODE blocks below. */
   --color-border-hover: var(--border-hover);
   --color-destructive: var(--destructive);
+  /* One foreground token per semantic hue. Components may vary the tint
+   * strength of a subtle background, but coloured text/icons always resolve
+   * through the same adaptive token. This prevents a red tag, destructive
+   * action, and error panel (or any equivalent hue family) from drifting
+   * across unrelated palette shades. */
+  --color-slate-foreground: var(--slate-foreground);
+  --color-red-foreground: var(--red-foreground);
+  --color-orange-foreground: var(--orange-foreground);
+  --color-amber-foreground: var(--amber-foreground);
+  --color-yellow-foreground: var(--yellow-foreground);
+  --color-green-foreground: var(--green-foreground);
+  --color-emerald-foreground: var(--emerald-foreground);
+  --color-teal-foreground: var(--teal-foreground);
+  --color-cyan-foreground: var(--cyan-foreground);
+  --color-sky-foreground: var(--sky-foreground);
+  --color-blue-foreground: var(--blue-foreground);
+  --color-indigo-foreground: var(--indigo-foreground);
+  --color-violet-foreground: var(--violet-foreground);
+  --color-purple-foreground: var(--purple-foreground);
+  --color-fuchsia-foreground: var(--fuchsia-foreground);
+  --color-pink-foreground: var(--pink-foreground);
+  --color-rose-foreground: var(--rose-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -125,10 +147,6 @@ html[data-mode="dark"] {
   --muted-foreground: oklch(0.65 0.01 260);
   --accent: oklch(0.22 0.01 260);
   --accent-foreground: oklch(0.985 0 0);
-  /* Lighter red than light mode's: 0.577 only reaches ~4.2:1 on the
-   * near-black background — as `text-destructive` that fails WCAG 4.5:1.
-   * 0.704 clears 5.8:1 even over the /10 tinted pill backgrounds. */
-  --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(0.28 0.01 260);
   /* LIGHTENS on hover (0.28 → 0.36): on dark, "darker" would push the edge
    * toward the card fill (0.18) and dissolve it, reading as the card losing
@@ -167,11 +185,6 @@ html[data-mode="light"] {
   --muted-foreground: oklch(0.52 0.015 260);
   --accent: oklch(0.96 0.004 260);
   --accent-foreground: oklch(0.25 0.01 260);
-  /* Deeper than the stock 0.577: as `text-destructive` over the /10
-   * tint the destructive button/badge variants use, 0.577 was only
-   * 3.99:1 on white. 0.514 clears 5.2:1 there (6.3:1 as plain text,
-   * and white-on-solid also improves to 6.3:1). */
-  --destructive: oklch(0.514 0.21 27.325);
   --border: oklch(0.922 0.004 260);
   /* DARKENS on hover (0.922 → 0.87) — one step down, roughly gray-200 →
    * gray-300. Enough to register against the white card fill without the
@@ -283,6 +296,34 @@ html[data-mode="light"][data-theme="amber"] {
   --sidebar-ring: oklch(0.6 0.15 65);
 }
 
+/* Semantic hue foregrounds follow the same adaptive contrast model as themed
+ * text: start from the hue's -500 fill primitive and blend it toward the live
+ * page foreground. The 45% foreground share is calibrated for the brighter
+ * yellow/green families; every hue clears 4.5:1 over its 10% self-tint in both
+ * modes. Red therefore has one foreground everywhere, whether it represents a
+ * destructive action, a status badge, an icon, or another subtle treatment. */
+:root {
+  --slate-foreground: color-mix(in oklch, var(--color-slate-500), var(--foreground) 45%);
+  --red-foreground: color-mix(in oklch, var(--color-red-500), var(--foreground) 45%);
+  --orange-foreground: color-mix(in oklch, var(--color-orange-500), var(--foreground) 45%);
+  --amber-foreground: color-mix(in oklch, var(--color-amber-500), var(--foreground) 45%);
+  --yellow-foreground: color-mix(in oklch, var(--color-yellow-500), var(--foreground) 45%);
+  --green-foreground: color-mix(in oklch, var(--color-green-500), var(--foreground) 45%);
+  --emerald-foreground: color-mix(in oklch, var(--color-emerald-500), var(--foreground) 45%);
+  --teal-foreground: color-mix(in oklch, var(--color-teal-500), var(--foreground) 45%);
+  --cyan-foreground: color-mix(in oklch, var(--color-cyan-500), var(--foreground) 45%);
+  --sky-foreground: color-mix(in oklch, var(--color-sky-500), var(--foreground) 45%);
+  --blue-foreground: color-mix(in oklch, var(--color-blue-500), var(--foreground) 45%);
+  --indigo-foreground: color-mix(in oklch, var(--color-indigo-500), var(--foreground) 45%);
+  --violet-foreground: color-mix(in oklch, var(--color-violet-500), var(--foreground) 45%);
+  --purple-foreground: color-mix(in oklch, var(--color-purple-500), var(--foreground) 45%);
+  --fuchsia-foreground: color-mix(in oklch, var(--color-fuchsia-500), var(--foreground) 45%);
+  --pink-foreground: color-mix(in oklch, var(--color-pink-500), var(--foreground) 45%);
+  --rose-foreground: color-mix(in oklch, var(--color-rose-500), var(--foreground) 45%);
+  /* Destructive is an alias, never a separately tuned red. */
+  --destructive: var(--red-foreground);
+}
+
 /* Accent-as-text token (links, emphasised labels). Blends the accent
  * 62% with the live --foreground (38%) — the same recipe the flow-node
  * labels use. Because --foreground flips per mode, this self-adjusts:
@@ -309,11 +350,17 @@ html[data-mode="light"][data-theme="amber"] {
    * whose --badge-tint is a raw DB hex (funnel counts, etc.). */
   .badge-tinted,
   .tinted-text {
-    color: color-mix(in oklab, var(--badge-tint) 70%, white);
+    color: var(
+      --badge-foreground,
+      color-mix(in oklab, var(--badge-tint) 70%, white)
+    );
   }
   html[data-mode="light"] .badge-tinted,
   html[data-mode="light"] .tinted-text {
-    color: color-mix(in oklab, var(--badge-tint) 65%, black);
+    color: var(
+      --badge-foreground,
+      color-mix(in oklab, var(--badge-tint) 65%, black)
+    );
   }
 }
 

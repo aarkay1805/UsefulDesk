@@ -345,7 +345,7 @@ function EntryPicker({
   if (state.nodes.length === 0) return null;
   return (
     <section className="border-border bg-card flex items-center gap-3 rounded-lg border p-3">
-      <CornerDownRight className="text-primary h-4 w-4 shrink-0" />
+      <CornerDownRight className="text-primary-text h-4 w-4 shrink-0" />
       <span className="text-muted-foreground text-xs">Entry node:</span>
       <NodeKeySelect
         value={state.entry_node_id}
@@ -444,7 +444,7 @@ function NodeCard({
           )}
         </div>
         {hasError && (
-          <CircleAlert className="h-3.5 w-3.5 shrink-0 text-red-700 dark:text-red-400" />
+          <CircleAlert className="h-3.5 w-3.5 shrink-0 text-red-foreground" />
         )}
         {expanded ? (
           <ChevronUp className="text-muted-foreground h-4 w-4" />

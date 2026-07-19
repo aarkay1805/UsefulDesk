@@ -231,7 +231,7 @@ export function ChangePlanDialog({
                       Credit for {quote.remainingDays} unused day
                       {quote.remainingDays === 1 ? "" : "s"}:{" "}
                     </span>
-                    <span className="font-medium text-emerald-700 tabular-nums dark:text-emerald-400">
+                    <span className="font-medium text-emerald-foreground tabular-nums">
                       {fmt.money(quote.credit)}
                     </span>
                   </p>

@@ -6,21 +6,17 @@ import { cn } from '@/lib/utils';
  * Small status / role pill used across the settings redesign
  * (Overview tiles, WhatsApp banner, the "Active" appearance markers).
  *
- * Status colours (emerald = good, amber = attention) follow the same
- * Tailwind palette the members tab already uses for role chips — they
- * are semantic accents, not neutrals, so they're intentionally not
- * tokenized. Neutrals stay on design tokens.
+ * Status colours (emerald = good, amber = attention) use the shared semantic
+ * hue foreground tokens. Neutrals stay on the neutral design tokens.
  */
 export type ChipVariant = 'owner' | 'admin' | 'ok' | 'warn' | 'muted';
 
-// Light-mode text shades are -700, not -600: the -600s only reach
-// ~2.9-3.4:1 on the /10 tint (they were paired with a dark override, so
-// the earlier sweep left them alone). -700 clears 4.5:1; dark keeps -300.
+// Foreground tokens adapt toward the live page foreground in either mode.
 const VARIANTS: Record<ChipVariant, string> = {
-  owner: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  owner: 'border-amber-500/40 bg-amber-500/10 text-amber-foreground',
   admin: 'border-primary-soft-2 bg-primary-soft text-primary-text',
-  ok: 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  warn: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  ok: 'border-emerald-500/35 bg-emerald-500/10 text-emerald-foreground',
+  warn: 'border-amber-500/40 bg-amber-500/10 text-amber-foreground',
   muted: 'border-border bg-muted text-muted-foreground',
 };
 

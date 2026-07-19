@@ -72,9 +72,9 @@ export function LeadsSort({ value, onChange, columns }: LeadsSortProps) {
                 <span className="truncate">{c.label}</span>
                 {isActive &&
                   (value.dir === 'asc' ? (
-                    <ArrowUp className="size-3.5 shrink-0 text-primary" />
+                    <ArrowUp className="size-3.5 shrink-0 text-primary-text" />
                   ) : (
-                    <ArrowDown className="size-3.5 shrink-0 text-primary" />
+                    <ArrowDown className="size-3.5 shrink-0 text-primary-text" />
                   ))}
               </button>
             );

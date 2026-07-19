@@ -134,7 +134,7 @@ export function ColumnHeader({
             onClick={() => onSort(sortDir === "asc" ? "desc" : "asc")}
             className={cn(
               "hover:bg-muted flex size-5 items-center justify-center rounded",
-              sortDir ? "text-primary" : "text-muted-foreground"
+              sortDir ? "text-primary-text" : "text-muted-foreground"
             )}
           >
             {sortDir === "asc" ? (

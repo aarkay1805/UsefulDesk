@@ -246,7 +246,7 @@ export default function NotificationsPage() {
   if (notifications === null) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <Loader2 className="h-6 w-6 animate-spin text-primary-text" />
       </div>
     );
   }
@@ -278,7 +278,7 @@ export default function NotificationsPage() {
       {notifications.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/40">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <Bell className="h-6 w-6 text-primary" />
+            <Bell className="h-6 w-6 text-primary-text" />
           </div>
           <p className="mt-3 text-sm font-medium text-foreground">
             No notifications yet
@@ -316,7 +316,7 @@ export default function NotificationsPage() {
                     <Icon
                       className={cn(
                         "h-5 w-5",
-                        isUnread ? "text-primary" : "text-muted-foreground",
+                        isUnread ? "text-primary-text" : "text-muted-foreground",
                       )}
                     />
                   </div>

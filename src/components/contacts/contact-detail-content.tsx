@@ -608,7 +608,7 @@ export function ContactDetailContent({
   if (loading || !contact) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="size-6 animate-spin text-primary" />
+        <Loader2 className="size-6 animate-spin text-primary-text" />
       </div>
     );
   }
@@ -649,7 +649,7 @@ export function ContactDetailContent({
                   <Phone className="size-3" />
                   {contact.phone}
                   {copiedPhone ? (
-                    <Check className="size-3 text-primary" />
+                    <Check className="size-3 text-primary-text" />
                   ) : (
                     <Copy className="size-3" />
                   )}
@@ -1159,7 +1159,7 @@ function QuickAction({
 }) {
   const circle = primary
     ? 'flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer'
-    : 'flex size-9 items-center justify-center rounded-full border border-border bg-transparent text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary cursor-pointer';
+    : 'flex size-9 items-center justify-center rounded-full border border-border bg-transparent text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary-text cursor-pointer';
   const inner = loading ? (
     <Loader2 className="size-4 animate-spin" />
   ) : (
@@ -1399,7 +1399,7 @@ function InlineSelectField({
             {display}
           </span>
           {saving ? (
-            <Loader2 className="ml-auto size-3.5 shrink-0 animate-spin text-primary" />
+            <Loader2 className="ml-auto size-3.5 shrink-0 animate-spin text-primary-text" />
           ) : (
             <ChevronDown className="ml-auto size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-data-[popup-open]:opacity-100" />
           )}
@@ -1420,7 +1420,7 @@ function InlineSelectField({
                 </span>
               )}
               {o.value === value && (
-                <Check className="size-3.5 shrink-0 text-primary" />
+                <Check className="size-3.5 shrink-0 text-primary-text" />
               )}
             </DropdownMenuItem>
           ))}

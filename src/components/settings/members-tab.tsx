@@ -310,7 +310,7 @@ export function MembersTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin text-primary" />
+        <Loader2 className="size-6 animate-spin text-primary-text" />
       </div>
     );
   }
@@ -569,7 +569,7 @@ export function MembersTab() {
                         {linkingId === inv.id ? (
                           <Loader2 className="size-4 animate-spin" />
                         ) : copiedId === inv.id ? (
-                          <Check className="size-4 text-emerald-600 dark:text-emerald-400" />
+                          <Check className="size-4 text-emerald-foreground" />
                         ) : (
                           <Link2 className="size-4" />
                         )}
@@ -613,7 +613,7 @@ export function MembersTab() {
         <DialogContent className="bg-popover border-border sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-popover-foreground">
-              <AlertTriangle className="size-4 text-amber-700 dark:text-amber-400" />
+              <AlertTriangle className="size-4 text-amber-foreground" />
               Remove member
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">

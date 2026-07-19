@@ -190,7 +190,7 @@ export function InviteMemberDialog({
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-popover-foreground">
-                <Sparkles className="size-4 text-primary" />
+                <Sparkles className="size-4 text-primary-text" />
                 Invite created
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
@@ -229,8 +229,8 @@ export function InviteMemberDialog({
                   text (target ratio 7:1). Border bumped to /50, bg to
                   /15, foreground promoted to amber-100 for the strong
                   intro, amber-200 for the body. */}
-              <div className="rounded-md border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-                <strong className="font-semibold text-amber-800 dark:text-amber-100">
+              <div className="rounded-md border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-xs text-amber-foreground">
+                <strong className="font-semibold text-amber-foreground">
                   Save this link now.
                 </strong>{' '}
                 We never store the plaintext — once you close this dialog

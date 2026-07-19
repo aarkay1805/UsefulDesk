@@ -216,7 +216,7 @@ export function EditableCell({
               <span className="text-sm text-muted-foreground">Select…</span>
             )}
             {saving ? (
-              <Loader2 className="size-4 animate-spin text-primary" />
+              <Loader2 className="size-4 animate-spin text-primary-text" />
             ) : (
               <ChevronDown className="size-4 text-muted-foreground" />
             )}
@@ -232,7 +232,7 @@ export function EditableCell({
                 className="flex items-center justify-between gap-3 text-popover-foreground focus:bg-muted"
               >
                 {optionLabel(o)}
-                {o.value === value && <Check className="size-3.5 text-primary" />}
+                {o.value === value && <Check className="size-3.5 text-primary-text" />}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

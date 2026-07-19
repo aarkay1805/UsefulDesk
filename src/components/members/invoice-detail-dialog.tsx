@@ -182,7 +182,7 @@ export function InvoiceDetailDialog({
               <span className="tabular-nums">{fmt.money(invoice.fee_amount)}</span>
             </SummaryRow>
             <SummaryRow label="Paid">
-              <span className="text-emerald-700 tabular-nums dark:text-emerald-400">
+              <span className="text-emerald-foreground tabular-nums">
                 {fmt.money(Math.max(amountPaid, 0))}
               </span>
             </SummaryRow>
@@ -190,7 +190,7 @@ export function InvoiceDetailDialog({
               <span
                 className={
                   isChargeableAmount(balance)
-                    ? "text-amber-700 tabular-nums dark:text-amber-400"
+                    ? "text-amber-foreground tabular-nums"
                     : "tabular-nums"
                 }
               >

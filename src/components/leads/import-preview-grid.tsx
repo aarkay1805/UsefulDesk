@@ -143,7 +143,7 @@ function resolveField(
 }
 
 const UNMATCHED_CHIP_CLASS =
-  'inline-flex max-w-full items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 font-mono text-xs text-amber-700 dark:text-amber-400';
+  'inline-flex max-w-full items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 font-mono text-xs text-amber-foreground';
 
 /** The amber "unmatched value" cell. With `onClick` it's an inline editor
  *  trigger (assignee); without, a static flag — the Fix-values panel
@@ -543,12 +543,12 @@ export function ImportPreviewGrid({
           />
         )}
         {unmatchedRowCount > 0 ? (
-          <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+          <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 text-xs font-medium text-amber-foreground">
             <AlertTriangle className="size-3" />
             {unmatchedRowCount} value{unmatchedRowCount === 1 ? '' : 's'} to fix →
           </span>
         ) : (
-          <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+          <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 text-xs font-medium text-emerald-foreground">
             <Check className="size-3" />
             All values match your options
           </span>
@@ -576,12 +576,12 @@ export function ImportPreviewGrid({
                   <TableRow key={i} className="hover:bg-muted/40">
                     <TableCell className="py-1.5">
                       {row.exists ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-700 dark:text-cyan-400">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-foreground">
                           <span className="size-1.5 rounded-full bg-current" />
                           UPDATE
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-foreground">
                           <span className="size-1.5 rounded-full bg-current" />
                           NEW
                         </span>
@@ -682,8 +682,8 @@ function SummaryChip({
       <b
         className={cn(
           'font-semibold',
-          tone === 'ok' && 'text-emerald-700 dark:text-emerald-400',
-          tone === 'info' && 'text-cyan-700 dark:text-cyan-400',
+          tone === 'ok' && 'text-emerald-foreground',
+          tone === 'info' && 'text-cyan-foreground',
           tone === 'muted' && 'text-foreground',
         )}
       >
@@ -737,7 +737,7 @@ function FixValuesPanel({
             Fix each value once — it applies to every row carrying it.
           </p>
         </div>
-        <span className="rounded-lg bg-amber-500/10 px-2 py-1 text-center text-amber-700 dark:text-amber-400">
+        <span className="rounded-lg bg-amber-500/10 px-2 py-1 text-center text-amber-foreground">
           <b className="block text-base leading-none font-bold tabular-nums">
             {total}
           </b>

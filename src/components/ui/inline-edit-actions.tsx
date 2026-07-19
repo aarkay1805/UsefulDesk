@@ -31,7 +31,7 @@ function InlineEditActions({
         onMouseDown={(e) => e.preventDefault()}
         onClick={onConfirm}
         disabled={saving}
-        className={cn(button, "text-primary hover:bg-primary/10")}
+        className={cn(button, "text-primary-text hover:bg-primary/10")}
         aria-label="Save"
       >
         {saving ? (

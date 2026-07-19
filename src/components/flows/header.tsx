@@ -70,7 +70,7 @@ export function EditorHeader() {
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-text">
           <Workflow className="h-[18px] w-[18px]" />
         </span>
         <input
@@ -84,7 +84,7 @@ export function EditorHeader() {
         <StatusChip status={state.status} />
         {dirty && (
           <span
-            className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
+            className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-amber-foreground"
             title="Unsaved changes — hit Save to persist"
             aria-live="polite"
           >
@@ -182,7 +182,7 @@ function StatusChip({ status }: { status: BuilderState["status"] }) {
       label: "Draft",
     },
     active: {
-      cls: "border-emerald-600/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+      cls: "border-emerald-600/40 bg-emerald-500/10 text-emerald-foreground",
       label: "Active",
     },
     archived: {

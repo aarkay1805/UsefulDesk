@@ -113,7 +113,7 @@ export function SetUpAutoPayDialog({
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+            <p className="text-sm font-medium text-emerald-foreground">
               Mandate link created. Send it to the member to approve.
             </p>
             <div className="flex items-center gap-2">

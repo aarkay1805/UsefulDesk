@@ -127,7 +127,7 @@ export function ApiKeysSettings() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="text-primary size-6 animate-spin" />
+        <Loader2 className="text-primary-text size-6 animate-spin" />
       </div>
     );
   }

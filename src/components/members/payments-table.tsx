@@ -684,7 +684,7 @@ export function PaymentsTable({
         ) : isDue ? (
           duePageRows.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-12 text-center">
-              <CheckCircle2 className="size-7 text-emerald-700 dark:text-emerald-500/70" />
+              <CheckCircle2 className="size-7 text-emerald-foreground" />
               <p className="text-muted-foreground text-sm">
                 {dueRows.length === 0
                   ? 'No outstanding payments.'
@@ -761,7 +761,7 @@ export function PaymentsTable({
                           days={daysOverdue(membership.start_date, today)}
                         />
                       </TableCell>
-                      <TableCell className="font-semibold text-amber-700 tabular-nums dark:text-amber-400">
+                      <TableCell className="font-semibold text-amber-foreground tabular-nums">
                         {fmt.money(membership.balance)}
                       </TableCell>
                       <TableCell

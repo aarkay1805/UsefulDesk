@@ -807,7 +807,7 @@ export function MemberDetailView({
                             <p
                               className={`text-xs ${
                                 usageLine.danger
-                                  ? "text-red-700 dark:text-red-400"
+                                  ? "text-red-foreground"
                                   : "text-muted-foreground"
                               }`}
                             >
@@ -981,7 +981,7 @@ export function MemberDetailView({
                                               <TableCell className="text-right tabular-nums">
                                                 {fmt.money(inv.fee_amount)}
                                               </TableCell>
-                                              <TableCell className="hidden text-right text-emerald-700 tabular-nums sm:table-cell dark:text-emerald-400">
+                                              <TableCell className="hidden text-right text-emerald-foreground tabular-nums sm:table-cell">
                                                 {fmt.money(inv.amount_paid)}
                                               </TableCell>
                                               {/* An outstanding balance is the
@@ -995,7 +995,7 @@ export function MemberDetailView({
                                               <TableCell
                                                 className={`hidden text-right tabular-nums sm:table-cell ${
                                                   isChargeableAmount(invBalance)
-                                                    ? "text-amber-700 dark:text-amber-400"
+                                                    ? "text-amber-foreground"
                                                     : ""
                                                 }`}
                                               >
@@ -1100,7 +1100,7 @@ export function MemberDetailView({
                                   key={v.id}
                                   className="text-muted-foreground flex items-center gap-2 py-1.5 text-sm"
                                 >
-                                  <UserCheck className="size-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                                  <UserCheck className="size-3.5 shrink-0 text-emerald-foreground" />
                                   {fmt.dateTime(v.checked_in_at)}
                                 </li>
                               ))}

@@ -64,7 +64,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         // Line variant reads as brand nav — active label + underline take the
         // primary tint (the default/pill variant keeps the neutral foreground
         // look, where the active state is carried by the raised white chip).
-        "group-data-[variant=line]/tabs-list:data-active:text-primary dark:group-data-[variant=line]/tabs-list:data-active:text-primary",
+        "group-data-[variant=line]/tabs-list:data-active:text-primary-text",
         "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-4px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-right-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100 group-data-[variant=line]/tabs-list:after:bg-primary",
         className
       )}

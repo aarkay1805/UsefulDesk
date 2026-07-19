@@ -87,22 +87,22 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
     {
       label: "Collected today",
       value: totals.today,
-      icon: <IndianRupee className="size-4 text-emerald-700 dark:text-emerald-400" />,
+      icon: <IndianRupee className="size-4 text-emerald-foreground" />,
     },
     {
       label: "Last 7 days",
       value: totals.week,
-      icon: <CalendarDays className="size-4 text-emerald-700 dark:text-emerald-400" />,
+      icon: <CalendarDays className="size-4 text-emerald-foreground" />,
     },
     {
       label: "This month",
       value: totals.month,
-      icon: <Wallet className="size-4 text-emerald-700 dark:text-emerald-400" />,
+      icon: <Wallet className="size-4 text-emerald-foreground" />,
     },
     {
       label: "Outstanding",
       value: totals.outstanding,
-      icon: <AlertTriangle className="size-4 text-amber-700 dark:text-amber-400" />,
+      icon: <AlertTriangle className="size-4 text-amber-foreground" />,
       accent: true,
     },
   ];
@@ -127,7 +127,7 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
             {t.label}
           </div>
           <div
-            className={`mt-2 text-xl font-semibold tabular-nums ${t.accent && t.value > 0 ? "text-amber-700 dark:text-amber-400" : "text-foreground"}`}
+            className={`mt-2 text-xl font-semibold tabular-nums ${t.accent && t.value > 0 ? "text-amber-foreground" : "text-foreground"}`}
           >
             {loading ? "—" : fmt.money(t.value)}
           </div>

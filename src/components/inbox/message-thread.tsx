@@ -141,7 +141,7 @@ function groupMessagesByDate(messages: Message[]) {
 
 const STATUS_OPTIONS: { label: string; value: ConversationStatus; color: string }[] = [
   { label: "Open", value: "open", color: "text-primary-text" },
-  { label: "Pending", value: "pending", color: "text-amber-700 dark:text-amber-400" },
+  { label: "Pending", value: "pending", color: "text-amber-foreground" },
   { label: "Closed", value: "closed", color: "text-muted-foreground" },
 ];
 
@@ -869,7 +869,7 @@ export function MessageThread({
             variant="outline"
             className={cn(
               "ml-1 hidden gap-1 border-border text-[10px] sm:inline-flex sm:ml-2",
-              sessionInfo.expired ? "text-red-700 dark:text-red-400" : "text-primary-text"
+              sessionInfo.expired ? "text-red-foreground" : "text-primary-text"
             )}
           >
             <Clock className="h-3 w-3" />
@@ -894,7 +894,7 @@ export function MessageThread({
               title={contactPanelOpen ? "Hide contact" : "Show contact"}
               className={cn(
                 "hidden h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground lg:inline-flex",
-                contactPanelOpen ? "text-primary" : "text-muted-foreground",
+                contactPanelOpen ? "text-primary-text" : "text-muted-foreground",
               )}
             >
               {contactPanelOpen ? (

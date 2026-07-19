@@ -159,7 +159,7 @@ export function AiKnowledgeCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <BookOpen className="h-4 w-4 text-primary" /> Knowledge base
+          <BookOpen className="h-4 w-4 text-primary-text" /> Knowledge base
         </CardTitle>
         <CardDescription>
           Add FAQs, policies, or product details. The assistant retrieves the

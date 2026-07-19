@@ -2,6 +2,7 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 
+import { resolveSemanticColorPreset } from "@/lib/semantic-colors"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
@@ -22,17 +23,19 @@ const badgeVariants = cva(
         // Tinted status pills — the canonical look for statuses across
         // the app (members renewals, leads, broadcasts, flows). Fill-only,
         // matching the upstream `destructive` recipe (tinted bg, no border).
-        // Text shade is mode-aware: the -400s only clear WCAG 4.5:1 on
-        // dark surfaces; light mode needs the -700s over the same tint.
-        success: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-        danger: "bg-red-500/10 text-red-700 dark:text-red-400",
-        warning: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-        info: "bg-sky-500/10 text-sky-700 dark:text-sky-400",
-        violet: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
+        // Foreground tokens adapt toward the live page foreground, shared
+        // with every other treatment of the same hue.
+        success: "bg-emerald-500/10 text-emerald-foreground",
+        danger: "bg-red-500/10 text-red-foreground",
+        warning: "bg-amber-500/10 text-amber-foreground",
+        info: "bg-sky-500/10 text-sky-foreground",
+        violet: "bg-violet-500/10 text-violet-foreground",
+        orange: "bg-orange-500/10 text-orange-foreground",
+        pink: "bg-pink-500/10 text-pink-foreground",
         // Neutral slate pill (admin-made tags, counts): the fill-only
         // tint recipe in slate. Contextual containers such as a pressed
         // toolbar segment can promote it into their own colour family.
-        neutral: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
+        neutral: "bg-slate-500/10 text-slate-foreground",
         // Colour-free variant used internally when the `color` prop is
         // set: `.badge-tinted` (globals.css, components layer) supplies
         // bg + text, so the variant must not emit colour utilities —
@@ -56,27 +59,30 @@ function Badge({
 }: useRender.ComponentProps<"span"> &
   VariantProps<typeof badgeVariants> & {
     /**
-     * Dynamic tint from a hex colour (e.g. a lead status colour stored
-     * in the DB). Applies the same fill-only recipe as the tinted
-     * variants — 10% background — with a mode-aware text colour derived
-     * from the hex via `.badge-tinted` (globals.css): lightened in dark
-     * mode, darkened in light mode, so any stored hex stays ≥4.5:1.
+     * Hex colour from a DB-driven status. Known picker presets resolve to the
+     * exact canonical semantic variant (so red is identical to `danger`,
+     * green to `success`, etc.). An arbitrary custom hex retains the dynamic
+     * contrast-safe `.badge-tinted` fallback.
      */
     color?: string;
-  }) {
+}) {
+  const semanticPreset = resolveSemanticColorPreset(color)
+  const usesDynamicTint = Boolean(color && !semanticPreset)
+
   return useRender({
     defaultTagName: "span",
     props: mergeProps<"span">(
       {
-        // A hex `color` replaces the variant's colours entirely — route
-        // through the colour-free `tinted` variant so utilities like
-        // `bg-primary` can't out-cascade the `.badge-tinted` recipe.
+        // Known stored presets route through the exact fixed variant. Only a
+        // genuinely custom hex uses the colour-free dynamic recipe.
         className: cn(
-          badgeVariants({ variant: color ? "tinted" : variant }),
-          color && "badge-tinted",
+          badgeVariants({
+            variant: semanticPreset?.badgeVariant ?? (color ? "tinted" : variant),
+          }),
+          usesDynamicTint && "badge-tinted",
           className
         ),
-        style: color
+        style: usesDynamicTint
           ? ({ "--badge-tint": color, ...style } as React.CSSProperties)
           : style,
       },

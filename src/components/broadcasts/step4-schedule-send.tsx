@@ -126,10 +126,10 @@ export function Step4ScheduleSend({
             <p className="text-xs text-muted-foreground">Estimated Reach</p>
             <div className="flex items-center gap-1.5">
               {loadingReach ? (
-                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                <Loader2 className="h-3 w-3 animate-spin text-primary-text" />
               ) : (
                 <>
-                  <Users className="h-3.5 w-3.5 text-primary" />
+                  <Users className="h-3.5 w-3.5 text-primary-text" />
                   <p className="font-medium text-foreground">{estimatedReach.toLocaleString()}</p>
                 </>
               )}
@@ -147,7 +147,7 @@ export function Step4ScheduleSend({
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <Loader2 className="h-4 w-4 animate-spin text-primary-text" />
               <p className="text-sm font-medium text-foreground">Sending broadcast...</p>
             </div>
             <span className="text-xs font-medium text-primary-text">{progress}%</span>

@@ -37,6 +37,18 @@ describe("getBroadcastStatus", () => {
       expect(v.classes).not.toMatch(/border-/);
     }
   });
+
+  it("uses shared foreground tokens for every status", () => {
+    const variants = [
+      ...Object.values(broadcastStatusConfig),
+      ...Object.values(recipientStatusConfig),
+    ];
+
+    for (const variant of variants) {
+      expect(variant.classes).toMatch(/text-(?:[a-z]+-foreground|primary-text)/);
+      expect(variant.classes).not.toMatch(/text-[a-z]+-\d+/);
+    }
+  });
 });
 
 describe("getRecipientStatus", () => {

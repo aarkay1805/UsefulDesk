@@ -95,7 +95,7 @@ export function GetStartedView() {
   if (!canEditSettings) {
     return (
       <Card className="mx-auto mt-8 max-w-lg items-center gap-3 px-6 py-8 text-center">
-        <span className="flex size-11 items-center justify-center rounded-lg bg-primary-soft text-primary">
+        <span className="flex size-11 items-center justify-center rounded-lg bg-primary-soft text-primary-text">
           <Rocket className="size-5" />
         </span>
         <div className="text-base font-semibold text-foreground">
@@ -117,7 +117,7 @@ export function GetStartedView() {
   if (dismissed || onboarding.allDone) {
     return (
       <Card className="mx-auto mt-8 max-w-lg items-center gap-3 px-6 py-8 text-center animate-in fade-in-50 duration-200">
-        <span className="flex size-11 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+        <span className="flex size-11 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-foreground">
           <CheckCircle2 className="size-5" />
         </span>
         <div className="text-base font-semibold text-foreground">
@@ -151,7 +151,7 @@ export function GetStartedView() {
       <Card size="sm" className="gap-2 px-4 py-3">
         <div className="flex items-center justify-between text-sm">
           <span className="flex items-center gap-2 font-semibold text-foreground">
-            <Rocket className="size-4 text-primary" /> Setup guide
+            <Rocket className="size-4 text-primary-text" /> Setup guide
           </span>
           <span className="text-muted-foreground tabular-nums">
             {completedCount}/{total}
@@ -167,7 +167,7 @@ export function GetStartedView() {
             We recommend this action next
           </div>
           <div className="flex flex-wrap items-center gap-4">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-text">
               <RecommendedIcon className="size-5" />
             </span>
             <div className="min-w-0 flex-1">

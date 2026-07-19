@@ -152,7 +152,7 @@ function ValueEditor({
           >
             {optionContent(o, editor.variant)}
             {o.value === value && (
-              <Check className="text-primary size-3.5 shrink-0" />
+              <Check className="text-primary-text size-3.5 shrink-0" />
             )}
           </DropdownMenuItem>
         ))}
@@ -258,7 +258,7 @@ export function BulkEditDialog({
                       >
                         {p.label}
                         {p.key === propKey && (
-                          <Check className="text-primary size-3.5" />
+                          <Check className="text-primary-text size-3.5" />
                         )}
                       </DropdownMenuItem>
                     ))}

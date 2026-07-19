@@ -45,7 +45,7 @@ const ROLE_CHIP: Record<
     icon: Crown,
     label: 'Owner',
     // Amber: scarce, immutable, "the boss" — gets visual emphasis.
-    className: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    className: 'bg-amber-500/10 text-amber-foreground',
   },
   admin: {
     icon: Shield,
@@ -279,7 +279,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                         {item.beta && (
                           <span
                             aria-label="Beta feature"
-                            className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-700 uppercase dark:text-amber-300"
+                            className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-foreground uppercase"
                           >
                             Beta
                           </span>

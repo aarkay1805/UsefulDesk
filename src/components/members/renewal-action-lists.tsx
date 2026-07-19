@@ -341,7 +341,7 @@ function RenewalTable({
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
-          <CheckCircle2 className="size-6 text-emerald-700 dark:text-emerald-500/70" />
+          <CheckCircle2 className="size-6 text-emerald-foreground" />
           <p className="text-muted-foreground text-sm">{emptyLabel}</p>
         </div>
       ) : (

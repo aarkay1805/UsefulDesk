@@ -245,7 +245,7 @@ export function Step3Personalize({
       {mediaHeaderType && (
         <div className="rounded-xl border border-border bg-card/50 p-4">
           <div className="mb-3 flex items-center gap-2">
-            <ImageIcon className="h-4 w-4 text-primary" />
+            <ImageIcon className="h-4 w-4 text-primary-text" />
             <p className="text-sm font-medium text-foreground">Header media</p>
             <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium uppercase text-primary-text">
               {mediaHeaderType}
@@ -282,7 +282,7 @@ export function Step3Personalize({
               />
             )}
           {headerMediaError && (
-            <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">
+            <p className="mt-1.5 text-xs text-amber-foreground">
               {headerMediaError === 'missing'
                 ? 'A media URL is required to send this template.'
                 : 'Enter a valid http(s) URL.'}
@@ -411,11 +411,11 @@ export function Step3Personalize({
           sees approximately what the recipient will see. */}
       <div className="rounded-xl border border-border bg-card/50 p-4">
         <div className="mb-3 flex items-center gap-2">
-          <Eye className="h-4 w-4 text-primary" />
+          <Eye className="h-4 w-4 text-primary-text" />
           <p className="text-sm font-medium text-foreground">Live Preview</p>
           <span className="text-xs text-muted-foreground">({previewLabel})</span>
           {loadingPreview && (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary-text" />
           )}
         </div>
         <div className="rounded-lg bg-[#0e1a12] p-3">
@@ -428,7 +428,7 @@ export function Step3Personalize({
       </div>
 
       {unmappedKeys.length > 0 && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-foreground">
           Map every placeholder before continuing — still missing{' '}
           <span className="font-mono font-semibold">
             {unmappedKeys.join(', ')}

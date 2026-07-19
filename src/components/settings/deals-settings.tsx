@@ -90,7 +90,7 @@ export function DealsSettings() {
       <Card>
         <CardHeader>
           <CardTitle className="text-foreground flex items-center gap-2">
-            <Coins className="text-primary size-4" />
+            <Coins className="text-primary-text size-4" />
             Default currency
           </CardTitle>
           <CardDescription className="text-muted-foreground">
@@ -257,7 +257,7 @@ function RazorpayCard() {
     <Card>
       <CardHeader>
         <CardTitle className="text-foreground flex items-center gap-2">
-          <Repeat className="text-primary size-4" />
+          <Repeat className="text-primary-text size-4" />
           Auto-pay (Razorpay)
         </CardTitle>
         <CardDescription className="text-muted-foreground">
@@ -439,7 +439,7 @@ function UpiCard() {
     <Card>
       <CardHeader>
         <CardTitle className="text-foreground flex items-center gap-2">
-          <IndianRupee className="text-primary size-4" />
+          <IndianRupee className="text-primary-text size-4" />
           UPI collection
         </CardTitle>
         <CardDescription className="text-muted-foreground">

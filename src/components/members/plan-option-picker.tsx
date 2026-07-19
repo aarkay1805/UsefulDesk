@@ -130,7 +130,7 @@ export function PlanOptionPicker({
       <div className="space-y-1.5">
         <Label htmlFor={`${idPrefix}-plan`} className="text-muted-foreground">
           Plan{" "}
-          {required && <span className="text-red-700 dark:text-red-400">*</span>}
+          {required && <span className="text-red-foreground">*</span>}
         </Label>
         <Select
           value={planId || undefined}

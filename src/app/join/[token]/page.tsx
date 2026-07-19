@@ -222,7 +222,7 @@ export default function JoinPage() {
     return (
       <Card className="w-full max-w-md border-border bg-card">
         <CardContent className="flex flex-col items-center gap-3 py-12">
-          <Loader2 className="size-6 animate-spin text-primary" />
+          <Loader2 className="size-6 animate-spin text-primary-text" />
           <p className="text-sm text-muted-foreground">Verifying invitation…</p>
         </CardContent>
       </Card>
@@ -236,7 +236,7 @@ export default function JoinPage() {
       <Card className="w-full max-w-md border-border bg-card">
         <CardHeader className="items-center text-center">
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10">
-            <MailX className="h-6 w-6 text-red-700 dark:text-red-400" />
+            <MailX className="h-6 w-6 text-red-foreground" />
           </div>
           <CardTitle className="text-xl text-foreground">{copy.title}</CardTitle>
           <CardDescription className="text-muted-foreground">
@@ -294,7 +294,7 @@ export default function JoinPage() {
   const inviteHeader = (
     <CardHeader className="items-center text-center">
       <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-        <UsersRound className="h-6 w-6 text-primary" />
+        <UsersRound className="h-6 w-6 text-primary-text" />
       </div>
       <CardTitle className="text-xl text-foreground">
         You&apos;re invited to{' '}
@@ -303,7 +303,7 @@ export default function JoinPage() {
       <CardDescription className="text-muted-foreground">
         You&apos;ll join as{' '}
         <span className="inline-flex items-center gap-1 text-foreground">
-          <ShieldCheck className="size-3.5 text-primary" />
+          <ShieldCheck className="size-3.5 text-primary-text" />
           {ROLE_LABEL[peek.role]}
         </span>
         . Link valid until{' '}
@@ -362,7 +362,7 @@ export default function JoinPage() {
           <DialogContent className="bg-popover border-border sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-popover-foreground">
-                <AlertTriangle className="size-4 text-amber-700 dark:text-amber-400" />
+                <AlertTriangle className="size-4 text-amber-foreground" />
                 Can&apos;t join {peek.account_name} with this account
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">

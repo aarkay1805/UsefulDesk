@@ -280,7 +280,7 @@ export function SettingsOverview({
                 'hover:border-border-hover',
               )}
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-text">
                 <Icon className="size-4" />
               </span>
               <span className="min-w-0 flex-1">

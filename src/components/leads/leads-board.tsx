@@ -225,7 +225,7 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
           name={lead.pending_assignee_name}
           src={null}
           className="size-5 shrink-0 opacity-90"
-          fallbackClassName="bg-amber-500/15 text-[10px] text-amber-700 dark:text-amber-400"
+          fallbackClassName="bg-amber-500/15 text-[10px] text-amber-foreground"
         />
       </span>
     );
