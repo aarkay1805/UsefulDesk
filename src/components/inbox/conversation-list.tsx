@@ -213,8 +213,8 @@ export function ConversationList({
   const hasContactFilters = selectedTagIds.length > 0 || selectedCompany !== null;
 
   const handleSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearch(e.target.value);
+    (value: string) => {
+      setSearch(value);
     },
     []
   );
@@ -237,8 +237,9 @@ export function ConversationList({
       <div className="space-y-2 border-b border-border p-3">
         <SearchInput
           value={search}
-          onChange={handleSearchChange}
-          placeholder="Search conversations..."
+          onValueChange={handleSearchChange}
+          placeholder="Search conversations…"
+          aria-label="Search conversations"
         />
 
         <div className="flex flex-wrap items-center gap-1">

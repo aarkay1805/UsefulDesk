@@ -285,6 +285,13 @@ export function LeadAccountabilityView({
     setNonce((value) => value + 1);
   }
 
+  const searchPlaceholder =
+    view === 'followups'
+      ? 'Search follow-ups…'
+      : 'Search first response…';
+  const searchLabel =
+    view === 'followups' ? 'Search follow-ups' : 'Search first response';
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <section className="border-border bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border">
@@ -292,12 +299,9 @@ export function LeadAccountabilityView({
           <SearchInput
             containerClassName="min-w-48 w-full max-w-[320px] flex-1 basis-64"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={
-              view === 'followups'
-                ? 'Search follow-ups…'
-                : 'Search first response…'
-            }
+            onValueChange={setSearch}
+            placeholder={searchPlaceholder}
+            aria-label={searchLabel}
           />
 
           <TooltipProvider>

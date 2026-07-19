@@ -274,8 +274,9 @@ function ImportForm({
         {/* Candidate picker */}
         <SearchInput
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onValueChange={setQuery}
           placeholder="Search by name or phone…"
+          aria-label="Search contacts by name or phone"
         />
 
         <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border">

@@ -402,7 +402,7 @@ export function AttendanceView({
           <SearchInput
             containerClassName="ml-auto min-w-52 flex-1 basis-56 sm:max-w-xs"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onValueChange={setSearch}
             placeholder="Search members…"
             aria-label="Search attendance members"
           />

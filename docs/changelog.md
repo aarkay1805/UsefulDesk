@@ -6,6 +6,12 @@
 
 ---
 
+## Search input interaction contract
+
+The shared `SearchInput` (`src/components/ui/search-input.tsx`) is now a controlled semantic search field with contextual accessible names at every call-site, a mobile Search keyboard action, Escape-to-clear, and a trailing clear button that appears only for editable non-empty values and returns focus to the field. Leads, Members, Attendance, accountability queues, Inbox, member import, and Manage Columns all inherit the same behavior.
+
+---
+
 ## Sales accountability (migration `20260719080908`)
 
 Leads now has separate **Follow-ups** and **First response** tabs, each with My work / Team scopes. Follow-ups contains only open scheduled work (overdue, due today, or upcoming); First response contains leads still in New and highlights the 24-hour response target plus missing follow-ups. Queue counts live inside the filter chips, their definitions appear after a 1-second hover delay (and immediately on keyboard focus), and Unassigned is a real filter—no persistent summary-card row. The tabbed header uses the canonical bottom divider and 24px content separation. An open lead follow-up is the accountable owner/source of truth. Completing one requires a structured outcome, including contacted and trial booked. Key code: `src/components/leads/lead-accountability-view.tsx`, `src/lib/leads/accountability.ts`, `src/components/follow-ups/complete-follow-up-dialog.tsx`, and `supabase/migrations/20260719080908_sales_accountability.sql`.

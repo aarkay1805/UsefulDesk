@@ -310,8 +310,9 @@ export function ManageColumnsDialog({
             <div className="p-4 pb-2">
               <SearchInput
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onValueChange={setQuery}
                 placeholder="Search columns…"
+                aria-label="Search columns"
               />
             </div>
 

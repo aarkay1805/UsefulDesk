@@ -1102,8 +1102,9 @@ export function MembersTable({
           <SearchInput
             containerClassName="min-w-48 w-full max-w-[360px] flex-1 basis-64"
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onValueChange={setSearchInput}
             placeholder="Search members…"
+            aria-label="Search members"
           />
 
           {/* Data controls stay beside search; column management is the

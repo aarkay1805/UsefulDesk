@@ -109,7 +109,7 @@ A `type="number"` field can NEVER show separators — any new money field that s
 
 ### Search & searchable selects
 
-- `SearchInput` (`ui/search-input.tsx`) — leading glyph over a **rounded-rectangle** `Input`, `border-border` + muted fill. Width/flex on the wrapper via `containerClassName`. Radius/border/icon/padding are **fixed** — never restyle per call-site. Used by leads/members/check-in toolbars, inbox conversation list, import + manage-columns pickers. (`Combobox`'s in-popover search and `global-search`'s command trigger are deliberately their own patterns.)
+- `SearchInput` (`ui/search-input.tsx`) — leading glyph over a **rounded-rectangle** `Input`, `border-border` + muted fill. Width/flex on the wrapper via `containerClassName`. Radius/border/icon/padding are **fixed** — never restyle per call-site. It is a controlled `type="search"` field (`value` + `onValueChange`) with a trailing clear button only while editable and non-empty; clear and Escape both reset through `onValueChange` and return focus to the input. It defaults to `aria-label="Search"` and `enterKeyHint="search"`; pass a contextual `aria-label` at the call-site. Used by leads/members/check-in toolbars, inbox conversation list, import + manage-columns pickers. (`Combobox`'s in-popover search and `global-search`'s command trigger are deliberately their own patterns.)
 - `Combobox` (`ui/combobox.tsx`) — Select-styled trigger → Popover with search over **grouped** options + optional pinned footer action ("＋ Create…"). Use for lists too long to scan (import wizard's field picker). Short static lists stay on `ui/select`. Don't hand-roll popover+input search.
 
 ## People

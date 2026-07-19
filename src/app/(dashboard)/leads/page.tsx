@@ -3218,8 +3218,9 @@ export default function LeadsPage() {
           <SearchInput
             containerClassName="min-w-48 w-full max-w-[360px] flex-1 basis-64"
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onValueChange={setSearchInput}
             placeholder="Search leads…"
+            aria-label="Search leads"
           />
 
           {/* Data and presentation actions follow the search, matching the
