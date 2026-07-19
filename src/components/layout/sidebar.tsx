@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Fragment, useEffect } from 'react';
+import { Fragment, type ReactNode, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useOnboardingStatus } from '@/hooks/use-onboarding-status';
@@ -17,6 +17,8 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   Radio,
   Rocket,
   Settings,
@@ -31,7 +33,13 @@ import {
 } from 'lucide-react';
 import type { AccountRole } from '@/lib/auth/roles';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 // Per-role chip metadata used in the sidebar's account strip + the
 // Members tab roster. Keeping this near both consumers in a single
@@ -120,12 +128,86 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
+interface SidebarNavLinkProps {
+  href: string;
+  label: string;
+  icon: NavItem['icon'];
+  isActive: boolean;
+  collapsed: boolean;
+  trailing?: ReactNode;
+  compactIndicator?: ReactNode;
+}
+
+function SidebarNavLink({
+  href,
+  label,
+  icon: Icon,
+  isActive,
+  collapsed,
+  trailing,
+  compactIndicator,
+}: SidebarNavLinkProps) {
+  return (
+    <Tooltip disabled={!collapsed}>
+      <TooltipTrigger
+        delay={350}
+        render={
+          <Link
+            href={href}
+            aria-current={isActive ? 'page' : undefined}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-[background-color,color,gap] duration-200 motion-reduce:transition-none lg:py-2',
+              collapsed && 'lg:gap-0',
+              isActive
+                ? 'bg-primary/10 text-primary-text'
+                : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground'
+            )}
+          >
+            <span className="relative flex size-4 shrink-0 items-center justify-center">
+              <Icon className="size-4" />
+              {compactIndicator ? (
+                <span className={cn('hidden', collapsed && 'lg:block')}>
+                  {compactIndicator}
+                </span>
+              ) : null}
+            </span>
+            <span
+              className={cn(
+                'min-w-0 flex-1 overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out motion-reduce:transition-none',
+                collapsed
+                  ? 'lg:max-w-0 lg:-translate-x-1 lg:opacity-0'
+                  : 'max-w-40 translate-x-0 opacity-100'
+              )}
+            >
+              {label}
+            </span>
+            {trailing ? (
+              <span
+                className={cn(
+                  'flex shrink-0 items-center overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none',
+                  collapsed ? 'lg:max-w-0 lg:opacity-0' : 'max-w-20 opacity-100'
+                )}
+              >
+                {trailing}
+              </span>
+            ) : null}
+          </Link>
+        }
+      />
+      <TooltipContent side="right" sideOffset={8}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
   const onboarding = useOnboardingStatus();
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
+  const [collapsed, setCollapsed] = useState(false);
   // Only surface the account-name strip when it actually carries
   // information. A solo user's personal account is named after them
   // (the 017 signup trigger seeds it from `full_name`), so showing it
@@ -179,20 +261,34 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       />
 
       <aside
+        id="primary-sidebar"
         className={cn(
           // Mobile: fixed drawer that slides in from the left.
-          'border-border bg-sidebar fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r',
-          'transition-transform duration-200 ease-out will-change-transform',
+          'border-border bg-sidebar fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col overflow-hidden border-r',
+          'transition-[width,transform] duration-200 ease-out will-change-[width,transform] motion-reduce:transition-none',
           open ? 'translate-x-0' : '-translate-x-full',
-          // Desktop: static, always visible — reset all the mobile framing.
-          'lg:static lg:z-0 lg:w-60 lg:translate-x-0 lg:transition-none'
+          // Desktop: static and always visible. Width remains animated so
+          // the adjacent page content grows and shrinks with the rail.
+          'lg:static lg:z-0 lg:translate-x-0 lg:duration-300 lg:ease-in-out',
+          collapsed ? 'lg:w-16' : 'lg:w-60'
         )}
         aria-label="Primary"
       >
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
-        <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
+        <div
+          className={cn(
+            'flex h-14 shrink-0 items-center justify-between gap-2 px-4 transition-[padding] duration-200 motion-reduce:transition-none',
+            collapsed && 'lg:justify-center lg:px-3'
+          )}
+        >
+          <Link
+            href="/dashboard"
+            className={cn(
+              'flex items-center gap-2 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 motion-reduce:transition-none',
+              collapsed ? 'lg:max-w-0 lg:opacity-0' : 'max-w-40 opacity-100'
+            )}
+          >
             <div className="bg-primary text-primary-foreground flex h-8 w-8 items-center justify-center rounded-lg">
               <MessageSquare className="h-4 w-4" />
             </div>
@@ -200,6 +296,37 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               UsefulDesk
             </span>
           </Link>
+          <Tooltip>
+            <TooltipTrigger
+              delay={350}
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setCollapsed((value) => !value)}
+                  aria-label={
+                    collapsed ? 'Expand navigation' : 'Collapse navigation'
+                  }
+                  aria-expanded={!collapsed}
+                  aria-controls="primary-sidebar"
+                  className="hidden lg:inline-flex"
+                >
+                  {collapsed ? (
+                    <PanelLeftOpen className="size-4" />
+                  ) : (
+                    <PanelLeftClose className="size-4" />
+                  )}
+                </Button>
+              }
+            />
+            <TooltipContent
+              side={collapsed ? 'right' : 'bottom'}
+              sideOffset={8}
+            >
+              {collapsed ? 'Expand navigation' : 'Collapse navigation'}
+            </TooltipContent>
+          </Tooltip>
           <button
             type="button"
             onClick={onClose}
@@ -224,26 +351,30 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                   onboarding.active &&
                   !onboarding.allDone && (
                     <li>
-                      <Link
+                      <SidebarNavLink
                         href="/get-started"
-                        className={cn(
-                          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                          pathname.startsWith('/get-started')
-                            ? 'bg-primary/10 text-primary-text'
-                            : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground'
-                        )}
-                      >
-                        <Rocket className="h-4 w-4" />
-                        <span className="flex-1">Get Started</span>
-                        {!onboarding.loading && (
-                          <span
-                            aria-label={`${onboarding.completedCount} of ${onboarding.total} setup steps complete`}
-                            className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
-                          >
-                            {onboarding.completedCount}/{onboarding.total}
-                          </span>
-                        )}
-                      </Link>
+                        label="Get Started"
+                        icon={Rocket}
+                        isActive={pathname.startsWith('/get-started')}
+                        collapsed={collapsed}
+                        trailing={
+                          !onboarding.loading ? (
+                            <span
+                              aria-label={`${onboarding.completedCount} of ${onboarding.total} setup steps complete`}
+                              className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
+                            >
+                              {onboarding.completedCount}/{onboarding.total}
+                            </span>
+                          ) : null
+                        }
+                        compactIndicator={
+                          !onboarding.loading ? (
+                            <span className="bg-primary text-primary-foreground absolute -top-2 -right-3 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[8px] font-semibold">
+                              {onboarding.completedCount}
+                            </span>
+                          ) : null
+                        }
+                      />
                     </li>
                   )}
                 {section.items.map((item) => {
@@ -264,46 +395,61 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
                   return (
                     <li key={item.href}>
-                      <Link
+                      <SidebarNavLink
                         href={item.href}
-                        className={cn(
-                          // Taller on mobile so fingers can hit the row reliably (≥44px).
-                          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                          isActive
-                            ? 'bg-primary/10 text-primary-text'
-                            : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground'
-                        )}
-                      >
-                        <item.icon className="h-4 w-4" />
-                        <span className="flex-1">{item.label}</span>
-                        {item.beta && (
-                          <span
-                            aria-label="Beta feature"
-                            className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-foreground uppercase"
-                          >
-                            Beta
-                          </span>
-                        )}
-                        {showUnreadDot && (
-                          <span
-                            aria-label={`${totalUnread} unread conversation${totalUnread === 1 ? '' : 's'}`}
-                            className="relative flex h-2 w-2"
-                          >
-                            <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
-                            <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
-                          </span>
-                        )}
-                        {showNotificationBadge && (
-                          <span
-                            aria-label={`${unreadNotifications} unread notification${unreadNotifications === 1 ? '' : 's'}`}
-                            className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
-                          >
-                            {unreadNotifications > 9
-                              ? '9+'
-                              : unreadNotifications}
-                          </span>
-                        )}
-                      </Link>
+                        label={item.label}
+                        icon={item.icon}
+                        isActive={isActive}
+                        collapsed={collapsed}
+                        trailing={
+                          item.beta ||
+                          showUnreadDot ||
+                          showNotificationBadge ? (
+                            <>
+                              {item.beta && (
+                                <span
+                                  aria-label="Beta feature"
+                                  className="text-amber-foreground rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase"
+                                >
+                                  Beta
+                                </span>
+                              )}
+                              {showUnreadDot && (
+                                <span
+                                  aria-label={`${totalUnread} unread conversation${totalUnread === 1 ? '' : 's'}`}
+                                  className="relative flex h-2 w-2"
+                                >
+                                  <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+                                  <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
+                                </span>
+                              )}
+                              {showNotificationBadge && (
+                                <span
+                                  aria-label={`${unreadNotifications} unread notification${unreadNotifications === 1 ? '' : 's'}`}
+                                  className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
+                                >
+                                  {unreadNotifications > 9
+                                    ? '9+'
+                                    : unreadNotifications}
+                                </span>
+                              )}
+                            </>
+                          ) : null
+                        }
+                        compactIndicator={
+                          item.beta ? (
+                            <span className="absolute -top-1.5 -right-2 size-2 rounded-full bg-amber-500" />
+                          ) : showUnreadDot ? (
+                            <span className="bg-primary absolute -top-1.5 -right-2 size-2 rounded-full" />
+                          ) : showNotificationBadge ? (
+                            <span className="bg-primary text-primary-foreground absolute -top-2 -right-3 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[8px] font-semibold">
+                              {unreadNotifications > 9
+                                ? '9+'
+                                : unreadNotifications}
+                            </span>
+                          ) : null
+                        }
+                      />
                     </li>
                   );
                 })}
@@ -318,18 +464,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               const isActive = pathname.startsWith(item.href);
               return (
                 <li key={item.href}>
-                  <Link
+                  <SidebarNavLink
                     href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                      isActive
-                        ? 'bg-primary/10 text-primary-text'
-                        : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground'
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
+                    label={item.label}
+                    icon={item.icon}
+                    isActive={isActive}
+                    collapsed={collapsed}
+                  />
                 </li>
               );
             })}
@@ -345,7 +486,12 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               below; for renamed or shared accounts it tells the user
               which account they're acting in. */}
           {showAccountStrip && account?.name ? (
-            <div className="text-muted-foreground mb-2 flex items-center gap-2 px-3 text-xs">
+            <div
+              className={cn(
+                'text-muted-foreground mb-2 flex max-h-8 items-center gap-2 overflow-hidden px-3 text-xs opacity-100 transition-[max-height,margin,opacity] duration-200 motion-reduce:transition-none',
+                collapsed && 'lg:mb-0 lg:max-h-0 lg:opacity-0'
+              )}
+            >
               <UsersRound className="size-3.5 shrink-0" />
               {/* `title=` exposes the full name on hover when it
                   gets truncated (long account names + narrow
@@ -376,25 +522,53 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           {/* User row — account menu grows left, theme toggle trails.
               The toggle moved here from the app bar so the bar stays
               free for page titles + actions (HubSpot-style). */}
-          <div className="flex items-center gap-1">
+          <div
+            className={cn(
+              'flex items-center gap-1',
+              collapsed && 'lg:flex-col'
+            )}
+          >
             <DropdownMenu>
-              <DropdownMenuTrigger className="hover:bg-foreground/[0.06] focus:bg-foreground/[0.06] data-popup-open:bg-foreground/[0.06] flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors focus:outline-none">
-                <UserAvatar
-                  className="size-8 shrink-0"
-                  name={profile?.full_name || profile?.email || 'U'}
-                  src={profile?.avatar_url}
+              <Tooltip disabled={!collapsed}>
+                <TooltipTrigger
+                  delay={350}
+                  render={
+                    <DropdownMenuTrigger
+                      className={cn(
+                        'hover:bg-foreground/[0.06] focus:bg-foreground/[0.06] data-popup-open:bg-foreground/[0.06] flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-lg px-3 py-2 text-left transition-[background-color,gap,padding,width] duration-200 focus:outline-none motion-reduce:transition-none',
+                        collapsed &&
+                          'lg:size-10 lg:flex-none lg:justify-center lg:gap-0 lg:p-1'
+                      )}
+                    >
+                      <UserAvatar
+                        className="size-8 shrink-0"
+                        name={profile?.full_name || profile?.email || 'U'}
+                        src={profile?.avatar_url}
+                      />
+                      <div
+                        className={cn(
+                          'min-w-0 flex-1 overflow-hidden transition-[max-width,opacity,transform] duration-200 motion-reduce:transition-none',
+                          collapsed
+                            ? 'lg:max-w-0 lg:-translate-x-1 lg:opacity-0'
+                            : 'max-w-40 translate-x-0 opacity-100'
+                        )}
+                      >
+                        <p className="text-foreground truncate text-sm font-medium">
+                          {profile?.full_name ?? 'User'}
+                        </p>
+                        <p className="text-muted-foreground truncate text-xs">
+                          {profile?.email ?? ''}
+                        </p>
+                      </div>
+                    </DropdownMenuTrigger>
+                  }
                 />
-                <div className="min-w-0 flex-1">
-                  <p className="text-foreground truncate text-sm font-medium">
-                    {profile?.full_name ?? 'User'}
-                  </p>
-                  <p className="text-muted-foreground truncate text-xs">
-                    {profile?.email ?? ''}
-                  </p>
-                </div>
-              </DropdownMenuTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  {profile?.full_name ?? profile?.email ?? 'Account menu'}
+                </TooltipContent>
+              </Tooltip>
               <DropdownMenuContent
-                align="end"
+                align={collapsed ? 'start' : 'end'}
                 side="top"
                 sideOffset={6}
                 className="bg-popover text-popover-foreground ring-border min-w-56"

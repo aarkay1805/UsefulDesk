@@ -6,6 +6,12 @@
 
 ---
 
+## Collapsible desktop navigation rail
+
+The primary desktop sidebar can now collapse from 240px to a 64px icon rail without affecting the mobile drawer. Width, labels, badges, and the account footer transition together; compact navigation keeps unread/onboarding indicators and exposes every destination through right-side tooltips. The active state and full account menu remain available in both modes. Key code: `src/components/layout/sidebar.tsx`.
+
+---
+
 ## Semantic colour foreground consistency
 
 Coloured product text and icons now resolve through one adaptive foreground token per hue: its `-500` fill primitive blended 45% toward the live page foreground, following the themed-text contrast model and clearing WCAG AA over 10% subtle tints in both modes. `text-destructive` aliases the same red token, subtle primary treatments use `text-primary-text`, and badges/panels no longer pick ad hoc shades. Stored lead-status picker hex values resolve back to the exact semantic Badge variant, so a red lead status and a red fixed status share both foreground and tint primitives; arbitrary custom hex keeps the accessible derived fallback. Tremor's `-500` data-mark palette remains the explicit non-semantic exception. Key code: `src/app/globals.css`, `src/components/ui/badge.tsx`, `src/lib/semantic-colors.ts`, `src/lib/semantic-color-foregrounds.test.ts`.
