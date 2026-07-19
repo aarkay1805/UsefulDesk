@@ -33,6 +33,26 @@ export const OUTCOME_LABEL: Record<FollowUpOutcome, string> = {
   other: "Other",
 };
 
+/** Outcomes offered when closing member-accountability work. */
+export const MEMBER_FOLLOW_UP_OUTCOMES = [
+  "renewed",
+  "paid",
+  "promised",
+  "no_answer",
+  "not_interested",
+  "other",
+] as const satisfies readonly FollowUpOutcome[];
+
+/** Outcomes offered when closing lead-accountability work. */
+export const LEAD_FOLLOW_UP_OUTCOMES = [
+  "contacted",
+  "trial_booked",
+  "promised",
+  "no_answer",
+  "not_interested",
+  "other",
+] as const satisfies readonly FollowUpOutcome[];
+
 export interface FollowUpBuckets {
   overdue: FollowUp[];
   dueToday: FollowUp[];

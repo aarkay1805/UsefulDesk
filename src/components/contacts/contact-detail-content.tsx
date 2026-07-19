@@ -1016,10 +1016,10 @@ export function ContactDetailContent({
               </AccordionContent>
             </AccordionItem>
 
-            {/* Notes and Follow-ups */}
+            {/* Notes & follow-ups */}
             <AccordionItem value="notes" className="border-b-0">
               <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline">
-                Notes and Follow-ups
+                Notes &amp; follow-ups
               </AccordionTrigger>
               {/* The panel is overflow-hidden (open/close animation),
                   which would clip the composer's 3px focus ring —

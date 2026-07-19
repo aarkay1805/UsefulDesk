@@ -6,7 +6,11 @@ import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
 import { getErrorMessage } from '@/lib/errors';
-import { OUTCOME_LABEL } from '@/lib/memberships/follow-ups';
+import {
+  LEAD_FOLLOW_UP_OUTCOMES,
+  MEMBER_FOLLOW_UP_OUTCOMES,
+  OUTCOME_LABEL,
+} from '@/lib/memberships/follow-ups';
 import type { Contact, FollowUpOutcome } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,24 +42,6 @@ export interface FollowUpCompletionTarget {
   status?: 'open' | 'done' | 'cancelled';
 }
 
-const MEMBER_OUTCOMES: FollowUpOutcome[] = [
-  'renewed',
-  'paid',
-  'promised',
-  'no_answer',
-  'not_interested',
-  'other',
-];
-
-const LEAD_OUTCOMES: FollowUpOutcome[] = [
-  'contacted',
-  'trial_booked',
-  'promised',
-  'no_answer',
-  'not_interested',
-  'other',
-];
-
 const LEAD_OUTCOME_LABEL: Partial<Record<FollowUpOutcome, string>> = {
   contacted: 'Contacted',
   trial_booked: 'Trial booked',
@@ -66,7 +52,9 @@ const LEAD_OUTCOME_LABEL: Partial<Record<FollowUpOutcome, string>> = {
 };
 
 function outcomeOptions(context: FollowUpContext): FollowUpOutcome[] {
-  return context === 'lead' ? LEAD_OUTCOMES : MEMBER_OUTCOMES;
+  return Array.from(
+    context === 'lead' ? LEAD_FOLLOW_UP_OUTCOMES : MEMBER_FOLLOW_UP_OUTCOMES
+  );
 }
 
 function outcomeLabel(

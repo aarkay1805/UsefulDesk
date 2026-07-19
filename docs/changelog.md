@@ -6,9 +6,21 @@
 
 ---
 
+## Profile follow-up activity parity
+
+The shared profile timeline now includes standalone follow-ups created from row actions, including tasks with no optional note; note-linked tasks remain attached to their authored note, and all entries sort newest-first. Standalone and note-linked tasks now share one follow-up-first card hierarchy: task and due date, optional note, then created/assigned metadata. The profile section is canonically labelled **Notes & follow-ups** across lead and member surfaces. Key code: `src/components/contacts/contact-notes-thread.tsx` and `src/lib/follow-ups/profile-activity.ts`.
+
+---
+
+## Follow-up outcome constraint repair (migration `20260719220919`)
+
+Lead follow-ups can again be completed with **Contacted** or **Trial booked** in databases that retained migration `036`'s member-only outcome constraint. The idempotent repair migration reasserts the full shared outcome list and the done-requires-outcome invariant; a contract test now keeps the UI choices aligned with the SQL constraint. Key code: `src/lib/memberships/follow-ups.ts`, `src/lib/memberships/follow-ups-outcome-contract.test.ts`, and `supabase/migrations/20260719220919_repair_follow_up_outcome_constraint.sql`.
+
+---
+
 ## Manual follow-up creation parity
 
-Lead and member action rows now share one `FollowUpButton` (`ListPlus` + **Follow up**) and one standalone create dialog/copy across All leads, First response, All members, Renewals, Trials, and Inactive. Manual creation is limited to that row dialog and the profile **Notes and Follow-ups** composer; bulk Add note is note-only again. Lead creators omit member-only Reason chips and always persist the neutral `other` sentinel, while member creators retain contextual Reason choices. Key code: `src/components/follow-ups/follow-up-button.tsx`, `src/components/follow-ups/follow-up-dialog.tsx`, `src/components/follow-ups/follow-up-fields.tsx`, and `src/components/contacts/contact-notes-thread.tsx`.
+Lead and member action rows now share one `FollowUpButton` (`ListPlus` + **Follow up**) and one standalone create dialog/copy across All leads, First response, All members, Renewals, Trials, and Inactive. Manual creation is limited to that row dialog and the profile **Notes & follow-ups** composer; bulk Add note is note-only again. Lead creators omit member-only Reason chips and always persist the neutral `other` sentinel, while member creators retain contextual Reason choices. Key code: `src/components/follow-ups/follow-up-button.tsx`, `src/components/follow-ups/follow-up-dialog.tsx`, `src/components/follow-ups/follow-up-fields.tsx`, and `src/components/contacts/contact-notes-thread.tsx`.
 
 ---
 

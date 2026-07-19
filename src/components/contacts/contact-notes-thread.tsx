@@ -9,7 +9,14 @@
 // NoteComposerCard stays private to this profile Notes surface, while its
 // follow-up fields and draft model are shared with the standalone dialog.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { toast } from 'sonner';
 import { Calendar, Check, Loader2, Trash2 } from 'lucide-react';
 
@@ -19,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
 import { canDeleteAnyNote } from '@/lib/auth/roles';
 import { manualFollowUpReasonForWrite } from '@/lib/follow-ups/manual';
+import { buildProfileActivity } from '@/lib/follow-ups/profile-activity';
 import {
   duePresets,
   FOLLOW_UP_TASK_TYPES,
@@ -37,7 +45,8 @@ import {
   resolveDueDate,
   type FollowUpDraft,
 } from '@/components/follow-ups/follow-up-fields';
-import type { ContactNote, FollowUpReason } from '@/types';
+import type { ContactNote, FollowUp, FollowUpReason } from '@/types';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MotionList, MotionListItem } from '@/components/ui/motion-list';
 import { Textarea } from '@/components/ui/textarea';
@@ -49,16 +58,19 @@ import {
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-up-dialog';
 
-/** The slice of a follow_ups row a note card needs for its strip. */
-interface NoteFollowUp {
+/** The slice of a follow_ups row the profile activity timeline needs. */
+interface ProfileFollowUp {
   id: string;
-  status: string;
-  task_type: string;
+  note_id: string | null;
+  status: FollowUp['status'];
+  task_type: FollowUp['task_type'];
   reason: FollowUpReason;
   due_date: string;
   assigned_to: string | null;
   remind_at: string | null;
   note: string | null;
+  created_by: string;
+  created_at: string;
 }
 
 /** Editor seed for an existing task: matching preset id or 'custom'. */
@@ -98,15 +110,13 @@ export function ContactNotesThread({
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(false);
-  // Follow-up task attached to each note (via follow_ups.note_id),
-  // keyed by note id — drives the card's "Follow up" strip.
-  const [noteFollowUps, setNoteFollowUps] = useState<
-    Record<string, NoteFollowUp>
-  >({});
-  const [completingFollowUp, setCompletingFollowUp] = useState<{
-    noteId: string;
-    followUp: NoteFollowUp;
-  } | null>(null);
+  const [followUps, setFollowUps] = useState<ProfileFollowUp[]>([]);
+  const { noteFollowUps, items: activityItems } = useMemo(
+    () => buildProfileActivity(notes, followUps),
+    [notes, followUps]
+  );
+  const [completingFollowUp, setCompletingFollowUp] =
+    useState<ProfileFollowUp | null>(null);
 
   // Follow-up bar under the composer: task type + due date, assignee, and
   // optional reminder. Member profiles also show the member-only Reason.
@@ -179,20 +189,14 @@ export function ContactNotesThread({
       supabase
         .from('follow_ups')
         .select(
-          'id, note_id, status, task_type, reason, due_date, assigned_to, remind_at, note'
+          'id, note_id, status, task_type, reason, due_date, assigned_to, remind_at, note, created_by, created_at'
         )
         .eq('contact_id', contactId)
-        .not('note_id', 'is', null),
+        .order('created_at', { ascending: false }),
     ]);
 
     if (notesRes.data) setNotes(notesRes.data);
-    const map: Record<string, NoteFollowUp> = {};
-    for (const t of (tasksRes.data ?? []) as (NoteFollowUp & {
-      note_id: string;
-    })[]) {
-      map[t.note_id] = t;
-    }
-    setNoteFollowUps(map);
+    setFollowUps((tasksRes.data as ProfileFollowUp[] | null) ?? []);
     setLoadingNotes(false);
   }, [contactId, supabase]);
 
@@ -286,19 +290,18 @@ export function ContactNotesThread({
     setSavingNote(false);
   }
 
-  function completeFollowUp(noteId: string, followUpId: string) {
-    const followUp = noteFollowUps[noteId];
-    if (!followUp || followUp.id !== followUpId) return;
-    setCompletingFollowUp({ noteId, followUp });
+  function completeFollowUp(followUpId: string) {
+    const followUp = followUps.find((task) => task.id === followUpId);
+    if (followUp) setCompletingFollowUp(followUp);
   }
 
   function followUpCompleted(status: 'done' | 'cancelled') {
     if (!completingFollowUp) return;
-    const { noteId } = completingFollowUp;
-    setNoteFollowUps((prev) => ({
-      ...prev,
-      [noteId]: { ...prev[noteId], status },
-    }));
+    setFollowUps((current) =>
+      current.map((task) =>
+        task.id === completingFollowUp.id ? { ...task, status } : task
+      )
+    );
     setCompletingFollowUp(null);
     notifyFollowUpChanged();
   }
@@ -327,11 +330,13 @@ export function ContactNotesThread({
       toast.error('Failed to delete note');
     } else {
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
-      setNoteFollowUps((prev) => {
-        const next = { ...prev };
-        delete next[noteId];
-        return next;
-      });
+      setFollowUps((current) =>
+        current.map((task) =>
+          task.note_id === noteId
+            ? { ...task, note_id: null, status: 'cancelled' }
+            : task
+        )
+      );
       toast.success('Note deleted');
       notifyFollowUpChanged();
     }
@@ -343,7 +348,7 @@ export function ContactNotesThread({
     noteId: string,
     text: string,
     draft: FollowUpDraft,
-    existing?: NoteFollowUp
+    existing?: ProfileFollowUp
   ): Promise<boolean> {
     if (!contactId) return false;
     const trimmed = text.trim();
@@ -496,30 +501,45 @@ export function ContactNotesThread({
           <div className="flex items-center justify-center py-6">
             <Loader2 className="text-muted-foreground size-5 animate-spin" />
           </div>
-        ) : notes.length === 0 ? (
+        ) : activityItems.length === 0 ? (
           <p className="text-muted-foreground py-6 text-center text-sm">
-            No notes yet.
+            No notes or follow-ups yet.
           </p>
         ) : (
           <MotionList>
-            {notes.map((note) => (
-              <MotionListItem key={note.id}>
-                <NoteCard
-                  note={note}
-                  followUp={noteFollowUps[note.id]}
-                  authorName={nameById.get(note.user_id) ?? 'Teammate'}
-                  authorAvatarUrl={avatarById.get(note.user_id) ?? null}
-                  currentUserId={user?.id ?? ''}
-                  nameById={nameById}
-                  staff={staff}
-                  showReason={Boolean(membershipId)}
-                  canDeleteAny={
-                    accountRole ? canDeleteAnyNote(accountRole) : false
-                  }
-                  onMarkDone={completeFollowUp}
-                  onDelete={deleteNote}
-                  onSaveEdit={saveNoteEdit}
-                />
+            {activityItems.map((item) => (
+              <MotionListItem key={item.key}>
+                {item.kind === 'note' ? (
+                  <NoteCard
+                    note={item.note}
+                    followUp={noteFollowUps[item.note.id]}
+                    authorName={nameById.get(item.note.user_id) ?? 'Teammate'}
+                    authorAvatarUrl={avatarById.get(item.note.user_id) ?? null}
+                    currentUserId={user?.id ?? ''}
+                    nameById={nameById}
+                    staff={staff}
+                    showReason={Boolean(membershipId)}
+                    canDeleteAny={
+                      accountRole ? canDeleteAnyNote(accountRole) : false
+                    }
+                    onMarkDone={completeFollowUp}
+                    onDelete={deleteNote}
+                    onSaveEdit={saveNoteEdit}
+                  />
+                ) : (
+                  <StandaloneFollowUpCard
+                    followUp={item.followUp}
+                    authorName={
+                      nameById.get(item.followUp.created_by) ?? 'Teammate'
+                    }
+                    authorAvatarUrl={
+                      avatarById.get(item.followUp.created_by) ?? null
+                    }
+                    currentUserId={user?.id ?? ''}
+                    nameById={nameById}
+                    onMarkDone={completeFollowUp}
+                  />
+                )}
               </MotionListItem>
             ))}
           </MotionList>
@@ -533,16 +553,163 @@ export function ContactNotesThread({
             if (!open) setCompletingFollowUp(null);
           }}
           followUp={{
-            id: completingFollowUp.followUp.id,
+            id: completingFollowUp.id,
             contact_id: contactId ?? undefined,
             membership_id: membershipId ?? null,
-            note: completingFollowUp.followUp.note,
+            note: completingFollowUp.note,
           }}
           context={membershipId ? 'member' : 'lead'}
           onSaved={followUpCompleted}
         />
       )}
     </>
+  );
+}
+
+/**
+ * Canonical profile card for every follow-up source. The task is always the
+ * primary row; optional note content sits beneath it before shared metadata.
+ */
+function FollowUpActivityCard({
+  followUp,
+  authorName,
+  authorAvatarUrl,
+  currentUserId,
+  nameById,
+  onMarkDone,
+  noteContent,
+  footerAction,
+}: {
+  followUp: ProfileFollowUp;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  currentUserId: string;
+  nameById: Map<string, string>;
+  onMarkDone: (followUpId: string) => void;
+  noteContent?: ReactNode;
+  footerAction?: ReactNode;
+}) {
+  const { fmt } = useLocale();
+  const assigneeName = followUp.assigned_to
+    ? followUp.assigned_to === currentUserId
+      ? `Me (${nameById.get(followUp.assigned_to) ?? 'me'})`
+      : (nameById.get(followUp.assigned_to) ?? 'Teammate')
+    : null;
+
+  return (
+    <div className="grid grid-cols-[auto_1fr] gap-2.5">
+      <StaffAvatar name={authorName} src={authorAvatarUrl} />
+      <div className="group border-border/50 bg-card min-w-0 rounded-lg border">
+        <div className="flex items-start justify-between gap-3 p-3">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-full">
+              <Calendar className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-foreground text-sm">Follow-up</p>
+              <p className="text-muted-foreground text-xs">
+                {followUpDueLabel(
+                  followUp.task_type,
+                  followUp.due_date,
+                  fmt.today()
+                )}
+              </p>
+              {noteContent && <div className="mt-2">{noteContent}</div>}
+            </div>
+          </div>
+          <FollowUpCompletionControl
+            status={followUp.status}
+            onMarkDone={() => onMarkDone(followUp.id)}
+          />
+        </div>
+        <div className="text-muted-foreground border-border/50 flex min-w-0 items-center justify-between gap-2 border-t px-3 py-2 text-xs">
+          <span className="flex min-w-0 items-center gap-4">
+            <span className="shrink-0">
+              Created on {fmt.date(followUp.created_at)}
+            </span>
+            {assigneeName && (
+              <span className="min-w-0 truncate">
+                Assigned to{' '}
+                <span className="text-foreground font-medium">
+                  {assigneeName}
+                </span>
+              </span>
+            )}
+          </span>
+          {footerAction}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** A follow-up created from the standalone row action, with or without text. */
+function StandaloneFollowUpCard({
+  followUp,
+  authorName,
+  authorAvatarUrl,
+  currentUserId,
+  nameById,
+  onMarkDone,
+}: {
+  followUp: ProfileFollowUp;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  currentUserId: string;
+  nameById: Map<string, string>;
+  onMarkDone: (followUpId: string) => void;
+}) {
+  return (
+    <FollowUpActivityCard
+      followUp={followUp}
+      authorName={authorName}
+      authorAvatarUrl={authorAvatarUrl}
+      currentUserId={currentUserId}
+      nameById={nameById}
+      onMarkDone={onMarkDone}
+      noteContent={
+        followUp.note ? (
+          <p className="text-foreground text-sm whitespace-pre-wrap">
+            {followUp.note}
+          </p>
+        ) : undefined
+      }
+    />
+  );
+}
+
+function FollowUpCompletionControl({
+  status,
+  onMarkDone,
+}: {
+  status: FollowUp['status'];
+  onMarkDone: () => void;
+}) {
+  if (status === 'done') {
+    return (
+      <span
+        title="Followed up"
+        className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-white"
+      >
+        <Check className="size-4" />
+      </span>
+    );
+  }
+
+  if (status === 'cancelled') {
+    return <Badge variant="neutral">Cancelled</Badge>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onMarkDone}
+      aria-label="Mark as followed up"
+      title="Mark as followed up"
+      className="border-border text-muted-foreground hover:text-green-foreground flex size-7 shrink-0 items-center justify-center rounded-full border transition-colors hover:border-green-500"
+    >
+      <Check className="size-4" />
+    </button>
   );
 }
 
@@ -617,9 +784,8 @@ function NoteComposerCard({
   );
 }
 
-// One saved note: author avatar + card with the text (clamped to 3
-// lines behind "See more"), a "Follow up" strip when the note spawned
-// a task, and the assignee/created meta row. Clicking the card opens
+// One saved note: note-only cards lead with their text; notes attached
+// to follow-ups use the canonical task-first card above. Clicking the text opens
 // the FULL composer edit view for the note's creator (textarea +
 // follow-up bar, Save/Cancel footer); for anyone else it just
 // expands/collapses the text.
@@ -638,7 +804,7 @@ function NoteCard({
   onSaveEdit,
 }: {
   note: ContactNote;
-  followUp?: NoteFollowUp;
+  followUp?: ProfileFollowUp;
   authorName: string;
   authorAvatarUrl: string | null;
   currentUserId: string;
@@ -647,13 +813,13 @@ function NoteCard({
   nameById: Map<string, string>;
   staff: StaffMember[];
   showReason: boolean;
-  onMarkDone: (noteId: string, followUpId: string) => void;
+  onMarkDone: (followUpId: string) => void;
   onDelete: (noteId: string) => void;
   onSaveEdit: (
     noteId: string,
     text: string,
     draft: FollowUpDraft,
-    existing?: NoteFollowUp
+    existing?: ProfileFollowUp
   ) => Promise<boolean>;
 }) {
   const { locale, fmt } = useLocale();
@@ -707,42 +873,51 @@ function NoteCard({
     if (ok) setEditing(false);
   }
 
-  const assigneeName = followUp?.assigned_to
-    ? followUp.assigned_to === currentUserId
-      ? `Me (${nameById.get(followUp.assigned_to) ?? 'me'})`
-      : (nameById.get(followUp.assigned_to) ?? 'Teammate')
-    : null;
-
   const createdOn = fmt.date(note.created_at);
 
-  // Meta footer — always the card's own bottom strip (under a divider),
-  // "Created on" first, then the assignee when the note spawned a task.
-  const metaRow = (
-    <div className="text-muted-foreground flex items-center justify-between gap-2 text-xs">
-      <span className="flex min-w-0 items-center gap-4">
-        <span className="shrink-0">Created on {createdOn}</span>
-        {assigneeName && (
-          <span className="min-w-0 truncate">
-            Assigned to{' '}
-            <span className="text-foreground font-medium">{assigneeName}</span>
-          </span>
+  const deleteAction = (isOwner || canDeleteAny) && (
+    <Button
+      type="button"
+      variant="destructive-ghost"
+      size="icon-xs"
+      onClick={(e) => {
+        e.stopPropagation();
+        onDelete(note.id);
+      }}
+      aria-label="Delete note"
+      title="Delete note"
+      className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+    >
+      <Trash2 className="size-3.5" />
+    </Button>
+  );
+
+  const noteContent = (
+    <div
+      className="cursor-pointer"
+      onClick={handleBodyClick}
+      role="button"
+      title={isOwner ? 'Click to edit' : 'Click to expand'}
+    >
+      <p
+        className={cn(
+          'text-foreground text-sm whitespace-pre-wrap',
+          isLong && !expanded && 'line-clamp-3'
         )}
-      </span>
-      {(isOwner || canDeleteAny) && (
-        <Button
+      >
+        {note.note_text}
+      </p>
+      {isLong && (
+        <button
           type="button"
-          variant="destructive-ghost"
-          size="icon-xs"
           onClick={(e) => {
             e.stopPropagation();
-            onDelete(note.id);
+            setExpanded((v) => !v);
           }}
-          aria-label="Delete note"
-          title="Delete note"
-          className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          className="text-primary-text mt-1 cursor-pointer text-xs font-medium hover:underline"
         >
-          <Trash2 className="size-3.5" />
-        </Button>
+          {expanded ? 'See less' : 'See more'}
+        </button>
       )}
     </div>
   );
@@ -789,86 +964,32 @@ function NoteCard({
     );
   }
 
+  if (followUp) {
+    return (
+      <FollowUpActivityCard
+        followUp={followUp}
+        authorName={authorName}
+        authorAvatarUrl={authorAvatarUrl}
+        currentUserId={currentUserId}
+        nameById={nameById}
+        onMarkDone={onMarkDone}
+        noteContent={noteContent}
+        footerAction={deleteAction}
+      />
+    );
+  }
+
   return (
     <div className="grid grid-cols-[auto_1fr] gap-2.5">
       <StaffAvatar name={authorName} src={authorAvatarUrl} />
       <div className="group border-border/50 bg-card min-w-0 rounded-lg border">
-        <div
-          className="cursor-pointer p-3"
-          onClick={handleBodyClick}
-          role="button"
-          title={isOwner ? 'Click to edit' : 'Click to expand'}
-        >
-          <p
-            className={cn(
-              'text-foreground text-sm whitespace-pre-wrap',
-              isLong && !expanded && 'line-clamp-3'
-            )}
-          >
-            {note.note_text}
-          </p>
-          {isLong && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpanded((v) => !v);
-              }}
-              className="text-primary-text mt-1 cursor-pointer text-xs font-medium hover:underline"
-            >
-              {expanded ? 'See less' : 'See more'}
-            </button>
-          )}
-        </div>
-
-        {followUp && (
-          <div className="border-border/50 border-t px-3 py-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2.5">
-                {/* Leading calendar avatar — flags the strip as a task,
-                    mirroring the author avatar's size/gap so the two
-                    rows read as a set. */}
-                <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-full">
-                  <Calendar className="size-4" />
-                </span>
-                {/* 2px title→due gap per the Figma spec. Spans, not <p> —
-                    the accordion content styles descendant <p>s with mb-4,
-                    which would defeat the gap. */}
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <span className="text-foreground text-sm">Follow up</span>
-                  <span className="text-muted-foreground truncate text-xs">
-                    {followUpDueLabel(
-                      followUp.task_type,
-                      followUp.due_date,
-                      fmt.today()
-                    )}
-                  </span>
-                </div>
-              </div>
-              {followUp.status === 'done' ? (
-                <span
-                  title="Followed up"
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-white"
-                >
-                  <Check className="size-4" />
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onMarkDone(note.id, followUp.id)}
-                  aria-label="Mark as followed up"
-                  title="Mark as followed up"
-                  className="border-border text-muted-foreground flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors hover:border-green-500 hover:text-green-foreground"
-                >
-                  <Check className="size-4" />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+        <div className="p-3">{noteContent}</div>
 
         {/* Meta footer strip — divider above, in every layout (per mock) */}
-        <div className="border-border/50 border-t px-3 py-2">{metaRow}</div>
+        <div className="text-muted-foreground border-border/50 flex items-center justify-between gap-2 border-t px-3 py-2 text-xs">
+          <span className="shrink-0">Created on {createdOn}</span>
+          {deleteAction}
+        </div>
       </div>
     </div>
   );
