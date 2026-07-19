@@ -421,7 +421,7 @@ export function WhatsAppConfig() {
         title="WhatsApp connection"
         description="Connect your Meta WhatsApp Business API. Credentials, webhook, and setup steps all live here."
       />
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      <div>
       {/* Main config form */}
       <div className="space-y-6">
         {/* Corrupted-token reset banner */}
@@ -603,7 +603,9 @@ export function WhatsAppConfig() {
             <AccordionTrigger className="text-muted-foreground hover:text-foreground hover:no-underline">
               Manual setup (advanced)
             </AccordionTrigger>
-            <AccordionContent className="space-y-6 pt-2">
+            <AccordionContent className="pt-2">
+              <div className="grid gap-6 px-1 py-1 lg:grid-cols-[minmax(0,1fr)_380px]">
+                <div className="space-y-6">
         {/* API Credentials */}
         <Card>
           <CardHeader>
@@ -772,6 +774,102 @@ export function WhatsAppConfig() {
             'Save Configuration'
           )}
         </Button>
+                </div>
+
+                <div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-foreground text-base">Setup Instructions</CardTitle>
+                      <CardDescription className="text-muted-foreground">
+                        Follow these steps to connect your WhatsApp Business API.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Accordion>
+                        <AccordionItem className="border-border">
+                          <AccordionTrigger className="text-muted-foreground hover:text-foreground hover:no-underline">
+                            <span className="flex items-center gap-2">
+                              <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">1</span>
+                              Create a Meta App
+                            </span>
+                          </AccordionTrigger>
+                          <AccordionContent className="text-muted-foreground">
+                            <ol className="list-decimal list-inside space-y-1 text-sm">
+                              <li>Go to <span className="text-primary-text">developers.facebook.com</span></li>
+                              <li>Click &quot;My Apps&quot; and then &quot;Create App&quot;</li>
+                              <li>Select &quot;Business&quot; as the app type</li>
+                              <li>Fill in app details and create</li>
+                            </ol>
+                          </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem className="border-border">
+                          <AccordionTrigger className="text-muted-foreground hover:text-foreground hover:no-underline">
+                            <span className="flex items-center gap-2">
+                              <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">2</span>
+                              Add WhatsApp Product
+                            </span>
+                          </AccordionTrigger>
+                          <AccordionContent className="text-muted-foreground">
+                            <ol className="list-decimal list-inside space-y-1 text-sm">
+                              <li>In your app dashboard, click &quot;Add Product&quot;</li>
+                              <li>Find &quot;WhatsApp&quot; and click &quot;Set Up&quot;</li>
+                              <li>Follow the setup wizard to link your business</li>
+                            </ol>
+                          </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem className="border-border">
+                          <AccordionTrigger className="text-muted-foreground hover:text-foreground hover:no-underline">
+                            <span className="flex items-center gap-2">
+                              <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">3</span>
+                              Get API Credentials
+                            </span>
+                          </AccordionTrigger>
+                          <AccordionContent className="text-muted-foreground">
+                            <ol className="list-decimal list-inside space-y-1 text-sm">
+                              <li>Go to WhatsApp &gt; API Setup</li>
+                              <li>Copy your <strong className="text-foreground">Phone Number ID</strong></li>
+                              <li>Copy your <strong className="text-foreground">WhatsApp Business Account ID</strong></li>
+                              <li>Generate a <strong className="text-foreground">Permanent Access Token</strong> from Business Settings &gt; System Users</li>
+                            </ol>
+                          </AccordionContent>
+                        </AccordionItem>
+
+                        <AccordionItem className="border-border">
+                          <AccordionTrigger className="text-muted-foreground hover:text-foreground hover:no-underline">
+                            <span className="flex items-center gap-2">
+                              <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">4</span>
+                              Configure Webhooks
+                            </span>
+                          </AccordionTrigger>
+                          <AccordionContent className="text-muted-foreground">
+                            <ol className="list-decimal list-inside space-y-1 text-sm">
+                              <li>Go to WhatsApp &gt; Configuration</li>
+                              <li>Click &quot;Edit&quot; on the Webhook section</li>
+                              <li>Paste the <strong className="text-foreground">Webhook Callback URL</strong> from above</li>
+                              <li>Enter the same <strong className="text-foreground">Verify Token</strong> you set here</li>
+                              <li>Subscribe to &quot;messages&quot; webhook field</li>
+                            </ol>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+
+                      <div className="mt-4 pt-4 border-t border-border">
+                        <a
+                          href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm text-primary-text hover:text-primary-text/80 transition-colors"
+                        >
+                          <ExternalLink className="size-3.5" />
+                          Meta WhatsApp API Documentation
+                        </a>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -818,100 +916,6 @@ export function WhatsAppConfig() {
         </div>
       </div>
 
-      {/* Setup Instructions Sidebar */}
-      <div>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-foreground text-base">Setup Instructions</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Follow these steps to connect your WhatsApp Business API.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Accordion>
-              <AccordionItem className="border-border">
-                <AccordionTrigger className="text-muted-foreground hover:text-foreground hover:no-underline">
-                  <span className="flex items-center gap-2">
-                    <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">1</span>
-                    Create a Meta App
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">
-                  <ol className="list-decimal list-inside space-y-1 text-sm">
-                    <li>Go to <span className="text-primary-text">developers.facebook.com</span></li>
-                    <li>Click &quot;My Apps&quot; and then &quot;Create App&quot;</li>
-                    <li>Select &quot;Business&quot; as the app type</li>
-                    <li>Fill in app details and create</li>
-                  </ol>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem className="border-border">
-                <AccordionTrigger className="text-muted-foreground hover:text-foreground hover:no-underline">
-                  <span className="flex items-center gap-2">
-                    <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">2</span>
-                    Add WhatsApp Product
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">
-                  <ol className="list-decimal list-inside space-y-1 text-sm">
-                    <li>In your app dashboard, click &quot;Add Product&quot;</li>
-                    <li>Find &quot;WhatsApp&quot; and click &quot;Set Up&quot;</li>
-                    <li>Follow the setup wizard to link your business</li>
-                  </ol>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem className="border-border">
-                <AccordionTrigger className="text-muted-foreground hover:text-foreground hover:no-underline">
-                  <span className="flex items-center gap-2">
-                    <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">3</span>
-                    Get API Credentials
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">
-                  <ol className="list-decimal list-inside space-y-1 text-sm">
-                    <li>Go to WhatsApp &gt; API Setup</li>
-                    <li>Copy your <strong className="text-foreground">Phone Number ID</strong></li>
-                    <li>Copy your <strong className="text-foreground">WhatsApp Business Account ID</strong></li>
-                    <li>Generate a <strong className="text-foreground">Permanent Access Token</strong> from Business Settings &gt; System Users</li>
-                  </ol>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem className="border-border">
-                <AccordionTrigger className="text-muted-foreground hover:text-foreground hover:no-underline">
-                  <span className="flex items-center gap-2">
-                    <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">4</span>
-                    Configure Webhooks
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">
-                  <ol className="list-decimal list-inside space-y-1 text-sm">
-                    <li>Go to WhatsApp &gt; Configuration</li>
-                    <li>Click &quot;Edit&quot; on the Webhook section</li>
-                    <li>Paste the <strong className="text-foreground">Webhook Callback URL</strong> from above</li>
-                    <li>Enter the same <strong className="text-foreground">Verify Token</strong> you set here</li>
-                    <li>Subscribe to &quot;messages&quot; webhook field</li>
-                  </ol>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-
-            <div className="mt-4 pt-4 border-t border-border">
-              <a
-                href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-primary-text hover:text-primary-text/80 transition-colors"
-              >
-                <ExternalLink className="size-3.5" />
-                Meta WhatsApp API Documentation
-              </a>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
     </section>
   );

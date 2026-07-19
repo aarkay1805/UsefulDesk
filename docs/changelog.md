@@ -6,6 +6,18 @@
 
 ---
 
+## WhatsApp settings layout
+
+The WhatsApp connection status and embedded-signup flow now use the full settings-panel width. The step-by-step Meta setup guide moved into the Manual setup accordion, where it sits beside the credential form on desktop and stacks below it on smaller screens. The split grid stays padded inside the accordion panel because its animation clips overflow and Card edges are outer rings. Key code: `src/components/settings/whatsapp-config.tsx`.
+
+---
+
+## Lead/member follow-up queue parity
+
+The Leads and Members Follow-ups tabs now share `FollowUpQueueControls`: search, due/owner filters, sorting, live counted due buckets with tooltip definitions, and My work/Team scope behave the same in both contexts. Both tables now also provide persisted column visibility/widths, header sort/filter menus, row and all-matching selection, context-aware bulk completion, inline reassignment, and pagination. Member-only Reason/reminder behavior and lead-only Status/Stage age columns stay contextual. Key code: `src/components/follow-ups/follow-up-queue-controls.tsx`, `src/components/follow-ups/follow-up-filters.tsx`, `src/components/leads/lead-accountability-view.tsx`, and `src/components/members/follow-up-lists.tsx`.
+
+---
+
 ## Live lead accountability refresh
 
 Lead edits made in the shared detail sheet now re-fetch the active Follow-ups or First response queue through the same page-level invalidation path as All leads and the board. Follow-up creates, edits, completions, and deletions from the Notes section also notify that path. Key code: `src/app/(dashboard)/leads/page.tsx`, `src/components/leads/lead-accountability-view.tsx`, and `src/components/contacts/contact-detail-content.tsx`.

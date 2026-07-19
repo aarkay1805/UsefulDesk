@@ -1,15 +1,14 @@
 'use client';
 
 import { Filter } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import {
   activeFollowUpFilterCount,
@@ -21,7 +20,7 @@ import {
 } from '@/lib/memberships/follow-up-filters';
 import { REASON_LABEL } from '@/lib/memberships/follow-ups';
 import type { FollowUpReason } from '@/types';
-import type { StaffMember } from './use-account-staff';
+import type { StaffMember } from '@/components/members/use-account-staff';
 
 const REASON_OPTIONS = (Object.keys(REASON_LABEL) as FollowUpReason[]).map(
   (value) => ({ value, label: REASON_LABEL[value] })
@@ -31,16 +30,21 @@ interface FollowUpFiltersProps {
   value: FollowUpFilterState;
   onChange: (next: FollowUpFilterState) => void;
   staff: StaffMember[];
+  /** Member queues expose the gym-specific Reason facet; lead queues do not. */
+  showReasons?: boolean;
 }
 
-/** Context-only filters for the Follow-ups table. */
+/** The shared due-date/owner filter panel for every follow-up queue. */
 export function FollowUpFilters({
   value,
   onChange,
   staff,
+  showReasons = true,
 }: FollowUpFiltersProps) {
-  const count = activeFollowUpFilterCount(value);
-  const reduceMotion = useReducedMotion();
+  const count = activeFollowUpFilterCount({
+    ...value,
+    reasons: showReasons ? value.reasons : [],
+  });
 
   function toggle<K extends keyof FollowUpFilterState>(key: K, choice: string) {
     const current = value[key] as string[];
@@ -73,25 +77,11 @@ export function FollowUpFilters({
       >
         <Filter className="mr-1.5 size-4" />
         Filters
-        <AnimatePresence initial={false} mode="popLayout">
-          {count > 0 && (
-            <motion.span
-              key="follow-up-filter-count"
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.85 }}
-              transition={{
-                duration: reduceMotion ? 0 : 0.2,
-                ease: [0.2, 0, 0, 1],
-              }}
-              className="inline-flex origin-left"
-            >
-              <span className="bg-primary text-primary-foreground ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold">
-                {count}
-              </span>
-            </motion.span>
-          )}
-        </AnimatePresence>
+        {count > 0 && (
+          <span className="bg-primary text-primary-foreground ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold">
+            {count}
+          </span>
+        )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 p-0">
         <div className="border-border flex items-center justify-between border-b px-3 py-2.5">
@@ -99,13 +89,13 @@ export function FollowUpFilters({
             Filters
           </span>
           {count > 0 && (
-            <button
-              type="button"
+            <Button
+              variant="link"
+              size="xs"
               onClick={() => onChange(EMPTY_FOLLOW_UP_FILTERS)}
-              className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline-offset-4 hover:underline"
             >
               Clear all
-            </button>
+            </Button>
           )}
         </div>
 
@@ -117,13 +107,17 @@ export function FollowUpFilters({
             onToggle={toggleBucket}
           />
 
-          <Separator className="my-3" />
-          <CheckGroup
-            label="Reason"
-            options={REASON_OPTIONS}
-            selected={value.reasons}
-            onToggle={(choice) => toggle('reasons', choice)}
-          />
+          {showReasons && (
+            <>
+              <Separator className="my-3" />
+              <CheckGroup
+                label="Reason"
+                options={REASON_OPTIONS}
+                selected={value.reasons}
+                onToggle={(choice) => toggle('reasons', choice)}
+              />
+            </>
+          )}
 
           <Separator className="my-3" />
           <CheckGroup

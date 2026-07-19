@@ -114,14 +114,16 @@ interface BulkCompleteFollowUpsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   followUpIds: string[];
+  context?: FollowUpContext;
   onSaved: (status: 'done' | 'cancelled') => void;
 }
 
-/** Complete or cancel selected member follow-ups in one explicit action. */
+/** Complete or cancel selected lead/member follow-ups in one explicit action. */
 export function BulkCompleteFollowUpsDialog({
   open,
   onOpenChange,
   followUpIds,
+  context = 'member',
   onSaved,
 }: BulkCompleteFollowUpsDialogProps) {
   return (
@@ -130,6 +132,7 @@ export function BulkCompleteFollowUpsDialog({
         {open && (
           <BulkCompleteForm
             followUpIds={followUpIds}
+            context={context}
             onClose={() => onOpenChange(false)}
             onSaved={onSaved}
           />
@@ -141,15 +144,19 @@ export function BulkCompleteFollowUpsDialog({
 
 function BulkCompleteForm({
   followUpIds,
+  context,
   onClose,
   onSaved,
 }: {
   followUpIds: string[];
+  context: FollowUpContext;
   onClose: () => void;
   onSaved: (status: 'done' | 'cancelled') => void;
 }) {
   const supabase = createClient();
-  const [outcome, setOutcome] = useState<FollowUpOutcome>('renewed');
+  const [outcome, setOutcome] = useState<FollowUpOutcome>(
+    () => outcomeOptions(context)[0]
+  );
   const [saving, setSaving] = useState(false);
 
   async function close(status: 'done' | 'cancelled') {
@@ -212,9 +219,9 @@ function BulkCompleteForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {MEMBER_OUTCOMES.map((option) => (
+            {outcomeOptions(context).map((option) => (
               <SelectItem key={option} value={option}>
-                {outcomeLabel(option, 'member')}
+                {outcomeLabel(option, context)}
               </SelectItem>
             ))}
           </SelectContent>

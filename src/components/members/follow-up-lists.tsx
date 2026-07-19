@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import {
   Check,
@@ -20,11 +19,13 @@ import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/client';
 import { useLocale } from '@/hooks/use-locale';
+import { useAuth } from '@/hooks/use-auth';
 import { useTablePrefs } from '@/hooks/use-table-prefs';
 import {
   activeFollowUpFilterCount,
   applyFollowUpFilters,
   EMPTY_FOLLOW_UP_FILTERS,
+  exclusiveFollowUpBucket,
   FOLLOW_UP_BUCKET_OPTIONS,
   UNASSIGNED_FOLLOW_UP,
   type FollowUpBucket,
@@ -43,8 +44,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { GatedButton } from '@/components/ui/gated-button';
-import { Separator } from '@/components/ui/separator';
-import { Chip, ChipGroup } from '@/components/ui/chip';
 import {
   Table,
   TableBody,
@@ -58,18 +57,22 @@ import {
   AssigneeDisplay,
   assigneeCellOptions,
 } from '@/components/leads/lead-cell-renderers';
-import { LeadsSort, type SortState } from '@/components/leads/leads-sort';
+import type { SortState } from '@/components/leads/leads-sort';
 import {
   ColumnHeader,
   type ColumnFilterProp,
   type SortDir,
 } from '@/components/table/column-header';
 import { MemberIdentity } from './member-identity';
-import { FollowUpFilters } from './follow-up-filters';
 import {
   BulkCompleteFollowUpsDialog,
   CompleteFollowUpDialog,
 } from '@/components/follow-ups/complete-follow-up-dialog';
+import {
+  FollowUpQueueControls,
+  type FollowUpBucketCounts,
+  type FollowUpQueueScope,
+} from '@/components/follow-ups/follow-up-queue-controls';
 import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
 import {
   SendReminderButton,
@@ -188,13 +191,22 @@ export function FollowUpLists({
 }: FollowUpListsProps) {
   const supabase = useMemo(() => createClient(), []);
   const { fmt } = useLocale();
-  const reduceMotion = useReducedMotion();
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const { staff, nameById, avatarById } = useAccountStaff();
 
   const [rows, setRows] = useState<FollowUp[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [bucketCounts, setBucketCounts] = useState<FollowUpBucketCounts>({
+    all: 0,
+    overdue: 0,
+    today: 0,
+    upcoming: 0,
+  });
   const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+  const [scope, setScope] = useState<FollowUpQueueScope>('mine');
   const [filters, setFilters] = useState<FollowUpFilterState>(
     EMPTY_FOLLOW_UP_FILTERS
   );
@@ -217,7 +229,7 @@ export function FollowUpLists({
     setBulkCount(selected.size);
   }
 
-  const filterSig = JSON.stringify(filters);
+  const filterSig = JSON.stringify({ filters, search, scope });
   const [prevFilterSig, setPrevFilterSig] = useState(filterSig);
   if (filterSig !== prevFilterSig) {
     setPrevFilterSig(filterSig);
@@ -315,6 +327,15 @@ export function FollowUpLists({
   function toggleColumnFilter(dim: FollowUpFilterDim, value: string) {
     setFilters((current) => {
       const selectedValues = current[dim] as string[];
+      if (dim === 'buckets') {
+        return {
+          ...current,
+          buckets: exclusiveFollowUpBucket(
+            value as FollowUpBucket,
+            !selectedValues.includes(value)
+          ),
+        };
+      }
       const next = selectedValues.includes(value)
         ? selectedValues.filter((item) => item !== value)
         : [...selectedValues, value];
@@ -343,13 +364,6 @@ export function FollowUpLists({
     };
   }
 
-  function setBuckets(buckets: FollowUpBucket[]) {
-    setFilters((current) => ({
-      ...current,
-      buckets,
-    }));
-  }
-
   async function commitAssignee(followUp: FollowUp, rawValue: string) {
     const assignedTo = rawValue || null;
     if (assignedTo === (followUp.assigned_to ?? null)) {
@@ -376,6 +390,7 @@ export function FollowUpLists({
         )
       );
       toast.success('Follow-up reassigned');
+      onChanged();
     } finally {
       setSavingCell(false);
       setEditingAssigneeId(null);
@@ -449,7 +464,7 @@ export function FollowUpLists({
               onClick={() => setCompleting(followUp)}
             >
               <CircleCheck className="size-3.5" />
-              Done
+              Complete
             </GatedButton>
             {followUp.membership && (
               <SendReminderButton
@@ -471,13 +486,37 @@ export function FollowUpLists({
     let cancelled = false;
     (async () => {
       setLoading(true);
+      if (scope === 'mine' && !userId) {
+        if (!cancelled && seq === fetchSeq.current) {
+          setRows([]);
+          setTotalCount(0);
+          setBucketCounts({
+            all: 0,
+            overdue: 0,
+            today: 0,
+            upcoming: 0,
+          });
+          setLoading(false);
+        }
+        return;
+      }
+
+      const today = fmt.today();
+      const term = search.trim();
+      const like = `%${term}%`;
       let query = supabase
         .from('follow_ups')
         .select(FOLLOW_UP_SELECT, { count: 'exact' })
         .eq('status', 'open')
         .not('membership_id', 'is', null);
 
-      query = applyFollowUpFilters(query, filters, fmt.today());
+      query = applyFollowUpFilters(query, filters, today);
+      if (scope === 'mine') query = query.eq('assigned_to', userId!);
+      if (term) {
+        query = query.or(`name.ilike.${like},phone.ilike.${like}`, {
+          referencedTable: 'contact',
+        });
+      }
 
       if (sort?.key === 'customer') {
         query = query.order('contact(name)', {
@@ -490,23 +529,67 @@ export function FollowUpLists({
       }
 
       const from = page * pageSize;
-      const { data, count, error } = await query.range(
-        from,
-        from + pageSize - 1
-      );
+      async function countFor(bucket: FollowUpBucket | null) {
+        let countQuery = supabase
+          .from('follow_ups')
+          .select(FOLLOW_UP_ID_SELECT, { count: 'exact', head: true })
+          .eq('status', 'open')
+          .not('membership_id', 'is', null);
+        countQuery = applyFollowUpFilters(
+          countQuery,
+          { ...filters, buckets: bucket ? [bucket] : [] },
+          today
+        );
+        if (scope === 'mine') {
+          countQuery = countQuery.eq('assigned_to', userId!);
+        }
+        if (term) {
+          countQuery = countQuery.or(`name.ilike.${like},phone.ilike.${like}`, {
+            referencedTable: 'contact',
+          });
+        }
+        const { count, error } = await countQuery;
+        if (error) throw error;
+        return count ?? 0;
+      }
+
+      const [pageResult, all, overdue, dueToday, upcoming] = await Promise.all([
+        query.range(from, from + pageSize - 1),
+        countFor(null),
+        countFor('overdue'),
+        countFor('today'),
+        countFor('upcoming'),
+      ]);
       if (cancelled || seq !== fetchSeq.current) return;
+      const { data, count, error } = pageResult;
       if (error) {
         toast.error(getErrorMessage(error, 'Failed to load follow-ups'));
       } else {
         setRows((data as FollowUp[]) ?? []);
         setTotalCount(count ?? 0);
+        setBucketCounts({ all, overdue, today: dueToday, upcoming });
       }
       setLoading(false);
-    })();
+    })().catch((error) => {
+      if (cancelled || seq !== fetchSeq.current) return;
+      toast.error(getErrorMessage(error, 'Failed to load follow-ups'));
+      setLoading(false);
+    });
     return () => {
       cancelled = true;
     };
-  }, [supabase, reloadKey, filters, sort, page, pageSize, fmt]);
+  }, [
+    supabase,
+    reloadKey,
+    filters,
+    sort,
+    page,
+    pageSize,
+    fmt,
+    search,
+    scope,
+    userId,
+  ]);
 
   const totalPages = Math.ceil(totalCount / pageSize);
   const hasPrev = page > 0;
@@ -534,12 +617,21 @@ export function FollowUpLists({
   }
 
   async function selectAllMatching() {
+    if (scope === 'mine' && !userId) return;
     let query = supabase
       .from('follow_ups')
       .select(FOLLOW_UP_ID_SELECT)
       .eq('status', 'open')
       .not('membership_id', 'is', null);
     query = applyFollowUpFilters(query, filters, fmt.today());
+    if (scope === 'mine') query = query.eq('assigned_to', userId!);
+    const term = search.trim();
+    if (term) {
+      const like = `%${term}%`;
+      query = query.or(`name.ilike.${like},phone.ilike.${like}`, {
+        referencedTable: 'contact',
+      });
+    }
     const { data, error } = await query;
     if (error) {
       toast.error(getErrorMessage(error, 'Failed to select follow-ups'));
@@ -564,50 +656,21 @@ export function FollowUpLists({
   return (
     <>
       <section className="border-border bg-card overflow-hidden rounded-2xl border">
-        <div className="border-border flex flex-wrap items-center gap-2 border-b p-2">
-          <LayoutGroup id="follow-up-table-filter-controls">
-            <div className="flex shrink-0 items-center gap-2">
-              <FollowUpFilters
-                value={filters}
-                onChange={setFilters}
-                staff={staff}
-              />
-              <motion.div
-                layout="position"
-                transition={{
-                  duration: reduceMotion ? 0 : 0.2,
-                  ease: [0.2, 0, 0, 1],
-                }}
-                className="flex items-center gap-2"
-              >
-                <LeadsSort
-                  value={sort}
-                  onChange={(next) =>
-                    setPrefs((current) => ({ ...current, sort: next }))
-                  }
-                  columns={SORT_COLUMNS}
-                />
-                <Separator
-                  orientation="vertical"
-                  className="mx-0.5 h-5 data-vertical:self-center"
-                />
-                <ChipGroup<FollowUpBucket>
-                  selectionMode="single"
-                  value={filters.buckets}
-                  onValueChange={setBuckets}
-                  aria-label="Due date quick filters"
-                >
-                  {FOLLOW_UP_BUCKET_OPTIONS.map((option) => (
-                    <Chip key={option.value} value={option.value}>
-                      {option.label}
-                    </Chip>
-                  ))}
-                </ChipGroup>
-              </motion.div>
-            </div>
-          </LayoutGroup>
-
-          <div className="ml-auto flex shrink-0 items-center">
+        <FollowUpQueueControls
+          search={search}
+          onSearchChange={setSearch}
+          filters={filters}
+          onFiltersChange={setFilters}
+          staff={staff}
+          sort={sort}
+          onSortChange={(next) =>
+            setPrefs((current) => ({ ...current, sort: next }))
+          }
+          sortColumns={SORT_COLUMNS}
+          scope={scope}
+          onScopeChange={setScope}
+          counts={bucketCounts}
+          actions={
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -648,8 +711,8 @@ export function FollowUpLists({
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-        </div>
+          }
+        />
 
         <Collapse open={selected.size > 0}>
           <div className="border-border bg-muted/20 flex flex-wrap items-center gap-0.5 border-b px-1.5 py-1">
@@ -712,7 +775,11 @@ export function FollowUpLists({
             <ClipboardCheck className="text-muted-foreground size-8" />
             <p className="text-muted-foreground text-sm">
               {activeFollowUpFilterCount(filters) === 0
-                ? 'No open member follow-ups.'
+                ? search.trim()
+                  ? 'No member follow-ups match your search.'
+                  : scope === 'mine'
+                    ? 'No open member follow-ups in My work.'
+                    : 'No open member follow-ups for the team.'
                 : 'No follow-ups match your filters.'}
             </p>
           </div>
@@ -777,6 +844,15 @@ export function FollowUpLists({
                     key={followUp.id}
                     className="cursor-pointer"
                     onClick={() => onSelect(followUp.membership_id!)}
+                    tabIndex={0}
+                    aria-label={`Open ${followUp.contact?.name || 'member'} details`}
+                    onKeyDown={(event) => {
+                      if (event.currentTarget !== event.target) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onSelect(followUp.membership_id!);
+                      }
+                    }}
                   >
                     <TableCell
                       className="px-0"

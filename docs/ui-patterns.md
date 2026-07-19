@@ -148,6 +148,8 @@ The three overlays (`TemplatePicker` / `MemberForm` / `TransferRequestDialog`) l
 
 `FollowUpTaskSummary` (`components/follow-ups/follow-up-task-summary.tsx`) is the canonical follow-up table cell: task-type icon + task label, with an optional note beneath. Lead queues use that base treatment; member queues additionally pass the member-only neutral Reason badge. Do not reconstruct this cell at a table call-site.
 
+`FollowUpQueueControls` (`components/follow-ups/follow-up-queue-controls.tsx`) is the canonical toolbar for the Leads and Members follow-up tabs: `SearchInput` + shared Filters + Sort + counted All/Overdue/Due today/Upcoming chips + My work/Team scope. The shared due-date and assignee filter panel lives in `components/follow-ups/follow-up-filters.tsx`; member queues enable the contextual Reason facet, while lead queues do not. Both tables keep column management, resizing, selection/bulk completion, inline reassignment, and pagination in parity. Member reminder actions and Reason badges remain member context; lead Status/Stage age remain lead context.
+
 ## Tables
 
 ### Product terminology and column labels
