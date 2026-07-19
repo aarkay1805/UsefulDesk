@@ -6,7 +6,6 @@ import {
   PAGE_HEADER_SLOT_ID,
   PAGE_HEADER_TABS_SLOT_ID,
 } from '@/components/layout/page-header-actions';
-import { cn } from '@/lib/utils';
 
 const pageTitles: Record<string, string> = {
   '/get-started': 'Get Started',
@@ -46,15 +45,9 @@ interface HeaderProps {
 export function Header({ onOpenSidebar }: HeaderProps) {
   const pathname = usePathname();
   const title = getPageTitle(pathname);
-  const borderless = pathname.startsWith('/leads');
 
   return (
-    <header
-      className={cn(
-        'bg-background flex shrink-0 flex-col',
-        !borderless && 'border-border border-b'
-      )}
-    >
+    <header className="border-border bg-background flex shrink-0 flex-col border-b">
       {/* Title row */}
       <div className="flex h-14 shrink-0 items-center justify-between gap-3 px-4 lg:px-6">
         <div className="flex min-w-0 items-center gap-2">

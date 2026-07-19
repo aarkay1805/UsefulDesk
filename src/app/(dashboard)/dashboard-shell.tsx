@@ -20,7 +20,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLeadsPage = pathname.startsWith('/leads');
   const contentPaddingTop = isLeadsPage
-    ? 'pt-0'
+    ? 'pt-6'
     : pathname === '/members'
       ? 'pt-6'
       : 'pt-3';
@@ -60,8 +60,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
-        {/* Leads is a flush data surface. Members uses a roomier 24px
-            separation; other routes retain the standard 12px gap. */}
+        {/* Leads and Members use a roomier 24px separation below their
+            tabbed headers; other routes retain the standard 12px gap. */}
         <main
           className={cn(
             'flex-1 overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6',

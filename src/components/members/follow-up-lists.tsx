@@ -69,7 +69,7 @@ import { FollowUpFilters } from './follow-up-filters';
 import {
   BulkCompleteFollowUpsDialog,
   CompleteFollowUpDialog,
-} from './follow-up-dialog';
+} from '@/components/follow-ups/complete-follow-up-dialog';
 import {
   SendReminderButton,
   type ReminderReadiness,

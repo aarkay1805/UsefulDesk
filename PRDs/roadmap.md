@@ -8,7 +8,7 @@ Membership plans · member records · renewal action lists (expiring / expired /
 
 ## ✅ Phase 2 — India-first workflows
 
-Shipped: templated WhatsApp follow-ups · trial tracking · payment-due buckets · manual reconciliation · **UPI AutoPay** · billing periods / invoices · the leads module (CSV import 2.0, ownership transfer, assignment approval, board) · attendance limits · **lead capture — public forms + Meta lead ads** (migration `064`; consent captured + audited per submission).
+Shipped: templated WhatsApp follow-ups · trial tracking · payment-due buckets · manual reconciliation · **UPI AutoPay** · billing periods / invoices · the leads module (CSV import 2.0, ownership transfer, assignment approval, board, **compact lead follow-up + first-response queues with inline counters, delayed tooltip help, and standard page spacing**) · attendance limits · **lead capture — public forms + Meta lead ads** (migration `064`; consent captured + audited per submission).
 
 **Left:**
 - **Meta lead ads: waiting on Meta App Review** (`leads_retrieval` + `pages_manage_metadata` — needs Business Verification). The code is built and tested; the Settings card stays hidden while `NEXT_PUBLIC_META_LEADS_CONFIG_ID` is unset. **Set that env var once review clears — that's the whole launch.**

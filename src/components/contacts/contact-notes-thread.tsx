@@ -46,6 +46,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { UserAvatar } from '@/components/ui/user-avatar';
+import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-up-dialog';
 
 /** The slice of a follow_ups row a note card needs for its strip. */
 interface NoteFollowUp {
@@ -56,6 +57,7 @@ interface NoteFollowUp {
   due_date: string;
   assigned_to: string | null;
   remind_at: string | null;
+  note: string | null;
 }
 
 /** Editor seed for an existing task: matching preset id or 'custom'. */
@@ -100,6 +102,10 @@ export function ContactNotesThread({
   const [noteFollowUps, setNoteFollowUps] = useState<
     Record<string, NoteFollowUp>
   >({});
+  const [completingFollowUp, setCompletingFollowUp] = useState<{
+    noteId: string;
+    followUp: NoteFollowUp;
+  } | null>(null);
 
   // Follow-up bar under the composer (HubSpot-style): task type + due
   // chips plus assignee and an optional reminder time on the due date.
@@ -172,7 +178,7 @@ export function ContactNotesThread({
       supabase
         .from('follow_ups')
         .select(
-          'id, note_id, status, task_type, reason, due_date, assigned_to, remind_at'
+          'id, note_id, status, task_type, reason, due_date, assigned_to, remind_at, note'
         )
         .eq('contact_id', contactId)
         .not('note_id', 'is', null),
@@ -276,20 +282,20 @@ export function ContactNotesThread({
     setSavingNote(false);
   }
 
-  async function markFollowUpDone(noteId: string, followUpId: string) {
-    const { error } = await supabase
-      .from('follow_ups')
-      .update({ status: 'done', completed_at: new Date().toISOString() })
-      .eq('id', followUpId);
-    if (error) {
-      toast.error('Failed to mark as followed up');
-      return;
-    }
+  function completeFollowUp(noteId: string, followUpId: string) {
+    const followUp = noteFollowUps[noteId];
+    if (!followUp || followUp.id !== followUpId) return;
+    setCompletingFollowUp({ noteId, followUp });
+  }
+
+  function followUpCompleted(status: 'done' | 'cancelled') {
+    if (!completingFollowUp) return;
+    const { noteId } = completingFollowUp;
     setNoteFollowUps((prev) => ({
       ...prev,
-      [noteId]: { ...prev[noteId], status: 'done' },
+      [noteId]: { ...prev[noteId], status },
     }));
-    toast.success('Marked as followed up');
+    setCompletingFollowUp(null);
     notifyFollowUpChanged();
   }
 
@@ -498,7 +504,7 @@ export function ContactNotesThread({
                   canDeleteAny={
                     accountRole ? canDeleteAnyNote(accountRole) : false
                   }
-                  onMarkDone={markFollowUpDone}
+                  onMarkDone={completeFollowUp}
                   onDelete={deleteNote}
                   onSaveEdit={saveNoteEdit}
                 />
@@ -507,6 +513,23 @@ export function ContactNotesThread({
           </MotionList>
         )}
       </div>
+
+      {completingFollowUp && (
+        <CompleteFollowUpDialog
+          open={Boolean(completingFollowUp)}
+          onOpenChange={(open) => {
+            if (!open) setCompletingFollowUp(null);
+          }}
+          followUp={{
+            id: completingFollowUp.followUp.id,
+            contact_id: contactId ?? undefined,
+            membership_id: membershipId ?? null,
+            note: completingFollowUp.followUp.note,
+          }}
+          context={membershipId ? 'member' : 'lead'}
+          onSaved={followUpCompleted}
+        />
+      )}
     </>
   );
 }

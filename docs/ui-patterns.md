@@ -67,7 +67,7 @@ Deliberate filled exceptions (different pattern, not form fields): `SearchInput`
 
 ### Labels
 
-`Label` (`ui/label.tsx`) owns field-label typography. Its default is 14px medium; `size="sm"` is the documented compact-muted treatment: 12px, normal weight, `text-muted-foreground`, and 16px line height. Follow-up Reason, Next action, and Assign to all consume this exact master recipe. Sibling labels in one field group use the same size. Never override label typography with a call-site `className`.
+`Label` (`ui/label.tsx`) owns field-label typography. Its default is 14px medium; `size="sm"` is the documented compact-muted treatment: 12px, normal weight, `text-muted-foreground`, and 16px line height. Follow-up Reason, Follow-up, and Assign to all consume this exact master recipe. Sibling labels in one field group use the same size. Never override label typography with a call-site `className`.
 
 ### No native `<select>`, ever
 
@@ -155,6 +155,7 @@ Visible product vocabulary is a shared interface contract. The same data concept
 - A member identity rendered with `MemberIdentity` is always **Name**. Do not relabel it as “Member,” “Customer,” “Customer details,” or “Member details.”
 - Reuse the canonical labels from the primary table for shared member columns: **Name**, **Plan**, **Expiry**, **Status**, **Assigned to**, **Fee**, and **Actions**.
 - Follow-up-specific concepts remain **Due date**, **Notes**, and **Reason** wherever they appear.
+- In lead and follow-up surfaces, the accountable task is always called **Follow-up**. Use **No follow-up** and **Add follow-up**; never expose “next action” as a synonym.
 - Internal field keys may differ, but user-facing labels must not. A new synonym requires explicit product agreement and an update to this vocabulary before implementation.
 - When adding or reviewing a table, compare every shared column and sort/filter label with the closest existing table before writing code.
 
@@ -195,6 +196,7 @@ Visible product vocabulary is a shared interface contract. The same data concept
 - **Multiple selection** — zero or more independent choices, such as member quick filters.
 - Call-sites choose only the documented `size`; they never override radius, padding, colours, border, typography, hover, focus, selected state, or spacing between Chips.
 - Use the master default size for both filter sets and form choice sets so every product Chip has consistent geometry and typography.
+- Queue-filter Chips append their live count as plain tabular text and expose the filter definition through `Tooltip` after a 1-second hover delay (keyboard focus remains immediate); do not repeat the same counts and help text in persistent summary cards above the queue.
 - Toolbar segments remain `ToolbarToggleGroup` / `ToolbarToggleItem`; they are controls inside the bounded Toolbar family, not Chips.
 
 ## Money numerals

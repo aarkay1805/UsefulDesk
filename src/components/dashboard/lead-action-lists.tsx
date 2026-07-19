@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { toast } from "sonner";
 import {
-  Check,
+  CheckCircle2,
   ClipboardList,
   Inbox,
   Mail,
@@ -16,16 +15,19 @@ import { daysBetween } from "@/lib/memberships/expiry";
 import { useCan } from "@/hooks/use-can";
 import { useLocale } from "@/hooks/use-locale";
 import { useAccountStaff } from "@/components/members/use-account-staff";
+import { CompleteFollowUpDialog } from "@/components/follow-ups/complete-follow-up-dialog";
+import { Badge } from "@/components/ui/badge";
+import { GatedButton } from "@/components/ui/gated-button";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Skeleton } from "./skeleton";
 
 // Today's lead actions — the PRD's "smart queue": not a dashboard to
 // admire but a work list to clear. Two queues:
 //   1. Follow-ups due — open tasks due today or overdue (mark done here).
-//   2. Waiting for first contact — leads still in "New" after 48h.
+//   2. Waiting for first contact — leads still in "New" after 24h.
 // Both deep-link into /leads for the full record.
 
-const STALE_HOURS = 48;
+const STALE_HOURS = 24;
 const LIST_LIMIT = 8;
 
 interface DueFollowUp {
@@ -65,7 +67,7 @@ export function LeadActionLists() {
   const [staleLeads, setStaleLeads] = useState<StaleLead[] | null>(null);
   const [staleTotal, setStaleTotal] = useState(0);
   const [nonce, setNonce] = useState(0);
-  const [completing, setCompleting] = useState<string | null>(null);
+  const [completing, setCompleting] = useState<DueFollowUp | null>(null);
 
   useEffect(() => {
     void nonce; // manual refetch trigger — bump to reload
@@ -85,6 +87,7 @@ export function LeadActionLists() {
             { count: "exact" },
           )
           .eq("status", "open")
+          .is("membership_id", null)
           .lte("due_date", today)
           .order("due_date", { ascending: true })
           .limit(LIST_LIMIT),
@@ -129,28 +132,6 @@ export function LeadActionLists() {
     };
   }, [nonce, fmt]);
 
-  const markDone = useCallback(
-    async (id: string) => {
-      setCompleting(id);
-      const supabase = createClient();
-      // RLS-blocked updates return no error and zero rows — chain
-      // .select and treat an empty result as failure (repo rule).
-      const { data, error } = await supabase
-        .from("follow_ups")
-        .update({ status: "done", completed_at: new Date().toISOString() })
-        .eq("id", id)
-        .select("id");
-      setCompleting(null);
-      if (error || !data || data.length === 0) {
-        toast.error("Could not complete the task");
-        return;
-      }
-      toast.success("Task completed");
-      setNonce((n) => n + 1);
-    },
-    [],
-  );
-
   return (
     <section className="rounded-xl border border-border bg-card">
       <header className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -163,10 +144,10 @@ export function LeadActionLists() {
           </p>
         </div>
         <Link
-          href="/leads"
+          href="/leads?view=followups"
           className="text-xs font-medium text-primary-text hover:text-primary-text/80"
         >
-          Open Leads →
+          Open follow-ups →
         </Link>
       </header>
 
@@ -211,26 +192,19 @@ export function LeadActionLists() {
                         fallbackClassName="text-[10px]"
                       />
                     )}
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                        overdueDays > 0
-                          ? "bg-red-500/10 text-red-700 dark:text-red-400"
-                          : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                      }`}
-                    >
+                    <Badge variant={overdueDays > 0 ? "danger" : "warning"}>
                       {overdueDays > 0 ? `Overdue ${overdueDays}d` : "Today"}
-                    </span>
-                    {canEdit && (
-                      <button
-                        type="button"
-                        onClick={() => markDone(f.id)}
-                        disabled={completing === f.id}
-                        aria-label="Mark done"
-                        className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50"
-                      >
-                        <Check className="size-3.5" />
-                      </button>
-                    )}
+                    </Badge>
+                    <GatedButton
+                      variant="ghost"
+                      size="icon-sm"
+                      canAct={canEdit}
+                      gateReason="complete follow-ups"
+                      onClick={() => setCompleting(f)}
+                      aria-label="Mark done"
+                    >
+                      <CheckCircle2 className="size-3.5" />
+                    </GatedButton>
                   </li>
                 );
               })}
@@ -264,7 +238,7 @@ export function LeadActionLists() {
                 return (
                   <li key={l.id}>
                     <Link
-                      href={`/leads?search=${encodeURIComponent(l.phone)}`}
+                      href={`/leads?view=first-response&contact=${encodeURIComponent(l.id)}&focus=followup`}
                       className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2 transition-colors hover:border-border-hover"
                     >
                       <span className="min-w-0 flex-1 truncate text-sm text-foreground">
@@ -273,9 +247,9 @@ export function LeadActionLists() {
                       <span className="shrink-0 font-mono text-xs text-muted-foreground">
                         {l.phone}
                       </span>
-                      <span className="shrink-0 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-400">
+                      <Badge variant="info">
                         waiting {waitingDays}d
-                      </span>
+                      </Badge>
                     </Link>
                   </li>
                 );
@@ -284,6 +258,26 @@ export function LeadActionLists() {
           )}
         </div>
       </div>
+      {completing && (
+        <CompleteFollowUpDialog
+          open={Boolean(completing)}
+          onOpenChange={(open) => {
+            if (!open) setCompleting(null);
+          }}
+          followUp={{
+            id: completing.id,
+            contact_id: completing.contact_id,
+            membership_id: null,
+            note: completing.note,
+            contact: { name: completing.contact?.name ?? undefined },
+          }}
+          context="lead"
+          onSaved={() => {
+            setCompleting(null);
+            setNonce((value) => value + 1);
+          }}
+        />
+      )}
     </section>
   );
 }

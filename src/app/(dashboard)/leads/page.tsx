@@ -125,7 +125,10 @@ import {
   Check,
   Ban,
 } from 'lucide-react';
-import { PageHeaderActions } from '@/components/layout/page-header-actions';
+import {
+  PageHeaderActions,
+  PageHeaderTabs,
+} from '@/components/layout/page-header-actions';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportWizard } from '@/components/contacts/import-wizard';
@@ -196,6 +199,8 @@ import { SearchInput } from '@/components/ui/search-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Collapse } from '@/components/ui/collapse';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { LeadAccountabilityView } from '@/components/leads/lead-accountability-view';
 
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 20, 25, 30, 40, 50];
@@ -222,6 +227,7 @@ const ACTIONS_COL_WIDTH = 48;
 const DRAG_COLUMN_CLASS = 'relative z-20 bg-card';
 
 type LeadsView = 'table' | 'board';
+type LeadsPageView = 'all' | 'followups' | 'first_response';
 
 interface TablePrefs {
   order: string[];
@@ -922,6 +928,15 @@ export default function LeadsPage() {
   // Search — a page-level input in the toolbar. Seeded from `?search=`
   // so deep links still land here, then owned locally and debounced.
   const searchParams = useSearchParams();
+  const requestedView = searchParams.get('view');
+  const activeView: LeadsPageView =
+    requestedView === 'followups'
+      ? 'followups'
+      : requestedView === 'first-response'
+        ? 'first_response'
+        : searchParams.get('workspace') === 'work'
+          ? 'followups'
+          : 'all';
   const urlSearch = searchParams.get('search') ?? '';
   const [searchInput, setSearchInput] = useState(urlSearch);
   const search = useDebounced(searchInput, 250);
@@ -2333,6 +2348,15 @@ export default function LeadsPage() {
     setDetailOpen(true);
   }
 
+  function changeView(next: LeadsPageView) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('workspace');
+    if (next === 'all') params.delete('view');
+    else params.set('view', next === 'first_response' ? 'first-response' : next);
+    const query = params.toString();
+    router.replace(query ? `/leads?${query}` : '/leads', { scroll: false });
+  }
+
   function confirmDelete(contact: Contact) {
     setDeleteTarget(contact);
     setDeleteConfirmOpen(true);
@@ -3128,14 +3152,16 @@ export default function LeadsPage() {
           <Download className="size-4" />
           Import
         </GatedButton>
-        <Button variant="ghost" onClick={handleExport} disabled={exporting}>
-          {exporting ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Upload className="size-4" />
-          )}
-          Export
-        </Button>
+        {activeView === 'all' && (
+          <Button variant="ghost" onClick={handleExport} disabled={exporting}>
+            {exporting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Upload className="size-4" />
+            )}
+            Export
+          </Button>
+        )}
         <GatedButton
           canAct={canEdit}
           gateReason="add or import leads"
@@ -3146,8 +3172,47 @@ export default function LeadsPage() {
         </GatedButton>
       </PageHeaderActions>
 
+      <PageHeaderTabs>
+        <Tabs
+          value={activeView}
+          onValueChange={(value) => changeView(value as LeadsPageView)}
+          className="pt-2 pb-0"
+        >
+          <TabsList variant="line" className="h-auto gap-5 p-0">
+            <TabsTrigger
+              value="all"
+              className="flex-none px-0.5 pb-2 text-[0.9375rem] group-data-horizontal/tabs:after:bottom-0"
+            >
+              All leads
+            </TabsTrigger>
+            <TabsTrigger
+              value="followups"
+              className="flex-none px-0.5 pb-2 text-[0.9375rem] group-data-horizontal/tabs:after:bottom-0"
+            >
+              Follow-ups
+            </TabsTrigger>
+            <TabsTrigger
+              value="first_response"
+              className="flex-none px-0.5 pb-2 text-[0.9375rem] group-data-horizontal/tabs:after:bottom-0"
+            >
+              First response
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </PageHeaderTabs>
+
       {/* One bounded data surface: search + table actions form its header,
           and the active table/board view lives directly underneath. */}
+      {activeView !== 'all' && (
+        <LeadAccountabilityView
+          key={activeView}
+          view={activeView}
+          onOpenLead={(contactId, focusFollowUp) =>
+            openDetail(contactId, focusFollowUp ? 'followup' : null)
+          }
+        />
+      )}
+      {activeView === 'all' && (
       <section className="border-border bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border">
         <div className="border-border flex shrink-0 flex-wrap items-center gap-2 border-b p-2">
           <SearchInput
@@ -3805,6 +3870,7 @@ export default function LeadsPage() {
         </>
         )}
       </section>
+      )}
 
       {/* Board-only display settings. In table view the gear opens the
           column manager instead. */}

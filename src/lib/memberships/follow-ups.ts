@@ -26,6 +26,8 @@ export const OUTCOME_LABEL: Record<FollowUpOutcome, string> = {
   renewed: "Renewed",
   paid: "Paid",
   promised: "Promised to pay",
+  contacted: "Contacted",
+  trial_booked: "Trial booked",
   no_answer: "No answer",
   not_interested: "Not interested",
   other: "Other",

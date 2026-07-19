@@ -152,7 +152,7 @@ export function FollowUpFields({
 
             <div className="space-y-1.5">
               <Label id={nextActionLabelId} size="sm">
-                Next action
+                Follow-up
               </Label>
               <div
                 className="flex flex-wrap items-center gap-2"

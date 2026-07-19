@@ -1093,14 +1093,16 @@ export type FollowUpOutcome =
   | "renewed"
   | "paid"
   | "promised"
+  | "contacted"
+  | "trial_booked"
   | "no_answer"
   | "not_interested"
   | "other";
 
 /**
- * One staff task: chase this member for this reason, owned by one
+ * One staff task: chase this lead or member for this reason, owned by one
  * teammate, due on an IST date. At most one OPEN row per contact
- * (partial unique index) — "one owner, one next action".
+ * (partial unique index) — "one owner, one follow-up".
  */
 export interface FollowUp {
   id: string;
@@ -1113,12 +1115,17 @@ export interface FollowUp {
   /** Who created the task — audit only. */
   created_by: string;
   reason: FollowUpReason;
+  /** Concrete follow-up type (migration 043). */
+  task_type: "call" | "email" | "todo";
   /** 'YYYY-MM-DD' — IST semantics, same as memberships.end_date. */
   due_date: string;
   status: FollowUpStatus;
   /** Recorded when the task closes; null while open. */
   outcome?: FollowUpOutcome | null;
   note?: string | null;
+  note_id?: string | null;
+  remind_at?: string | null;
+  reminder_sent_at?: string | null;
   completed_at?: string | null;
   created_at: string;
   updated_at: string;
