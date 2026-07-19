@@ -205,7 +205,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
   const onboarding = useOnboardingStatus();
-  const totalUnread = useTotalUnread();
+  const totalUnread = useTotalUnread({ sound: true });
   const unreadNotifications = useUnreadNotifications();
   const [collapsed, setCollapsed] = useState(false);
   // Only surface the account-name strip when it actually carries
@@ -384,12 +384,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                       pathname.startsWith(item.href));
 
                   const showUnreadDot =
-                    item.href === '/inbox' && totalUnread > 0 && !isActive;
+                    item.href === '/inbox' && totalUnread > 0;
 
-                  // Unlike the inbox dot, the notifications count stays visible
-                  // even while the page is active — it reflects unread state
-                  // (cleared by marking notifications read), not "currently
-                  // viewing this section".
+                  // Keep unread state visible even while its page is active:
+                  // viewing a section is not the same as clearing every item.
+                  // Notifications clear only when their rows are marked read.
                   const showNotificationBadge =
                     item.href === '/notifications' && unreadNotifications > 0;
 

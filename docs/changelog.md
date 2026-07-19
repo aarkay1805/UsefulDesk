@@ -6,6 +6,12 @@
 
 ---
 
+## Live Inbox dot and message chime
+
+The sidebar now keeps its Inbox unread dot visible anywhere in the app, including while Inbox itself is active, and plays a short generated two-note chime for each realtime inbound customer message. The sound uses Web Audio rather than a licensed asset and arms after the first pointer or keyboard interaction to respect browser autoplay rules; messages received before that remain visual-only. Key code: `src/hooks/use-total-unread.ts`, `src/lib/notifications/inbox-sound.ts`, and `src/components/layout/sidebar.tsx`.
+
+---
+
 ## Attendance member columns
 
 The Attendance register now keeps member identity in the canonical **Name** column and shows the membership plan in a dedicated **Plan** column immediately after it. Plan visit-limit usage remains visible in that Plan cell, and its canonical column menu now provides the same plan-value filter as All members. Key code: `src/components/members/attendance-view.tsx`.
