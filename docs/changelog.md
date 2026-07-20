@@ -6,6 +6,12 @@
 
 ---
 
+## All Members frozen Name column
+
+The required **Name** column in All Members can now be frozen or unfrozen from its shared column-header menu. The per-user, per-account choice persists in the existing `members-all` table preferences; freezing Name also pins the leading selection checkbox. Both sticky body cells use the opaque `bg-card-2` hover fill rather than translucent `bg-muted/50`, so horizontally scrolled text cannot bleed through while the hover still matches the row. Other member columns remain non-freezable. Key code: `src/components/members/members-table.tsx`.
+
+---
+
 ## Account-wide Member IDs
 
 Every membership now receives a database-assigned numeric **Member ID** starting at 1001, unique within its account, immutable, never reused, and intentionally stable across future branches. Existing memberships backfill oldest-first and every insert path shares one private per-account counter. All Members gained a visible, sortable, resizable, hideable Member ID column plus CSV output; the profile header exposes the number; and Attendance accepts staff quick check-ins by ID through the existing limit/override flow while auditing `method='member_id'`. Member ID is an identifier, not a login secret. Supabase grants new public-schema functions directly to its API roles, so trigger-only functions need explicit `anon`/`authenticated` revokes. Key code: `supabase/migrations/20260721120000_member_numbers.sql`, `supabase/migrations/20260721121000_harden_member_number_functions.sql`, `src/components/members/members-table.tsx`, `src/components/members/attendance-view.tsx`, and `src/components/members/member-detail-view.tsx`.
@@ -276,7 +282,7 @@ The Members module caught up with the leads-era infrastructure.
 
 Also in this pass: the "View existing" dedupe link resolves contact→membership (`lib/memberships/lookup.ts`) and opens the detail sheet; person renders route through `UserAvatar`.
 
-**Column machinery** (added later in Jul 2026): the All-members table gained the leads-style per-column header (sort + three-dot menu + resize + persisted layout) via the shared `ColumnHeader`. Drag-reorder + freeze intentionally skipped (~6 fixed columns).
+**Column machinery** (added later in Jul 2026): the All-members table gained the leads-style per-column header (sort + three-dot menu + resize + persisted layout) via the shared `ColumnHeader`. The required Name column can be frozen together with the selection checkbox; other columns remain non-freezable and drag-reorder stays intentionally skipped.
 
 ---
 

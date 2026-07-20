@@ -5,7 +5,7 @@
 // the leads table's data-layer idioms: fetch-sequence guard, shared
 // filter definition (applyMemberFilters — also used by select-all-matching
 // and CSV export), and the Collapse bulk toolbar. Deliberately NOT the
-// leads grid — no column customization; members stay lightweight.
+// leads grid — member columns stay intentionally lightweight.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
@@ -177,7 +177,7 @@ const SORT_COLUMNS: { key: string; label: string }[] = [
 type MemberFilterDim = "plans" | "statuses" | "feeStatus" | "churnRisk";
 
 // Column metadata for the all-members grid. Mirrors the leads table's
-// ColumnDef but lighter (no custom fields, no freeze/drag). `sortKey` is
+// ColumnDef but lighter (no custom fields or drag). `sortKey` is
 // the server-sort key written into prefs.sort; `filterDim` wires the
 // header Filter submenu to the shared MemberFilters state. The cell body
 // is rendered by renderCell() (keyed on `key`) so it can reach the
@@ -285,6 +285,8 @@ interface MembersTablePrefs {
   order: string[];
   hidden: string[];
   widths: Record<string, number>;
+  /** The required Name column is the table's only freezable column. */
+  nameFrozen: boolean;
 }
 
 const DEFAULT_PREFS: MembersTablePrefs = {
@@ -293,6 +295,7 @@ const DEFAULT_PREFS: MembersTablePrefs = {
   order: [],
   hidden: [],
   widths: {},
+  nameFrozen: false,
 };
 
 // Debounce a rapidly-changing value (e.g. the search input) so the fetch
@@ -515,6 +518,10 @@ export function MembersTable({
         ? p.hidden.filter((k) => k !== key)
         : [...p.hidden, key],
     }));
+  }
+
+  function toggleNameFrozen() {
+    setPrefs((p) => ({ ...p, nameFrozen: !p.nameFrozen }));
   }
 
   function sortByColumn(key: string, dir: SortDir) {
@@ -1397,7 +1404,12 @@ export function MembersTable({
               </colgroup>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="px-0">
+                  <TableHead
+                    className={cn(
+                      "px-0",
+                      prefs.nameFrozen && "bg-card sticky left-0 z-20"
+                    )}
+                  >
                     <div className="flex items-center justify-center">
                       <Checkbox
                         checked={allOnPageSelected}
@@ -1411,7 +1423,17 @@ export function MembersTable({
                   {visibleColumns.map((col) => (
                     <TableHead
                       key={col.key}
-                      className="text-muted-foreground relative select-none"
+                      style={
+                        col.key === "name" && prefs.nameFrozen
+                          ? { position: "sticky", left: CHECKBOX_COL_WIDTH }
+                          : undefined
+                      }
+                      className={cn(
+                        "text-muted-foreground select-none",
+                        col.key === "name" && prefs.nameFrozen
+                          ? "bg-card z-20"
+                          : "relative"
+                      )}
                     >
                       <ColumnHeader
                         label={col.label}
@@ -1427,6 +1449,10 @@ export function MembersTable({
                         filter={filterFor(col)}
                         onHide={
                           col.required ? undefined : () => hideColumn(col.key)
+                        }
+                        frozen={col.key === "name" && prefs.nameFrozen}
+                        onToggleFreeze={
+                          col.key === "name" ? toggleNameFrozen : undefined
                         }
                       />
                       {/* Resize grip on the right edge (leads pattern). */}
@@ -1444,11 +1470,15 @@ export function MembersTable({
                 {rows.map((m) => (
                   <TableRow
                     key={m.id}
-                    className="cursor-pointer"
+                    className="group cursor-pointer"
                     onClick={() => onSelect(m.id)}
                   >
                     <TableCell
-                      className="px-0"
+                      className={cn(
+                        "px-0",
+                        prefs.nameFrozen &&
+                          "bg-card group-hover:bg-card-2 sticky left-0 z-10"
+                      )}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex items-center justify-center">
@@ -1462,8 +1492,16 @@ export function MembersTable({
                     {visibleColumns.map((col) => (
                       <TableCell
                         key={col.key}
+                        style={
+                          col.key === "name" && prefs.nameFrozen
+                            ? { position: "sticky", left: CHECKBOX_COL_WIDTH }
+                            : undefined
+                        }
                         className={cn(
                           "overflow-hidden",
+                          col.key === "name" &&
+                            prefs.nameFrozen &&
+                            "bg-card group-hover:bg-card-2 z-10",
                           (col.key === "assignee" || col.key === "churnRisk") &&
                             canEdit &&
                             "p-0",
