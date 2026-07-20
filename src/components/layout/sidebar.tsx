@@ -35,6 +35,7 @@ import type { AccountRole } from '@/lib/auth/roles';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Tooltip,
   TooltipContent,
@@ -338,7 +339,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         </div>
 
         {/* Main navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <ScrollArea className="min-h-0 flex-1" scrollbarVisibility="hover">
+          <nav className="px-3 py-4">
           {navSections.map((section, sectionIndex) => (
             <Fragment key={section.key}>
               {sectionIndex > 0 && <Separator className="my-4" />}
@@ -474,7 +476,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               );
             })}
           </ul>
-        </nav>
+          </nav>
+        </ScrollArea>
 
         {/* User section */}
         <div className="border-border shrink-0 border-t p-3">
