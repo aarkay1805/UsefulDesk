@@ -404,9 +404,9 @@ export default function BroadcastDetailPage() {
               <DropdownMenuTrigger
                 render={
                   <Button
-                    variant="outline"
+                    variant="pill"
                     size="sm"
-                    className="border-border text-muted-foreground hover:bg-muted"
+                    aria-pressed={statusFilter !== 'all'}
                   />
                 }
               >

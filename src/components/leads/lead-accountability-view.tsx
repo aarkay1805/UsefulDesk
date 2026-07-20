@@ -913,7 +913,6 @@ export function LeadAccountabilityView({
         ) : (
           <div className="border-border flex shrink-0 flex-wrap items-center gap-2 border-b p-2">
             <SearchInput
-              containerClassName="min-w-48 w-full max-w-[320px] flex-1 basis-64"
               value={search}
               onValueChange={setSearch}
               placeholder={searchPlaceholder}

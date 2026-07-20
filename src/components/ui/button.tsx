@@ -11,6 +11,8 @@ const buttonVariants = cva(
         default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+        pill:
+          "rounded-full border-input bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground aria-pressed:border-primary/30 aria-pressed:bg-primary/10 aria-pressed:text-primary-text dark:border-input dark:bg-input/30 dark:hover:bg-input/50 dark:aria-pressed:border-primary/40 dark:aria-pressed:bg-primary/15",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
@@ -35,6 +37,13 @@ const buttonVariants = cva(
         "icon-lg": "size-9",
       },
     },
+    compoundVariants: [
+      {
+        variant: "pill",
+        size: ["xs", "sm", "icon-xs", "icon-sm"],
+        className: "rounded-full",
+      },
+    ],
     defaultVariants: {
       variant: "default",
       size: "default",

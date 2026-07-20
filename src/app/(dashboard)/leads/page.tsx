@@ -63,6 +63,8 @@ import { EditFieldOptionsDialog } from '@/components/leads/edit-field-options-di
 import { formatCustomFieldValue } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
 import { useLocale } from '@/hooks/use-locale';
+import { dayStartInTz } from '@/lib/locale/format';
+import { istAddDays } from '@/lib/memberships/expiry';
 import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Button } from '@/components/ui/button';
@@ -197,12 +199,28 @@ import { useTablePrefs } from '@/hooks/use-table-prefs';
 import { GatedButton } from '@/components/ui/gated-button';
 import { SearchInput } from '@/components/ui/search-input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Chip, ChipGroup } from '@/components/ui/chip';
 import { cn } from '@/lib/utils';
 import { Collapse } from '@/components/ui/collapse';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LeadAccountabilityView } from '@/components/leads/lead-accountability-view';
 import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
 import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  applyLeadQuickFilter,
+  LEAD_QUICK_FILTERS,
+  leadQuickFilterFromUrl,
+  leadQuickFilterToUrl,
+  selectForLeadQuickFilter,
+  type LeadQuickFilter,
+  type LeadQuickFilterContext,
+} from '@/lib/leads/quick-filters';
 
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 20, 25, 30, 40, 50];
@@ -229,7 +247,41 @@ const ACTIONS_COL_WIDTH = 150;
 const DRAG_COLUMN_CLASS = 'relative z-20 bg-card';
 
 type LeadsView = 'table' | 'board';
-type LeadsPageView = 'all' | 'followups' | 'first_response';
+type LeadsPageView = 'all' | 'followups';
+
+const LEAD_QUICK_FILTER_META: Record<
+  LeadQuickFilter,
+  { label: string; helpText: string }
+> = {
+  all: {
+    label: 'All',
+    helpText: 'All leads matching the search and detailed filters.',
+  },
+  no_followup: {
+    label: 'No follow-up',
+    helpText: 'New leads without an open follow-up.',
+  },
+  unassigned: {
+    label: 'Unassigned',
+    helpText: 'Active leads without an assignee or pending teammate.',
+  },
+  mine: {
+    label: 'Mine',
+    helpText: 'Active leads assigned to you.',
+  },
+  new_today: {
+    label: 'New today',
+    helpText: 'New leads added today in the account timezone.',
+  },
+};
+
+const EMPTY_QUICK_FILTER_COUNTS: Record<LeadQuickFilter, number> = {
+  all: 0,
+  no_followup: 0,
+  unassigned: 0,
+  mine: 0,
+  new_today: 0,
+};
 
 interface TablePrefs {
   order: string[];
@@ -934,11 +986,10 @@ export default function LeadsPage() {
   const activeView: LeadsPageView =
     requestedView === 'followups'
       ? 'followups'
-      : requestedView === 'first-response'
-        ? 'first_response'
-        : searchParams.get('workspace') === 'work'
-          ? 'followups'
-          : 'all';
+      : searchParams.get('workspace') === 'work'
+        ? 'followups'
+        : 'all';
+  const quickFilter = leadQuickFilterFromUrl(searchParams.get('quick'));
   const urlSearch = searchParams.get('search') ?? '';
   const [searchInput, setSearchInput] = useState(urlSearch);
   const search = useDebounced(searchInput, 250);
@@ -950,7 +1001,24 @@ export default function LeadsPage() {
   // Filters (Filters panel) + teammate list for owner/assignee filters,
   // the Assigned-to column render, and its inline picker.
   const [filters, setFilters] = useState<LeadFilters>(EMPTY_FILTERS);
+  const [quickFilterCounts, setQuickFilterCounts] = useState<
+    Record<LeadQuickFilter, number>
+  >(EMPTY_QUICK_FILTER_COUNTS);
   const { staff, nameById, avatarById } = useAccountStaff();
+
+  const today = fmt.today();
+  const quickFilterContext = useMemo<LeadQuickFilterContext>(
+    () => ({
+      userId: user?.id ?? null,
+      todayStart:
+        dayStartInTz(today, locale.timeZone)?.toISOString() ??
+        new Date(0).toISOString(),
+      tomorrowStart:
+        dayStartInTz(istAddDays(today, 1), locale.timeZone)?.toISOString() ??
+        new Date(0).toISOString(),
+    }),
+    [locale.timeZone, today, user?.id]
+  );
 
   const [contacts, setContacts] = useState<ContactWithData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -990,8 +1058,8 @@ export default function LeadsPage() {
   // one-frame "No leads yet" flash before the fetch effect fires.
   const [boardLoading, setBoardLoading] = useState(true);
   const [boardNonce, setBoardNonce] = useState(0);
-  // Follow-ups and First response own a separate lead/task snapshot. Keep
-  // it on the same mutation invalidation path as the table and board.
+  // Follow-ups owns a separate lead/task snapshot. Keep it on the same
+  // mutation invalidation path as the table and board.
   const [accountabilityNonce, setAccountabilityNonce] = useState(0);
 
   // Custom-field definitions — drive the dynamic columns.
@@ -1087,6 +1155,8 @@ export default function LeadsPage() {
   const fetchSeq = useRef(0);
   // Same guard for the board's independent fetch.
   const boardFetchSeq = useRef(0);
+  // Counts run independently from the paginated table fetch.
+  const quickCountFetchSeq = useRef(0);
 
   // Latest fetchContacts held in a ref so the transfers realtime channel can
   // trigger an owner-flip refetch without re-subscribing on every filter/sort
@@ -1646,13 +1716,14 @@ export default function LeadsPage() {
     const buildFiltered = (select: string, opts?: { count: 'exact' }) => {
       let q = supabase
         .from('contacts')
-        .select(select, opts)
+        .select(selectForLeadQuickFilter(select, quickFilter), opts)
         .is('memberships', null);
       if (term) {
         const like = `%${term}%`;
         q = q.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
       }
-      return applyLeadFilters(q, filters, idFilter);
+      q = applyLeadFilters(q, filters, idFilter);
+      return applyLeadQuickFilter(q, quickFilter, quickFilterContext);
     };
 
     let contactRows: Contact[] = [];
@@ -1841,6 +1912,8 @@ export default function LeadsPage() {
     pageSize,
     search,
     filters,
+    quickFilter,
+    quickFilterContext,
     tagsMap,
     nameById,
     activeCustomKey,
@@ -1850,9 +1923,8 @@ export default function LeadsPage() {
   ]);
 
   // Board data — all statuses at once, capped at BOARD_LIMIT most
-  // recent. Respects the header search AND the shared Filters panel
-  // (same applyLeadFilters + id-filter resolution the table uses, so the
-  // two views — and the CSV export — can never disagree on the set).
+  // recent. Respects search, detailed filters, and the quick view (the same
+  // builders the table and CSV export use, so they cannot disagree).
   // Sequence-guarded like fetchContacts: only the latest run commits.
   const fetchBoard = useCallback(async () => {
     void boardNonce; // manual refetch trigger — bump to reload
@@ -1870,7 +1942,9 @@ export default function LeadsPage() {
 
     let query = supabase
       .from('contacts')
-      .select('*, memberships!left(id)')
+      .select(
+        selectForLeadQuickFilter('*, memberships!left(id)', quickFilter)
+      )
       .is('memberships', null);
     if (term) {
       const like = `%${term}%`;
@@ -1879,6 +1953,7 @@ export default function LeadsPage() {
       );
     }
     query = applyLeadFilters(query, filters, idFilter);
+    query = applyLeadQuickFilter(query, quickFilter, quickFilterContext);
 
     const { data, error } = await query
       .order('created_at', { ascending: false })
@@ -1910,7 +1985,58 @@ export default function LeadsPage() {
       rows.map((c) => ({ ...c, tags: tagsByContact[c.id] ?? [] }))
     );
     setBoardLoading(false);
-  }, [supabase, search, filters, tagsMap, boardNonce]);
+  }, [
+    supabase,
+    search,
+    filters,
+    quickFilter,
+    quickFilterContext,
+    tagsMap,
+    boardNonce,
+  ]);
+
+  const fetchQuickFilterCounts = useCallback(async () => {
+    const seq = ++quickCountFetchSeq.current;
+    const term = search.trim();
+    const idFilter = await resolveContactIdFilter(supabase, filters);
+    if (seq !== quickCountFetchSeq.current) return;
+    if (idFilter && idFilter.length === 0) {
+      setQuickFilterCounts(EMPTY_QUICK_FILTER_COUNTS);
+      return;
+    }
+
+    const results = await Promise.all(
+      LEAD_QUICK_FILTERS.map(async (filter) => {
+        let query = supabase
+          .from('contacts')
+          .select(
+            selectForLeadQuickFilter('id, memberships!left(id)', filter),
+            { count: 'exact', head: true }
+          )
+          .is('memberships', null);
+        if (term) {
+          const like = `%${term}%`;
+          query = query.or(
+            `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
+          );
+        }
+        query = applyLeadFilters(query, filters, idFilter);
+        query = applyLeadQuickFilter(query, filter, quickFilterContext);
+        const { count, error } = await query;
+        return { filter, count: error ? 0 : (count ?? 0), error };
+      })
+    );
+    if (seq !== quickCountFetchSeq.current) return;
+    const failed = results.find((result) => result.error);
+    if (failed) {
+      console.error('Failed to load lead quick-filter counts', failed.error);
+    }
+    setQuickFilterCounts(
+      Object.fromEntries(
+        results.map((result) => [result.filter, result.count])
+      ) as Record<LeadQuickFilter, number>
+    );
+  }, [supabase, search, filters, quickFilterContext]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (Supabase await), not
@@ -1964,6 +2090,10 @@ export default function LeadsPage() {
   }, [fetchContacts]);
 
   useEffect(() => {
+    fetchQuickFilterCounts();
+  }, [fetchQuickFilterCounts]);
+
+  useEffect(() => {
     if (view === 'board') fetchBoard();
   }, [view, fetchBoard]);
 
@@ -1971,16 +2101,22 @@ export default function LeadsPage() {
   // may no longer be valid — reset to the first page whenever they change.
   useEffect(() => {
     setPage(0);
-  }, [search, filters]);
+  }, [search, filters, quickFilter]);
 
   /** Refresh whichever views hold data after any mutation. */
   const refreshAll = useCallback(() => {
     fetchContacts();
     fetchPendingAssignees();
     fetchTransfers();
+    fetchQuickFilterCounts();
     setBoardNonce((n) => n + 1);
     setAccountabilityNonce((n) => n + 1);
-  }, [fetchContacts, fetchPendingAssignees, fetchTransfers]);
+  }, [
+    fetchContacts,
+    fetchPendingAssignees,
+    fetchQuickFilterCounts,
+    fetchTransfers,
+  ]);
 
   // Agent peer-handoff confirm → send the pending request (migration 050).
   const submitTransferRequest = useCallback(
@@ -2359,7 +2495,18 @@ export default function LeadsPage() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete('workspace');
     if (next === 'all') params.delete('view');
-    else params.set('view', next === 'first_response' ? 'first-response' : next);
+    else params.set('view', next);
+    const query = params.toString();
+    router.replace(query ? `/leads?${query}` : '/leads', { scroll: false });
+  }
+
+  function changeQuickFilter(next: LeadQuickFilter) {
+    const params = new URLSearchParams(searchParams.toString());
+    const value = leadQuickFilterToUrl(next);
+    if (value) params.set('quick', value);
+    else params.delete('quick');
+    params.delete('view');
+    params.delete('workspace');
     const query = params.toString();
     router.replace(query ? `/leads?${query}` : '/leads', { scroll: false });
   }
@@ -2419,9 +2566,9 @@ export default function LeadsPage() {
     });
   }
 
-  // Select every lead matching the current search + filters — including
-  // rows on other pages that aren't loaded. Mirrors fetchContacts' filter
-  // logic but pulls only ids (no pagination window).
+  // Select every lead matching the current search + filters + quick view —
+  // including rows on other pages that aren't loaded. Mirrors
+  // fetchContacts' filter logic but pulls only ids (no pagination window).
   async function selectAllMatching() {
     const term = search.trim();
     const idFilter = await resolveContactIdFilter(supabase, filters);
@@ -2431,7 +2578,12 @@ export default function LeadsPage() {
     }
     let query = supabase
       .from('contacts')
-      .select('id, memberships!left(id)')
+      .select(
+        selectForLeadQuickFilter(
+          'id, memberships!left(id)',
+          quickFilter
+        )
+      )
       .is('memberships', null);
     if (term) {
       const like = `%${term}%`;
@@ -2440,19 +2592,21 @@ export default function LeadsPage() {
       );
     }
     query = applyLeadFilters(query, filters, idFilter);
+    query = applyLeadQuickFilter(query, quickFilter, quickFilterContext);
     const { data, error } = await query;
     if (error) {
       toast.error('Failed to select all leads');
       return;
     }
-    setSelected(new Set((data ?? []).map((c) => c.id)));
+    const rows = (data ?? []) as unknown as { id: string }[];
+    setSelected(new Set(rows.map((c) => c.id)));
   }
 
-  // Export every lead matching the current search + filters to CSV (not
-  // just the loaded page). Reuses the exact same query the table builds,
-  // then resolves each cell through the same display helpers the table
-  // renders with (status/source/gender labels, assignee + creator names,
-  // received-via pill). Tags are pulled in a second query, like the table.
+  // Export every lead matching the current search + filters + quick view to
+  // CSV (not just the loaded page). Reuses the exact same query the table
+  // builds, then resolves each cell through the same display helpers the
+  // table renders with (status/source/gender labels, assignee + creator
+  // names, received-via pill). Tags are pulled in a second query.
   async function handleExport() {
     setExporting(true);
     try {
@@ -2464,7 +2618,9 @@ export default function LeadsPage() {
       }
       let query = supabase
         .from('contacts')
-        .select('*, memberships!left(id)')
+        .select(
+          selectForLeadQuickFilter('*, memberships!left(id)', quickFilter)
+        )
         .is('memberships', null);
       if (term) {
         const like = `%${term}%`;
@@ -2473,6 +2629,7 @@ export default function LeadsPage() {
         );
       }
       query = applyLeadFilters(query, filters, idFilter);
+      query = applyLeadQuickFilter(query, quickFilter, quickFilterContext);
       const { data, error } = await query.order('created_at', {
         ascending: false,
       });
@@ -2480,7 +2637,7 @@ export default function LeadsPage() {
         toast.error('Failed to export leads');
         return;
       }
-      const rows = (data ?? []) as Contact[];
+      const rows = (data ?? []) as unknown as Contact[];
       if (rows.length === 0) {
         toast.error('No leads to export');
         return;
@@ -2809,7 +2966,8 @@ export default function LeadsPage() {
   const hasPrev = page > 0;
 
   const filterCount = activeFilterCount(filters);
-  const hasActiveFilters = search.trim().length > 0 || filterCount > 0;
+  const hasActiveFilters =
+    search.trim().length > 0 || filterCount > 0 || quickFilter !== 'all';
 
   // Tags sorted for the Filters panel.
   const allTags = useMemo(
@@ -3198,12 +3356,6 @@ export default function LeadsPage() {
             >
               Follow-ups
             </TabsTrigger>
-            <TabsTrigger
-              value="first_response"
-              className="flex-none px-0.5 pb-2 text-[0.9375rem] group-data-horizontal/tabs:after:bottom-0"
-            >
-              First response
-            </TabsTrigger>
           </TabsList>
         </Tabs>
       </PageHeaderTabs>
@@ -3224,12 +3376,43 @@ export default function LeadsPage() {
       <section className="border-border bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border">
         <div className="border-border flex shrink-0 flex-wrap items-center gap-2 border-b p-2">
           <SearchInput
-            containerClassName="min-w-48 w-full max-w-[360px] flex-1 basis-64"
             value={searchInput}
             onValueChange={setSearchInput}
             placeholder="Search leads…"
             aria-label="Search leads"
           />
+
+          <TooltipProvider>
+            <ChipGroup<LeadQuickFilter>
+              selectionMode="single"
+              value={quickFilter === 'all' ? [] : [quickFilter]}
+              onValueChange={(values) =>
+                changeQuickFilter(values[0] ?? 'all')
+              }
+              aria-label="Lead quick filters"
+              className="min-w-0 flex-1 basis-96"
+            >
+              {LEAD_QUICK_FILTERS.map((filter) => {
+                const meta = LEAD_QUICK_FILTER_META[filter];
+                return (
+                  <Tooltip key={filter}>
+                    <TooltipTrigger
+                      delay={1000}
+                      render={<Chip value={filter} />}
+                    >
+                      {meta.label}{' '}
+                      <span className="tabular-nums">
+                        {quickFilterCounts[filter]}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-64 text-pretty">
+                      {meta.helpText}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </ChipGroup>
+          </TooltipProvider>
 
           {/* Data and presentation actions follow the search, matching the
               reading order in the table header. Filters stay available in

@@ -1097,7 +1097,6 @@ export function MembersTable({
       <section className="border-border bg-card overflow-hidden rounded-2xl border">
         <div className="border-border flex flex-wrap items-center gap-2 border-b p-2">
           <SearchInput
-            containerClassName="min-w-48 w-full max-w-[360px] flex-1 basis-64"
             value={searchInput}
             onValueChange={setSearchInput}
             placeholder="Search members…"

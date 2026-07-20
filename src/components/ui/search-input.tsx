@@ -33,13 +33,13 @@ function assignRef<T>(ref: React.ForwardedRef<T>, value: T | null) {
  * `value` / `onValueChange`; typing, the trailing clear button, and Escape
  * all report through that same value contract.
  *
- * Width/flex live on the wrapper via `containerClassName`
- * (e.g. "max-w-xs flex-1 basis-52"); the radius, border, icon, and padding
- * are fixed here — never restyle those per call-site, that drift is exactly
- * what this component exists to kill. `className` still forwards to the
- * inner input for the rare one-off (an override wins via tailwind-merge),
- * but reach for it sparingly. The clear action appears only for an editable,
- * non-empty field and returns focus to the input.
+ * The wrapper owns the fixed 240px width; `containerClassName` is only for
+ * external layout such as margin or responsive visibility. The radius,
+ * border, icon, and padding are fixed here — never restyle those per call-site,
+ * that drift is exactly what this component exists to kill. `className` still
+ * forwards to the inner input for the rare one-off (an override wins via
+ * tailwind-merge), but reach for it sparingly. The clear action appears only
+ * for an editable, non-empty field and returns focus to the input.
  */
 const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
   function SearchInput(
@@ -74,7 +74,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
     };
 
     return (
-      <div className={cn('relative', containerClassName)}>
+      <div className={cn('relative w-[240px] shrink-0', containerClassName)}>
         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
         <Input
           {...props}

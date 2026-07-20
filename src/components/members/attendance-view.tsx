@@ -440,7 +440,7 @@ export function AttendanceView({
           </div>
 
           <SearchInput
-            containerClassName="ml-auto min-w-52 flex-1 basis-56 sm:max-w-xs"
+            containerClassName="ml-auto"
             value={search}
             onValueChange={setSearch}
             placeholder="Search members…"

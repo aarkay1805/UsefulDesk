@@ -6,6 +6,24 @@
 
 ---
 
+## Pill-shaped Sort and Filters actions
+
+Page-level Sort and Filters actions now share the fully rounded outlined `Button` pill variant across Leads, Members, follow-up queues, Payments, Inbox, and Broadcast recipients. Active sorts/filters use the account-primary tint, while inactive actions stay neutral; column-header menus remain unchanged. Key code: `src/components/ui/button.tsx`, `src/components/leads/leads-sort.tsx`, and the shared filter components.
+
+---
+
+## Leads quick views
+
+The redundant **First response** tab has been consolidated into **All leads**, where URL-backed counted chips now provide **No follow-up**, **Unassigned**, **Mine**, and **New today** views across the table, board, bulk selection, and CSV export. With no chip selected, the complete lead list is shown. **No follow-up** means a New lead with no currently open follow-up; its filtered PostgREST anti-join deliberately ignores completed tasks. **Unassigned** excludes Lost leads and pending teammate assignments, while **New today** uses the account timezone. Key code: `src/app/(dashboard)/leads/page.tsx` and `src/lib/leads/quick-filters.ts`.
+
+---
+
+## Shared search width
+
+The master `SearchInput` now owns a fixed 240px wrapper width, so Leads, Members, Attendance, follow-up queues, Inbox, member import, and Manage Columns stay aligned without page-level width overrides. Key code: `src/components/ui/search-input.tsx`.
+
+---
+
 ## Hover-revealed sidebar scrollbar
 
 The primary sidebar navigation now uses the shared `ScrollArea`: its slim themed scrollbar is rendered only when the navigation overflows and fades in while the rail is hovered, focused, or actively scrolling. The Inbox conversation list keeps the master component's existing always-visible default. Key code: `src/components/ui/scroll-area.tsx` and `src/components/layout/sidebar.tsx`.

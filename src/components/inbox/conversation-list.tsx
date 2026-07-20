@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus, Tag } from "@/types";
 import { ChevronDown, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import { SearchInput } from "@/components/ui/search-input";
 import { Badge } from "@/components/ui/badge";
@@ -244,7 +245,15 @@ export function ConversationList({
 
         <div className="flex flex-wrap items-center gap-1">
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted">
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="pill"
+                  size="sm"
+                  aria-pressed={filter !== "all"}
+                />
+              }
+            >
                 {activeFilter?.label ?? "All"}
                 <ChevronDown className="h-3 w-3" />
             </DropdownMenuTrigger>
@@ -272,12 +281,13 @@ export function ConversationList({
           {tags.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger
-                className={cn(
-                  "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                  selectedTagIds.length > 0
-                    ? "text-primary-text"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
+                render={
+                  <Button
+                    variant="pill"
+                    size="sm"
+                    aria-pressed={selectedTagIds.length > 0}
+                  />
+                }
               >
                 Tags
                 {selectedTagIds.length > 0 && (
@@ -308,14 +318,17 @@ export function ConversationList({
           {companies.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger
-                className={cn(
-                  "inline-flex max-w-40 items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                  selectedCompany
-                    ? "text-primary-text"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
+                render={
+                  <Button
+                    variant="pill"
+                    size="sm"
+                    aria-pressed={Boolean(selectedCompany)}
+                  />
+                }
               >
-                <span className="truncate">{selectedCompany ?? "Company"}</span>
+                <span className="max-w-28 truncate">
+                  {selectedCompany ?? "Company"}
+                </span>
                 <ChevronDown className="h-3 w-3 shrink-0" />
               </DropdownMenuTrigger>
               <DropdownMenuContent

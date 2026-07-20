@@ -120,7 +120,9 @@ export function LeadsFilters({
 
   return (
     <Popover>
-      <PopoverTrigger render={<Button variant="ghost" />}>
+      <PopoverTrigger
+        render={<Button variant="pill" aria-pressed={count > 0} />}
+      >
         <Filter className="size-4" />
         Filters
         {count > 0 && (

@@ -111,7 +111,7 @@ A `type="number"` field can NEVER show separators — any new money field that s
 
 ### Search & searchable selects
 
-- `SearchInput` (`ui/search-input.tsx`) — leading glyph over a **rounded-rectangle** `Input`, `border-border` + muted fill. Width/flex on the wrapper via `containerClassName`. Radius/border/icon/padding are **fixed** — never restyle per call-site. It is a controlled `type="search"` field (`value` + `onValueChange`) with a trailing clear button only while editable and non-empty; clear and Escape both reset through `onValueChange` and return focus to the input. It defaults to `aria-label="Search"` and `enterKeyHint="search"`; pass a contextual `aria-label` at the call-site. Used by leads/members/check-in toolbars, inbox conversation list, import + manage-columns pickers. (`Combobox`'s in-popover search and `global-search`'s command trigger are deliberately their own patterns.)
+- `SearchInput` (`ui/search-input.tsx`) — leading glyph over a **rounded-rectangle** `Input`, `border-border` + muted fill. Its wrapper owns the fixed 240px width; `containerClassName` is only for external layout such as margin or responsive visibility. Radius/border/icon/padding are **fixed** — never restyle per call-site. It is a controlled `type="search"` field (`value` + `onValueChange`) with a trailing clear button only while editable and non-empty; clear and Escape both reset through `onValueChange` and return focus to the input. It defaults to `aria-label="Search"` and `enterKeyHint="search"`; pass a contextual `aria-label` at the call-site. Used by leads/members/check-in toolbars, inbox conversation list, import + manage-columns pickers. (`Combobox`'s in-popover search and `global-search`'s command trigger are deliberately their own patterns.)
 - `Combobox` (`ui/combobox.tsx`) — Select-styled trigger → Popover with search over **grouped** options + optional pinned footer action ("＋ Create…"). Use for lists too long to scan (import wizard's field picker). Short static lists stay on `ui/select`. Don't hand-roll popover+input search.
 
 ## People
@@ -207,6 +207,10 @@ Visible product vocabulary is a shared interface contract. The same data concept
 - Use the master default size for both filter sets and form choice sets so every product Chip has consistent geometry and typography.
 - Queue-filter Chips append their live count as plain tabular text and expose the filter definition through `Tooltip` after a 1-second hover delay (keyboard focus remains immediate); do not repeat the same counts and help text in persistent summary cards above the queue.
 - Toolbar segments remain `ToolbarToggleGroup` / `ToolbarToggleItem`; they are controls inside the bounded Toolbar family, not Chips.
+
+### Pill action triggers
+
+Page-level **Sort** and **Filters** popover/dropdown triggers use `Button variant="pill"`. This is the action counterpart to a Chip: the same fully rounded outlined silhouette, but button semantics because it opens a menu rather than selecting a choice. Pass `aria-pressed` when a sort or filter is active so the master applies the primary-tinted state; filter counts remain compact primary-filled circles inside the trigger. Do not recreate the radius, border, hover, active tint, or spacing at a call-site. Column-header menus and choices inside a filter panel keep their existing table/menu idioms.
 
 ## Money numerals
 

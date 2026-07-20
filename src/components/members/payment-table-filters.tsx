@@ -151,9 +151,9 @@ function FilterPopover({
   return (
     <Popover>
       <PopoverTrigger
-        render={<Button variant="ghost" className="relative gap-0" />}
+        render={<Button variant="pill" aria-pressed={count > 0} />}
       >
-        <Filter className="mr-1.5 size-4" />
+        <Filter className="size-4" />
         Filters
         <AnimatePresence initial={false} mode="popLayout">
           {count > 0 && (
@@ -168,7 +168,7 @@ function FilterPopover({
               }}
               className="inline-flex origin-left"
             >
-              <span className="bg-primary text-primary-foreground ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold">
+              <span className="bg-primary text-primary-foreground inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold">
                 {count}
               </span>
             </motion.span>
