@@ -17,7 +17,7 @@ Shipped: templated WhatsApp follow-ups · a responsive full-width WhatsApp conne
 
 ## 🚧 Phase 3 — retention & ops
 
-Built: attendance + plan visit limits / session packs, with separate Name and Plan register columns and All-members-parity Plan header filtering · at-risk members via churn-risk flags · dormant recovery through Renewals · full owner reporting.
+Built: attendance + plan visit limits / session packs, with separate Name and Plan register columns and All-members-parity Plan header filtering · **account-wide immutable Member IDs with quick front-desk ID check-in and future multi-branch/biometric-safe identity** · at-risk members via churn-risk flags · dormant recovery through Renewals · full owner reporting.
 
 Left: trainer accountability.
 

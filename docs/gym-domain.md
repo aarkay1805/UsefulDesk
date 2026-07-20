@@ -61,7 +61,9 @@ The repeater stays on **all three** (PushPress sells several terms under one fix
 
 `memberships` — one per member (`UNIQUE(account_id, contact_id)`):
 
-`plan_id` · **`pricing_option_id`** (FK RESTRICT, `062`; the renew/edit/change RPCs keep it in sync and validate option↔plan; NULL on legacy/trial rows) · `start_date` · `end_date` (the hot column) · `status` (`active`/`frozen`/`cancelled`; **expired is derived**) · `fee_amount` · `fee_status` (`paid`/`due` — **derived by DB trigger from the ledger, never written by clients**) · `frozen_at` · `collection_mode` (`manual`/`auto`).
+**`member_number`** (account-wide Member ID; DB-assigned from 1001, immutable, never reused, and deliberately not branch-scoped) · `plan_id` · **`pricing_option_id`** (FK RESTRICT, `062`; the renew/edit/change RPCs keep it in sync and validate option↔plan; NULL on legacy/trial rows) · `start_date` · `end_date` (the hot column) · `status` (`active`/`frozen`/`cancelled`; **expired is derived**) · `fee_amount` · `fee_status` (`paid`/`due` — **derived by DB trigger from the ledger, never written by clients**) · `frozen_at` · `collection_mode` (`manual`/`auto`).
+
+**Member ID (`20260721120000`):** uniqueness is `(account_id, member_number)`, so separate tenants may both have `1001`. The private `account_member_number_counters` row serializes every membership insert—including imports and conversions—and is never decremented on deletion. A future branch belongs beneath the account: moving/visiting branches must not change the Member ID; attendance may gain `branch_id`/`device_id` separately. Treat Member ID as an identifier, never an authentication secret.
 
 Operational RLS (agent write). Renewals mutate in place — the row is the **current-cycle pointer**.
 
@@ -155,6 +157,7 @@ Commit = RPC `change_membership_plan` — one transaction, `membership_operation
 - **Session-pack remaining is DERIVED** (`sessions_count` − attendance count since current cycle start, keyed `membership_id`) — **never a stored counter.**
 - Limits / exhausted packs are **warn-with-override at check-in** (`AttendanceOverrideDialog`, both check-in paths) — **never a hard block.**
 - Both paths (`check-in-view.tsx`, member-sheet `checkIn()`) fresh-count the plan's usage window and open the override dialog at the limit / on an exhausted pack. Usage lines ("9/12 this month" / "7 of 10 sessions left") render in check-in row meta + the sheet's Attendance section.
+- Attendance also has a staff-only quick Member ID entry. It resolves inside the signed-in account, reuses the exact same limit/override flow, refuses a second attendance record for the day, and records `method='member_id'` for audit. Member ID is not a self-service PIN.
 
 ---
 

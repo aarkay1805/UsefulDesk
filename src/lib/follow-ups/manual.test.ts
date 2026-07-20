@@ -11,6 +11,7 @@ function membership(overrides: Partial<Membership> = {}): Membership {
     id: 'membership-1',
     account_id: 'account-1',
     contact_id: 'contact-1',
+    member_number: 1001,
     user_id: 'user-1',
     plan_id: null,
     start_date: '2026-07-01',

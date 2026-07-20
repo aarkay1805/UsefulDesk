@@ -30,6 +30,7 @@ function toMembership(r: MemberActivity): Membership {
     id: r.membership_id,
     account_id: r.account_id,
     contact_id: r.contact_id,
+    member_number: r.member_number,
     user_id: '',
     plan_id: r.plan_id,
     start_date: r.start_date,

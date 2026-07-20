@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Repeat,
   ArrowLeftRight,
+  Hash,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -605,6 +606,13 @@ export function MemberDetailView({
                     )}
                   </div>
                   <SheetDescription className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <Hash className="size-3.5" />
+                      Member ID
+                      <span className="font-mono tabular-nums">
+                        {membership.member_number}
+                      </span>
+                    </span>
                     <span className="flex items-center gap-1.5">
                       <Phone className="size-3.5" />
                       {membership.contact?.phone || "No phone"}

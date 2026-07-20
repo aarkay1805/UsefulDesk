@@ -165,7 +165,7 @@ The three overlays (`TemplatePicker` / `MemberForm` / `TransferRequestDialog`) l
 Visible product vocabulary is a shared interface contract. The same data concept keeps the exact same label across pages, tabs, tables, sort menus, column menus, filters, exports, and empty states. Never rename a familiar column to make one section sound more contextual.
 
 - A member identity rendered with `MemberIdentity` is always **Name**. Do not relabel it as “Member,” “Customer,” “Customer details,” or “Member details.”
-- Reuse the canonical labels from the primary table for shared member columns: **Name**, **Plan**, **Expiry**, **Status**, **Assigned to**, **Fee**, and **Actions**.
+- Reuse the canonical labels from the primary table for shared member columns: **Name**, **Member ID**, **Plan**, **Expiry**, **Status**, **Assigned to**, **Fee**, and **Actions**.
 - Follow-up-specific concepts remain **Due date**, **Follow-up**, and **Reason** wherever they appear. The task column is always **Follow-up**, never “Notes” or “Next action”; its optional note is supporting text inside the cell.
 - In lead and follow-up surfaces, the accountable task is always called **Follow-up**. Use **No follow-up** and **Add follow-up**; never expose “next action” as a synonym.
 - Internal field keys may differ, but user-facing labels must not. A new synonym requires explicit product agreement and an update to this vocabulary before implementation.

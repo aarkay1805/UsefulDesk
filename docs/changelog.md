@@ -6,6 +6,12 @@
 
 ---
 
+## Account-wide Member IDs
+
+Every membership now receives a database-assigned numeric **Member ID** starting at 1001, unique within its account, immutable, never reused, and intentionally stable across future branches. Existing memberships backfill oldest-first and every insert path shares one private per-account counter. All Members gained a visible, sortable, resizable, hideable Member ID column plus CSV output; the profile header exposes the number; and Attendance accepts staff quick check-ins by ID through the existing limit/override flow while auditing `method='member_id'`. Member ID is an identifier, not a login secret. Supabase grants new public-schema functions directly to its API roles, so trigger-only functions need explicit `anon`/`authenticated` revokes. Key code: `supabase/migrations/20260721120000_member_numbers.sql`, `supabase/migrations/20260721121000_harden_member_number_functions.sql`, `src/components/members/members-table.tsx`, `src/components/members/attendance-view.tsx`, and `src/components/members/member-detail-view.tsx`.
+
+---
+
 ## Unified search and filter toolbars
 
 Data-list toolbars now use one reading order—Search, Filters, Sort, divider, filter chips, then trailing view/scope actions—with All Members as the canonical layout. `ChipGroup` keeps every chip set on one horizontally browsable row: overflow stays clipped with a peeking final chip and contextual previous/next chevrons instead of wrapping. Filter chips use the same compact nested count badge as segmented Expiring/Expired controls; All Members and Payments gained live faceted chip counts, while Leads and both follow-up queues moved their existing counts into the shared treatment. The Leads table/board picker is icon-only, and its current-day quick view is labelled **Today**. Key code: `src/components/ui/badge.tsx`, `src/components/ui/chip.tsx`, `src/components/members/members-table.tsx`, `src/components/members/payments-table.tsx`, `src/components/follow-ups/follow-up-queue-controls.tsx`, and `src/app/(dashboard)/leads/page.tsx`.

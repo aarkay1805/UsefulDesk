@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   Check,
   ChevronLeft,
   ChevronRight,
   Dumbbell,
+  Hash,
   Loader2,
   LogOut,
   UserCheck,
@@ -26,13 +27,15 @@ import {
   type CheckInWarning,
 } from '@/lib/memberships/attendance-limits';
 import { istAddDays } from '@/lib/memberships/expiry';
+import { parseMemberNumber } from '@/lib/memberships/member-number';
 import { createClient } from '@/lib/supabase/client';
-import type { Attendance, Membership } from '@/types';
+import type { Attendance, AttendanceMethod, Membership } from '@/types';
 import { ColumnHeader, type SortDir } from '@/components/table/column-header';
 import { AttendanceOverrideDialog } from './attendance-override-dialog';
 import { MemberIdentity } from './member-identity';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { SearchInput } from '@/components/ui/search-input';
 import {
   Table,
@@ -86,6 +89,7 @@ export function AttendanceView({
   const [usage, setUsage] = useState<Map<string, number>>(new Map());
   const [bucket, setBucket] = useState<AttendanceBucket>('absent');
   const [search, setSearch] = useState('');
+  const [memberIdInput, setMemberIdInput] = useState('');
   const [planFilters, setPlanFilters] = useState<string[]>([]);
   const [sort, setSort] = useState<AttendanceSort>({
     key: 'name',
@@ -97,6 +101,7 @@ export function AttendanceView({
   const [override, setOverride] = useState<{
     membership: Membership;
     warning: CheckInWarning;
+    method: AttendanceMethod;
   } | null>(null);
 
   useEffect(() => {
@@ -274,7 +279,10 @@ export function AttendanceView({
       : { name: planName, usage: null, danger: false };
   }
 
-  async function doInsert(membership: Membership) {
+  async function doInsert(
+    membership: Membership,
+    method: AttendanceMethod = 'manual'
+  ) {
     if (!user) return;
     setBusyId(membership.id);
     try {
@@ -286,7 +294,7 @@ export function AttendanceView({
           contact_id: membership.contact_id,
           membership_id: membership.id,
           user_id: user.id,
-          method: 'manual',
+          method,
         })
         .select('*')
         .single();
@@ -312,7 +320,10 @@ export function AttendanceView({
     }
   }
 
-  async function checkIn(membership: Membership) {
+  async function checkIn(
+    membership: Membership,
+    method: AttendanceMethod = 'manual'
+  ) {
     if (!user || !isToday) return;
     setBusyId(membership.id);
     const result = await fetchCheckInUsage(
@@ -325,11 +336,43 @@ export function AttendanceView({
       setUsage((previous) => new Map(previous).set(membership.id, result.used));
       if (result.warning) {
         setBusyId(null);
-        setOverride({ membership, warning: result.warning });
+        setOverride({ membership, warning: result.warning, method });
         return;
       }
     }
-    await doInsert(membership);
+    await doInsert(membership, method);
+  }
+
+  function handleMemberIdCheckIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!user || !canSendMessages || !isToday || busyId) return;
+
+    const memberNumber = parseMemberNumber(memberIdInput);
+    if (memberNumber === null) {
+      toast.error('Enter a valid Member ID');
+      return;
+    }
+
+    const membership = rows.find((row) => row.member_number === memberNumber);
+    if (!membership) {
+      toast.error(`No member found with ID ${memberNumber}`);
+      return;
+    }
+
+    const attendance = attendanceByContact.get(membership.contact_id);
+    if (attendance) {
+      setBucket('present');
+      setMemberIdInput('');
+      toast.info(
+        attendance.checked_out_at
+          ? `${membership.contact?.name || 'Member'} already completed attendance today`
+          : `${membership.contact?.name || 'Member'} is already checked in`
+      );
+      return;
+    }
+
+    setMemberIdInput('');
+    void checkIn(membership, 'member_id');
   }
 
   async function checkOut(membership: Membership, attendance: Attendance) {
@@ -438,6 +481,50 @@ export function AttendanceView({
               {fmt.date(selectedDate)}
             </span>
           </div>
+
+          <form
+            className="flex shrink-0 items-center gap-1"
+            onSubmit={handleMemberIdCheckIn}
+          >
+            <Input
+              value={memberIdInput}
+              onChange={(event) => setMemberIdInput(event.target.value)}
+              className="w-28"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="off"
+              placeholder="Member ID"
+              aria-label="Member ID for quick check-in"
+              disabled={!canSendMessages || !isToday || loading}
+              title={
+                !canSendMessages
+                  ? "Read-only — your role can't change attendance"
+                  : !isToday
+                    ? 'Quick check-in is available only for today'
+                    : 'Enter a Member ID'
+              }
+            />
+            <Button
+              type="submit"
+              variant="outline"
+              size="sm"
+              disabled={
+                !canSendMessages ||
+                !isToday ||
+                loading ||
+                !!busyId ||
+                !memberIdInput.trim()
+              }
+              title={
+                isToday
+                  ? 'Check in by Member ID'
+                  : 'Quick check-in is available only for today'
+              }
+            >
+              <Hash className="size-3.5" />
+              Check in
+            </Button>
+          </form>
 
           <SearchInput
             containerClassName="ml-auto"
@@ -630,7 +717,9 @@ export function AttendanceView({
         open={!!override}
         warning={override?.warning ?? null}
         busy={!!override && busyId === override.membership.id}
-        onConfirm={() => override && void doInsert(override.membership)}
+        onConfirm={() =>
+          override && void doInsert(override.membership, override.method)
+        }
         onCancel={() => setOverride(null)}
       />
     </>

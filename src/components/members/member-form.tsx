@@ -383,7 +383,7 @@ export function MemberForm({
           is_trial: isTrial,
           notes: notes.trim() || null,
         })
-        .select("id")
+        .select("id, member_number")
         .single();
 
       if (mErr) {
@@ -418,12 +418,17 @@ export function MemberForm({
         }
       }
 
-      toast.success(isTrial ? "Trial added" : "Member added", {
-        // One tap to the new member's sheet (photo, auto-pay, notes).
-        action: onViewExisting
-          ? { label: "View", onClick: () => onViewExisting(contactId) }
-          : undefined,
-      });
+      toast.success(
+        isTrial
+          ? `Trial added · Member ID ${mRow.member_number}`
+          : `Member added · Member ID ${mRow.member_number}`,
+        {
+          // One tap to the new member's sheet (photo, auto-pay, notes).
+          action: onViewExisting
+            ? { label: "View", onClick: () => onViewExisting(contactId) }
+            : undefined,
+        }
+      );
       onOpenChange(false);
       onSaved();
     } catch (err) {

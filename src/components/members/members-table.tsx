@@ -165,6 +165,7 @@ const MEMBER_ID_WITH_OPEN_FOLLOW_UP_SELECT =
 // keeps start_date + fee_status which have no dedicated column.)
 const SORT_COLUMNS: { key: string; label: string }[] = [
   { key: "name", label: "Name" },
+  { key: "member_number", label: "Member ID" },
   { key: "end_date", label: "Expiry" },
   { key: "fee_amount", label: "Fee" },
   { key: "fee_status", label: "Fee status" },
@@ -201,6 +202,13 @@ const MEMBER_COLUMNS: MemberColumn[] = [
     minWidth: 150,
     required: true,
     sortKey: "name",
+  },
+  {
+    key: "memberId",
+    label: "Member ID",
+    defaultWidth: 120,
+    minWidth: 95,
+    sortKey: "member_number",
   },
   {
     key: "plan",
@@ -432,13 +440,22 @@ export function MembersTable({
   const todayDisplay = fmt.today();
 
   // ── Column layout (persisted order / hidden / widths) ──────────────
-  // Saved order, then any columns added since (new keys append). Unknown
-  // saved keys are dropped so a code change can retire a column safely.
+  // Saved order plus any columns added since. A new key is inserted before
+  // its next canonical neighbour, so Member ID lands beside Name for existing
+  // users instead of after Actions; unknown saved keys are dropped.
   const orderedKeys = useMemo(() => {
     const known = MEMBER_COLUMNS.map((c) => c.key);
     const saved = prefs.order.filter((k) => known.includes(k));
-    const missing = known.filter((k) => !saved.includes(k));
-    return [...saved, ...missing];
+    const merged = [...saved];
+    known.forEach((key, index) => {
+      if (merged.includes(key)) return;
+      const nextKnown = known.slice(index + 1).find((next) =>
+        merged.includes(next)
+      );
+      if (nextKnown) merged.splice(merged.indexOf(nextKnown), 0, key);
+      else merged.push(key);
+    });
+    return merged;
   }, [prefs.order]);
 
   const visibleColumns = useMemo(
@@ -844,6 +861,12 @@ export function MembersTable({
             src={m.contact?.avatar_url}
           />
         );
+      case "memberId":
+        return (
+          <span className="text-foreground font-mono text-sm tabular-nums">
+            {m.member_number}
+          </span>
+        );
       case "plan":
         return (
           <span className="text-muted-foreground truncate">
@@ -1074,6 +1097,7 @@ export function MembersTable({
     const csv = toCsv(
       [
         "Name",
+        "Member ID",
         "Phone",
         "Email",
         "Plan",
@@ -1087,6 +1111,7 @@ export function MembersTable({
       ],
       all.map((m) => [
         m.contact?.name ?? "",
+        m.member_number,
         m.contact?.phone ?? "",
         m.contact?.email ?? "",
         m.plan?.name ?? "",

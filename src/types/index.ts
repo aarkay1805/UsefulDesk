@@ -829,6 +829,10 @@ export interface Membership {
   id: string;
   account_id: string;
   contact_id: string;
+  /** Short account-wide identifier assigned by the DB (migration
+   *  20260721120000). Immutable, never reused, and stable across future
+   *  branches inside the account. */
+  member_number: number;
   /** Creator/audit — never used for tenancy. */
   user_id: string;
   plan_id: string | null;
@@ -1040,7 +1044,7 @@ export interface MembershipPeriodInvoice {
 // Attendance / check-ins (migration 032)
 // ============================================================
 
-export type AttendanceMethod = 'manual' | 'qr' | 'self';
+export type AttendanceMethod = 'manual' | 'member_id' | 'qr' | 'self';
 
 export interface Attendance {
   id: string;
@@ -1067,6 +1071,7 @@ export interface MemberActivity {
   membership_id: string;
   account_id: string;
   contact_id: string;
+  member_number: number;
   plan_id: string | null;
   start_date: string;
   end_date: string;
