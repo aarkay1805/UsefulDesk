@@ -17,7 +17,7 @@ import {
 } from '@/components/table/column-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Chip, ChipGroup } from '@/components/ui/chip';
+import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { Separator } from '@/components/ui/separator';
 import {
   Table,
@@ -345,6 +345,45 @@ export function PaymentsTable({
     });
   }, [historyFilters, ledgerRows, ledgerSort, methods, staffNameById]);
 
+  const dueBucketCounts = useMemo(() => {
+    const counts = Object.fromEntries(
+      DUE_BUCKETS.map(({ key }) => [key, 0])
+    ) as Record<DueBucket, number>;
+    for (const row of dueRows) {
+      if (
+        dueFilters.plans.length > 0 &&
+        !dueFilters.plans.includes(row.plan_id ?? '')
+      ) {
+        continue;
+      }
+      counts[bucketForDue(row.start_date, today)] += 1;
+    }
+    return counts;
+  }, [dueFilters.plans, dueRows, today]);
+
+  const paymentMethodCounts = useMemo(() => {
+    const counts = Object.fromEntries(
+      PAYMENT_METHODS.map(({ value }) => [value, 0])
+    ) as Record<PaymentMethod, number>;
+    for (const row of ledgerRows) {
+      const source = paymentSource(row);
+      if (
+        historyFilters.statuses.length > 0 &&
+        !historyFilters.statuses.includes(row.status)
+      ) {
+        continue;
+      }
+      if (
+        historyFilters.sources.length > 0 &&
+        !historyFilters.sources.includes(source)
+      ) {
+        continue;
+      }
+      counts[row.method] += 1;
+    }
+    return counts;
+  }, [historyFilters, ledgerRows]);
+
   const collected = useMemo(
     () =>
       filteredLedgerRows.reduce(
@@ -559,21 +598,17 @@ export function PaymentsTable({
               <ToolbarToggleItem value="due" aria-label="Payments due">
                 <Wallet className="size-4" />
                 <span>Payment due</span>
-                <Badge variant="neutral">
-                  <span className="tabular-nums">
-                    {dueLoading && dueRows.length === 0 ? '—' : dueRows.length}
-                  </span>
+                <Badge variant="neutral" size="count">
+                  {dueLoading && dueRows.length === 0 ? '—' : dueRows.length}
                 </Badge>
               </ToolbarToggleItem>
               <ToolbarToggleItem value="recent" aria-label="Recent payments">
                 <Receipt className="size-4" />
                 <span>Recent payments</span>
-                <Badge variant="neutral">
-                  <span className="tabular-nums">
-                    {ledgerLoading && ledgerRows.length === 0
-                      ? '—'
-                      : ledgerRows.length}
-                  </span>
+                <Badge variant="neutral" size="count">
+                  {ledgerLoading && ledgerRows.length === 0
+                    ? '—'
+                    : ledgerRows.length}
                 </Badge>
               </ToolbarToggleItem>
             </ToolbarToggleGroup>
@@ -629,6 +664,7 @@ export function PaymentsTable({
                 {DUE_BUCKETS.map(({ key, label }) => (
                   <Chip key={key} value={key}>
                     {label}
+                    <ChipCount count={dueBucketCounts[key]} />
                   </Chip>
                 ))}
               </ChipGroup>
@@ -642,6 +678,7 @@ export function PaymentsTable({
                 {PAYMENT_METHODS.map(({ value, label }) => (
                   <Chip key={value} value={value}>
                     {label}
+                    <ChipCount count={paymentMethodCounts[value]} />
                   </Chip>
                 ))}
               </ChipGroup>

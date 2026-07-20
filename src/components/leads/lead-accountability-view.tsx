@@ -47,7 +47,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Chip, ChipGroup } from '@/components/ui/chip';
+import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { Collapse } from '@/components/ui/collapse';
 import {
   DropdownMenu,
@@ -1310,7 +1310,7 @@ function QueueChip({
   return (
     <Tooltip>
       <TooltipTrigger delay={1000} render={<Chip value={value} />}>
-        {label} <span className="tabular-nums">{count}</span>
+        {label} <ChipCount count={count} />
       </TooltipTrigger>
       <TooltipContent className="max-w-64 text-pretty">
         {helpText}

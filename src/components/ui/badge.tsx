@@ -42,9 +42,14 @@ const badgeVariants = cva(
         // they'd win the cascade and paint the pill solid primary.
         tinted: "",
       },
+      size: {
+        default: "",
+        count: "h-auto rounded px-1.5 py-0 tabular-nums",
+      },
     },
     defaultVariants: {
       variant: "default",
+      size: "default",
     },
   }
 )
@@ -52,6 +57,7 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant = "default",
+  size = "default",
   color,
   style,
   render,
@@ -78,6 +84,7 @@ function Badge({
         className: cn(
           badgeVariants({
             variant: semanticPreset?.badgeVariant ?? (color ? "tinted" : variant),
+            size,
           }),
           usesDynamicTint && "badge-tinted",
           className

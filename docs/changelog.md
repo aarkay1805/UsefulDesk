@@ -6,6 +6,12 @@
 
 ---
 
+## Unified search and filter toolbars
+
+Data-list toolbars now use one reading order—Search, Filters, Sort, divider, filter chips, then trailing view/scope actions—with All Members as the canonical layout. `ChipGroup` keeps every chip set on one horizontally browsable row: overflow stays clipped with a peeking final chip and contextual previous/next chevrons instead of wrapping. Filter chips use the same compact nested count badge as segmented Expiring/Expired controls; All Members and Payments gained live faceted chip counts, while Leads and both follow-up queues moved their existing counts into the shared treatment. The Leads table/board picker is icon-only, and its current-day quick view is labelled **Today**. Key code: `src/components/ui/badge.tsx`, `src/components/ui/chip.tsx`, `src/components/members/members-table.tsx`, `src/components/members/payments-table.tsx`, `src/components/follow-ups/follow-up-queue-controls.tsx`, and `src/app/(dashboard)/leads/page.tsx`.
+
+---
+
 ## Pill-shaped Sort and Filters actions
 
 Page-level Sort and Filters actions now share the fully rounded outlined `Button` pill variant across Leads, Members, follow-up queues, Payments, Inbox, and Broadcast recipients. Active sorts/filters use the account-primary tint, while inactive actions stay neutral; column-header menus remain unchanged. Key code: `src/components/ui/button.tsx`, `src/components/leads/leads-sort.tsx`, and the shared filter components.
@@ -14,7 +20,7 @@ Page-level Sort and Filters actions now share the fully rounded outlined `Button
 
 ## Leads quick views
 
-The redundant **First response** tab has been consolidated into **All leads**, where URL-backed counted chips now provide **No follow-up**, **Unassigned**, **Mine**, and **New today** views across the table, board, bulk selection, and CSV export. With no chip selected, the complete lead list is shown. **No follow-up** means a New lead with no currently open follow-up; its filtered PostgREST anti-join deliberately ignores completed tasks. **Unassigned** excludes Lost leads and pending teammate assignments, while **New today** uses the account timezone. Key code: `src/app/(dashboard)/leads/page.tsx` and `src/lib/leads/quick-filters.ts`.
+The redundant **First response** tab has been consolidated into **All leads**, where URL-backed counted chips now provide **No follow-up**, **Unassigned**, **Mine**, and **Today** views across the table, board, bulk selection, and CSV export. With no chip selected, the complete lead list is shown. **No follow-up** means a New lead with no currently open follow-up; its filtered PostgREST anti-join deliberately ignores completed tasks. **Unassigned** excludes Lost leads and pending teammate assignments, while **Today** uses the account timezone. Key code: `src/app/(dashboard)/leads/page.tsx` and `src/lib/leads/quick-filters.ts`.
 
 ---
 

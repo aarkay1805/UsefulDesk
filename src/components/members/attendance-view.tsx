@@ -389,15 +389,15 @@ export function AttendanceView({
               <ToolbarToggleItem value="present" aria-label="Present members">
                 <UserCheck className="size-4" />
                 <span>Present</span>
-                <Badge variant="neutral">
-                  <span className="tabular-nums">{presentCount}</span>
+                <Badge variant="neutral" size="count">
+                  {presentCount}
                 </Badge>
               </ToolbarToggleItem>
               <ToolbarToggleItem value="absent" aria-label="Absent members">
                 <UserX className="size-4" />
                 <span>Absent</span>
-                <Badge variant="neutral">
-                  <span className="tabular-nums">{absentCount}</span>
+                <Badge variant="neutral" size="count">
+                  {absentCount}
                 </Badge>
               </ToolbarToggleItem>
             </ToolbarToggleGroup>

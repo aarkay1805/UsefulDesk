@@ -198,8 +198,9 @@ import { useCan } from '@/hooks/use-can';
 import { useTablePrefs } from '@/hooks/use-table-prefs';
 import { GatedButton } from '@/components/ui/gated-button';
 import { SearchInput } from '@/components/ui/search-input';
+import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Chip, ChipGroup } from '@/components/ui/chip';
+import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { cn } from '@/lib/utils';
 import { Collapse } from '@/components/ui/collapse';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -270,7 +271,7 @@ const LEAD_QUICK_FILTER_META: Record<
     helpText: 'Active leads assigned to you.',
   },
   new_today: {
-    label: 'New today',
+    label: 'Today',
     helpText: 'New leads added today in the account timezone.',
   },
 };
@@ -3382,42 +3383,10 @@ export default function LeadsPage() {
             aria-label="Search leads"
           />
 
-          <TooltipProvider>
-            <ChipGroup<LeadQuickFilter>
-              selectionMode="single"
-              value={quickFilter === 'all' ? [] : [quickFilter]}
-              onValueChange={(values) =>
-                changeQuickFilter(values[0] ?? 'all')
-              }
-              aria-label="Lead quick filters"
-              className="min-w-0 flex-1 basis-96"
-            >
-              {LEAD_QUICK_FILTERS.map((filter) => {
-                const meta = LEAD_QUICK_FILTER_META[filter];
-                return (
-                  <Tooltip key={filter}>
-                    <TooltipTrigger
-                      delay={1000}
-                      render={<Chip value={filter} />}
-                    >
-                      {meta.label}{' '}
-                      <span className="tabular-nums">
-                        {quickFilterCounts[filter]}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-64 text-pretty">
-                      {meta.helpText}
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
-            </ChipGroup>
-          </TooltipProvider>
-
           {/* Data and presentation actions follow the search, matching the
               reading order in the table header. Filters stay available in
               both views because they also constrain the CSV export. */}
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <LeadsFilters
               value={filters}
               onChange={setFilters}
@@ -3438,6 +3407,38 @@ export default function LeadsPage() {
                 columns={sortableColumns}
               />
             )}
+            <Separator
+              orientation="vertical"
+              className="mx-0.5 h-5 data-vertical:self-center"
+            />
+            <TooltipProvider>
+              <ChipGroup<LeadQuickFilter>
+                selectionMode="single"
+                value={quickFilter === 'all' ? [] : [quickFilter]}
+                onValueChange={(values) =>
+                  changeQuickFilter(values[0] ?? 'all')
+                }
+                aria-label="Lead quick filters"
+              >
+                {LEAD_QUICK_FILTERS.map((filter) => {
+                  const meta = LEAD_QUICK_FILTER_META[filter];
+                  return (
+                    <Tooltip key={filter}>
+                      <TooltipTrigger
+                        delay={1000}
+                        render={<Chip value={filter} />}
+                      >
+                        {meta.label}
+                        <ChipCount count={quickFilterCounts[filter]} />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-64 text-pretty">
+                        {meta.helpText}
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </ChipGroup>
+            </TooltipProvider>
           </div>
 
           {/* The view picker is the trailing control, with the active view's
@@ -3451,13 +3452,19 @@ export default function LeadsPage() {
                 if (nextView) setLeadsView(nextView);
               }}
             >
-              <ToolbarToggleItem value="table" aria-label="Table view">
+              <ToolbarToggleItem
+                value="table"
+                aria-label="Table view"
+                title="Table view"
+              >
                 <List className="size-4" />
-                <span className="hidden xl:inline">Table view</span>
               </ToolbarToggleItem>
-              <ToolbarToggleItem value="board" aria-label="Board view">
+              <ToolbarToggleItem
+                value="board"
+                aria-label="Board view"
+                title="Board view"
+              >
                 <LayoutGrid className="size-4" />
-                <span className="hidden xl:inline">Board view</span>
               </ToolbarToggleItem>
             </ToolbarToggleGroup>
             <ToolbarSeparator />

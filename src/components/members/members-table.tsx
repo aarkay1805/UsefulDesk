@@ -68,7 +68,7 @@ import {
 import { GatedButton } from "@/components/ui/gated-button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Separator } from "@/components/ui/separator";
-import { Chip, ChipGroup } from "@/components/ui/chip";
+import { Chip, ChipCount, ChipGroup } from "@/components/ui/chip";
 import {
   Table,
   TableBody,
@@ -128,6 +128,26 @@ const QUICK_MEMBER_FILTERS: { key: QuickMemberFilter; label: string }[] = [
   { key: "feesDue", label: "Fees due" },
   { key: "followUps", label: "Follow-ups" },
 ];
+
+const EMPTY_QUICK_MEMBER_FILTER_COUNTS: Record<QuickMemberFilter, number> = {
+  churnRisk: 0,
+  feesDue: 0,
+  followUps: 0,
+};
+
+function filtersForQuickMemberCount(
+  filters: MemberFilters,
+  key: QuickMemberFilter
+): MemberFilters {
+  switch (key) {
+    case "churnRisk":
+      return { ...filters, churnRisk: ["yes"] };
+    case "feesDue":
+      return { ...filters, feeStatus: ["due"] };
+    case "followUps":
+      return { ...filters, followUps: ["open"] };
+  }
+}
 
 // An open-follow-up filter needs an inner relation embed for PostgREST to
 // constrain the top-level membership rows. Keep literal select pairs for both
@@ -321,12 +341,16 @@ export function MembersTable({
   const [searchInput, setSearchInput] = useState("");
   const search = useDebounced(searchInput, 300);
   const [filters, setFilters] = useState<MemberFilters>(EMPTY_MEMBER_FILTERS);
+  const [quickFilterCounts, setQuickFilterCounts] = useState<
+    Record<QuickMemberFilter, number>
+  >(EMPTY_QUICK_MEMBER_FILTER_COUNTS);
   const [prefs, setPrefs] = useTablePrefs<MembersTablePrefs>(
     "members-all",
     DEFAULT_PREFS
   );
   // Drops out-of-order responses: only the latest fetch may set state.
   const fetchSeq = useRef(0);
+  const quickCountFetchSeq = useRef(0);
 
   // Selection — membership id → contact id (bulk note needs contact ids,
   // and select-all-matching spans rows never loaded onto a page).
@@ -912,6 +936,59 @@ export function MembersTable({
     fmt,
   ]);
 
+  useEffect(() => {
+    const seq = ++quickCountFetchSeq.current;
+    let cancelled = false;
+
+    void (async () => {
+      const today = fmt.today();
+      const term = search.trim();
+      const results = await Promise.all(
+        QUICK_MEMBER_FILTERS.map(async ({ key }) => {
+          const countFilters = filtersForQuickMemberCount(filters, key);
+          const memberships = supabase.from("memberships");
+          let query = countFilters.followUps.includes("open")
+            ? memberships.select(MEMBER_ID_WITH_OPEN_FOLLOW_UP_SELECT, {
+                count: "exact",
+                head: true,
+              })
+            : memberships.select(MEMBER_ID_SELECT, {
+                count: "exact",
+                head: true,
+              });
+
+          if (term) {
+            const like = `%${term}%`;
+            query = query.or(`name.ilike.${like},phone.ilike.${like}`, {
+              referencedTable: "contact",
+            });
+          }
+          query = applyMemberFilters(query, countFilters, today);
+          const { count, error } = await query;
+          return { key, count: error ? 0 : (count ?? 0), error };
+        })
+      );
+
+      if (cancelled || seq !== quickCountFetchSeq.current) return;
+      const failed = results.find((result) => result.error);
+      if (failed) {
+        console.error(
+          "Failed to load member quick-filter counts",
+          failed.error
+        );
+      }
+      setQuickFilterCounts(
+        Object.fromEntries(
+          results.map((result) => [result.key, result.count])
+        ) as Record<QuickMemberFilter, number>
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, reloadKey, assignmentNonce, search, filters, fmt]);
+
   const totalPages = Math.ceil(totalCount / pageSize);
   const hasPrev = page > 0;
   const hasNext = page < totalPages - 1;
@@ -1139,6 +1216,7 @@ export function MembersTable({
                   {QUICK_MEMBER_FILTERS.map((filter) => (
                     <Chip key={filter.key} value={filter.key}>
                       {filter.label}
+                      <ChipCount count={quickFilterCounts[filter.key]} />
                     </Chip>
                   ))}
                 </ChipGroup>

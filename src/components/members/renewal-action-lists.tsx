@@ -289,20 +289,14 @@ function RenewalTable({
             >
               <CalendarClock className="size-4" />
               <span>Expiring</span>
-              <Badge
-                variant="neutral"
-                className="h-auto rounded px-1.5 py-0 text-xs tabular-nums"
-              >
+              <Badge variant="neutral" size="count">
                 {expiringCount}
               </Badge>
             </ToolbarToggleItem>
             <ToolbarToggleItem value="expired" aria-label="Expired memberships">
               <CircleAlert className="size-4" />
               <span>Expired</span>
-              <Badge
-                variant="neutral"
-                className="h-auto rounded px-1.5 py-0 text-xs tabular-nums"
-              >
+              <Badge variant="neutral" size="count">
                 {expiredCount}
               </Badge>
             </ToolbarToggleItem>

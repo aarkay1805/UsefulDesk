@@ -5,7 +5,7 @@ import { UserRoundSearch, Users } from 'lucide-react';
 
 import { LeadsSort, type SortState } from '@/components/leads/leads-sort';
 import type { StaffMember } from '@/components/members/use-account-staff';
-import { Chip, ChipGroup } from '@/components/ui/chip';
+import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { SearchInput } from '@/components/ui/search-input';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -169,7 +169,7 @@ function QueueChip({
   return (
     <Tooltip>
       <TooltipTrigger delay={1000} render={<Chip value={value} />}>
-        {label} <span className="tabular-nums">{count}</span>
+        {label} <ChipCount count={count} />
       </TooltipTrigger>
       <TooltipContent className="max-w-64 text-pretty">
         {helpText}

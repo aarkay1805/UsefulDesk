@@ -114,6 +114,10 @@ A `type="number"` field can NEVER show separators — any new money field that s
 - `SearchInput` (`ui/search-input.tsx`) — leading glyph over a **rounded-rectangle** `Input`, `border-border` + muted fill. Its wrapper owns the fixed 240px width; `containerClassName` is only for external layout such as margin or responsive visibility. Radius/border/icon/padding are **fixed** — never restyle per call-site. It is a controlled `type="search"` field (`value` + `onValueChange`) with a trailing clear button only while editable and non-empty; clear and Escape both reset through `onValueChange` and return focus to the input. It defaults to `aria-label="Search"` and `enterKeyHint="search"`; pass a contextual `aria-label` at the call-site. Used by leads/members/check-in toolbars, inbox conversation list, import + manage-columns pickers. (`Combobox`'s in-popover search and `global-search`'s command trigger are deliberately their own patterns.)
 - `Combobox` (`ui/combobox.tsx`) — Select-styled trigger → Popover with search over **grouped** options + optional pinned footer action ("＋ Create…"). Use for lists too long to scan (import wizard's field picker). Short static lists stay on `ui/select`. Don't hand-roll popover+input search.
 
+### List toolbar order
+
+Data-list toolbars follow one reading order: **Search → Filters → Sort → vertical Separator → filter Chips → trailing view/scope/actions**. Omit controls a surface does not support; render the Separator only when Chips follow Filters and/or Sort. Search stays first and trailing presentation/scope controls use `ml-auto`. Canonical: All members and All leads.
+
 ## People
 
 - **`UserAvatar`** (`ui/user-avatar.tsx`) is the canonical avatar — photo when `src` is set, first-initial fallback on the primary tint otherwise. **Every** person render goes through it (teammates, members, contacts, table/board views) so a photo uploaded once appears everywhere. Never hand-roll `Avatar + AvatarImage + AvatarFallback` for a person. Size via `size`/`className`, initial restyle via `fallbackClassName`, presence dots as children. Teammate URLs from `useAccountStaff()` (`avatarById`); current user from `useAuth().profile.avatar_url`.
@@ -195,17 +199,19 @@ Visible product vocabulary is a shared interface contract. The same data concept
 - Domain wrappers map domain state → variant (`MembershipStatusBadge`, `FeeStatusBadge`, `InvoiceStatusBadge`, `InvoicePaymentBadge`, `PlanTypeBadge`, `VoidedPaymentBadge` — all in `components/members/membership-status-badge.tsx`). Add a wrapper rather than repeating variant choices at call-sites.
 - Interactive chips (clickable choices and filters) use **`Chip` inside `ChipGroup`**, not badges. Don't force them into `Badge`.
 - Follow-up due state is a status (`danger` for Overdue, `warning` for Due today, `neutral` for Upcoming); follow-up reason is a category (`neutral`). Their colours communicate different semantics, but both use the exact unmodified Badge geometry and typography.
+- Compact live counters use `Badge size="count"`. This is the canonical segment/filter-chip counter geometry; do not reconstruct it with class overrides.
 
 ## Chips
 
 `Chip` + `ChipGroup` (`ui/chip.tsx`) are the single component family for compact pressed/unpressed choices. A Chip has exactly one visual recipe: a fully rounded outlined pill whose selected state uses the account primary tint. It must not look like an outline `Button`, and there are no square or rounded-rectangle Chip variants.
 
+- A `ChipGroup` is always a **single horizontal row**. The master hides its native scrollbar, lets the final visible Chip peek when space runs out, and conditionally overlays compact previous/next chevrons to browse the strip. Never restore `flex-wrap` or build page-specific overflow buttons.
 - Every set lives in `ChipGroup` and explicitly declares `selectionMode="single"` or `selectionMode="multiple"`.
 - **Single selection** — one choice at a time, such as follow-up Reason or a mutually exclusive due-date bucket. A controlled required choice may ignore an empty change so one option always remains selected.
 - **Multiple selection** — zero or more independent choices, such as member quick filters.
 - Call-sites choose only the documented `size`; they never override radius, padding, colours, border, typography, hover, focus, selected state, or spacing between Chips.
 - Use the master default size for both filter sets and form choice sets so every product Chip has consistent geometry and typography.
-- Queue-filter Chips append their live count as plain tabular text and expose the filter definition through `Tooltip` after a 1-second hover delay (keyboard focus remains immediate); do not repeat the same counts and help text in persistent summary cards above the queue.
+- List/queue filter Chips append their live count through `ChipCount` (the compact neutral count Badge); selected Chips promote the nested counter into the same primary tint. Queue definitions remain available through `Tooltip` after a 1-second hover delay (keyboard focus remains immediate); do not repeat the same counts and help text in persistent summary cards above the queue.
 - Toolbar segments remain `ToolbarToggleGroup` / `ToolbarToggleItem`; they are controls inside the bounded Toolbar family, not Chips.
 
 ### Pill action triggers
