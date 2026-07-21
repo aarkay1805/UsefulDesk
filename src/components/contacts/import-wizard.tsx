@@ -1178,7 +1178,7 @@ export function ImportWizard({
       >
         <div className="shrink-0 space-y-4 border-b border-border/80 px-6 pt-6 pb-5">
           <DialogHeader className="gap-1.5">
-            <DialogTitle className="text-lg text-popover-foreground">
+            <DialogTitle size="lg" className="text-popover-foreground">
               {isLeads ? 'Import Leads' : 'Import Contacts'}
             </DialogTitle>
             <DialogDescription className="leading-relaxed text-muted-foreground">

@@ -59,6 +59,10 @@ A `:disabled` control keeps the arrow (a dead affordance must not advertise itse
 
 ## Form fields
 
+### Dialog title hierarchy
+
+`DialogTitle` (`ui/dialog.tsx`) owns modal-title typography. Its default size remains the compact-dialog treatment; large split-layout and multi-step dialogs use the supported 18px semibold `size="lg"` variant instead of call-site size/weight overrides. Section headings inside a large dialog must remain subordinate to that title. Canonical large consumers: Convert to member and the contact/lead Import wizard.
+
 **Fields are unfilled — never add `bg-muted` to one.** Every control (`Input`, `CurrencyInput`, `Textarea`, `SelectTrigger`, `DatePicker`, rare native `<input>`) renders on the primitive's `bg-transparent` (+ `dark:bg-input/30`). It reads as a field because of `border-input-border`, not a grey box. (~180 hand-added `bg-muted` fills were stripped across auth / contacts / leads / members / settings / broadcasts / automations / flows.) Don't reintroduce it; don't "fix" a plain-looking field by filling it.
 
 Placeholder copy always uses the field primitive's `placeholder:text-muted-foreground`; never replace it with a prefilled controlled value merely to show guidance, and never override its colour at a call-site. Real user-entered values remain foreground text. When existing data is shown as placeholder guidance, preserve that data separately if the user submits without typing a replacement.

@@ -1068,6 +1068,8 @@ export function ContactDetailContent({
           name: contact.name,
           phone: contact.phone,
           email: contact.email,
+          gender: contact.gender,
+          dateOfBirth: contact.date_of_birth,
           avatarUrl: contact.avatar_url,
           heightCm: contact.height_cm,
           weightKg: contact.weight_kg,

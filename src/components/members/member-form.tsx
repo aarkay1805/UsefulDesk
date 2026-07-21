@@ -6,6 +6,7 @@ import { Loader2, AlertTriangle, Camera, Pencil } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
 import {
   findExistingContact,
   isExactMatch,
@@ -92,6 +93,8 @@ interface MemberFormProps {
     name?: string | null;
     phone?: string | null;
     email?: string | null;
+    gender?: string | null;
+    dateOfBirth?: string | null;
     avatarUrl?: string | null;
     heightCm?: number | null;
     weightKg?: number | null;
@@ -112,6 +115,7 @@ export function MemberForm({
   const supabase = createClient();
   const { accountId, user } = useAuth();
   const { locale, fmt } = useLocale();
+  const fieldOptions = useLeadFieldOptions();
   const symbol = currencySymbol(locale.currency);
   const {
     plans,
@@ -123,6 +127,8 @@ export function MemberForm({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [gender, setGender] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [planId, setPlanId] = useState('');
   const [optionId, setOptionId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(fmt.today());
@@ -224,6 +230,10 @@ export function MemberForm({
     setName(member?.contact?.name ?? seedContact?.name ?? '');
     setPhone(member?.contact?.phone ?? seedContact?.phone ?? '');
     setEmail(member?.contact?.email ?? seedContact?.email ?? '');
+    setGender(member?.contact?.gender ?? seedContact?.gender ?? '');
+    setDateOfBirth(
+      member?.contact?.date_of_birth ?? seedContact?.dateOfBirth ?? ''
+    );
     setPlanId(member?.plan_id ?? '');
     setOptionId(member?.pricing_option_id ?? null);
     setStartDate(member?.start_date ?? fmt.today());
@@ -362,6 +372,34 @@ export function MemberForm({
       return true;
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to update measurements'));
+      return false;
+    }
+  }
+
+  async function saveConversionProfileField(
+    column: 'gender' | 'date_of_birth',
+    value: string
+  ): Promise<boolean> {
+    if (!isConvert || !seedContact?.id) return false;
+    if (column === 'date_of_birth' && value && value > fmt.today()) {
+      toast.error('Birthday cannot be in the future');
+      return false;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('contacts')
+        .update({ [column]: value || null })
+        .eq('id', seedContact.id)
+        .select('id');
+      if (error) throw error;
+      if (!data?.length) {
+        throw new Error("You don't have permission to update this contact.");
+      }
+      if (column === 'gender') setGender(value);
+      if (column === 'date_of_birth') setDateOfBirth(value);
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to update personal details'));
       return false;
     }
   }
@@ -692,7 +730,7 @@ export function MemberForm({
         )}
       >
         <DialogHeader className="border-border shrink-0 border-b p-5">
-          <DialogTitle>
+          <DialogTitle size={isConvert ? 'lg' : 'default'}>
             {isEdit
               ? 'Edit member'
               : isConvert
@@ -764,6 +802,30 @@ export function MemberForm({
                       type="email"
                       placeholder="Add email"
                       onSave={(value) => saveConversionField('email', value)}
+                    />
+                    <ConversionDateDetailRow
+                      label="Birthday"
+                      value={dateOfBirth}
+                      displayValue={dateOfBirth ? fmt.date(dateOfBirth) : '—'}
+                      max={fmt.today()}
+                      onSave={(value) =>
+                        saveConversionProfileField('date_of_birth', value)
+                      }
+                    />
+                    <ConversionSelectDetailRow
+                      label="Gender"
+                      value={gender}
+                      displayValue={
+                        gender ? fieldOptions.genderLabel(gender) : '—'
+                      }
+                      placeholder="Not specified"
+                      options={fieldOptions.genders.map((option) => ({
+                        value: option.key,
+                        label: option.label,
+                      }))}
+                      onSave={(value) =>
+                        saveConversionProfileField('gender', value)
+                      }
                     />
                   </dl>
                 </div>
@@ -982,7 +1044,7 @@ export function MemberForm({
                   <>
                     {isConvert ? (
                       selectedOption && (
-                        <div className="border-border space-y-4 rounded-lg border p-4">
+                        <div className="border-border space-y-6 rounded-lg border p-4">
                           <Label htmlFor="mf-offer-discount">
                             <Checkbox
                               id="mf-offer-discount"
@@ -999,7 +1061,7 @@ export function MemberForm({
                           </Label>
 
                           {discountKind && (
-                            <>
+                            <div className="space-y-4">
                               <div className="grid gap-4 sm:grid-cols-[max-content_minmax(0,1fr)]">
                                 <div className="space-y-2">
                                   <Label>Discount type</Label>
@@ -1148,7 +1210,7 @@ export function MemberForm({
                                   ? `Future renewals return to ${fmt.money(selectedOption.price)} per ${durationLabel(selectedOption.duration_count, selectedOption.duration_unit)}.`
                                   : 'The regular plan price is unchanged; this offer applies only to this purchase.'}
                               </p>
-                            </>
+                            </div>
                           )}
                         </div>
                       )
@@ -1191,7 +1253,7 @@ export function MemberForm({
                 )}
 
                 {!isEdit && !isTrial && previewFee > 0 && (
-                  <div className="border-border space-y-4 rounded-lg border p-4">
+                  <div className="border-border space-y-6 rounded-lg border p-4">
                     <Label htmlFor="mf-collect-payment">
                       <Checkbox
                         id="mf-collect-payment"
@@ -1379,10 +1441,17 @@ function ConversionEditableDetailRow({
   const shown = displayValue ?? (value.trim() || '—');
 
   return (
-    <div className="grid min-h-11 grid-cols-[72px_1fr] items-center gap-4 px-3">
+    <div
+      className={cn(
+        'grid min-h-11 px-3',
+        editing
+          ? 'grid-cols-1 items-start gap-2 py-2'
+          : 'grid-cols-[72px_1fr] items-center gap-4'
+      )}
+    >
       <dt className="text-muted-foreground text-xs leading-5">{label}</dt>
       {editing ? (
-        <dd className="relative min-w-0">
+        <dd className="grid min-w-0 grid-cols-[minmax(0,1fr)_4rem] items-center gap-2">
           <Input
             autoFocus
             type={type}
@@ -1399,13 +1468,15 @@ function ConversionEditableDetailRow({
             }}
             placeholder={placeholder}
             disabled={saving}
-            className="bg-card border-border text-foreground placeholder:text-muted-foreground h-7 pr-16 text-sm"
+            className="bg-card border-border text-foreground placeholder:text-muted-foreground h-7 text-sm"
           />
-          <InlineEditActions
-            saving={saving}
-            onConfirm={() => void confirm()}
-            onDismiss={() => setEditing(false)}
-          />
+          <span className="relative h-7">
+            <InlineEditActions
+              saving={saving}
+              onConfirm={() => void confirm()}
+              onDismiss={() => setEditing(false)}
+            />
+          </span>
         </dd>
       ) : (
         <dd className="min-w-0">
@@ -1427,6 +1498,175 @@ function ConversionEditableDetailRow({
         </dd>
       )}
     </div>
+  );
+}
+
+function ConversionDateDetailRow({
+  label,
+  value,
+  displayValue,
+  max,
+  onSave,
+}: {
+  label: string;
+  value: string;
+  displayValue: string;
+  max?: string;
+  onSave: (value: string) => Promise<boolean>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  function begin() {
+    setDraft(value);
+    setEditing(true);
+  }
+
+  async function confirm() {
+    setSaving(true);
+    const saved = await onSave(draft);
+    setSaving(false);
+    if (saved) setEditing(false);
+  }
+
+  return (
+    <div
+      className={cn(
+        'grid min-h-11 px-3',
+        editing
+          ? 'grid-cols-1 items-start gap-2 py-2'
+          : 'grid-cols-[72px_1fr] items-center gap-4'
+      )}
+    >
+      <dt className="text-muted-foreground text-xs leading-5">{label}</dt>
+      {editing ? (
+        <dd className="grid min-w-0 grid-cols-[minmax(0,1fr)_4rem] items-center gap-2">
+          <DatePicker
+            value={draft}
+            onChange={setDraft}
+            max={max}
+            disabled={saving}
+            aria-label={label}
+          />
+          <span className="relative h-8">
+            <InlineEditActions
+              saving={saving}
+              onConfirm={() => void confirm()}
+              onDismiss={() => setEditing(false)}
+            />
+          </span>
+        </dd>
+      ) : (
+        <ConversionDetailValue value={displayValue} onClick={begin} />
+      )}
+    </div>
+  );
+}
+
+function ConversionSelectDetailRow({
+  label,
+  value,
+  displayValue,
+  placeholder,
+  options,
+  onSave,
+}: {
+  label: string;
+  value: string;
+  displayValue: string;
+  placeholder: string;
+  options: { value: string; label: string }[];
+  onSave: (value: string) => Promise<boolean>;
+}) {
+  const emptyValue = '__not_specified__';
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  function begin() {
+    setDraft(value);
+    setEditing(true);
+  }
+
+  async function confirm() {
+    setSaving(true);
+    const saved = await onSave(draft);
+    setSaving(false);
+    if (saved) setEditing(false);
+  }
+
+  return (
+    <div
+      className={cn(
+        'grid min-h-11 px-3',
+        editing
+          ? 'grid-cols-1 items-start gap-2 py-2'
+          : 'grid-cols-[72px_1fr] items-center gap-4'
+      )}
+    >
+      <dt className="text-muted-foreground text-xs leading-5">{label}</dt>
+      {editing ? (
+        <dd className="grid min-w-0 grid-cols-[minmax(0,1fr)_4rem] items-center gap-2">
+          <Select
+            value={draft || emptyValue}
+            onValueChange={(next) =>
+              setDraft(next === emptyValue ? '' : (next ?? ''))
+            }
+            disabled={saving}
+          >
+            <SelectTrigger className="w-full" aria-label={label}>
+              <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={emptyValue}>{placeholder}</SelectItem>
+              {options.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="relative h-8">
+            <InlineEditActions
+              saving={saving}
+              onConfirm={() => void confirm()}
+              onDismiss={() => setEditing(false)}
+            />
+          </span>
+        </dd>
+      ) : (
+        <ConversionDetailValue value={displayValue} onClick={begin} />
+      )}
+    </div>
+  );
+}
+
+function ConversionDetailValue({
+  value,
+  onClick,
+}: {
+  value: string;
+  onClick: () => void;
+}) {
+  return (
+    <dd className="min-w-0">
+      <button
+        type="button"
+        onClick={onClick}
+        className="group flex w-full min-w-0 items-center gap-2 text-left"
+      >
+        <span
+          className={cn(
+            'text-foreground min-w-0 flex-1 truncate text-sm leading-5',
+            value === '—' && 'text-muted-foreground'
+          )}
+        >
+          {value}
+        </span>
+        <Pencil className="text-muted-foreground size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+      </button>
+    </dd>
   );
 }
 
