@@ -16,12 +16,7 @@ import { useLocale } from '@/hooks/use-locale';
 import { istAddDays, daysBetween } from '@/lib/memberships/expiry';
 import { membershipIdForContact } from '@/lib/memberships/lookup';
 import { editMembershipCycle } from '@/lib/memberships/periods';
-import {
-  cmToFeetInches,
-  feetInchesToCm,
-  kgToLb,
-  lbToKg,
-} from '@/lib/bmi/bmi';
+import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg } from '@/lib/bmi/bmi';
 import {
   oneTimeDiscountError,
   oneTimeDiscountQuote,
@@ -48,6 +43,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Chip, ChipGroup } from '@/components/ui/chip';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
@@ -77,6 +73,8 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 ];
 
 type ConversionDiscountMode = 'none' | OneTimeDiscountKind;
+
+const DISCOUNT_PERCENTAGE_PRESETS = ['10', '20', '30'] as const;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -728,11 +726,7 @@ export function MemberForm({
                     aria-label="Change profile picture"
                     className="group/avatar-edit relative shrink-0 rounded-full"
                   >
-                    <UserAvatar
-                      size="lg"
-                      name={convertName}
-                      src={avatarUrl}
-                    />
+                    <UserAvatar size="lg" name={convertName} src={avatarUrl} />
                     <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover/avatar-edit:opacity-100 group-focus-visible/avatar-edit:opacity-100">
                       <Camera className="size-4" />
                     </span>
@@ -995,7 +989,7 @@ export function MemberForm({
                               checked={discountKind !== null}
                               onCheckedChange={(checked) => {
                                 setDiscountMode(
-                                  checked === true ? 'amount' : 'none'
+                                  checked === true ? 'percentage' : 'none'
                                 );
                                 setDiscountValue('');
                                 setDiscountTouched(false);
@@ -1020,11 +1014,11 @@ export function MemberForm({
                                       }}
                                       aria-label="Discount type"
                                     >
-                                      <ToolbarToggleItem value="amount">
-                                        Fixed amount
-                                      </ToolbarToggleItem>
                                       <ToolbarToggleItem value="percentage">
                                         Percentage
+                                      </ToolbarToggleItem>
+                                      <ToolbarToggleItem value="amount">
+                                        Fixed amount
                                       </ToolbarToggleItem>
                                     </ToolbarToggleGroup>
                                   </Toolbar>
@@ -1058,28 +1052,55 @@ export function MemberForm({
                                       className="tabular-nums"
                                     />
                                   ) : (
-                                    <Input
-                                      id="mf-discount-value"
-                                      type="number"
-                                      min={0}
-                                      max={100}
-                                      step="0.01"
-                                      inputMode="decimal"
-                                      value={discountValue}
-                                      onChange={(event) => {
-                                        setDiscountValue(event.target.value);
-                                        setDiscountTouched(true);
-                                      }}
-                                      onBlur={() => setDiscountTouched(true)}
-                                      placeholder="10"
-                                      aria-invalid={!!discountFieldError}
-                                      aria-describedby={
-                                        discountFieldError
-                                          ? 'mf-discount-error'
-                                          : undefined
-                                      }
-                                      className="tabular-nums"
-                                    />
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <ChipGroup<string>
+                                        selectionMode="single"
+                                        value={
+                                          DISCOUNT_PERCENTAGE_PRESETS.includes(
+                                            discountValue as (typeof DISCOUNT_PERCENTAGE_PRESETS)[number]
+                                          )
+                                            ? [discountValue]
+                                            : []
+                                        }
+                                        onValueChange={(values) => {
+                                          const value = values[0];
+                                          if (!value) return;
+                                          setDiscountValue(value);
+                                          setDiscountTouched(true);
+                                        }}
+                                        aria-label="Common discount percentages"
+                                      >
+                                        {DISCOUNT_PERCENTAGE_PRESETS.map(
+                                          (value) => (
+                                            <Chip key={value} value={value}>
+                                              {value}%
+                                            </Chip>
+                                          )
+                                        )}
+                                      </ChipGroup>
+                                      <Input
+                                        id="mf-discount-value"
+                                        type="number"
+                                        min={0}
+                                        max={100}
+                                        step="0.01"
+                                        inputMode="decimal"
+                                        value={discountValue}
+                                        onChange={(event) => {
+                                          setDiscountValue(event.target.value);
+                                          setDiscountTouched(true);
+                                        }}
+                                        onBlur={() => setDiscountTouched(true)}
+                                        placeholder="10"
+                                        aria-invalid={!!discountFieldError}
+                                        aria-describedby={
+                                          discountFieldError
+                                            ? 'mf-discount-error'
+                                            : undefined
+                                        }
+                                        className="w-24 shrink-0 tabular-nums"
+                                      />
+                                    </div>
                                   )}
                                   {discountFieldError && (
                                     <p
@@ -1184,9 +1205,7 @@ export function MemberForm({
                     {collectPayment && (
                       <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
-                          <Label htmlFor="mf-pay-amount">
-                            Amount
-                          </Label>
+                          <Label htmlFor="mf-pay-amount">Amount</Label>
                           <Input
                             id="mf-pay-amount"
                             type="number"
@@ -1237,9 +1256,7 @@ export function MemberForm({
                           )}
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="mf-method">
-                            Payment method
-                          </Label>
+                          <Label htmlFor="mf-method">Payment method</Label>
                           <Select
                             value={payMethod}
                             onValueChange={(v) =>
@@ -1382,7 +1399,7 @@ function ConversionEditableDetailRow({
             }}
             placeholder={placeholder}
             disabled={saving}
-            className="bg-card border-border text-foreground h-7 pr-16 text-sm placeholder:text-muted-foreground"
+            className="bg-card border-border text-foreground placeholder:text-muted-foreground h-7 pr-16 text-sm"
           />
           <InlineEditActions
             saving={saving}
@@ -1429,9 +1446,7 @@ function measurementWeightDraft(
   measurementSystem: string
 ): string {
   if (!weightKg) return '';
-  return String(
-    measurementSystem === 'imperial' ? kgToLb(weightKg) : weightKg
-  );
+  return String(measurementSystem === 'imperial' ? kgToLb(weightKg) : weightKg);
 }
 
 function formatMeasurementHeight(
