@@ -1,14 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ChevronDown,
-  Download,
-  FileSpreadsheet,
-  Plus,
-  Upload,
-  UserRoundSearch,
-} from 'lucide-react';
+import { Download, Plus, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -17,12 +10,6 @@ import { membershipIdForContact } from '@/lib/memberships/lookup';
 import type { Membership } from '@/types';
 import { Button } from '@/components/ui/button';
 import { GatedButton } from '@/components/ui/gated-button';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from '@/components/ui/dropdown-menu';
 import {
   PageHeaderActions,
   PageHeaderTabs,
@@ -33,7 +20,6 @@ import { FollowUpLists } from '@/components/members/follow-up-lists';
 import { TrialActionLists } from '@/components/members/trial-action-lists';
 import { MembersTable } from '@/components/members/members-table';
 import { MemberForm } from '@/components/members/member-form';
-import { ImportMembersDialog } from '@/components/members/import-members-dialog';
 import { ImportMembersCsvDialog } from '@/components/members/import-members-csv-dialog';
 import { MemberDetailView } from '@/components/members/member-detail-view';
 import { AttendanceView } from '@/components/members/attendance-view';
@@ -76,7 +62,6 @@ export default function MembersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Membership | null>(null);
   const [importOpen, setImportOpen] = useState(false);
-  const [importCsvOpen, setImportCsvOpen] = useState(false);
 
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -170,30 +155,14 @@ export default function MembersPage() {
           "Members" title, so the page doesn't own a second title row
           (mirrors /leads). */}
       <PageHeaderActions>
-        {/* Import — one button opening a small menu (from leads / from CSV),
-            mirroring the leads header's ghost secondary action. */}
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            disabled={!canSendMessages}
-            title={
-              canSendMessages
-                ? undefined
-                : "Read-only — your role can't import or add members"
-            }
-            render={<Button variant="ghost" />}
-          >
-            <Download className="size-4" /> Import
-            <ChevronDown className="size-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-48">
-            <DropdownMenuItem onClick={() => setImportOpen(true)}>
-              <UserRoundSearch className="size-4" /> Import from leads
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setImportCsvOpen(true)}>
-              <FileSpreadsheet className="size-4" /> Import from CSV
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <GatedButton
+          canAct={canSendMessages}
+          gateReason="import members"
+          variant="ghost"
+          onClick={() => setImportOpen(true)}
+        >
+          <Download className="size-4" /> Import
+        </GatedButton>
         {/* Export — surfaces the All-members table's filter-aware CSV
             export; only meaningful (and only wired) on that view. */}
         {view === 'all' && (
@@ -319,15 +288,9 @@ export default function MembersPage() {
         }}
       />
 
-      <ImportMembersDialog
+      <ImportMembersCsvDialog
         open={importOpen}
         onOpenChange={setImportOpen}
-        onSaved={reload}
-      />
-
-      <ImportMembersCsvDialog
-        open={importCsvOpen}
-        onOpenChange={setImportCsvOpen}
         onSaved={reload}
       />
 

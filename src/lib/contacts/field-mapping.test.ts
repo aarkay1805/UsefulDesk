@@ -31,6 +31,14 @@ describe('parseCsvRaw', () => {
     expect(rows[0]).toEqual(['x,y', 'he said "hi"']);
   });
 
+  it('handles BOM, CRLF, and embedded newlines in quoted notes', () => {
+    const parsed = parseCsvRaw(
+      '\uFEFFPhone,Notes\r\n+9199,"First line\r\nSecond line"\r\n'
+    );
+    expect(parsed.headers).toEqual(['Phone', 'Notes']);
+    expect(parsed.rows).toEqual([['+9199', 'First line\r\nSecond line']]);
+  });
+
   it('skips blank lines and returns empty for headerless input', () => {
     expect(parseCsvRaw('').headers).toEqual([]);
     const { rows } = parseCsvRaw('Phone\n\n+1\n\n');
@@ -62,6 +70,19 @@ describe('autoMapColumns', () => {
       'phone',
       IGNORE_KEY,
     ]);
+  });
+
+  it('normalizes camelCase and punctuation for target aliases', () => {
+    const targets = [
+      {
+        key: 'expiry',
+        label: 'Expiry',
+        kind: 'member' as const,
+        required: false,
+        synonyms: ['valid until'],
+      },
+    ];
+    expect(autoMapColumns(['validUntil'], targets)).toEqual(['expiry']);
   });
 });
 
@@ -204,7 +225,9 @@ describe('coerceCustomValue', () => {
   });
 
   it('url adds scheme and validates host', () => {
-    expect(coerceCustomValue('example.com', 'url')).toBe('https://example.com/');
+    expect(coerceCustomValue('example.com', 'url')).toBe(
+      'https://example.com/'
+    );
     expect(coerceCustomValue('http://a.io/x', 'url')).toBe('http://a.io/x');
     expect(coerceCustomValue('notaurl', 'url')).toBeNull();
   });

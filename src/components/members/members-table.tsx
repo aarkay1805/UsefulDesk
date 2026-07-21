@@ -45,6 +45,13 @@ import {
   MEMBER_STATUS_OPTIONS,
   type MemberFilters,
 } from "@/lib/memberships/filters";
+import {
+  MEMBER_COLUMN_BY_KEY,
+  MEMBER_TABLE_COLUMNS as MEMBER_COLUMNS,
+  type MemberColumn,
+  type MemberColumnKey,
+  type MemberFilterDim,
+} from "@/lib/memberships/member-field-registry";
 import type { LeadTransfer, Membership } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -171,99 +178,6 @@ const SORT_COLUMNS: { key: string; label: string }[] = [
   { key: "fee_status", label: "Fee status" },
   { key: "start_date", label: "Start date" },
 ];
-
-// Which shared-filter dimension a column's header three-dot Filter submenu
-// writes to. Absent = the header shows no Filter item (free-text columns).
-type MemberFilterDim = "plans" | "statuses" | "feeStatus" | "churnRisk";
-
-// Column metadata for the all-members grid. Mirrors the leads table's
-// ColumnDef but lighter (no custom fields or drag). `sortKey` is
-// the server-sort key written into prefs.sort; `filterDim` wires the
-// header Filter submenu to the shared MemberFilters state. The cell body
-// is rendered by renderCell() (keyed on `key`) so it can reach the
-// component's fmt/readiness closures.
-interface MemberColumn {
-  key: string;
-  label: string;
-  defaultWidth: number;
-  minWidth: number;
-  /** Name can't be hidden — it's the row's primary affordance. */
-  required?: boolean;
-  align?: "right";
-  sortKey?: string;
-  filterDim?: MemberFilterDim;
-}
-
-const MEMBER_COLUMNS: MemberColumn[] = [
-  {
-    key: "name",
-    label: "Name",
-    defaultWidth: 220,
-    minWidth: 150,
-    required: true,
-    sortKey: "name",
-  },
-  {
-    key: "memberId",
-    label: "Member ID",
-    defaultWidth: 120,
-    minWidth: 95,
-    sortKey: "member_number",
-  },
-  {
-    key: "plan",
-    label: "Plan",
-    defaultWidth: 150,
-    minWidth: 100,
-    filterDim: "plans",
-  },
-  {
-    key: "expiry",
-    label: "Expiry",
-    defaultWidth: 130,
-    minWidth: 100,
-    sortKey: "end_date",
-  },
-  {
-    key: "status",
-    label: "Status",
-    defaultWidth: 140,
-    minWidth: 110,
-    filterDim: "statuses",
-  },
-  {
-    key: "assignee",
-    label: "Assigned to",
-    defaultWidth: 170,
-    minWidth: 130,
-  },
-  {
-    key: "fee",
-    label: "Fee",
-    defaultWidth: 160,
-    minWidth: 120,
-    sortKey: "fee_amount",
-    filterDim: "feeStatus",
-  },
-  {
-    key: "churnRisk",
-    label: "Churn risk",
-    defaultWidth: 120,
-    minWidth: 100,
-    filterDim: "churnRisk",
-  },
-  {
-    key: "reminder",
-    label: "Actions",
-    defaultWidth: 240,
-    minWidth: 210,
-    align: "right",
-  },
-];
-
-const MEMBER_COLUMN_BY_KEY: Record<string, MemberColumn> = Object.fromEntries(
-  MEMBER_COLUMNS.map((c) => [c.key, c])
-);
 
 const CHECKBOX_COL_WIDTH = 40;
 
@@ -448,13 +362,15 @@ export function MembersTable({
   // users instead of after Actions; unknown saved keys are dropped.
   const orderedKeys = useMemo(() => {
     const known = MEMBER_COLUMNS.map((c) => c.key);
-    const saved = prefs.order.filter((k) => known.includes(k));
+    const saved = prefs.order.filter(
+      (key): key is MemberColumnKey => key in MEMBER_COLUMN_BY_KEY
+    );
     const merged = [...saved];
     known.forEach((key, index) => {
       if (merged.includes(key)) return;
-      const nextKnown = known.slice(index + 1).find((next) =>
-        merged.includes(next)
-      );
+      const nextKnown = known
+        .slice(index + 1)
+        .find((next) => merged.includes(next));
       if (nextKnown) merged.splice(merged.indexOf(nextKnown), 0, key);
       else merged.push(key);
     });
@@ -739,10 +655,7 @@ export function MembersTable({
           >
             {badge}
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="min-w-48"
-          >
+          <DropdownMenuContent align="start" className="min-w-48">
             {canApprove && (
               <>
                 <DropdownMenuItem
@@ -800,10 +713,7 @@ export function MembersTable({
 
     return (
       <div className="flex items-center justify-end gap-1">
-        <FollowUpButton
-          canAct={canEdit}
-          onClick={() => setFollowUpFor(m)}
-        />
+        <FollowUpButton canAct={canEdit} onClick={() => setFollowUpFor(m)} />
         <SendReminderButton membership={m} readiness={readiness} />
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -1271,10 +1181,7 @@ export function MembersTable({
               >
                 <Settings className="size-4" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="min-w-48"
-              >
+              <DropdownMenuContent align="end" className="min-w-48">
                 {MEMBER_COLUMNS.map((col) => {
                   const shown = !prefs.hidden.includes(col.key);
                   return (
@@ -1320,10 +1227,7 @@ export function MembersTable({
                 {bulkCount} member{bulkCount === 1 ? "" : "s"} selected
                 <ChevronDown className="size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="min-w-56"
-              >
+              <DropdownMenuContent align="start" className="min-w-56">
                 <DropdownMenuItem onClick={clearSelection}>
                   <X className="size-4" />
                   None

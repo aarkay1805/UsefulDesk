@@ -41,9 +41,23 @@ export const CUSTOM_FIELD_TYPES: CustomFieldType[] = [
 ];
 
 /** Reserved names a new custom field cannot collide with. */
-export const RESERVED_FIELD_NAMES = ['phone', 'name', 'email', 'company', 'tags'];
+export const RESERVED_FIELD_NAMES = [
+  'phone',
+  'name',
+  'email',
+  'company',
+  'tags',
+];
 
-export type TargetKind = 'standard' | 'tags' | 'custom' | 'option' | 'assignee';
+export type TargetKind =
+  | 'standard'
+  | 'tags'
+  | 'custom'
+  | 'option'
+  | 'assignee'
+  | 'member'
+  | 'profile'
+  | 'payment';
 
 export interface TargetField {
   /** 'phone' | 'name' | 'email' | 'company' | 'tags' | `custom:${id}`,
@@ -53,6 +67,8 @@ export interface TargetField {
   kind: TargetKind;
   /** Only `phone` is required (contacts.phone is NOT NULL + unique). */
   required: boolean;
+  /** Variant-owned aliases used by the shared intelligent auto-mapper. */
+  synonyms?: string[];
   /** For kind 'option': which account option list validates the values. */
   optionsField?: 'status' | 'source' | 'gender';
 }
@@ -68,15 +84,42 @@ const STANDARD_TARGETS: TargetField[] = [
  *  Raw cell text lands on `MappedRow` untouched; the wizard coerces it
  *  against the account's option lists via `lib/leads/import-coerce`. */
 const LEAD_TARGETS: TargetField[] = [
-  { key: 'lead_status', label: 'Status', kind: 'option', required: false, optionsField: 'status' },
-  { key: 'source', label: 'Source', kind: 'option', required: false, optionsField: 'source' },
-  { key: 'gender', label: 'Gender', kind: 'option', required: false, optionsField: 'gender' },
+  {
+    key: 'lead_status',
+    label: 'Status',
+    kind: 'option',
+    required: false,
+    optionsField: 'status',
+  },
+  {
+    key: 'source',
+    label: 'Source',
+    kind: 'option',
+    required: false,
+    optionsField: 'source',
+  },
+  {
+    key: 'gender',
+    label: 'Gender',
+    kind: 'option',
+    required: false,
+    optionsField: 'gender',
+  },
   { key: 'assignee', label: 'Assigned to', kind: 'assignee', required: false },
 ];
 
 /** Header synonyms used by auto-map, keyed by target key. */
 const HEADER_SYNONYMS: Record<string, string[]> = {
-  phone: ['phone', 'mobile', 'number', 'whatsapp', 'cell', 'phone number', 'contact number', 'msisdn'],
+  phone: [
+    'phone',
+    'mobile',
+    'number',
+    'whatsapp',
+    'cell',
+    'phone number',
+    'contact number',
+    'msisdn',
+  ],
   name: ['name', 'full name', 'contact name', 'customer name'],
   email: ['email', 'e-mail', 'mail', 'email address'],
   company: ['company', 'organization', 'organisation', 'org', 'business'],
@@ -84,7 +127,16 @@ const HEADER_SYNONYMS: Record<string, string[]> = {
   lead_status: ['status', 'lead status', 'stage', 'lead stage'],
   source: ['source', 'lead source', 'channel', 'came from', 'enquiry source'],
   gender: ['gender', 'sex'],
-  assignee: ['assigned to', 'assignee', 'assigned', 'owner', 'rep', 'agent', 'trainer', 'staff'],
+  assignee: [
+    'assigned to',
+    'assignee',
+    'assigned',
+    'owner',
+    'rep',
+    'agent',
+    'trainer',
+    'staff',
+  ],
 };
 
 export interface CustomFieldRef {
@@ -121,7 +173,9 @@ export function coerceCustomValue(
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lower) ? lower : null;
     }
     case 'url': {
-      const withScheme = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+      const withScheme = /^https?:\/\//i.test(value)
+        ? value
+        : `https://${value}`;
       try {
         const u = new URL(withScheme);
         return u.hostname.includes('.') ? u.toString() : null;
@@ -201,7 +255,9 @@ export function buildTargets(customFields: CustomFieldRef[]): TargetField[] {
  * the lead fields (Status / Source / Gender / Assigned to). Contacts
  * import keeps using `buildTargets`; behaviour there is unchanged.
  */
-export function buildLeadTargets(customFields: CustomFieldRef[]): TargetField[] {
+export function buildLeadTargets(
+  customFields: CustomFieldRef[]
+): TargetField[] {
   return [
     ...STANDARD_TARGETS,
     ...LEAD_TARGETS,
@@ -217,7 +273,9 @@ export function buildLeadTargets(customFields: CustomFieldRef[]): TargetField[] 
 
 /** Extract the custom-field id from a `custom:${id}` target key, else null. */
 export function customFieldId(targetKey: string): string | null {
-  return targetKey.startsWith('custom:') ? targetKey.slice('custom:'.length) : null;
+  return targetKey.startsWith('custom:')
+    ? targetKey.slice('custom:'.length)
+    : null;
 }
 
 export interface RawCsv {
@@ -228,50 +286,63 @@ export interface RawCsv {
 
 /**
  * Parse a CSV into raw headers + rows without interpreting columns. Handles
- * quoted fields (incl. escaped `""`); does not handle newlines embedded in
- * quotes — matching the legacy parser's constraints so behaviour is
- * consistent across the two import paths.
+ * RFC 4180-style quoted commas, escaped quotes, CRLF, BOM-prefixed exports,
+ * and embedded newlines — common in Notes/Address columns from gym systems.
  */
 export function parseCsvRaw(text: string): RawCsv {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 1 || !lines[0].trim()) {
+  const records = parseCsvRecords(text);
+  if (records.length === 0 || !records[0].some((cell) => cell.trim())) {
     return { headers: [], rows: [] };
   }
 
-  const headers = parseCsvLine(lines[0]);
-
-  const rows: string[][] = [];
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    rows.push(parseCsvLine(lines[i]));
-  }
-
-  return { headers, rows };
+  const headers = records[0].map((cell, index) =>
+    (index === 0 ? cell.replace(/^\uFEFF/, '') : cell).trim()
+  );
+  return {
+    headers,
+    rows: records.slice(1).filter((row) => row.some((cell) => cell.trim())),
+  };
 }
 
-function parseCsvLine(line: string): string[] {
-  const values: string[] = [];
-  let current = '';
+function parseCsvRecords(text: string): string[][] {
+  const records: string[][] = [];
+  let row: string[] = [];
+  let field = '';
   let inQuotes = false;
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
+  const pushField = () => {
+    row.push(field.trim());
+    field = '';
+  };
+  const pushRow = () => {
+    pushField();
+    records.push(row);
+    row = [];
+  };
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
     if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
+      if (inQuotes && text[i + 1] === '"') {
+        field += '"';
         i++;
       } else {
         inQuotes = !inQuotes;
       }
     } else if (char === ',' && !inQuotes) {
-      values.push(current.trim());
-      current = '';
+      pushField();
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && text[i + 1] === '\n') i++;
+      pushRow();
     } else {
-      current += char;
+      field += char;
     }
   }
-  values.push(current.trim());
-  return values;
+
+  // Do not turn a terminal newline into a phantom row, but preserve a
+  // terminal comma as the final empty cell of the real row.
+  if (field.length > 0 || row.length > 0) pushRow();
+  return records;
 }
 
 /**
@@ -280,11 +351,14 @@ function parseCsvLine(line: string): string[] {
  * is assigned to at most one column (first match wins) so two columns never
  * both claim `phone`.
  */
-export function autoMapColumns(headers: string[], targets: TargetField[]): string[] {
+export function autoMapColumns(
+  headers: string[],
+  targets: TargetField[]
+): string[] {
   const used = new Set<string>();
 
   return headers.map((header) => {
-    const norm = header.trim().toLowerCase();
+    const norm = normalizeImportHeader(header);
     if (!norm) return IGNORE_KEY;
 
     for (const target of targets) {
@@ -300,10 +374,61 @@ export function autoMapColumns(headers: string[], targets: TargetField[]): strin
 
 function headerMatchesTarget(normHeader: string, target: TargetField): boolean {
   if (target.kind === 'custom') {
-    return normHeader === target.label.trim().toLowerCase();
+    return normHeader === normalizeImportHeader(target.label);
   }
-  const synonyms = HEADER_SYNONYMS[target.key];
-  return synonyms ? synonyms.includes(normHeader) : false;
+  const synonyms = [
+    ...(target.synonyms ?? []),
+    ...(HEADER_SYNONYMS[target.key] ?? []),
+    target.label,
+  ].map(normalizeImportHeader);
+  const stripped = stripHeaderContext(normHeader);
+  return synonyms.some((synonym) => {
+    if (!synonym) return false;
+    return (
+      synonym === normHeader ||
+      stripHeaderContext(synonym) === stripped ||
+      squashHeader(synonym) === squashHeader(normHeader)
+    );
+  });
+}
+
+/** Normalize separators/casing used by exports such as `Member_Name`,
+ * `member-name`, `Membership Expiry (Date)`, and camelCase API dumps. */
+export function normalizeImportHeader(value: string): string {
+  return value
+    .replace(/^\uFEFF/, '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+const HEADER_CONTEXT = new Set([
+  'member',
+  'members',
+  'membership',
+  'customer',
+  'client',
+  'current',
+  'primary',
+  'details',
+  'detail',
+  'info',
+  'information',
+  'field',
+]);
+
+function stripHeaderContext(value: string): string {
+  return value
+    .split(' ')
+    .filter((token) => token && !HEADER_CONTEXT.has(token))
+    .join(' ');
+}
+
+function squashHeader(value: string): string {
+  return value.replace(/\s+/g, '');
 }
 
 export interface MappingValidation {
