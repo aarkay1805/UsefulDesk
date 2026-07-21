@@ -126,9 +126,9 @@ export function PlanOptionPicker({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-1.5">
-        <Label htmlFor={`${idPrefix}-plan`} className="text-muted-foreground">
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor={`${idPrefix}-plan`}>
           Plan{" "}
           {required && <span className="text-red-foreground">*</span>}
         </Label>
@@ -160,11 +160,16 @@ export function PlanOptionPicker({
           </SelectContent>
         </Select>
         {footer}
+        {selectedPlan && options.length === 1 && selectedOption && (
+          <p className="text-muted-foreground text-xs">
+            {optionLabel(selectedOption)}
+          </p>
+        )}
       </div>
 
       {selectedPlan && options.length > 1 && (
-        <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-option`} className="text-muted-foreground">
+        <div className="space-y-2">
+          <Label htmlFor={`${idPrefix}-option`}>
             {OPTION_LABEL[selectedPlan.plan_type]}
           </Label>
           <Select
@@ -188,10 +193,6 @@ export function PlanOptionPicker({
             </SelectContent>
           </Select>
         </div>
-      )}
-
-      {selectedPlan && options.length === 1 && selectedOption && (
-        <p className="text-muted-foreground text-xs">{optionLabel(selectedOption)}</p>
       )}
 
       {selectedPlan && options.length === 0 && (

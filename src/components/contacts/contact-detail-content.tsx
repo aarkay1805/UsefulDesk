@@ -1064,9 +1064,13 @@ export function ContactDetailContent({
         open={convertOpen}
         onOpenChange={setConvertOpen}
         seedContact={{
+          id: contact.id,
           name: contact.name,
           phone: contact.phone,
           email: contact.email,
+          avatarUrl: contact.avatar_url,
+          heightCm: contact.height_cm,
+          weightKg: contact.weight_kg,
         }}
         onSaved={() => {
           setConvertOpen(false);

@@ -1,8 +1,14 @@
 # Changelog — what shipped, and why
 
-> **Archaeology.** Read a section only when you need the *reasoning* behind a past decision. The durable **rules** extracted from this work live in `CLAUDE.md`, `docs/ui-patterns.md`, and `docs/gym-domain.md` — those are the sources of truth; this file is the record.
+> **Archaeology.** Read a section only when you need the _reasoning_ behind a past decision. The durable **rules** extracted from this work live in `CLAUDE.md`, `docs/ui-patterns.md`, and `docs/gym-domain.md` — those are the sources of truth; this file is the record.
 >
 > **Append here** when you land a feature: what shipped, where the code lives, what a future session must not re-litigate. Terse.
+
+---
+
+## One-time lead conversion discounts
+
+**Convert to member** now uses one responsive split layout with the missing mockup hierarchy restored: a divided header, **Membership details** heading, and expiry helper kept snug beneath the billing option. The left third contains click-to-edit **Personal information**, localized body measurements, and the shared member photo editor on the avatar; lead status is intentionally omitted. The right two thirds hold plan, discount, and first-payment decisions, with every input label using the default shared `Label` treatment—no conversion-specific colour, weight, or size overrides. Its spacing now follows one roomier scale: `2` between labels and controls, `4` between sibling fields and within cards, and `6` between major sections. The modal grows up to 96vh and caps at 900px, stacks on smaller screens, and omits conversion Notes. Discount and payment use matching unfilled checkbox sections, with the discount defaulting to fixed amount and switching type through the shared segmented toolbar. The shared `CurrencyInput` now gives its currency symbol a divided leading compartment across all consumers. Percentage discounts validate inline as greater than zero and no more than 100%, disable conversion while invalid, and retain submit- and database-level guards. The offer reduces only the initial invoice; the invoice preserves the regular price and discount breakdown for audit, while future renewals continue to use the plan option's normal price. Key code: `src/components/members/member-form.tsx`, `src/components/ui/currency-input.tsx`, `src/components/contacts/contact-detail-content.tsx`, `src/lib/memberships/discount.ts`, and `supabase/migrations/20260721130000_add_conversion_discounts.sql`.
 
 ---
 
@@ -166,12 +172,14 @@ Lead records on top of `contacts`: DB-driven lead status funnel (hex-coloured st
 **Sort.** Real `contacts` columns sort server-side via `.order(sortColumn)`. Everything else sorts **client-side** in `fetchContacts`' `clientSort` branch (`ClientSort = custom | person | tags`): pull all filtered lead ids → build a per-lead sort key → order the whole set (`compareCustomValues`: numeric types numerically, else lexical/`localeCompare`; imported dates are ISO so text order = chrono; blanks last) → fetch only the page's rows. Key source per kind — **custom** = the field's `contact_custom_values` value; **person** = the uuid column (`assigned_to`/`created_by`, on `ColumnDef.clientSort`) resolved via `nameById`; **tags** = each lead's alphabetically-first tag name (one account-scoped `contact_tags` read). A column is sortable if `sortColumn || isCustom || clientSort`.
 
 **Per-column value filter.** Every filterable column's three-dot menu carries an Excel-style **Filter** submenu (`DropdownMenuSub` → `DropdownMenuItem`s with an always-visible left checkbox + `closeOnClick={false}`, so multi-select is obvious).
+
 - **Built-in** columns map to a shared `LeadFilters` dimension via `columnFilterConfig` (status→`leadStatus`, source→`source`, gender→`gender`, tags→`tags`, assignee→`assigned`, received_by→`owner`, created_by→`createdBy`) — so the column filter and the global Filters panel are **one source of truth, no drift**.
 - **Custom fields** of type text/number/currency (`CUSTOM_FILTER_TYPES`; email/phone/url/date excluded) filter too — distinct stored values load into `customFilterOptions`, selections live in `LeadFilters.customValues`.
 - Free-text built-ins (name/phone/email/company/dates) omit the item.
 - **Id-based filters** (tags + custom values) resolve to contact-id sets and **intersect** in `resolveContactIdFilter`; `applyLeadFilters`' `idFilter` param does `.in('id', …)`. Used by the table, select-all, and CSV export.
 
 **Bulk actions** (`bulk-*.tsx`) — row multi-select shows a toolbar below the search bar that animates open/closed (`Collapse`; the count is frozen mid-collapse so it can't flash "0").
+
 - **Edit** → `BulkEditDialog`: pick one property (status / assignee / source / gender / company / any custom field), set it, apply to all. (Assign is folded in here as "Assigned to" — no separate Assign button.)
 - **Delete** → confirm + `.in('id', ids)`.
 - **Add note** → `BulkAddNoteDialog`. Notes batch-insert and the surface stays note-only; manual follow-ups belong to a person's row action or profile Notes composer.
@@ -184,7 +192,7 @@ Lead records on top of `contacts`: DB-driven lead status funnel (hex-coloured st
 
 `ImportWizard` (`components/contacts/import-wizard.tsx`) is **variant-parameterized**: `variant="contacts"` keeps the original 3-step flow; `variant="leads"` runs 4 steps — Upload → Map columns → **Preview & edit** → Confirm.
 
-Leads additions: lead-field mapping targets (`buildLeadTargets` in `field-mapping.ts`; raw cell text rides on `MappedRow`) · searchable grouped field picker (`ui/combobox.tsx`) · heuristic type detection on inline field-create + per-column `DD/MM` chip for ambiguous date columns (`detectFieldType` / `detectDateOrder`) · an **editable preview grid** rendered with the leads table's own renderers (`import-preview-grid.tsx`; caps at 200 rows *shown*, all imported) · the **Fix values panel** — value-level remapping with row counts, fuzzy auto-match, and a remap log feeding the Confirm receipt + result audit.
+Leads additions: lead-field mapping targets (`buildLeadTargets` in `field-mapping.ts`; raw cell text rides on `MappedRow`) · searchable grouped field picker (`ui/combobox.tsx`) · heuristic type detection on inline field-create + per-column `DD/MM` chip for ambiguous date columns (`detectFieldType` / `detectDateOrder`) · an **editable preview grid** rendered with the leads table's own renderers (`import-preview-grid.tsx`; caps at 200 rows _shown_, all imported) · the **Fix values panel** — value-level remapping with row counts, fuzzy auto-match, and a remap log feeding the Confirm receipt + result audit.
 
 Coercion engine = `src/lib/leads/import-coerce.ts` (pure, tested): option/assignee matching, `buildPreviewRows`, `applyValueFix`. **Commit consumes the edited `PreviewRow[]`**, not a mapping re-run. Insert payload extends with `lead_status`/`source`/`gender` and `assigned_to` (a mapped assignee overrides importer-as-owner; updates never null ownership).
 
@@ -208,12 +216,12 @@ Copy/rotate a shareable link at Settings → Team → Pending invitations (`POST
 
 ## Three distinct ownership facts (don't conflate)
 
-| Fact | Column | Rule |
-|---|---|---|
-| origin **channel** | `received_via` (`048`) | immutable |
-| original human **creator** | `created_by` (`051`) | set once at insert, frozen on update by trigger `lock_contact_created_by`; read-only "Created by" column |
-| current **owner** ("Received by") | `user_id` | transferable via the `050` flow |
-| current **assignee** (delegate) | `assigned_to` | reassignable; approval-gated for non-owners via `052` |
+| Fact                              | Column                 | Rule                                                                                                     |
+| --------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| origin **channel**                | `received_via` (`048`) | immutable                                                                                                |
+| original human **creator**        | `created_by` (`051`)   | set once at insert, frozen on update by trigger `lock_contact_created_by`; read-only "Created by" column |
+| current **owner** ("Received by") | `user_id`              | transferable via the `050` flow                                                                          |
+| current **assignee** (delegate)   | `assigned_to`          | reassignable; approval-gated for non-owners via `052`                                                    |
 
 ### Lead ownership transfer (migration `050` · `PRDs/lead_ownership_transfer.md`)
 
@@ -230,7 +238,7 @@ UI lives on the **Received-by column** (table cell + detail row): owner picker t
 
 ### Lead assignment approval (migration `052`)
 
-A SECOND flow on the **"Assigned to" column** (the delegate, distinct from ownership). The owner (`user_id`) or an admin change it **instantly**; **any other agent's change → a request the OWNER must approve** (approver = the owner OR any admin — *not* the target, unlike ownership transfer). Applies to any change including unassign.
+A SECOND flow on the **"Assigned to" column** (the delegate, distinct from ownership). The owner (`user_id`) or an admin change it **instantly**; **any other agent's change → a request the OWNER must approve** (approver = the owner OR any admin — _not_ the target, unlike ownership transfer). Applies to any change including unassign.
 
 Reuses `lead_transfers` via a `kind` column (`'ownership' | 'assignment'`) + `approver_user_id`; `to_user_id` is now nullable (unassign); one pending per `(contact_id, kind)`. RPCs: `request_lead_assignment` / `respond_lead_assignment` / `cancel_lead_assignment`.
 
@@ -242,13 +250,14 @@ Instant + approve paths write `assigned_to`, so the existing `notify_lead_assign
 
 ## Leads board parity (Jul 2026)
 
-The board (`leads-board.tsx`) honours the shared **Filters panel** — `fetchBoard` runs `resolveContactIdFilter` + `applyLeadFilters` and is sequence-guarded like the table; the Filters button renders in **both** views. (Sort / Edit columns stay table-only: filters constrain the *data*, those are table *presentation*. Without this a table-set filter kept applying to CSV export while invisible from the board.)
+The board (`leads-board.tsx`) honours the shared **Filters panel** — `fetchBoard` runs `resolveContactIdFilter` + `applyLeadFilters` and is sequence-guarded like the table; the Filters button renders in **both** views. (Sort / Edit columns stay table-only: filters constrain the _data_, those are table _presentation_. Without this a table-set filter kept applying to CSV export while invisible from the board.)
 
 Cards mirror the table row compressed: name + hover-reveal ⋮ menu (View/Edit/Delete — same page handlers as the table row menu) · phone/company · 2 tag pills + "+n" · footer = source glyph + compact created date vs the **owner slot** (assignee `UserAvatar`, or an amber pending chip for an in-flight ownership transfer / assignment approval / pending invite — same precedence as the table cells, so a lead mid-handoff can't look normal on the board; the `lead_transfers` realtime channel bumps `boardNonce` too). Board rows are tag-enriched (`BoardLead = Contact & {tags?}`; one account-scoped `contact_tags` read, no id list in the URL). Whole-board empty state matches the table's.
 
 **Drag perf** is load-bearing and the FLIP animation is deliberately kept — the full render structure + the two traps (context re-render fan-out; optimistic state must not live on the page) are documented in `docs/ui-patterns.md` → Animation → Kanban board.
 
 **Board settings (Tier 1).** A gear shows in board view (fused right of the view picker; opens the shared `ViewSettingsSheet` switched on `view`). Two knobs — the board's peers of the table's page-size/cell-wrap:
+
 - **card density** — `comfortable` shows company + tags + source/date footer; `compact` = name/phone/owner only.
 - **sort within column** — `newest`/`oldest`/`name`/`updated` (replacing the hard-coded newest-first; `sortColumnLeads`; reorder animates via the FLIP).
 
@@ -290,7 +299,7 @@ Also in this pass: the "View existing" dedupe link resolves contact→membership
 
 The wide sheet (`data-[side=right]:w-full` + `data-[side=right]:sm:max-w-[min(1200px,calc(100vw-2rem))]` — fills the viewport up to a 1200px cap rather than leaving dead space beside inner scrollbars) gained a jump-nav + BMI rail + full profile/settings.
 
-> **⚠️ Sheet-width gotcha.** `ui/sheet.tsx` sets `data-[side=right]:w-3/4`, and a call-site's bare `w-full` does **not** beat it — tailwind-merge only dedupes utilities of the *same variant*, so an override of a `data-[side=*]:`-prefixed class must carry the same prefix. (The existing `max-w` comment said this; the `width` half was missed and silently pinned every sheet to 75vw.)
+> **⚠️ Sheet-width gotcha.** `ui/sheet.tsx` sets `data-[side=right]:w-3/4`, and a call-site's bare `w-full` does **not** beat it — tailwind-merge only dedupes utilities of the _same variant_, so an override of a `data-[side=*]:`-prefixed class must carry the same prefix. (The existing `max-w` comment said this; the `width` half was missed and silently pinned every sheet to 75vw.)
 
 **Responsive:** the body is `lg:grid-cols-[minmax(640px,1fr)_310px]` — the 640px floor lives on the **grid track**, and the content column is `min-w-0` (a raw `min-w-[640px]` would also apply on mobile and force the whole sheet to scroll sideways). Below `lg` it stacks single-column with the BMI rail at the bottom; below `sm` the header actions take their own full-width row, and the Billing invoice table drops its Paid/Balance/Cycle columns + stacks the period into a two-line numeric range (every dropped fact is in `InvoiceDetailDialog`, which the row opens).
 
@@ -326,7 +335,7 @@ The page gained `handleContactUpdated` (re-pulls `activeContact` + bumps `resync
 
 **Opened on demand.** The panel starts **closed** — selecting a conversation opens the chat and nothing else. It's revealed by clicking the contact's **avatar** (conversation row → selects that conv AND opens; thread header → opens) or the header's panel toggle, and once open it's **sticky** (follows whichever conversation you select until you close it). Deliberately **not persisted** — it used to default `true` and round-trip through a `wacrm:inbox:contact-panel-open` localStorage key, so a stored `true` would have defeated the new default. That key is gone.
 
-> **⚠️ Why the conversation row is a plain `<div>`.** Making the row avatar clickable forced the row off `<button>` (a button may not nest a button). It is a plain clickable **`<div>`, NOT `role="button"`** — exactly the leads board card's shape: the div's `onClick` is the pointer convenience and the **name is the real `<button>`** carrying the keyboard/AT path. `role="button"` was tried first and is **wrong** — ARIA forbids focusable descendants inside a button, and the nested avatar's `aria-label` got absorbed into the row's accessible name, which read *"Open Mohit's profile Mohit Lead about 1 hour Welcome and…"*.
+> **⚠️ Why the conversation row is a plain `<div>`.** Making the row avatar clickable forced the row off `<button>` (a button may not nest a button). It is a plain clickable **`<div>`, NOT `role="button"`** — exactly the leads board card's shape: the div's `onClick` is the pointer convenience and the **name is the real `<button>`** carrying the keyboard/AT path. `role="button"` was tried first and is **wrong** — ARIA forbids focusable descendants inside a button, and the nested avatar's `aria-label` got absorbed into the row's accessible name, which read _"Open Mohit's profile Mohit Lead about 1 hour Welcome and…"_.
 
 Both inbox avatars (row + thread header) now route through `UserAvatar` — the thread header's previously rendered a bare initial and ignored `contacts.avatar_url` entirely.
 
@@ -342,7 +351,7 @@ Full pattern (birth trigger, TS lifecycle, reconcile-by-`period_end`, TS-derived
 
 Backfilled current + past-paid cycles from the ledger.
 
-**Still deferred:** auto-generating/charging *future* invoices (a billing cron — overlaps UPI AutoPay) · persisting the Upcoming projection · per-cycle fee history for backfilled rows (their fee = Σ paid).
+**Still deferred:** auto-generating/charging _future_ invoices (a billing cron — overlaps UPI AutoPay) · persisting the Upcoming projection · per-cycle fee history for backfilled rows (their fee = Σ paid).
 
 ---
 
@@ -420,34 +429,34 @@ Full model, `PLAN_COPY`, and the RPC-param gotcha → `docs/gym-domain.md`.
 
 ## Lead capture: public forms + Meta lead ads (Jul 2026, migration `064`)
 
-Closes Phase 2's last gap — until now a lead could only be *typed in, imported, or waited for*. Two inbound paths, one shared foundation.
+Closes Phase 2's last gap — until now a lead could only be _typed in, imported, or waited for_. Two inbound paths, one shared foundation.
 
 **Sequenced deliberately.** Meta needs App Review for `leads_retrieval` + `pages_manage_metadata` (weeks; resubmitting can re-queue the already-approved WhatsApp permissions). Forms have no such gate, so forms ship live and the Meta path sits **dark behind an unset `NEXT_PUBLIC_META_LEADS_CONFIG_ID`** — the card doesn't render until review clears.
 
-**Shared foundation.** `findOrCreateContact` (`src/lib/api/v1/contacts.ts`) gained optional `receivedVia` + `source` on `ContactInput` (not positional args → zero call-site churn; the public API still defaults to `'api'`, guarded by a test). New `addContactTags` — additive, unlike the sibling `setContactTags`, which *replaces* and would wipe a lead's existing tags on a second enquiry.
+**Shared foundation.** `findOrCreateContact` (`src/lib/api/v1/contacts.ts`) gained optional `receivedVia` + `source` on `ContactInput` (not positional args → zero call-site churn; the public API still defaults to `'api'`, guarded by a test). New `addContactTags` — additive, unlike the sibling `setContactTags`, which _replaces_ and would wipe a lead's existing tags on a second enquiry.
 
 - **Auto-captured leads land UNASSIGNED and ownership-LOCKED.** `user_id` = `resolveAuditUserId()`; `assigned_to` stays NULL (no round-robin exists, and setting it would fire `notify_lead_assigned` at someone who never agreed to own the lead). The lock is **free**: `050:137` / `052:93` already refuse a transfer when `received_via NOT IN ('manual','import')`, so adding `'form'` inherited it with zero SQL. Assignment still works via the approval-gated `request_lead_assignment`.
-- **Both paths always write a `contact_notes` row — on create AND on dedupe.** Without this a repeat enquiry from a known number is *completely invisible*: `findOrCreateContact` returns the existing row, `received_via` still reads `'manual'`, and no automation fires.
+- **Both paths always write a `contact_notes` row — on create AND on dedupe.** Without this a repeat enquiry from a known number is _completely invisible_: `findOrCreateContact` returns the existing row, `received_via` still reads `'manual'`, and no automation fires.
 - Both fire `new_contact_created` themselves. The trigger existed but was dispatched from exactly one place (the WhatsApp webhook) — nothing fires it for you.
 - Goal answer → a **tag**, not a new column (`GOAL_OPTIONS` in `leads/attributes.ts`). Keeps the blast radius at seven tags instead of ~8 files.
 
 **Capture forms** (`/f/<token>`, `src/app/f/`, `src/app/api/lead-forms/`). Bare top-level segment like `/join` — no `proxy.ts` change (`protectedPaths` is a prefix allowlist). Fixed field set, no builder. The submit route is **the product's only unauthenticated write**; defence order is rate-limit → honeypot → Turnstile → validate → write.
 
-- **The form token is PLAINTEXT, on purpose.** `account_invitations` hashes its token because that one grants *membership*, and pays for it by rotating on every copy. A form token grants no read of anything and lives in an Instagram bio, so it must be re-copyable. Revocation = `is_active` / rotate. Don't "fix" this.
+- **The form token is PLAINTEXT, on purpose.** `account_invitations` hashes its token because that one grants _membership_, and pays for it by rotating on every copy. A form token grants no read of anything and lives in an Instagram bio, so it must be re-copyable. Revocation = `is_active` / rotate. Don't "fix" this.
 - **The honeypot returns 200, never 400** — a distinct status tells a bot which field is the trap.
 - **Success body is identical whether the contact was created or deduped**, or the endpoint becomes a free "is this number a lead at that gym?" oracle.
-- `lead_capture_submissions` snapshots `consent_text` per row (DPDP needs proof of *what* was agreed, not just that it was) and is `ON DELETE SET NULL` on `contact_id` — deleting a lead must not destroy its consent record. Service-role writes only; no client INSERT policy.
+- `lead_capture_submissions` snapshots `consent_text` per row (DPDP needs proof of _what_ was agreed, not just that it was) and is `ON DELETE SET NULL` on `contact_id` — deleting a lead must not destroy its consent record. Service-role writes only; no client INSERT policy.
 - **Turnstile fails CLOSED in production** when `TURNSTILE_SECRET_KEY` is unset (503). The per-IP limiter is an in-memory Map, per-lambda — on Vercel's fan-out it's a speed bump, **Turnstile is the wall**.
 
 **Meta lead ads** (`src/app/api/meta/leads/`). Leadgen arrives on the **`page`** object, which gets its own callback URL + verify token — it cannot ride the WhatsApp webhook. Needs a **second FBLB config** (the WhatsApp Embedded Signup config is fixed-permission; page scopes can't be bolted on). `loadFbSdk` extracted to `src/lib/meta/fb-sdk.ts` so `FB.init` still runs once.
 
-- **Processes INLINE, not in `after()`** — a deliberate divergence from the WhatsApp webhook. Once you've 200'd, Meta never retries, so a failure afterwards loses the lead *forever*. Work first, let the status code tell the truth: on failure return 500 and Meta retries for up to 36h.
+- **Processes INLINE, not in `after()`** — a deliberate divergence from the WhatsApp webhook. Once you've 200'd, Meta never retries, so a failure afterwards loses the lead _forever_. Work first, let the status code tell the truth: on failure return 500 and Meta retries for up to 36h.
 - **Claims each lead in `webhook_events`** (`meta:leadgen:<id>`, the Razorpay `ignoreDuplicates` pattern) and **DELETEs its own claim on failure** — otherwise the retry is deduped away into silence. `064` had to `GRANT DELETE ON webhook_events TO service_role`; `059` granted only SELECT/INSERT/UPDATE. Pass `gateway:'meta'` explicitly — the column defaults to `'razorpay'`.
-- **Always long-lived-swap the user token first.** Page tokens inherit the lifetime of the token they came from: from a short-lived one they die in ~1h and ingestion stops *silently*.
+- **Always long-lived-swap the user token first.** Page tokens inherit the lifetime of the token they came from: from a short-lived one they die in ~1h and ingestion stops _silently_.
 - Field mapping (`leads/meta-field-mapping.ts`) is three tiers — key-normalize → alias table → **shape fallback** (looks like an email / a phone). Custom question keys are arbitrary (derived from the question text), so a gym asking in Hindi still gets its leads.
 - **Email-only leads are SKIPPED, and counted.** `contacts.phone` is NOT NULL and a phone-less lead is unreachable on the WhatsApp wedge. Settings surfaces "N leads skipped — your Meta form doesn't ask for a phone number", which the gym can actually fix in Ads Manager.
 
-**The phone trap (`normalizeSubmittedPhone`, `leads/capture-form.ts` — used by BOTH paths).** A visitor types 10 local digits; `isValidE164` *happily accepts* a bare `9876543210`, so it stores looking clean and is then un-messageable on WhatsApp forever — silently breaking the whole wedge, on the happy path. So the account's dial code is prefixed unless the input is explicitly international. Watch the guard for `'9198765432'`: a real 10-digit Indian number that merely *starts* with `91` and must not be mistaken for one already carrying the country code.
+**The phone trap (`normalizeSubmittedPhone`, `leads/capture-form.ts` — used by BOTH paths).** A visitor types 10 local digits; `isValidE164` _happily accepts_ a bare `9876543210`, so it stores looking clean and is then un-messageable on WhatsApp forever — silently breaking the whole wedge, on the happy path. So the account's dial code is prefixed unless the input is explicitly international. Watch the guard for `'9198765432'`: a real 10-digit Indian number that merely _starts_ with `91` and must not be mistaken for one already carrying the country code.
 
 Verified against live: bare 10-digit → stored `919876543210`; dedupe → 1 contact / 2 submissions / 2 notes / identical response body; honeypot → 0 rows; 6th submit → 429; revoke → `revoked`; Meta handshake fails closed (403); tampered signature → 401; failed ingest → 500 **with the claim rolled back**; pre-claimed redelivery → 200 no-op.
 
@@ -456,6 +465,7 @@ Verified against live: bare 10-digit → stored `919876543210`; dedupe → 1 con
 ## Lead delete — admin-any + agent-owns-their-own (migrations `065`, `066`)
 
 Deleting a lead is gated by the **authored-content ownership rule**, enforced in BOTH layers:
+
 - **owner/admin** → delete any lead (incl. auto-captured + teammates').
 - **agent** → only a lead THEY created via a human action — `created_by = self` AND `received_via` is human (NULL/`manual`/`import`). Auto-captured leads (whatsapp/meta/api/automation/form) and other people's leads are off-limits.
 - **viewer** → never.
@@ -481,7 +491,7 @@ Two small UX gaps on the renewal wedge's setup path.
 Closes the App Review gap: Meta requires a Data Deletion Request URL, and there was no data-subject erasure path.
 
 - **Meta Data Deletion Request Callback** — `POST /api/meta/data-deletion` (nodejs runtime). Parses + HMAC-verifies Meta's `signed_request` via `src/lib/meta/signed-request.ts` (signature is over the **encoded** payload segment, not the decoded JSON; rejects non-`HMAC-SHA256`, missing `user_id`, empty secret — colocated test). Fails closed with no `META_APP_SECRET`. Records a `data_deletion_requests` row and returns `{ url, confirmation_code }`. Set this route as the app's "Data Deletion Request URL" in the Meta dashboard.
-- **Public status page** — `src/app/data-deletion/page.tsx` (`force-dynamic`, unauthenticated; the confirmation code is the capability). `?code=` → looks the request up with the service role and shows status; no code → deletion instructions (doubles as the "Data Deletion Instructions URL"). Note: FB Login here only grants business assets — we store no FB *profile* keyed by ASID, so a callback usually has no profile PII to erase.
+- **Public status page** — `src/app/data-deletion/page.tsx` (`force-dynamic`, unauthenticated; the confirmation code is the capability). `?code=` → looks the request up with the service role and shows status; no code → deletion instructions (doubles as the "Data Deletion Instructions URL"). Note: FB Login here only grants business assets — we store no FB _profile_ keyed by ASID, so a callback usually has no profile PII to erase.
 - **Account erasure** — `DELETE /api/account`, owner-only (`canDeleteAccount`, already existed) + exact account-name confirmation in `{ confirm }`. Deleting the `accounts` row cascades every `account_id` FK (all tenant Platform Data incl. encrypted `whatsapp_config` tokens); the two things Postgres FKs don't reach — Supabase Storage media (`account-<id>/` prefix across `chat-media`/`flow-media`/`profile-avatars`) and members' `auth.users` login identities — are purged explicitly (self deleted last). Admin-client delete chains `.select('id')` and treats empty as failure (RLS-silent-write gotcha).
 - **`data_deletion_requests` table** (`066`) — audit log for both flows. **No FK to accounts on purpose** (an `ON DELETE CASCADE` would erase the trail the erasure creates). RLS enabled, **zero policies** → service-role-only.
 - **UI trigger** — `AccountDangerZone` (`src/components/settings/account-danger-zone.tsx`) renders at the bottom of Settings → Members, **self-gated to owner** via `useCan('delete-account')` (returns null otherwise). Type-the-account-name-to-confirm dialog → `DELETE /api/account` → hard-nav to `/` (proxy bounces the now-unauthenticated session to sign-in).
@@ -505,12 +515,12 @@ PushPress-style setup guide for freshly created gyms: a `/get-started` page + si
 
 Triggered by a real clash: the onboarding step rows tinted their leading icon `bg-primary-soft`/`text-primary` and their done-tick emerald. **`emerald` is a shipped accent theme** — so a gym on that accent saw pending rows and done rows in the same green. Brand and status collapsed into one colour.
 
-- **New token `--border-hover`** (`globals.css`, mapped as `--color-border-hover` → `hover:border-border-hover`). **Mirrors intent per mode, not direction**: darkens on light (`0.922 → 0.87`, ≈gray-200 → gray-300), **lightens on dark** (`0.28 → 0.36`). Darkening on dark would push the edge toward the card fill (`0.18`) and dissolve it — the card would read as *losing* its border on hover. Same logic `--card-2` already uses.
+- **New token `--border-hover`** (`globals.css`, mapped as `--color-border-hover` → `hover:border-border-hover`). **Mirrors intent per mode, not direction**: darkens on light (`0.922 → 0.87`, ≈gray-200 → gray-300), **lightens on dark** (`0.28 → 0.36`). Darkening on dark would push the edge toward the card fill (`0.18`) and dissolve it — the card would read as _losing_ its border on hover. Same logic `--card-2` already uses.
 - **Card hover = border only.** The fill no longer moves; `hover:bg-*` is gone from every clickable card. Deliberately **neutral, never accent-tinted** — that's what caused the clash. Rule → `docs/ui-patterns.md`.
 - **17 cards / 13 files converged onto one hover**, retiring two competing idioms (`hover:border-primary-soft-2 hover:bg-card-2` and the older `hover:bg-muted/60`).
-- **Four hovers never fired.** `flows:375`, `automations:280`, both `appearance-panel` cards: `hover:border-border` while already resting at `border-border` = no-op. `notifications:306` had `hover:border-border/70` — *weaker* on hover. All now respond.
+- **Four hovers never fired.** `flows:375`, `automations:280`, both `appearance-panel` cards: `hover:border-border` while already resting at `border-border` = no-op. `notifications:306` had `hover:border-border/70` — _weaker_ on hover. All now respond.
 - **`gym-metrics.tsx` `TileLink` was dead too** — its child is a `Card`, whose edge is `ring-1 ring-foreground/10`, **not a border**. `[&>div]:hover:border-primary/50` targeted a border that doesn't exist. Retargeted to `hover:[&>div]:ring-border-hover`; those dashboard tiles have hover feedback for the first time.
 - **Onboarding rows**: leading icon → neutral `bg-muted text-foreground` on every step (done or not); trailing done-tick → filled `size-5` emerald circle + white `Check` (`strokeWidth={3}`), replacing the `size-4` `CheckCircle2` outline. `CheckCircle2` still used by the all-done card.
-- Selected/active states keep their `primary` tint — only the *unselected* hover went neutral. Untouched on purpose: tag pills, dashed dropzone, icon-circle buttons, table rows, canvas nodes, destructive/red.
+- Selected/active states keep their `primary` tint — only the _unselected_ hover went neutral. Untouched on purpose: tag pills, dashed dropzone, icon-circle buttons, table rows, canvas nodes, destructive/red.
 - `StepRow` (`get-started-view.tsx`) and the settings status tile (`settings-overview.tsx`) are **byte-identical boxes** — visual twins that must change together.
 - Verified: `tsc` + eslint clean, `next build` green, and both utilities confirmed in the emitted CSS (`.hover\:border-border-hover:hover{border-color:var(--border-hover)}`, `…ring-border-hover:hover>div{--tw-ring-color:var(--border-hover)}`).

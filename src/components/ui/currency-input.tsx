@@ -53,7 +53,8 @@ function caretAfterAmountChars(formatted: string, n: number): number {
 /**
  * Amount input adorned with the account's currency symbol ("₹ 1500").
  * Composes the master Input — the symbol is a pointer-transparent
- * overlay and the input gains left padding sized to the symbol, so all
+ * overlay with a divider and the input gains left padding sized to the
+ * symbol compartment, so all
  * Input styling/behaviour (focus ring, disabled, invalid) is inherited
  * untouched. Pass the symbol from `currencySymbol(defaultCurrency)`.
  *
@@ -84,11 +85,13 @@ function CurrencyInput({
   onValueChange?: (raw: string) => void;
   onChange?: React.ChangeEventHandler<HTMLInputElement>;
 }) {
-  // Bucketed padding: 1-char symbols (₹ $ €) sit in pl-7; wider ones
-  // (A$, د.إ) get progressively more room. Class-only so Tailwind can
-  // see every variant.
+  // Bucketed adornment width + matching padding keep the symbol centred
+  // in its own divided compartment. Class-only so Tailwind can see every
+  // variant.
+  const adornment =
+    symbol.length <= 1 ? "w-9" : symbol.length === 2 ? "w-11" : "w-14";
   const pad =
-    symbol.length <= 1 ? "pl-7" : symbol.length === 2 ? "pl-9" : "pl-12";
+    symbol.length <= 1 ? "pl-11" : symbol.length === 2 ? "pl-13" : "pl-16";
 
   const grouped = !!groupLocale;
   const raw = value == null ? "" : String(value);
@@ -114,7 +117,10 @@ function CurrencyInput({
     <div className="relative w-full min-w-0">
       <span
         aria-hidden
-        className="text-muted-foreground pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-sm"
+        className={cn(
+          "text-muted-foreground border-border pointer-events-none absolute inset-y-px left-px z-10 flex items-center justify-center border-r text-sm",
+          adornment
+        )}
       >
         {symbol}
       </span>

@@ -762,6 +762,7 @@ export type MembershipStatus = 'active' | 'frozen' | 'cancelled' | 'expired';
 export type MembershipFeeStatus = 'paid' | 'due';
 export type PaymentMethod = 'cash' | 'upi' | 'card' | 'bank' | 'other';
 export type PaymentStatus = 'paid' | 'due' | 'void';
+export type MembershipDiscountType = 'amount' | 'percentage';
 
 /** What kind of product a plan is (migration 062).
  *  'recurring'     — bills every cycle; renewal chase + autopay eligible.
@@ -848,6 +849,13 @@ export interface Membership {
   /** Fee agreed for the current period (seeded from the plan price). */
   fee_amount: number;
   fee_status: MembershipFeeStatus;
+  /** Audit snapshot of a lead-conversion offer (migration
+   *  20260721130000). It applies only to the initial invoice; renewals
+   *  continue to use the plan option price. */
+  conversion_list_price?: number | null;
+  conversion_discount_type?: MembershipDiscountType | null;
+  conversion_discount_value?: number | null;
+  conversion_discount_amount?: number;
   /** Set to the freeze date while status='frozen'. */
   frozen_at?: string | null;
   /** True while this row is a trial/lead (migration 035), before it
@@ -1014,6 +1022,11 @@ export interface MembershipPeriod {
   period_end: string;
   /** Invoice total for the cycle, snapshotted at creation. */
   fee_amount: number;
+  /** Optional lead-conversion offer breakdown. Null/zero on normal cycles. */
+  list_price?: number | null;
+  discount_type?: MembershipDiscountType | null;
+  discount_value?: number | null;
+  discount_amount?: number;
   state: MembershipPeriodState;
   created_at: string;
   updated_at: string;
@@ -1034,6 +1047,11 @@ export interface MembershipPeriodInvoice {
   period_start: string;
   period_end: string;
   fee_amount: number;
+  /** Original first-invoice price and one-time conversion discount. */
+  list_price?: number | null;
+  discount_type?: MembershipDiscountType | null;
+  discount_value?: number | null;
+  discount_amount?: number;
   state: MembershipPeriodState;
   created_at: string;
   amount_paid: number;

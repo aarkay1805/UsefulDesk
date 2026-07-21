@@ -142,6 +142,20 @@ export function InvoiceDetailDialog({
   // OVER-paid (old data stamped several payments onto one period_end), so
   // fee − balance would understate what the payment list below actually sums to.
   const amountPaid = Number(invoice.amount_paid);
+  const discountAmount = Number(invoice.discount_amount ?? 0);
+  const listPrice = Number(
+    invoice.list_price ?? Number(invoice.fee_amount) + discountAmount,
+  );
+  // A later corrective cycle edit may change the invoice total without
+  // changing the historical offer snapshot. Only show a breakdown while
+  // the arithmetic still reconciles; the authoritative total always shows.
+  const hasOneTimeDiscount =
+    isChargeableAmount(discountAmount) &&
+    Math.abs(listPrice - discountAmount - Number(invoice.fee_amount)) < 0.01;
+  const discountLabel =
+    invoice.discount_type === "percentage" && invoice.discount_value != null
+      ? `One-time discount (${Number(invoice.discount_value)}%)`
+      : "One-time discount";
   // Footer "Void payment" needs an unambiguous target — only offered
   // when the period has exactly one live payment (the common case).
   // Voiding corrects money already OWED, so a not-yet-started (Upcoming)
@@ -178,6 +192,18 @@ export function InvoiceDetailDialog({
             <SummaryRow label="Period">
               {fmt.date(invoice.period_start)} – {fmt.date(invoice.period_end)}
             </SummaryRow>
+            {hasOneTimeDiscount && (
+              <SummaryRow label="Regular price">
+                <span className="tabular-nums">{fmt.money(listPrice)}</span>
+              </SummaryRow>
+            )}
+            {hasOneTimeDiscount && (
+              <SummaryRow label={discountLabel}>
+                <span className="tabular-nums">
+                  −{fmt.money(discountAmount)}
+                </span>
+              </SummaryRow>
+            )}
             <SummaryRow label="Invoice total">
               <span className="tabular-nums">{fmt.money(invoice.fee_amount)}</span>
             </SummaryRow>

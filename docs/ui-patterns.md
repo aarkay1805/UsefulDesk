@@ -101,7 +101,7 @@ Idiom (see `member-personal-info.tsx` gender picker):
 
 ### Money inputs
 
-`CurrencyInput` (`ui/currency-input.tsx`) — master `Input` with the account's currency symbol overlaid. Two modes:
+`CurrencyInput` (`ui/currency-input.tsx`) — master `Input` with the account's currency symbol centred in a divided leading compartment. The divider, compartment width, and matching input padding are master behavior; never recreate or override them at a call site. Two modes:
 - **plain** — `type="number"`, `value`/`onChange`.
 - **grouped** — pass `groupLocale={locale.locale}` + `onValueChange`; renders `type="text"` with locale grouping as you type (`₹1,00,000` on en-IN) while returning the RAW numeric string. Caret restored by digit position.
 
