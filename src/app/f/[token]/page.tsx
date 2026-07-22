@@ -34,6 +34,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PhoneInput } from '@/components/ui/phone-input';
 import {
   Select,
   SelectContent,
@@ -277,13 +278,12 @@ export default function CaptureFormPage() {
 
             <div className="space-y-2">
               <Label htmlFor="cf-phone">Phone</Label>
-              <Input
+              <PhoneInput
                 id="cf-phone"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                inputMode="tel"
-                autoComplete="tel"
-                placeholder={dialCode ? `${dialCode} 98765 43210` : undefined}
+                onValueChange={setPhone}
+                countryCode={dialCode}
+                placeholder="98765 43210"
                 aria-invalid={
                   errors.includes('phone_required') ||
                   errors.includes('phone_invalid')

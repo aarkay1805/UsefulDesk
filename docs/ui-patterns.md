@@ -115,7 +115,9 @@ A `type="number"` field can NEVER show separators — any new money field that s
 
 ### Phone inputs
 
-`PhoneInput` (`ui/phone-input.tsx`) — master `Input` that reads the account's `useLocale().locale.phoneCountryCode` directly and shows it in a muted, divided, non-editable leading compartment. The field must never offer a country picker or mutate the account setting. The editable value is the national-number portion and is passed through unchanged, so parsing, normalization, and persistence remain caller responsibilities. Product call sites remain on `Input` until the review specimen is approved and wiring is explicitly requested.
+`PhoneInput` (`ui/phone-input.tsx`) — master `Input` for every subscriber/customer phone field. It reads `useLocale().locale.phoneCountryCode` and shows that code in a muted, divided, non-editable leading compartment; token-scoped public forms may pass the account code through the `countryCode` prop because they do not have an authenticated locale provider. The field must never offer a country picker or mutate the account setting.
+
+The DOM field shows only the national-number portion, while `value`, `defaultValue`, and `onValueChange` use the complete account-qualified phone expected by persistence, dedupe, and WhatsApp paths. The component owns splitting/joining the fixed code, removes a domestic trunk zero when joining, preserves explicit international input, and guards national numbers that happen to begin with the same digits as the country code. Do not repeat that normalization at call sites. Localization's country-code setting, Meta's Phone Number ID, and other identifiers are not subscriber phone fields and remain ordinary `Input`s.
 
 ### Search & searchable selects
 

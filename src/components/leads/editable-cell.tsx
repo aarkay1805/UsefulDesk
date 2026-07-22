@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { InlineEditActions } from "@/components/ui/inline-edit-actions";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { cn } from "@/lib/utils";
 
 // Read and edit states share ONE box model so switching between them
@@ -66,7 +67,15 @@ interface EditableCellProps {
    * coloured pills, select plain labels). 'tags' is a stay-open
    * checklist — each toggle fires onToggleOption immediately.
    */
-  kind: "text" | "email" | "number" | "date" | "status" | "select" | "tags";
+  kind:
+    | "text"
+    | "email"
+    | "number"
+    | "date"
+    | "phone"
+    | "status"
+    | "select"
+    | "tags";
   /** Current committed value (seed + baseline for the no-op check). */
   value: string;
   /** Options for the dropdown kinds ('status' | 'select' | 'tags'). */
@@ -105,6 +114,7 @@ export function EditableCell({
   onCancel,
 }: EditableCellProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const phoneValueRef = useRef(value);
   // Guards double-settle: Enter fires settle, then the ensuing blur
   // would fire it again. Escape / outside-click set it too so the
   // dismiss path stays inert once a value is chosen.
@@ -115,13 +125,14 @@ export function EditableCell({
   useEffect(() => {
     if (!editing) return;
     settledRef.current = false;
+    phoneValueRef.current = value;
     // Focus the text editor after it mounts (the dropdown editors manage
     // their own focus). Ref-only work — no state writes, so this stays
     // clear of set-state-in-effect.
     if (kind === "status" || kind === "select" || kind === "tags") return;
     const id = window.setTimeout(() => inputRef.current?.focus(), 0);
     return () => window.clearTimeout(id);
-  }, [editing, kind]);
+  }, [editing, kind, value]);
 
   if (!editing) {
     return (
@@ -310,7 +321,11 @@ export function EditableCell({
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        settle(inputRef.current?.value ?? "");
+        settle(
+          kind === "phone"
+            ? phoneValueRef.current
+            : (inputRef.current?.value ?? ""),
+        );
       } else if (e.key === "Escape") {
         e.preventDefault();
         cancel();
@@ -332,7 +347,26 @@ export function EditableCell({
         }
       }}
     >
-      {prefix ? (
+      {kind === "phone" ? (
+        <PhoneInput
+          ref={inputRef}
+          defaultValue={value}
+          disabled={saving}
+          onValueChange={(next) => {
+            phoneValueRef.current = next;
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              settle(phoneValueRef.current);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              cancel();
+            }
+          }}
+          className="h-8 rounded-md bg-card pr-13 text-sm ring-2 ring-inset ring-primary disabled:opacity-60"
+        />
+      ) : prefix ? (
         // The ring/bg move to a wrapper so the adornment sits inside the
         // focus outline; box dimensions match the bare input exactly.
         <div className="flex h-8 w-full min-w-0 items-center rounded-md bg-card ring-2 ring-inset ring-primary">
@@ -356,7 +390,13 @@ export function EditableCell({
       )}
       <InlineEditActions
         saving={saving}
-        onConfirm={() => settle(inputRef.current?.value ?? "")}
+        onConfirm={() =>
+          settle(
+            kind === "phone"
+              ? phoneValueRef.current
+              : (inputRef.current?.value ?? ""),
+          )
+        }
         onDismiss={cancel}
       />
     </div>

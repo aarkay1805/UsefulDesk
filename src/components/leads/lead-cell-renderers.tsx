@@ -142,7 +142,7 @@ export function assigneeCellOptions(staff: StaffRef[]): CellOption[] {
 /** Map a custom field's data type to the inline editor's input kind. */
 export function customEditKind(
   type?: string,
-): 'text' | 'email' | 'number' | 'date' {
+): 'text' | 'email' | 'number' | 'date' | 'phone' {
   switch (type) {
     case 'currency':
     case 'number':
@@ -151,7 +151,9 @@ export function customEditKind(
       return 'date';
     case 'email':
       return 'email';
+    case 'phone':
+      return 'phone';
     default:
-      return 'text'; // text, phone, url
+      return 'text'; // text, url
   }
 }

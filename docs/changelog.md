@@ -6,9 +6,9 @@
 
 ---
 
-## Review-ready localized phone input master
+## Localized phone input rollout
 
-Added an unconsumed `PhoneInput` master for visual review: the editable national number composes the shared `Input`, while the account dialling code is a muted, divided, non-editable compartment read directly from `useLocale().locale.phoneCountryCode`. The component performs no parsing or persistence transformation, and existing product fields remain untouched until approval. The atomic sticker sheet now includes the new control and an updated component inventory. Key code: `src/components/ui/phone-input.tsx`, `docs/ui-patterns.md`, and `docs/component-sticker-sheet.html`.
+Shipped the localized `PhoneInput` across public capture, contact/member creation and profile edits, typed custom fields, lead bulk/inline/import editors, and WhatsApp template phone buttons. The visible field edits only the national number beside the fixed account dialling code, while the shared boundary helper preserves complete account-qualified values for persistence, dedupe, and WhatsApp. Localization's country-code setting and Meta's Phone Number ID remain ordinary identifier inputs. Key code: `src/components/ui/phone-input.tsx`, `src/lib/phone-input.ts`, contact/member form surfaces, and `src/components/leads/editable-cell.tsx`.
 
 ---
 

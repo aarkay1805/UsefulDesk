@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Select,
   SelectContent,
@@ -89,6 +90,13 @@ function Field({
         <DatePicker
           value={value}
           onChange={onChange}
+          disabled={disabled}
+          placeholder={placeholder}
+        />
+      ) : type === "tel" ? (
+        <PhoneInput
+          value={value}
+          onValueChange={onChange}
           disabled={disabled}
           placeholder={placeholder}
         />
@@ -170,7 +178,7 @@ export function MemberPersonalInfo({
           <Field label="Nickname" value={draft.nickname} onChange={set("nickname")} disabled={!canEdit} />
           <Field label="Birthday" type="date" value={draft.date_of_birth} onChange={set("date_of_birth")} disabled={!canEdit} />
           <Field label="Email" type="email" value={draft.email} onChange={set("email")} disabled={!canEdit} />
-          <Field label="Phone" value={draft.phone} onChange={set("phone")} disabled={!canEdit} />
+          <Field label="Phone" type="tel" value={draft.phone} onChange={set("phone")} disabled={!canEdit} />
           {/* Gender — reuses GENDER_OPTIONS (same values as leads). */}
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs text-muted-foreground">Gender</Label>

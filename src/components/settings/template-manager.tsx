@@ -23,6 +23,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -1082,11 +1083,11 @@ export function TemplateManager() {
                         </div>
                       )}
                       {btn.type === 'PHONE_NUMBER' && (
-                        <Input
-                          placeholder="+15551234567"
+                        <PhoneInput
+                          placeholder="555 123 4567"
                           value={btn.phone_number}
-                          onChange={(e) =>
-                            updateButton(i, { phone_number: e.target.value })
+                          onValueChange={(value) =>
+                            updateButton(i, { phone_number: value })
                           }
                           className="border-border text-foreground placeholder:text-muted-foreground h-8 text-xs"
                         />

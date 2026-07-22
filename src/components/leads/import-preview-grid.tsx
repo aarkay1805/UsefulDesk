@@ -118,7 +118,7 @@ interface GridColumn {
   label: string;
   render: (row: PreviewRow, index: number) => React.ReactNode;
   edit?: {
-    kind: 'text' | 'email' | 'number' | 'date' | 'status' | 'select';
+    kind: 'text' | 'email' | 'number' | 'date' | 'phone' | 'status' | 'select';
     options?: CellOption[];
     value: (row: PreviewRow) => string;
     commit: (row: PreviewRow, value: string) => PreviewRow;
@@ -279,7 +279,7 @@ export function ImportPreviewGrid({
           </span>
         ),
         edit: {
-          kind: 'text',
+          kind: 'phone',
           value: (r) => r.base.phone,
           // Phone stays the identity key — an emptied cell keeps the old
           // value rather than producing an unimportable row.

@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PhoneInput } from '@/components/ui/phone-input';
 import {
   Select,
   SelectContent,
@@ -336,15 +337,15 @@ export function ContactForm({
             <Label htmlFor="cf-phone" className="text-muted-foreground">
               Phone <span className="text-red-foreground">*</span>
             </Label>
-            <Input
+            <PhoneInput
               id="cf-phone"
               value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value);
+              onValueChange={(value) => {
+                setPhone(value);
                 if (dupMatch) setDupMatch(null);
               }}
               onBlur={checkDuplicate}
-              placeholder="+1 234 567 8900"
+              placeholder="98765 43210"
               className="border-border text-foreground placeholder:text-muted-foreground"
             />
             {dupMatch ? (
@@ -375,7 +376,7 @@ export function ContactForm({
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Include country code, e.g. +1 for US
+                Country code is set in Settings → Localization
               </p>
             )}
           </div>
@@ -532,6 +533,19 @@ export function ContactForm({
                           setCustomValues((prev) => ({
                             ...prev,
                             [field.id]: e.target.value,
+                          }))
+                        }
+                        placeholder={`Enter ${field.field_name}...`}
+                        className="border-border text-foreground placeholder:text-muted-foreground"
+                      />
+                    ) : field.field_type === 'phone' ? (
+                      <PhoneInput
+                        id={`cf-custom-${field.id}`}
+                        value={customValues[field.id] ?? ''}
+                        onValueChange={(value) =>
+                          setCustomValues((prev) => ({
+                            ...prev,
+                            [field.id]: value,
                           }))
                         }
                         placeholder={`Enter ${field.field_name}...`}

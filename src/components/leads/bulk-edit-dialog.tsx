@@ -26,6 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -54,7 +55,7 @@ export type BulkEditEditor =
       variant: 'pill' | 'plain';
       options: BulkSelectOption[];
     }
-  | { kind: 'text' | 'number' | 'date' | 'email' };
+  | { kind: 'text' | 'number' | 'date' | 'email' | 'phone' };
 
 export interface BulkEditProperty {
   /** Stable id — a contacts column ('status'/'assignee'/…) or `cf:<id>`. */
@@ -115,6 +116,17 @@ function ValueEditor({
   onChange: (value: string) => void;
 }) {
   const editor = property.editor;
+
+  if (editor.kind === 'phone') {
+    return (
+      <PhoneInput
+        value={value ?? ''}
+        onValueChange={onChange}
+        placeholder={`Enter ${property.label.toLowerCase()}`}
+        className="border-border"
+      />
+    );
+  }
 
   if (editor.kind !== 'select') {
     return (

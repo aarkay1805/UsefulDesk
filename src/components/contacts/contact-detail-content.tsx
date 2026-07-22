@@ -56,6 +56,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { InlineEditActions } from '@/components/ui/inline-edit-actions';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import { SourceIcon } from '@/components/leads/source-icon';
@@ -784,6 +785,7 @@ export function ContactDetailContent({
                   />
                   <InlineField
                     label="Phone"
+                    type="phone"
                     value={contact.phone}
                     placeholder="Add phone"
                     required
@@ -1280,6 +1282,16 @@ function InlineField({
             <CurrencyInput
               symbol={currencySymbol(locale.currency)}
               {...inputProps}
+            />
+          ) : type === 'phone' ? (
+            <PhoneInput
+              autoFocus
+              value={draft}
+              onValueChange={setDraft}
+              onKeyDown={inputProps.onKeyDown}
+              placeholder={placeholder}
+              disabled={saving}
+              className={inputProps.className}
             />
           ) : (
             <Input type={customFieldInputType(type)} {...inputProps} />

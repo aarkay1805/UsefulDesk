@@ -4,27 +4,45 @@ import * as React from 'react';
 
 import { Input } from '@/components/ui/input';
 import { useLocale } from '@/hooks/use-locale';
+import {
+  accountQualifiedPhoneValue,
+  nationalPhoneInputValue,
+} from '@/lib/phone-input';
 import { cn } from '@/lib/utils';
 
 type PhoneInputProps = Omit<
   React.ComponentProps<'input'>,
-  'type' | 'inputMode'
->;
+  'type' | 'inputMode' | 'value' | 'defaultValue' | 'onChange'
+> & {
+  /** Complete account-qualified value used by persistence and dedupe. */
+  value?: string;
+  /** Complete account-qualified initial value for compact uncontrolled editors. */
+  defaultValue?: string;
+  /** Reports the complete account-qualified phone, not just the visible national part. */
+  onValueChange?: (phone: string) => void;
+  /** Public forms pass the account code fetched by their token-scoped config. */
+  countryCode?: string;
+};
 
 /**
  * Phone-number input with the account's localization country code in a
- * fixed, non-editable leading compartment. The editable value is passed
- * through unchanged; parsing, normalization, and persistence remain the
- * caller's responsibility.
+ * fixed, non-editable leading compartment. The DOM field shows only the
+ * national-number portion; `value`, `defaultValue`, and `onValueChange`
+ * use the complete account-qualified phone so persistence and dedupe paths
+ * never need to reconstruct it themselves.
  */
 function PhoneInput({
   className,
+  countryCode,
+  value,
+  defaultValue,
+  onValueChange,
   'aria-describedby': ariaDescribedBy,
   ...props
 }: PhoneInputProps) {
   const { locale } = useLocale();
   const descriptionId = React.useId();
-  const normalizedCountryCode = locale.phoneCountryCode.trim();
+  const normalizedCountryCode = (countryCode ?? locale.phoneCountryCode).trim();
   const displayCountryCode = normalizedCountryCode || '—';
   const describedBy = [ariaDescribedBy, descriptionId]
     .filter(Boolean)
@@ -48,6 +66,24 @@ function PhoneInput({
         inputMode="tel"
         autoComplete="tel-national"
         {...props}
+        value={
+          value === undefined
+            ? undefined
+            : nationalPhoneInputValue(value, normalizedCountryCode)
+        }
+        defaultValue={
+          defaultValue === undefined
+            ? undefined
+            : nationalPhoneInputValue(defaultValue, normalizedCountryCode)
+        }
+        onChange={(event) =>
+          onValueChange?.(
+            accountQualifiedPhoneValue(
+              event.currentTarget.value,
+              normalizedCountryCode
+            )
+          )
+        }
         aria-describedby={describedBy}
         className={cn('pl-16', className)}
       />

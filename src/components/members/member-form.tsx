@@ -50,6 +50,7 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { InlineEditActions } from '@/components/ui/inline-edit-actions';
 import {
@@ -797,6 +798,7 @@ export function MemberForm({
                     />
                     <ConversionEditableDetailRow
                       label="Phone"
+                      type="tel"
                       value={phone}
                       placeholder="Add phone"
                       onSave={(value) => saveConversionField('phone', value)}
@@ -899,20 +901,16 @@ export function MemberForm({
                     <Label htmlFor="mf-phone">
                       Phone <span className="text-red-foreground">*</span>
                     </Label>
-                    <Input
+                    <PhoneInput
                       id="mf-phone"
                       autoFocus={!isEdit}
                       value={phone}
-                      onChange={(e) => {
-                        setPhone(e.target.value);
+                      onValueChange={(value) => {
+                        setPhone(value);
                         if (dupMatch) setDupMatch(null);
                       }}
                       onBlur={checkDuplicate}
-                      placeholder={
-                        locale.phoneCountryCode
-                          ? `${locale.phoneCountryCode} 98765 43210`
-                          : '+91 98765 43210'
-                      }
+                      placeholder="98765 43210"
                     />
                     {dupMatch ? (
                       <div className="text-amber-foreground flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs">
@@ -1457,24 +1455,43 @@ function ConversionEditableDetailRow({
       <dt className="text-muted-foreground text-xs leading-5">{label}</dt>
       {editing ? (
         <dd className="grid min-w-0 grid-cols-[minmax(0,1fr)_4rem] items-center gap-2">
-          <Input
-            autoFocus
-            type={type}
-            inputMode={inputMode}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                void confirm();
-              } else if (event.key === 'Escape') {
-                setEditing(false);
-              }
-            }}
-            placeholder={placeholder}
-            disabled={saving}
-            className="bg-card border-border text-foreground placeholder:text-muted-foreground h-7 text-sm"
-          />
+          {type === 'tel' ? (
+            <PhoneInput
+              autoFocus
+              value={draft}
+              onValueChange={setDraft}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void confirm();
+                } else if (event.key === 'Escape') {
+                  setEditing(false);
+                }
+              }}
+              placeholder={placeholder}
+              disabled={saving}
+              className="bg-card border-border text-foreground placeholder:text-muted-foreground h-7 text-sm"
+            />
+          ) : (
+            <Input
+              autoFocus
+              type={type}
+              inputMode={inputMode}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void confirm();
+                } else if (event.key === 'Escape') {
+                  setEditing(false);
+                }
+              }}
+              placeholder={placeholder}
+              disabled={saving}
+              className="bg-card border-border text-foreground placeholder:text-muted-foreground h-7 text-sm"
+            />
+          )}
           <span className="relative h-7">
             <InlineEditActions
               saving={saving}
