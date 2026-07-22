@@ -113,6 +113,10 @@ A `type="number"` field can NEVER show separators — any new money field that s
 
 **Gotcha:** an `overflow-y-auto` scroller (dialog body) or a `Collapse` clips the focus ring on BOTH axes (non-`visible` `overflow-y` forces `overflow-x: auto`). Give it `-mx-1 px-1 py-1`-style inner padding or every field's ring gets sliced.
 
+### Phone inputs
+
+`PhoneInput` (`ui/phone-input.tsx`) — master `Input` that reads the account's `useLocale().locale.phoneCountryCode` directly and shows it in a muted, divided, non-editable leading compartment. The field must never offer a country picker or mutate the account setting. The editable value is the national-number portion and is passed through unchanged, so parsing, normalization, and persistence remain caller responsibilities. Product call sites remain on `Input` until the review specimen is approved and wiring is explicitly requested.
+
 ### Search & searchable selects
 
 - `SearchInput` (`ui/search-input.tsx`) — leading glyph over a **rounded-rectangle** `Input`, `border-border` + muted fill. Its wrapper owns the fixed 240px width; `containerClassName` is only for external layout such as margin or responsive visibility. Radius/border/icon/padding are **fixed** — never restyle per call-site. It is a controlled `type="search"` field (`value` + `onValueChange`) with a trailing clear button only while editable and non-empty; clear and Escape both reset through `onValueChange` and return focus to the input. It defaults to `aria-label="Search"` and `enterKeyHint="search"`; pass a contextual `aria-label` at the call-site. Used by leads/members/check-in toolbars, inbox conversation list, import + manage-columns pickers. (`Combobox`'s in-popover search and `global-search`'s command trigger are deliberately their own patterns.)

@@ -32,6 +32,7 @@ Branded member app · class marketplace · payroll · workout/nutrition tracking
 
 ## Optional / open
 
+- Phone input rollout — the localized `PhoneInput` master and sticker-sheet specimen are built for review; after approval, replace existing product phone fields and define their national-number ↔ persisted-phone normalization at each boundary.
 - Richer Razorpay `payment.failed` handling — an immediate "auto-pay failed, pay manually" nudge instead of waiting for `subscription.halted` → manual.
 - One-click "Connect Razorpay" via OAuth / embedded onboarding, replacing the key-paste settings card (additive swap — the creds surface is already abstracted; plan in `PRDs/upi_autopay.md`).
 - Auto-generating / charging _future_ invoices (a billing cron — overlaps AutoPay) · persisting the Upcoming projection.

@@ -764,6 +764,7 @@
 
       .search-field-wrap,
       .currency-wrap,
+      .phone-wrap,
       .inline-edit {
         position: relative;
       }
@@ -786,15 +787,42 @@
 
       .currency-symbol {
         position: absolute;
-        top: 50%;
-        left: 10px;
-        transform: translateY(-50%);
+        inset-block: 1px;
+        left: 1px;
+        z-index: 1;
+        display: flex;
+        width: 36px;
+        align-items: center;
+        justify-content: center;
+        border-right: 1px solid var(--border);
         color: var(--muted-foreground);
         pointer-events: none;
       }
 
       .currency-wrap .field {
-        padding-left: 28px;
+        padding-left: 44px;
+      }
+
+      .phone-country-code {
+        position: absolute;
+        inset-block: 1px;
+        left: 1px;
+        z-index: 1;
+        display: flex;
+        width: 56px;
+        align-items: center;
+        justify-content: center;
+        border-right: 1px solid var(--border);
+        border-radius: 7px 0 0 7px;
+        background: color-mix(in oklab, var(--muted) 40%, transparent);
+        color: var(--muted-foreground);
+        font-variant-numeric: tabular-nums;
+        pointer-events: none;
+        user-select: none;
+      }
+
+      .phone-wrap .field {
+        padding-left: 64px;
       }
 
       .select-trigger,
@@ -1735,7 +1763,7 @@
             placeholder="Search component, export, or behavior…"
             autocomplete="off"
           />
-          <span class="search-count" id="result-count" aria-live="polite">36 / 36</span>
+          <span class="search-count" id="result-count" aria-live="polite">37 / 37</span>
         </label>
         <div class="header-tools">
           <div class="accent-control" aria-label="Accent color">
@@ -1765,7 +1793,7 @@
     <main id="component-sheet">
       <section class="intro" aria-labelledby="sheet-title">
         <div>
-          <div class="kicker">UsefulDesk · 36 shared UI source files</div>
+          <div class="kicker">UsefulDesk · 37 shared UI source files</div>
           <h2 id="sheet-title">One visual source for the product’s smallest building blocks.</h2>
           <p>
             This standalone reference mirrors <code>src/components/ui</code>. It is for review and discovery; the React primitives remain the implementation source of truth.
@@ -1858,7 +1886,7 @@
 
       <section class="component-section" id="inputs" data-section>
         <div class="section-heading">
-          <div><div class="kicker">02 · 12 files</div><h2>Inputs &amp; selection</h2></div>
+          <div><div class="kicker">02 · 13 files</div><h2>Inputs &amp; selection</h2></div>
           <p>Canonical fields stay unfilled; SearchInput is the deliberate muted-fill exception.</p>
         </div>
         <div class="sticker-grid">
@@ -1900,6 +1928,14 @@
             <div class="specimen">
               <label class="stack"><span class="field-label">Membership value</span><span class="currency-wrap"><span class="currency-symbol" aria-hidden="true">₹</span><input class="field" inputmode="decimal" value="1,00,000" aria-label="Membership value" /></span></label>
               <div class="caption">Grouped display; callers store the raw numeric value.</div>
+            </div>
+          </article>
+
+          <article class="sticker" data-component="phone-input.tsx" data-keywords="phone input telephone mobile country code dial code locale localization prefix readonly disabled">
+            <div class="sticker-header"><div><h3>PhoneInput</h3><p class="sticker-description">Phone field with the account dialling code fixed by Localization settings.</p></div><code class="source-file">phone-input.tsx</code></div>
+            <div class="specimen">
+              <label class="stack" for="phone-input-sample"><span class="field-label">Phone number</span><span class="phone-wrap"><span class="phone-country-code" aria-hidden="true">+91</span><input id="phone-input-sample" class="field" type="tel" inputmode="tel" autocomplete="tel-national" value="98765 43210" aria-describedby="phone-input-caption" /></span></label>
+              <div class="caption" id="phone-input-caption">The muted country code is read-only here and stays synced with Settings → Localization.</div>
             </div>
           </article>
 
@@ -2177,7 +2213,7 @@
     <footer>
       <div class="footer-inner">
         <span>Static review artifact · React source remains authoritative</span>
-        <span>Coverage: <strong id="coverage-count">36 / 36</strong> files from <code>src/components/ui</code></span>
+        <span>Coverage: <strong id="coverage-count">37 / 37</strong> files from <code>src/components/ui</code></span>
       </div>
     </footer>
 
@@ -2224,6 +2260,7 @@
           "label.tsx",
           "motion-list.tsx",
           "popover.tsx",
+          "phone-input.tsx",
           "progress.tsx",
           "radio-group.tsx",
           "scroll-area.tsx",

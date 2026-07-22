@@ -6,6 +6,12 @@
 
 ---
 
+## Review-ready localized phone input master
+
+Added an unconsumed `PhoneInput` master for visual review: the editable national number composes the shared `Input`, while the account dialling code is a muted, divided, non-editable compartment read directly from `useLocale().locale.phoneCountryCode`. The component performs no parsing or persistence transformation, and existing product fields remain untouched until approval. The atomic sticker sheet now includes the new control and an updated component inventory. Key code: `src/components/ui/phone-input.tsx`, `docs/ui-patterns.md`, and `docs/component-sticker-sheet.html`.
+
+---
+
 ## Member-profile membership and billing hardening
 
 Membership edits now preserve the live cycle snapshot unless staff actually change its plan or billing option. Profile lifecycle mutations require consequence-aware confirmation and role-gated affordances; renewal exposes existing arrears and localized expiry; payment entry validates overpayments inline and returns to its invoice when cancelled; edit returns to the refreshed profile; AutoPay copy matches the option price charged by the API; and Billing actions wrap cleanly on mobile. Key code: `src/components/members/member-detail-view.tsx`, `src/components/members/member-form.tsx`, `src/components/members/record-payment-dialog.tsx`, `src/components/members/renew-membership-dialog.tsx`, `src/components/members/set-up-autopay-dialog.tsx`, and `src/lib/memberships/edit-cycle.ts`.
