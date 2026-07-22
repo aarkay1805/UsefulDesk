@@ -41,6 +41,12 @@ export function SetUpAutoPayDialog({
   onStarted,
 }: SetUpAutoPayDialogProps) {
   const { fmt } = useLocale();
+  // The mandate route bills the selected pricing option. fee_amount can
+  // include a joining fee from the first cycle, so showing it here would
+  // promise a different recurring debit from the one Razorpay creates.
+  const recurringFee = Number(
+    membership.pricing_option?.price ?? membership.fee_amount ?? 0,
+  );
   const [busy, setBusy] = useState(false);
   const [shortUrl, setShortUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -91,7 +97,7 @@ export function SetUpAutoPayDialog({
           </DialogTitle>
           <DialogDescription>
             Auto-debit {membership.contact?.name ?? "this member"}&apos;s{" "}
-            <span className="tabular-nums">{fmt.money(membership.fee_amount)}</span>{" "}
+            <span className="tabular-nums">{fmt.money(recurringFee)}</span>{" "}
             {membership.plan?.name ? `${membership.plan.name} ` : ""}fee each cycle
             over UPI AutoPay. The member approves the mandate once; renewals then
             collect automatically.

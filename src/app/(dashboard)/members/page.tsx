@@ -137,7 +137,6 @@ export default function MembersPage() {
   }
 
   function editFromDetail(membership: Membership) {
-    setDetailOpen(false);
     setEditing(membership);
     setFormOpen(true);
   }
@@ -297,6 +296,7 @@ export default function MembersPage() {
       <MemberDetailView
         membershipId={detailId}
         open={detailOpen}
+        reloadKey={reloadKey}
         onOpenChange={setDetailOpen}
         readiness={readiness}
         onChanged={reload}

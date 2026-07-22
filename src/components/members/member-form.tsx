@@ -15,6 +15,7 @@ import {
 } from '@/lib/contacts/dedupe';
 import { useLocale } from '@/hooks/use-locale';
 import { istAddDays, daysBetween } from '@/lib/memberships/expiry';
+import { editedMembershipEndDate } from '@/lib/memberships/edit-cycle';
 import { membershipIdForContact } from '@/lib/memberships/lookup';
 import { editMembershipCycle } from '@/lib/memberships/periods';
 import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg } from '@/lib/bmi/bmi';
@@ -215,12 +216,16 @@ export function MemberForm({
   // duration_days, which mirrors the first option and may not be this
   // member's duration.
   function paidEndDate(): string | null {
-    if (selectedOption) return optionEndDate(startDate, selectedOption);
-    if (isEdit && member && planId === member.plan_id) {
-      const len = daysBetween(member.start_date, member.end_date);
-      if (Number.isFinite(len) && len > 0) return istAddDays(startDate, len);
+    if (isEdit) {
+      return editedMembershipEndDate({
+        member: member ?? null,
+        planId,
+        optionId,
+        startDate,
+        selectedOption,
+      });
     }
-    return null;
+    return selectedOption ? optionEndDate(startDate, selectedOption) : null;
   }
 
   useEffect(() => {

@@ -49,6 +49,8 @@ interface RecordPaymentDialogProps {
   onOpenChange: (open: boolean) => void;
   membership: Membership;
   onSaved: () => void;
+  /** Called only when the user dismisses this flow without saving. */
+  onCancelled?: () => void;
   /**
    * Record against a SPECIFIC billing period (invoice) instead of the
    * current one — used to settle an arrears row from the invoice list
@@ -69,6 +71,7 @@ export function RecordPaymentDialog({
   onOpenChange,
   membership,
   onSaved,
+  onCancelled,
   period,
 }: RecordPaymentDialogProps) {
   const supabase = createClient();
@@ -169,6 +172,7 @@ export function RecordPaymentDialog({
       setShot(null);
     }
     onOpenChange(false);
+    onCancelled?.();
   }
 
   async function handleSave() {
@@ -219,6 +223,17 @@ export function RecordPaymentDialog({
       setSaving(false);
     }
   }
+
+  const amountValidation = dues
+    ? validatePaymentAmount(Number(amount), dues.balance)
+    : "invalid";
+  const amountError =
+    amount !== "" && amountValidation === "exceeds_balance"
+      ? `Amount cannot exceed ${fmt.money(dues?.balance ?? 0)}`
+      : amount !== "" &&
+          (amountValidation === "invalid" || amountValidation === "not_positive")
+        ? "Enter an amount greater than zero"
+        : null;
 
   return (
     <Dialog
@@ -279,7 +294,14 @@ export function RecordPaymentDialog({
                 inputMode="decimal"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
+                aria-invalid={!!amountError}
+                aria-describedby={amountError ? "rp-amount-error" : undefined}
               />
+              {amountError && (
+                <p id="rp-amount-error" className="text-destructive text-xs" role="alert">
+                  {amountError}
+                </p>
+              )}
               {dues && isChargeableAmount(dues.balance) && (
                 <div className="flex gap-1.5">
                   {/* Installments are constant — one tap for the two
@@ -410,7 +432,12 @@ export function RecordPaymentDialog({
             type="button"
             onClick={handleSave}
             disabled={
-              saving || uploading || !dues || !!loadError || !isChargeableAmount(dues.balance)
+              saving ||
+              uploading ||
+              !dues ||
+              !!loadError ||
+              !isChargeableAmount(dues.balance) ||
+              amountValidation !== "valid"
             }
           >
             {saving && <Loader2 className="size-4 animate-spin" />}

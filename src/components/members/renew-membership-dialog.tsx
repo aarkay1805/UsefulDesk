@@ -44,6 +44,8 @@ interface RenewMembershipDialogProps {
   onOpenChange: (open: boolean) => void;
   membership: Membership;
   onSaved: () => void;
+  /** Existing invoice balances that remain due after this renewal. */
+  outstandingBalance?: number;
   /** 'convert' reuses this flow for the trial→paid conversion: the new
    *  paid period starts today (a trial's remaining days aren't carried
    *  forward), and the row is flipped off trial with converted_at
@@ -56,6 +58,7 @@ export function RenewMembershipDialog({
   onOpenChange,
   membership,
   onSaved,
+  outstandingBalance = 0,
   variant = "renew",
 }: RenewMembershipDialogProps) {
   const supabase = createClient();
@@ -172,6 +175,13 @@ export function RenewMembershipDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {!isConvert && outstandingBalance > 0 && (
+            <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-foreground">
+              {fmt.money(outstandingBalance)} is still outstanding from existing invoices.
+              Renewing opens a separate next invoice; this balance will remain due.
+            </p>
+          )}
+
           <PlanOptionPicker
             idPrefix="rn"
             plans={plans}
@@ -186,7 +196,7 @@ export function RenewMembershipDialog({
           {newEnd && (
             <div className="border-border bg-muted/40 rounded-lg border px-3 py-2 text-sm">
               <span className="text-muted-foreground">New expiry: </span>
-              <span className="text-foreground font-medium">{newEnd}</span>
+              <span className="text-foreground font-medium">{fmt.date(newEnd)}</span>
             </div>
           )}
 

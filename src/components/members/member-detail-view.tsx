@@ -55,6 +55,14 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/components/ui/card";
@@ -115,9 +123,44 @@ const SECTIONS = [
   { id: "settings", label: "Settings" },
 ] as const;
 
+type LifecycleAction = "freeze" | "resume" | "cancel" | "reactivate";
+
+const LIFECYCLE_COPY: Record<
+  LifecycleAction,
+  { title: string; description: string; action: string; destructive?: boolean }
+> = {
+  freeze: {
+    title: "Freeze membership?",
+    description:
+      "Check-ins will pause. Existing invoice balances remain due, and the frozen days will be added to this cycle when you resume.",
+    action: "Freeze membership",
+  },
+  resume: {
+    title: "Resume membership?",
+    description:
+      "Check-ins will resume and this cycle will be extended by the paused days. Existing payments stay attached to the cycle.",
+    action: "Resume membership",
+  },
+  cancel: {
+    title: "Cancel membership?",
+    description:
+      "The membership will stop and its current invoice will be voided. Settled past cycles remain in billing history, and you can reactivate later.",
+    action: "Cancel membership",
+    destructive: true,
+  },
+  reactivate: {
+    title: "Reactivate membership?",
+    description:
+      "The membership and its current billing period will reopen. Review the balance before collecting another payment.",
+    action: "Reactivate membership",
+  },
+};
+
 interface MemberDetailViewProps {
   membershipId: string | null;
   open: boolean;
+  /** Parent-level refetch signal (for example, a saved edit dialog). */
+  reloadKey?: number;
   onOpenChange: (open: boolean) => void;
   readiness: ReminderReadiness;
   /** Refetch the list after any mutation here. */
@@ -147,6 +190,7 @@ function Section({ id, children }: { id: string; children: ReactNode }) {
 export function MemberDetailView({
   membershipId,
   open,
+  reloadKey = 0,
   onOpenChange,
   readiness,
   onChanged,
@@ -181,6 +225,8 @@ export function MemberDetailView({
   const [mandate, setMandate] = useState<PaymentMandate | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
+  const [pendingLifecycle, setPendingLifecycle] = useState<LifecycleAction | null>(null);
+  const [returnToInvoiceAfterPay, setReturnToInvoiceAfterPay] = useState(false);
   // Bumped to re-pull this sheet after a mutation (renew/payment/freeze/check-in).
   const [nonce, setNonce] = useState(0);
 
@@ -269,7 +315,7 @@ export function MemberDetailView({
     return () => {
       cancelled = true;
     };
-  }, [open, membershipId, nonce, supabase, fmt, locale]);
+  }, [open, membershipId, nonce, reloadKey, supabase, fmt, locale]);
 
   // Scrollspy — highlight whichever section sits near the top of the
   // scroll body. Re-arms once the sections mount (membership loaded).
@@ -362,8 +408,8 @@ export function MemberDetailView({
     onChanged();
   }, [onChanged]);
 
-  async function freeze() {
-    if (!membership) return;
+  async function freeze(): Promise<boolean> {
+    if (!membership) return false;
     setBusy(true);
     // Chain .select('id') — an RLS-blocked update returns no error + zero
     // rows, so an empty result is the real failure signal.
@@ -373,14 +419,17 @@ export function MemberDetailView({
       .eq("id", membership.id)
       .select("id");
     setBusy(false);
-    if (error || !data?.length)
-      return toast.error(error?.message ?? "Couldn't freeze — check your access.");
+    if (error || !data?.length) {
+      toast.error(error?.message ?? "Couldn't freeze — check your access.");
+      return false;
+    }
     toast.success("Membership frozen");
     refreshAll();
+    return true;
   }
 
-  async function unfreeze() {
-    if (!membership) return;
+  async function unfreeze(): Promise<boolean> {
+    if (!membership) return false;
     setBusy(true);
     // One transaction (migration 058): membership resumes, the current
     // period follows the shifted end_date, and its payments are
@@ -388,31 +437,56 @@ export function MemberDetailView({
     const newEnd = unfreezeEndDate(membership.end_date, membership.frozen_at);
     const { error } = await unfreezeMembership(supabase, membership.id, newEnd);
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return false;
+    }
     toast.success("Membership resumed");
     refreshAll();
+    return true;
   }
 
-  async function cancelMembership() {
-    if (!membership) return;
+  async function cancelMembership(): Promise<boolean> {
+    if (!membership) return false;
     setBusy(true);
     // Cancel + void the current cycle's invoice atomically (058);
     // settled past cycles stay paid.
     const { error } = await setMembershipCancellation(supabase, membership.id, true);
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return false;
+    }
     toast.success("Membership cancelled");
     refreshAll();
+    return true;
   }
 
-  async function reactivate() {
-    if (!membership) return;
+  async function reactivate(): Promise<boolean> {
+    if (!membership) return false;
     setBusy(true);
     const { error } = await setMembershipCancellation(supabase, membership.id, false);
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return false;
+    }
     toast.success("Membership reactivated");
     refreshAll();
+    return true;
+  }
+
+  async function confirmLifecycleAction() {
+    if (!pendingLifecycle) return;
+    const succeeded =
+      pendingLifecycle === "freeze"
+        ? await freeze()
+        : pendingLifecycle === "resume"
+          ? await unfreeze()
+          : pendingLifecycle === "cancel"
+            ? await cancelMembership()
+            : await reactivate();
+    if (succeeded) setPendingLifecycle(null);
   }
 
   async function doCheckInInsert() {
@@ -469,6 +543,12 @@ export function MemberDetailView({
     membership?.status === "cancelled" || currentInvoice?.state === "void"
       ? 0
       : Math.max(Number(currentInvoice?.balance ?? currentFee - currentPaid), 0);
+  const outstandingBalance = invoices.reduce((total, invoice) => {
+    const invoiceBalance = Number(invoice.balance);
+    return invoice.state !== "void" && isChargeableAmount(invoiceBalance)
+      ? total + invoiceBalance
+      : total;
+  }, 0);
 
   // Invoice timeline: persisted periods (past + current, real arrears),
   // newest first so Upcoming reads at the top, history descends below.
@@ -524,8 +604,11 @@ export function MemberDetailView({
     // A payment against the current cycle uses the plain flow (null);
     // an older cycle is passed so it reconciles to the right invoice.
     setPayPeriod(inv.period_end === membership?.end_date ? null : inv);
+    setInvoiceOpen(false);
+    setReturnToInvoiceAfterPay(true);
     setPayOpen(true);
   }
+  const lifecycleCopy = pendingLifecycle ? LIFECYCLE_COPY[pendingLifecycle] : null;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -642,7 +725,7 @@ export function MemberDetailView({
                     onSent={() => {}}
                     size="default"
                   />
-                  {membership.is_trial && (
+                  {membership.is_trial && canSendMessages && (
                     <Button onClick={() => setConvertOpen(true)}>
                       <UserPlus className="size-4" /> Convert to member
                     </Button>
@@ -708,7 +791,15 @@ export function MemberDetailView({
                                     membership has lapsed, so this is the path
                                     that always works. */}
                                 {membership.status === "active" && !membership.is_trial && (
-                                  <DropdownMenuItem onClick={() => setRenewOpen(true)}>
+                                  <DropdownMenuItem
+                                    onClick={() => setRenewOpen(true)}
+                                    disabled={!canSendMessages}
+                                    title={
+                                      !canSendMessages
+                                        ? "You need member-management access to renew memberships."
+                                        : undefined
+                                    }
+                                  >
                                     <RefreshCw className="size-4" /> Renew membership
                                   </DropdownMenuItem>
                                 )}
@@ -716,26 +807,66 @@ export function MemberDetailView({
                                     "edit" clicks. Only an active paid cycle
                                     can be switched mid-flight. */}
                                 {membership.status === "active" && !membership.is_trial && (
-                                  <DropdownMenuItem onClick={() => setChangePlanOpen(true)}>
+                                  <DropdownMenuItem
+                                    onClick={() => setChangePlanOpen(true)}
+                                    disabled={!canSendMessages}
+                                    title={
+                                      !canSendMessages
+                                        ? "You need member-management access to change plans."
+                                        : undefined
+                                    }
+                                  >
                                     <ArrowLeftRight className="size-4" /> Change plan
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem onClick={() => onEdit(membership)}>
+                                <DropdownMenuItem
+                                  onClick={() => onEdit(membership)}
+                                  disabled={!canSendMessages}
+                                  title={
+                                    !canSendMessages
+                                      ? "You need member-management access to edit memberships."
+                                      : undefined
+                                  }
+                                >
                                   <Pencil className="size-4" /> Edit membership
                                 </DropdownMenuItem>
                                 {membership.status === "frozen" ? (
-                                  <DropdownMenuItem onClick={unfreeze} disabled={busy}>
+                                  <DropdownMenuItem
+                                    onClick={() => setPendingLifecycle("resume")}
+                                    disabled={busy || !canSendMessages}
+                                    title={
+                                      !canSendMessages
+                                        ? "You need member-management access to resume memberships."
+                                        : undefined
+                                    }
+                                  >
                                     <Play className="size-4" /> Resume membership
                                   </DropdownMenuItem>
                                 ) : (
                                   membership.status === "active" && (
-                                    <DropdownMenuItem onClick={freeze} disabled={busy}>
+                                    <DropdownMenuItem
+                                      onClick={() => setPendingLifecycle("freeze")}
+                                      disabled={busy || !canSendMessages}
+                                      title={
+                                        !canSendMessages
+                                          ? "You need member-management access to freeze memberships."
+                                          : undefined
+                                      }
+                                    >
                                       <Snowflake className="size-4" /> Freeze membership
                                     </DropdownMenuItem>
                                   )
                                 )}
                                 {membership.status === "cancelled" ? (
-                                  <DropdownMenuItem onClick={reactivate} disabled={busy}>
+                                  <DropdownMenuItem
+                                    onClick={() => setPendingLifecycle("reactivate")}
+                                    disabled={busy || !canSendMessages}
+                                    title={
+                                      !canSendMessages
+                                        ? "You need member-management access to reactivate memberships."
+                                        : undefined
+                                    }
+                                  >
                                     <RotateCcw className="size-4" /> Reactivate membership
                                   </DropdownMenuItem>
                                 ) : (
@@ -743,8 +874,13 @@ export function MemberDetailView({
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                       variant="destructive"
-                                      onClick={cancelMembership}
-                                      disabled={busy}
+                                      onClick={() => setPendingLifecycle("cancel")}
+                                      disabled={busy || !canSendMessages}
+                                      title={
+                                        !canSendMessages
+                                          ? "You need member-management access to cancel memberships."
+                                          : undefined
+                                      }
                                     >
                                       <Ban className="size-4" /> Cancel membership
                                     </DropdownMenuItem>
@@ -850,7 +986,7 @@ export function MemberDetailView({
                           </CardTitle>
                           {!membership.is_trial &&
                             (canCollectCurrent || canSetupAutoPay) && (
-                              <CardAction className="flex items-center gap-2">
+                              <CardAction className="col-span-2 col-start-1 row-start-2 mt-2 flex w-full flex-wrap items-center justify-start gap-2 sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:mt-0 sm:w-auto sm:justify-end">
                                 {canCollectCurrent && (
                                   <>
                                     <CopyUpiLinkButton
@@ -865,6 +1001,7 @@ export function MemberDetailView({
                                         variant="outline"
                                         onClick={() => {
                                           setPayPeriod(null);
+                                          setReturnToInvoiceAfterPay(false);
                                           setPayOpen(true);
                                         }}
                                       >
@@ -1187,6 +1324,7 @@ export function MemberDetailView({
               open={renewOpen}
               onOpenChange={setRenewOpen}
               membership={membership}
+              outstandingBalance={outstandingBalance}
               onSaved={refreshAll}
             />
             <RenewMembershipDialog
@@ -1220,7 +1358,14 @@ export function MemberDetailView({
                     }
                   : undefined
               }
-              onSaved={refreshAll}
+              onSaved={() => {
+                setReturnToInvoiceAfterPay(false);
+                refreshAll();
+              }}
+              onCancelled={() => {
+                if (returnToInvoiceAfterPay && activeInvoice) setInvoiceOpen(true);
+                setReturnToInvoiceAfterPay(false);
+              }}
             />
             <SetUpAutoPayDialog
               open={autoPayOpen}
@@ -1239,6 +1384,38 @@ export function MemberDetailView({
               onRecord={recordForPeriod}
               onRenew={() => setRenewOpen(true)}
             />
+            <Dialog
+              open={!!pendingLifecycle}
+              onOpenChange={(next) => {
+                if (!next && !busy) setPendingLifecycle(null);
+              }}
+            >
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>{lifecycleCopy?.title}</DialogTitle>
+                  <DialogDescription>{lifecycleCopy?.description}</DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setPendingLifecycle(null)}
+                    disabled={busy}
+                  >
+                    Keep membership
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={lifecycleCopy?.destructive ? "destructive" : "default"}
+                    onClick={confirmLifecycleAction}
+                    disabled={busy}
+                  >
+                    {busy && <Loader2 className="size-4 animate-spin" />}
+                    {lifecycleCopy?.action}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <VoidPaymentDialog
               key={paymentToVoid?.id ?? "no-payment"}
               payment={paymentToVoid}
