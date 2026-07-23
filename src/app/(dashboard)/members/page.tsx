@@ -52,6 +52,15 @@ function isMemberView(value: string | null): value is View {
   return value !== null && MEMBER_VIEWS.has(value as View);
 }
 
+function isUuid(value: string | null): value is string {
+  return Boolean(
+    value &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value
+    )
+  );
+}
+
 export default function MembersPage() {
   const { canSendMessages } = useAuth();
   const readiness = useReminderReadiness();
@@ -70,12 +79,20 @@ export default function MembersPage() {
   // requested tab after hydration (the server cannot see window.location in
   // this client page), then keep subsequent tab choices reflected in the URL.
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get('view');
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get('view');
     if (isMemberView(requested)) {
       // Synchronising component state from the browser URL is the purpose of
       // this effect; it is not derived render state.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setView(requested);
+    }
+    const requestedMember = params.get('member');
+    if (isUuid(requestedMember)) {
+      // Finance/Reports deep links open the existing member sheet; no
+      // second member-detail surface is created for those analytical pages.
+      setDetailId(requestedMember);
+      setDetailOpen(true);
     }
   }, []);
 
@@ -134,6 +151,17 @@ export default function MembersPage() {
   function openDetail(id: string) {
     setDetailId(id);
     setDetailOpen(true);
+  }
+
+  function changeDetailOpen(open: boolean) {
+    setDetailOpen(open);
+    if (!open) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('member') === detailId) {
+        url.searchParams.delete('member');
+        window.history.replaceState(null, '', url);
+      }
+    }
   }
 
   function editFromDetail(membership: Membership) {
@@ -297,7 +325,7 @@ export default function MembersPage() {
         membershipId={detailId}
         open={detailOpen}
         reloadKey={reloadKey}
-        onOpenChange={setDetailOpen}
+        onOpenChange={changeDetailOpen}
         readiness={readiness}
         onChanged={reload}
         onEdit={editFromDetail}

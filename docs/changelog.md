@@ -6,6 +6,18 @@
 
 ---
 
+## Finance Payments ledger
+
+Shipped the analytical Finance Payments tab over the append-only ledger: account-timezone month/date scope, payment/member/gateway search, status/plan/method/source/recorder filters, live All/Collected/Auto-pay/Voided views, database-side sorting and pagination, exact filtered totals and method mix, full-result CSV export, private proof reuse, and member deep links. The read-only `finance_payment_ledger` RPC is security-invoker, explicitly tenant-guarded, and authenticated-only; payment entry, dues, reminders, and future failed-AutoPay recovery remain in Members → Payments. Key code: `src/components/finance/finance-payments.tsx`, `src/components/finance/finance-payment-filters.tsx`, `src/lib/finance/payments.ts`, and migrations `20260723120000` / `20260723121000`.
+
+---
+
+## Finance Invoices master
+
+Shipped the account-wide Finance Invoices tab over the reconciled `membership_period_invoices` read model: calendar-month summaries, search by internal billing reference/name/phone/Member ID, lifecycle chips, payment/plan/collection filters, shared sorting, paging, complete filtered CSV export, invoice detail reuse, and exact-period payment entry through the named agent-level `canRecordPayments` capability. The UUID-derived reference is explicitly an internal record reference; PDF/WhatsApp document actions remain deferred until an approved migration adds immutable human invoice identity and snapshots. Key code: `src/components/finance/finance-invoices.tsx`, `src/components/finance/finance-invoice-filters.tsx`, `src/components/finance/finance-month-actions.tsx`, `src/lib/finance/invoices.ts`, and `src/lib/auth/roles.ts`.
+
+---
+
 ## Finance Overview foundation
 
 Shipped a calendar-month Finance Overview matching the approved analytical mockup: Revenue with prior-month comparison, Next month projected from active renewals, day/weekly income cash flow, invoice health, collection mix, recent transactions, and admin-only CSV export. Expense and Profit slots deliberately stay unavailable until the expense ledger exists; no zeroes are fabricated. Operational dues, payment entry, reminders, server-paged history, filters, and complete filtered export are restored to Members → Payments, while Finance keeps URL-backed Overview/Invoices/Payments/Expenses tabs for phased delivery. Key code: `src/app/(dashboard)/finance/page.tsx`, `src/components/finance/`, `src/lib/finance/overview.ts`, `src/lib/finance/views.ts`, and `src/app/(dashboard)/members/page.tsx`.

@@ -15,17 +15,17 @@
 // changes a one-file diff.
 // ============================================================
 
-import type { ReceivedVia } from "@/types";
-import { isHumanReceived } from "@/lib/leads/attributes";
+import type { ReceivedVia } from '@/types';
+import { isHumanReceived } from '@/lib/leads/attributes';
 
-export type AccountRole = "owner" | "admin" | "agent" | "viewer";
+export type AccountRole = 'owner' | 'admin' | 'agent' | 'viewer';
 
 /** Ordered list of every valid role, lowest privilege first. */
 export const ACCOUNT_ROLES: readonly AccountRole[] = [
-  "viewer",
-  "agent",
-  "admin",
-  "owner",
+  'viewer',
+  'agent',
+  'admin',
+  'owner',
 ] as const;
 
 /**
@@ -34,13 +34,13 @@ export const ACCOUNT_ROLES: readonly AccountRole[] = [
  */
 export function roleRank(role: AccountRole): number {
   switch (role) {
-    case "owner":
+    case 'owner':
       return 4;
-    case "admin":
+    case 'admin':
       return 3;
-    case "agent":
+    case 'agent':
       return 2;
-    case "viewer":
+    case 'viewer':
       return 1;
   }
 }
@@ -56,7 +56,7 @@ export function hasMinRole(role: AccountRole, min: AccountRole): boolean {
 /** Type-narrow an unknown string into a valid `AccountRole`. */
 export function isAccountRole(value: unknown): value is AccountRole {
   return (
-    typeof value === "string" &&
+    typeof value === 'string' &&
     (ACCOUNT_ROLES as readonly string[]).includes(value)
   );
 }
@@ -71,7 +71,7 @@ export function isAccountRole(value: unknown): value is AccountRole {
 
 /** Owner / admin: invite, remove, change roles. */
 export function canManageMembers(role: AccountRole): boolean {
-  return hasMinRole(role, "admin");
+  return hasMinRole(role, 'admin');
 }
 
 /**
@@ -80,7 +80,7 @@ export function canManageMembers(role: AccountRole): boolean {
  * name). Excludes per-user settings like avatar or own password.
  */
 export function canEditSettings(role: AccountRole): boolean {
-  return hasMinRole(role, "admin");
+  return hasMinRole(role, 'admin');
 }
 
 /**
@@ -89,7 +89,7 @@ export function canEditSettings(role: AccountRole): boolean {
  * Viewers are read-only.
  */
 export function canSendMessages(role: AccountRole): boolean {
-  return hasMinRole(role, "agent");
+  return hasMinRole(role, 'agent');
 }
 
 /**
@@ -98,7 +98,7 @@ export function canSendMessages(role: AccountRole): boolean {
  * shows the "Read-only" tooltip without inverting `canSendMessages`).
  */
 export function canViewOnly(role: AccountRole): boolean {
-  return role === "viewer";
+  return role === 'viewer';
 }
 
 /**
@@ -107,7 +107,7 @@ export function canViewOnly(role: AccountRole): boolean {
  * contact_notes_delete RLS policy in migration 046.
  */
 export function canDeleteAnyNote(role: AccountRole): boolean {
-  return hasMinRole(role, "admin");
+  return hasMinRole(role, 'admin');
 }
 
 /**
@@ -117,7 +117,7 @@ export function canDeleteAnyNote(role: AccountRole): boolean {
  * Mirrored by request_lead_transfer's instant path (migration 050).
  */
 export function canReassignLeadsDirectly(role: AccountRole): boolean {
-  return hasMinRole(role, "admin");
+  return hasMinRole(role, 'admin');
 }
 
 /**
@@ -125,7 +125,7 @@ export function canReassignLeadsDirectly(role: AccountRole): boolean {
  * an agent's request stays pending until the target accepts. Viewers can't.
  */
 export function canRequestLeadTransfer(role: AccountRole): boolean {
-  return hasMinRole(role, "agent");
+  return hasMinRole(role, 'agent');
 }
 
 /**
@@ -134,7 +134,7 @@ export function canRequestLeadTransfer(role: AccountRole): boolean {
  * respond_lead_transfer RPC gates that by to_user_id.)
  */
 export function canResolveAnyLeadTransfer(role: AccountRole): boolean {
-  return hasMinRole(role, "admin");
+  return hasMinRole(role, 'admin');
 }
 
 /**
@@ -146,7 +146,7 @@ export function canResolveAnyLeadTransfer(role: AccountRole): boolean {
  * is never deleted through that path.)
  */
 export function canDeleteMember(role: AccountRole): boolean {
-  return hasMinRole(role, "admin");
+  return hasMinRole(role, 'admin');
 }
 
 /** The lead facts a per-lead delete decision needs (all nullable). */
@@ -165,7 +165,7 @@ export interface LeadDeleteContext {
  * mirrored by the admin arm of the contacts_delete RLS (migration 066).
  */
 export function canDeleteAnyLead(role: AccountRole): boolean {
-  return hasMinRole(role, "admin");
+  return hasMinRole(role, 'admin');
 }
 
 /**
@@ -178,9 +178,12 @@ export function canDeleteAnyLead(role: AccountRole): boolean {
  * The authored-content ownership rule (author-or-admin may delete), applied to
  * leads. Mirrored exactly by the agent arm of the contacts_delete RLS (066).
  */
-export function canDeleteLead(role: AccountRole, lead: LeadDeleteContext): boolean {
+export function canDeleteLead(
+  role: AccountRole,
+  lead: LeadDeleteContext
+): boolean {
   if (canDeleteAnyLead(role)) return true;
-  if (!hasMinRole(role, "agent")) return false;
+  if (!hasMinRole(role, 'agent')) return false;
   return (
     isHumanReceived(lead.receivedVia) &&
     lead.createdBy != null &&
@@ -190,12 +193,21 @@ export function canDeleteLead(role: AccountRole, lead: LeadDeleteContext): boole
 
 /** Owner / admin: reverse an incorrect financial ledger entry. */
 export function canCorrectPayments(role: AccountRole): boolean {
-  return hasMinRole(role, "admin");
+  return hasMinRole(role, 'admin');
+}
+
+/**
+ * Owner / admin / agent: record a payment against an open membership
+ * period. Mirrors the agent-level payments INSERT policy and the
+ * `record_membership_payment` RPC guard.
+ */
+export function canRecordPayments(role: AccountRole): boolean {
+  return hasMinRole(role, 'agent');
 }
 
 /** Owner / admin: download account-wide financial data. */
 export function canExportFinance(role: AccountRole): boolean {
-  return hasMinRole(role, "admin");
+  return hasMinRole(role, 'admin');
 }
 
 /**
@@ -204,7 +216,7 @@ export function canExportFinance(role: AccountRole): boolean {
  * Cancelling a live mandate is admin-only — see canCancelMandate.
  */
 export function canManageMandates(role: AccountRole): boolean {
-  return hasMinRole(role, "agent");
+  return hasMinRole(role, 'agent');
 }
 
 /**
@@ -214,15 +226,15 @@ export function canManageMandates(role: AccountRole): boolean {
  * and payment_mandates delete policy (migration 059).
  */
 export function canConfigurePaymentGateway(role: AccountRole): boolean {
-  return hasMinRole(role, "admin");
+  return hasMinRole(role, 'admin');
 }
 
 /** Owner only: irreversible destructive operations. */
 export function canDeleteAccount(role: AccountRole): boolean {
-  return role === "owner";
+  return role === 'owner';
 }
 
 /** Owner only: hand the account to another member. */
 export function canTransferOwnership(role: AccountRole): boolean {
-  return role === "owner";
+  return role === 'owner';
 }

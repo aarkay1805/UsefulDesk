@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, ReceiptText, WalletCards } from 'lucide-react';
+import { ReceiptText } from 'lucide-react';
 
 import { EmptyState } from '@/components/dashboard/empty-state';
+import { FinanceInvoices } from '@/components/finance/finance-invoices';
 import { FinanceOverview } from '@/components/finance/finance-overview';
+import { FinancePayments } from '@/components/finance/finance-payments';
 import { PageHeaderTabs } from '@/components/layout/page-header-actions';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,16 +23,6 @@ const VIEW_LABEL: Record<FinanceView, string> = {
 };
 
 const PLACEHOLDER = {
-  invoices: {
-    icon: FileText,
-    title: 'Invoices is the next Finance tab',
-    hint: 'The account-wide issued-invoice master will be implemented from the approved mockup.',
-  },
-  payments: {
-    icon: WalletCards,
-    title: 'Finance payment analysis is coming next',
-    hint: 'Operational dues and payment recording remain available under Members → Payments.',
-  },
   expenses: {
     icon: ReceiptText,
     title: 'Expense tracking is not enabled yet',
@@ -90,7 +82,7 @@ export function FinanceMasterView({
     router.replace(financeHref(view, nextMonth), { scroll: false });
   }
 
-  const placeholder = view === 'overview' ? null : PLACEHOLDER[view];
+  const placeholder = view === 'expenses' ? PLACEHOLDER.expenses : null;
 
   return (
     <div>
@@ -118,6 +110,19 @@ export function FinanceMasterView({
 
       {view === 'overview' ? (
         <FinanceOverview
+          reloadKey={reloadKey}
+          month={month}
+          onMonthChange={changeMonth}
+        />
+      ) : view === 'invoices' ? (
+        <FinanceInvoices
+          reloadKey={reloadKey}
+          month={month}
+          onMonthChange={changeMonth}
+        />
+      ) : view === 'payments' ? (
+        <FinancePayments
+          key={month}
           reloadKey={reloadKey}
           month={month}
           onMonthChange={changeMonth}

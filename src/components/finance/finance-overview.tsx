@@ -1,12 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Banknote,
   CalendarClock,
-  ChevronLeft,
-  ChevronRight,
-  Download,
   ReceiptText,
   RefreshCw,
   TrendingUp,
@@ -17,27 +14,15 @@ import { Skeleton, SkeletonCard } from '@/components/dashboard/skeleton';
 import { FinanceCashFlowChart } from '@/components/finance/finance-cash-flow-chart';
 import { FinanceCollectionMixCard } from '@/components/finance/finance-collection-mix';
 import { FinanceInvoiceHealthCard } from '@/components/finance/finance-invoice-health';
+import { FinanceMonthActions } from '@/components/finance/finance-month-actions';
 import { FinanceRecentTransactionsCard } from '@/components/finance/finance-recent-transactions';
-import { PageHeaderActions } from '@/components/layout/page-header-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { GatedButton } from '@/components/ui/gated-button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
-import { canExportFinance } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
 import {
-  financeMonthOptions,
   financeOverviewCsv,
   loadFinanceOverview,
-  shiftFinanceMonth,
   type FinanceOverviewData,
 } from '@/lib/finance/overview';
 import { relativeChange } from '@/lib/reports/reporting';
@@ -52,19 +37,11 @@ export function FinanceOverview({
   month: string;
   onMonthChange: (month: string) => void;
 }) {
-  const { accountRole } = useAuth();
   const { fmt, locale } = useLocale();
-  const mayExport = accountRole ? canExportFinance(accountRole) : false;
-  const currentMonth = fmt.today().slice(0, 7);
   const [data, setData] = useState<FinanceOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
-
-  const monthOptions = useMemo(() => {
-    const options = financeMonthOptions(currentMonth);
-    return options.includes(month) ? options : [month, ...options];
-  }, [currentMonth, month]);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,55 +90,12 @@ export function FinanceOverview({
 
   return (
     <div className="space-y-5">
-      <PageHeaderActions>
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Previous month"
-            onClick={() => onMonthChange(shiftFinanceMonth(month, -1))}
-          >
-            <ChevronLeft />
-          </Button>
-          <Select
-            value={month}
-            onValueChange={(value) => value && onMonthChange(value)}
-          >
-            <SelectTrigger aria-label="Finance month" className="w-36 sm:w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="end">
-              {monthOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {fmt.month(`${option}-01`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Next month"
-            disabled={month >= currentMonth}
-            onClick={() => onMonthChange(shiftFinanceMonth(month, 1))}
-          >
-            <ChevronRight />
-          </Button>
-        </div>
-        <GatedButton
-          type="button"
-          variant="ghost"
-          canAct={mayExport}
-          gateReason="export financial data"
-          onClick={exportOverview}
-          disabled={!data || loading}
-        >
-          <Download />
-          <span className="hidden sm:inline">Export</span>
-        </GatedButton>
-      </PageHeaderActions>
+      <FinanceMonthActions
+        month={month}
+        onMonthChange={onMonthChange}
+        onExport={exportOverview}
+        exportDisabled={!data || loading}
+      />
 
       <p className="text-muted-foreground text-sm tabular-nums">
         {data

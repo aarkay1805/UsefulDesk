@@ -57,7 +57,7 @@ import type {
   PaymentStatus,
 } from '@/types';
 import { MemberIdentity } from './member-identity';
-import { VoidedPaymentBadge } from './membership-status-badge';
+import { PaymentStatusBadge } from './membership-status-badge';
 import { PaymentProofLink } from './payment-proof-link';
 import {
   EMPTY_PAYMENT_DUE_FILTERS,
@@ -1264,18 +1264,4 @@ function recordedBy(payment: Payment, staffNameById: Map<string, string>) {
   return payment.user_id
     ? (staffNameById.get(payment.user_id) ?? 'Staff')
     : 'Staff';
-}
-
-function PaymentStatusBadge({
-  payment,
-  voidedOn,
-}: {
-  payment: Payment;
-  voidedOn: string | null;
-}) {
-  if (payment.status === 'void') {
-    return <VoidedPaymentBadge payment={payment} voidedOn={voidedOn} />;
-  }
-  if (payment.status === 'due') return <Badge variant="warning">Due</Badge>;
-  return <Badge variant="success">Paid</Badge>;
 }

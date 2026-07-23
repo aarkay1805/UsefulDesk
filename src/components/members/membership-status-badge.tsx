@@ -1,12 +1,13 @@
-import { Badge } from "@/components/ui/badge";
-import type { InvoicePaymentState } from "@/lib/memberships/periods";
+import { Badge } from '@/components/ui/badge';
+import type { InvoicePaymentState } from '@/lib/memberships/periods';
 import type {
   MembershipStatus,
   MembershipFeeStatus,
   InvoiceStatus,
   Payment,
+  PaymentStatus,
   PlanType,
-} from "@/types";
+} from '@/types';
 
 /**
  * Coloured pills for a membership's effective status and its fee state.
@@ -18,12 +19,12 @@ import type {
 
 const STATUS_VARIANT: Record<
   MembershipStatus,
-  { label: string; variant: "success" | "danger" | "info" | "neutral" }
+  { label: string; variant: 'success' | 'danger' | 'info' | 'neutral' }
 > = {
-  active: { label: "Active", variant: "success" },
-  expired: { label: "Expired", variant: "danger" },
-  frozen: { label: "Frozen", variant: "info" },
-  cancelled: { label: "Cancelled", variant: "neutral" },
+  active: { label: 'Active', variant: 'success' },
+  expired: { label: 'Expired', variant: 'danger' },
+  frozen: { label: 'Frozen', variant: 'info' },
+  cancelled: { label: 'Cancelled', variant: 'neutral' },
 };
 
 /**
@@ -41,13 +42,13 @@ export function MembershipStatusBadge({
   expiringWithin?: number;
 }) {
   if (
-    status === "active" &&
-    typeof daysToExpiry === "number" &&
+    status === 'active' &&
+    typeof daysToExpiry === 'number' &&
     daysToExpiry >= 0 &&
     daysToExpiry <= expiringWithin
   ) {
     const label =
-      daysToExpiry === 0 ? "Expires today" : `Expires in ${daysToExpiry}d`;
+      daysToExpiry === 0 ? 'Expires today' : `Expires in ${daysToExpiry}d`;
     return <Badge variant="warning">{label}</Badge>;
   }
   const s = STATUS_VARIANT[status];
@@ -61,13 +62,13 @@ export function MembershipStatusBadge({
  */
 const INVOICE_VARIANT: Record<
   InvoiceStatus,
-  { label: string; variant: "success" | "warning" | "info" | "neutral" }
+  { label: string; variant: 'success' | 'warning' | 'info' | 'neutral' }
 > = {
-  paid: { label: "Paid", variant: "success" },
-  unpaid: { label: "Unpaid", variant: "warning" },
-  upcoming: { label: "Upcoming", variant: "info" },
-  void: { label: "Void", variant: "neutral" },
-  no_charge: { label: "No charge", variant: "neutral" },
+  paid: { label: 'Paid', variant: 'success' },
+  unpaid: { label: 'Unpaid', variant: 'warning' },
+  upcoming: { label: 'Upcoming', variant: 'info' },
+  void: { label: 'Void', variant: 'neutral' },
+  no_charge: { label: 'No charge', variant: 'neutral' },
 };
 
 export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
@@ -85,11 +86,11 @@ export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
  */
 const INVOICE_PAYMENT_VARIANT: Record<
   InvoicePaymentState,
-  { label: string; variant: "success" | "warning" | "neutral" }
+  { label: string; variant: 'success' | 'warning' | 'neutral' }
 > = {
-  paid: { label: "Paid", variant: "success" },
-  due: { label: "Due", variant: "warning" },
-  no_charge: { label: "No charge", variant: "neutral" },
+  paid: { label: 'Paid', variant: 'success' },
+  due: { label: 'Due', variant: 'warning' },
+  no_charge: { label: 'No charge', variant: 'neutral' },
 };
 
 export function InvoicePaymentBadge({ state }: { state: InvoicePaymentState }) {
@@ -98,7 +99,7 @@ export function InvoicePaymentBadge({ state }: { state: InvoicePaymentState }) {
 }
 
 export function FeeStatusBadge({ status }: { status: MembershipFeeStatus }) {
-  return status === "paid" ? (
+  return status === 'paid' ? (
     <Badge variant="success">Paid</Badge>
   ) : (
     <Badge variant="warning">Fee due</Badge>
@@ -115,19 +116,38 @@ export function VoidedPaymentBadge({
   payment,
   voidedOn,
 }: {
-  payment: Pick<Payment, "void_reason" | "voided_at">;
+  payment: Pick<Payment, 'void_reason' | 'voided_at'>;
   voidedOn?: string | null;
 }) {
   const detail = [
-    voidedOn ? `Voided ${voidedOn}` : "Voided",
+    voidedOn ? `Voided ${voidedOn}` : 'Voided',
     payment.void_reason?.trim() || null,
   ]
     .filter(Boolean)
-    .join(": ");
+    .join(': ');
   return (
     <span title={detail} className="inline-flex cursor-help">
       <Badge variant="neutral">Voided</Badge>
     </span>
+  );
+}
+
+export function PaymentStatusBadge({
+  payment,
+  voidedOn,
+}: {
+  payment: Pick<Payment, 'status' | 'void_reason' | 'voided_at'>;
+  voidedOn?: string | null;
+}) {
+  if (payment.status === 'void') {
+    return <VoidedPaymentBadge payment={payment} voidedOn={voidedOn} />;
+  }
+
+  const status: Exclude<PaymentStatus, 'void'> = payment.status;
+  return status === 'due' ? (
+    <Badge variant="warning">Due</Badge>
+  ) : (
+    <Badge variant="success">Paid</Badge>
   );
 }
 
@@ -138,11 +158,11 @@ export function VoidedPaymentBadge({
  */
 const PLAN_TYPE_VARIANT: Record<
   PlanType,
-  { label: string; variant: "neutral" | "info" | "violet" }
+  { label: string; variant: 'neutral' | 'info' | 'violet' }
 > = {
-  recurring: { label: "Recurring", variant: "neutral" },
-  non_recurring: { label: "Fixed term", variant: "info" },
-  session_pack: { label: "Session pack", variant: "violet" },
+  recurring: { label: 'Recurring', variant: 'neutral' },
+  non_recurring: { label: 'Fixed term', variant: 'info' },
+  session_pack: { label: 'Session pack', variant: 'violet' },
 };
 
 export function PlanTypeBadge({ type }: { type: PlanType }) {
