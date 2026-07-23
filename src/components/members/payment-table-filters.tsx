@@ -5,6 +5,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Label } from '@/components/ui/label';
 import {
   Popover,
   PopoverContent,
@@ -27,11 +29,17 @@ export const EMPTY_PAYMENT_DUE_FILTERS: PaymentDueFilterState = {
 export interface PaymentHistoryFilterState {
   statuses: PaymentStatus[];
   sources: PaymentSource[];
+  staff: string[];
+  paidFrom: string;
+  paidTo: string;
 }
 
 export const EMPTY_PAYMENT_HISTORY_FILTERS: PaymentHistoryFilterState = {
   statuses: [],
   sources: [],
+  staff: [],
+  paidFrom: '',
+  paidTo: '',
 };
 
 const PAYMENT_STATUS_OPTIONS: { value: PaymentStatus; label: string }[] = [
@@ -98,11 +106,18 @@ export function PaymentDueFilters({
 export function PaymentHistoryFilters({
   value,
   onChange,
+  staff,
 }: {
   value: PaymentHistoryFilterState;
   onChange: (next: PaymentHistoryFilterState) => void;
+  staff: { value: string; label: string }[];
 }) {
-  const count = value.statuses.length + value.sources.length;
+  const count =
+    value.statuses.length +
+    value.sources.length +
+    value.staff.length +
+    Number(Boolean(value.paidFrom)) +
+    Number(Boolean(value.paidTo));
 
   function toggle<K extends keyof PaymentHistoryFilterState>(
     key: K,
@@ -133,6 +148,39 @@ export function PaymentHistoryFilters({
         selected={value.sources}
         onToggle={(choice) => toggle('sources', choice as PaymentSource)}
       />
+      <Separator className="my-3" />
+      <CheckGroup
+        label="Recorded by"
+        options={staff}
+        selected={value.staff}
+        onToggle={(choice) => toggle('staff', choice)}
+        emptyHint="No teammates yet."
+      />
+      <Separator className="my-3" />
+      <div className="grid gap-3">
+        <div className="grid gap-1.5">
+          <Label size="sm" htmlFor="payment-paid-from">
+            Paid from
+          </Label>
+          <DatePicker
+            id="payment-paid-from"
+            value={value.paidFrom}
+            onChange={(paidFrom) => onChange({ ...value, paidFrom })}
+            max={value.paidTo || undefined}
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label size="sm" htmlFor="payment-paid-to">
+            Paid to
+          </Label>
+          <DatePicker
+            id="payment-paid-to"
+            value={value.paidTo}
+            onChange={(paidTo) => onChange({ ...value, paidTo })}
+            min={value.paidFrom || undefined}
+          />
+        </div>
+      </div>
     </FilterPopover>
   );
 }

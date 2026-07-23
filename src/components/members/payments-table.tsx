@@ -9,6 +9,7 @@ import {
   Receipt,
   Wallet,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { LeadsSort, type SortState } from '@/components/leads/leads-sort';
 import {
@@ -19,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { Separator } from '@/components/ui/separator';
+import { SearchInput } from '@/components/ui/search-input';
 import {
   Table,
   TableBody,
@@ -34,12 +36,15 @@ import {
   ToolbarToggleItem,
 } from '@/components/ui/toolbar';
 import { useLocale } from '@/hooks/use-locale';
+import { getErrorMessage } from '@/lib/errors';
+import { dayStartInTz } from '@/lib/locale/format';
 import {
   bucketForDue,
   daysOverdue,
   DUE_BUCKETS,
   type DueBucket,
 } from '@/lib/memberships/dues';
+import { istAddDays } from '@/lib/memberships/expiry';
 import { isChargeableAmount } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -74,6 +79,8 @@ interface PaymentsTableProps {
   onSelect: (membershipId: string) => void;
   reloadKey: number;
   onChanged: () => void;
+  initialView?: PaymentTableView;
+  onViewChange?: (view: PaymentTableView) => void;
 }
 
 type PaymentTableView = 'due' | 'recent';
@@ -102,8 +109,8 @@ interface TableColumn<Key extends string> {
 }
 
 const MEMBERSHIP_SELECT = '*, contact:contacts(*), plan:membership_plans(*)';
-const LEDGER_LIMIT = 100;
 const PAGE_SIZE = 25;
+const EXPORT_PAGE_SIZE = 500;
 
 const DUE_COLUMNS: TableColumn<DueColumnKey>[] = [
   { key: 'name', label: 'Name', sortKey: 'name', width: 220 },
@@ -156,15 +163,33 @@ const PAYMENT_SOURCES: { value: PaymentSource; label: string }[] = [
   { value: 'auto', label: 'Auto-pay' },
 ];
 
+function useDebounced<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [delayMs, value]);
+
+  return debounced;
+}
+
 export function PaymentsTable({
   readiness,
   onSelect,
   reloadKey,
   onChanged,
+  initialView = 'due',
+  onViewChange,
 }: PaymentsTableProps) {
-  const { fmt } = useLocale();
-  const { nameById: staffNameById } = useAccountStaff();
-  const [view, setView] = useState<PaymentTableView>('due');
+  const { locale, fmt } = useLocale();
+  const { staff, nameById: staffNameById } = useAccountStaff();
+  const [view, setView] = useState<PaymentTableView>(initialView);
+  const [syncedInitialView, setSyncedInitialView] = useState(initialView);
+  if (initialView !== syncedInitialView) {
+    setSyncedInitialView(initialView);
+    setView(initialView);
+  }
 
   const [dueRows, setDueRows] = useState<DueMember[]>([]);
   const [dueLoading, setDueLoading] = useState(true);
@@ -182,6 +207,14 @@ export function PaymentsTable({
   const [ledgerRows, setLedgerRows] = useState<LedgerRow[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(true);
   const [ledgerError, setLedgerError] = useState<string | null>(null);
+  const [ledgerTotalCount, setLedgerTotalCount] = useState(0);
+  const [methodCounts, setMethodCounts] = useState<
+    Record<PaymentMethod, number>
+  >(
+    Object.fromEntries(
+      PAYMENT_METHODS.map(({ value }) => [value, 0])
+    ) as Record<PaymentMethod, number>
+  );
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [historyFilters, setHistoryFilters] =
     useState<PaymentHistoryFilterState>(EMPTY_PAYMENT_HISTORY_FILTERS);
@@ -190,6 +223,9 @@ export function PaymentsTable({
     dir: 'desc',
   });
   const [ledgerPage, setLedgerPage] = useState(1);
+  const [searchInput, setSearchInput] = useState('');
+  const search = useDebounced(searchInput, 300);
+  const [exporting, setExporting] = useState(false);
 
   const reload = useCallback(() => onChanged(), [onChanged]);
 
@@ -237,28 +273,162 @@ export function PaymentsTable({
       setDueLoading(false);
     })();
 
-    (async () => {
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
+  const ledgerQuerySignature = JSON.stringify({
+    search,
+    methods,
+    historyFilters,
+    ledgerSort,
+  });
+  const [previousLedgerQuerySignature, setPreviousLedgerQuerySignature] =
+    useState(ledgerQuerySignature);
+  if (ledgerQuerySignature !== previousLedgerQuerySignature) {
+    setPreviousLedgerQuerySignature(ledgerQuerySignature);
+    setLedgerPage(1);
+    setDuePage(1);
+  }
+
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+
+    void (async () => {
       setLedgerLoading(true);
       setLedgerError(null);
-      const { data, error } = await supabase
+
+      const term = search.trim();
+      const contactJoin = term
+        ? 'contact:contacts!inner(name, phone, avatar_url)'
+        : 'contact:contacts(name, phone, avatar_url)';
+      let query = supabase
         .from('payments')
-        .select('*, contact:contacts(name, phone, avatar_url)')
-        .order('paid_at', { ascending: false })
-        .limit(LEDGER_LIMIT);
+        .select(`*, ${contactJoin}`, { count: 'exact' });
+
+      if (term) {
+        const like = `%${term}%`;
+        query = query.or(`name.ilike.${like},phone.ilike.${like}`, {
+          referencedTable: 'contact',
+        });
+      }
+      if (methods.length) query = query.in('method', methods);
+      if (historyFilters.statuses.length) {
+        query = query.in('status', historyFilters.statuses);
+      }
+      if (historyFilters.sources.length) {
+        query = query.in('source', historyFilters.sources);
+      }
+      if (historyFilters.staff.length) {
+        query = query.in('user_id', historyFilters.staff);
+      }
+      if (historyFilters.paidFrom) {
+        const from = dayStartInTz(
+          historyFilters.paidFrom,
+          locale.timeZone
+        )?.toISOString();
+        if (from) query = query.gte('paid_at', from);
+      }
+      if (historyFilters.paidTo) {
+        const until = dayStartInTz(
+          istAddDays(historyFilters.paidTo, 1),
+          locale.timeZone
+        )?.toISOString();
+        if (until) query = query.lt('paid_at', until);
+      }
+
+      const ascending = ledgerSort.dir === 'asc';
+      if (ledgerSort.key === 'name') {
+        query = query.order('name', {
+          ascending,
+          referencedTable: 'contact',
+        });
+      } else {
+        const sortColumn =
+          ledgerSort.key === 'paid_on'
+            ? 'paid_at'
+            : ledgerSort.key === 'recorded_by'
+              ? 'user_id'
+              : ledgerSort.key;
+        query = query.order(sortColumn, { ascending });
+      }
+
+      const from = (ledgerPage - 1) * PAGE_SIZE;
+      const [pageResult, counts] = await Promise.all([
+        query.range(from, from + PAGE_SIZE - 1),
+        Promise.all(
+          PAYMENT_METHODS.map(async ({ value }) => {
+            const countContactJoin = term
+              ? 'id, contact:contacts!inner(id)'
+              : 'id';
+            let countQuery = supabase
+              .from('payments')
+              .select(countContactJoin, { count: 'exact', head: true })
+              .eq('method', value);
+            if (term) {
+              const like = `%${term}%`;
+              countQuery = countQuery.or(
+                `name.ilike.${like},phone.ilike.${like}`,
+                { referencedTable: 'contact' }
+              );
+            }
+            if (historyFilters.statuses.length) {
+              countQuery = countQuery.in('status', historyFilters.statuses);
+            }
+            if (historyFilters.sources.length) {
+              countQuery = countQuery.in('source', historyFilters.sources);
+            }
+            if (historyFilters.staff.length) {
+              countQuery = countQuery.in('user_id', historyFilters.staff);
+            }
+            if (historyFilters.paidFrom) {
+              const paidFrom = dayStartInTz(
+                historyFilters.paidFrom,
+                locale.timeZone
+              )?.toISOString();
+              if (paidFrom) countQuery = countQuery.gte('paid_at', paidFrom);
+            }
+            if (historyFilters.paidTo) {
+              const paidUntil = dayStartInTz(
+                istAddDays(historyFilters.paidTo, 1),
+                locale.timeZone
+              )?.toISOString();
+              if (paidUntil) countQuery = countQuery.lt('paid_at', paidUntil);
+            }
+            const { count } = await countQuery;
+            return [value, count ?? 0] as const;
+          })
+        ),
+      ]);
+
       if (cancelled) return;
-      if (error) {
-        setLedgerError(error.message);
+      if (pageResult.error) {
+        setLedgerError(pageResult.error.message);
         setLedgerLoading(false);
         return;
       }
-      setLedgerRows((data as LedgerRow[]) ?? []);
+      setLedgerRows((pageResult.data as LedgerRow[]) ?? []);
+      setLedgerTotalCount(pageResult.count ?? 0);
+      setMethodCounts(
+        Object.fromEntries(counts) as Record<PaymentMethod, number>
+      );
       setLedgerLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [
+    historyFilters,
+    ledgerPage,
+    ledgerSort,
+    locale.timeZone,
+    methods,
+    reloadKey,
+    search,
+  ]);
 
   const today = fmt.today();
 
@@ -275,6 +445,19 @@ export function PaymentsTable({
 
   const filteredDueRows = useMemo(() => {
     const matching = dueRows.filter((row) => {
+      const term = search.trim().toLocaleLowerCase();
+      if (term) {
+        const name = row.contact?.name?.toLocaleLowerCase() ?? '';
+        const phone = row.contact?.phone?.toLocaleLowerCase() ?? '';
+        const memberNumber = String(row.member_number ?? '');
+        if (
+          !name.includes(term) &&
+          !phone.includes(term) &&
+          !memberNumber.includes(term)
+        ) {
+          return false;
+        }
+      }
       if (
         dueFilters.plans.length > 0 &&
         !dueFilters.plans.includes(row.plan_id ?? '')
@@ -305,45 +488,9 @@ export function PaymentsTable({
       }
       return result * direction;
     });
-  }, [dueFilters, dueRows, dueSort, today]);
+  }, [dueFilters, dueRows, dueSort, search, today]);
 
-  const filteredLedgerRows = useMemo(() => {
-    const matching = ledgerRows.filter((row) => {
-      const source = paymentSource(row);
-      if (methods.length > 0 && !methods.includes(row.method)) return false;
-      if (
-        historyFilters.statuses.length > 0 &&
-        !historyFilters.statuses.includes(row.status)
-      ) {
-        return false;
-      }
-      return (
-        historyFilters.sources.length === 0 ||
-        historyFilters.sources.includes(source)
-      );
-    });
-
-    return [...matching].sort((a, b) => {
-      const direction = ledgerSort.dir === 'asc' ? 1 : -1;
-      let result = 0;
-      if (ledgerSort.key === 'name') {
-        result = (a.contact?.name ?? '').localeCompare(b.contact?.name ?? '');
-      } else if (ledgerSort.key === 'method') {
-        result = METHOD_LABEL[a.method].localeCompare(METHOD_LABEL[b.method]);
-      } else if (ledgerSort.key === 'amount') {
-        result = Number(a.amount) - Number(b.amount);
-      } else if (ledgerSort.key === 'status') {
-        result = a.status.localeCompare(b.status);
-      } else if (ledgerSort.key === 'recorded_by') {
-        result = recordedBy(a, staffNameById).localeCompare(
-          recordedBy(b, staffNameById)
-        );
-      } else {
-        result = a.paid_at.localeCompare(b.paid_at);
-      }
-      return result * direction;
-    });
-  }, [historyFilters, ledgerRows, ledgerSort, methods, staffNameById]);
+  const filteredLedgerRows = ledgerRows;
 
   const dueBucketCounts = useMemo(() => {
     const counts = Object.fromEntries(
@@ -361,41 +508,6 @@ export function PaymentsTable({
     return counts;
   }, [dueFilters.plans, dueRows, today]);
 
-  const paymentMethodCounts = useMemo(() => {
-    const counts = Object.fromEntries(
-      PAYMENT_METHODS.map(({ value }) => [value, 0])
-    ) as Record<PaymentMethod, number>;
-    for (const row of ledgerRows) {
-      const source = paymentSource(row);
-      if (
-        historyFilters.statuses.length > 0 &&
-        !historyFilters.statuses.includes(row.status)
-      ) {
-        continue;
-      }
-      if (
-        historyFilters.sources.length > 0 &&
-        !historyFilters.sources.includes(source)
-      ) {
-        continue;
-      }
-      counts[row.method] += 1;
-    }
-    return counts;
-  }, [historyFilters, ledgerRows]);
-
-  const collected = useMemo(
-    () =>
-      filteredLedgerRows.reduce(
-        (total, payment) =>
-          payment.status === 'paid'
-            ? total + (Number(payment.amount) || 0)
-            : total,
-        0
-      ),
-    [filteredLedgerRows]
-  );
-
   const duePageCount = Math.max(
     1,
     Math.ceil(filteredDueRows.length / PAGE_SIZE)
@@ -412,22 +524,14 @@ export function PaymentsTable({
     filteredDueRows.length
   );
 
-  const ledgerPageCount = Math.max(
-    1,
-    Math.ceil(filteredLedgerRows.length / PAGE_SIZE)
-  );
+  const ledgerPageCount = Math.max(1, Math.ceil(ledgerTotalCount / PAGE_SIZE));
   const currentLedgerPage = Math.min(ledgerPage, ledgerPageCount);
-  const ledgerPageRows = filteredLedgerRows.slice(
-    (currentLedgerPage - 1) * PAGE_SIZE,
-    currentLedgerPage * PAGE_SIZE
-  );
+  const ledgerPageRows = filteredLedgerRows;
   const ledgerRangeStart =
-    filteredLedgerRows.length === 0
-      ? 0
-      : (currentLedgerPage - 1) * PAGE_SIZE + 1;
+    ledgerTotalCount === 0 ? 0 : (currentLedgerPage - 1) * PAGE_SIZE + 1;
   const ledgerRangeEnd = Math.min(
     currentLedgerPage * PAGE_SIZE,
-    filteredLedgerRows.length
+    ledgerTotalCount
   );
 
   function setDueBuckets(next: DueBucket[]) {
@@ -540,79 +644,129 @@ export function PaymentsTable({
     return undefined;
   }
 
-  function exportCsv() {
-    const escape = (value: string | number | null | undefined) => {
-      const text = String(value ?? '');
-      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-    };
-    const header = [
-      'Paid on',
-      'Member',
-      'Phone',
-      'Method',
-      'Amount',
-      'Status',
-      'Recorded by',
-      'Note',
-    ];
-    const lines = filteredLedgerRows.map((payment) =>
-      [
-        fmt.dateTime(payment.paid_at),
-        escape(payment.contact?.name),
-        escape(payment.contact?.phone),
-        METHOD_LABEL[payment.method],
-        Number(payment.amount),
-        payment.status,
-        escape(recordedBy(payment, staffNameById)),
-        escape(payment.note),
-      ].join(',')
-    );
-    const blob = new Blob([[header.join(','), ...lines].join('\n')], {
-      type: 'text/csv;charset=utf-8',
-    });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `payments-${methods[0] ?? 'all-methods'}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const supabase = createClient();
+      const allRows: LedgerRow[] = [];
+      const term = search.trim();
+      let offset = 0;
+
+      while (true) {
+        const contactJoin = term
+          ? 'contact:contacts!inner(name, phone, avatar_url)'
+          : 'contact:contacts(name, phone, avatar_url)';
+        let query = supabase
+          .from('payments')
+          .select(`*, ${contactJoin}`)
+          .order('paid_at', { ascending: false });
+
+        if (term) {
+          const like = `%${term}%`;
+          query = query.or(`name.ilike.${like},phone.ilike.${like}`, {
+            referencedTable: 'contact',
+          });
+        }
+        if (methods.length) query = query.in('method', methods);
+        if (historyFilters.statuses.length) {
+          query = query.in('status', historyFilters.statuses);
+        }
+        if (historyFilters.sources.length) {
+          query = query.in('source', historyFilters.sources);
+        }
+        if (historyFilters.staff.length) {
+          query = query.in('user_id', historyFilters.staff);
+        }
+        if (historyFilters.paidFrom) {
+          const from = dayStartInTz(
+            historyFilters.paidFrom,
+            locale.timeZone
+          )?.toISOString();
+          if (from) query = query.gte('paid_at', from);
+        }
+        if (historyFilters.paidTo) {
+          const until = dayStartInTz(
+            istAddDays(historyFilters.paidTo, 1),
+            locale.timeZone
+          )?.toISOString();
+          if (until) query = query.lt('paid_at', until);
+        }
+
+        const { data, error } = await query.range(
+          offset,
+          offset + EXPORT_PAGE_SIZE - 1
+        );
+        if (error) throw error;
+        const pageRows = (data as LedgerRow[]) ?? [];
+        allRows.push(...pageRows);
+        if (pageRows.length < EXPORT_PAGE_SIZE) break;
+        offset += EXPORT_PAGE_SIZE;
+      }
+
+      const escape = (value: string | number | null | undefined) => {
+        const text = String(value ?? '');
+        return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+      };
+      const header = [
+        'Paid on',
+        'Name',
+        'Phone',
+        'Method',
+        'Amount',
+        'Status',
+        'Recorded by',
+        'Note',
+      ];
+      const lines = allRows.map((payment) =>
+        [
+          fmt.dateTime(payment.paid_at),
+          escape(payment.contact?.name),
+          escape(payment.contact?.phone),
+          METHOD_LABEL[payment.method],
+          Number(payment.amount),
+          payment.status,
+          escape(recordedBy(payment, staffNameById)),
+          escape(payment.note),
+        ].join(',')
+      );
+      const blob = new Blob([[header.join(','), ...lines].join('\n')], {
+        type: 'text/csv;charset=utf-8',
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `payments-${methods[0] ?? 'all-methods'}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Payment export failed'));
+    } finally {
+      setExporting(false);
+    }
   }
 
   const isDue = view === 'due';
   const activeLoading = isDue ? dueLoading : ledgerLoading;
   const activeError = isDue ? dueError : ledgerError;
+  const hasHistoryQuery =
+    Boolean(search.trim()) ||
+    methods.length > 0 ||
+    historyFilters.statuses.length > 0 ||
+    historyFilters.sources.length > 0 ||
+    historyFilters.staff.length > 0 ||
+    Boolean(historyFilters.paidFrom) ||
+    Boolean(historyFilters.paidTo);
 
   return (
     <>
       <section className="border-border bg-card overflow-hidden rounded-2xl border">
         <div className="border-border flex flex-wrap items-center gap-2 border-b p-2">
-          <Toolbar aria-label="Payment table view">
-            <ToolbarToggleGroup<PaymentTableView>
-              aria-label="Payment table view"
-              value={[view]}
-              onValueChange={(nextViews) => {
-                const nextView = nextViews[0];
-                if (nextView) setView(nextView);
-              }}
-            >
-              <ToolbarToggleItem value="due" aria-label="Payments due">
-                <Wallet className="size-4" />
-                <span>Payment due</span>
-                <Badge variant="neutral" size="count">
-                  {dueLoading && dueRows.length === 0 ? '—' : dueRows.length}
-                </Badge>
-              </ToolbarToggleItem>
-              <ToolbarToggleItem value="recent" aria-label="Recent payments">
-                <Receipt className="size-4" />
-                <span>Recent payments</span>
-                <Badge variant="neutral" size="count">
-                  {ledgerLoading && ledgerRows.length === 0
-                    ? '—'
-                    : ledgerRows.length}
-                </Badge>
-              </ToolbarToggleItem>
-            </ToolbarToggleGroup>
-          </Toolbar>
+          <SearchInput
+            value={searchInput}
+            onValueChange={setSearchInput}
+            placeholder={isDue ? 'Search payment dues…' : 'Search payments…'}
+            aria-label={isDue ? 'Search payment dues' : 'Search payments'}
+          />
 
           <div className="flex shrink-0 items-center gap-2">
             {isDue ? (
@@ -631,6 +785,10 @@ export function PaymentsTable({
                   setHistoryFilters(next);
                   setLedgerPage(1);
                 }}
+                staff={staff.map((member) => ({
+                  value: member.user_id,
+                  label: member.full_name,
+                }))}
               />
             )}
 
@@ -678,29 +836,67 @@ export function PaymentsTable({
                 {PAYMENT_METHODS.map(({ value, label }) => (
                   <Chip key={value} value={value}>
                     {label}
-                    <ChipCount count={paymentMethodCounts[value]} />
+                    <ChipCount count={methodCounts[value]} />
                   </Chip>
                 ))}
               </ChipGroup>
             )}
           </div>
 
-          {!isDue && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="ml-auto"
-              onClick={exportCsv}
-              disabled={
-                ledgerLoading ||
-                !!ledgerError ||
-                filteredLedgerRows.length === 0
-              }
-            >
-              <Download className="size-3.5" /> Export CSV
-            </Button>
-          )}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <Toolbar aria-label="Payment table view">
+              <ToolbarToggleGroup<PaymentTableView>
+                aria-label="Payment table view"
+                value={[view]}
+                onValueChange={(nextViews) => {
+                  const nextView = nextViews[0];
+                  if (nextView) {
+                    setView(nextView);
+                    onViewChange?.(nextView);
+                  }
+                }}
+              >
+                <ToolbarToggleItem value="due" aria-label="Payments due">
+                  <Wallet className="size-4" />
+                  <span>Payment due</span>
+                  <Badge variant="neutral" size="count">
+                    {dueLoading && dueRows.length === 0 ? '—' : dueRows.length}
+                  </Badge>
+                </ToolbarToggleItem>
+                <ToolbarToggleItem value="recent" aria-label="Recent payments">
+                  <Receipt className="size-4" />
+                  <span>Recent payments</span>
+                  <Badge variant="neutral" size="count">
+                    {ledgerLoading && ledgerTotalCount === 0
+                      ? '—'
+                      : ledgerTotalCount}
+                  </Badge>
+                </ToolbarToggleItem>
+              </ToolbarToggleGroup>
+            </Toolbar>
+
+            {!isDue && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => void exportCsv()}
+                disabled={
+                  exporting ||
+                  ledgerLoading ||
+                  !!ledgerError ||
+                  ledgerTotalCount === 0
+                }
+              >
+                {exporting ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Download className="size-3.5" />
+                )}
+                {exporting ? 'Exporting…' : 'Export CSV'}
+              </Button>
+            )}
+          </div>
         </div>
 
         {activeLoading &&
@@ -721,7 +917,7 @@ export function PaymentsTable({
         ) : isDue ? (
           duePageRows.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-12 text-center">
-              <CheckCircle2 className="size-7 text-emerald-foreground" />
+              <CheckCircle2 className="text-emerald-foreground size-7" />
               <p className="text-muted-foreground text-sm">
                 {dueRows.length === 0
                   ? 'No outstanding payments.'
@@ -798,7 +994,7 @@ export function PaymentsTable({
                           days={daysOverdue(membership.start_date, today)}
                         />
                       </TableCell>
-                      <TableCell className="font-semibold text-amber-foreground tabular-nums">
+                      <TableCell className="text-amber-foreground font-semibold tabular-nums">
                         {fmt.money(membership.balance)}
                       </TableCell>
                       <TableCell
@@ -831,9 +1027,9 @@ export function PaymentsTable({
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <Receipt className="text-muted-foreground size-8" />
             <p className="text-muted-foreground text-sm">
-              {ledgerRows.length === 0
-                ? 'No payments recorded yet.'
-                : 'No payments match your filters.'}
+              {hasHistoryQuery
+                ? 'No payments match your filters.'
+                : 'No payments recorded yet.'}
             </p>
           </div>
         ) : (
@@ -977,34 +1173,26 @@ export function PaymentsTable({
             </div>
           )}
 
-        {!activeLoading &&
-          !activeError &&
-          !isDue &&
-          filteredLedgerRows.length > 0 && (
-            <div className="border-border flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2">
-              <p className="text-muted-foreground text-xs tabular-nums">
-                Showing {ledgerRangeStart}–{ledgerRangeEnd} of{' '}
-                {filteredLedgerRows.length} payments ·{' '}
-                <span className="tabular-nums">{fmt.money(collected)}</span>{' '}
-                collected
-                {ledgerRows.length === LEDGER_LIMIT
-                  ? ` · Latest ${LEDGER_LIMIT} loaded`
-                  : ''}
-              </p>
-              <PaginationControls
-                page={currentLedgerPage}
-                pageCount={ledgerPageCount}
-                onPrevious={() =>
-                  setLedgerPage((current) => Math.max(1, current - 1))
-                }
-                onNext={() =>
-                  setLedgerPage((current) =>
-                    Math.min(ledgerPageCount, current + 1)
-                  )
-                }
-              />
-            </div>
-          )}
+        {!activeLoading && !activeError && !isDue && ledgerTotalCount > 0 && (
+          <div className="border-border flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2">
+            <p className="text-muted-foreground text-xs tabular-nums">
+              Showing {ledgerRangeStart}–{ledgerRangeEnd} of {ledgerTotalCount}{' '}
+              payments
+            </p>
+            <PaginationControls
+              page={currentLedgerPage}
+              pageCount={ledgerPageCount}
+              onPrevious={() =>
+                setLedgerPage((current) => Math.max(1, current - 1))
+              }
+              onNext={() =>
+                setLedgerPage((current) =>
+                  Math.min(ledgerPageCount, current + 1)
+                )
+              }
+            />
+          </div>
+        )}
       </section>
 
       {payFor && (

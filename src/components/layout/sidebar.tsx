@@ -14,6 +14,7 @@ import {
   ChartNoAxesCombined,
   Crown,
   Dumbbell,
+  Landmark,
   LayoutDashboard,
   LogOut,
   MessageSquare,
@@ -105,6 +106,7 @@ const navSections: { key: string; items: NavItem[] }[] = [
       { href: '/notifications', label: 'Notifications', icon: Bell },
       { href: '/leads', label: 'Leads', icon: Users },
       { href: '/members', label: 'Members', icon: Dumbbell },
+      { href: '/finance', label: 'Finance', icon: Landmark },
       { href: '/reports', label: 'Reports', icon: ChartNoAxesCombined },
     ],
   },
@@ -341,141 +343,141 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Main navigation */}
         <ScrollArea className="min-h-0 flex-1" scrollbarVisibility="hover">
           <nav className="px-3 py-4">
-          {navSections.map((section, sectionIndex) => (
-            <Fragment key={section.key}>
-              {sectionIndex > 0 && <Separator className="my-4" />}
-              <ul className="flex flex-col gap-1">
-                {/* Get Started sits above the regular nav while onboarding is
+            {navSections.map((section, sectionIndex) => (
+              <Fragment key={section.key}>
+                {sectionIndex > 0 && <Separator className="my-4" />}
+                <ul className="flex flex-col gap-1">
+                  {/* Get Started sits above the regular nav while onboarding is
                     live for this account (admin+, not yet complete/dismissed).
                     It auto-disappears once every step is done — the provider
                     stamps `onboarding_dismissed_at` and `active` flips off. */}
-                {sectionIndex === 0 &&
-                  onboarding.active &&
-                  !onboarding.allDone && (
-                    <li>
-                      <SidebarNavLink
-                        href="/get-started"
-                        label="Get Started"
-                        icon={Rocket}
-                        isActive={pathname.startsWith('/get-started')}
-                        collapsed={collapsed}
-                        trailing={
-                          !onboarding.loading ? (
-                            <span
-                              aria-label={`${onboarding.completedCount} of ${onboarding.total} setup steps complete`}
-                              className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
-                            >
-                              {onboarding.completedCount}/{onboarding.total}
-                            </span>
-                          ) : null
-                        }
-                        compactIndicator={
-                          !onboarding.loading ? (
-                            <span className="bg-primary text-primary-foreground absolute -top-2 -right-3 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[8px] font-semibold">
-                              {onboarding.completedCount}
-                            </span>
-                          ) : null
-                        }
-                      />
-                    </li>
-                  )}
-                {section.items.map((item) => {
-                  const isActive =
-                    pathname === item.href ||
-                    (item.href !== '/dashboard' &&
-                      pathname.startsWith(item.href));
+                  {sectionIndex === 0 &&
+                    onboarding.active &&
+                    !onboarding.allDone && (
+                      <li>
+                        <SidebarNavLink
+                          href="/get-started"
+                          label="Get Started"
+                          icon={Rocket}
+                          isActive={pathname.startsWith('/get-started')}
+                          collapsed={collapsed}
+                          trailing={
+                            !onboarding.loading ? (
+                              <span
+                                aria-label={`${onboarding.completedCount} of ${onboarding.total} setup steps complete`}
+                                className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
+                              >
+                                {onboarding.completedCount}/{onboarding.total}
+                              </span>
+                            ) : null
+                          }
+                          compactIndicator={
+                            !onboarding.loading ? (
+                              <span className="bg-primary text-primary-foreground absolute -top-2 -right-3 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[8px] font-semibold">
+                                {onboarding.completedCount}
+                              </span>
+                            ) : null
+                          }
+                        />
+                      </li>
+                    )}
+                  {section.items.map((item) => {
+                    const isActive =
+                      pathname === item.href ||
+                      (item.href !== '/dashboard' &&
+                        pathname.startsWith(item.href));
 
-                  const showUnreadDot =
-                    item.href === '/inbox' && totalUnread > 0;
+                    const showUnreadDot =
+                      item.href === '/inbox' && totalUnread > 0;
 
-                  // Keep unread state visible even while its page is active:
-                  // viewing a section is not the same as clearing every item.
-                  // Notifications clear only when their rows are marked read.
-                  const showNotificationBadge =
-                    item.href === '/notifications' && unreadNotifications > 0;
+                    // Keep unread state visible even while its page is active:
+                    // viewing a section is not the same as clearing every item.
+                    // Notifications clear only when their rows are marked read.
+                    const showNotificationBadge =
+                      item.href === '/notifications' && unreadNotifications > 0;
 
-                  return (
-                    <li key={item.href}>
-                      <SidebarNavLink
-                        href={item.href}
-                        label={item.label}
-                        icon={item.icon}
-                        isActive={isActive}
-                        collapsed={collapsed}
-                        trailing={
-                          item.beta ||
-                          showUnreadDot ||
-                          showNotificationBadge ? (
-                            <>
-                              {item.beta && (
-                                <span
-                                  aria-label="Beta feature"
-                                  className="text-amber-foreground rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase"
-                                >
-                                  Beta
-                                </span>
-                              )}
-                              {showUnreadDot && (
-                                <span
-                                  aria-label={`${totalUnread} unread conversation${totalUnread === 1 ? '' : 's'}`}
-                                  className="relative flex h-2 w-2"
-                                >
-                                  <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
-                                  <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
-                                </span>
-                              )}
-                              {showNotificationBadge && (
-                                <span
-                                  aria-label={`${unreadNotifications} unread notification${unreadNotifications === 1 ? '' : 's'}`}
-                                  className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
-                                >
-                                  {unreadNotifications > 9
-                                    ? '9+'
-                                    : unreadNotifications}
-                                </span>
-                              )}
-                            </>
-                          ) : null
-                        }
-                        compactIndicator={
-                          item.beta ? (
-                            <span className="absolute -top-1.5 -right-2 size-2 rounded-full bg-amber-500" />
-                          ) : showUnreadDot ? (
-                            <span className="bg-primary absolute -top-1.5 -right-2 size-2 rounded-full" />
-                          ) : showNotificationBadge ? (
-                            <span className="bg-primary text-primary-foreground absolute -top-2 -right-3 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[8px] font-semibold">
-                              {unreadNotifications > 9
-                                ? '9+'
-                                : unreadNotifications}
-                            </span>
-                          ) : null
-                        }
-                      />
-                    </li>
-                  );
-                })}
-              </ul>
-            </Fragment>
-          ))}
+                    return (
+                      <li key={item.href}>
+                        <SidebarNavLink
+                          href={item.href}
+                          label={item.label}
+                          icon={item.icon}
+                          isActive={isActive}
+                          collapsed={collapsed}
+                          trailing={
+                            item.beta ||
+                            showUnreadDot ||
+                            showNotificationBadge ? (
+                              <>
+                                {item.beta && (
+                                  <span
+                                    aria-label="Beta feature"
+                                    className="text-amber-foreground rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase"
+                                  >
+                                    Beta
+                                  </span>
+                                )}
+                                {showUnreadDot && (
+                                  <span
+                                    aria-label={`${totalUnread} unread conversation${totalUnread === 1 ? '' : 's'}`}
+                                    className="relative flex h-2 w-2"
+                                  >
+                                    <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+                                    <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
+                                  </span>
+                                )}
+                                {showNotificationBadge && (
+                                  <span
+                                    aria-label={`${unreadNotifications} unread notification${unreadNotifications === 1 ? '' : 's'}`}
+                                    className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
+                                  >
+                                    {unreadNotifications > 9
+                                      ? '9+'
+                                      : unreadNotifications}
+                                  </span>
+                                )}
+                              </>
+                            ) : null
+                          }
+                          compactIndicator={
+                            item.beta ? (
+                              <span className="absolute -top-1.5 -right-2 size-2 rounded-full bg-amber-500" />
+                            ) : showUnreadDot ? (
+                              <span className="bg-primary absolute -top-1.5 -right-2 size-2 rounded-full" />
+                            ) : showNotificationBadge ? (
+                              <span className="bg-primary text-primary-foreground absolute -top-2 -right-3 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[8px] font-semibold">
+                                {unreadNotifications > 9
+                                  ? '9+'
+                                  : unreadNotifications}
+                              </span>
+                            ) : null
+                          }
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Fragment>
+            ))}
 
-          <Separator className="my-4" />
+            <Separator className="my-4" />
 
-          <ul className="flex flex-col gap-1">
-            {bottomNavItems.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-              return (
-                <li key={item.href}>
-                  <SidebarNavLink
-                    href={item.href}
-                    label={item.label}
-                    icon={item.icon}
-                    isActive={isActive}
-                    collapsed={collapsed}
-                  />
-                </li>
-              );
-            })}
-          </ul>
+            <ul className="flex flex-col gap-1">
+              {bottomNavItems.map((item) => {
+                const isActive = pathname.startsWith(item.href);
+                return (
+                  <li key={item.href}>
+                    <SidebarNavLink
+                      href={item.href}
+                      label={item.label}
+                      icon={item.icon}
+                      isActive={isActive}
+                      collapsed={collapsed}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
           </nav>
         </ScrollArea>
 

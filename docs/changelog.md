@@ -6,6 +6,12 @@
 
 ---
 
+## Finance Phase A foundation
+
+Shipped a top-level Finance section with an action-led Overview and URL-backed Collections views. The existing due queue, payment entry, reminders, member detail, summary tiles, and append-preserving ledger remain the single source of truth; Members payment bookmarks redirect and Reports attention links now land in Finance. Recent payments now use server pagination, account-timezone date and staff filters, full-query method counts, and complete filtered CSV export instead of a latest-100 client slice. Later Finance tabs stay hidden until their domains exist. Key code: `src/app/(dashboard)/finance/page.tsx`, `src/components/finance/`, `src/components/members/payments-table.tsx`, and `src/lib/finance/views.ts`.
+
+---
+
 ## Localized phone input rollout
 
 Shipped the localized `PhoneInput` across public capture, contact/member creation and profile edits, typed custom fields, lead bulk/inline/import editors, and WhatsApp template phone buttons. The visible field edits only the national number beside the fixed account dialling code, while the shared boundary helper preserves complete account-qualified values for persistence, dedupe, and WhatsApp. Localization's country-code setting and Meta's Phone Number ID remain ordinary identifier inputs. Key code: `src/components/ui/phone-input.tsx`, `src/lib/phone-input.ts`, contact/member form surfaces, and `src/components/leads/editable-cell.tsx`.
