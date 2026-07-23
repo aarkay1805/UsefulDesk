@@ -1,173 +1,306 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  AlertCircle,
+  Banknote,
+  CalendarClock,
+  ChevronLeft,
   ChevronRight,
-  CircleDollarSign,
-  CreditCard,
-  Receipt,
+  Download,
+  ReceiptText,
+  RefreshCw,
+  TrendingUp,
 } from 'lucide-react';
 
-import { PaymentSummaryTiles } from '@/components/members/payment-summary-tiles';
+import { MetricCard } from '@/components/dashboard/metric-card';
+import { Skeleton, SkeletonCard } from '@/components/dashboard/skeleton';
+import { FinanceCashFlowChart } from '@/components/finance/finance-cash-flow-chart';
+import { FinanceCollectionMixCard } from '@/components/finance/finance-collection-mix';
+import { FinanceInvoiceHealthCard } from '@/components/finance/finance-invoice-health';
+import { FinanceRecentTransactionsCard } from '@/components/finance/finance-recent-transactions';
+import { PageHeaderActions } from '@/components/layout/page-header-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { GatedButton } from '@/components/ui/gated-button';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
-import { financeHref } from '@/lib/finance/views';
-import { isChargeableAmount } from '@/lib/memberships/periods';
+import { canExportFinance } from '@/lib/auth/roles';
+import { getErrorMessage } from '@/lib/errors';
+import {
+  financeMonthOptions,
+  financeOverviewCsv,
+  loadFinanceOverview,
+  shiftFinanceMonth,
+  type FinanceOverviewData,
+} from '@/lib/finance/overview';
+import { relativeChange } from '@/lib/reports/reporting';
 import { createClient } from '@/lib/supabase/client';
 
-interface FinanceOverviewProps {
+export function FinanceOverview({
+  reloadKey,
+  month,
+  onMonthChange,
+}: {
   reloadKey: number;
-}
-
-interface AttentionTotals {
-  dueCount: number;
-  dueAmount: number;
-  failedMandates: number;
-}
-
-const ZERO: AttentionTotals = {
-  dueCount: 0,
-  dueAmount: 0,
-  failedMandates: 0,
-};
-
-export function FinanceOverview({ reloadKey }: FinanceOverviewProps) {
-  const { fmt } = useLocale();
-  const [attention, setAttention] = useState<AttentionTotals>(ZERO);
+  month: string;
+  onMonthChange: (month: string) => void;
+}) {
+  const { accountRole } = useAuth();
+  const { fmt, locale } = useLocale();
+  const mayExport = accountRole ? canExportFinance(accountRole) : false;
+  const currentMonth = fmt.today().slice(0, 7);
+  const [data, setData] = useState<FinanceOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+
+  const monthOptions = useMemo(() => {
+    const options = financeMonthOptions(currentMonth);
+    return options.includes(month) ? options : [month, ...options];
+  }, [currentMonth, month]);
 
   useEffect(() => {
-    const supabase = createClient();
     let cancelled = false;
 
     void (async () => {
       setLoading(true);
       setError(null);
-      const [duesResult, mandatesResult] = await Promise.all([
-        supabase.from('membership_dues').select('membership_id, balance'),
-        supabase
-          .from('payment_mandates')
-          .select('membership_id, status')
-          .in('status', ['failed', 'active']),
-      ]);
-      if (cancelled) return;
-
-      const loadError = duesResult.error ?? mandatesResult.error;
-      if (loadError) {
-        setError(loadError.message);
-        setLoading(false);
-        return;
+      try {
+        const result = await loadFinanceOverview(
+          createClient(),
+          month,
+          locale.timeZone,
+          fmt.today()
+        );
+        if (cancelled) return;
+        setData(result);
+      } catch (reason) {
+        if (cancelled) return;
+        setError(
+          getErrorMessage(reason, 'Finance overview could not be loaded')
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      const dues = (duesResult.data ?? [])
-        .map((row) => Number(row.balance) || 0)
-        .filter(isChargeableAmount);
-      const mandateStatuses = new Map<string, Set<string>>();
-      for (const row of mandatesResult.data ?? []) {
-        const statuses =
-          mandateStatuses.get(row.membership_id) ?? new Set<string>();
-        statuses.add(row.status);
-        mandateStatuses.set(row.membership_id, statuses);
-      }
-
-      setAttention({
-        dueCount: dues.length,
-        dueAmount: dues.reduce((sum, amount) => sum + amount, 0),
-        failedMandates: Array.from(mandateStatuses.values()).filter(
-          (statuses) => statuses.has('failed') && !statuses.has('active')
-        ).length,
-      });
-      setLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [fmt, locale.timeZone, month, reloadKey, retryKey]);
 
-  const items = [
-    {
-      label: 'Outstanding dues',
-      detail: loading
-        ? 'Loading current balances…'
-        : `${fmt.money(attention.dueAmount)} still to collect`,
-      value: loading ? '—' : fmt.number(attention.dueCount),
-      icon: CircleDollarSign,
-      href: financeHref('collections', 'due'),
-    },
-    {
-      label: 'Failed AutoPay',
-      detail: 'Members who need a manual collection fallback',
-      value: loading ? '—' : fmt.number(attention.failedMandates),
-      icon: CreditCard,
-      href: financeHref('collections', 'due'),
-    },
-    {
-      label: 'Recent payments',
-      detail: 'Review collection method, proof, and recorder',
-      value: null,
-      icon: Receipt,
-      href: financeHref('collections', 'recent'),
-    },
-  ];
+  function exportOverview() {
+    if (!data) return;
+    const blob = new Blob([financeOverviewCsv(data)], {
+      type: 'text/csv;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `finance-overview-${data.period.month}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="space-y-5">
-      <PaymentSummaryTiles reloadKey={reloadKey} />
+      <PageHeaderActions>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Previous month"
+            onClick={() => onMonthChange(shiftFinanceMonth(month, -1))}
+          >
+            <ChevronLeft />
+          </Button>
+          <Select
+            value={month}
+            onValueChange={(value) => value && onMonthChange(value)}
+          >
+            <SelectTrigger aria-label="Finance month" className="w-36 sm:w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {monthOptions.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {fmt.month(`${option}-01`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Next month"
+            disabled={month >= currentMonth}
+            onClick={() => onMonthChange(shiftFinanceMonth(month, 1))}
+          >
+            <ChevronRight />
+          </Button>
+        </div>
+        <GatedButton
+          type="button"
+          variant="ghost"
+          canAct={mayExport}
+          gateReason="export financial data"
+          onClick={exportOverview}
+          disabled={!data || loading}
+        >
+          <Download />
+          <span className="hidden sm:inline">Export</span>
+        </GatedButton>
+      </PageHeaderActions>
+
+      <p className="text-muted-foreground text-sm tabular-nums">
+        {data
+          ? `${fmt.date(data.period.start)} – ${fmt.date(
+              data.period.end
+            )} · Compared with ${fmt.month(data.period.previousStart)}`
+          : `${fmt.month(`${month}-01`)} financial overview`}
+      </p>
 
       {error ? (
         <Alert variant="destructive">
-          <AlertCircle />
-          <AlertTitle>Could not load collection queues</AlertTitle>
+          <RefreshCw />
+          <AlertTitle>Could not load Finance</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
+          <Button
+            type="button"
+            size="sm"
+            variant="destructive-ghost"
+            className="mt-2 w-fit"
+            onClick={() => setRetryKey((key) => key + 1)}
+          >
+            <RefreshCw /> Retry
+          </Button>
         </Alert>
       ) : null}
 
-      <Card>
-        <CardHeader className="border-b">
-          <CardTitle>Needs attention</CardTitle>
-          <CardDescription>
-            Live collection queues, ordered by what needs action
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className="focus-visible:ring-ring hover:bg-muted/60 flex min-w-0 items-center gap-3 rounded-lg p-2.5 transition-colors outline-none focus-visible:ring-2"
-            >
-              <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
-                <item.icon className="size-4" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="text-foreground block truncate text-sm font-medium">
-                  {item.label}
-                </span>
-                <span className="text-muted-foreground block truncate text-xs">
-                  {item.detail}
-                </span>
-              </span>
-              {item.value ? (
-                <span className="text-foreground shrink-0 text-base font-semibold tabular-nums">
-                  {item.value}
-                </span>
-              ) : null}
-              <ChevronRight className="text-muted-foreground size-4 shrink-0" />
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
+      {loading || !data ? (
+        <FinanceOverviewSkeleton />
+      ) : (
+        <>
+          <FinanceMetricGrid data={data} fmt={fmt} />
+
+          <div className="grid gap-4 xl:grid-cols-5">
+            <div className="xl:col-span-3">
+              <FinanceCashFlowChart
+                data={data.trend}
+                monthLabel={fmt.month(data.period.start)}
+                expenseTrackingAvailable={data.expenseTrackingAvailable}
+                fmt={fmt}
+              />
+            </div>
+            <div className="xl:col-span-2">
+              <FinanceInvoiceHealthCard health={data.invoiceHealth} fmt={fmt} />
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-5">
+            <div className="xl:col-span-2">
+              <FinanceCollectionMixCard
+                methods={data.collectionMethods}
+                fmt={fmt}
+              />
+            </div>
+            <div className="xl:col-span-3">
+              <FinanceRecentTransactionsCard
+                transactions={data.recentTransactions}
+                expenseTrackingAvailable={data.expenseTrackingAvailable}
+                fmt={fmt}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function FinanceMetricGrid({
+  data,
+  fmt,
+}: {
+  data: FinanceOverviewData;
+  fmt: ReturnType<typeof useLocale>['fmt'];
+}) {
+  const revenueChange = relativeChange(
+    data.revenue.current,
+    data.revenue.previous
+  );
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricCard
+        title="Revenue"
+        value={fmt.money(data.revenue.current)}
+        icon={Banknote}
+        {...(revenueChange === null
+          ? { subtitle: 'No prior-month baseline' }
+          : {
+              delta: {
+                sign: revenueChange,
+                label:
+                  revenueChange === 0
+                    ? 'No change vs previous month'
+                    : `${revenueChange > 0 ? '+' : ''}${fmt.number(
+                        Math.round(revenueChange * 10) / 10
+                      )}% vs previous month`,
+              },
+            })}
+      />
+      <MetricCard
+        title="Expenses"
+        value="—"
+        icon={ReceiptText}
+        subtitle="Available after the expense log is enabled"
+      />
+      <MetricCard
+        title="Profit"
+        value="—"
+        icon={TrendingUp}
+        subtitle="Requires recorded expenses"
+      />
+      <MetricCard
+        title="Next month projected"
+        value={fmt.money(data.projection.amount)}
+        icon={CalendarClock}
+        subtitle={`Based on ${fmt.number(
+          data.projection.renewals
+        )} active renewals`}
+      />
+    </div>
+  );
+}
+
+function FinanceOverviewSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <SkeletonCard key={index} />
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-5">
+        <Skeleton className="h-[25rem] xl:col-span-3" />
+        <Skeleton className="h-[25rem] xl:col-span-2" />
+      </div>
+      <div className="grid gap-4 xl:grid-cols-5">
+        <Skeleton className="h-72 xl:col-span-2" />
+        <Skeleton className="h-72 xl:col-span-3" />
+      </div>
     </div>
   );
 }

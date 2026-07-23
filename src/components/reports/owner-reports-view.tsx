@@ -354,7 +354,7 @@ function AttentionCard({
       detail: fmt.money(report.attention.outstandingAmount),
       value: report.attention.outstandingDues,
       icon: CircleDollarSign,
-      href: '/finance?view=collections&table=due',
+      href: '/members?view=payments',
     },
     {
       label: 'Inactive members',
@@ -382,7 +382,7 @@ function AttentionCard({
       detail: 'AutoPay mandates without an active replacement',
       value: report.attention.failedMandates,
       icon: CreditCard,
-      href: '/finance?view=collections&table=due',
+      href: '/members?view=payments',
     },
   ];
 

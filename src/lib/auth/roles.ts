@@ -193,6 +193,11 @@ export function canCorrectPayments(role: AccountRole): boolean {
   return hasMinRole(role, "admin");
 }
 
+/** Owner / admin: download account-wide financial data. */
+export function canExportFinance(role: AccountRole): boolean {
+  return hasMinRole(role, "admin");
+}
+
 /**
  * Owner / admin / agent: set up or pause a member's UPI/card auto-debit
  * mandate (migration 059). Mirrors the payment_mandates agent write RLS.

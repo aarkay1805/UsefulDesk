@@ -1,26 +1,27 @@
 # Finance master section
 
-> Status: **Phase A foundation built; remaining phases proposed** · Product roadmap · Last updated: 2026-07-23  
+> Status: **Overview built; remaining tabs proposed** · Product roadmap · Last updated: 2026-07-23
 > Reference audit: FitGymSoftware Finance, inspected in-product on 2026-07-23. The reference is used for capability discovery only; its information architecture and visual design are not implementation targets.
 
 ## 1. Decision
 
-Build one **Finance** section that answers four questions without making an owner assemble the answer across Members, Reports, and spreadsheets:
+Build one **Finance** section that gives the owner a calendar-period bird's-eye view without making them assemble the answer across Members, Reports, and spreadsheets:
 
-1. What money needs to be collected?
-2. What money came in?
-3. What was billed?
-4. What money went out?
+1. What revenue came in, and how does it compare with the previous period?
+2. What was invoiced, paid, partially paid, or left outstanding?
+3. Which collection methods are contributing to cash-in?
+4. What is likely to renew next month?
+5. Once expenses are recorded, what was spent and what profit remains?
 
-The section should reuse UsefulDesk's existing ledger and billing domain rather than create a second finance model. Its default experience remains an action list: collect dues, resolve failed AutoPay, open an invoice, record a payment, or send a WhatsApp reminder.
+The section reuses UsefulDesk's existing ledger and billing domain rather than creating a second finance model. Its default experience is analytical and period-led. Operational collection work—recording payments, chasing dues, sending reminders, and resolving member-level exceptions—remains in **Members → Payments**.
 
 Proposed top-level navigation:
 
 ```text
 Finance
 ├── Overview
-├── Collections
 ├── Invoices
+├── Payments
 └── Expenses
 ```
 
@@ -32,9 +33,10 @@ This section passes the UsefulDesk feature filter because it:
 
 - saves the owner time by replacing separate collection pages and spreadsheet reconciliation;
 - collects renewals through a due-first queue, UPI, AutoPay recovery, and WhatsApp;
-- exposes collection exceptions with an owner and an action;
-- makes daily cash/UPI/card totals understandable in under 30 seconds;
-- adds a small expense ledger so the owner can see net cash movement without turning UsefulDesk into a full accounting suite.
+- makes revenue, invoice health, daily inflow, and collection mix understandable in under 30 seconds;
+- projects next month's renewal income from active memberships;
+- will add a small expense ledger so the owner can see profit without turning UsefulDesk into a full accounting suite;
+- keeps operational collection actions close to the member who needs follow-up.
 
 It is not intended to become payroll, bookkeeping, inventory accounting, statutory filing, or a generic ERP.
 
@@ -104,40 +106,37 @@ The master section should move and compose these capabilities. It must not dupli
 
 ### 5.1 Overview
 
-Purpose: let the owner understand today's money position and act within 30 seconds.
+Purpose: let the owner understand a selected calendar month's financial position in under 30 seconds.
 
-Top row:
+The page follows the approved mockup hierarchy:
 
-- Collected today
-- Outstanding
-- Expenses this month
-- Net cash this month (`collections − expenses`, labelled **Net cash**, not accounting profit)
+1. one month selector shared by the whole page, with previous/next controls and admin-only CSV export;
+2. Revenue, Expenses, Profit, and Next month projected metric cards;
+3. Income & expenses cash-flow chart beside invoice health;
+4. Collection mix beside recent transactions.
 
-Action list, ordered by urgency:
+Data rules:
 
-1. Failed AutoPay charges
-2. Overdue balances
-3. Due today
-4. Unverified payment proofs, only if a verification state is introduced
+- Revenue is the append-preserving paid-payment total for the selected calendar month and compares with the previous calendar month.
+- Cash flow plots day-wise income and can group it by week without changing the selected period.
+- Invoice health groups issued periods into Paid, Partially paid, Overdue, Open, and Outstanding.
+- Collection mix uses the fixed Cash / UPI / Card / Bank & other method families.
+- Next month projected uses active memberships expiring in the next calendar month and the shared next-invoice projection.
+- Expenses and Profit remain visibly unavailable until the expense ledger ships. They must never render fabricated zeroes.
+- Recent transactions initially contains payment-ledger entries; posted expenses join the same timeline after the expense phase.
 
-Supporting sections:
+The Overview is analytical, not an exception/action queue. Reports remains the broader business-analysis surface for retention, acquisition, and plan performance.
 
-- Collection mix by Cash / UPI / Card / Bank / Other
-- Recent payments and recent expenses, each capped to a small preview with “View all”
-- One period control shared by every summary on the page
+### 5.2 Payments
 
-Do not add decorative charts in the first release. The existing Reports page remains the analytical surface for trends, retention, acquisition, and plan performance.
+Finance Payments will be the account-wide analytical money-in ledger. It must not replace the operational queue in **Members → Payments**.
 
-### 5.2 Collections
-
-This absorbs the current Members → Payments experience.
-
-Two existing toolbar views remain:
+Members retains two existing toolbar views:
 
 - **Payment due** — the default operational queue
 - **Recent payments** — the append-preserving cash-in ledger
 
-Add:
+The later Finance Payments tab should add:
 
 - `SearchInput` for name, phone, Member ID, payment reference, or gateway reference;
 - account-timezone date range;
@@ -163,11 +162,12 @@ Do not add:
 - editable gateway identifiers;
 - a second payment ledger for AutoPay.
 
-Backward compatibility:
+Deep-link rules:
 
-- `/members?view=payments` should redirect to `/finance?view=collections`;
-- report attention links should deep-link to the appropriate Finance quick view;
-- member-level billing and payment actions remain in the member sheet.
+- `/members?view=payments` remains the operational destination;
+- Reports attention links deep-link to the matching Members payment queue;
+- member-level billing and payment actions remain in the member sheet;
+- Finance Payments does not gain mutation actions that would duplicate those flows.
 
 ### 5.3 Invoices
 
@@ -267,7 +267,7 @@ Custom category management belongs in Settings → Payments & currency, not the 
 | Payment-mode split             | **Include**                                                 | Essential for cash/UPI reconciliation                                  |
 | Tax invoices                   | **Defer to GST phase**                                      | Requires immutable tax snapshots and compliance review                 |
 | Expenses                       | **Include after the finance shell**                         | Adds daily money-out control with limited scope                        |
-| Finance summary                | **Include as actionable Overview**                          | Keep exceptions and actions above passive tables                       |
+| Finance summary                | **Include as period-led Overview**                          | Owners need one comprehensible financial snapshot                      |
 | Expense categories             | **Include in Settings**                                     | Needed by the expense ledger                                           |
 | Configurable payment modes     | **Do not include**                                          | Existing fixed methods keep reporting and gateway mapping reliable     |
 | Tax configuration              | **Defer and simplify**                                      | Do not ship generic tax rules before the invoice model is ready        |
@@ -323,7 +323,7 @@ Invoice number format is a later product decision. Do not encode branch or fisca
 Add capability predicates in `src/lib/auth/roles.ts`, tests, and matching RLS/RPC guards:
 
 - `canViewFinance` — all account members;
-- `canExportFinance` — admin+;
+- `canExportFinance` — admin+ (**built**);
 - `canRecordPayments` — agent+; replaces unrelated capability reuse at payment call sites;
 - `canRecordExpenses` — admin+ for the first release;
 - `canManageExpenseCategories` — admin+;
@@ -333,33 +333,33 @@ Buttons should be gated with a reason, not hidden. Viewers remain read-only.
 
 ## 8. Phased delivery roadmap
 
-### Phase A — Finance shell and collections consolidation
+### Phase A — Finance shell and Overview
 
-Goal: create one discoverable finance home without changing financial truth.
+Goal: create one discoverable financial snapshot without changing financial truth.
 
-Built in the foundation:
+Built:
 
-- `/finance`, sidebar item, page title, and URL-backed Overview/Collections header tabs;
-- existing payment summary and operational payment table consolidated under Collections;
-- backward-compatible Members payment bookmarks and updated Reports attention links;
-- payment-ledger search by member name/phone, account-timezone date range, staff, method, source, and status filters;
-- server-side payment pagination and complete filtered CSV export;
-- Overview using the existing payment, due, and mandate sources;
-- the existing member sheet, record-payment flow, reminder action, and realtime refresh behavior retained without duplicating financial rules.
+- `/finance`, sidebar item, page title, and URL-backed Overview/Invoices/Payments/Expenses header tabs;
+- calendar-month navigation shared by every Overview section;
+- Revenue with previous-month comparison and Next month projected from active renewals;
+- day/weekly income cash flow, invoice health, collection mix, and recent payment transactions;
+- admin-only CSV export with unavailable expense/profit cells left blank;
+- honest Expenses and Profit placeholders until a real expense ledger exists;
+- Members → Payments restored as the operational due/payment home, including its existing server paging, filters, complete CSV export, reminders, payment entry, and realtime behavior.
 
 Remaining Phase A hardening:
 
-- extend ledger search to Member ID, payment ID, and gateway reference;
-- add full-query filtered collection totals and method amounts rather than counts alone;
-- add focused failed-AutoPay routing with recovery actions as the Phase B bridge;
-- complete the role/timezone/currency/large-ledger acceptance matrix against a connected test account.
+- complete the role/timezone/currency/large-ledger acceptance matrix against a connected test account;
+- add the expense domain before enabling Expenses, Profit, or expense transactions;
+- implement each remaining tab against the approved mockups without duplicating Members workflows.
 
 Exit criteria:
 
 - No payment or due logic is duplicated.
-- An owner can see today's collections, total outstanding, and failed AutoPay from `/finance`.
-- An agent can record a payment and send a reminder from the due queue.
-- Existing `/members?view=payments` bookmarks land on the new surface.
+- An owner can understand the selected month's revenue, daily inflow, invoice health, collection mix, and next-month renewal projection from `/finance`.
+- No expense or profit figure is shown until it is backed by posted expense records.
+- An agent can still record a payment and send a reminder from Members → Payments.
+- Existing `/members?view=payments` bookmarks remain valid.
 
 ### Phase B — AutoPay recovery
 
@@ -367,7 +367,7 @@ Goal: turn payment failure into an owned action before expanding the finance dom
 
 - Handle the immediate gateway payment-failure event.
 - Store a member-readable failure summary and last-attempt time.
-- Add the AutoPay failed queue/filter.
+- Add the AutoPay failed queue/filter under Members → Payments.
 - Offer manual UPI/record-payment/WhatsApp fallback.
 - Retain raw webhook diagnostics for admin/support, not the default owner view.
 
@@ -478,6 +478,6 @@ Each phase must cover:
 
 ## 12. Recommended build order
 
-Start with **Phase A**. It is primarily an information-architecture and query-hardening change over features that already work, so it delivers a coherent Finance section with the least domain risk.
+The Overview is the built starting point. Next, build the minimal expense ledger because it unlocks real Expenses, Profit, the expense cash-flow series, and the combined recent-transactions timeline already reserved in the approved design.
 
-Then close the collection loop with **AutoPay recovery**, followed by the **invoice master**. Add expenses after the revenue workflow is coherent; it unlocks Net cash and daily owner control with a small, understandable model. Only add GST behavior after immutable invoice identity and snapshots are proven.
+Then implement the account-wide invoice master and analytical Payments ledger. Keep AutoPay recovery under Members → Payments, where staff can act on the member. Only add GST behavior after immutable invoice identity and snapshots are proven.

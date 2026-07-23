@@ -1,33 +1,28 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  financeHref,
-  parseFinanceCollectionView,
-  parseFinanceView,
-} from './views';
+import { financeHref, parseFinanceMonth, parseFinanceView } from './views';
 
 describe('finance views', () => {
   it('accepts known views and falls back to the overview', () => {
-    expect(parseFinanceView('collections')).toBe('collections');
+    expect(parseFinanceView('invoices')).toBe('invoices');
+    expect(parseFinanceView('payments')).toBe('payments');
+    expect(parseFinanceView('expenses')).toBe('expenses');
     expect(parseFinanceView('overview')).toBe('overview');
-    expect(parseFinanceView('expenses')).toBe('overview');
+    expect(parseFinanceView('collections')).toBe('overview');
     expect(parseFinanceView(undefined)).toBe('overview');
   });
 
-  it('accepts known collection views and falls back to dues', () => {
-    expect(parseFinanceCollectionView('recent')).toBe('recent');
-    expect(parseFinanceCollectionView('due')).toBe('due');
-    expect(parseFinanceCollectionView('failed')).toBe('due');
-    expect(parseFinanceCollectionView(null)).toBe('due');
+  it('accepts canonical month keys only', () => {
+    expect(parseFinanceMonth('2026-07')).toBe('2026-07');
+    expect(parseFinanceMonth('2026-13')).toBeNull();
+    expect(parseFinanceMonth('July 2026')).toBeNull();
+    expect(parseFinanceMonth(undefined)).toBeNull();
   });
 
   it('builds stable deep links', () => {
     expect(financeHref('overview')).toBe('/finance?view=overview');
-    expect(financeHref('collections')).toBe(
-      '/finance?view=collections&table=due'
-    );
-    expect(financeHref('collections', 'recent')).toBe(
-      '/finance?view=collections&table=recent'
+    expect(financeHref('invoices', '2026-07')).toBe(
+      '/finance?view=invoices&month=2026-07'
     );
   });
 });

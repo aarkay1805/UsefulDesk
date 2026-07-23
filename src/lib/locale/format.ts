@@ -219,6 +219,8 @@ export interface LocaleFormatters {
   today(): string;
   /** Medium date — 'en-IN' → "11 Jul 2026", 'en-US' → "Jul 11, 2026". */
   date(value: DateValue): string;
+  /** Month and year — "July 2026". Used by calendar-period reporting. */
+  month(value: DateValue): string;
   /** Numeric date per `dateOrder` — 11/07/2026 · 07/11/2026 · 2026-07-11. */
   dateShort(value: DateValue): string;
   /** Time of day per `timeFormat`, in the account zone — "9:30 pm" / "21:30". */
@@ -271,6 +273,24 @@ export function buildFormatters(
       return dtf(cfg.locale, { ...mediumDate, timeZone: cfg.timeZone }).format(
         ts
       );
+    },
+
+    month(value) {
+      const plain = plainParts(value);
+      if (plain) {
+        return dtf(cfg.locale, {
+          month: 'long',
+          year: 'numeric',
+          timeZone: 'UTC',
+        }).format(new Date(Date.UTC(plain.y, plain.m - 1, 1, 12)));
+      }
+      const ts = asDate(value);
+      if (!ts) return String(value);
+      return dtf(cfg.locale, {
+        month: 'long',
+        year: 'numeric',
+        timeZone: cfg.timeZone,
+      }).format(ts);
     },
 
     dateShort(value) {

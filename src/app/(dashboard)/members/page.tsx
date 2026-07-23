@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Plus, Upload } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -24,14 +23,18 @@ import { MemberForm } from '@/components/members/member-form';
 import { ImportMembersCsvDialog } from '@/components/members/import-members-csv-dialog';
 import { MemberDetailView } from '@/components/members/member-detail-view';
 import { AttendanceView } from '@/components/members/attendance-view';
+import { PaymentSummaryTiles } from '@/components/members/payment-summary-tiles';
+import { PaymentsTable } from '@/components/members/payments-table';
 import { useReminderReadiness } from '@/components/members/send-reminder-button';
 
-type View = 'renewals' | 'followups' | 'trials' | 'all' | 'attendance';
+type View =
+  'renewals' | 'followups' | 'trials' | 'payments' | 'all' | 'attendance';
 
 const VIEW_LABEL: Record<View, string> = {
   renewals: 'Renewals',
   followups: 'Follow-ups',
   trials: 'Trials',
+  payments: 'Payments',
   all: 'All members',
   attendance: 'Attendance',
 };
@@ -40,6 +43,7 @@ const MEMBER_VIEWS = new Set<View>([
   'renewals',
   'followups',
   'trials',
+  'payments',
   'all',
   'attendance',
 ]);
@@ -49,7 +53,6 @@ function isMemberView(value: string | null): value is View {
 }
 
 export default function MembersPage() {
-  const router = useRouter();
   const { canSendMessages } = useAuth();
   const readiness = useReminderReadiness();
 
@@ -68,17 +71,13 @@ export default function MembersPage() {
   // this client page), then keep subsequent tab choices reflected in the URL.
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get('view');
-    if (requested === 'payments') {
-      router.replace('/finance?view=collections&table=due');
-      return;
-    }
     if (isMemberView(requested)) {
       // Synchronising component state from the browser URL is the purpose of
       // this effect; it is not derived render state.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setView(requested);
     }
-  }, [router]);
+  }, []);
 
   const reload = () => setReloadKey((k) => k + 1);
 
@@ -190,7 +189,14 @@ export default function MembersPage() {
         >
           <TabsList variant="line" className="h-auto gap-5 p-0">
             {(
-              ['renewals', 'followups', 'trials', 'all', 'attendance'] as const
+              [
+                'renewals',
+                'followups',
+                'trials',
+                'payments',
+                'all',
+                'attendance',
+              ] as const
             ).map((v) => (
               <TabsTrigger
                 key={v}
@@ -228,6 +234,16 @@ export default function MembersPage() {
             onSelect={openDetail}
             reloadKey={reloadKey}
           />
+        ) : view === 'payments' ? (
+          <div className="space-y-6">
+            <PaymentSummaryTiles reloadKey={reloadKey} />
+            <PaymentsTable
+              readiness={readiness}
+              onSelect={openDetail}
+              reloadKey={reloadKey}
+              onChanged={reload}
+            />
+          </div>
         ) : view === 'all' ? (
           <MembersTable
             readiness={readiness}

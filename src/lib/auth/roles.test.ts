@@ -8,6 +8,7 @@ import {
   canDeleteLead,
   canDeleteMember,
   canCorrectPayments,
+  canExportFinance,
   canManageMandates,
   canConfigurePaymentGateway,
   canEditSettings,
@@ -122,6 +123,13 @@ describe("capability predicates", () => {
     expect(canCorrectPayments("admin")).toBe(true);
     expect(canCorrectPayments("agent")).toBe(false);
     expect(canCorrectPayments("viewer")).toBe(false);
+  });
+
+  it("canExportFinance: admin+ only", () => {
+    expect(canExportFinance("owner")).toBe(true);
+    expect(canExportFinance("admin")).toBe(true);
+    expect(canExportFinance("agent")).toBe(false);
+    expect(canExportFinance("viewer")).toBe(false);
   });
 
   it("canManageMandates: agent+ (set up / pause auto-debit)", () => {

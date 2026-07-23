@@ -6,9 +6,9 @@
 
 ---
 
-## Finance Phase A foundation
+## Finance Overview foundation
 
-Shipped a top-level Finance section with an action-led Overview and URL-backed Collections views. The existing due queue, payment entry, reminders, member detail, summary tiles, and append-preserving ledger remain the single source of truth; Members payment bookmarks redirect and Reports attention links now land in Finance. Recent payments now use server pagination, account-timezone date and staff filters, full-query method counts, and complete filtered CSV export instead of a latest-100 client slice. Later Finance tabs stay hidden until their domains exist. Key code: `src/app/(dashboard)/finance/page.tsx`, `src/components/finance/`, `src/components/members/payments-table.tsx`, and `src/lib/finance/views.ts`.
+Shipped a calendar-month Finance Overview matching the approved analytical mockup: Revenue with prior-month comparison, Next month projected from active renewals, day/weekly income cash flow, invoice health, collection mix, recent transactions, and admin-only CSV export. Expense and Profit slots deliberately stay unavailable until the expense ledger exists; no zeroes are fabricated. Operational dues, payment entry, reminders, server-paged history, filters, and complete filtered export are restored to Members → Payments, while Finance keeps URL-backed Overview/Invoices/Payments/Expenses tabs for phased delivery. Key code: `src/app/(dashboard)/finance/page.tsx`, `src/components/finance/`, `src/lib/finance/overview.ts`, `src/lib/finance/views.ts`, and `src/app/(dashboard)/members/page.tsx`.
 
 ---
 

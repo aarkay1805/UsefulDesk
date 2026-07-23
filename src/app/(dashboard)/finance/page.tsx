@@ -1,12 +1,9 @@
 import { FinanceMasterView } from '@/components/finance/finance-master-view';
-import {
-  parseFinanceCollectionView,
-  parseFinanceView,
-} from '@/lib/finance/views';
+import { parseFinanceMonth, parseFinanceView } from '@/lib/finance/views';
 
 type FinanceSearchParams = Promise<{
   view?: string | string[];
-  table?: string | string[];
+  month?: string | string[];
 }>;
 
 function first(value: string | string[] | undefined): string | undefined {
@@ -23,7 +20,7 @@ export default async function FinancePage({
   return (
     <FinanceMasterView
       view={parseFinanceView(first(params.view))}
-      collectionView={parseFinanceCollectionView(first(params.table))}
+      month={parseFinanceMonth(first(params.month))}
     />
   );
 }

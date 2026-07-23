@@ -90,6 +90,13 @@ describe('date (medium)', () => {
   });
 });
 
+describe('month', () => {
+  it('renders a calendar month without day text', () => {
+    expect(IN.month('2026-07-01')).toBe('July 2026');
+    expect(US.month('2026-07-01')).toBe('July 2026');
+  });
+});
+
 describe('dateShort', () => {
   it('follows dateOrder', () => {
     expect(IN.dateShort('2026-07-11')).toBe('11/07/2026');
