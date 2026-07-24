@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 import {
   CheckCircle2,
   ClipboardList,
@@ -10,16 +10,16 @@ import {
   Mail,
   Phone,
   UserRoundSearch,
-} from "lucide-react";
-import { daysBetween } from "@/lib/memberships/expiry";
-import { useCan } from "@/hooks/use-can";
-import { useLocale } from "@/hooks/use-locale";
-import { useAccountStaff } from "@/components/members/use-account-staff";
-import { CompleteFollowUpDialog } from "@/components/follow-ups/complete-follow-up-dialog";
-import { Badge } from "@/components/ui/badge";
-import { GatedButton } from "@/components/ui/gated-button";
-import { UserAvatar } from "@/components/ui/user-avatar";
-import { Skeleton } from "./skeleton";
+} from 'lucide-react';
+import { daysBetween } from '@/lib/memberships/expiry';
+import { useCan } from '@/hooks/use-can';
+import { useLocale } from '@/hooks/use-locale';
+import { useAccountStaff } from '@/components/members/use-account-staff';
+import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-up-dialog';
+import { Badge } from '@/components/ui/badge';
+import { GatedButton } from '@/components/ui/gated-button';
+import { UserAvatar } from '@/components/ui/user-avatar';
+import { Skeleton } from './skeleton';
 
 // Today's lead actions — the PRD's "smart queue": not a dashboard to
 // admire but a work list to clear. Two queues:
@@ -58,7 +58,7 @@ const TASK_ICON: Record<string, typeof Phone> = {
 };
 
 export function LeadActionLists() {
-  const canEdit = useCan("send-messages");
+  const canEdit = useCan('send-messages');
   const { fmt } = useLocale();
   const { nameById, avatarById } = useAccountStaff();
 
@@ -68,6 +68,7 @@ export function LeadActionLists() {
   const [staleTotal, setStaleTotal] = useState(0);
   const [nonce, setNonce] = useState(0);
   const [completing, setCompleting] = useState<DueFollowUp | null>(null);
+  const actionTotal = dueTotal + staleTotal;
 
   useEffect(() => {
     void nonce; // manual refetch trigger — bump to reload
@@ -76,42 +77,42 @@ export function LeadActionLists() {
     (async () => {
       const today = fmt.today();
       const staleCutoff = new Date(
-        Date.now() - STALE_HOURS * 60 * 60 * 1000,
+        Date.now() - STALE_HOURS * 60 * 60 * 1000
       ).toISOString();
 
       const [dueRes, staleRes] = await Promise.all([
         supabase
-          .from("follow_ups")
+          .from('follow_ups')
           .select(
-            "id, contact_id, task_type, due_date, assigned_to, note, contact:contacts(name, phone)",
-            { count: "exact" },
+            'id, contact_id, task_type, due_date, assigned_to, note, contact:contacts(name, phone)',
+            { count: 'exact' }
           )
-          .eq("status", "open")
-          .is("membership_id", null)
-          .lte("due_date", today)
-          .order("due_date", { ascending: true })
+          .eq('status', 'open')
+          .is('membership_id', null)
+          .lte('due_date', today)
+          .order('due_date', { ascending: true })
           .limit(LIST_LIMIT),
         supabase
-          .from("contacts")
-          .select("id, name, phone, created_at, memberships!left(id)", {
-            count: "exact",
+          .from('contacts')
+          .select('id, name, phone, created_at, memberships!left(id)', {
+            count: 'exact',
           })
-          .is("memberships", null)
-          .is("lead_status", null)
-          .lt("created_at", staleCutoff)
-          .order("created_at", { ascending: true })
+          .is('memberships', null)
+          .is('lead_status', null)
+          .lt('created_at', staleCutoff)
+          .order('created_at', { ascending: true })
           .limit(LIST_LIMIT),
       ]);
 
       if (cancelled) return;
       const now = Date.now();
-      type DueRow = Omit<DueFollowUp, "overdueDays">;
-      type StaleRow = Omit<StaleLead, "waitingDays">;
+      type DueRow = Omit<DueFollowUp, 'overdueDays'>;
+      type StaleRow = Omit<StaleLead, 'waitingDays'>;
       setFollowUps(
         ((dueRes.data ?? []) as unknown as DueRow[]).map((f) => ({
           ...f,
           overdueDays: daysBetween(f.due_date, today),
-        })),
+        }))
       );
       setDueTotal(dueRes.count ?? 0);
       setStaleLeads(
@@ -120,10 +121,10 @@ export function LeadActionLists() {
           waitingDays: Math.max(
             1,
             Math.floor(
-              (now - new Date(l.created_at).getTime()) / (24 * 60 * 60 * 1000),
-            ),
+              (now - new Date(l.created_at).getTime()) / (24 * 60 * 60 * 1000)
+            )
           ),
-        })),
+        }))
       );
       setStaleTotal(staleRes.count ?? 0);
     })();
@@ -133,19 +134,26 @@ export function LeadActionLists() {
   }, [nonce, fmt]);
 
   return (
-    <section className="rounded-xl border border-border bg-card">
-      <header className="flex items-center justify-between border-b border-border px-5 py-4">
+    <section className="border-border bg-card rounded-xl border">
+      <header className="border-border flex items-center justify-between border-b px-5 py-4">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">
-            Today&apos;s lead actions
-          </h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Follow-ups to clear and new leads still waiting for a first touch
+          <div className="flex items-center gap-2">
+            <h2 className="text-foreground text-sm font-semibold">
+              Today&apos;s lead actions
+            </h2>
+            {followUps !== null && staleLeads !== null && (
+              <Badge variant={actionTotal > 0 ? 'warning' : 'success'}>
+                {actionTotal} to clear
+              </Badge>
+            )}
+          </div>
+          <p className="text-muted-foreground mt-0.5 text-xs">
+            Actionable follow-ups and new leads still waiting for a first touch
           </p>
         </div>
         <Link
           href="/leads?view=followups"
-          className="text-xs font-medium text-primary-text hover:text-primary-text/80"
+          className="text-primary-text hover:text-primary-text/80 text-xs font-medium"
         >
           Open follow-ups →
         </Link>
@@ -154,11 +162,13 @@ export function LeadActionLists() {
       <div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-2">
         {/* Queue 1 — follow-ups due */}
         <div>
-          <p className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
+          <p className="text-muted-foreground mb-2 flex items-center justify-between text-xs font-medium">
             <span>Follow-ups due</span>
             {dueTotal > 0 && (
               <span className="tabular-nums">
-                {dueTotal > LIST_LIMIT ? `${LIST_LIMIT} of ${dueTotal}` : dueTotal}
+                {dueTotal > LIST_LIMIT
+                  ? `${LIST_LIMIT} of ${dueTotal}`
+                  : dueTotal}
               </span>
             )}
           </p>
@@ -171,29 +181,32 @@ export function LeadActionLists() {
               {followUps.map((f) => {
                 const Icon = TASK_ICON[f.task_type] ?? ClipboardList;
                 const overdueDays = f.overdueDays;
-                const who = f.contact?.name?.trim() || f.contact?.phone || "Lead";
+                const who =
+                  f.contact?.name?.trim() || f.contact?.phone || 'Lead';
                 const assignee = f.assigned_to
-                  ? nameById.get(f.assigned_to) ?? "Teammate"
+                  ? (nameById.get(f.assigned_to) ?? 'Teammate')
                   : null;
                 return (
                   <li
                     key={f.id}
-                    className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2"
+                    className="border-border/60 bg-muted/20 flex items-center gap-2.5 rounded-lg border px-2.5 py-2"
                   >
-                    <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                    <Icon className="text-muted-foreground size-3.5 shrink-0" />
+                    <span className="text-foreground min-w-0 flex-1 truncate text-sm">
                       {who}
                     </span>
                     {assignee && (
                       <UserAvatar
                         name={assignee}
-                        src={f.assigned_to ? avatarById.get(f.assigned_to) : null}
+                        src={
+                          f.assigned_to ? avatarById.get(f.assigned_to) : null
+                        }
                         className="size-5 shrink-0"
                         fallbackClassName="text-[10px]"
                       />
                     )}
-                    <Badge variant={overdueDays > 0 ? "danger" : "warning"}>
-                      {overdueDays > 0 ? `Overdue ${overdueDays}d` : "Today"}
+                    <Badge variant={overdueDays > 0 ? 'danger' : 'warning'}>
+                      {overdueDays > 0 ? `Overdue ${overdueDays}d` : 'Today'}
                     </Badge>
                     <GatedButton
                       variant="ghost"
@@ -214,7 +227,7 @@ export function LeadActionLists() {
 
         {/* Queue 2 — new leads waiting on first contact */}
         <div>
-          <p className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
+          <p className="text-muted-foreground mb-2 flex items-center justify-between text-xs font-medium">
             <span>Waiting for first contact ({STALE_HOURS}h+)</span>
             {staleTotal > 0 && (
               <span className="tabular-nums">
@@ -239,17 +252,15 @@ export function LeadActionLists() {
                   <li key={l.id}>
                     <Link
                       href={`/leads?contact=${encodeURIComponent(l.id)}&focus=followup`}
-                      className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2 transition-colors hover:border-border-hover"
+                      className="border-border/60 bg-muted/20 hover:border-border-hover flex items-center gap-2.5 rounded-lg border px-2.5 py-2 transition-colors"
                     >
-                      <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                      <span className="text-foreground min-w-0 flex-1 truncate text-sm">
                         {l.name?.trim() || l.phone}
                       </span>
-                      <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                      <span className="text-muted-foreground shrink-0 font-mono text-xs">
                         {l.phone}
                       </span>
-                      <Badge variant="info">
-                        waiting {waitingDays}d
-                      </Badge>
+                      <Badge variant="info">waiting {waitingDays}d</Badge>
                     </Link>
                   </li>
                 );
@@ -300,7 +311,7 @@ function QueueEmpty({
   text: string;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-4 text-xs text-muted-foreground">
+    <div className="border-border text-muted-foreground flex items-center gap-2 rounded-lg border border-dashed px-3 py-4 text-xs">
       <Icon className="size-4 shrink-0" />
       {text}
     </div>

@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RenewalActionLists } from '@/components/members/renewal-action-lists';
 import { FollowUpLists } from '@/components/members/follow-up-lists';
 import { TrialActionLists } from '@/components/members/trial-action-lists';
+import { InactiveActionLists } from '@/components/members/inactive-action-lists';
 import { MembersTable } from '@/components/members/members-table';
 import { MemberForm } from '@/components/members/member-form';
 import { ImportMembersCsvDialog } from '@/components/members/import-members-csv-dialog';
@@ -28,13 +29,20 @@ import { PaymentsTable } from '@/components/members/payments-table';
 import { useReminderReadiness } from '@/components/members/send-reminder-button';
 
 type View =
-  'renewals' | 'followups' | 'trials' | 'payments' | 'all' | 'attendance';
+  | 'renewals'
+  | 'followups'
+  | 'trials'
+  | 'payments'
+  | 'retention'
+  | 'all'
+  | 'attendance';
 
 const VIEW_LABEL: Record<View, string> = {
   renewals: 'Renewals',
   followups: 'Follow-ups',
   trials: 'Trials',
   payments: 'Payments',
+  retention: 'At risk',
   all: 'All members',
   attendance: 'Attendance',
 };
@@ -44,6 +52,7 @@ const MEMBER_VIEWS = new Set<View>([
   'followups',
   'trials',
   'payments',
+  'retention',
   'all',
   'attendance',
 ]);
@@ -222,6 +231,7 @@ export default function MembersPage() {
                 'followups',
                 'trials',
                 'payments',
+                'retention',
                 'all',
                 'attendance',
               ] as const
@@ -272,6 +282,8 @@ export default function MembersPage() {
               onChanged={reload}
             />
           </div>
+        ) : view === 'retention' ? (
+          <InactiveActionLists onSelect={openDetail} reloadKey={reloadKey} />
         ) : view === 'all' ? (
           <MembersTable
             readiness={readiness}

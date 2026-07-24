@@ -1,38 +1,20 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Users, UserX, CalendarClock, CircleAlert, Wallet, IndianRupee } from "lucide-react";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { CalendarClock, IndianRupee, UserRoundX, Wallet } from 'lucide-react';
 
-import { motion } from "motion/react";
-
-import { createClient } from "@/lib/supabase/client";
-import { useLocale } from "@/hooks/use-locale";
-import { loadGymStats, type GymStats } from "@/lib/memberships/stats";
-import { MetricCard } from "@/components/dashboard/metric-card";
-import { AnimatedNumber } from "@/components/ui/animated-number";
-import { SkeletonCard } from "@/components/dashboard/skeleton";
-
-// Tiles rise + fade in sequence when the stats land; each number then counts
-// up (AnimatedNumber). Container drives the stagger, item drives the reveal.
-const gridVariants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.06 } },
-};
-const tileVariants = {
-  hidden: { opacity: 0, y: 8 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 400, damping: 32 },
-  },
-} as const;
+import { createClient } from '@/lib/supabase/client';
+import { useLocale } from '@/hooks/use-locale';
+import { loadGymStats, type GymStats } from '@/lib/memberships/stats';
+import { MetricCard } from '@/components/dashboard/metric-card';
+import { AnimatedNumber } from '@/components/ui/animated-number';
+import { SkeletonCard } from '@/components/dashboard/skeleton';
 
 /**
- * Gym owner's "in control in 30 seconds" strip — the action-list KPIs
- * that decide the day: money to collect, who's expiring, who's expired,
- * active headcount, and what's been collected this month. Each tile is a
- * shortcut into the Members section where the owner acts on it.
+ * The four owner decisions that set the day: collect outstanding money,
+ * retain expiring members, recover members whose attendance has gone quiet,
+ * and understand today's collections against a recent daily benchmark.
  */
 export function GymMetrics() {
   const { locale, fmt } = useLocale();
@@ -47,7 +29,7 @@ export function GymMetrics() {
         const s = await loadGymStats(db, fmt.today(), locale.timeZone);
         if (!cancelled) setStats(s);
       } catch (err) {
-        console.error("[dashboard] gym stats failed:", err);
+        console.error('[dashboard] gym stats failed:', err);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -60,112 +42,136 @@ export function GymMetrics() {
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">Gym today</h2>
-        <Link href="/members" className="text-xs font-medium text-primary-text hover:underline">
-          View members →
+        <div>
+          <h2 className="text-foreground text-sm font-semibold">
+            Owner decisions
+          </h2>
+          <p className="text-muted-foreground mt-0.5 text-xs">
+            Money, renewals, and retention that need attention today
+          </p>
+        </div>
+        <Link
+          href="/reports"
+          className="text-primary-text text-xs font-medium hover:underline"
+        >
+          Open reports →
         </Link>
       </div>
 
       {loading || !stats ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
       ) : (
-        <motion.div
-          variants={gridVariants}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          <motion.div variants={tileVariants} className="h-full">
-            <TileLink href="/members">
-              <MetricCard
-                title="Fees to collect"
-                value={
-                  <AnimatedNumber
-                    value={stats.feesDueAmount}
-                    format={(n) => fmt.money(n)}
-                    className="tabular-nums"
-                  />
-                }
-                icon={Wallet}
-                subtitle={`${stats.feesDueCount} pending`}
-              />
-            </TileLink>
-          </motion.div>
-          <motion.div variants={tileVariants} className="h-full">
-            <TileLink href="/members">
-              <MetricCard
-                title="Renewals due (7d)"
-                value={<AnimatedNumber value={stats.expiring7} />}
-                icon={CalendarClock}
-                subtitle="Expiring this week"
-              />
-            </TileLink>
-          </motion.div>
-          <motion.div variants={tileVariants} className="h-full">
-            <TileLink href="/members">
-              <MetricCard
-                title="Expired"
-                value={<AnimatedNumber value={stats.expired} />}
-                icon={CircleAlert}
-                subtitle="Win them back"
-              />
-            </TileLink>
-          </motion.div>
-          <motion.div variants={tileVariants} className="h-full">
-            <TileLink href="/members">
-              <MetricCard
-                title="Inactive (10d+)"
-                value={<AnimatedNumber value={stats.inactive} />}
-                icon={UserX}
-                subtitle="No visit in 10 days"
-              />
-            </TileLink>
-          </motion.div>
-          <motion.div variants={tileVariants} className="h-full">
-            <TileLink href="/members">
-              <MetricCard
-                title="Active members"
-                value={<AnimatedNumber value={stats.activeMembers} />}
-                icon={Users}
-                subtitle="Currently valid"
-              />
-            </TileLink>
-          </motion.div>
-          <motion.div variants={tileVariants} className="h-full">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <TileLink href="/members?view=payments">
             <MetricCard
-              title="Collected this month"
+              title="Fees to collect"
               value={
                 <AnimatedNumber
-                  value={stats.collectedThisMonth}
+                  value={stats.feesDueAmount}
+                  format={(n) => fmt.money(n)}
+                  className="tabular-nums"
+                />
+              }
+              icon={Wallet}
+              subtitle={`${fmt.number(stats.feesDueCount)} outstanding ${
+                stats.feesDueCount === 1 ? 'balance' : 'balances'
+              }`}
+            />
+          </TileLink>
+          <TileLink href="/members?view=renewals">
+            <MetricCard
+              title="Renewals due"
+              value={<AnimatedNumber value={stats.expiring7} />}
+              icon={CalendarClock}
+              subtitle="Memberships ending in the next 7 days"
+            />
+          </TileLink>
+          <TileLink href="/members?view=retention">
+            <MetricCard
+              title="Members at risk"
+              value={
+                <AnimatedNumber
+                  value={stats.missedVisitRisk + stats.neverVisitedRisk}
+                />
+              }
+              icon={UserRoundX}
+              subtitle={riskContext(stats, fmt.number)}
+            />
+          </TileLink>
+          <TileLink href="/finance?view=payments">
+            <MetricCard
+              title="Collected today"
+              value={
+                <AnimatedNumber
+                  value={stats.collectedToday}
                   format={(n) => fmt.money(n)}
                   className="tabular-nums"
                 />
               }
               icon={IndianRupee}
-              subtitle="Payments recorded"
+              delta={collectionComparison(stats, fmt.money)}
             />
-          </motion.div>
-        </motion.div>
+          </TileLink>
+        </div>
       )}
     </section>
   );
 }
 
-// The child is a Card, whose edge is `ring-1 ring-foreground/10` — it has no
-// border at all. So the hover has to strengthen the RING; the old
-// `[&>div]:hover:border-primary/50` was a silent no-op and these tiles had no
-// hover feedback.
-function TileLink({ href, children }: { href: string; children: React.ReactNode }) {
+function TileLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
   return (
     <Link
       href={href}
-      className="block h-full rounded-xl outline-none transition-transform focus-visible:ring-2 focus-visible:ring-primary [&>div]:h-full [&>div]:transition-[box-shadow] hover:[&>div]:ring-border-hover"
+      className="focus-visible:ring-primary hover:[&>div]:border-border-hover block h-full rounded-xl outline-none focus-visible:ring-2 [&>div]:h-full [&>div]:transition-colors"
     >
       {children}
     </Link>
   );
+}
+
+function riskContext(
+  stats: GymStats,
+  formatNumber: (value: number) => string
+): string {
+  if (stats.missedVisitRisk > 0 && stats.neverVisitedRisk > 0) {
+    return `${formatNumber(stats.missedVisitRisk)} missed visits · ${formatNumber(
+      stats.neverVisitedRisk
+    )} never checked in`;
+  }
+  if (stats.missedVisitRisk > 0) {
+    return `${formatNumber(stats.missedVisitRisk)} absent for 10+ days`;
+  }
+  if (stats.neverVisitedRisk > 0) {
+    return `${formatNumber(stats.neverVisitedRisk)} never checked in`;
+  }
+  return 'No attendance risks to follow up';
+}
+
+function collectionComparison(
+  stats: GymStats,
+  formatMoney: (value: number) => string
+): { sign: number; label: string } {
+  const difference = stats.collectedToday - stats.collectionDailyAverage7d;
+  if (Math.abs(difference) < 0.5) {
+    return {
+      sign: 0,
+      label: `${formatMoney(stats.collectionDailyAverage7d)} 7-day daily average`,
+    };
+  }
+  return {
+    sign: difference,
+    label: `${formatMoney(Math.abs(difference))} ${
+      difference > 0 ? 'above' : 'below'
+    } 7-day daily average`,
+  };
 }
