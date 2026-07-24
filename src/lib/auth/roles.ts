@@ -210,6 +210,21 @@ export function canExportFinance(role: AccountRole): boolean {
   return hasMinRole(role, 'admin');
 }
 
+/** Owner / admin: add append-preserving cash-out ledger entries. */
+export function canRecordExpenses(role: AccountRole): boolean {
+  return hasMinRole(role, 'admin');
+}
+
+/** Owner / admin: add, rename, archive, and restore expense categories. */
+export function canManageExpenseCategories(role: AccountRole): boolean {
+  return hasMinRole(role, 'admin');
+}
+
+/** Owner / admin: reasoned correction of a posted expense. */
+export function canVoidExpenses(role: AccountRole): boolean {
+  return hasMinRole(role, 'admin');
+}
+
 /**
  * Owner / admin / agent: set up or pause a member's UPI/card auto-debit
  * mandate (migration 059). Mirrors the payment_mandates agent write RLS.

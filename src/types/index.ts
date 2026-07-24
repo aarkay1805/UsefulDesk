@@ -762,6 +762,8 @@ export type MembershipStatus = 'active' | 'frozen' | 'cancelled' | 'expired';
 export type MembershipFeeStatus = 'paid' | 'due';
 export type PaymentMethod = 'cash' | 'upi' | 'card' | 'bank' | 'other';
 export type PaymentStatus = 'paid' | 'due' | 'void';
+export type ExpenseStatus = 'posted' | 'void';
+export type ExpenseKind = 'recurring' | 'one_time';
 export type MembershipDiscountType = 'amount' | 'percentage';
 
 /** What kind of product a plan is (migration 062).
@@ -918,6 +920,37 @@ export interface Payment {
   /** Gateway payment id — reconcile + dedupe key for auto rows. */
   gateway_payment_id?: string | null;
   created_at: string;
+}
+
+export interface ExpenseCategory {
+  id: string;
+  account_id: string;
+  name: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Expense {
+  id: string;
+  account_id: string;
+  occurred_on: string;
+  amount: number;
+  description: string;
+  category_id: string;
+  method: PaymentMethod;
+  expense_kind: ExpenseKind;
+  receipt_path: string | null;
+  receipt_bucket: string | null;
+  recorded_by: string;
+  status: ExpenseStatus;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
+  idempotency_key: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /** How a membership's recurring dues are collected (migration 059). */

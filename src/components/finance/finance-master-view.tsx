@@ -2,14 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ReceiptText } from 'lucide-react';
 
-import { EmptyState } from '@/components/dashboard/empty-state';
+import { FinanceExpenses } from '@/components/finance/finance-expenses';
 import { FinanceInvoices } from '@/components/finance/finance-invoices';
 import { FinanceOverview } from '@/components/finance/finance-overview';
 import { FinancePayments } from '@/components/finance/finance-payments';
 import { PageHeaderTabs } from '@/components/layout/page-header-actions';
-import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocale } from '@/hooks/use-locale';
 import { financeHref, type FinanceView } from '@/lib/finance/views';
@@ -21,14 +19,6 @@ const VIEW_LABEL: Record<FinanceView, string> = {
   payments: 'Payments',
   expenses: 'Expenses',
 };
-
-const PLACEHOLDER = {
-  expenses: {
-    icon: ReceiptText,
-    title: 'Expense tracking is not enabled yet',
-    hint: 'The expense ledger will unlock expense, profit, and unified transaction figures on Overview.',
-  },
-} as const;
 
 export function FinanceMasterView({
   view,
@@ -66,6 +56,16 @@ export function FinanceMasterView({
         { event: '*', schema: 'public', table: 'memberships' },
         bump
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'expenses' },
+        bump
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'expense_categories' },
+        bump
+      )
       .subscribe();
 
     return () => {
@@ -81,8 +81,6 @@ export function FinanceMasterView({
   function changeMonth(nextMonth: string) {
     router.replace(financeHref(view, nextMonth), { scroll: false });
   }
-
-  const placeholder = view === 'expenses' ? PLACEHOLDER.expenses : null;
 
   return (
     <div>
@@ -127,18 +125,14 @@ export function FinanceMasterView({
           month={month}
           onMonthChange={changeMonth}
         />
-      ) : placeholder ? (
-        <Card>
-          <CardContent>
-            <EmptyState
-              icon={placeholder.icon}
-              title={placeholder.title}
-              hint={placeholder.hint}
-              className="min-h-80"
-            />
-          </CardContent>
-        </Card>
-      ) : null}
+      ) : (
+        <FinanceExpenses
+          key={month}
+          reloadKey={reloadKey}
+          month={month}
+          onMonthChange={changeMonth}
+        />
+      )}
     </div>
   );
 }

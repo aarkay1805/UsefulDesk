@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react';
 
 import { PageHeaderActions } from '@/components/layout/page-header-actions';
@@ -24,12 +24,14 @@ export function FinanceMonthActions({
   onExport,
   exportDisabled = false,
   exporting = false,
+  primaryAction,
 }: {
   month: string;
   onMonthChange: (month: string) => void;
   onExport: () => void;
   exportDisabled?: boolean;
   exporting?: boolean;
+  primaryAction?: ReactNode;
 }) {
   const { accountRole } = useAuth();
   const { fmt } = useLocale();
@@ -91,6 +93,7 @@ export function FinanceMonthActions({
           {exporting ? 'Exporting…' : 'Export'}
         </span>
       </GatedButton>
+      {primaryAction}
     </PageHeaderActions>
   );
 }

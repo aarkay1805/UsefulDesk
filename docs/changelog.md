@@ -6,6 +6,12 @@
 
 ---
 
+## Finance Expenses ledger
+
+Shipped the approved Finance Expenses tab with ledger-backed Total expenses, Recurring, One-time, and Largest category cards; daily/weekly and category analysis; search, filters, classification quick views, sorting, paging, and complete CSV export; private receipts; and admin-gated add/void flows. Every expense is explicitly classified as recurring or one-time, while posted/void remains an audit state and void never becomes a primary KPI. The append-preserving domain, seeded tenant categories, RLS, RPC guards, and storage policies live in migrations `20260724090000` / `20260724093000`; Overview expense/profit integration and category settings remain pending. Key code: `src/components/finance/finance-expenses.tsx`, `src/components/finance/add-expense-dialog.tsx`, `src/lib/finance/expenses.ts`, and `src/lib/auth/roles.ts`.
+
+---
+
 ## Finance Payments ledger
 
 Shipped the analytical Finance Payments tab over the append-only ledger: account-timezone month/date scope, payment/member/gateway search, status/plan/method/source/recorder filters, live All/Collected/Auto-pay/Voided views, database-side sorting and pagination, exact filtered totals and method mix, full-result CSV export, private proof reuse, and member deep links. Its summary now follows the familiar Invoices pattern—four horizontal metric cards—with Collection mix kept only on Overview rather than duplicated here. The read-only `finance_payment_ledger` RPC is security-invoker, explicitly tenant-guarded, and authenticated-only; payment entry, dues, reminders, and future failed-AutoPay recovery remain in Members → Payments. Key code: `src/components/finance/finance-payments.tsx`, `src/components/finance/finance-payment-filters.tsx`, `src/lib/finance/payments.ts`, and migrations `20260723120000` / `20260723121000`.

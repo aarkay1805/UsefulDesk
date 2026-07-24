@@ -9,7 +9,10 @@ import {
   canDeleteMember,
   canCorrectPayments,
   canExportFinance,
+  canManageExpenseCategories,
+  canRecordExpenses,
   canRecordPayments,
+  canVoidExpenses,
   canManageMandates,
   canConfigurePaymentGateway,
   canEditSettings,
@@ -138,6 +141,17 @@ describe('capability predicates', () => {
     expect(canExportFinance('admin')).toBe(true);
     expect(canExportFinance('agent')).toBe(false);
     expect(canExportFinance('viewer')).toBe(false);
+  });
+
+  it.each([
+    ['canRecordExpenses', canRecordExpenses],
+    ['canManageExpenseCategories', canManageExpenseCategories],
+    ['canVoidExpenses', canVoidExpenses],
+  ] as const)('%s: admin+ only', (_label, capability) => {
+    expect(capability('owner')).toBe(true);
+    expect(capability('admin')).toBe(true);
+    expect(capability('agent')).toBe(false);
+    expect(capability('viewer')).toBe(false);
   });
 
   it('canManageMandates: agent+ (set up / pause auto-debit)', () => {

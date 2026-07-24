@@ -1,6 +1,6 @@
 # Finance master section
 
-> Status: **Overview, Invoices, and Payments built; Expenses proposed** · Product roadmap · Last updated: 2026-07-23
+> Status: **Overview, Invoices, Payments, and Expenses built; Overview expense integration pending** · Product roadmap · Last updated: 2026-07-24
 > Reference audit: FitGymSoftware Finance, inspected in-product on 2026-07-23. The reference is used for capability discovery only; its information architecture and visual design are not implementation targets.
 
 ## 1. Decision
@@ -95,7 +95,7 @@ The master section should move and compose these capabilities. It must not dupli
 ### Current gaps
 
 - Finance is split between Members → Payments, the member sheet, and Reports.
-- There is no expense ledger or net cash movement.
+- Expense tracking is built, but Overview and owner reports do not yet include expense totals or net cash movement.
 - Payment history is capped to a client-loaded latest set instead of a server-paged full ledger.
 - AutoPay failures are counted but are not yet a focused recovery workflow.
 - There is no stable human-facing invoice number or account-wide invoice export.
@@ -121,8 +121,8 @@ Data rules:
 - Invoice health groups issued periods into Paid, Partially paid, Overdue, Open, and Outstanding.
 - Collection mix uses the fixed Cash / UPI / Card / Bank & other method families.
 - Next month projected uses active memberships expiring in the next calendar month and the shared next-invoice projection.
-- Expenses and Profit remain visibly unavailable until the expense ledger ships. They must never render fabricated zeroes.
-- Recent transactions initially contains payment-ledger entries; posted expenses join the same timeline after the expense phase.
+- Expenses and Profit remain visibly unavailable until the expense ledger is integrated into Overview. They must never render fabricated zeroes.
+- Recent transactions initially contains payment-ledger entries; posted expenses join the same timeline when Overview expense integration ships.
 
 The Overview is analytical, not an exception/action queue. Reports remains the broader business-analysis surface for retention, acquisition, and plan performance.
 
@@ -137,6 +137,7 @@ Members retains two existing toolbar views:
 
 Built:
 
+- four horizontal summary cards—Collected, Payments, Auto-pay, and Voided—matching the established Invoices layout; Collection mix remains on Overview instead of being repeated here;
 - `SearchInput` for name, phone, Member ID, payment reference, or gateway reference;
 - calendar-month scope with an account-timezone date-range refinement;
 - filters for status, plan, payment method, source, and recorded by;
@@ -241,13 +242,25 @@ Add-expense fields:
 - Date
 - Category
 - Payment method
+- Expense type: Recurring or One-time
 - Amount
 - Optional receipt
+
+Built:
+
+- four summary cards matching the approved mock: Total expenses, Recurring, One-time, and Largest category;
+- day/weekly spend trend plus category totals;
+- All / Recurring / One-time quick views, search, filters, sorting, server paging, and complete filtered CSV export;
+- admin-gated add and void flows with private receipt upload/viewing;
+- explicit ledger-backed recurring/one-time classification on every expense;
+- posted/void audit status, with void retained in filters and row history rather than promoted as a primary KPI.
 
 Rules:
 
 - account-local date, capped at today;
 - amount must be chargeable and positive;
+- recurring/one-time is an explicit classification, not an automatic scheduling or accrual engine;
+- only posted amounts contribute to the four summary cards, trend, and category totals;
 - receipts use private storage and short-lived signed URLs;
 - the ledger is append-preserving;
 - an incorrect expense is voided with a reason and re-recorded;
@@ -292,7 +305,7 @@ Custom category management belongs in Settings → Payments & currency, not the 
 
 ### 7.1 Expense domain
 
-Proposed tables:
+Built tables:
 
 `expense_categories`
 
@@ -304,14 +317,14 @@ Proposed tables:
 `expenses`
 
 - `id`, `account_id`, `occurred_on`, `amount`, `description`;
-- `category_id`, `method`;
+- `category_id`, `method`, `expense_kind: recurring | one_time`;
 - `receipt_path`;
 - `recorded_by`;
 - `status: posted | void`;
 - `voided_at`, `voided_by`, `void_reason`;
 - `idempotency_key`, timestamps.
 
-Proposed RPCs:
+Built RPCs:
 
 - `record_expense`
 - `void_expense`
@@ -337,9 +350,9 @@ Add capability predicates in `src/lib/auth/roles.ts`, tests, and matching RLS/RP
 - `canViewFinance` — all account members;
 - `canExportFinance` — admin+ (**built**);
 - `canRecordPayments` — agent+; replaces unrelated capability reuse at payment call sites (**built**);
-- `canRecordExpenses` — admin+ for the first release;
-- `canManageExpenseCategories` — admin+;
-- `canVoidExpenses` — admin+.
+- `canRecordExpenses` — admin+ for the first release (**built**);
+- `canManageExpenseCategories` — admin+ (**built**);
+- `canVoidExpenses` — admin+ (**built**).
 
 Buttons should be gated with a reason, not hidden. Viewers remain read-only.
 
@@ -363,8 +376,7 @@ Built:
 Remaining Phase A hardening:
 
 - complete the role/timezone/currency/large-ledger acceptance matrix against a connected test account;
-- add the expense domain before enabling Expenses, Profit, or expense transactions;
-- implement Expenses against the approved mockup without duplicating Members workflows.
+- connect posted expense totals, net cash, and recent expense transactions to Overview without duplicating the Expenses ledger.
 
 Exit criteria:
 
@@ -421,11 +433,17 @@ Exit criteria:
 
 Goal: add minimal money-out tracking and net cash after the collection lifecycle is coherent.
 
-- Add migrations, RLS, named capabilities, RPCs, and private receipt storage.
-- Add Expenses list, filters, totals, export, add dialog, and void dialog.
+Built:
+
+- migrations, RLS, named capabilities, database-authoritative RPCs, seeded categories, and private receipt storage;
+- the Expenses list, filters, classification quick views, approved four-card summary, trends, category analysis, paging, export, add dialog, and void dialog;
+- recurring/one-time classification persisted on every ledger entry;
+- recorder, receipt, status, and void metadata on every expense row.
+
+Remaining:
+
 - Add Settings management for expense categories.
 - Add expense totals and Net cash to Overview and owner-report export.
-- Add audit metadata to every expense row.
 
 Exit criteria:
 
@@ -500,6 +518,6 @@ Each phase must cover:
 
 ## 12. Recommended build order
 
-Overview, the account-wide issued-invoice master, and the analytical Payments ledger are built. Next, build the minimal expense ledger because it unlocks real Expenses, Profit, the expense cash-flow series, and the combined recent-transactions timeline already reserved in the approved design.
+Overview, the account-wide issued-invoice master, the analytical Payments ledger, and the classified Expenses ledger are built. Next, connect posted expense totals to Overview, Profit, the expense cash-flow series, owner-report export, and the combined recent-transactions timeline already reserved in the approved design.
 
 Keep AutoPay recovery under Members → Payments, where staff can act on the member. Only add document sharing or GST behavior after immutable invoice identity and snapshots are proven.
