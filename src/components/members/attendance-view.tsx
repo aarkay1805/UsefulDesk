@@ -392,7 +392,7 @@ export function AttendanceView({
           <SearchInput
             value={search}
             onValueChange={setSearch}
-            placeholder="Search name or Member ID…"
+            placeholder="Search by name or ID"
             aria-label="Search attendance by name or Member ID"
           />
 
