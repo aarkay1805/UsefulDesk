@@ -19,11 +19,9 @@ import { FinanceMonthActions } from '@/components/finance/finance-month-actions'
 import { LeadsSort, type SortState } from '@/components/leads/leads-sort';
 import { InvoiceDetailDialog } from '@/components/members/invoice-detail-dialog';
 import { MemberIdentity } from '@/components/members/member-identity';
-import { InvoicePaymentBadge } from '@/components/members/membership-status-badge';
 import { RecordPaymentDialog } from '@/components/members/record-payment-dialog';
 import { ColumnHeader } from '@/components/table/column-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { GatedButton } from '@/components/ui/gated-button';
@@ -65,22 +63,13 @@ const SORT_COLUMNS: {
   { key: 'issued_on', label: 'Issued on' },
   { key: 'period', label: 'Billing period' },
   { key: 'name', label: 'Name' },
-  { key: 'plan', label: 'Plan' },
+  { key: 'member_id', label: 'Member ID' },
+  { key: 'plan', label: 'Membership' },
   { key: 'total', label: 'Total' },
   { key: 'paid', label: 'Paid' },
   { key: 'balance', label: 'Balance' },
   { key: 'reference', label: 'Invoice' },
 ];
-
-const LIFECYCLE_LABEL: Record<
-  FinanceInvoiceLifecycle,
-  { label: string; variant: 'secondary' | 'info' | 'neutral' }
-> = {
-  current: { label: 'Current', variant: 'secondary' },
-  past: { label: 'Past', variant: 'secondary' },
-  upcoming: { label: 'Upcoming', variant: 'info' },
-  void: { label: 'Void', variant: 'neutral' },
-};
 
 type LifecycleChoice = 'all' | FinanceInvoiceLifecycle;
 
@@ -373,17 +362,16 @@ export function FinanceInvoices({
               />
             ) : (
               <div className="overflow-x-auto">
-                <Table className="min-w-[1250px] table-fixed">
+                <Table className="min-w-[1120px] table-fixed">
                   <TableCaption className="sr-only">
                     Account-wide invoices
                   </TableCaption>
                   <colgroup>
                     <col className="w-32" />
                     <col className="w-52" />
-                    <col className="w-40" />
-                    <col className="w-52" />
-                    <col className="w-36" />
                     <col className="w-32" />
+                    <col className="w-56" />
+                    <col className="w-36" />
                     <col className="w-32" />
                     <col className="w-32" />
                     <col className="w-32" />
@@ -404,14 +392,14 @@ export function FinanceInvoices({
                         onSort={setSort}
                       />
                       <InvoiceHeader
-                        label="Plan"
-                        sortKey="plan"
+                        label="Member ID"
+                        sortKey="member_id"
                         sort={sort}
                         onSort={setSort}
                       />
                       <InvoiceHeader
-                        label="Billing period"
-                        sortKey="period"
+                        label="Membership"
+                        sortKey="plan"
                         sort={sort}
                         onSort={setSort}
                       />
@@ -442,13 +430,11 @@ export function FinanceInvoices({
                         onSort={setSort}
                         align="right"
                       />
-                      <TableHead>Payment</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {pageRows.map((row) => {
-                      const lifecycleMeta = LIFECYCLE_LABEL[row.lifecycle];
                       const collectible =
                         row.membership &&
                         row.state === 'open' &&
@@ -462,14 +448,11 @@ export function FinanceInvoices({
                           <TableCell>
                             <div className="grid justify-items-start gap-1.5">
                               <span
-                                className="font-medium tabular-nums"
+                                className="text-muted-foreground text-xs font-medium tabular-nums"
                                 title="Internal billing record reference"
                               >
                                 {row.reference}
                               </span>
-                              <Badge variant={lifecycleMeta.variant}>
-                                {lifecycleMeta.label}
-                              </Badge>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -477,22 +460,23 @@ export function FinanceInvoices({
                               name={row.membership?.contact?.name}
                               secondary={row.membership?.contact?.phone}
                               src={row.membership?.contact?.avatar_url}
-                              meta={
-                                row.membership?.member_number ? (
-                                  <span className="text-muted-foreground text-xs tabular-nums">
-                                    Member ID{' '}
-                                    {fmt.number(row.membership.member_number)}
-                                  </span>
-                                ) : undefined
-                              }
                             />
                           </TableCell>
-                          <TableCell className="text-muted-foreground truncate">
-                            {row.membership?.plan?.name ?? '—'}
+                          <TableCell>
+                            <span className="text-foreground font-mono text-sm tabular-nums">
+                              {row.membership?.member_number ?? '—'}
+                            </span>
                           </TableCell>
-                          <TableCell className="text-muted-foreground tabular-nums">
-                            {fmt.date(row.period_start)} –{' '}
-                            {fmt.date(row.period_end)}
+                          <TableCell>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">
+                                {row.membership?.plan?.name ?? '—'}
+                              </p>
+                              <p className="text-muted-foreground text-xs tabular-nums">
+                                {fmt.date(row.period_start)} –{' '}
+                                {fmt.date(row.period_end)}
+                              </p>
+                            </div>
                           </TableCell>
                           <TableCell className="text-muted-foreground tabular-nums">
                             {fmt.date(row.created_at)}
@@ -511,9 +495,6 @@ export function FinanceInvoices({
                             }`}
                           >
                             {fmt.money(row.balance)}
-                          </TableCell>
-                          <TableCell>
-                            <InvoicePaymentBadge state={row.paymentState} />
                           </TableCell>
                           <TableCell
                             className="text-right"

@@ -18,6 +18,7 @@ export type FinanceInvoiceLifecycle = 'current' | 'past' | 'upcoming' | 'void';
 export type FinanceInvoiceSortKey =
   | 'reference'
   | 'name'
+  | 'member_id'
   | 'plan'
   | 'period'
   | 'issued_on'
@@ -194,6 +195,10 @@ export function filterFinanceInvoices(
       comparison = (left.membership?.contact?.name ?? '').localeCompare(
         right.membership?.contact?.name ?? ''
       );
+    } else if (sort.key === 'member_id') {
+      comparison =
+        Number(left.membership?.member_number ?? 0) -
+        Number(right.membership?.member_number ?? 0);
     } else if (sort.key === 'plan') {
       comparison = (left.membership?.plan?.name ?? '').localeCompare(
         right.membership?.plan?.name ?? ''

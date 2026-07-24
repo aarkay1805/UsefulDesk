@@ -2,6 +2,7 @@
 
 > Read this before writing ANY UI. Rules here are product-wide invariants, not suggestions.
 > Two meta-rules govern everything below:
+>
 > 1. **Never hand-roll an element that exists in `src/components/ui/`.** If no primitive fits — **stop and ask the user**: new master component, or reuse a different one? Never silently roll an inline one-off.
 > 2. **Master components (`src/components/ui/*`) are single sources of truth.** Editing one changes every call-site — **warn the user first and list what it affects.** Never restyle a reused component at a call-site. Use its existing variants and size props exactly as defined; `className` may control only external layout such as width, margin, alignment, or responsive visibility. If the needed visual treatment does not exist, **stop and ask the user** whether to add a master variant or design a new component together.
 
@@ -9,7 +10,7 @@ Visual references: [design tokens](design-tokens.html) · [atomic component stic
 
 ## Token consistency (the rule that prevents drift)
 
-Sibling components that read as the same *kind* of thing must share the same tokens — popup padding, border/ring, radius, item inset, icon size, muted fill. Before adding or editing a component, open the **closest existing one and copy its tokens verbatim**. Don't eyeball a value.
+Sibling components that read as the same _kind_ of thing must share the same tokens — popup padding, border/ring, radius, item inset, icon size, muted fill. Before adding or editing a component, open the **closest existing one and copy its tokens verbatim**. Don't eyeball a value.
 
 Drift is a real bug, not a nit. Example: `DropdownMenuContent` had `p-1` on the popup, `SelectContent` had none — so a bare-item `ui/select` rendered items flush to the popup edge while an identically-shaped dropdown looked padded. Fixed at the master (`p-1` moved onto the Select's `List`).
 
@@ -21,12 +22,12 @@ When you spot a mismatch: **fix it at the master component** so every call-site 
 
 A clickable card (any bordered box that navigates or acts — nav tile, action row, selectable option) hovers with **`hover:border-border-hover` and nothing else**. The fill does not move: no `hover:bg-*`.
 
-- **Never tint a card hover with the accent.** `--border-hover` is deliberately neutral. `hover:border-primary/40` collides with the emerald *done* state on the onboarding rows the moment a gym picks the **emerald accent** (a real, shipped theme) — brand and status become the same green.
+- **Never tint a card hover with the accent.** `--border-hover` is deliberately neutral. `hover:border-primary/40` collides with the emerald _done_ state on the onboarding rows the moment a gym picks the **emerald accent** (a real, shipped theme) — brand and status become the same green.
 - Same reason, same rule for **leading icons** in those rows: neutral `bg-muted text-foreground`, not `bg-primary-soft text-primary`. Green appears once per row and only ever means done.
-- `--border-hover` **mirrors intent per mode, not direction** — darkens on light (`0.922 → 0.87`), *lightens* on dark (`0.28 → 0.36`). Darkening on dark would push the edge toward the card fill (`0.18`) and dissolve it, reading as the card *losing* its border. Same logic as `--card-2`.
-- **`hover:border-border` is a no-op** — the resting border is already `border-border`. Four cards shipped with that dead hover (and one with `hover:border-border/70`, which made the edge *weaker*). If you write a hover, check it changes something.
+- `--border-hover` **mirrors intent per mode, not direction** — darkens on light (`0.922 → 0.87`), _lightens_ on dark (`0.28 → 0.36`). Darkening on dark would push the edge toward the card fill (`0.18`) and dissolve it, reading as the card _losing_ its border. Same logic as `--card-2`.
+- **`hover:border-border` is a no-op** — the resting border is already `border-border`. Four cards shipped with that dead hover (and one with `hover:border-border/70`, which made the edge _weaker_). If you write a hover, check it changes something.
 - **`Card` (`ui/card.tsx`) has no border** — its edge is `ring-1 ring-foreground/10`. Hovering a `Card` must target the **ring** (`hover:[&>div]:ring-border-hover`), not a border that doesn't exist. `[&>div]:hover:border-primary/50` on the dashboard tiles was silently dead for exactly this reason.
-- **Selected/active states keep their `primary` tint** — only the *unselected* hover is neutral, so selection still reads as selection.
+- **Selected/active states keep their `primary` tint** — only the _unselected_ hover is neutral, so selection still reads as selection.
 - Out of scope (left on their own idioms): tag pills, dashed dropzones, icon-circle buttons, table rows, canvas nodes, destructive/red states.
 
 Canonical: `onboarding/get-started-view.tsx` (`StepRow`) and `settings/settings-overview.tsx` (status tile) — visual twins with byte-identical boxes. **Change one, change the other**, or they drift.
@@ -52,7 +53,10 @@ tailwind-merge only dedupes utilities of the **same variant**. So an override of
 Tailwind v4 Preflight sets `button { cursor: default }`. One base rule in `globals.css` owns it:
 
 ```css
-button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer }
+button:not(:disabled),
+[role='button']:not(:disabled) {
+  cursor: pointer;
+}
 ```
 
 A `:disabled` control keeps the arrow (a dead affordance must not advertise itself). **Never add `cursor-pointer` to a button/tab/trigger.** A **non-button** clickable (`<div>`/`<tr>` row, card) still needs it explicitly.
@@ -80,16 +84,18 @@ Deliberate filled exceptions (different pattern, not form fields): `SearchInput`
 Every form dropdown is `ui/select.tsx`. Native selects render an unstylable OS popup and their hand-rolled triggers drifted from `Input`'s tokens. All ~40 were converted.
 
 Idiom (see `member-personal-info.tsx` gender picker):
+
 ```tsx
 <Select value={x || undefined} onValueChange={(v) => set(v ?? "")}>
   <SelectTrigger id={…} className="w-full"><SelectValue placeholder="…" /></SelectTrigger>
 ```
+
 - Trigger defaults to `w-fit` → pass `w-full`. No `bg-muted`. `id` on the trigger (keeps `<Label htmlFor>`). `disabled` on the root.
 - Base UI types `onValueChange` as `string | null` → guard always-set handlers with `(v) => v && f(v)`.
-- Clearable field → a `<SelectItem value={null}>` first item (null re-shows the placeholder). A *selected* null item ALSO renders as placeholder, so a real option mapped to `""` state (contact-form's "New" status) uses `value={null}` + a dynamic placeholder.
+- Clearable field → a `<SelectItem value={null}>` first item (null re-shows the placeholder). A _selected_ null item ALSO renders as placeholder, so a real option mapped to `""` state (contact-form's "New" status) uses `value={null}` + a dynamic placeholder.
 - `<optgroup>` ⇄ `SelectGroup` + `SelectLabel`.
 
-**Controlled-vs-uncontrolled trap (fixed at the master):** Base UI latches `isControlled = value !== undefined` into a ref on the FIRST render, so `value={x || undefined}` mounted every Select *uncontrolled* and flipped it to *controlled* on first pick — console warning, and an uncontrolled root **ignores a programmatic reset** (form cleared, dialog reopened on another record). `null` = "controlled, nothing picked"; `undefined` = uncontrolled. The `Select` wrapper now **coerces an explicitly-passed `value: undefined` → `null`** (keyed on `"value" in props`, so a genuinely uncontrolled Select using `defaultValue` is untouched). The `value={x || undefined}` idiom stays correct — don't "fix" a call-site to `defaultValue`.
+**Controlled-vs-uncontrolled trap (fixed at the master):** Base UI latches `isControlled = value !== undefined` into a ref on the FIRST render, so `value={x || undefined}` mounted every Select _uncontrolled_ and flipped it to _controlled_ on first pick — console warning, and an uncontrolled root **ignores a programmatic reset** (form cleared, dialog reopened on another record). `null` = "controlled, nothing picked"; `undefined` = uncontrolled. The `Select` wrapper now **coerces an explicitly-passed `value: undefined` → `null`** (keyed on `"value" in props`, so a genuinely uncontrolled Select using `defaultValue` is untouched). The `value={x || undefined}` idiom stays correct — don't "fix" a call-site to `defaultValue`.
 
 **Trigger label resolution (fixed at the master):** Base UI's `Select.Value` renders labels ONLY from the root's `items` prop, never from mounted `SelectItem` children — so a selected value used to echo raw (plan UUID, `male`). The wrapper now auto-derives `items` by walking its JSX children (explicit `items` wins; null-valued items skipped). Caveat: `SelectItem`s hidden inside a custom component aren't seen — those call-sites pass `items` explicitly.
 
@@ -106,6 +112,7 @@ Idiom (see `member-personal-info.tsx` gender picker):
 ### Money inputs
 
 `CurrencyInput` (`ui/currency-input.tsx`) — master `Input` with the account's currency symbol centred in a divided leading compartment. The divider, compartment width, and matching input padding are master behavior; never recreate or override them at a call site. Two modes:
+
 - **plain** — `type="number"`, `value`/`onChange`.
 - **grouped** — pass `groupLocale={locale.locale}` + `onValueChange`; renders `type="text"` with locale grouping as you type (`₹1,00,000` on en-IN) while returning the RAW numeric string. Caret restored by digit position.
 
@@ -139,18 +146,19 @@ Data-list toolbars follow one reading order: **Search → Filters → Sort → v
 There is **ONE** lead/contact detail surface: **`ContactDetailContent`** (`components/contacts/contact-detail-content.tsx`) — identity header + quick-action row over the **Details / Tags / Notes & follow-ups** accordion. It owns its own fetches (`contacts`, `conversations`, `tags`+`contact_tags`, `custom_fields`+`contact_custom_values`), its own writes, and the shared option lists (`useLeadFieldOptions`).
 
 It is **host-agnostic on purpose** (renders no Sheet chrome) and has exactly two hosts:
+
 - `ContactDetailView` (`contact-detail-view.tsx`) — a thin `/leads` Sheet wrapper.
 - `ContactSidebar` (`components/inbox/contact-sidebar.tsx`) — the inbox's 360px right panel.
 
 **Hosts differ ONLY by props, never by forking:**
 
-| Prop | Purpose |
-|---|---|
-| `variant` | `'sheet'` renders Base UI `SheetTitle`/`SheetDescription` (Dialog parts — they **throw** outside a Sheet root); `'panel'` swaps in plain elements with identical classes |
-| `actions` | allowlist of `ContactQuickActionId` — the inbox drops `chat` (you're in the thread) and `template` (composer is right there) |
-| `collapsedSections` | inbox collapses `details` (13 label/value rows in a 360px rail is a wall) |
-| `active` | fetch trigger — sheet passes its `open`, panel passes `true` |
-| `onClose` | sheet dismisses; panel doesn't |
+| Prop                | Purpose                                                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `variant`           | `'sheet'` renders Base UI `SheetTitle`/`SheetDescription` (Dialog parts — they **throw** outside a Sheet root); `'panel'` swaps in plain elements with identical classes |
+| `actions`           | allowlist of `ContactQuickActionId` — the inbox drops `chat` (you're in the thread) and `template` (composer is right there)                                             |
+| `collapsedSections` | inbox collapses `details` (13 label/value rows in a 360px rail is a wall)                                                                                                |
+| `active`            | fetch trigger — sheet passes its `open`, panel passes `true`                                                                                                             |
+| `onClose`           | sheet dismisses; panel doesn't                                                                                                                                           |
 
 Adding a lead field once surfaces it in the table, the sheet **and** the inbox. The inbox panel is fully editable (same writes, same RLS, same transfer/assignment approval RPCs) and re-pulls the page's `activeContact` via `onUpdated` so the thread header + conversation list can't go stale.
 
@@ -176,6 +184,7 @@ Visible product vocabulary is a shared interface contract. The same data concept
 
 - A member identity rendered with `MemberIdentity` is always **Name**. Do not relabel it as “Member,” “Customer,” “Customer details,” or “Member details.”
 - Reuse the canonical labels from the primary table for shared member columns: **Name**, **Member ID**, **Plan**, **Expiry**, **Status**, **Assigned to**, **Fee**, and **Actions**.
+- Finance → Invoices deliberately uses **Membership** for its combined plan-and-billing-period column: plan name is primary and the billing-period date range is its subtitle. It keeps **Member ID** separate from **Name** and uses **Balance**, without a redundant payment-status column.
 - Follow-up-specific concepts remain **Due date**, **Follow-up**, and **Reason** wherever they appear. The task column is always **Follow-up**, never “Notes” or “Next action”; its optional note is supporting text inside the cell.
 - In lead and follow-up surfaces, the accountable task is always called **Follow-up**. Use **No follow-up** and **Add follow-up**; never expose “next action” as a synonym.
 - Internal field keys may differ, but user-facing labels must not. A new synonym requires explicit product agreement and an update to this vocabulary before implementation.
@@ -202,6 +211,7 @@ Visible product vocabulary is a shared interface contract. The same data concept
 ## Badges / status pills
 
 `Badge` (`ui/badge.tsx`) is the canonical pill.
+
 - **Never override a Badge's height, typography, padding, radius, border, or colours with call-site `className`.** Use the unmodified primitive and its documented variant. Two badges in the same family must therefore have identical geometry and type treatment.
 - Fixed statuses → tinted variants (`success`/`danger`/`warning`/`info`/`violet`/`orange`/`pink`), **fill-only** recipe `bg-{c}/10 text-{c}-foreground`. No borders on pills.
 - Admin-created **tags always render `variant="neutral"`** — the slate fill-only tint (`bg-slate-500/10 text-slate-foreground`). Slate = the neutral, non-colour-coded look.
@@ -238,11 +248,11 @@ Exempt: non-DOM strings (CSV, WhatsApp template params, toasts) and native `<opt
 
 Animate through the shared primitives in `src/components/ui/`, not scattered `motion.*` at call-sites.
 
-| Primitive | What it does |
-|---|---|
-| `Collapse` (`collapse.tsx`) | `open`-driven height+fade reveal that unmounts when closed (replaced the `grid-rows-[0fr↔1fr]` hack; the surrounding flex gap closes on its own) |
+| Primitive                                           | What it does                                                                                                                                                              |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Collapse` (`collapse.tsx`)                         | `open`-driven height+fade reveal that unmounts when closed (replaced the `grid-rows-[0fr↔1fr]` hack; the surrounding flex gap closes on its own)                          |
 | `MotionList` + `MotionListItem` (`motion-list.tsx`) | wrap a `.map` so items fade/slide in-out and FLIP-reflow on add/remove/reorder (`AnimatePresence mode="popLayout"` + `layout`). Used on the notes list + `/notifications` |
-| `AnimatedNumber` (`animated-number.tsx`) | count-up on scroll-into-view; drives text via ref (no per-frame re-render); honours reduced-motion. Dashboard KPI tiles (pass `format` for currency) |
+| `AnimatedNumber` (`animated-number.tsx`)            | count-up on scroll-into-view; drives text via ref (no per-frame re-render); honours reduced-motion. Dashboard KPI tiles (pass `format` for currency)                      |
 
 ### Two hard gotchas
 
@@ -251,7 +261,7 @@ Animate through the shared primitives in `src/components/ui/`, not scattered `mo
 
 ### Kanban board (leads) — drag perf is load-bearing
 
-`leads-board.tsx` uses `LayoutGroup` + per-card `layout="position"` / `layoutId` so a dragged card *flies* to its new column. dnd-kit owns the drag; its `DragOverlay dropAnimation` is `null` so Motion's FLIP owns the settle (**don't re-enable it** — double-animates).
+`leads-board.tsx` uses `LayoutGroup` + per-card `layout="position"` / `layoutId` so a dragged card _flies_ to its new column. dnd-kit owns the drag; its `DragOverlay dropAnimation` is `null` so Motion's FLIP owns the settle (**don't re-enable it** — double-animates).
 
 Three things keep it smooth. All three are deliberate:
 

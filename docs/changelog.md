@@ -6,6 +6,12 @@
 
 ---
 
+## Finance Invoices table simplification
+
+Finance → Invoices now keeps Name focused on member identity, shows Member ID in its own sortable identifier column, and combines the plan name plus billing-period date range under Membership. Internal invoice references use compact muted typography without the redundant cycle badge. The redundant standalone Billing period and Payment status columns are gone; Balance remains the table’s due-money signal, while payment-state filtering and export data stay available. Key code: `src/components/finance/finance-invoices.tsx` and `src/lib/finance/invoices.ts`.
+
+---
+
 ## Finance Expenses dialog key fix
 
 Finance → Expenses now gives its add and void dialogs separately namespaced remount keys, eliminating the duplicate `closed` React key warning while preserving form reset behavior across dialog lifecycles. Key code: `src/components/finance/finance-expenses.tsx`.

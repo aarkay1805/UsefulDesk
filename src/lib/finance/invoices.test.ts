@@ -125,6 +125,7 @@ describe('finance invoice filtering and totals', () => {
       membership({
         id: 'membership-2',
         contact_id: 'contact-2',
+        member_number: 1002,
         plan_id: 'plan-2',
         end_date: '2026-07-31',
         contact: {
@@ -147,7 +148,8 @@ describe('finance invoice filtering and totals', () => {
       ['#1234', 1],
       ['aarav', 2],
       ['987654', 3],
-      ['1001', 3],
+      ['1001', 2],
+      ['1002', 1],
     ] as const) {
       expect(
         filterFinanceInvoices(rows, {
@@ -171,6 +173,19 @@ describe('finance invoice filtering and totals', () => {
       sort: { key: 'total', dir: 'desc' },
     });
     expect(result.map((row) => row.reference)).toEqual(['#AAAAAAAA']);
+  });
+
+  it('sorts by the dedicated Member ID column', () => {
+    const result = filterFinanceInvoices(rows, {
+      search: '',
+      lifecycle: 'all',
+      filters: EMPTY_FINANCE_INVOICE_FILTERS,
+      sort: { key: 'member_id', dir: 'asc' },
+    });
+
+    expect(result.map((row) => row.membership?.member_number)).toEqual([
+      1001, 1001, 1002,
+    ]);
   });
 
   it('excludes void rows from money totals while preserving their count', () => {
