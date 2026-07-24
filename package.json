@@ -54,7 +54,7 @@
     "date-fns": "^4.4.0",
     "lucide-react": "^1.22.0",
     "motion": "^12.42.2",
-    "next": "^16.2.10",
+    "next": "^16.2.11",
     "opus-recorder": "^8.0.5",
     "react": "^19.2.7",
     "react-day-picker": "^10.0.1",
