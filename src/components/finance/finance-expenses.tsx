@@ -241,10 +241,6 @@ export function FinanceExpenses({
   const rangeStart =
     result.summary.count === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(currentPage * PAGE_SIZE, result.summary.count);
-  const displayedRange = {
-    start: filters.occurredFrom || period.start,
-    end: filters.occurredTo || period.end,
-  };
   const hasQuery =
     Boolean(search.trim()) ||
     quickView !== 'all' ||
@@ -337,11 +333,6 @@ export function FinanceExpenses({
           </GatedButton>
         }
       />
-
-      <p className="text-muted-foreground text-sm tabular-nums">
-        {fmt.date(displayedRange.start)} – {fmt.date(displayedRange.end)} ·
-        Expense ledger
-      </p>
 
       {error || categoryError ? (
         <Alert variant="destructive">
