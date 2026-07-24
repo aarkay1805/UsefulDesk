@@ -159,7 +159,7 @@ Commit = RPC `change_membership_plan` — one transaction, `membership_operation
 - **Session-pack remaining is DERIVED** (`sessions_count` − attendance count since current cycle start, keyed `membership_id`) — **never a stored counter.**
 - Limits / exhausted packs are **warn-with-override at check-in** (`AttendanceOverrideDialog`, both check-in paths) — **never a hard block.**
 - Both paths (`check-in-view.tsx`, member-sheet `checkIn()`) fresh-count the plan's usage window and open the override dialog at the limit / on an exhausted pack. Usage lines ("9/12 this month" / "7 of 10 sessions left") render in check-in row meta + the sheet's Attendance section.
-- Attendance also has a staff-only quick Member ID entry. It resolves inside the signed-in account, reuses the exact same limit/override flow, refuses a second attendance record for the day, and records `method='member_id'` for audit. Member ID is not a self-service PIN.
+- The Attendance register has one search field for member name or Member ID. Staff select the matching row and use its existing check-in/check-out action, which keeps the normal limit/override flow and avoids a separate ID-specific action. Member ID remains an identifier, never a self-service PIN.
 
 ---
 

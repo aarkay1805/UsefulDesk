@@ -6,6 +6,12 @@
 
 ---
 
+## Unified Attendance member search
+
+Members → Attendance now uses one shared search field for member name or Member ID. The separate Member ID entry and ID-specific check-in button are gone; staff select the filtered member row and keep using the existing row-level check-in/check-out and member-detail behaviors. Key code: `src/components/members/attendance-view.tsx`.
+
+---
+
 ## Members payment-due queue cleanup
 
 Members → Payments is now a single operational payments-due queue with its existing search, plan filter, sorting, **Due today** / **Overdue** quick filters, reminders, payment entry, and paging intact. The duplicate recent-payments switch, ledger query, history filters, and export were removed; payment history remains in Finance → Payments. Key code: `src/components/members/payments-table.tsx` and `src/components/members/payment-table-filters.tsx`.
