@@ -6,6 +6,12 @@
 
 ---
 
+## Focused payment-due urgency filters
+
+Members → Payments now exposes exactly two counted urgency filters: **Due today** matches only balances whose due date is the account-local current date, while **Overdue** matches every balance past its due date without day-range splits. Future-dated balances remain visible in the unfiltered queue but no longer share a quick filter with due-today work. Key code: `src/lib/memberships/dues.ts`, `src/components/members/payments-table.tsx`, and `src/components/members/payment-table-filters.tsx`.
+
+---
+
 ## Finance period navigation
 
 Finance now uses separate localized Month and Year controls with adjacent previous/next navigation, future-month guards, and a Current month shortcut on every tab. The available year list begins at the account's creation year rather than an arbitrary history window, while historical deep links remain selectable. Finance tabs do not repeat the selected period in redundant page subtitles. The URL and every loader/export stay on the existing `month=YYYY-MM` contract; Day/Week remains a contextual chart control. Key code: `src/components/finance/finance-month-actions.tsx`, `src/components/finance/`, `src/lib/finance/overview.ts`, `src/lib/locale/format.ts`, and `src/hooks/use-auth.tsx`.

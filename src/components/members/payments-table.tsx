@@ -466,7 +466,8 @@ export function PaymentsTable({
       }
       const bucket = bucketForDue(row.start_date, today);
       return (
-        dueFilters.buckets.length === 0 || dueFilters.buckets.includes(bucket)
+        dueFilters.buckets.length === 0 ||
+        (bucket !== null && dueFilters.buckets.includes(bucket))
       );
     });
 
@@ -503,7 +504,8 @@ export function PaymentsTable({
       ) {
         continue;
       }
-      counts[bucketForDue(row.start_date, today)] += 1;
+      const bucket = bucketForDue(row.start_date, today);
+      if (bucket) counts[bucket] += 1;
     }
     return counts;
   }, [dueFilters.plans, dueRows, today]);
@@ -1242,15 +1244,20 @@ function PaginationControls({
   );
 }
 
-function dueBucketIndex(bucket: DueBucket) {
+function dueBucketIndex(bucket: DueBucket | null) {
+  if (bucket === null) return DUE_BUCKETS.length;
   return DUE_BUCKETS.findIndex(({ key }) => key === bucket);
 }
 
-function DueStatusBadge({ bucket, days }: { bucket: DueBucket; days: number }) {
-  if (bucket === 'due_soon') return <Badge variant="warning">Due now</Badge>;
-  if (bucket === 'overdue_1_7') {
-    return <Badge variant="warning">{days}d overdue</Badge>;
-  }
+function DueStatusBadge({
+  bucket,
+  days,
+}: {
+  bucket: DueBucket | null;
+  days: number;
+}) {
+  if (bucket === null) return <Badge variant="neutral">Upcoming</Badge>;
+  if (bucket === 'due_today') return <Badge variant="warning">Due today</Badge>;
   return <Badge variant="danger">{days}d overdue</Badge>;
 }
 

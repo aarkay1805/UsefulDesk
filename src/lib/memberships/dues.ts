@@ -11,39 +11,37 @@
  * is never a day early or late for a UTC+5:30 owner.
  */
 
-import { daysBetween, istToday } from "./expiry";
+import { daysBetween, istToday } from './expiry';
 
-export type DueBucket =
-  | "due_soon"
-  | "overdue_1_7"
-  | "overdue_8_30"
-  | "overdue_30_plus";
+export type DueBucket = 'due_today' | 'overdue';
 
 /**
  * Whole days a fee is overdue: today − `dueSince`. 0 = due today,
  * negative = not owed yet (a future period start), positive = late.
  */
-export function daysOverdue(dueSince: string, today: string = istToday()): number {
+export function daysOverdue(
+  dueSince: string,
+  today: string = istToday()
+): number {
   return daysBetween(dueSince, today);
 }
 
 /**
- * Which aged bucket an outstanding fee falls into. `due_soon` covers
- * due-today and not-yet-owed; the rest split lateness at 7 and 30 days
- * so the owner sees fresh dues apart from the hard-to-collect tail.
+ * Which urgency bucket an outstanding fee falls into. Future-dated
+ * balances stay in the unfiltered queue but are not urgency filters.
  */
-export function bucketForDue(dueSince: string, today: string = istToday()): DueBucket {
+export function bucketForDue(
+  dueSince: string,
+  today: string = istToday()
+): DueBucket | null {
   const d = daysOverdue(dueSince, today);
-  if (d <= 0) return "due_soon";
-  if (d <= 7) return "overdue_1_7";
-  if (d <= 30) return "overdue_8_30";
-  return "overdue_30_plus";
+  if (d === 0) return 'due_today';
+  if (d > 0) return 'overdue';
+  return null;
 }
 
-/** Fixed display order + label for the four due buckets. */
+/** Fixed display order + label for the two actionable urgency filters. */
 export const DUE_BUCKETS: { key: DueBucket; label: string }[] = [
-  { key: "due_soon", label: "Due now" },
-  { key: "overdue_1_7", label: "Overdue 1–7 days" },
-  { key: "overdue_8_30", label: "Overdue 8–30 days" },
-  { key: "overdue_30_plus", label: "Overdue 30+ days" },
+  { key: 'due_today', label: 'Due today' },
+  { key: 'overdue', label: 'Overdue' },
 ];
