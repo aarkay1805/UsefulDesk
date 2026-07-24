@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  financeMonthOptions,
   financeMonthRange,
   financeOverviewCsv,
+  financeYearOptions,
   shiftFinanceMonth,
   type FinanceOverviewData,
 } from './overview';
@@ -25,12 +25,16 @@ describe('Finance calendar months', () => {
     });
   });
 
-  it('lists the current month before older months', () => {
-    expect(financeMonthOptions('2026-07', 3)).toEqual([
-      '2026-07',
-      '2026-06',
-      '2026-05',
-    ]);
+  it('lists years from the account creation year through the current year', () => {
+    expect(
+      financeYearOptions('2026-07', '2023-11-18T10:00:00Z', '2026-07')
+    ).toEqual(['2026', '2025', '2024', '2023']);
+  });
+
+  it('keeps a historical deep-linked year available', () => {
+    expect(
+      financeYearOptions('2026-07', '2023-11-18T10:00:00Z', '2021-04')
+    ).toEqual(['2026', '2025', '2024', '2023', '2022', '2021']);
   });
 });
 

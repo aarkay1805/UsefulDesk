@@ -110,12 +110,28 @@ export function financeMonthRange(month: string): FinanceMonthRange {
   };
 }
 
-export function financeMonthOptions(
+function yearFrom(value: string | null | undefined): number | null {
+  const match = value ? /^(\d{4})/.exec(value) : null;
+  if (!match) return null;
+  const year = Number(match[1]);
+  return Number.isInteger(year) ? year : null;
+}
+
+export function financeYearOptions(
   currentMonth: string,
-  count = 12
+  accountCreatedAt: string | null | undefined,
+  selectedMonth: string
 ): string[] {
-  return Array.from({ length: count }, (_, index) =>
-    shiftFinanceMonth(currentMonth, -index)
+  const currentYear = yearFrom(currentMonth);
+  const selectedYear = yearFrom(selectedMonth);
+  if (currentYear === null || selectedYear === null) {
+    throw new Error('Finance months must use YYYY-MM');
+  }
+  const createdYear = yearFrom(accountCreatedAt) ?? currentYear;
+  const firstYear = Math.min(currentYear, createdYear, selectedYear);
+  return Array.from(
+    { length: currentYear - firstYear + 1 },
+    (_, index) => String(currentYear - index)
   );
 }
 

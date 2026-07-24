@@ -94,6 +94,8 @@ describe('month', () => {
   it('renders a calendar month without day text', () => {
     expect(IN.month('2026-07-01')).toBe('July 2026');
     expect(US.month('2026-07-01')).toBe('July 2026');
+    expect(IN.monthName('2026-07-01')).toBe('July');
+    expect(US.monthName('2026-07-01')).toBe('July');
   });
 });
 

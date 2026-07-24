@@ -56,6 +56,8 @@ interface Profile {
 interface AccountSummary {
   id: string;
   name: string;
+  /** Account creation bounds historical period pickers without a fixed year list. */
+  created_at: string;
   /** Default deal currency (ISO-4217). NOT NULL DEFAULT 'INR' in the
    *  DB (021, default flipped in 055); narrowed to DEFAULT_CURRENCY
    *  when absent. */
@@ -238,7 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // 055; every field is narrowed below / by
             // resolveAccountLocale for older schemas where it reads null.
             .select(
-              'id, name, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system, onboarding_dismissed_at'
+              'id, name, created_at, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system, onboarding_dismissed_at'
             )
             .eq('id', data.account_id)
             .maybeSingle();
@@ -253,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             accountRow = {
               id: account.id,
               name: account.name,
+              created_at: account.created_at,
               default_currency: account.default_currency ?? DEFAULT_CURRENCY,
               country_code: account.country_code ?? null,
               locale: account.locale ?? null,

@@ -109,7 +109,7 @@ Purpose: let the owner understand a selected calendar month's financial position
 
 The page follows the approved mockup hierarchy:
 
-1. one month selector shared by the whole page, with previous/next controls and admin-only CSV export;
+1. one calendar-month scope shared by the whole page, selected through separate localized Month and Year controls with previous/next navigation, a Current month shortcut, future-month guards, and admin-only CSV export;
 2. Revenue, Expenses, Profit, and Next month projected metric cards;
 3. Income & expenses cash-flow chart beside invoice health;
 4. Collection mix beside recent transactions.
@@ -365,7 +365,7 @@ Goal: create one discoverable financial snapshot without changing financial trut
 Built:
 
 - `/finance`, sidebar item, page title, and URL-backed Overview/Invoices/Payments/Expenses header tabs;
-- calendar-month navigation shared by every Overview section;
+- calendar-month navigation shared by every tab, with separate Month/Year controls, adjacent and current-month shortcuts, future guards, and available years derived from account history;
 - Revenue with previous-month comparison and Next month projected from active renewals;
 - day/weekly income cash flow, invoice health, collection mix, and recent payment transactions;
 - admin-only CSV export with unavailable expense/profit cells left blank;

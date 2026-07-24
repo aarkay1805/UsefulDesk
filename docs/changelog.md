@@ -6,6 +6,12 @@
 
 ---
 
+## Finance period navigation
+
+Finance now uses separate localized Month and Year controls with adjacent previous/next navigation, future-month guards, and a Current month shortcut on every tab. The available year list begins at the account's creation year rather than an arbitrary history window, while historical deep links remain selectable. The URL and every loader/export stay on the existing `month=YYYY-MM` contract; Day/Week remains a contextual chart control. Key code: `src/components/finance/finance-month-actions.tsx`, `src/lib/finance/overview.ts`, `src/lib/locale/format.ts`, and `src/hooks/use-auth.tsx`.
+
+---
+
 ## Finance Expenses ledger
 
 Shipped the approved Finance Expenses tab with ledger-backed Total expenses, Recurring, One-time, and Largest category cards; daily/weekly and category analysis; search, filters, classification quick views, sorting, paging, and complete CSV export; private receipts; and admin-gated add/void flows. Every expense is explicitly classified as recurring or one-time, while posted/void remains an audit state and void never becomes a primary KPI. The append-preserving domain, seeded tenant categories, RLS, RPC guards, and storage policies live in migrations `20260724090000` / `20260724093000`; Overview expense/profit integration and category settings remain pending. Key code: `src/components/finance/finance-expenses.tsx`, `src/components/finance/add-expense-dialog.tsx`, `src/lib/finance/expenses.ts`, and `src/lib/auth/roles.ts`.
