@@ -29,6 +29,7 @@ import {
   DUE_BUCKETS,
   type DueBucket,
 } from '@/lib/memberships/dues';
+import { memberMatchesSearch } from '@/lib/memberships/search';
 import { isChargeableAmount } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
 import type { Membership } from '@/types';
@@ -180,19 +181,7 @@ export function PaymentsTable({
 
   const filteredDueRows = useMemo(() => {
     const matching = dueRows.filter((row) => {
-      const term = search.trim().toLocaleLowerCase();
-      if (term) {
-        const name = row.contact?.name?.toLocaleLowerCase() ?? '';
-        const phone = row.contact?.phone?.toLocaleLowerCase() ?? '';
-        const memberNumber = String(row.member_number ?? '');
-        if (
-          !name.includes(term) &&
-          !phone.includes(term) &&
-          !memberNumber.includes(term)
-        ) {
-          return false;
-        }
-      }
+      if (!memberMatchesSearch(row, search)) return false;
       if (
         dueFilters.plans.length > 0 &&
         !dueFilters.plans.includes(row.plan_id ?? '')
@@ -320,8 +309,8 @@ export function PaymentsTable({
               setSearchInput(value);
               setDuePage(1);
             }}
-            placeholder="Search payment dues…"
-            aria-label="Search payment dues"
+            placeholder="Search by name or ID"
+            aria-label="Search payment dues by name or Member ID"
           />
 
           <div className="flex shrink-0 items-center gap-2">

@@ -50,6 +50,7 @@ interface FollowUpQueueControlsProps {
   onScopeChange: (value: FollowUpQueueScope) => void;
   counts: FollowUpBucketCounts;
   searchPlaceholder?: string;
+  searchAriaLabel?: string;
   actions?: ReactNode;
 }
 
@@ -68,6 +69,7 @@ export function FollowUpQueueControls({
   onScopeChange,
   counts,
   searchPlaceholder = 'Search follow-ups…',
+  searchAriaLabel = 'Search follow-ups',
   actions,
 }: FollowUpQueueControlsProps) {
   const activeBucket: QuickBucket = filters.buckets[0] ?? 'all';
@@ -87,7 +89,7 @@ export function FollowUpQueueControls({
         value={search}
         onValueChange={onSearchChange}
         placeholder={searchPlaceholder}
-        aria-label="Search follow-ups"
+        aria-label={searchAriaLabel}
       />
 
       <div className="flex min-w-0 flex-wrap items-center gap-2">

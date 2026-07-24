@@ -46,6 +46,10 @@ import {
   type MemberFilters,
 } from "@/lib/memberships/filters";
 import {
+  resolveMemberSearch,
+  resolvedMembershipIds,
+} from "@/lib/memberships/search";
+import {
   MEMBER_COLUMN_BY_KEY,
   MEMBER_TABLE_COLUMNS as MEMBER_COLUMNS,
   type MemberColumn,
@@ -829,6 +833,7 @@ export function MembersTable({
     (async () => {
       setLoading(true);
       const today = fmt.today();
+      const searchResolution = await resolveMemberSearch(supabase, search);
       const memberships = supabase.from("memberships");
       let q = filters.followUps.includes("open")
         ? memberships.select(MEMBER_WITH_OPEN_FOLLOW_UP_SELECT, {
@@ -836,9 +841,10 @@ export function MembersTable({
           })
         : memberships.select(MEMBER_SELECT, { count: "exact" });
 
-      const term = search.trim();
-      if (term) {
-        const like = `%${term}%`;
+      if (searchResolution.kind === "membershipIds") {
+        q = q.in("id", resolvedMembershipIds(searchResolution));
+      } else if (searchResolution.kind === "contact") {
+        const like = `%${searchResolution.term}%`;
         q = q.or(`name.ilike.${like},phone.ilike.${like}`, {
           referencedTable: "contact",
         });
@@ -860,7 +866,11 @@ export function MembersTable({
       setRows((data as Membership[]) ?? []);
       setTotalCount(count ?? 0);
       setLoading(false);
-    })();
+    })().catch((error) => {
+      if (cancelled || seq !== fetchSeq.current) return;
+      toast.error(getErrorMessage(error, "Failed to load members"));
+      setLoading(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -882,7 +892,7 @@ export function MembersTable({
 
     void (async () => {
       const today = fmt.today();
-      const term = search.trim();
+      const searchResolution = await resolveMemberSearch(supabase, search);
       const results = await Promise.all(
         QUICK_MEMBER_FILTERS.map(async ({ key }) => {
           const countFilters = filtersForQuickMemberCount(filters, key);
@@ -897,8 +907,10 @@ export function MembersTable({
                 head: true,
               });
 
-          if (term) {
-            const like = `%${term}%`;
+          if (searchResolution.kind === "membershipIds") {
+            query = query.in("id", resolvedMembershipIds(searchResolution));
+          } else if (searchResolution.kind === "contact") {
+            const like = `%${searchResolution.term}%`;
             query = query.or(`name.ilike.${like},phone.ilike.${like}`, {
               referencedTable: "contact",
             });
@@ -922,7 +934,11 @@ export function MembersTable({
           results.map((result) => [result.key, result.count])
         ) as Record<QuickMemberFilter, number>
       );
-    })();
+    })().catch((error) => {
+      if (cancelled || seq !== quickCountFetchSeq.current) return;
+      console.error("Failed to resolve member search", error);
+      setQuickFilterCounts(EMPTY_QUICK_MEMBER_FILTER_COUNTS);
+    });
 
     return () => {
       cancelled = true;
@@ -959,13 +975,21 @@ export function MembersTable({
   // rows on other pages. Same query shape as the fetch, ids only.
   async function selectAllMatching() {
     const today = fmt.today();
+    const searchResolution = await resolveMemberSearch(supabase, search).catch(
+      (error) => {
+        toast.error(getErrorMessage(error, "Failed to select members"));
+        return null;
+      }
+    );
+    if (!searchResolution) return;
     const memberships = supabase.from("memberships");
     let q = filters.followUps.includes("open")
       ? memberships.select(MEMBER_ID_WITH_OPEN_FOLLOW_UP_SELECT)
       : memberships.select(MEMBER_ID_SELECT);
-    const term = search.trim();
-    if (term) {
-      const like = `%${term}%`;
+    if (searchResolution.kind === "membershipIds") {
+      q = q.in("id", resolvedMembershipIds(searchResolution));
+    } else if (searchResolution.kind === "contact") {
+      const like = `%${searchResolution.term}%`;
       q = q.or(`name.ilike.${like},phone.ilike.${like}`, {
         referencedTable: "contact",
       });
@@ -991,13 +1015,21 @@ export function MembersTable({
   // the file matches the screen.
   async function handleExport() {
     const today = fmt.today();
+    const searchResolution = await resolveMemberSearch(supabase, search).catch(
+      (error) => {
+        toast.error(getErrorMessage(error, "Export failed"));
+        return null;
+      }
+    );
+    if (!searchResolution) return;
     const memberships = supabase.from("memberships");
     let q = filters.followUps.includes("open")
       ? memberships.select(MEMBER_WITH_OPEN_FOLLOW_UP_SELECT)
       : memberships.select(MEMBER_SELECT);
-    const term = search.trim();
-    if (term) {
-      const like = `%${term}%`;
+    if (searchResolution.kind === "membershipIds") {
+      q = q.in("id", resolvedMembershipIds(searchResolution));
+    } else if (searchResolution.kind === "contact") {
+      const like = `%${searchResolution.term}%`;
       q = q.or(`name.ilike.${like},phone.ilike.${like}`, {
         referencedTable: "contact",
       });
@@ -1118,8 +1150,8 @@ export function MembersTable({
           <SearchInput
             value={searchInput}
             onValueChange={setSearchInput}
-            placeholder="Search members…"
-            aria-label="Search members"
+            placeholder="Search by name or ID"
+            aria-label="Search members by name or Member ID"
           />
 
           {/* Data controls stay beside search; column management is the

@@ -32,6 +32,10 @@ import {
   type FollowUpFilters as FollowUpFilterState,
 } from '@/lib/memberships/follow-up-filters';
 import { REASON_LABEL } from '@/lib/memberships/follow-ups';
+import {
+  resolveMemberSearch,
+  resolvedMembershipIds,
+} from '@/lib/memberships/search';
 import type { FollowUp, FollowUpReason } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -502,8 +506,7 @@ export function FollowUpLists({
       }
 
       const today = fmt.today();
-      const term = search.trim();
-      const like = `%${term}%`;
+      const searchResolution = await resolveMemberSearch(supabase, search);
       let query = supabase
         .from('follow_ups')
         .select(FOLLOW_UP_SELECT, { count: 'exact' })
@@ -512,7 +515,13 @@ export function FollowUpLists({
 
       query = applyFollowUpFilters(query, filters, today);
       if (scope === 'mine') query = query.eq('assigned_to', userId!);
-      if (term) {
+      if (searchResolution.kind === 'membershipIds') {
+        query = query.in(
+          'membership_id',
+          resolvedMembershipIds(searchResolution)
+        );
+      } else if (searchResolution.kind === 'contact') {
+        const like = `%${searchResolution.term}%`;
         query = query.or(`name.ilike.${like},phone.ilike.${like}`, {
           referencedTable: 'contact',
         });
@@ -543,7 +552,13 @@ export function FollowUpLists({
         if (scope === 'mine') {
           countQuery = countQuery.eq('assigned_to', userId!);
         }
-        if (term) {
+        if (searchResolution.kind === 'membershipIds') {
+          countQuery = countQuery.in(
+            'membership_id',
+            resolvedMembershipIds(searchResolution)
+          );
+        } else if (searchResolution.kind === 'contact') {
+          const like = `%${searchResolution.term}%`;
           countQuery = countQuery.or(`name.ilike.${like},phone.ilike.${like}`, {
             referencedTable: 'contact',
           });
@@ -618,6 +633,13 @@ export function FollowUpLists({
 
   async function selectAllMatching() {
     if (scope === 'mine' && !userId) return;
+    const searchResolution = await resolveMemberSearch(supabase, search).catch(
+      (error) => {
+        toast.error(getErrorMessage(error, 'Failed to select follow-ups'));
+        return null;
+      }
+    );
+    if (!searchResolution) return;
     let query = supabase
       .from('follow_ups')
       .select(FOLLOW_UP_ID_SELECT)
@@ -625,9 +647,13 @@ export function FollowUpLists({
       .not('membership_id', 'is', null);
     query = applyFollowUpFilters(query, filters, fmt.today());
     if (scope === 'mine') query = query.eq('assigned_to', userId!);
-    const term = search.trim();
-    if (term) {
-      const like = `%${term}%`;
+    if (searchResolution.kind === 'membershipIds') {
+      query = query.in(
+        'membership_id',
+        resolvedMembershipIds(searchResolution)
+      );
+    } else if (searchResolution.kind === 'contact') {
+      const like = `%${searchResolution.term}%`;
       query = query.or(`name.ilike.${like},phone.ilike.${like}`, {
         referencedTable: 'contact',
       });
@@ -659,6 +685,8 @@ export function FollowUpLists({
         <FollowUpQueueControls
           search={search}
           onSearchChange={setSearch}
+          searchPlaceholder="Search by name or ID"
+          searchAriaLabel="Search member follow-ups by name or Member ID"
           filters={filters}
           onFiltersChange={setFilters}
           staff={staff}

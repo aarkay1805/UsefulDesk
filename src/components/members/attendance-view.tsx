@@ -26,6 +26,7 @@ import {
   type CheckInWarning,
 } from '@/lib/memberships/attendance-limits';
 import { istAddDays } from '@/lib/memberships/expiry';
+import { memberMatchesSearch } from '@/lib/memberships/search';
 import { createClient } from '@/lib/supabase/client';
 import type { Attendance, AttendanceMethod, Membership } from '@/types';
 import { ColumnHeader, type SortDir } from '@/components/table/column-header';
@@ -233,16 +234,7 @@ export function AttendanceView({
       ) {
         return false;
       }
-      if (!query) return true;
-      const name =
-        membership.contact?.name?.toLocaleLowerCase(locale.locale) ?? '';
-      const phone = membership.contact?.phone ?? '';
-      const memberId = String(membership.member_number ?? '');
-      return (
-        name.includes(query) ||
-        memberId.includes(query) ||
-        phone.includes(query)
-      );
+      return memberMatchesSearch(membership, query, locale.locale);
     });
   }, [
     attendanceByContact,

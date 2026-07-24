@@ -6,6 +6,12 @@
 
 ---
 
+## My Members search parity
+
+Every searchable My Members tab now follows Attendance's substring search semantics across member name, Member ID, and phone. All Members and Follow-ups resolve numeric name/phone/ID matches without disturbing server pagination, filters, counts, bulk selection, or export; Payments and Attendance share the same matcher, and every affected field advertises name-or-ID search. Key code: `src/lib/memberships/search.ts`, `src/components/members/members-table.tsx`, `src/components/members/follow-up-lists.tsx`, `src/components/members/payments-table.tsx`, and `src/components/members/attendance-view.tsx`.
+
+---
+
 ## Unified Attendance member search
 
 Members → Attendance now uses one left-aligned shared search field for member name or Member ID, matching the search-first layout of the other Members lists. The separate Member ID entry and ID-specific check-in button are gone; staff select the filtered member row and keep using the existing row-level check-in/check-out and member-detail behaviors. Key code: `src/components/members/attendance-view.tsx`.
