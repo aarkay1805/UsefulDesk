@@ -5,8 +5,6 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DatePicker } from '@/components/ui/date-picker';
-import { Label } from '@/components/ui/label';
 import {
   Popover,
   PopoverContent,
@@ -14,7 +12,7 @@ import {
 } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { DUE_BUCKETS, type DueBucket } from '@/lib/memberships/dues';
-import type { MembershipPlan, PaymentSource, PaymentStatus } from '@/types';
+import type { MembershipPlan } from '@/types';
 
 export interface PaymentDueFilterState {
   buckets: DueBucket[];
@@ -25,32 +23,6 @@ export const EMPTY_PAYMENT_DUE_FILTERS: PaymentDueFilterState = {
   buckets: [],
   plans: [],
 };
-
-export interface PaymentHistoryFilterState {
-  statuses: PaymentStatus[];
-  sources: PaymentSource[];
-  staff: string[];
-  paidFrom: string;
-  paidTo: string;
-}
-
-export const EMPTY_PAYMENT_HISTORY_FILTERS: PaymentHistoryFilterState = {
-  statuses: [],
-  sources: [],
-  staff: [],
-  paidFrom: '',
-  paidTo: '',
-};
-
-const PAYMENT_STATUS_OPTIONS: { value: PaymentStatus; label: string }[] = [
-  { value: 'paid', label: 'Paid' },
-  { value: 'void', label: 'Voided' },
-];
-
-const PAYMENT_SOURCE_OPTIONS: { value: PaymentSource; label: string }[] = [
-  { value: 'manual', label: 'Manual' },
-  { value: 'auto', label: 'Auto-pay' },
-];
 
 export function PaymentDueFilters({
   value,
@@ -99,88 +71,6 @@ export function PaymentDueFilters({
         onToggle={togglePlan}
         emptyHint="No plans yet."
       />
-    </FilterPopover>
-  );
-}
-
-export function PaymentHistoryFilters({
-  value,
-  onChange,
-  staff,
-}: {
-  value: PaymentHistoryFilterState;
-  onChange: (next: PaymentHistoryFilterState) => void;
-  staff: { value: string; label: string }[];
-}) {
-  const count =
-    value.statuses.length +
-    value.sources.length +
-    value.staff.length +
-    Number(Boolean(value.paidFrom)) +
-    Number(Boolean(value.paidTo));
-
-  function toggle<K extends keyof PaymentHistoryFilterState>(
-    key: K,
-    choice: PaymentHistoryFilterState[K][number]
-  ) {
-    const current = value[key] as string[];
-    const next = current.includes(choice)
-      ? current.filter((item) => item !== choice)
-      : [...current, choice];
-    onChange({ ...value, [key]: next });
-  }
-
-  return (
-    <FilterPopover
-      count={count}
-      onClear={() => onChange(EMPTY_PAYMENT_HISTORY_FILTERS)}
-    >
-      <CheckGroup
-        label="Status"
-        options={PAYMENT_STATUS_OPTIONS}
-        selected={value.statuses}
-        onToggle={(choice) => toggle('statuses', choice as PaymentStatus)}
-      />
-      <Separator className="my-3" />
-      <CheckGroup
-        label="Source"
-        options={PAYMENT_SOURCE_OPTIONS}
-        selected={value.sources}
-        onToggle={(choice) => toggle('sources', choice as PaymentSource)}
-      />
-      <Separator className="my-3" />
-      <CheckGroup
-        label="Recorded by"
-        options={staff}
-        selected={value.staff}
-        onToggle={(choice) => toggle('staff', choice)}
-        emptyHint="No teammates yet."
-      />
-      <Separator className="my-3" />
-      <div className="grid gap-3">
-        <div className="grid gap-1.5">
-          <Label size="sm" htmlFor="payment-paid-from">
-            Paid from
-          </Label>
-          <DatePicker
-            id="payment-paid-from"
-            value={value.paidFrom}
-            onChange={(paidFrom) => onChange({ ...value, paidFrom })}
-            max={value.paidTo || undefined}
-          />
-        </div>
-        <div className="grid gap-1.5">
-          <Label size="sm" htmlFor="payment-paid-to">
-            Paid to
-          </Label>
-          <DatePicker
-            id="payment-paid-to"
-            value={value.paidTo}
-            onChange={(paidTo) => onChange({ ...value, paidTo })}
-            min={value.paidFrom || undefined}
-          />
-        </div>
-      </div>
     </FilterPopover>
   );
 }

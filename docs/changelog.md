@@ -6,6 +6,12 @@
 
 ---
 
+## Members payment-due queue cleanup
+
+Members → Payments is now a single operational payments-due queue with its existing search, plan filter, sorting, **Due today** / **Overdue** quick filters, reminders, payment entry, and paging intact. The duplicate recent-payments switch, ledger query, history filters, and export were removed; payment history remains in Finance → Payments. Key code: `src/components/members/payments-table.tsx` and `src/components/members/payment-table-filters.tsx`.
+
+---
+
 ## Focused payment-due urgency filters
 
 Members → Payments now exposes exactly two counted urgency filters: **Due today** matches only balances whose due date is the account-local current date, while **Overdue** matches every balance past its due date without day-range splits. Future-dated balances remain visible in the unfiltered queue but no longer share a quick filter with due-today work. Key code: `src/lib/memberships/dues.ts`, `src/components/members/payments-table.tsx`, and `src/components/members/payment-table-filters.tsx`.
