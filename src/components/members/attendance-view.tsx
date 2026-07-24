@@ -389,6 +389,13 @@ export function AttendanceView({
     <>
       <section className="border-border bg-card overflow-hidden rounded-2xl border">
         <div className="border-border flex flex-wrap items-center gap-2 border-b p-2">
+          <SearchInput
+            value={search}
+            onValueChange={setSearch}
+            placeholder="Search name or Member ID…"
+            aria-label="Search attendance by name or Member ID"
+          />
+
           <Toolbar aria-label="Attendance status">
             <ToolbarToggleGroup<AttendanceBucket>
               aria-label="Attendance status"
@@ -450,14 +457,6 @@ export function AttendanceView({
               {fmt.date(selectedDate)}
             </span>
           </div>
-
-          <SearchInput
-            containerClassName="ml-auto"
-            value={search}
-            onValueChange={setSearch}
-            placeholder="Search name or Member ID…"
-            aria-label="Search attendance by name or Member ID"
-          />
         </div>
 
         <Table className="min-w-[820px]">

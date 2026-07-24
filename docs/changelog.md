@@ -8,7 +8,7 @@
 
 ## Unified Attendance member search
 
-Members → Attendance now uses one shared search field for member name or Member ID. The separate Member ID entry and ID-specific check-in button are gone; staff select the filtered member row and keep using the existing row-level check-in/check-out and member-detail behaviors. Key code: `src/components/members/attendance-view.tsx`.
+Members → Attendance now uses one left-aligned shared search field for member name or Member ID, matching the search-first layout of the other Members lists. The separate Member ID entry and ID-specific check-in button are gone; staff select the filtered member row and keep using the existing row-level check-in/check-out and member-detail behaviors. Key code: `src/components/members/attendance-view.tsx`.
 
 ---
 
