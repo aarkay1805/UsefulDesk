@@ -6,6 +6,12 @@
 
 ---
 
+## Finance Expenses dialog key fix
+
+Finance → Expenses now gives its add and void dialogs separately namespaced remount keys, eliminating the duplicate `closed` React key warning while preserving form reset behavior across dialog lifecycles. Key code: `src/components/finance/finance-expenses.tsx`.
+
+---
+
 ## My Members search parity
 
 Every searchable My Members tab now follows Attendance's substring search semantics across member name, Member ID, and phone. All Members and Follow-ups resolve numeric name/phone/ID matches without disturbing server pagination, filters, counts, bulk selection, or export; Payments and Attendance share the same matcher, and every affected field advertises name-or-ID search. Key code: `src/lib/memberships/search.ts`, `src/components/members/members-table.tsx`, `src/components/members/follow-up-lists.tsx`, `src/components/members/payments-table.tsx`, and `src/components/members/attendance-view.tsx`.

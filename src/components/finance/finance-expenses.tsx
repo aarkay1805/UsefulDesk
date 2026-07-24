@@ -639,14 +639,14 @@ export function FinanceExpenses({
       )}
 
       <AddExpenseDialog
-        key={addOpen ? 'open' : 'closed'}
+        key={`add-expense-${addOpen ? 'open' : 'closed'}`}
         open={addOpen}
         onOpenChange={setAddOpen}
         categories={categories}
         onSaved={refreshExpenses}
       />
       <VoidExpenseDialog
-        key={voidTarget?.id ?? 'closed'}
+        key={`void-expense-${voidTarget?.id ?? 'closed'}`}
         expense={voidTarget}
         open={Boolean(voidTarget)}
         onOpenChange={(open) => {
