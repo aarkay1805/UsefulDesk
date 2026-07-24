@@ -6,6 +6,12 @@
 
 ---
 
+## Finance Payments table cleanup
+
+Finance → Payments now keeps Name focused on the member’s name and phone, while Payment ID remains a separately sortable column using the same compact muted reference treatment as Finance → Invoices. The redundant gateway-reference sub-line is no longer stacked in the table cell; payment data, search, filters, sorting, exports, receipts, and member actions are unchanged. Key code: `src/components/finance/finance-payments.tsx`.
+
+---
+
 ## Finance Invoices table simplification
 
 Finance → Invoices now keeps Name focused on member identity, shows Member ID in its own sortable identifier column, and combines the plan name plus billing-period date range under Membership. Internal invoice references use compact muted typography without the redundant cycle badge. The redundant standalone Billing period and Payment status columns are gone; Balance remains the table’s due-money signal, while payment-state filtering and export data stay available. Key code: `src/components/finance/finance-invoices.tsx` and `src/lib/finance/invoices.ts`.

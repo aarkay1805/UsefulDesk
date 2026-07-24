@@ -80,7 +80,7 @@ const SORT_COLUMNS: {
   { key: 'amount', label: 'Amount' },
   { key: 'status', label: 'Status' },
   { key: 'recorded_by', label: 'Recorded by' },
-  { key: 'payment', label: 'Payment' },
+  { key: 'payment', label: 'Payment ID' },
 ];
 
 const QUICK_VIEWS: {
@@ -404,7 +404,7 @@ export function FinancePayments({
                   <TableHeader>
                     <TableRow>
                       <PaymentHeader
-                        label="Payment"
+                        label="Payment ID"
                         sortKey="payment"
                         sort={sort}
                         onSort={setSort}
@@ -473,16 +473,14 @@ export function FinancePayments({
                           onClick={() => openMember(row)}
                         >
                           <TableCell>
-                            <div className="min-w-0">
-                              <p className="font-mono text-sm font-medium">
+                            <div className="grid justify-items-start gap-1.5">
+                              <span
+                                className="text-muted-foreground text-xs font-medium tabular-nums"
+                                title="Internal payment record reference"
+                              >
                                 {row.reference ||
                                   financePaymentReference(row.id)}
-                              </p>
-                              {row.gateway_payment_id ? (
-                                <p className="text-muted-foreground truncate font-mono text-xs">
-                                  {row.gateway_payment_id}
-                                </p>
-                              ) : null}
+                              </span>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -490,11 +488,6 @@ export function FinancePayments({
                               name={row.contact_name}
                               secondary={row.contact_phone}
                               src={row.contact_avatar_url}
-                              meta={
-                                row.member_number
-                                  ? `Member ID ${row.member_number}`
-                                  : undefined
-                              }
                             />
                           </TableCell>
                           <TableCell className="text-muted-foreground truncate">
