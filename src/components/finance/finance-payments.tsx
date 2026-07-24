@@ -16,7 +16,6 @@ import { toast } from 'sonner';
 import { EmptyState } from '@/components/dashboard/empty-state';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { Skeleton, SkeletonCard } from '@/components/dashboard/skeleton';
-import { FinanceCollectionMixCard } from '@/components/finance/finance-collection-mix';
 import { FinanceMonthActions } from '@/components/finance/finance-month-actions';
 import { FinancePaymentFilters } from '@/components/finance/finance-payment-filters';
 import { LeadsSort, type SortState } from '@/components/leads/leads-sort';
@@ -307,42 +306,34 @@ export function FinancePayments({
         <FinancePaymentsSkeleton />
       ) : (
         <>
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <MetricCard
-                title="Collected"
-                value={fmt.money(result.summary.collected)}
-                icon={CircleCheck}
-                subtitle={`${fmt.number(
-                  result.summary.collectedCount
-                )} settled ${
-                  result.summary.collectedCount === 1 ? 'payment' : 'payments'
-                }`}
-              />
-              <MetricCard
-                title="Payments"
-                value={fmt.number(result.summary.count)}
-                icon={WalletCards}
-                subtitle="Records in this filtered view"
-              />
-              <MetricCard
-                title="Auto-pay"
-                value={fmt.money(result.summary.autopay)}
-                icon={Repeat2}
-                subtitle="Successful gateway collections"
-              />
-              <MetricCard
-                title="Voided"
-                value={fmt.money(result.summary.voidedAmount)}
-                icon={RotateCcw}
-                subtitle={`${fmt.number(result.summary.voidedCount)} audit ${
-                  result.summary.voidedCount === 1 ? 'record' : 'records'
-                }`}
-              />
-            </div>
-            <FinanceCollectionMixCard
-              methods={result.summary.methodMix}
-              fmt={fmt}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              title="Collected"
+              value={fmt.money(result.summary.collected)}
+              icon={CircleCheck}
+              subtitle={`${fmt.number(result.summary.collectedCount)} settled ${
+                result.summary.collectedCount === 1 ? 'payment' : 'payments'
+              }`}
+            />
+            <MetricCard
+              title="Payments"
+              value={fmt.number(result.summary.count)}
+              icon={WalletCards}
+              subtitle="Records in this filtered view"
+            />
+            <MetricCard
+              title="Auto-pay"
+              value={fmt.money(result.summary.autopay)}
+              icon={Repeat2}
+              subtitle="Successful gateway collections"
+            />
+            <MetricCard
+              title="Voided"
+              value={fmt.money(result.summary.voidedAmount)}
+              icon={RotateCcw}
+              subtitle={`${fmt.number(result.summary.voidedCount)} audit ${
+                result.summary.voidedCount === 1 ? 'record' : 'records'
+              }`}
             />
           </div>
 

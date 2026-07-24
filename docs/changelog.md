@@ -8,7 +8,7 @@
 
 ## Finance Payments ledger
 
-Shipped the analytical Finance Payments tab over the append-only ledger: account-timezone month/date scope, payment/member/gateway search, status/plan/method/source/recorder filters, live All/Collected/Auto-pay/Voided views, database-side sorting and pagination, exact filtered totals and method mix, full-result CSV export, private proof reuse, and member deep links. The read-only `finance_payment_ledger` RPC is security-invoker, explicitly tenant-guarded, and authenticated-only; payment entry, dues, reminders, and future failed-AutoPay recovery remain in Members → Payments. Key code: `src/components/finance/finance-payments.tsx`, `src/components/finance/finance-payment-filters.tsx`, `src/lib/finance/payments.ts`, and migrations `20260723120000` / `20260723121000`.
+Shipped the analytical Finance Payments tab over the append-only ledger: account-timezone month/date scope, payment/member/gateway search, status/plan/method/source/recorder filters, live All/Collected/Auto-pay/Voided views, database-side sorting and pagination, exact filtered totals and method mix, full-result CSV export, private proof reuse, and member deep links. Its summary now follows the familiar Invoices pattern—four horizontal metric cards—with Collection mix kept only on Overview rather than duplicated here. The read-only `finance_payment_ledger` RPC is security-invoker, explicitly tenant-guarded, and authenticated-only; payment entry, dues, reminders, and future failed-AutoPay recovery remain in Members → Payments. Key code: `src/components/finance/finance-payments.tsx`, `src/components/finance/finance-payment-filters.tsx`, `src/lib/finance/payments.ts`, and migrations `20260723120000` / `20260723121000`.
 
 ---
 
