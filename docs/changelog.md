@@ -8,7 +8,7 @@
 
 ## Finance period navigation
 
-Finance now uses separate localized Month and Year controls with adjacent previous/next navigation, future-month guards, and a Current month shortcut on every tab. The available year list begins at the account's creation year rather than an arbitrary history window, while historical deep links remain selectable. The Expenses tab does not repeat the selected range in a redundant subtitle. The URL and every loader/export stay on the existing `month=YYYY-MM` contract; Day/Week remains a contextual chart control. Key code: `src/components/finance/finance-month-actions.tsx`, `src/components/finance/finance-expenses.tsx`, `src/lib/finance/overview.ts`, `src/lib/locale/format.ts`, and `src/hooks/use-auth.tsx`.
+Finance now uses separate localized Month and Year controls with adjacent previous/next navigation, future-month guards, and a Current month shortcut on every tab. The available year list begins at the account's creation year rather than an arbitrary history window, while historical deep links remain selectable. Finance tabs do not repeat the selected period in redundant page subtitles. The URL and every loader/export stay on the existing `month=YYYY-MM` contract; Day/Week remains a contextual chart control. Key code: `src/components/finance/finance-month-actions.tsx`, `src/components/finance/`, `src/lib/finance/overview.ts`, `src/lib/locale/format.ts`, and `src/hooks/use-auth.tsx`.
 
 ---
 

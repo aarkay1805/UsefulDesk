@@ -53,7 +53,6 @@ import {
   type FinanceInvoiceRow,
   type FinanceInvoiceSortKey,
 } from '@/lib/finance/invoices';
-import { financeMonthRange } from '@/lib/finance/overview';
 import { isChargeableAmount } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
 
@@ -214,7 +213,6 @@ export function FinanceInvoices({
   const selectedInvoice =
     rows.find((row) => row.id === selectedInvoiceId) ?? null;
   const paymentTarget = rows.find((row) => row.id === paymentTargetId) ?? null;
-  const selectedPeriod = financeMonthRange(month);
   const hasQuery =
     Boolean(search.trim()) ||
     lifecycle !== 'all' ||
@@ -261,11 +259,6 @@ export function FinanceInvoices({
         exportDisabled={loading || filteredRows.length === 0}
         exporting={exporting}
       />
-
-      <p className="text-muted-foreground text-sm tabular-nums">
-        Invoices issued {fmt.date(selectedPeriod.start)} –{' '}
-        {fmt.date(selectedPeriod.end)}
-      </p>
 
       {error ? (
         <Alert variant="destructive">

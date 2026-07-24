@@ -97,14 +97,6 @@ export function FinanceOverview({
         exportDisabled={!data || loading}
       />
 
-      <p className="text-muted-foreground text-sm tabular-nums">
-        {data
-          ? `${fmt.date(data.period.start)} – ${fmt.date(
-              data.period.end
-            )} · Compared with ${fmt.month(data.period.previousStart)}`
-          : `${fmt.month(`${month}-01`)} financial overview`}
-      </p>
-
       {error ? (
         <Alert variant="destructive">
           <RefreshCw />

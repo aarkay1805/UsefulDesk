@@ -205,10 +205,6 @@ export function FinancePayments({
   const rangeStart =
     result.summary.count === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(currentPage * PAGE_SIZE, result.summary.count);
-  const displayedRange = {
-    start: filters.paidFrom || period.start,
-    end: filters.paidTo || period.end,
-  };
   const hasQuery =
     Boolean(search.trim()) ||
     quickView !== 'all' ||
@@ -279,11 +275,6 @@ export function FinancePayments({
         exportDisabled={loading || result.summary.count === 0}
         exporting={exporting}
       />
-
-      <p className="text-muted-foreground text-sm tabular-nums">
-        Payments received {fmt.date(displayedRange.start)} –{' '}
-        {fmt.date(displayedRange.end)}
-      </p>
 
       {error ? (
         <Alert variant="destructive">
