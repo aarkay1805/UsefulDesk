@@ -6,6 +6,18 @@
 
 ---
 
+## Compact dashboard follow-ups
+
+The dashboard lead-action queue now renders follow-ups as compact rows: the task-type icon replaces its text label and sits directly beside the lead identity, with the optional note below; due state/date, a tooltip-labelled assignee avatar, and completion remain in one trailing action cluster. Clicking or keyboard-opening a row launches the existing full lead quick view with its established contact actions, while the completion icon remains a separate direct action. The redundant Upcoming badge and full-width assignee footer are gone, reducing queue height without removing agent-critical context. Key code: `src/components/dashboard/lead-action-lists.tsx` and `src/components/follow-ups/follow-up-task-summary.tsx`.
+
+---
+
+## Decision-first daily dashboard
+
+The dashboard now separates owner decisions from frontline work: outstanding fees, upcoming renewals, attendance-risk members, and today’s collections versus the prior seven-day daily average lead the page; the actionable lead queue follows immediately and replaces historical open-lead/activity vanity metrics. Its lead follow-up list keeps due and overdue work first, then shows the nearest upcoming follow-ups only when nothing is due; future work does not inflate the “to clear” count. Attendance risk deep-links to the newly reachable Members → At risk worklist, where missed-visit and never-checked-in context leads directly to Follow-up. Existing funnel, source, conversation, response-time, and activity views remain available in collapsed Insights, while period analysis stays in Reports. Key code: `src/components/dashboard/`, `src/lib/dashboard/follow-ups.ts`, `src/lib/memberships/stats.ts`, and `src/app/(dashboard)/members/page.tsx`.
+
+---
+
 ## Finance Payments table cleanup
 
 Finance → Payments now keeps Name focused on the member’s name and phone, while Payment ID remains a separately sortable column using the same compact muted reference treatment as Finance → Invoices. The redundant gateway-reference sub-line is no longer stacked in the table cell; payment data, search, filters, sorting, exports, receipts, and member actions are unchanged. Key code: `src/components/finance/finance-payments.tsx`.

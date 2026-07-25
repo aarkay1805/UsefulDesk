@@ -14,6 +14,8 @@ const TASK_ICON: Record<FollowUp['task_type'], typeof Phone> = {
 interface FollowUpTaskSummaryProps {
   taskType?: FollowUp['task_type'] | null;
   note?: string | null;
+  /** Optional identity label for compact contexts where the icon conveys type. */
+  label?: string;
   /** Member-only context; lead follow-ups intentionally omit this tag. */
   reason?: FollowUpReason;
 }
@@ -25,20 +27,23 @@ interface FollowUpTaskSummaryProps {
 export function FollowUpTaskSummary({
   taskType,
   note,
+  label,
   reason,
 }: FollowUpTaskSummaryProps) {
   const TaskIcon = taskType ? TASK_ICON[taskType] : CircleDot;
-  const taskLabel = taskType
-    ? (FOLLOW_UP_TASK_TYPES.find((task) => task.value === taskType)?.label ??
-      'Task')
-    : 'Not scheduled';
+  const taskLabel =
+    label ??
+    (taskType
+      ? (FOLLOW_UP_TASK_TYPES.find((task) => task.value === taskType)?.label ??
+        'Task')
+      : 'Not scheduled');
 
   return (
     <div className="flex min-w-0 items-center gap-2">
       <TaskIcon className="text-muted-foreground size-4 shrink-0" />
       <div className="min-w-0">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <p className="text-foreground text-sm">{taskLabel}</p>
+          <p className="text-foreground truncate text-sm">{taskLabel}</p>
           {reason && <Badge variant="neutral">{REASON_LABEL[reason]}</Badge>}
         </div>
         {note && (

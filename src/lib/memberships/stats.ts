@@ -1,6 +1,7 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { dayStartInTz } from "@/lib/locale/format";
-import { istToday, istAddDays } from "./expiry";
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { dayStartInTz, todayInTz } from '@/lib/locale/format';
+import { isChargeableAmount } from './periods';
+import { daysBetween, istToday, istAddDays } from './expiry';
 
 /**
  * Owner-view gym KPIs for the dashboard. Every figure is an *action
@@ -14,100 +15,118 @@ import { istToday, istAddDays } from "./expiry";
 export const INACTIVE_DAYS = 10;
 
 export interface GymStats {
-  /** status='active' and not past expiry. */
-  activeMembers: number;
   /** active memberships expiring within the next 7 days (inclusive). */
   expiring7: number;
-  /** active memberships already past expiry (derived, not stored). */
-  expired: number;
   /** memberships with an unpaid fee (excluding cancelled). */
   feesDueCount: number;
   /** total unpaid fee amount across those memberships. */
   feesDueAmount: number;
-  /** sum of payments recorded since the start of the current IST month. */
-  collectedThisMonth: number;
-  /** active members with no check-in in the last INACTIVE_DAYS days. */
-  inactive: number;
+  /** sum of paid ledger entries on the account-local current day. */
+  collectedToday: number;
+  /** daily average across the seven complete days before today. */
+  collectionDailyAverage7d: number;
+  /** active members who visited before but have now missed 10+ days. */
+  missedVisitRisk: number;
+  /** active members who have never checked in. */
+  neverVisitedRisk: number;
+}
+
+export function summarizeAttendanceRisk(
+  rows: { last_visit_at: string | null }[],
+  today: string,
+  timeZone: string
+): Pick<GymStats, 'missedVisitRisk' | 'neverVisitedRisk'> {
+  let missedVisitRisk = 0;
+  let neverVisitedRisk = 0;
+  for (const row of rows) {
+    if (!row.last_visit_at) {
+      neverVisitedRisk += 1;
+      continue;
+    }
+    const lastVisitDay = todayInTz(timeZone, new Date(row.last_visit_at));
+    if (daysBetween(lastVisitDay, today) >= INACTIVE_DAYS) {
+      missedVisitRisk += 1;
+    }
+  }
+  return { missedVisitRisk, neverVisitedRisk };
+}
+
+export function summarizeCollections(
+  rows: { amount: number; paid_at: string }[],
+  today: string,
+  timeZone: string,
+  benchmarkDays = 7
+): Pick<GymStats, 'collectedToday' | 'collectionDailyAverage7d'> {
+  const benchmarkStart = istAddDays(today, -benchmarkDays);
+  let collectedToday = 0;
+  let previousDays = 0;
+  for (const row of rows) {
+    const paidDay = todayInTz(timeZone, new Date(row.paid_at));
+    const amount = Number(row.amount) || 0;
+    if (paidDay === today) collectedToday += amount;
+    else if (paidDay >= benchmarkStart && paidDay < today) {
+      previousDays += amount;
+    }
+  }
+  return {
+    collectedToday,
+    collectionDailyAverage7d: previousDays / benchmarkDays,
+  };
 }
 
 export async function loadGymStats(
   db: SupabaseClient,
   today: string = istToday(),
-  timeZone: string = "Asia/Kolkata",
+  timeZone: string = 'Asia/Kolkata'
 ): Promise<GymStats> {
   const in7 = istAddDays(today, 7);
-  // Start of the current month as a tz-aware instant.
-  const monthStartInstant = (
-    dayStartInTz(`${today.slice(0, 7)}-01`, timeZone) ?? new Date()
-  ).toISOString();
-  // Cutoff for the inactive signal (start of the day INACTIVE_DAYS ago).
-  const recentStartInstant = (
-    dayStartInTz(istAddDays(today, -INACTIVE_DAYS), timeZone) ?? new Date()
+  const benchmarkStart = istAddDays(today, -7);
+  const benchmarkStartInstant = (
+    dayStartInTz(benchmarkStart, timeZone) ?? new Date()
   ).toISOString();
 
-  const head = { count: "exact" as const, head: true };
+  const head = { count: 'exact' as const, head: true };
 
-  const [
-    activeRes,
-    expiringRes,
-    expiredRes,
-    dueRes,
-    paidRes,
-    attRes,
-  ] = await Promise.all([
-    // Active members: fetch ids (not just a count) so we can diff them
-    // against recent check-ins for the inactive figure.
+  const [activityRes, expiringRes, dueRes, paidRes] = await Promise.all([
     db
-      .from("memberships")
-      .select("contact_id")
-      .eq("is_trial", false)
-      .eq("status", "active")
-      .gte("end_date", today),
+      .from('member_activity')
+      .select('last_visit_at')
+      .eq('is_trial', false)
+      .eq('status', 'active')
+      .gte('end_date', today),
     db
-      .from("memberships")
-      .select("id", head)
-      .eq("is_trial", false)
-      .eq("status", "active")
-      .gte("end_date", today)
-      .lte("end_date", in7),
-    db
-      .from("memberships")
-      .select("id", head)
-      .eq("is_trial", false)
-      .eq("status", "active")
-      .lt("end_date", today),
+      .from('memberships')
+      .select('id', head)
+      .eq('is_trial', false)
+      .eq('status', 'active')
+      .gte('end_date', today)
+      .lte('end_date', in7),
     // Ledger-derived balances for due memberships — partial payments
     // reduce the total instead of counting the full membership fee.
+    db.from('membership_dues').select('balance').gt('balance', 0),
     db
-      .from("membership_dues")
-      .select("balance")
-      .gt("balance", 0),
-    db
-      .from("payments")
-      .select("amount")
-      .eq("status", "paid")
-      .gte("paid_at", monthStartInstant),
-    db
-      .from("attendance")
-      .select("contact_id")
-      .gte("checked_in_at", recentStartInstant),
+      .from('payments')
+      .select('amount, paid_at')
+      .eq('status', 'paid')
+      .gte('paid_at', benchmarkStartInstant),
   ]);
 
-  const activeRows = (activeRes.data as { contact_id: string }[] | null) ?? [];
-  const dueRows = (dueRes.data as { balance: number }[] | null) ?? [];
-  const paidRows = (paidRes.data as { amount: number }[] | null) ?? [];
-  const attRows = (attRes.data as { contact_id: string }[] | null) ?? [];
+  const activityRows =
+    (activityRes.data as { last_visit_at: string | null }[] | null) ?? [];
+  const dueRows = ((dueRes.data as { balance: number }[] | null) ?? []).filter(
+    (row) => isChargeableAmount(Number(row.balance) || 0)
+  );
+  const paidRows =
+    (paidRes.data as { amount: number; paid_at: string }[] | null) ?? [];
 
-  const recentlySeen = new Set(attRows.map((r) => r.contact_id));
-  const inactive = activeRows.filter((r) => !recentlySeen.has(r.contact_id)).length;
+  const risk = summarizeAttendanceRisk(activityRows, today, timeZone);
+  const collections = summarizeCollections(paidRows, today, timeZone);
 
   return {
-    activeMembers: activeRows.length,
     expiring7: expiringRes.count ?? 0,
-    expired: expiredRes.count ?? 0,
     feesDueCount: dueRows.length,
     feesDueAmount: dueRows.reduce((s, r) => s + Number(r.balance || 0), 0),
-    collectedThisMonth: paidRows.reduce((s, r) => s + Number(r.amount || 0), 0),
-    inactive,
+    ...collections,
+    ...risk,
   };
 }

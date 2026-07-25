@@ -46,11 +46,10 @@ function toMembership(r: MemberActivity): Membership {
 }
 
 /**
- * Retention action lists — the churn-risk half of "who stopped
- * coming?". Two buckets over the member_activity view (037):
- * paid-up members gone quiet for INACTIVE_DAYS+, and members who
- * joined but never checked in. Each row hands the chase to a staff
- * owner via the follow-ups system (reason: inactive).
+ * Members-at-risk action lists over the member_activity view (037):
+ * members whose usual attendance has gone quiet and members who never
+ * completed a first visit. Every row shows the actual absence context
+ * and can hand outreach to a staff owner through a Follow-up.
  */
 export function InactiveActionLists({
   onSelect,
@@ -101,24 +100,26 @@ export function InactiveActionLists({
     <>
       <div className="grid gap-4 lg:grid-cols-2">
         <RetentionList
-          title={`Inactive ${INACTIVE_DAYS}+ days`}
-          icon={
-            <MoonStar className="size-4 text-amber-foreground" />
-          }
+          title="Missed visits"
+          description={`Last visit was ${INACTIVE_DAYS}+ days ago`}
+          icon={<MoonStar className="text-amber-foreground size-4" />}
           rows={inactive}
           detail={(r) => {
             const days = daysSinceVisit(r, today);
-            return `${r.plan_name ?? '—'} · last visit ${days}d ago`;
+            return `${r.plan_name ?? '—'} · last visit ${days} days ago`;
           }}
           onSelect={onSelect}
           onAssign={canSendMessages ? setAssigning : undefined}
           emptyLabel="Everyone with a visit history has been in recently."
         />
         <RetentionList
-          title="Never visited"
+          title="Never checked in"
+          description="Joined but no first visit recorded"
           icon={<Ghost className="text-muted-foreground size-4" />}
           rows={neverVisited}
-          detail={(r) => `${r.plan_name ?? '—'} · member since ${r.start_date}`}
+          detail={(r) =>
+            `${r.plan_name ?? '—'} · member since ${fmt.date(r.start_date)}`
+          }
           onSelect={onSelect}
           onAssign={canSendMessages ? setAssigning : undefined}
           emptyLabel="Every member has checked in at least once."
@@ -142,6 +143,7 @@ export function InactiveActionLists({
 
 function RetentionList({
   title,
+  description,
   icon,
   rows,
   detail,
@@ -150,6 +152,7 @@ function RetentionList({
   emptyLabel,
 }: {
   title: string;
+  description: string;
   icon: React.ReactNode;
   rows: MemberActivity[];
   detail: (r: MemberActivity) => string;
@@ -162,7 +165,12 @@ function RetentionList({
     <section className="border-border bg-card flex flex-col rounded-xl border">
       <header className="border-border flex items-center gap-2 border-b px-3 py-2.5">
         {icon}
-        <h3 className="text-foreground text-sm font-medium">{title}</h3>
+        <div className="min-w-0">
+          <h3 className="text-foreground text-sm font-medium">{title}</h3>
+          <p className="text-muted-foreground truncate text-xs">
+            {description}
+          </p>
+        </div>
         <Badge variant="neutral" className="ml-auto tabular-nums">
           {rows.length}
         </Badge>
@@ -170,7 +178,7 @@ function RetentionList({
 
       {rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
-          <CheckCircle2 className="size-6 text-emerald-foreground" />
+          <CheckCircle2 className="text-emerald-foreground size-6" />
           <p className="text-muted-foreground text-xs">{emptyLabel}</p>
         </div>
       ) : (

@@ -12,13 +12,13 @@ All date math is **account-timezone-first** (`src/lib/memberships/expiry.ts`) �
 
 ### `membership_plans` (restructured by `062`, PushPress-style)
 
-| Column | Meaning |
-|---|---|
-| `plan_type` | `recurring` = billing cycles + renewal chase + autopay · `non_recurring` = fixed term, pay once, **excluded from renewal reminders/action lists** · `session_pack` = punchcard |
-| `attendance_limit_count` / `_interval` | visit cap (`'period'` \| `'week'` \| `'month'`); NULL = unlimited |
-| `sessions_count` | pack size |
-| `is_active` | soft-archive (FK RESTRICT) |
-| ~~`price`~~ / ~~`duration_days`~~ | **LEGACY-FROZEN.** Pricing lives on the child table. The settings UI mirrors the first option into them (for rollback + the autopay day-snap fallback only). **New code must not read them.** |
+| Column                                 | Meaning                                                                                                                                                                                       |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plan_type`                            | `recurring` = billing cycles + renewal chase + autopay · `non_recurring` = fixed term, pay once, **excluded from renewal reminders/action lists** · `session_pack` = punchcard                |
+| `attendance_limit_count` / `_interval` | visit cap (`'period'` \| `'week'` \| `'month'`); NULL = unlimited                                                                                                                             |
+| `sessions_count`                       | pack size                                                                                                                                                                                     |
+| `is_active`                            | soft-archive (FK RESTRICT)                                                                                                                                                                    |
+| ~~`price`~~ / ~~`duration_days`~~      | **LEGACY-FROZEN.** Pricing lives on the child table. The settings UI mirrors the first option into them (for rollback + the autopay day-snap fallback only). **New code must not read them.** |
 
 `plan_type` is **DB-locked once memberships reference the plan** (`063` trigger `lock_live_plan_type`, mirroring the editor's UI lock). Settings-class RLS (admin write).
 
@@ -45,11 +45,11 @@ One row per **billing option** a plan sells: `duration_count × duration_unit ('
 
 **Copy is per plan type — `PLAN_COPY`.** The same `duration_count × duration_unit` column means a different thing per type, so the labels must too:
 
-| Type | Section | Duration label | Add button |
-|---|---|---|---|
-| recurring | Billing options | Bill every | Add billing option |
-| non_recurring | Pricing & expiry | **Expire plan in** | Add another price |
-| session_pack | Pricing & validity | Valid for | Add another price |
+| Type          | Section            | Duration label     | Add button         |
+| ------------- | ------------------ | ------------------ | ------------------ |
+| recurring     | Billing options    | Bill every         | Add billing option |
+| non_recurring | Pricing & expiry   | **Expire plan in** | Add another price  |
+| session_pack  | Pricing & validity | Valid for          | Add another price  |
 
 The repeater stays on **all three** (PushPress sells several terms under one fixed-term plan too). The visit-limit `period` interval reads "per term" on a fixed-term plan (`limitIntervals(planType)`). Before this, fixed-term shared the recurring branch and told the owner a never-billing plan "bills every 1 month". **Any new type-facing string goes in `PLAN_COPY`** — never a `session_pack ? … : …` split at a call-site.
 
@@ -83,13 +83,13 @@ The `memberships` row stays the current-cycle pointer (its start/end/fee mirror 
 
 ### Lifecycle — who creates/moves a period
 
-| Op | Path |
-|---|---|
-| membership created (any of 5 paths) | `AFTER INSERT` trigger `create_initial_membership_period` → **zero TS needed** |
-| renew / convert | RPC `renew_membership_transaction` |
-| mid-cycle plan swap / upgrade | RPC `change_membership_plan` (`061`) |
+| Op                                          | Path                                                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| membership created (any of 5 paths)         | `AFTER INSERT` trigger `create_initial_membership_period` → **zero TS needed**                                                  |
+| renew / convert                             | RPC `renew_membership_transaction`                                                                                              |
+| mid-cycle plan swap / upgrade               | RPC `change_membership_plan` (`061`)                                                                                            |
 | edit cycle / unfreeze / cancel / reactivate | RPCs `edit_membership_cycle` / `unfreeze_membership` / `set_membership_cancellation` (`058`) — thin TS wrappers in `periods.ts` |
-| freeze | the one remaining direct membership write — still chains `.select('id')` |
+| freeze                                      | the one remaining direct membership write — still chains `.select('id')`                                                        |
 
 A trigger can't tell a renewal from an edit from an unfreeze — hence the RPCs, each ONE transaction. Lifecycle RPCs raise **real errors** (no silent-RLS ambiguity).
 
@@ -103,7 +103,7 @@ The `058` RPCs do this INSIDE the same transaction. `payments.period_start` / `p
 
 ### Upcoming invoice
 
-The single *next* invoice is **projected in TS** (`projectNextInvoice`) — display-only, it can't be real until it happens. It returns null for a lapsed membership (`end_date <= today`) so an expired member never shows a phantom past-dated "Unpaid" projection. Past + current periods are persisted.
+The single _next_ invoice is **projected in TS** (`projectNextInvoice`) — display-only, it can't be real until it happens. It returns null for a lapsed membership (`end_date <= today`) so an expired member never shows a phantom past-dated "Unpaid" projection. Past + current periods are persisted.
 
 `InvoiceDetailDialog` reads the view's `amount_paid` (not `fee − balance`) so an over-paid cycle's total is honest.
 
@@ -160,6 +160,7 @@ Commit = RPC `change_membership_plan` — one transaction, `membership_operation
 - Limits / exhausted packs are **warn-with-override at check-in** (`AttendanceOverrideDialog`, both check-in paths) — **never a hard block.**
 - Both paths (`check-in-view.tsx`, member-sheet `checkIn()`) fresh-count the plan's usage window and open the override dialog at the limit / on an exhausted pack. Usage lines ("9/12 this month" / "7 of 10 sessions left") render in check-in row meta + the sheet's Attendance section.
 - The Attendance register has one search field for member name or Member ID. Staff select the matching row and use its existing check-in/check-out action, which keeps the normal limit/override flow and avoids a separate ID-specific action. Member ID remains an identifier, never a self-service PIN.
+- **Attendance risk is an action list, not a bare threshold.** Dashboard → Members at risk opens Members → At risk, where `member_activity` separates members whose last visit was 10+ days ago from members who never checked in. Rows show the actual absence/joining context and use the canonical Follow-up flow with reason `inactive`.
 
 ---
 
@@ -178,10 +179,11 @@ Each gym connects its **own** Razorpay account (creds in `account_payment_creden
 **Code:** `src/lib/payments/razorpay.ts` (server-only REST client, no SDK dep, per-gym Basic auth — `createPlan`/`createSubscription`/`cancelSubscription`, `verifyWebhookSignature` HMAC-SHA256, `toPaise`/`toRupees`, `mandateStatusFromSubscription`) · `src/lib/payments/credentials.ts` (secret isolated to `getRazorpayCredentials`) · predicates `canManageMandates` (agent+) / `canConfigurePaymentGateway` (admin).
 
 **Routes:**
+
 - `POST /api/payments/razorpay/mandate` (agent-gated) — load membership+plan → create Razorpay plan+subscription with `{account_id, membership_id, contact_id}` in `notes` → park a pending `payment_mandates` row → return `short_url` for the UPI-mandate QR. Monthly/quarterly cadences only; derives cadence from the pricing option (month×1/×3, week×4/×12|13, day-range snap for backfilled day-unit options); **rejects non-recurring plans**; mandates authorise `option.price` (not the setup-fee-inflated first `fee_amount`).
 - `POST /api/payments/razorpay/webhook/[accountId]` — per-gym URL carries the account id → look up THAT gym's secret → HMAC verify → dedupe on `x-razorpay-event-id` in `webhook_events` → route: `subscription.authenticated` → `activate_mandate`; `subscription.charged` → **`record_gateway_charge`**; `halted`/`pending` → revoke-failed; `cancelled`/`completed`/`expired` → revoke. **Always returns 200** so Razorpay won't retry-storm.
 
-**⚠️ Webhook account guard.** The route cross-checks the subscription's `notes.account_id` against the URL's `[accountId]` and throws on mismatch (recorded as `payload._error`; `processed_at` stays NULL). Pasting *another* UsefulDesk account's webhook URL into Razorpay used to no-op silently — same Razorpay secret on both accounts → signature passes, the mandate lookup (scoped to the wrong account) misses, the event still gets marked processed. This bit us: mandates stuck "pending approval" after real approval. A missing mandate on activate also throws now.
+**⚠️ Webhook account guard.** The route cross-checks the subscription's `notes.account_id` against the URL's `[accountId]` and throws on mismatch (recorded as `payload._error`; `processed_at` stays NULL). Pasting _another_ UsefulDesk account's webhook URL into Razorpay used to no-op silently — same Razorpay secret on both accounts → signature passes, the mandate lookup (scoped to the wrong account) misses, the event still gets marked processed. This bit us: mandates stuck "pending approval" after real approval. A missing mandate on activate also throws now.
 **Reconcile query:** `webhook_events WHERE processed_at IS NULL`. Recover by calling the gateway RPCs with the payload ids under the CORRECT account, then stamp `processed_at`.
 
 **Auto-renew on charge (`060`):** `record_gateway_charge` — the first charge settles the current cycle; every later charge **opens the next period + rolls the membership `start_date`/`end_date` forward + settles it**, all one transaction, idempotent on `gateway_payment_id`. Guards `plan_type='recurring'`, rolls by the option's calendar interval, bills `option.price`, and rolls the pointer's `fee_amount` — **so a custom-negotiated fee resets at auto-renewal.**
