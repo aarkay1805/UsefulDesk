@@ -6,6 +6,12 @@
 
 ---
 
+## SECURITY DEFINER execution-grant hardening
+
+Public-schema `SECURITY DEFINER` functions no longer inherit direct `PUBLIC`, `anon`, or `authenticated` execution. The migration closes postgres-owned default-privilege drift, revokes the current client surface, restores only internally authorized account/lead/finance/presence and opaque-token RPCs, and keeps AI retrieval, AI slot claims, and webhook failure accounting service-role-only; trigger and one-time maintenance helpers remain non-callable through the Data API. Key code: `supabase/migrations/20260725221657_harden_security_definer_execute_grants.sql` and `src/lib/auth/security-definer-grants-contract.test.ts`.
+
+---
+
 ## Profile tenant and role isolation
 
 Authenticated self-service profile updates can no longer change `profiles.account_id` or `profiles.account_role`. A narrow trigger rejects those direct Data API writes while preserving name, avatar, and appearance edits plus the existing audited `SECURITY DEFINER` member-management, ownership-transfer, invitation-redemption, and onboarding flows. Key code: `supabase/migrations/20260725161912_protect_profile_membership_fields.sql` and `src/lib/auth/profile-membership-fields-contract.test.ts`.
