@@ -34,6 +34,11 @@ class RecordingQuery {
     return this;
   }
 
+  not(...args: unknown[]) {
+    this.calls.push(['not', ...args]);
+    return this;
+  }
+
   lte(...args: unknown[]) {
     this.calls.push(['lte', ...args]);
     return this;
@@ -63,12 +68,14 @@ function followUp(
   return {
     id,
     contact_id: `contact-${id}`,
+    membership_id: null,
     task_type: 'call',
+    reason: 'other',
     due_date: dueDate,
     remind_at: remindAt,
     assigned_to: null,
     note: null,
-    contact: { name: `Lead ${id}`, phone: null },
+    contact: { name: `Lead ${id}`, phone: null, avatar_url: null },
   };
 }
 
@@ -156,5 +163,37 @@ describe('loadDashboardFollowUps', () => {
 
     await expect(loadDashboardFollowUps(db, TODAY, LIMIT)).rejects.toBe(error);
     expect(queries).toHaveLength(1);
+  });
+
+  it('scopes member work to membership-linked follow-ups', async () => {
+    const memberFollowUp = {
+      ...followUp('member', TODAY),
+      membership_id: 'membership-1',
+    };
+    const { db, queries } = database({
+      data: [memberFollowUp],
+      count: 1,
+      error: null,
+    });
+
+    await expect(
+      loadDashboardFollowUps(db, TODAY, LIMIT, 'member')
+    ).resolves.toEqual({
+      rows: [memberFollowUp],
+      total: 1,
+      mode: 'due',
+    });
+
+    expect(queries[0].calls).toContainEqual([
+      'not',
+      'membership_id',
+      'is',
+      null,
+    ]);
+    expect(queries[0].calls[0]).toEqual([
+      'select',
+      expect.stringContaining('membership_id'),
+      { count: 'exact' },
+    ]);
   });
 });

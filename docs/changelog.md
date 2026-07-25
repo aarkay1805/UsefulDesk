@@ -6,6 +6,12 @@
 
 ---
 
+## Dashboard membership actions
+
+The dashboard now gives members a dedicated **Today’s membership actions** section beside the established lead workflow: due member follow-ups take priority, nearest upcoming work appears only when nothing is due, and the follow-up column mirrors Today’s lead actions with the same compact clickable rows, task summary, due state, assignee avatar, and direct completion control while opening the established member sheet in place. The adjacent renewal worklist keeps the canonical **Expiring** / **Expired** navigation; Expiring is account-local today through the next seven days, while Expired retains every recurring membership past its renewal date as actionable recovery work. Key code: `src/components/dashboard/membership-action-lists.tsx`, `src/lib/dashboard/follow-ups.ts`, and `src/app/(dashboard)/dashboard/page.tsx`.
+
+---
+
 ## Dashboard lead conversion rating
 
 The dashboard now groups its four direct-create quick actions immediately beneath the owner summary cards, before the daily lead-action queue. Dashboard Insights presents its existing chart rows, lead funnel, and recent activity as independent sequential sections, with no enclosing card, group heading, subtitle, or parent reports action. The wider first-response card remains on the left beside a compact, equal-height **Lead Conversion Rating** card on the right. Its independent 7/30/90-day control defaults to All leads, keeps a quiet source drill-down grouped with the duration control, and shows a larger accessible five-axis radar immediately beneath its rating for member conversion, trial booking, first human response, on-time follow-up, and positive recorded follow-up outcomes; the top-axis label sits close enough to read as part of the radar while remaining clear of the score, every unclipped axis label exposes a concise mouse-and-keyboard tooltip, and missing evidence keeps the score unavailable. Source volume remains only in Lead Funnel context, while weights, targets, period, denominator, confidence, and proxy details open from the tooltip-backed question-mark button beside the rating heading into the unchanged keyboard-accessible calculation dialog. Lead Funnel stage-age labels now keep their complete text on one aligned line. No schema change. Key code: `src/app/(dashboard)/dashboard/page.tsx`, `src/lib/dashboard/lead-conversion-rating.ts`, `src/components/dashboard/dashboard-insights.tsx`, `src/components/dashboard/lead-conversion-rating.tsx`, `src/components/dashboard/lead-funnel.tsx`, and focused aggregator tests.

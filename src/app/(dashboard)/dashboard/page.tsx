@@ -1,6 +1,7 @@
 import { DashboardInsights } from '@/components/dashboard/dashboard-insights';
 import { GymMetrics } from '@/components/dashboard/gym-metrics';
 import { LeadActionLists } from '@/components/dashboard/lead-action-lists';
+import { MembershipActionLists } from '@/components/dashboard/membership-action-lists';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 
 export default function DashboardPage() {
@@ -12,6 +13,7 @@ export default function DashboardPage() {
       </div>
 
       <LeadActionLists />
+      <MembershipActionLists />
       <DashboardInsights />
     </div>
   );

@@ -147,7 +147,7 @@ export function LeadActionLists() {
 
   return (
     <section className="border-border bg-card rounded-xl border">
-      <header className="border-border flex items-center justify-between border-b px-5 py-4">
+      <header className="border-border border-b px-5 py-4">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-foreground text-sm font-semibold">
@@ -163,31 +163,24 @@ export function LeadActionLists() {
             Actionable follow-ups and new leads still waiting for a first touch
           </p>
         </div>
-        <Link
-          href="/leads?view=followups"
-          className="text-primary-text hover:text-primary-text/80 text-xs font-medium"
-        >
-          Open follow-ups →
-        </Link>
       </header>
 
       <div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-2">
         {/* Queue 1 — due follow-ups, or upcoming when the due queue is empty */}
         <div>
-          <p className="text-muted-foreground mb-2 flex items-center justify-between text-xs font-medium">
+          <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
             <span>
               {followUpMode === 'upcoming'
                 ? 'Upcoming follow-ups'
                 : 'Follow-ups due'}
             </span>
-            {followUpTotal > 0 && (
-              <span className="tabular-nums">
-                {followUpTotal > LIST_LIMIT
-                  ? `${LIST_LIMIT} of ${followUpTotal}`
-                  : followUpTotal}
-              </span>
-            )}
-          </p>
+            <Link
+              href="/leads?view=followups"
+              className="text-primary-text hover:text-primary-text/80 font-medium"
+            >
+              Open follow-ups →
+            </Link>
+          </div>
           {followUps === null ? (
             <ListSkeleton />
           ) : followUps.length === 0 ? (
