@@ -15,7 +15,7 @@
 
 import { NextResponse } from 'next/server';
 
-import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { requireSettingsAccess, toErrorResponse } from '@/lib/auth/account';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
 import {
@@ -28,7 +28,7 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const { accountId, userId } = await requireRole('admin');
+    const { accountId, userId } = await requireSettingsAccess();
 
     const appId = process.env.META_APP_ID;
     const appSecret = process.env.META_APP_SECRET;
@@ -41,22 +41,30 @@ export async function POST(request: Request) {
 
     const { code } = (await request.json()) as { code?: string };
     if (!code) {
-      return NextResponse.json({ error: 'Missing authorization code' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing authorization code' },
+        { status: 400 }
+      );
     }
 
     // 1. code → user token. The ES helper is a plain FBLB exchange and
     //    works for this config too, despite its WhatsApp-ish name.
-    const shortLived = await exchangeEmbeddedSignupCode({ appId, appSecret, code });
+    const shortLived = await exchangeEmbeddedSignupCode({
+      appId,
+      appSecret,
+      code,
+    });
 
     // 2. ALWAYS long-lived-swap first. Page tokens inherit the lifetime
     //    of the user token they came from: from a short-lived one they
     //    die in ~1h and lead ingestion then stops SILENTLY. From a
     //    long-lived one they don't expire.
-    const { accessToken: userToken, expiresIn } = await exchangeForLongLivedUserToken({
-      appId,
-      appSecret,
-      shortLivedToken: shortLived,
-    });
+    const { accessToken: userToken, expiresIn } =
+      await exchangeForLongLivedUserToken({
+        appId,
+        appSecret,
+        shortLivedToken: shortLived,
+      });
     const tokenExpiresAt = expiresIn
       ? new Date(Date.now() + expiresIn * 1000).toISOString()
       : null;
@@ -64,7 +72,10 @@ export async function POST(request: Request) {
     const pages = await listPagesWithTokens({ userAccessToken: userToken });
     if (pages.length === 0) {
       return NextResponse.json(
-        { error: 'No Facebook Pages were granted. Re-run the connect flow and tick at least one Page.' },
+        {
+          error:
+            'No Facebook Pages were granted. Re-run the connect flow and tick at least one Page.',
+        },
         { status: 400 }
       );
     }
@@ -86,7 +97,8 @@ export async function POST(request: Request) {
         skipped.push({
           id: page.id,
           name: page.name,
-          reason: 'This Page is already connected to another UsefulDesk account.',
+          reason:
+            'This Page is already connected to another UsefulDesk account.',
         });
         continue;
       }
@@ -124,8 +136,16 @@ export async function POST(request: Request) {
         : await admin.from('meta_page_config').insert(row);
 
       if (upsertError) {
-        console.error('[meta-leads] upsert failed for page', page.id, upsertError);
-        skipped.push({ id: page.id, name: page.name, reason: 'Failed to save.' });
+        console.error(
+          '[meta-leads] upsert failed for page',
+          page.id,
+          upsertError
+        );
+        skipped.push({
+          id: page.id,
+          name: page.name,
+          reason: 'Failed to save.',
+        });
         continue;
       }
 
@@ -144,7 +164,7 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { accountId } = await requireRole('admin');
+    const { accountId } = await requireSettingsAccess();
     const { page_id: pageId } = (await request.json()) as { page_id?: string };
     if (!pageId) {
       return NextResponse.json({ error: 'Missing page_id' }, { status: 400 });
@@ -159,7 +179,10 @@ export async function DELETE(request: Request) {
       .maybeSingle();
 
     if (!config) {
-      return NextResponse.json({ error: 'Page not connected' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Page not connected' },
+        { status: 404 }
+      );
     }
 
     // Tell Meta to stop sending leads we would only drop. Best-effort:
@@ -178,7 +201,10 @@ export async function DELETE(request: Request) {
       .delete()
       .eq('id', config.id);
     if (error) {
-      return NextResponse.json({ error: 'Failed to disconnect' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to disconnect' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ ok: true });

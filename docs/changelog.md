@@ -6,6 +6,12 @@
 
 ---
 
+## Operational and external-mutation authorization
+
+Automation and flow service-role routes now require fresh agent-level operational capability and scope every privileged parent lookup to the caller’s current account, so viewers cannot mutate or dispatch work and a removed author cannot reach an old tenant through `user_id`. WhatsApp/Meta sends, reactions, broadcasts, connection/configuration, embedded signup, lead-source connection, and template lifecycle calls now require the named operational or settings capability before any external call. No schema change was needed because migration `017` already has the matching account-membership RLS policies. Key code: `src/lib/auth/account.ts`, `src/app/api/automations/`, `src/app/api/flows/`, `src/app/api/whatsapp/`, and `src/lib/auth/operational-route-guards-contract.test.ts`.
+
+---
+
 ## SECURITY DEFINER execution-grant hardening
 
 Public-schema `SECURITY DEFINER` functions no longer inherit direct `PUBLIC`, `anon`, or `authenticated` execution. The migration closes postgres-owned default-privilege drift, revokes the current client surface, restores only internally authorized account/lead/finance/presence and opaque-token RPCs, and keeps AI retrieval, AI slot claims, and webhook failure accounting service-role-only; trigger and one-time maintenance helpers remain non-callable through the Data API. Key code: `supabase/migrations/20260725221657_harden_security_definer_execute_grants.sql` and `src/lib/auth/security-definer-grants-contract.test.ts`.
