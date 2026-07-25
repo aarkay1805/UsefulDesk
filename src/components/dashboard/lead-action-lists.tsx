@@ -13,6 +13,7 @@ import { daysBetween } from '@/lib/memberships/expiry';
 import { useCan } from '@/hooks/use-can';
 import { useLocale } from '@/hooks/use-locale';
 import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
+import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { useAccountStaff } from '@/components/members/use-account-staff';
 import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-up-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -56,6 +57,7 @@ export function LeadActionLists() {
   const [staleTotal, setStaleTotal] = useState(0);
   const [nonce, setNonce] = useState(0);
   const [completing, setCompleting] = useState<DashboardFollowUp | null>(null);
+  const [detailContactId, setDetailContactId] = useState<string | null>(null);
   const actionTotal = (followUpMode === 'due' ? followUpTotal : 0) + staleTotal;
 
   useEffect(() => {
@@ -177,52 +179,38 @@ export function LeadActionLists() {
                 return (
                   <li
                     key={f.id}
-                    className="border-border/50 bg-card overflow-hidden rounded-lg border"
+                    className="border-border/60 bg-muted/20 hover:border-border-hover flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 transition-colors"
+                    tabIndex={0}
+                    aria-label={`Open ${who} details`}
+                    onClick={() => setDetailContactId(f.contact_id)}
+                    onKeyDown={(event) => {
+                      if (event.currentTarget !== event.target) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setDetailContactId(f.contact_id);
+                      }
+                    }}
                   >
-                    <div className="flex items-start gap-3 p-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 items-center justify-between gap-2">
-                          <p className="text-foreground truncate text-sm font-medium">
-                            {who}
-                          </p>
-                          {followUpMode === 'upcoming' ? (
-                            <div className="flex shrink-0 items-center gap-2">
-                              <Badge variant="neutral">Upcoming</Badge>
-                              <span className="text-muted-foreground text-xs tabular-nums">
-                                {fmt.date(f.due_date)}
-                              </span>
-                            </div>
-                          ) : (
-                            <Badge
-                              variant={overdueDays > 0 ? 'danger' : 'warning'}
-                            >
-                              {overdueDays > 0
-                                ? `Overdue ${overdueDays}d`
-                                : 'Today'}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="mt-1.5">
-                          <FollowUpTaskSummary
-                            taskType={f.task_type}
-                            note={f.note}
-                          />
-                        </div>
-                      </div>
-                      <GatedButton
-                        variant="ghost"
-                        size="icon-sm"
-                        canAct={canEdit}
-                        gateReason="complete follow-ups"
-                        onClick={() => setCompleting(f)}
-                        aria-label="Mark as followed up"
-                      >
-                        <CheckCircle2 className="size-3.5" />
-                      </GatedButton>
+                    <div className="min-w-0 flex-1">
+                      <FollowUpTaskSummary
+                        taskType={f.task_type}
+                        note={f.note}
+                        label={who}
+                      />
                     </div>
-                    {assignee && (
-                      <div className="text-muted-foreground border-border/50 flex items-center gap-1.5 border-t px-3 py-2 text-xs">
-                        <span>Assigned to</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {followUpMode === 'upcoming' ? (
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          {fmt.date(f.due_date)}
+                        </span>
+                      ) : (
+                        <Badge variant={overdueDays > 0 ? 'danger' : 'warning'}>
+                          {overdueDays > 0
+                            ? `Overdue ${overdueDays}d`
+                            : 'Today'}
+                        </Badge>
+                      )}
+                      {assignee && (
                         <UserAvatar
                           name={assignee}
                           src={
@@ -230,12 +218,23 @@ export function LeadActionLists() {
                           }
                           className="size-5 shrink-0"
                           fallbackClassName="text-[10px]"
+                          title={`Assigned to ${assignee}`}
                         />
-                        <span className="text-foreground min-w-0 truncate font-medium">
-                          {assignee}
-                        </span>
-                      </div>
-                    )}
+                      )}
+                      <GatedButton
+                        variant="ghost"
+                        size="icon-sm"
+                        canAct={canEdit}
+                        gateReason="complete follow-ups"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setCompleting(f);
+                        }}
+                        aria-label={`Complete follow-up for ${who}`}
+                      >
+                        <CheckCircle2 className="size-3.5" />
+                      </GatedButton>
+                    </div>
                   </li>
                 );
               })}
@@ -307,6 +306,14 @@ export function LeadActionLists() {
           }}
         />
       )}
+      <ContactDetailView
+        open={Boolean(detailContactId)}
+        onOpenChange={(open) => {
+          if (!open) setDetailContactId(null);
+        }}
+        contactId={detailContactId}
+        onUpdated={() => setNonce((value) => value + 1)}
+      />
     </section>
   );
 }
