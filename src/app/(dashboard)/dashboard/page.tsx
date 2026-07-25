@@ -13,7 +13,7 @@ export default function DashboardPage() {
 
       <QuickActions />
 
-      {/* Historical analysis stays available, but secondary by default. */}
+      {/* Historical analysis stays visible after the daily action areas. */}
       <DashboardInsights />
     </div>
   );

@@ -1,8 +1,7 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -24,19 +23,10 @@ import { ConversationsChart } from '@/components/dashboard/conversations-chart';
 import { LeadFunnel } from '@/components/dashboard/lead-funnel';
 import { LeadsDonut } from '@/components/dashboard/leads-donut';
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart';
-import { Button } from '@/components/ui/button';
-import { Collapse } from '@/components/ui/collapse';
 
 type RangeDays = 7 | 30 | 90;
 
-/**
- * Historical CRM analysis remains available without competing with the
- * dashboard's daily decisions and work queue. Queries begin only when the
- * owner opens the secondary area.
- */
 export function DashboardInsights() {
-  const [open, setOpen] = useState(false);
-  const loaded = useRef(false);
   const [range, setRange] = useState<RangeDays>(30);
   const [series, setSeries] = useState<
     Record<RangeDays, ConversationsSeriesPoint[] | null>
@@ -53,44 +43,55 @@ export function DashboardInsights() {
   );
   const [activity, setActivity] = useState<ActivityItem[] | null>(null);
 
-  const loadInsights = useCallback(() => {
-    if (loaded.current) return;
-    loaded.current = true;
+  useEffect(() => {
+    let cancelled = false;
     const db = createClient();
 
     void loadConversationsSeries(db, 30)
-      .then((next) => setSeries((current) => ({ ...current, 30: next })))
+      .then((next) => {
+        if (!cancelled) {
+          setSeries((current) => ({ ...current, 30: next }));
+        }
+      })
       .catch((error) =>
         console.error('[dashboard] conversation insights failed:', error)
       )
-      .finally(() => setSeriesLoading(false));
+      .finally(() => {
+        if (!cancelled) setSeriesLoading(false);
+      });
     void loadLeadsDonut(db)
-      .then(setLeadsDonut)
+      .then((next) => {
+        if (!cancelled) setLeadsDonut(next);
+      })
       .catch((error) =>
         console.error('[dashboard] pipeline insights failed:', error)
       );
     void loadLeadFunnel(db)
-      .then(setLeadFunnel)
+      .then((next) => {
+        if (!cancelled) setLeadFunnel(next);
+      })
       .catch((error) =>
         console.error('[dashboard] funnel insights failed:', error)
       );
     void loadResponseTime(db)
-      .then(setResponseTime)
+      .then((next) => {
+        if (!cancelled) setResponseTime(next);
+      })
       .catch((error) =>
         console.error('[dashboard] response insights failed:', error)
       );
     void loadActivity(db, 50)
-      .then(setActivity)
+      .then((next) => {
+        if (!cancelled) setActivity(next);
+      })
       .catch((error) =>
         console.error('[dashboard] activity insights failed:', error)
       );
-  }, []);
 
-  function toggleInsights() {
-    const nextOpen = !open;
-    setOpen(nextOpen);
-    if (nextOpen) loadInsights();
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleRangeChange = useCallback(
     (nextRange: RangeDays) => {
@@ -120,51 +121,32 @@ export function DashboardInsights() {
             Lead funnel, source, conversation, response, and activity analysis
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Link
-            href="/reports"
-            className="text-primary-text hidden text-xs font-medium hover:underline sm:block"
-          >
-            Owner reports
-          </Link>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleInsights}
-            aria-expanded={open}
-            aria-controls="dashboard-insights"
-          >
-            {open ? 'Hide' : 'Show'}
-            <ChevronDown
-              className={`transition-transform ${open ? 'rotate-180' : ''}`}
-            />
-          </Button>
-        </div>
+        <Link
+          href="/reports"
+          className="text-primary-text hidden shrink-0 text-xs font-medium hover:underline sm:block"
+        >
+          Owner reports
+        </Link>
       </div>
 
-      <Collapse open={open}>
-        <div
-          id="dashboard-insights"
-          className="border-border space-y-4 border-t p-5"
-        >
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <div className="h-full lg:col-span-3">
-              <ConversationsChart
-                series={series}
-                loading={seriesLoading}
-                range={range}
-                onRangeChange={handleRangeChange}
-              />
-            </div>
-            <div className="h-full lg:col-span-2">
-              <LeadsDonut data={leadsDonut} loading={!leadsDonut} />
-            </div>
+      <div className="border-border space-y-4 border-t p-5">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+          <div className="h-full lg:col-span-3">
+            <ConversationsChart
+              series={series}
+              loading={seriesLoading}
+              range={range}
+              onRangeChange={handleRangeChange}
+            />
           </div>
-          <LeadFunnel data={leadFunnel} loading={!leadFunnel} />
-          <ResponseTimeChart data={responseTime} loading={!responseTime} />
-          <ActivityFeed items={activity} loading={!activity} />
+          <div className="h-full lg:col-span-2">
+            <LeadsDonut data={leadsDonut} loading={!leadsDonut} />
+          </div>
         </div>
-      </Collapse>
+        <LeadFunnel data={leadFunnel} loading={!leadFunnel} />
+        <ResponseTimeChart data={responseTime} loading={!responseTime} />
+        <ActivityFeed items={activity} loading={!activity} />
+      </div>
     </section>
   );
 }

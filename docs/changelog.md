@@ -6,6 +6,18 @@
 
 ---
 
+## Dashboard conversation-range styling
+
+The Conversations over time 7/30/90-day selector now uses the shared Toolbar segmented control without a call-site active-fill override. Range switching and chart data are unchanged. Key code: `src/components/dashboard/conversations-chart.tsx`.
+
+---
+
+## Always-visible dashboard insights
+
+The dashboard's Insights & recent activity section now stays expanded, loads with the page, and no longer has Show/Hide accordion controls. Its existing charts, funnel, response analysis, activity feed, Owner reports link, and placement after the daily action areas are unchanged. Key code: `src/components/dashboard/dashboard-insights.tsx`.
+
+---
+
 ## Local development origin parity
 
 Next.js development resources now allow the `127.0.0.1` loopback host in addition to the server's default `localhost`, preventing HMR/assets from being blocked when the local app is opened by IP. Keep the allowlist development-only through `allowedDevOrigins`; production CORS is unchanged. Key code: `next.config.ts`.

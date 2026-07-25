@@ -5,9 +5,14 @@ import { MessageSquare } from 'lucide-react'
 import type { ConversationsSeriesPoint } from '@/lib/dashboard/types'
 import { EmptyState } from './empty-state'
 import { Skeleton } from './skeleton'
-import { cn } from '@/lib/utils'
+import {
+  Toolbar,
+  ToolbarToggleGroup,
+  ToolbarToggleItem,
+} from '@/components/ui/toolbar'
 
 type RangeDays = 7 | 30 | 90
+type RangeValue = `${RangeDays}`
 
 interface ConversationsChartProps {
   /** Per-range data, so switching tabs never re-fetches. */
@@ -53,23 +58,21 @@ export function ConversationsChart({ series, loading, range, onRangeChange }: Co
           <h2 className="text-sm font-semibold text-foreground">Conversations Over Time</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">Daily message volume by direction</p>
         </div>
-        <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-1">
-          {[7, 30, 90].map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => onRangeChange(r as RangeDays)}
-              className={cn(
-                'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                range === r
-                  ? 'bg-secondary text-secondary-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {r} days
-            </button>
-          ))}
-        </div>
+        <Toolbar aria-label="Conversation range">
+          <ToolbarToggleGroup<RangeValue>
+            value={[String(range) as RangeValue]}
+            onValueChange={(values) => {
+              const nextRange = values[0]
+              if (nextRange) onRangeChange(Number(nextRange) as RangeDays)
+            }}
+          >
+            {([7, 30, 90] as const).map((days) => (
+              <ToolbarToggleItem key={days} value={String(days)}>
+                {days} days
+              </ToolbarToggleItem>
+            ))}
+          </ToolbarToggleGroup>
+        </Toolbar>
       </header>
 
       <div className="p-5">
