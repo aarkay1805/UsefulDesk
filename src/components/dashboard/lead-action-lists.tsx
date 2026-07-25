@@ -38,10 +38,17 @@ interface DashboardFollowUp extends DashboardFollowUpRow {
 interface StaleLead {
   id: string;
   name: string | null;
-  phone: string;
-  created_at: string;
+  avatarUrl: string | null;
+  messagePreview: string;
   /** Whole days since capture — computed at fetch time (render stays pure). */
   waitingDays: number;
+}
+
+interface StaleLeadRow {
+  id: string;
+  name: string | null;
+  avatar_url: string | null;
+  created_at: string;
 }
 
 export function LeadActionLists() {
@@ -74,7 +81,7 @@ export function LeadActionLists() {
         loadDashboardFollowUps(supabase, today, LIST_LIMIT),
         supabase
           .from('contacts')
-          .select('id, name, phone, created_at, memberships!left(id)', {
+          .select('id, name, avatar_url, created_at, memberships!left(id)', {
             count: 'exact',
           })
           .is('memberships', null)
@@ -84,9 +91,31 @@ export function LeadActionLists() {
           .limit(LIST_LIMIT),
       ]);
 
+      const staleRows = (staleRes.data ?? []) as unknown as StaleLeadRow[];
+      const staleContactIds = staleRows.map((lead) => lead.id);
+      const conversationRes =
+        staleContactIds.length > 0
+          ? await supabase
+              .from('conversations')
+              .select('contact_id, last_message_text')
+              .in('contact_id', staleContactIds)
+              .order('last_message_at', {
+                ascending: false,
+                nullsFirst: false,
+              })
+          : { data: [] };
+
       if (cancelled) return;
       const now = Date.now();
-      type StaleRow = Omit<StaleLead, 'waitingDays'>;
+      const messageByContact = new Map<string, string>();
+      for (const conversation of conversationRes.data ?? []) {
+        if (!messageByContact.has(conversation.contact_id)) {
+          messageByContact.set(
+            conversation.contact_id,
+            conversation.last_message_text?.trim() || 'No message yet'
+          );
+        }
+      }
       setFollowUps(
         followUpRes.rows.map((f) => ({
           ...f,
@@ -96,8 +125,11 @@ export function LeadActionLists() {
       setFollowUpTotal(followUpRes.total);
       setFollowUpMode(followUpRes.mode);
       setStaleLeads(
-        ((staleRes.data ?? []) as unknown as StaleRow[]).map((l) => ({
-          ...l,
+        staleRows.map((l) => ({
+          id: l.id,
+          name: l.name,
+          avatarUrl: l.avatar_url,
+          messagePreview: messageByContact.get(l.id) ?? 'No message yet',
           waitingDays: Math.max(
             1,
             Math.floor(
@@ -168,7 +200,7 @@ export function LeadActionLists() {
               }
             />
           ) : (
-            <ul className="space-y-2">
+            <ul className="border-border/60 divide-border/60 bg-muted/20 divide-y overflow-hidden rounded-lg border">
               {followUps.map((f) => {
                 const overdueDays = f.overdueDays;
                 const who =
@@ -179,7 +211,7 @@ export function LeadActionLists() {
                 return (
                   <li
                     key={f.id}
-                    className="border-border/60 bg-muted/20 hover:border-border-hover flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2 transition-colors"
+                    className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-2.5 py-2 transition-colors"
                     tabIndex={0}
                     aria-label={`Open ${who} details`}
                     onClick={() => setDetailContactId(f.contact_id)}
@@ -262,22 +294,31 @@ export function LeadActionLists() {
               text="No new leads waiting — good response time."
             />
           ) : (
-            <ul className="space-y-1.5">
+            <ul className="border-border/60 divide-border/60 bg-muted/20 divide-y overflow-hidden rounded-lg border">
               {staleLeads.map((l) => {
                 const waitingDays = l.waitingDays;
+                const displayName = l.name?.trim() || 'Unnamed lead';
                 return (
                   <li key={l.id}>
                     <Link
                       href={`/leads?contact=${encodeURIComponent(l.id)}&focus=followup`}
-                      className="border-border/60 bg-muted/20 hover:border-border-hover flex items-center gap-2.5 rounded-lg border px-2.5 py-2 transition-colors"
+                      className="hover:bg-muted/50 flex items-center gap-3 px-3 py-2.5 transition-colors"
                     >
-                      <span className="text-foreground min-w-0 flex-1 truncate text-sm">
-                        {l.name?.trim() || l.phone}
-                      </span>
-                      <span className="text-muted-foreground shrink-0 font-mono text-xs">
-                        {l.phone}
-                      </span>
-                      <Badge variant="info">waiting {waitingDays}d</Badge>
+                      <UserAvatar
+                        name={displayName}
+                        src={l.avatarUrl}
+                        className="size-8 shrink-0"
+                        fallbackClassName="text-xs"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-foreground truncate text-sm font-medium">
+                          {displayName}
+                        </p>
+                        <p className="text-muted-foreground mt-0.5 truncate text-xs">
+                          {l.messagePreview}
+                        </p>
+                      </div>
+                      <Badge variant="info">Waiting {waitingDays}d</Badge>
                     </Link>
                   </li>
                 );

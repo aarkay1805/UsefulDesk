@@ -6,9 +6,21 @@
 
 ---
 
+## Local development origin parity
+
+Next.js development resources now allow the `127.0.0.1` loopback host in addition to the server's default `localhost`, preventing HMR/assets from being blocked when the local app is opened by IP. Keep the allowlist development-only through `allowedDevOrigins`; production CORS is unchanged. Key code: `next.config.ts`.
+
+---
+
+## Dashboard first-contact cards
+
+The dashboard's **Waiting for first contact** queue now presents leads as compact horizontal rows inside one bordered, divided list. Every row keeps the avatar, name, and latest-message preview aligned with the waiting-age badge anchored at the right. Phone numbers are no longer fetched or rendered, and leads without profile/message data use neutral text fallbacks. Key code: `src/components/dashboard/lead-action-lists.tsx`.
+
+---
+
 ## Compact dashboard follow-ups
 
-The dashboard lead-action queue now renders follow-ups as compact rows: the task-type icon replaces its text label and sits directly beside the lead identity, with the optional note below; due state/date, a tooltip-labelled assignee avatar, and completion remain in one trailing action cluster. Clicking or keyboard-opening a row launches the existing full lead quick view with its established contact actions, while the completion icon remains a separate direct action. The redundant Upcoming badge and full-width assignee footer are gone, reducing queue height without removing agent-critical context. Key code: `src/components/dashboard/lead-action-lists.tsx` and `src/components/follow-ups/follow-up-task-summary.tsx`.
+The dashboard lead-action queue now renders follow-ups as compact, divided rows inside one bordered list matching the adjacent first-contact queue: the task-type icon replaces its text label and sits directly beside the lead identity, with the optional note below; due state/date, a tooltip-labelled assignee avatar, and completion remain in one trailing action cluster. Clicking or keyboard-opening a row launches the existing full lead quick view with its established contact actions, while the completion icon remains a separate direct action. The redundant Upcoming badge and full-width assignee footer are gone, reducing queue height without removing agent-critical context. Key code: `src/components/dashboard/lead-action-lists.tsx` and `src/components/follow-ups/follow-up-task-summary.tsx`.
 
 ---
 
