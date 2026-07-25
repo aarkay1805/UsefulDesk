@@ -6,6 +6,12 @@
 
 ---
 
+## Dashboard route authentication defense in depth
+
+Every page in the `(dashboard)` route group is now covered by the proxy's early anonymous redirect, including Finance, Reports, and Get Started, while a server layout backstop independently validates the Supabase user before rendering dashboard content. A filesystem contract test keeps future dashboard pages synchronized with the proxy policy; authentication, invitation, onboarding, public capture, and tokenized routes retain their existing access. No schema change. Key code: `src/lib/auth/dashboard-routes.ts`, `src/proxy.ts`, and `src/app/(dashboard)/layout.tsx`.
+
+---
+
 ## Storage and media access hardening
 
 Storage API enumeration is closed across avatars, WhatsApp chat/flow media, and private payment/expense receipts: exact-object retrieval remains available, but `object.list` is not authorized. Chat/flow uploads, updates, and deletes now require authenticated agent capability plus the canonical tenant path; avatar writes remain authenticated and user-folder scoped; private receipt writes retain agent/admin capability and persisted-object deletion guards. Chat/flow media intentionally remain public because Meta fetches their persisted URLs asynchronously, so anyone with an exact URL can still retrieve an object; moving them private requires a separate delivery migration with evidence that expiring signed URLs remain valid for retries. Key code: `supabase/migrations/20260725230417_harden_storage_media_access.sql` and `src/lib/storage/storage-policies-contract.test.ts`.

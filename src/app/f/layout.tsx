@@ -7,8 +7,8 @@
 // through `(dashboard)` would bounce them to /login; through `(auth)`
 // would bounce a signed-in gym owner previewing their own form.
 //
-// It needs no change to src/proxy.ts — `protectedPaths` there is an
-// explicit prefix allowlist and '/f' is not on it.
+// It remains outside the authenticated dashboard path policy in
+// src/lib/auth/dashboard-routes.ts, so the proxy allows anonymous access.
 //
 // Referrer-Policy: no-referrer
 //   The form token lives in the URL path. The token grants no read of
@@ -33,7 +33,7 @@ export default function CaptureFormLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+    <div className="bg-background flex min-h-screen items-center justify-center px-4 py-10">
       {children}
     </div>
   );
