@@ -62,6 +62,56 @@ export interface ResponseTimeSummary {
   lastWeekAvg: number | null;
 }
 
+export type LeadRatingMetricKey =
+  | 'memberConversion'
+  | 'trialBooking'
+  | 'humanResponse'
+  | 'followUp'
+  | 'positiveOutcome';
+
+export interface LeadRatingMetric {
+  key: LeadRatingMetricKey;
+  label: string;
+  /** Share of the headline rating, expressed as a percentage. */
+  weight: number;
+  /** Explicit benchmark the observed rate is scored against. */
+  target: number;
+  /** Observed success rate, 0–100. Null means there was no measurable sample. */
+  actual: number | null;
+  /** min(actual / target, 1) × 100. Null is never coerced to zero. */
+  normalized: number | null;
+  successes: number;
+  sample: number;
+}
+
+export type LeadRatingConfidence =
+  'insufficient' | 'low' | 'directional' | 'strong';
+
+export interface LeadSourceRating {
+  key: string;
+  label: string;
+  cohortSize: number;
+  /** Weighted score, 0–100. Null until all five weighted metrics are measurable. */
+  rating: number | null;
+  metrics: LeadRatingMetric[];
+  confidence: LeadRatingConfidence;
+  /** Smallest denominator among the five component metrics. */
+  confidenceSample: number;
+}
+
+export interface LeadSourceRatingData {
+  rangeDays: 7 | 30 | 90;
+  period: {
+    start: string;
+    end: string;
+  };
+  /** Unified operational rating across every lead, including unknown source. */
+  allLeads: LeadSourceRating;
+  /** Optional source-specific drill-downs. */
+  sources: LeadSourceRating[];
+  totalCohort: number;
+}
+
 export type ActivityKind = 'message' | 'broadcast' | 'automation' | 'contact';
 
 export interface ActivityItem {

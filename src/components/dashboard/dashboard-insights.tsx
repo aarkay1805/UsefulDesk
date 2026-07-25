@@ -11,15 +11,19 @@ import {
   loadLeadsDonut,
   loadResponseTime,
 } from '@/lib/dashboard/queries';
+import { loadLeadSourceRatings } from '@/lib/dashboard/lead-conversion-rating';
 import type {
   ActivityItem,
   ConversationsSeriesPoint,
   LeadFunnelData,
   LeadsDonutData,
+  LeadSourceRatingData,
   ResponseTimeSummary,
 } from '@/lib/dashboard/types';
+import { useLocale } from '@/hooks/use-locale';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { ConversationsChart } from '@/components/dashboard/conversations-chart';
+import { LeadConversionRating } from '@/components/dashboard/lead-conversion-rating';
 import { LeadFunnel } from '@/components/dashboard/lead-funnel';
 import { LeadsDonut } from '@/components/dashboard/leads-donut';
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart';
@@ -27,7 +31,9 @@ import { ResponseTimeChart } from '@/components/dashboard/response-time-chart';
 type RangeDays = 7 | 30 | 90;
 
 export function DashboardInsights() {
-  const [range, setRange] = useState<RangeDays>(30);
+  const { fmt, locale } = useLocale();
+  const [conversationRange, setConversationRange] = useState<RangeDays>(30);
+  const [ratingRange, setRatingRange] = useState<RangeDays>(30);
   const [series, setSeries] = useState<
     Record<RangeDays, ConversationsSeriesPoint[] | null>
   >({
@@ -36,6 +42,14 @@ export function DashboardInsights() {
     90: null,
   });
   const [seriesLoading, setSeriesLoading] = useState(true);
+  const [ratings, setRatings] = useState<
+    Record<RangeDays, LeadSourceRatingData | null>
+  >({
+    7: null,
+    30: null,
+    90: null,
+  });
+  const [ratingLoading, setRatingLoading] = useState(true);
   const [leadsDonut, setLeadsDonut] = useState<LeadsDonutData | null>(null);
   const [leadFunnel, setLeadFunnel] = useState<LeadFunnelData | null>(null);
   const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(
@@ -58,6 +72,18 @@ export function DashboardInsights() {
       )
       .finally(() => {
         if (!cancelled) setSeriesLoading(false);
+      });
+    void loadLeadSourceRatings(db, 30, locale.timeZone, fmt.today())
+      .then((next) => {
+        if (!cancelled) {
+          setRatings((current) => ({ ...current, 30: next }));
+        }
+      })
+      .catch((error) =>
+        console.error('[dashboard] lead rating insights failed:', error)
+      )
+      .finally(() => {
+        if (!cancelled) setRatingLoading(false);
       });
     void loadLeadsDonut(db)
       .then((next) => {
@@ -91,11 +117,11 @@ export function DashboardInsights() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [fmt, locale.timeZone]);
 
-  const handleRangeChange = useCallback(
+  const handleConversationRangeChange = useCallback(
     (nextRange: RangeDays) => {
-      setRange(nextRange);
+      setConversationRange(nextRange);
       if (series[nextRange] !== null) return;
       setSeriesLoading(true);
       loadConversationsSeries(createClient(), nextRange)
@@ -108,6 +134,29 @@ export function DashboardInsights() {
         .finally(() => setSeriesLoading(false));
     },
     [series]
+  );
+
+  const handleRatingRangeChange = useCallback(
+    (nextRange: RangeDays) => {
+      setRatingRange(nextRange);
+      if (ratings[nextRange] === null) {
+        setRatingLoading(true);
+        loadLeadSourceRatings(
+          createClient(),
+          nextRange,
+          locale.timeZone,
+          fmt.today()
+        )
+          .then((next) =>
+            setRatings((current) => ({ ...current, [nextRange]: next }))
+          )
+          .catch((error) =>
+            console.error('[dashboard] lead rating insights failed:', error)
+          )
+          .finally(() => setRatingLoading(false));
+      }
+    },
+    [fmt, locale.timeZone, ratings]
   );
 
   return (
@@ -135,16 +184,28 @@ export function DashboardInsights() {
             <ConversationsChart
               series={series}
               loading={seriesLoading}
-              range={range}
-              onRangeChange={handleRangeChange}
+              range={conversationRange}
+              onRangeChange={handleConversationRangeChange}
             />
           </div>
           <div className="h-full lg:col-span-2">
             <LeadsDonut data={leadsDonut} loading={!leadsDonut} />
           </div>
         </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+          <div className="h-full lg:col-span-3">
+            <ResponseTimeChart data={responseTime} loading={!responseTime} />
+          </div>
+          <div className="h-full lg:col-span-2">
+            <LeadConversionRating
+              data={ratings[ratingRange]}
+              loading={ratingLoading && ratings[ratingRange] === null}
+              range={ratingRange}
+              onRangeChange={handleRatingRangeChange}
+            />
+          </div>
+        </div>
         <LeadFunnel data={leadFunnel} loading={!leadFunnel} />
-        <ResponseTimeChart data={responseTime} loading={!responseTime} />
         <ActivityFeed items={activity} loading={!activity} />
       </div>
     </section>

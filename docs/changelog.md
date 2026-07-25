@@ -6,6 +6,12 @@
 
 ---
 
+## Dashboard lead conversion rating
+
+Dashboard Insights now pairs the wider first-response card on the left with a compact, equal-height **Lead Conversion Rating** card on the right. Its independent 7/30/90-day control defaults to All leads, keeps a quiet source drill-down grouped with the duration control, and shows an accessible five-axis radar immediately beneath its rating for member conversion, trial booking, first human response, on-time follow-up, and positive recorded follow-up outcomes; every unclipped axis label exposes a concise mouse-and-keyboard tooltip, and missing evidence keeps the score unavailable. Source volume remains only in Lead Funnel context, while weights, targets, period, denominator, confidence, and proxy details stay in the keyboard-accessible calculation dialog. No schema change. Key code: `src/lib/dashboard/lead-conversion-rating.ts`, `src/components/dashboard/lead-conversion-rating.tsx`, and focused aggregator tests.
+
+---
+
 ## Dashboard creation quick actions
 
 Dashboard **New Lead** and **New Member** now deep-link into the existing page-owned creation dialogs instead of stopping at their list pages. Their role capabilities still gate whether the form opens, while **New Broadcast** and **New Automation** retain their dedicated creation routes. Key code: `src/components/dashboard/quick-actions.tsx`, `src/app/(dashboard)/leads/page.tsx`, and `src/app/(dashboard)/members/page.tsx`.
