@@ -6,6 +6,12 @@
 
 ---
 
+## Profile tenant and role isolation
+
+Authenticated self-service profile updates can no longer change `profiles.account_id` or `profiles.account_role`. A narrow trigger rejects those direct Data API writes while preserving name, avatar, and appearance edits plus the existing audited `SECURITY DEFINER` member-management, ownership-transfer, invitation-redemption, and onboarding flows. Key code: `supabase/migrations/20260725161912_protect_profile_membership_fields.sql` and `src/lib/auth/profile-membership-fields-contract.test.ts`.
+
+---
+
 ## Dashboard membership actions
 
 The dashboard now gives members a dedicated **Today’s membership actions** section beside the established lead workflow: due member follow-ups take priority, nearest upcoming work appears only when nothing is due, and the follow-up column mirrors Today’s lead actions with the same compact clickable rows, task summary, due state, assignee avatar, and direct completion control while opening the established member sheet in place. The adjacent renewal worklist keeps the canonical **Expiring** / **Expired** navigation; Expiring is account-local today through the next seven days, while Expired retains every recurring membership past its renewal date as actionable recovery work. Key code: `src/components/dashboard/membership-action-lists.tsx`, `src/lib/dashboard/follow-ups.ts`, and `src/app/(dashboard)/dashboard/page.tsx`.
