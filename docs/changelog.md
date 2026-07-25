@@ -6,6 +6,12 @@
 
 ---
 
+## Storage and media access hardening
+
+Storage API enumeration is closed across avatars, WhatsApp chat/flow media, and private payment/expense receipts: exact-object retrieval remains available, but `object.list` is not authorized. Chat/flow uploads, updates, and deletes now require authenticated agent capability plus the canonical tenant path; avatar writes remain authenticated and user-folder scoped; private receipt writes retain agent/admin capability and persisted-object deletion guards. Chat/flow media intentionally remain public because Meta fetches their persisted URLs asynchronously, so anyone with an exact URL can still retrieve an object; moving them private requires a separate delivery migration with evidence that expiring signed URLs remain valid for retries. Key code: `supabase/migrations/20260725230417_harden_storage_media_access.sql` and `src/lib/storage/storage-policies-contract.test.ts`.
+
+---
+
 ## Operational and external-mutation authorization
 
 Automation and flow service-role routes now require fresh agent-level operational capability and scope every privileged parent lookup to the caller’s current account, so viewers cannot mutate or dispatch work and a removed author cannot reach an old tenant through `user_id`. WhatsApp/Meta sends, reactions, broadcasts, connection/configuration, embedded signup, lead-source connection, and template lifecycle calls now require the named operational or settings capability before any external call. No schema change was needed because migration `017` already has the matching account-membership RLS policies. Key code: `src/lib/auth/account.ts`, `src/app/api/automations/`, `src/app/api/flows/`, `src/app/api/whatsapp/`, and `src/lib/auth/operational-route-guards-contract.test.ts`.
