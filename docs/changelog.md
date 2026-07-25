@@ -8,7 +8,7 @@
 
 ## Decision-first daily dashboard
 
-The dashboard now separates owner decisions from frontline work: outstanding fees, upcoming renewals, attendance-risk members, and today’s collections versus the prior seven-day daily average lead the page; the actionable lead queue follows immediately and replaces historical open-lead/activity vanity metrics. Attendance risk deep-links to the newly reachable Members → At risk worklist, where missed-visit and never-checked-in context leads directly to Follow-up. Existing funnel, source, conversation, response-time, and activity views remain available in collapsed Insights, while period analysis stays in Reports. Key code: `src/components/dashboard/`, `src/lib/memberships/stats.ts`, and `src/app/(dashboard)/members/page.tsx`.
+The dashboard now separates owner decisions from frontline work: outstanding fees, upcoming renewals, attendance-risk members, and today’s collections versus the prior seven-day daily average lead the page; the actionable lead queue follows immediately and replaces historical open-lead/activity vanity metrics. Its lead follow-up list keeps due and overdue work first, then shows the nearest upcoming follow-ups only when nothing is due; future work does not inflate the “to clear” count. Attendance risk deep-links to the newly reachable Members → At risk worklist, where missed-visit and never-checked-in context leads directly to Follow-up. Existing funnel, source, conversation, response-time, and activity views remain available in collapsed Insights, while period analysis stays in Reports. Key code: `src/components/dashboard/`, `src/lib/dashboard/follow-ups.ts`, `src/lib/memberships/stats.ts`, and `src/app/(dashboard)/members/page.tsx`.
 
 ---
 

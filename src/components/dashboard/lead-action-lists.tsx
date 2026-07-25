@@ -3,17 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { CheckCircle2, Inbox, UserRoundSearch } from 'lucide-react';
 import {
-  CheckCircle2,
-  ClipboardList,
-  Inbox,
-  Mail,
-  Phone,
-  UserRoundSearch,
-} from 'lucide-react';
+  loadDashboardFollowUps,
+  type DashboardFollowUpMode,
+  type DashboardFollowUpRow,
+} from '@/lib/dashboard/follow-ups';
 import { daysBetween } from '@/lib/memberships/expiry';
 import { useCan } from '@/hooks/use-can';
 import { useLocale } from '@/hooks/use-locale';
+import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
 import { useAccountStaff } from '@/components/members/use-account-staff';
 import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-up-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -23,22 +22,15 @@ import { Skeleton } from './skeleton';
 
 // Today's lead actions — the PRD's "smart queue": not a dashboard to
 // admire but a work list to clear. Two queues:
-//   1. Follow-ups due — open tasks due today or overdue (mark done here).
+//   1. Follow-ups — due work first; nearest upcoming work when due is empty.
 //   2. Waiting for first contact — leads still in "New" after 24h.
 // Both deep-link into /leads for the full record.
 
 const STALE_HOURS = 24;
 const LIST_LIMIT = 8;
 
-interface DueFollowUp {
-  id: string;
-  contact_id: string;
-  task_type: string;
-  due_date: string;
-  assigned_to: string | null;
-  note: string | null;
-  contact: { name: string | null; phone: string | null } | null;
-  /** Days overdue vs IST today — computed at fetch time (render stays pure). */
+interface DashboardFollowUp extends DashboardFollowUpRow {
+  /** Days overdue vs account-local today — computed at fetch time. */
   overdueDays: number;
 }
 
@@ -51,24 +43,20 @@ interface StaleLead {
   waitingDays: number;
 }
 
-const TASK_ICON: Record<string, typeof Phone> = {
-  call: Phone,
-  email: Mail,
-  todo: ClipboardList,
-};
-
 export function LeadActionLists() {
   const canEdit = useCan('send-messages');
   const { fmt } = useLocale();
   const { nameById, avatarById } = useAccountStaff();
 
-  const [followUps, setFollowUps] = useState<DueFollowUp[] | null>(null);
-  const [dueTotal, setDueTotal] = useState(0);
+  const [followUps, setFollowUps] = useState<DashboardFollowUp[] | null>(null);
+  const [followUpTotal, setFollowUpTotal] = useState(0);
+  const [followUpMode, setFollowUpMode] =
+    useState<DashboardFollowUpMode | null>(null);
   const [staleLeads, setStaleLeads] = useState<StaleLead[] | null>(null);
   const [staleTotal, setStaleTotal] = useState(0);
   const [nonce, setNonce] = useState(0);
-  const [completing, setCompleting] = useState<DueFollowUp | null>(null);
-  const actionTotal = dueTotal + staleTotal;
+  const [completing, setCompleting] = useState<DashboardFollowUp | null>(null);
+  const actionTotal = (followUpMode === 'due' ? followUpTotal : 0) + staleTotal;
 
   useEffect(() => {
     void nonce; // manual refetch trigger — bump to reload
@@ -80,18 +68,8 @@ export function LeadActionLists() {
         Date.now() - STALE_HOURS * 60 * 60 * 1000
       ).toISOString();
 
-      const [dueRes, staleRes] = await Promise.all([
-        supabase
-          .from('follow_ups')
-          .select(
-            'id, contact_id, task_type, due_date, assigned_to, note, contact:contacts(name, phone)',
-            { count: 'exact' }
-          )
-          .eq('status', 'open')
-          .is('membership_id', null)
-          .lte('due_date', today)
-          .order('due_date', { ascending: true })
-          .limit(LIST_LIMIT),
+      const [followUpRes, staleRes] = await Promise.all([
+        loadDashboardFollowUps(supabase, today, LIST_LIMIT),
         supabase
           .from('contacts')
           .select('id, name, phone, created_at, memberships!left(id)', {
@@ -106,15 +84,15 @@ export function LeadActionLists() {
 
       if (cancelled) return;
       const now = Date.now();
-      type DueRow = Omit<DueFollowUp, 'overdueDays'>;
       type StaleRow = Omit<StaleLead, 'waitingDays'>;
       setFollowUps(
-        ((dueRes.data ?? []) as unknown as DueRow[]).map((f) => ({
+        followUpRes.rows.map((f) => ({
           ...f,
           overdueDays: daysBetween(f.due_date, today),
         }))
       );
-      setDueTotal(dueRes.count ?? 0);
+      setFollowUpTotal(followUpRes.total);
+      setFollowUpMode(followUpRes.mode);
       setStaleLeads(
         ((staleRes.data ?? []) as unknown as StaleRow[]).map((l) => ({
           ...l,
@@ -160,26 +138,36 @@ export function LeadActionLists() {
       </header>
 
       <div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-2">
-        {/* Queue 1 — follow-ups due */}
+        {/* Queue 1 — due follow-ups, or upcoming when the due queue is empty */}
         <div>
           <p className="text-muted-foreground mb-2 flex items-center justify-between text-xs font-medium">
-            <span>Follow-ups due</span>
-            {dueTotal > 0 && (
+            <span>
+              {followUpMode === 'upcoming'
+                ? 'Upcoming follow-ups'
+                : 'Follow-ups due'}
+            </span>
+            {followUpTotal > 0 && (
               <span className="tabular-nums">
-                {dueTotal > LIST_LIMIT
-                  ? `${LIST_LIMIT} of ${dueTotal}`
-                  : dueTotal}
+                {followUpTotal > LIST_LIMIT
+                  ? `${LIST_LIMIT} of ${followUpTotal}`
+                  : followUpTotal}
               </span>
             )}
           </p>
           {followUps === null ? (
             <ListSkeleton />
           ) : followUps.length === 0 ? (
-            <QueueEmpty icon={Inbox} text="Nothing due — queue is clear." />
+            <QueueEmpty
+              icon={Inbox}
+              text={
+                followUpMode === 'upcoming'
+                  ? 'No due or upcoming follow-ups.'
+                  : 'Nothing due — queue is clear.'
+              }
+            />
           ) : (
-            <ul className="space-y-1.5">
+            <ul className="space-y-2">
               {followUps.map((f) => {
-                const Icon = TASK_ICON[f.task_type] ?? ClipboardList;
                 const overdueDays = f.overdueDays;
                 const who =
                   f.contact?.name?.trim() || f.contact?.phone || 'Lead';
@@ -189,35 +177,65 @@ export function LeadActionLists() {
                 return (
                   <li
                     key={f.id}
-                    className="border-border/60 bg-muted/20 flex items-center gap-2.5 rounded-lg border px-2.5 py-2"
+                    className="border-border/50 bg-card overflow-hidden rounded-lg border"
                   >
-                    <Icon className="text-muted-foreground size-3.5 shrink-0" />
-                    <span className="text-foreground min-w-0 flex-1 truncate text-sm">
-                      {who}
-                    </span>
+                    <div className="flex items-start gap-3 p-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center justify-between gap-2">
+                          <p className="text-foreground truncate text-sm font-medium">
+                            {who}
+                          </p>
+                          {followUpMode === 'upcoming' ? (
+                            <div className="flex shrink-0 items-center gap-2">
+                              <Badge variant="neutral">Upcoming</Badge>
+                              <span className="text-muted-foreground text-xs tabular-nums">
+                                {fmt.date(f.due_date)}
+                              </span>
+                            </div>
+                          ) : (
+                            <Badge
+                              variant={overdueDays > 0 ? 'danger' : 'warning'}
+                            >
+                              {overdueDays > 0
+                                ? `Overdue ${overdueDays}d`
+                                : 'Today'}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="mt-1.5">
+                          <FollowUpTaskSummary
+                            taskType={f.task_type}
+                            note={f.note}
+                          />
+                        </div>
+                      </div>
+                      <GatedButton
+                        variant="ghost"
+                        size="icon-sm"
+                        canAct={canEdit}
+                        gateReason="complete follow-ups"
+                        onClick={() => setCompleting(f)}
+                        aria-label="Mark as followed up"
+                      >
+                        <CheckCircle2 className="size-3.5" />
+                      </GatedButton>
+                    </div>
                     {assignee && (
-                      <UserAvatar
-                        name={assignee}
-                        src={
-                          f.assigned_to ? avatarById.get(f.assigned_to) : null
-                        }
-                        className="size-5 shrink-0"
-                        fallbackClassName="text-[10px]"
-                      />
+                      <div className="text-muted-foreground border-border/50 flex items-center gap-1.5 border-t px-3 py-2 text-xs">
+                        <span>Assigned to</span>
+                        <UserAvatar
+                          name={assignee}
+                          src={
+                            f.assigned_to ? avatarById.get(f.assigned_to) : null
+                          }
+                          className="size-5 shrink-0"
+                          fallbackClassName="text-[10px]"
+                        />
+                        <span className="text-foreground min-w-0 truncate font-medium">
+                          {assignee}
+                        </span>
+                      </div>
                     )}
-                    <Badge variant={overdueDays > 0 ? 'danger' : 'warning'}>
-                      {overdueDays > 0 ? `Overdue ${overdueDays}d` : 'Today'}
-                    </Badge>
-                    <GatedButton
-                      variant="ghost"
-                      size="icon-sm"
-                      canAct={canEdit}
-                      gateReason="complete follow-ups"
-                      onClick={() => setCompleting(f)}
-                      aria-label="Mark done"
-                    >
-                      <CheckCircle2 className="size-3.5" />
-                    </GatedButton>
                   </li>
                 );
               })}
