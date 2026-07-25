@@ -201,7 +201,7 @@ export function LeadConversionRating({
         </div>
       ) : (
         <>
-          <div className="flex flex-1 flex-col items-center px-4 pt-3 pb-1">
+          <div className="flex flex-1 flex-col items-center gap-1 px-4 pt-3 pb-1">
             <h2 className="text-foreground text-center text-sm font-semibold">
               Lead Conversion Rating
             </h2>
@@ -217,7 +217,7 @@ export function LeadConversionRating({
 
 function RatingHeadline({ source }: { source: LeadSourceRating }) {
   return (
-    <div className="mt-0.5 text-center">
+    <div className="text-center">
       <div className="flex items-baseline justify-center gap-1">
         <span className="text-foreground text-3xl font-semibold tracking-tight tabular-nums">
           {source.rating == null ? '—' : Math.round(source.rating)}
@@ -399,7 +399,7 @@ function RadarChart({ source }: { source: LeadSourceRating }) {
     : '';
 
   return (
-    <figure className="-mt-2 w-full">
+    <figure className="w-full">
       <div className="relative mx-auto aspect-square w-full max-w-56">
         <svg
           viewBox={`0 0 ${RADAR_SIZE} ${RADAR_SIZE}`}

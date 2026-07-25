@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -160,54 +159,35 @@ export function DashboardInsights() {
   );
 
   return (
-    <section className="border-border bg-card rounded-xl border">
-      <div className="flex items-center justify-between gap-4 px-5 py-4">
-        <div className="min-w-0">
-          <h2 className="text-foreground text-sm font-semibold">
-            Insights &amp; recent activity
-          </h2>
-          <p className="text-muted-foreground mt-0.5 text-xs">
-            Lead funnel, source, conversation, response, and activity analysis
-          </p>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <div className="h-full lg:col-span-3">
+          <ConversationsChart
+            series={series}
+            loading={seriesLoading}
+            range={conversationRange}
+            onRangeChange={handleConversationRangeChange}
+          />
         </div>
-        <Link
-          href="/reports"
-          className="text-primary-text hidden shrink-0 text-xs font-medium hover:underline sm:block"
-        >
-          Owner reports
-        </Link>
+        <div className="h-full lg:col-span-2">
+          <LeadsDonut data={leadsDonut} loading={!leadsDonut} />
+        </div>
       </div>
-
-      <div className="border-border space-y-4 border-t p-5">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-          <div className="h-full lg:col-span-3">
-            <ConversationsChart
-              series={series}
-              loading={seriesLoading}
-              range={conversationRange}
-              onRangeChange={handleConversationRangeChange}
-            />
-          </div>
-          <div className="h-full lg:col-span-2">
-            <LeadsDonut data={leadsDonut} loading={!leadsDonut} />
-          </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <div className="h-full lg:col-span-3">
+          <ResponseTimeChart data={responseTime} loading={!responseTime} />
         </div>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-          <div className="h-full lg:col-span-3">
-            <ResponseTimeChart data={responseTime} loading={!responseTime} />
-          </div>
-          <div className="h-full lg:col-span-2">
-            <LeadConversionRating
-              data={ratings[ratingRange]}
-              loading={ratingLoading && ratings[ratingRange] === null}
-              range={ratingRange}
-              onRangeChange={handleRatingRangeChange}
-            />
-          </div>
+        <div className="h-full lg:col-span-2">
+          <LeadConversionRating
+            data={ratings[ratingRange]}
+            loading={ratingLoading && ratings[ratingRange] === null}
+            range={ratingRange}
+            onRangeChange={handleRatingRangeChange}
+          />
         </div>
-        <LeadFunnel data={leadFunnel} loading={!leadFunnel} />
-        <ActivityFeed items={activity} loading={!activity} />
       </div>
-    </section>
+      <LeadFunnel data={leadFunnel} loading={!leadFunnel} />
+      <ActivityFeed items={activity} loading={!activity} />
+    </div>
   );
 }
