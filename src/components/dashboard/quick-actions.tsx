@@ -4,10 +4,9 @@ import Link from 'next/link'
 import { UserPlus, Dumbbell, Radio, Zap } from 'lucide-react'
 import type { ComponentType } from 'react'
 
-// Quick-action shortcuts. Each navigates to the page that owns the
-// relevant "create" flow. We deliberately don't try to auto-open any
-// modal on the target page — that'd require touching those pages,
-// which is out of scope here.
+// Quick-action shortcuts. Each navigates to the route that owns the
+// relevant create flow. Leads and members use page-owned dialogs, so an
+// explicit URL intent asks those pages to open their existing form.
 interface Action {
   label: string
   href: string
@@ -16,8 +15,8 @@ interface Action {
 }
 
 const ACTIONS: Action[] = [
-  { label: 'New Lead', href: '/leads', icon: UserPlus, tint: 'text-primary-text' },
-  { label: 'New Member', href: '/members', icon: Dumbbell, tint: 'text-blue-foreground' },
+  { label: 'New Lead', href: '/leads?action=new', icon: UserPlus, tint: 'text-primary-text' },
+  { label: 'New Member', href: '/members?action=new', icon: Dumbbell, tint: 'text-blue-foreground' },
   { label: 'New Broadcast', href: '/broadcasts/new', icon: Radio, tint: 'text-amber-foreground' },
   { label: 'New Automation', href: '/automations/new', icon: Zap, tint: 'text-primary-text' },
 ]

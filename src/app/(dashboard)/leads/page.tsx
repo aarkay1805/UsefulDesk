@@ -1119,6 +1119,18 @@ export default function LeadsPage() {
     setDetailFocus(urlFocus === 'followup' ? 'followup' : null);
     setDetailOpen(true);
   }, [urlContact, urlFocus]);
+
+  // Dashboard "New Lead" deep-links here because this page owns the
+  // canonical ContactForm. Wait for the role capability to resolve before
+  // opening it; viewers keep the same read-only behavior as the header CTA.
+  const createRequested = searchParams.get('action') === 'new';
+  useEffect(() => {
+    if (!createRequested || !canEdit) return;
+    // Synchronising the page-owned dialog with an explicit URL action is the
+    // purpose of this effect; it must react when profile loading resolves.
+    setFormOpen(true);
+  }, [canEdit, createRequested]);
+
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);

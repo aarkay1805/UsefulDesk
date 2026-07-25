@@ -105,6 +105,19 @@ export default function MembersPage() {
     }
   }, []);
 
+  // Dashboard "New Member" deep-links here because this page owns the
+  // canonical MemberForm. Wait for the role capability to resolve before
+  // opening it; viewers keep the same read-only behavior as the header CTA.
+  useEffect(() => {
+    if (!canSendMessages) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') !== 'new') return;
+    // Synchronising the page-owned dialog with an explicit URL action is the
+    // purpose of this effect; it must react when profile loading resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFormOpen(true);
+  }, [canSendMessages]);
+
   const reload = () => setReloadKey((k) => k + 1);
 
   // The All-members table owns the filter-aware CSV export; it registers

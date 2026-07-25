@@ -6,6 +6,12 @@
 
 ---
 
+## Dashboard creation quick actions
+
+Dashboard **New Lead** and **New Member** now deep-link into the existing page-owned creation dialogs instead of stopping at their list pages. Their role capabilities still gate whether the form opens, while **New Broadcast** and **New Automation** retain their dedicated creation routes. Key code: `src/components/dashboard/quick-actions.tsx`, `src/app/(dashboard)/leads/page.tsx`, and `src/app/(dashboard)/members/page.tsx`.
+
+---
+
 ## Dashboard conversation-range styling
 
 The Conversations over time 7/30/90-day selector now uses the shared Toolbar segmented control without a call-site active-fill override. Range switching and chart data are unchanged. Key code: `src/components/dashboard/conversations-chart.tsx`.
