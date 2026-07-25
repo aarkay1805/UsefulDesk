@@ -1,7 +1,7 @@
 'use client';
 
 import { type ReactNode, useState } from 'react';
-import { ChartNoAxesCombined } from 'lucide-react';
+import { ChartNoAxesCombined, CircleHelp } from 'lucide-react';
 
 import { useLocale } from '@/hooks/use-locale';
 import { ALL_LEADS_RATING_KEY } from '@/lib/dashboard/lead-conversion-rating';
@@ -86,7 +86,7 @@ const RADAR_AXIS_DETAILS: Record<
     label: 'Member conversion',
     lines: ['Member', 'conversion'],
     description: 'The share of leads that became paid members.',
-    positionClass: 'top-0 left-1/2 -translate-x-1/2 text-center',
+    positionClass: 'top-[10%] left-1/2 -translate-x-1/2 text-center',
     tooltipSide: 'top',
   },
   trialBooking: {
@@ -128,6 +128,7 @@ export function LeadConversionRating({
   onRangeChange,
 }: LeadConversionRatingProps) {
   const [selectedSource, setSelectedSource] = useState(ALL_LEADS_RATING_KEY);
+  const [calculationOpen, setCalculationOpen] = useState(false);
   const selected =
     (selectedSource === ALL_LEADS_RATING_KEY
       ? data?.allLeads
@@ -200,16 +201,46 @@ export function LeadConversionRating({
           />
         </div>
       ) : (
-        <>
+        <Dialog open={calculationOpen} onOpenChange={setCalculationOpen}>
           <div className="flex flex-1 flex-col items-center gap-1 px-4 pt-3 pb-1">
-            <h2 className="text-foreground text-center text-sm font-semibold">
-              Lead Conversion Rating
-            </h2>
+            <div className="flex items-center justify-center gap-0.5">
+              <h2 className="text-foreground text-center text-sm font-semibold">
+                Lead Conversion Rating
+              </h2>
+              <TooltipProvider>
+                <Tooltip>
+                  <DialogTrigger
+                    render={
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label="How is the Lead Conversion Rating calculated?"
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                setCalculationOpen(true);
+                              }
+                            }}
+                          />
+                        }
+                      />
+                    }
+                  >
+                    <CircleHelp />
+                  </DialogTrigger>
+                  <TooltipContent>
+                    How is the Lead Conversion Rating calculated?
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <RatingHeadline source={selected} />
             <RadarChart source={selected} />
           </div>
-          <RatingCalculationDialog source={selected} data={data} />
-        </>
+          <RatingCalculationDialogContent source={selected} data={data} />
+        </Dialog>
       )}
     </section>
   );
@@ -231,7 +262,7 @@ function RatingHeadline({ source }: { source: LeadSourceRating }) {
   );
 }
 
-function RatingCalculationDialog({
+function RatingCalculationDialogContent({
   source,
   data,
 }: {
@@ -241,98 +272,89 @@ function RatingCalculationDialog({
   const { fmt } = useLocale();
 
   return (
-    <div className="border-border flex justify-center border-t px-5 py-2">
-      <Dialog>
-        <DialogTrigger render={<Button variant="link" size="sm" />}>
-          How is this rating calculated?
-        </DialogTrigger>
-        <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>How the Lead Conversion Rating works</DialogTitle>
-            <DialogDescription>
-              A target-based operational score for {source.label.toLowerCase()},
-              not a ranking against other lead sources.
-            </DialogDescription>
-          </DialogHeader>
+    <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-lg">
+      <DialogHeader>
+        <DialogTitle>How the Lead Conversion Rating works</DialogTitle>
+        <DialogDescription>
+          A target-based operational score for {source.label.toLowerCase()}, not
+          a ranking against other lead sources.
+        </DialogDescription>
+      </DialogHeader>
 
-          <div className="space-y-4">
-            <section aria-labelledby="rating-components-heading">
-              <h3
-                id="rating-components-heading"
-                className="text-foreground text-sm font-medium"
-              >
-                Weighted components
-              </h3>
-              <ul className="border-border mt-2 divide-y rounded-lg border">
-                {source.metrics.map((metric) => (
-                  <li key={metric.key} className="px-3 py-2.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-foreground text-xs font-medium">
-                          {metric.label}{' '}
-                          <span className="text-muted-foreground font-normal">
-                            · {metric.weight}%
-                          </span>
-                        </p>
-                        <p className="text-muted-foreground mt-0.5 text-xs leading-5">
-                          {METRIC_HELP[metric.key]}
-                        </p>
-                      </div>
-                      <MetricResult metric={metric} />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
+      <div className="space-y-4">
+        <section aria-labelledby="rating-components-heading">
+          <h3
+            id="rating-components-heading"
+            className="text-foreground text-sm font-medium"
+          >
+            Weighted components
+          </h3>
+          <ul className="border-border mt-2 divide-y rounded-lg border">
+            {source.metrics.map((metric) => (
+              <li key={metric.key} className="px-3 py-2.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-foreground text-xs font-medium">
+                      {metric.label}{' '}
+                      <span className="text-muted-foreground font-normal">
+                        · {metric.weight}%
+                      </span>
+                    </p>
+                    <p className="text-muted-foreground mt-0.5 text-xs leading-5">
+                      {METRIC_HELP[metric.key]}
+                    </p>
+                  </div>
+                  <MetricResult metric={metric} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
 
-            <CalculationNote title="Target normalization">
-              Each actual rate is divided by its explicit target and capped at
-              100. The five normalized results are then combined with the
-              weights shown above.
-            </CalculationNote>
+        <CalculationNote title="Target normalization">
+          Each actual rate is divided by its explicit target and capped at 100.
+          The five normalized results are then combined with the weights shown
+          above.
+        </CalculationNote>
 
-            <CalculationNote title="Reporting period">
-              This view starts with {fmt.number(source.cohortSize)} leads added
-              from {fmt.date(data.period.start)} through{' '}
-              {fmt.date(data.period.end)}. Results recorded for those leads are
-              observed through now.
-            </CalculationNote>
+        <CalculationNote title="Reporting period">
+          This view starts with {fmt.number(source.cohortSize)} leads added from{' '}
+          {fmt.date(data.period.start)} through {fmt.date(data.period.end)}.
+          Results recorded for those leads are observed through now.
+        </CalculationNote>
 
-            <CalculationNote title="Scope">
-              All leads includes every lead acquired in the selected reporting
-              window, including leads without a recorded source. Choosing a
-              source applies the same calculation to that source&apos;s cohort
-              only.
-            </CalculationNote>
+        <CalculationNote title="Scope">
+          All leads includes every lead acquired in the selected reporting
+          window, including leads without a recorded source. Choosing a source
+          applies the same calculation to that source&apos;s cohort only.
+        </CalculationNote>
 
-            <CalculationNote title="Trial-booking proxy">
-              UsefulDesk has no formal booking ledger yet, so this component
-              uses a Trial booked lead status, a completed Trial booked
-              follow-up outcome, or trial-membership evidence. It is a labelled
-              proxy, not a confirmed visit.
-            </CalculationNote>
+        <CalculationNote title="Trial-booking proxy">
+          UsefulDesk has no formal booking ledger yet, so this component uses a
+          Trial booked lead status, a completed Trial booked follow-up outcome,
+          or trial-membership evidence. It is a labelled proxy, not a confirmed
+          visit.
+        </CalculationNote>
 
-            <CalculationNote title="Positive follow-up outcomes">
-              This rate uses only completed follow-ups with a recorded outcome.
-              Renewed, paid, promised, contacted, and trial booked count as
-              positive. No answer, not interested, and other do not.
-            </CalculationNote>
+        <CalculationNote title="Positive follow-up outcomes">
+          This rate uses only completed follow-ups with a recorded outcome.
+          Renewed, paid, promised, contacted, and trial booked count as
+          positive. No answer, not interested, and other do not.
+        </CalculationNote>
 
-            <CalculationNote title="Sample confidence and unavailable data">
-              For this view, the smallest component denominator is{' '}
-              {fmt.number(source.confidenceSample)} and confidence is{' '}
-              {CONFIDENCE_LABEL[source.confidence]}. Under 10 is low, 10–29 is
-              directional, and 30+ is strong. If any component has no measurable
-              denominator—such as no inbound messages or no due follow-ups—the
-              component and headline rating stay unavailable instead of being
-              scored as zero.
-            </CalculationNote>
-          </div>
+        <CalculationNote title="Sample confidence and unavailable data">
+          For this view, the smallest component denominator is{' '}
+          {fmt.number(source.confidenceSample)} and confidence is{' '}
+          {CONFIDENCE_LABEL[source.confidence]}. Under 10 is low, 10–29 is
+          directional, and 30+ is strong. If any component has no measurable
+          denominator—such as no inbound messages or no due follow-ups—the
+          component and headline rating stay unavailable instead of being scored
+          as zero.
+        </CalculationNote>
+      </div>
 
-          <DialogFooter showCloseButton />
-        </DialogContent>
-      </Dialog>
-    </div>
+      <DialogFooter showCloseButton />
+    </DialogContent>
   );
 }
 
@@ -400,7 +422,7 @@ function RadarChart({ source }: { source: LeadSourceRating }) {
 
   return (
     <figure className="w-full">
-      <div className="relative mx-auto aspect-square w-full max-w-56">
+      <div className="relative mx-auto aspect-square w-full max-w-64">
         <svg
           viewBox={`0 0 ${RADAR_SIZE} ${RADAR_SIZE}`}
           className="aspect-square w-full overflow-visible"

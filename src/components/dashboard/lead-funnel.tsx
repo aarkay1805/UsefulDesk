@@ -77,7 +77,7 @@ export function LeadFunnel({ data, loading }: LeadFunnelProps) {
                       </span>
                     </div>
                   </div>
-                  <span className="w-20 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
+                  <span className="w-24 shrink-0 whitespace-nowrap text-right text-[11px] text-muted-foreground tabular-nums">
                     {s.count > 0 && s.avgDays != null
                       ? `~${s.avgDays}d in stage`
                       : ''}
