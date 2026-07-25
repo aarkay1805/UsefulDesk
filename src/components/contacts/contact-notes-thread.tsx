@@ -18,7 +18,7 @@ import {
   type ReactNode,
 } from 'react';
 import { toast } from 'sonner';
-import { Calendar, Check, Loader2, Trash2 } from 'lucide-react';
+import { Calendar, Loader2, Trash2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -46,7 +46,6 @@ import {
   type FollowUpDraft,
 } from '@/components/follow-ups/follow-up-fields';
 import type { ContactNote, FollowUp, FollowUpReason } from '@/types';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MotionList, MotionListItem } from '@/components/ui/motion-list';
 import { Textarea } from '@/components/ui/textarea';
@@ -57,6 +56,7 @@ import {
 } from '@/components/ui/tooltip';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-up-dialog';
+import { FollowUpCompletionControl } from '@/components/follow-ups/follow-up-completion-control';
 
 /** The slice of a follow_ups row the profile activity timeline needs. */
 interface ProfileFollowUp {
@@ -675,41 +675,6 @@ function StandaloneFollowUpCard({
         ) : undefined
       }
     />
-  );
-}
-
-function FollowUpCompletionControl({
-  status,
-  onMarkDone,
-}: {
-  status: FollowUp['status'];
-  onMarkDone: () => void;
-}) {
-  if (status === 'done') {
-    return (
-      <span
-        title="Followed up"
-        className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-white"
-      >
-        <Check className="size-4" />
-      </span>
-    );
-  }
-
-  if (status === 'cancelled') {
-    return <Badge variant="neutral">Cancelled</Badge>;
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onMarkDone}
-      aria-label="Mark as followed up"
-      title="Mark as followed up"
-      className="border-border text-muted-foreground hover:text-green-foreground flex size-7 shrink-0 items-center justify-center rounded-full border transition-colors hover:border-green-500"
-    >
-      <Check className="size-4" />
-    </button>
   );
 }
 

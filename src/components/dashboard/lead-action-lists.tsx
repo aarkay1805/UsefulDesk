@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { CheckCircle2, Inbox, UserRoundSearch } from 'lucide-react';
+import { Inbox, UserRoundSearch } from 'lucide-react';
 import {
   loadDashboardFollowUps,
   type DashboardFollowUpMode,
@@ -16,8 +16,8 @@ import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summ
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { useAccountStaff } from '@/components/members/use-account-staff';
 import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-up-dialog';
+import { FollowUpCompletionControl } from '@/components/follow-ups/follow-up-completion-control';
 import { Badge } from '@/components/ui/badge';
-import { GatedButton } from '@/components/ui/gated-button';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Skeleton } from './skeleton';
 
@@ -253,19 +253,16 @@ export function LeadActionLists() {
                           title={`Assigned to ${assignee}`}
                         />
                       )}
-                      <GatedButton
-                        variant="ghost"
-                        size="icon-sm"
+                      <FollowUpCompletionControl
+                        status="open"
                         canAct={canEdit}
                         gateReason="complete follow-ups"
-                        onClick={(event) => {
+                        onMarkDone={(event) => {
                           event.stopPropagation();
                           setCompleting(f);
                         }}
-                        aria-label={`Complete follow-up for ${who}`}
-                      >
-                        <CheckCircle2 className="size-3.5" />
-                      </GatedButton>
+                        ariaLabel={`Complete follow-up for ${who}`}
+                      />
                     </div>
                   </li>
                 );
