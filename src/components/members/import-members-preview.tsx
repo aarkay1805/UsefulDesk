@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -35,6 +36,7 @@ import type {
   MemberImportRow,
   MemberRowError,
 } from '@/lib/memberships/import-commit';
+import type { MigrationIssue } from '@/lib/memberships/migration-recipe';
 import { isChargeableAmount } from '@/lib/memberships/periods';
 import type { Membership, MembershipPlan } from '@/types';
 import type { StaffMember } from './use-account-staff';
@@ -63,6 +65,7 @@ export interface MemberImportPreviewRow {
   existingContactId: string | null;
   existingReceivedVia: string | null;
   alreadyMember: boolean;
+  migrationIssues: MigrationIssue[];
 }
 
 interface ImportMembersPreviewProps {
@@ -97,6 +100,14 @@ export function ImportMembersPreview({
     row: number;
     key: string;
   } | null>(null);
+  const [showOnlyAttention, setShowOnlyAttention] = useState(() =>
+    rows.some(
+      (row) =>
+        !row.alreadyMember &&
+        (row.built.errors.length > 0 ||
+          row.migrationIssues.some((issue) => issue.severity === 'review'))
+    )
+  );
 
   const columns = useMemo(
     () =>
@@ -106,13 +117,30 @@ export function ImportMembersPreview({
       }),
     [mappedKeys]
   );
-  const invalid = rows.filter(
-    (row) => !row.alreadyMember && row.built.errors.length > 0
-  ).length;
+  const attentionRows = useMemo(
+    () =>
+      rows
+        .map((row, index) => ({ row, index }))
+        .filter(
+          ({ row }) =>
+            !row.alreadyMember &&
+            (row.built.errors.length > 0 ||
+              row.migrationIssues.some((issue) => issue.severity === 'review'))
+        ),
+    [rows]
+  );
+  const attention = attentionRows.length;
   const alreadyMembers = rows.filter((row) => row.alreadyMember).length;
   const ready = rows.filter(
-    (row) => !row.alreadyMember && row.built.membership
+    (row) =>
+      !row.alreadyMember &&
+      row.built.membership &&
+      row.built.errors.length === 0 &&
+      !row.migrationIssues.some((issue) => issue.severity === 'review')
   ).length;
+  const visibleRows = showOnlyAttention
+    ? attentionRows
+    : rows.slice(0, PREVIEW_CAP).map((row, index) => ({ row, index }));
 
   const unknownPlans = useMemo(() => {
     const counts = new Map<string, number>();
@@ -360,21 +388,44 @@ export function ImportMembersPreview({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="success">{ready} ready</Badge>
-        {invalid > 0 && (
-          <Badge variant="warning">{invalid} need attention</Badge>
+        <Badge variant="success">{fmt.number(ready)} ready</Badge>
+        {attention > 0 && (
+          <Badge variant="warning">
+            {fmt.number(attention)} need attention
+          </Badge>
         )}
         {alreadyMembers > 0 && (
-          <Badge variant="neutral">{alreadyMembers} already members</Badge>
+          <Badge variant="neutral">
+            {fmt.number(alreadyMembers)} already members
+          </Badge>
         )}
         {skippedNoPhone > 0 && (
-          <Badge variant="neutral">{skippedNoPhone} without phone</Badge>
+          <Badge variant="neutral">
+            {fmt.number(skippedNoPhone)} without phone
+          </Badge>
         )}
         {skippedInvalidPhone > 0 && (
-          <Badge variant="neutral">{skippedInvalidPhone} invalid phones</Badge>
+          <Badge variant="neutral">
+            {fmt.number(skippedInvalidPhone)} invalid phones
+          </Badge>
         )}
         {skippedDuplicates > 0 && (
-          <Badge variant="neutral">{skippedDuplicates} duplicates</Badge>
+          <Badge variant="neutral">
+            {fmt.number(skippedDuplicates)} duplicates
+          </Badge>
+        )}
+        {attention > 0 && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="ml-auto"
+            onClick={() => setShowOnlyAttention((current) => !current)}
+          >
+            {showOnlyAttention
+              ? 'Show all rows'
+              : `Review ${fmt.number(attention)} row${attention === 1 ? '' : 's'}`}
+          </Button>
         )}
       </div>
 
@@ -444,7 +495,7 @@ export function ImportMembersPreview({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.slice(0, PREVIEW_CAP).map((row, index) => (
+            {visibleRows.map(({ row, index }) => (
               <TableRow key={`${row.source.phone}-${index}`}>
                 {columns.map((column) => (
                   <TableCell key={column.key} className="p-0">
@@ -456,27 +507,45 @@ export function ImportMembersPreview({
                     <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
                       <CheckCircle className="size-3.5" /> Skip existing
                     </span>
-                  ) : row.built.errors.length === 0 ? (
-                    <span className="text-emerald-foreground inline-flex items-center gap-1.5 text-xs">
-                      <CheckCircle className="size-3.5" /> Ready
-                    </span>
-                  ) : (
+                  ) : row.built.errors.length > 0 ? (
                     <span className="text-red-foreground inline-flex items-start gap-1.5 text-xs">
                       <XCircle className="mt-px size-3.5 shrink-0" />
                       {ERROR_LABEL[row.built.errors[0]]}
+                    </span>
+                  ) : row.migrationIssues.some((issue) =>
+                      ['payment-mismatch', 'overpayment'].includes(issue.code)
+                    ) ? (
+                    <span className="text-amber-foreground inline-flex items-start gap-1.5 text-xs">
+                      <AlertTriangle className="mt-px size-3.5 shrink-0" />
+                      Payment won’t import
+                    </span>
+                  ) : (
+                    <span className="text-emerald-foreground inline-flex items-center gap-1.5 text-xs">
+                      <CheckCircle className="size-3.5" /> Ready
                     </span>
                   )}
                 </TableCell>
               </TableRow>
             ))}
+            {visibleRows.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length + 1}
+                  className="text-muted-foreground h-24 text-center text-sm"
+                >
+                  No rows need attention.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
 
-      {rows.length > PREVIEW_CAP && (
+      {!showOnlyAttention && rows.length > PREVIEW_CAP && (
         <p className="text-muted-foreground text-xs">
-          Showing the first {PREVIEW_CAP} of {rows.length} rows — all valid rows
-          will be imported.
+          Showing the first {fmt.number(PREVIEW_CAP)} of{' '}
+          {fmt.number(rows.length)} rows — all valid rows will be imported. Use
+          Review to see every row needing attention.
         </p>
       )}
     </div>

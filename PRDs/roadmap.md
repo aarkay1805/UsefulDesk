@@ -8,7 +8,7 @@ Membership plans · member records · renewal action lists (expiring / expired /
 
 ## ✅ Phase 2 — India-first workflows
 
-Shipped addition: **AI-assisted member migration that proposes a typed allowlisted interpretation from bounded CSV samples, deterministically selects each source member’s latest dated row, separates plan terms, preserves expired semantics and legacy IDs, blocks shared-phone merges and unsafe payments, retains manual mapping plus human preview, and reports determinate row-level progress during large commits**.
+Shipped addition: **AI-assisted member migration that proposes a typed allowlisted interpretation from bounded CSV samples, deterministically selects each source member’s latest dated row, separates plan terms, preserves expired semantics and legacy IDs, blocks shared-phone merges and unsafe payments, groups repeated findings by their real import consequence, carries every actionable financial row into an uncapped attention-focused preview, retains manual mapping plus human preview, and reports determinate row-level progress during large commits**.
 
 Shipped addition: **member photo clipboard paste with concise dialog guidance and platform-standard Command+V / Control+V shortcuts feeding the existing validated square-crop preview and optimized WebP upload flow**.
 

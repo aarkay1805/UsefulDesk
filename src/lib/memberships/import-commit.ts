@@ -85,6 +85,7 @@ export function validateMemberMapping(
 
 /** One CSV row after column mapping, before plan/staff/value resolution. */
 export interface MemberImportRow {
+  sourceRowIndex?: number;
   phone: string;
   name?: string;
   email?: string;
@@ -128,7 +129,7 @@ export interface MemberMappingResult {
 
 type MemberStringProp = Exclude<
   keyof MemberImportRow,
-  'phone' | 'tagNames' | 'customValues'
+  'sourceRowIndex' | 'phone' | 'tagNames' | 'customValues'
 >;
 
 const ROW_PROP: Record<
@@ -196,7 +197,7 @@ export function applyMemberMapping(
   let skippedDuplicate = 0;
   let invalidCustomValues = 0;
 
-  for (const source of rows) {
+  for (const [sourceRowIndex, source] of rows.entries()) {
     const rawPhone = first(source, 'phone');
     if (!rawPhone) {
       skippedNoPhone++;
@@ -218,6 +219,7 @@ export function applyMemberMapping(
     seen.add(phoneKey);
 
     const mapped: MemberImportRow = {
+      sourceRowIndex,
       phone,
       tagNames: [],
       customValues: [],
@@ -329,8 +331,9 @@ export function parseImportDate(
     return ymd(year, month, day);
   }
 
-  const dayName =
-    /^(\d{1,2})(?:\s+|-)([a-z]+)(?:[,\s]+|-)(\d{2,4})$/i.exec(input);
+  const dayName = /^(\d{1,2})(?:\s+|-)([a-z]+)(?:[,\s]+|-)(\d{2,4})$/i.exec(
+    input
+  );
   const nameDay = /^([a-z]+)\s+(\d{1,2})(?:,)?\s+(\d{2,4})$/i.exec(input);
   if (dayName || nameDay) {
     const monthName = (dayName?.[2] ?? nameDay?.[1] ?? '').toLowerCase();

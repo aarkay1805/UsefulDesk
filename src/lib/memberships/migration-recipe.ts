@@ -1,10 +1,21 @@
-import { normalizeImportHeader, type RawCsv } from '@/lib/contacts/field-mapping';
+import {
+  normalizeImportHeader,
+  type RawCsv,
+} from '@/lib/contacts/field-mapping';
 import { normalizeKey } from '@/lib/contacts/dedupe';
 import { parseImportDate, parseMoney } from './import-commit';
 
 export const MIGRATION_TARGETS = [
-  'phone', 'name', 'plan', 'pricing_option', 'start_date', 'end_date',
-  'status', 'fee_amount', 'amount_paid', 'notes',
+  'phone',
+  'name',
+  'plan',
+  'pricing_option',
+  'start_date',
+  'end_date',
+  'status',
+  'fee_amount',
+  'amount_paid',
+  'notes',
 ] as const;
 export type MigrationTarget = (typeof MIGRATION_TARGETS)[number];
 
@@ -34,11 +45,24 @@ export interface MemberMigrationRecipe {
 }
 
 export interface MigrationIssue {
-  code: 'shared-phone' | 'missing-phone' | 'payment-mismatch' | 'overpayment' | 'duration-mismatch';
+  code:
+    | 'shared-phone'
+    | 'missing-phone'
+    | 'payment-mismatch'
+    | 'overpayment'
+    | 'duration-mismatch';
   severity: 'review' | 'warning';
+  rowIndex: number;
   sourceId: string;
   message: string;
   nextAction: string;
+}
+
+export interface MigrationIssueSummary {
+  expiryDatesKept: number;
+  missingPhones: number;
+  sharedPhones: number;
+  paymentsSkipped: number;
 }
 
 export interface MigrationTransform {
@@ -63,16 +87,24 @@ const HEADER_ALIASES: Record<MigrationTarget, string[]> = {
 
 function findHeader(headers: string[], aliases: string[]): string | null {
   const wanted = new Set(aliases.map(normalizeImportHeader));
-  return headers.find((header) => wanted.has(normalizeImportHeader(header))) ?? null;
+  return (
+    headers.find((header) => wanted.has(normalizeImportHeader(header))) ?? null
+  );
 }
 
-export function suggestMemberMigrationRecipe(headers: string[]): MemberMigrationRecipe {
+export function suggestMemberMigrationRecipe(
+  headers: string[]
+): MemberMigrationRecipe {
   const mappings: Partial<Record<MigrationTarget, string>> = {};
   for (const target of MIGRATION_TARGETS) {
     const header = findHeader(headers, HEADER_ALIASES[target]);
     if (header) mappings[target] = header;
   }
-  const identityColumn = findHeader(headers, ['member id', 'customer id', 'legacy id']);
+  const identityColumn = findHeader(headers, [
+    'member id',
+    'customer id',
+    'legacy id',
+  ]);
   return {
     version: 1,
     mappings,
@@ -83,15 +115,24 @@ export function suggestMemberMigrationRecipe(headers: string[]): MemberMigration
     splitPlanDuration: true,
     explicitEndDateWins: true,
     money: {
-      listPriceColumn: findHeader(headers, ['actual amt', 'actual amount', 'list price']),
+      listPriceColumn: findHeader(headers, [
+        'actual amt',
+        'actual amount',
+        'list price',
+      ]),
       feeColumn: mappings.fee_amount ?? null,
       paidColumn: mappings.amount_paid ?? null,
       balanceColumn: findHeader(headers, ['balance', 'amount due']),
     },
     legacyId: identityColumn ? 'notes' : 'exclude',
     confidence: 0.75,
-    summary: ['Import the latest membership row for each source member.', 'Keep older membership history out of this first import.'],
-    warnings: ['Plans are matched for review and are never created automatically.'],
+    summary: [
+      'Import the latest membership row for each source member.',
+      'Keep older membership history out of this first import.',
+    ],
+    warnings: [
+      'Plans are matched for review and are never created automatically.',
+    ],
     questions: [],
   };
 }
@@ -104,32 +145,62 @@ export function validateMemberMigrationRecipe(
   value: unknown,
   headers: string[]
 ): { ok: true; recipe: MemberMigrationRecipe } | { ok: false; error: string } {
-  if (!value || typeof value !== 'object') return { ok: false, error: 'Recipe must be an object.' };
+  if (!value || typeof value !== 'object')
+    return { ok: false, error: 'Recipe must be an object.' };
   const candidate = value as Partial<MemberMigrationRecipe>;
   const headerSet = new Set(headers);
-  if (candidate.version !== 1 || !candidate.mappings || typeof candidate.mappings !== 'object') {
+  if (
+    candidate.version !== 1 ||
+    !candidate.mappings ||
+    typeof candidate.mappings !== 'object'
+  ) {
     return { ok: false, error: 'Unsupported recipe version.' };
   }
   const mappings: Partial<Record<MigrationTarget, string>> = {};
   for (const [key, column] of Object.entries(candidate.mappings)) {
-    if (!MIGRATION_TARGETS.includes(key as MigrationTarget) || typeof column !== 'string' || !headerSet.has(column)) {
+    if (
+      !MIGRATION_TARGETS.includes(key as MigrationTarget) ||
+      typeof column !== 'string' ||
+      !headerSet.has(column)
+    ) {
       return { ok: false, error: `Unsafe mapping: ${key}.` };
     }
     mappings[key as MigrationTarget] = column;
   }
-  for (const column of [candidate.identityColumn, candidate.latestByDateColumn]) {
+  for (const column of [
+    candidate.identityColumn,
+    candidate.latestByDateColumn,
+  ]) {
     if (!isStringOrNull(column) || (column && !headerSet.has(column))) {
       return { ok: false, error: 'Recipe refers to an unknown column.' };
     }
   }
   const money = candidate.money;
-  if (!money || ![money.listPriceColumn, money.feeColumn, money.paidColumn, money.balanceColumn]
-    .every((column) => isStringOrNull(column) && (!column || headerSet.has(column)))) {
-    return { ok: false, error: 'Money interpretation refers to an unknown column.' };
+  if (
+    !money ||
+    ![
+      money.listPriceColumn,
+      money.feeColumn,
+      money.paidColumn,
+      money.balanceColumn,
+    ].every(
+      (column) => isStringOrNull(column) && (!column || headerSet.has(column))
+    )
+  ) {
+    return {
+      ok: false,
+      error: 'Money interpretation refers to an unknown column.',
+    };
   }
   const strings = (items: unknown) =>
-    Array.isArray(items) && items.length <= 12 && items.every((item) => typeof item === 'string' && item.length <= 300);
-  if (!strings(candidate.summary) || !strings(candidate.warnings) || !strings(candidate.questions)) {
+    Array.isArray(items) &&
+    items.length <= 12 &&
+    items.every((item) => typeof item === 'string' && item.length <= 300);
+  if (
+    !strings(candidate.summary) ||
+    !strings(candidate.warnings) ||
+    !strings(candidate.questions)
+  ) {
     return { ok: false, error: 'Recipe explanations are invalid.' };
   }
   return {
@@ -140,7 +211,10 @@ export function validateMemberMigrationRecipe(
       excludeSummaryRows: candidate.excludeSummaryRows === true,
       identityColumn: candidate.identityColumn ?? null,
       latestByDateColumn: candidate.latestByDateColumn ?? null,
-      statusRules: { inactiveWithPastEndDate: 'expired', cancelled: 'cancelled' },
+      statusRules: {
+        inactiveWithPastEndDate: 'expired',
+        cancelled: 'cancelled',
+      },
       splitPlanDuration: candidate.splitPlanDuration === true,
       explicitEndDateWins: candidate.explicitEndDateWins !== false,
       money,
@@ -153,8 +227,12 @@ export function validateMemberMigrationRecipe(
   };
 }
 
-const DURATION = /\s+(\d+)\s*(M|MONTHS?|Y|YEARS?|D|DAYS?|SESSIONS?|SESSION|PER SESSION)$/i;
-export function splitPlanDuration(value: string): { plan: string; option: string } {
+const DURATION =
+  /\s+(\d+)\s*(M|MONTHS?|Y|YEARS?|D|DAYS?|SESSIONS?|SESSION|PER SESSION)$/i;
+export function splitPlanDuration(value: string): {
+  plan: string;
+  option: string;
+} {
   const trimmed = value.trim();
   if (/\s+PER SESSION$/i.test(trimmed)) {
     return {
@@ -166,9 +244,42 @@ export function splitPlanDuration(value: string): { plan: string; option: string
   if (!match) return { plan: trimmed, option: '' };
   const count = match[1];
   const unit = match[2].toUpperCase();
-  const option = unit.startsWith('M') ? `${count} month` : unit.startsWith('Y') ? `${count} year` :
-    unit.startsWith('D') ? `${count} day` : unit === 'PER SESSION' ? 'Per session' : `${count} sessions`;
+  const option = unit.startsWith('M')
+    ? `${count} month`
+    : unit.startsWith('Y')
+      ? `${count} year`
+      : unit.startsWith('D')
+        ? `${count} day`
+        : unit === 'PER SESSION'
+          ? 'Per session'
+          : `${count} sessions`;
   return { plan: trimmed.slice(0, match.index).trim(), option };
+}
+
+function countAffectedRows(
+  issues: MigrationIssue[],
+  codes: MigrationIssue['code'][]
+): number {
+  const wanted = new Set(codes);
+  return new Set(
+    issues
+      .filter((issue) => wanted.has(issue.code))
+      .map((issue) => issue.rowIndex)
+  ).size;
+}
+
+export function summarizeMigrationIssues(
+  issues: MigrationIssue[]
+): MigrationIssueSummary {
+  return {
+    expiryDatesKept: countAffectedRows(issues, ['duration-mismatch']),
+    missingPhones: countAffectedRows(issues, ['missing-phone']),
+    sharedPhones: countAffectedRows(issues, ['shared-phone']),
+    paymentsSkipped: countAffectedRows(issues, [
+      'payment-mismatch',
+      'overpayment',
+    ]),
+  };
 }
 
 function expectedEndDate(start: string, option: string): string | null {
@@ -176,7 +287,9 @@ function expectedEndDate(start: string, option: string): string | null {
   if (!match) return null;
   const parsed = /^(\d{4})-(\d{2})-(\d{2})$/.exec(start);
   if (!parsed) return null;
-  const date = new Date(Date.UTC(Number(parsed[1]), Number(parsed[2]) - 1, Number(parsed[3])));
+  const date = new Date(
+    Date.UTC(Number(parsed[1]), Number(parsed[2]) - 1, Number(parsed[3]))
+  );
   const count = Number(match[1]);
   if (match[2] === 'month') date.setUTCMonth(date.getUTCMonth() + count);
   if (match[2] === 'year') date.setUTCFullYear(date.getUTCFullYear() + count);
@@ -196,7 +309,8 @@ export function applyMemberMigrationRecipe(
     header ? (row[index.get(header) ?? -1] ?? '').trim() : '';
   let excluded = 0;
   let rows = source.rows.filter((row) => {
-    const summary = recipe.excludeSummaryRows &&
+    const summary =
+      recipe.excludeSummaryRows &&
       row.some((value) => /^number of records\s*:/i.test(value.trim()));
     if (summary) excluded++;
     return !summary;
@@ -219,7 +333,10 @@ export function applyMemberMigrationRecipe(
     const passthrough: string[][] = [];
     for (const row of rows) {
       const id = cell(row, recipe.identityColumn);
-      if (!id) { passthrough.push(row); continue; }
+      if (!id) {
+        passthrough.push(row);
+        continue;
+      }
       const date = parseImportDate(cell(row, recipe.latestByDateColumn)) ?? '';
       const current = latest.get(id);
       if (!current || date > current.date) latest.set(id, { row, date });
@@ -230,15 +347,31 @@ export function applyMemberMigrationRecipe(
 
   const issues: MigrationIssue[] = [];
   const outputHeaders = [...MIGRATION_TARGETS.map(String)];
-  const outputRows = rows.map((row) => {
+  const outputRows = rows.map((row, rowIndex) => {
     const id = cell(row, recipe.identityColumn) || 'Unknown';
     const values = new Map<MigrationTarget, string>();
-    for (const target of MIGRATION_TARGETS) values.set(target, cell(row, recipe.mappings[target]));
+    for (const target of MIGRATION_TARGETS)
+      values.set(target, cell(row, recipe.mappings[target]));
     const phone = normalizeKey(values.get('phone') ?? '');
     if (!phone) {
-      issues.push({ code: 'missing-phone', severity: 'review', sourceId: id, message: 'No usable phone number.', nextAction: 'Add a phone number or exclude this member.' });
+      issues.push({
+        code: 'missing-phone',
+        severity: 'review',
+        rowIndex,
+        sourceId: id,
+        message: 'No usable phone number.',
+        nextAction: 'Add a phone number or exclude this member.',
+      });
     } else if ((phoneOwners.get(phone)?.size ?? 0) > 1) {
-      issues.push({ code: 'shared-phone', severity: 'review', sourceId: id, message: 'This phone is shared by different source Member IDs.', nextAction: 'Choose the correct phone for each member; they will not be merged.' });
+      issues.push({
+        code: 'shared-phone',
+        severity: 'review',
+        rowIndex,
+        sourceId: id,
+        message: 'This phone is shared by different source Member IDs.',
+        nextAction:
+          'Choose the correct phone for each member; they will not be merged.',
+      });
       values.set('phone', '');
     }
     if (recipe.splitPlanDuration) {
@@ -251,10 +384,16 @@ export function applyMemberMigrationRecipe(
     const durationEnd = parsedStart
       ? expectedEndDate(parsedStart, values.get('pricing_option') ?? '')
       : null;
-    if (recipe.explicitEndDateWins && parsedEnd && durationEnd && parsedEnd !== durationEnd) {
+    if (
+      recipe.explicitEndDateWins &&
+      parsedEnd &&
+      durationEnd &&
+      parsedEnd !== durationEnd
+    ) {
       issues.push({
         code: 'duration-mismatch',
         severity: 'warning',
+        rowIndex,
         sourceId: id,
         message: `Explicit end date ${parsedEnd} differs from the plan term (${durationEnd}).`,
         nextAction: 'The explicit end date will win; verify it in preview.',
@@ -262,31 +401,65 @@ export function applyMemberMigrationRecipe(
     }
     const end = parsedEnd;
     const status = (values.get('status') ?? '').toLowerCase();
-    if (status === 'inactive' && end && end < options.today) values.set('status', 'expired');
+    if (status === 'inactive' && end && end < options.today)
+      values.set('status', 'expired');
     else if (status === 'inactive') values.set('status', 'cancelled');
     const fee = parseMoney(cell(row, recipe.money.feeColumn));
     const paid = parseMoney(cell(row, recipe.money.paidColumn));
     const balance = parseMoney(cell(row, recipe.money.balanceColumn));
     if (fee !== null && paid !== null && paid > fee) {
-      issues.push({ code: 'overpayment', severity: 'review', sourceId: id, message: 'Amount paid is greater than the final fee.', nextAction: 'Correct the amounts before recording a payment.' });
+      issues.push({
+        code: 'overpayment',
+        severity: 'review',
+        rowIndex,
+        sourceId: id,
+        message: 'Amount paid is greater than the final fee.',
+        nextAction: 'Correct the amounts before recording a payment.',
+      });
       values.set('amount_paid', '');
-    } else if (fee !== null && paid !== null && balance !== null && Math.abs(paid + balance - fee) > 0.01) {
-      issues.push({ code: 'payment-mismatch', severity: 'review', sourceId: id, message: 'Paid + balance does not equal the final fee.', nextAction: 'Verify the source amounts; no payment will be imported for this row.' });
+    } else if (
+      fee !== null &&
+      paid !== null &&
+      balance !== null &&
+      Math.abs(paid + balance - fee) > 0.01
+    ) {
+      issues.push({
+        code: 'payment-mismatch',
+        severity: 'review',
+        rowIndex,
+        sourceId: id,
+        message: 'Paid + balance does not equal the final fee.',
+        nextAction:
+          'Verify the source amounts; no payment will be imported for this row.',
+      });
       values.set('amount_paid', '');
     }
     values.set('fee_amount', fee === null ? '' : String(fee));
     if (recipe.legacyId === 'notes' && recipe.identityColumn) {
       const existing = values.get('notes');
-      values.set('notes', [existing, `Legacy Member ID: ${id}`].filter(Boolean).join(' · '));
+      values.set(
+        'notes',
+        [existing, `Legacy Member ID: ${id}`].filter(Boolean).join(' · ')
+      );
     }
-    return outputHeaders.map((header) => values.get(header as MigrationTarget) ?? '');
+    return outputHeaders.map(
+      (header) => values.get(header as MigrationTarget) ?? ''
+    );
   });
-  const reviewIds = new Set(issues.filter((issue) => issue.severity === 'review').map((issue) => issue.sourceId));
+  const reviewRows = new Set(
+    issues
+      .filter((issue) => issue.severity === 'review')
+      .map((issue) => issue.rowIndex)
+  );
   return {
     raw: { headers: outputHeaders, rows: outputRows },
     mapping: outputHeaders,
     issues,
-    counts: { ready: outputRows.length - reviewIds.size, needsReview: reviewIds.size, excluded },
+    counts: {
+      ready: outputRows.length - reviewRows.size,
+      needsReview: reviewRows.size,
+      excluded,
+    },
   };
 }
 
@@ -296,7 +469,9 @@ export function buildMigrationAnalysis(raw: RawCsv) {
     rowCount: raw.rows.length,
     samples: raw.headers.map((header, column) => ({
       header,
-      values: [...new Set(raw.rows.map((row) => row[column]?.trim()).filter(Boolean))].slice(0, 5),
+      values: [
+        ...new Set(raw.rows.map((row) => row[column]?.trim()).filter(Boolean)),
+      ].slice(0, 5),
     })),
   };
 }

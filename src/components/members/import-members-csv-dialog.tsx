@@ -90,6 +90,7 @@ import { MEMBER_IMPORT_FIELDS } from '@/lib/memberships/member-field-registry';
 import {
   applyMemberMigrationRecipe,
   buildMigrationAnalysis,
+  summarizeMigrationIssues,
   type MemberMigrationRecipe,
   type MigrationIssue,
 } from '@/lib/memberships/migration-recipe';
@@ -189,8 +190,9 @@ export function ImportMembersCsvDialog({
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [compliance, setCompliance] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [importProgress, setImportProgress] =
-    useState<ImportProgress | null>(null);
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(
+    null
+  );
   const [result, setResult] = useState<ImportResult | null>(null);
 
   const [createCol, setCreateCol] = useState<number | null>(null);
@@ -360,7 +362,9 @@ export function ImportMembersCsvDialog({
       setMapping(transformed.mapping);
       setStep(2);
       if (!data.configured) {
-        toast.info('AI is not configured. A safe local interpretation is shown; you can still map fields manually.');
+        toast.info(
+          'AI is not configured. A safe local interpretation is shown; you can still map fields manually.'
+        );
       } else if (data.warning) {
         toast.warning(data.warning);
       }
@@ -568,6 +572,14 @@ export function ImportMembersCsvDialog({
         )
       );
 
+      const issuesByRow = new Map<number, MigrationIssue[]>();
+      for (const issue of migrationIssues) {
+        issuesByRow.set(issue.rowIndex, [
+          ...(issuesByRow.get(issue.rowIndex) ?? []),
+          issue,
+        ]);
+      }
+
       setPreviewRows(
         mapped.rows.map((source) => {
           const existing = contactByPhone.get(normalizeKey(source.phone));
@@ -583,6 +595,7 @@ export function ImportMembersCsvDialog({
             existingContactId: existing?.id ?? null,
             existingReceivedVia: existing?.receivedVia ?? null,
             alreadyMember: existing ? memberContactIds.has(existing.id) : false,
+            migrationIssues: issuesByRow.get(source.sourceRowIndex ?? -1) ?? [],
           } satisfies MemberImportPreviewRow;
         })
       );
@@ -704,7 +717,9 @@ export function ImportMembersCsvDialog({
           if (error || !data?.id) {
             if (isUniqueViolation(error)) skipped++;
             else failed++;
-            advanceProgress(`Processed ${completedWork + 1} of ${readyRows.length} members`);
+            advanceProgress(
+              `Processed ${completedWork + 1} of ${readyRows.length} members`
+            );
             continue;
           }
           contactId = data.id;
@@ -755,7 +770,9 @@ export function ImportMembersCsvDialog({
               .select('id');
             if (error || !data?.length) {
               failed++;
-              advanceProgress(`Processed ${completedWork + 1} of ${readyRows.length} members`);
+              advanceProgress(
+                `Processed ${completedWork + 1} of ${readyRows.length} members`
+              );
               continue;
             }
           }
@@ -784,7 +801,9 @@ export function ImportMembersCsvDialog({
         if (membershipError || !createdMembership?.id) {
           if (isUniqueViolation(membershipError)) skipped++;
           else failed++;
-          advanceProgress(`Processed ${completedWork + 1} of ${readyRows.length} members`);
+          advanceProgress(
+            `Processed ${completedWork + 1} of ${readyRows.length} members`
+          );
           continue;
         }
 
@@ -833,7 +852,9 @@ export function ImportMembersCsvDialog({
             value: custom.value,
           });
         }
-        advanceProgress(`Processed ${completedWork + 1} of ${readyRows.length} members`);
+        advanceProgress(
+          `Processed ${completedWork + 1} of ${readyRows.length} members`
+        );
       }
 
       let customValues = 0;
@@ -886,7 +907,9 @@ export function ImportMembersCsvDialog({
       }
     } catch (error) {
       setImportProgress((current) =>
-        current ? { ...current, label: 'Import stopped before completion.' } : current
+        current
+          ? { ...current, label: 'Import stopped before completion.' }
+          : current
       );
       toast.error(getErrorMessage(error, 'Member import failed'));
     } finally {
@@ -967,7 +990,8 @@ export function ImportMembersCsvDialog({
                           <p className="text-muted-foreground text-xs">
                             Analyze file sends headers, a few representative
                             values, counts, and this explanation—not the full
-                            file. You will review every suggestion before import.
+                            file. You will review every suggestion before
+                            import.
                           </p>
                         </div>
                       )}
@@ -976,58 +1000,12 @@ export function ImportMembersCsvDialog({
                   {step === 2 && raw && (
                     <div className="space-y-5">
                       {suggestedRecipe && migrationCounts && (
-                        <div className="border-border bg-muted/20 space-y-3 rounded-lg border p-4">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium">
-                              Suggested interpretation
-                            </span>
-                            <Badge variant="secondary">
-                              {Math.round(suggestedRecipe.confidence * 100)}%
-                              confidence
-                            </Badge>
-                            <Badge variant="success">
-                              {migrationCounts.ready} ready
-                            </Badge>
-                            <Badge variant="warning">
-                              {migrationCounts.needsReview} need review
-                            </Badge>
-                            <Badge variant="secondary">
-                              {migrationCounts.excluded} older/summary rows excluded
-                            </Badge>
-                          </div>
-                          <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-sm">
-                            {suggestedRecipe.summary.map((item) => (
-                              <li key={item}>{item}</li>
-                            ))}
-                          </ul>
-                          {migrationIssues.length > 0 && (
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium">
-                                Exceptions requiring an owner and next action
-                              </p>
-                              {migrationIssues.map((issue, index) => (
-                                <div
-                                  key={`${issue.sourceId}-${issue.code}-${index}`}
-                                  className="border-border rounded-md border p-3 text-sm"
-                                >
-                                  <span className="font-medium">
-                                    Member {issue.sourceId} · Owner: you · Needs review
-                                  </span>
-                                  <p className="text-muted-foreground">
-                                    {issue.message} {issue.nextAction}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={useManualMapping}
-                          >
-                            Use manual mapping instead
-                          </Button>
-                        </div>
+                        <MigrationAnalysisSummary
+                          recipe={suggestedRecipe}
+                          counts={migrationCounts}
+                          issues={migrationIssues}
+                          onUseManualMapping={useManualMapping}
+                        />
                       )}
                       <MappingStep
                         raw={raw}
@@ -1151,7 +1129,9 @@ export function ImportMembersCsvDialog({
                       </Button>
                       <Button
                         type="button"
-                        disabled={readingFile || analyzing || !sourceRaw?.rows.length}
+                        disabled={
+                          readingFile || analyzing || !sourceRaw?.rows.length
+                        }
                         onClick={analyzeFile}
                       >
                         {analyzing ? (
@@ -1266,6 +1246,107 @@ export function ImportMembersCsvDialog({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function MigrationAnalysisSummary({
+  recipe,
+  counts,
+  issues,
+  onUseManualMapping,
+}: {
+  recipe: MemberMigrationRecipe;
+  counts: { ready: number; needsReview: number; excluded: number };
+  issues: MigrationIssue[];
+  onUseManualMapping: () => void;
+}) {
+  const { fmt } = useLocale();
+  const summary = summarizeMigrationIssues(issues);
+  const totalMembers = counts.ready + counts.needsReview;
+  const outcomes = [
+    summary.expiryDatesKept > 0
+      ? {
+          key: 'expiry',
+          badge: 'No action needed',
+          badgeVariant: 'success' as const,
+          text: `We’ll keep the expiry date from your file for ${fmt.number(summary.expiryDatesKept)} member${summary.expiryDatesKept === 1 ? '' : 's'} where it differs from the plan length.`,
+        }
+      : null,
+    summary.missingPhones > 0
+      ? {
+          key: 'missing-phone',
+          badge: 'Will be skipped',
+          badgeVariant: 'warning' as const,
+          text: `${fmt.number(summary.missingPhones)} member${summary.missingPhones === 1 ? '' : 's'} ${summary.missingPhones === 1 ? 'has' : 'have'} no usable phone number. Add ${summary.missingPhones === 1 ? 'it' : 'them'} to the file and upload again.`,
+        }
+      : null,
+    summary.sharedPhones > 0
+      ? {
+          key: 'shared-phone',
+          badge: 'Will be skipped',
+          badgeVariant: 'warning' as const,
+          text: `${fmt.number(summary.sharedPhones)} member${summary.sharedPhones === 1 ? '' : 's'} share a phone number with another member. Give each person a unique number in the file and upload again.`,
+        }
+      : null,
+    summary.paymentsSkipped > 0
+      ? {
+          key: 'payment',
+          badge: 'Payment skipped',
+          badgeVariant: 'warning' as const,
+          text: `${fmt.number(summary.paymentsSkipped)} member${summary.paymentsSkipped === 1 ? '' : 's'} will import with the fee due because the payment totals don’t match. Correct the source amounts and upload again to record ${summary.paymentsSkipped === 1 ? 'this payment' : 'these payments'}.`,
+        }
+      : null,
+  ].filter((outcome) => outcome !== null);
+
+  return (
+    <div className="border-border bg-muted/20 space-y-3 rounded-lg border p-4">
+      <div className="space-y-2">
+        <p className="text-foreground font-medium">
+          How this file will be imported
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-foreground text-sm">
+            {fmt.number(totalMembers)} member record
+            {totalMembers === 1 ? '' : 's'} found
+          </span>
+          <Badge variant="success">{fmt.number(counts.ready)} ready</Badge>
+          {counts.needsReview > 0 && (
+            <Badge variant="warning">
+              {fmt.number(counts.needsReview)} need attention
+            </Badge>
+          )}
+          {counts.excluded > 0 && (
+            <Badge variant="secondary">
+              {fmt.number(counts.excluded)} older or summary row
+              {counts.excluded === 1 ? '' : 's'} won’t import
+            </Badge>
+          )}
+        </div>
+        <p className="text-muted-foreground text-sm">
+          {recipe.identityColumn && recipe.latestByDateColumn
+            ? 'We’ll use the latest membership row for each member and leave older history out of this import.'
+            : 'Review the proposed column mapping below before previewing the members.'}
+        </p>
+      </div>
+
+      {outcomes.length > 0 && (
+        <div className="border-border divide-border divide-y rounded-lg border">
+          {outcomes.map((outcome) => (
+            <div
+              key={outcome.key}
+              className="grid gap-2 p-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start"
+            >
+              <Badge variant={outcome.badgeVariant}>{outcome.badge}</Badge>
+              <p className="text-muted-foreground text-sm">{outcome.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Button type="button" variant="outline" onClick={onUseManualMapping}>
+        Use manual mapping instead
+      </Button>
+    </div>
   );
 }
 

@@ -6,6 +6,12 @@
 
 ---
 
+## Consequence-first member import review
+
+The AI-assisted Members importer now groups repeated migration findings by customer outcome instead of rendering one jargon-heavy card per row: harmless expiry differences are one no-action notice, unusable/shared phones state that those members will be skipped, and inconsistent payments state that the member imports with the payment omitted. Preview opens on retained rows needing attention, carries financial migration notices into the import check, and can show all affected retained rows even beyond the normal 200-row preview cap. Key code: `src/lib/memberships/migration-recipe.ts`, `src/components/members/import-members-csv-dialog.tsx`, and `src/components/members/import-members-preview.tsx`.
+
+---
+
 ## Bulk member deletion
 
 All Members selection now includes an owner/admin-only **Delete** action for the current row selection or every member matching the active search and filters. One confirmation covers the whole selection; deletion uses the existing `delete_member` RPC with bounded concurrency, retains anonymized payment-ledger entries, reports partial failures honestly, and leaves failed rows selected for retry. Key code: `src/components/members/members-table.tsx`.
