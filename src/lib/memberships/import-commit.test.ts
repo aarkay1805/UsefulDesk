@@ -163,6 +163,7 @@ describe('date and value coercion', () => {
     expect(parseImportDate('01/07/2026', 'DMY')).toBe('2026-07-01');
     expect(parseImportDate('07/01/2026', 'MDY')).toBe('2026-07-01');
     expect(parseImportDate('15 Jun 2026')).toBe('2026-06-15');
+    expect(parseImportDate('21-Jul-2026')).toBe('2026-07-21');
     expect(parseImportDate('June 15, 2026')).toBe('2026-06-15');
     expect(parseImportDate('20260701')).toBe('2026-07-01');
     expect(parseImportDate('45292')).toBe('2024-01-01');

@@ -35,6 +35,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -85,6 +87,12 @@ import {
   type MemberImportSheet,
 } from '@/lib/memberships/import-workbook';
 import { MEMBER_IMPORT_FIELDS } from '@/lib/memberships/member-field-registry';
+import {
+  applyMemberMigrationRecipe,
+  buildMigrationAnalysis,
+  type MemberMigrationRecipe,
+  type MigrationIssue,
+} from '@/lib/memberships/migration-recipe';
 import { setMembershipCancellation } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -126,6 +134,12 @@ interface ImportResult {
   customValues: number;
 }
 
+interface ImportProgress {
+  completed: number;
+  total: number;
+  label: string;
+}
+
 export function ImportMembersCsvDialog({
   open,
   onOpenChange,
@@ -151,7 +165,18 @@ export function ImportMembersCsvDialog({
   const [workbookSheets, setWorkbookSheets] = useState<MemberImportSheet[]>([]);
   const [selectedSheet, setSelectedSheet] = useState('');
   const [raw, setRaw] = useState<RawCsv | null>(null);
+  const [sourceRaw, setSourceRaw] = useState<RawCsv | null>(null);
   const [mapping, setMapping] = useState<string[]>([]);
+  const [fileExplanation, setFileExplanation] = useState('');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [suggestedRecipe, setSuggestedRecipe] =
+    useState<MemberMigrationRecipe | null>(null);
+  const [migrationIssues, setMigrationIssues] = useState<MigrationIssue[]>([]);
+  const [migrationCounts, setMigrationCounts] = useState<{
+    ready: number;
+    needsReview: number;
+    excluded: number;
+  } | null>(null);
   const [dateOrder, setDateOrder] = useState<DateOrder>(accountDateOrder);
   const [customFields, setCustomFields] = useState<CustomFieldRef[]>([]);
   const [previewRows, setPreviewRows] = useState<MemberImportPreviewRow[]>([]);
@@ -164,6 +189,8 @@ export function ImportMembersCsvDialog({
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [compliance, setCompliance] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] =
+    useState<ImportProgress | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
 
   const [createCol, setCreateCol] = useState<number | null>(null);
@@ -183,7 +210,13 @@ export function ImportMembersCsvDialog({
       setWorkbookSheets([]);
       setSelectedSheet('');
       setRaw(null);
+      setSourceRaw(null);
       setMapping([]);
+      setFileExplanation('');
+      setAnalyzing(false);
+      setSuggestedRecipe(null);
+      setMigrationIssues([]);
+      setMigrationCounts(null);
       setDateOrder(accountDateOrder);
       setPreviewRows([]);
       setPreviewMeta({
@@ -194,6 +227,7 @@ export function ImportMembersCsvDialog({
       });
       setCompliance(false);
       setImporting(false);
+      setImportProgress(null);
       setResult(null);
       setCreateCol(null);
     }
@@ -275,7 +309,11 @@ export function ImportMembersCsvDialog({
   function prepareRawTable(parsed: RawCsv) {
     const nextMapping = autoMapMemberColumns(parsed.headers, customFields);
     setRaw(parsed);
+    setSourceRaw(parsed);
     setMapping(nextMapping);
+    setSuggestedRecipe(null);
+    setMigrationIssues([]);
+    setMigrationCounts(null);
     setResult(null);
 
     const dateColumns = nextMapping
@@ -287,6 +325,59 @@ export function ImportMembersCsvDialog({
       )
     );
     setDateOrder(detected === 'ambiguous' ? accountDateOrder : detected);
+  }
+
+  async function analyzeFile() {
+    const input = sourceRaw ?? raw;
+    if (!input) return;
+    setAnalyzing(true);
+    try {
+      const response = await fetch('/api/members/import-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...buildMigrationAnalysis(input),
+          explanation: fileExplanation,
+        }),
+      });
+      const data = (await response.json()) as {
+        error?: string;
+        configured?: boolean;
+        recipe?: MemberMigrationRecipe;
+        warning?: string;
+      };
+      if (!response.ok || !data.recipe) {
+        throw new Error(data.error || 'Could not analyze this file');
+      }
+      const transformed = applyMemberMigrationRecipe(input, data.recipe, {
+        today: fmt.today(),
+        dialCode: locale.phoneCountryCode,
+      });
+      setSuggestedRecipe(data.recipe);
+      setMigrationIssues(transformed.issues);
+      setMigrationCounts(transformed.counts);
+      setRaw(transformed.raw);
+      setMapping(transformed.mapping);
+      setStep(2);
+      if (!data.configured) {
+        toast.info('AI is not configured. A safe local interpretation is shown; you can still map fields manually.');
+      } else if (data.warning) {
+        toast.warning(data.warning);
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not analyze this file'));
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  function useManualMapping() {
+    if (!sourceRaw) return;
+    setRaw(sourceRaw);
+    setMapping(autoMapMemberColumns(sourceRaw.headers, customFields));
+    setSuggestedRecipe(null);
+    setMigrationIssues([]);
+    setMigrationCounts(null);
   }
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -547,7 +638,22 @@ export function ImportMembersCsvDialog({
 
   async function handleImport() {
     if (!accountId || !user || readyRows.length === 0) return;
+    const totalWork = readyRows.length + 2;
+    let completedWork = 0;
+    const advanceProgress = (label: string) => {
+      completedWork++;
+      setImportProgress({
+        completed: completedWork,
+        total: totalWork,
+        label,
+      });
+    };
     setImporting(true);
+    setImportProgress({
+      completed: 0,
+      total: totalWork,
+      label: 'Preparing member import…',
+    });
     try {
       const allTagNames = readyRows.flatMap((row) => row.source.tagNames);
       const { tagIdByKey, skippedNames } = await resolveImportTagIds(supabase, {
@@ -574,7 +680,10 @@ export function ImportMembersCsvDialog({
       for (const row of readyRows) {
         const built = row.built;
         const membership = built.membership;
-        if (!membership) continue;
+        if (!membership) {
+          advanceProgress('Skipping an invalid member…');
+          continue;
+        }
 
         let contactId = row.existingContactId;
         const existed = !!contactId;
@@ -595,6 +704,7 @@ export function ImportMembersCsvDialog({
           if (error || !data?.id) {
             if (isUniqueViolation(error)) skipped++;
             else failed++;
+            advanceProgress(`Processed ${completedWork + 1} of ${readyRows.length} members`);
             continue;
           }
           contactId = data.id;
@@ -645,6 +755,7 @@ export function ImportMembersCsvDialog({
               .select('id');
             if (error || !data?.length) {
               failed++;
+              advanceProgress(`Processed ${completedWork + 1} of ${readyRows.length} members`);
               continue;
             }
           }
@@ -673,6 +784,7 @@ export function ImportMembersCsvDialog({
         if (membershipError || !createdMembership?.id) {
           if (isUniqueViolation(membershipError)) skipped++;
           else failed++;
+          advanceProgress(`Processed ${completedWork + 1} of ${readyRows.length} members`);
           continue;
         }
 
@@ -721,6 +833,7 @@ export function ImportMembersCsvDialog({
             value: custom.value,
           });
         }
+        advanceProgress(`Processed ${completedWork + 1} of ${readyRows.length} members`);
       }
 
       let customValues = 0;
@@ -735,6 +848,7 @@ export function ImportMembersCsvDialog({
           .upsert(chunk, { onConflict: 'contact_id,custom_field_id' });
         if (!error) customValues += chunk.length;
       }
+      advanceProgress('Saved profile and custom-field details');
 
       let tagsAssigned = 0;
       try {
@@ -746,6 +860,7 @@ export function ImportMembersCsvDialog({
       } catch {
         toast.warning('Members imported, but some tag assignments failed.');
       }
+      advanceProgress('Finalizing import receipt…');
 
       const nextResult: ImportResult = {
         imported,
@@ -770,6 +885,9 @@ export function ImportMembersCsvDialog({
         );
       }
     } catch (error) {
+      setImportProgress((current) =>
+        current ? { ...current, label: 'Import stopped before completion.' } : current
+      );
       toast.error(getErrorMessage(error, 'Member import failed'));
     } finally {
       setImporting(false);
@@ -821,43 +939,122 @@ export function ImportMembersCsvDialog({
                   )}
                 >
                   {step === 1 && (
-                    <UploadStep
-                      file={file}
-                      readingFile={readingFile}
-                      raw={raw}
-                      workbookSheets={workbookSheets}
-                      selectedSheet={selectedSheet}
-                      inputRef={fileInputRef}
-                      onFileChange={handleFileChange}
-                      onWorksheetChange={handleWorksheetChange}
-                    />
+                    <div className="space-y-5">
+                      <UploadStep
+                        file={file}
+                        readingFile={readingFile}
+                        raw={sourceRaw ?? raw}
+                        workbookSheets={workbookSheets}
+                        selectedSheet={selectedSheet}
+                        inputRef={fileInputRef}
+                        onFileChange={handleFileChange}
+                        onWorksheetChange={handleWorksheetChange}
+                      />
+                      {(sourceRaw ?? raw) && (
+                        <div className="space-y-2">
+                          <Label htmlFor="member-import-explanation">
+                            Explain your file
+                          </Label>
+                          <Textarea
+                            id="member-import-explanation"
+                            value={fileExplanation}
+                            onChange={(event) =>
+                              setFileExplanation(event.target.value)
+                            }
+                            placeholder="Example: repeated Member IDs are membership history; import the latest row and keep the old ID in notes."
+                            maxLength={2000}
+                          />
+                          <p className="text-muted-foreground text-xs">
+                            Analyze file sends headers, a few representative
+                            values, counts, and this explanation—not the full
+                            file. You will review every suggestion before import.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {step === 2 && raw && (
-                    <MappingStep
-                      raw={raw}
-                      targets={targets}
-                      targetByKey={targetByKey}
-                      mapping={mapping}
-                      samples={samples}
-                      ambiguousDateCols={ambiguousDateCols}
-                      dateOrder={dateOrder}
-                      canCreateFields={canEditSettings}
-                      onSetColumn={setColumn}
-                      onToggleDateOrder={() =>
-                        setDateOrder((value) =>
-                          value === 'DMY' ? 'MDY' : 'DMY'
-                        )
-                      }
-                      onAutoMap={() =>
-                        setMapping(
-                          autoMapMemberColumns(raw.headers, customFields)
-                        )
-                      }
-                      onReset={() =>
-                        setMapping(raw.headers.map(() => MEMBER_IGNORE_KEY))
-                      }
-                      onRequestCreateField={requestCreateField}
-                    />
+                    <div className="space-y-5">
+                      {suggestedRecipe && migrationCounts && (
+                        <div className="border-border bg-muted/20 space-y-3 rounded-lg border p-4">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">
+                              Suggested interpretation
+                            </span>
+                            <Badge variant="secondary">
+                              {Math.round(suggestedRecipe.confidence * 100)}%
+                              confidence
+                            </Badge>
+                            <Badge variant="success">
+                              {migrationCounts.ready} ready
+                            </Badge>
+                            <Badge variant="warning">
+                              {migrationCounts.needsReview} need review
+                            </Badge>
+                            <Badge variant="secondary">
+                              {migrationCounts.excluded} older/summary rows excluded
+                            </Badge>
+                          </div>
+                          <ul className="text-muted-foreground list-disc space-y-1 pl-5 text-sm">
+                            {suggestedRecipe.summary.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                          {migrationIssues.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">
+                                Exceptions requiring an owner and next action
+                              </p>
+                              {migrationIssues.map((issue, index) => (
+                                <div
+                                  key={`${issue.sourceId}-${issue.code}-${index}`}
+                                  className="border-border rounded-md border p-3 text-sm"
+                                >
+                                  <span className="font-medium">
+                                    Member {issue.sourceId} · Owner: you · Needs review
+                                  </span>
+                                  <p className="text-muted-foreground">
+                                    {issue.message} {issue.nextAction}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={useManualMapping}
+                          >
+                            Use manual mapping instead
+                          </Button>
+                        </div>
+                      )}
+                      <MappingStep
+                        raw={raw}
+                        targets={targets}
+                        targetByKey={targetByKey}
+                        mapping={mapping}
+                        samples={samples}
+                        ambiguousDateCols={ambiguousDateCols}
+                        dateOrder={dateOrder}
+                        canCreateFields={canEditSettings}
+                        onSetColumn={setColumn}
+                        onToggleDateOrder={() =>
+                          setDateOrder((value) =>
+                            value === 'DMY' ? 'MDY' : 'DMY'
+                          )
+                        }
+                        onAutoMap={() =>
+                          setMapping(
+                            autoMapMemberColumns(raw.headers, customFields)
+                          )
+                        }
+                        onReset={() =>
+                          setMapping(raw.headers.map(() => MEMBER_IGNORE_KEY))
+                        }
+                        onRequestCreateField={requestCreateField}
+                      />
+                    </div>
                   )}
                   {step === 3 && (
                     <ImportMembersPreview
@@ -879,6 +1076,7 @@ export function ImportMembersCsvDialog({
                       rows={previewRows}
                       meta={previewMeta}
                       compliance={compliance}
+                      progress={importProgress}
                       onComplianceChange={setCompliance}
                     />
                   )}
@@ -942,13 +1140,28 @@ export function ImportMembersCsvDialog({
                     {step === 1 ? 'Cancel' : 'Back'}
                   </Button>
                   {step === 1 && (
-                    <Button
-                      type="button"
-                      disabled={readingFile || !raw?.rows.length}
-                      onClick={() => setStep(2)}
-                    >
-                      Next
-                    </Button>
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={readingFile || !sourceRaw?.rows.length}
+                        onClick={() => setStep(2)}
+                      >
+                        Map manually
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={readingFile || analyzing || !sourceRaw?.rows.length}
+                        onClick={analyzeFile}
+                      >
+                        {analyzing ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Wand2 className="size-4" />
+                        )}
+                        Analyze file
+                      </Button>
+                    </>
                   )}
                   {step === 2 && (
                     <Button
@@ -1427,11 +1640,13 @@ function ConfirmStep({
   rows,
   meta,
   compliance,
+  progress,
   onComplianceChange,
 }: {
   rows: MemberImportPreviewRow[];
   meta: PreviewMeta;
   compliance: boolean;
+  progress: ImportProgress | null;
   onComplianceChange: (checked: boolean) => void;
 }) {
   const ready = rows.filter(
@@ -1448,6 +1663,27 @@ function ConfirmStep({
 
   return (
     <div className="space-y-5">
+      {progress && (
+        <div
+          className="border-border bg-muted/20 space-y-2 rounded-lg border p-4"
+          aria-live="polite"
+        >
+          <div className="flex items-center justify-between gap-4 text-sm">
+            <span className="text-foreground font-medium">
+              Importing members
+            </span>
+            <span className="text-muted-foreground shrink-0 tabular-nums">
+              {Math.round((progress.completed / progress.total) * 100)}%
+            </span>
+          </div>
+          <Progress
+            value={progress.completed}
+            max={progress.total}
+            aria-label="Member import progress"
+          />
+          <p className="text-muted-foreground text-xs">{progress.label}</p>
+        </div>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard label="Ready to import" value={ready.length} />
         <SummaryCard

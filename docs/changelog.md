@@ -6,6 +6,12 @@
 
 ---
 
+## AI-assisted member CSV migration
+
+The four-step Members importer now accepts an owner explanation and offers **Analyze file**, using the existing account-scoped AI provider with only headers, bounded samples, counts, and the explanation. The model can propose only a hand-validated, allowlisted recipe; pure code removes summary rows, groups by source identity, selects the latest parsed start date, splits common plan/term labels, preserves explicit expiry and legacy IDs, maps expired semantics, and surfaces every shared-phone, missing-phone, and financial exception with an owner/status/next action. Inconsistent payments are removed from the ledger payload rather than forged, plans remain human-matched, older history is explicitly excluded, and manual mapping remains available when AI is off or declined. The final commit now shows determinate row-level progress plus finishing stages, so large imports no longer appear stalled. Key code: `src/lib/memberships/migration-recipe.ts`, `src/app/api/members/import-analyze/route.ts`, and `src/components/members/import-members-csv-dialog.tsx`.
+
+---
+
 ## Members Excel workbook import
 
 The existing four-step Members import now accepts modern `.xlsx` workbooks as well as CSV, requires a worksheet choice when a workbook has multiple tabs, and feeds the selected sheet into the unchanged mapping, validation, editable preview, and commit pipeline. Excel parsing is loaded in the browser only when needed; invalid, protected, empty, oversized (over 10 MB), overly tall (over 5,000 data rows), and overly wide (over 100 columns) sheets surface actionable errors. Legacy `.xls` remains conversion-only because the safe selected parser supports modern OOXML workbooks, not the older binary format. Key code: `src/components/members/import-members-csv-dialog.tsx` and `src/lib/memberships/import-workbook.ts`.

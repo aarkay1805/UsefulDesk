@@ -329,7 +329,8 @@ export function parseImportDate(
     return ymd(year, month, day);
   }
 
-  const dayName = /^(\d{1,2})\s+([a-z]+)[,\s]+(\d{2,4})$/i.exec(input);
+  const dayName =
+    /^(\d{1,2})(?:\s+|-)([a-z]+)(?:[,\s]+|-)(\d{2,4})$/i.exec(input);
   const nameDay = /^([a-z]+)\s+(\d{1,2})(?:,)?\s+(\d{2,4})$/i.exec(input);
   if (dayName || nameDay) {
     const monthName = (dayName?.[2] ?? nameDay?.[1] ?? '').toLowerCase();
