@@ -48,30 +48,32 @@ is loosened too far (forged over-credit). This is the single riskiest change.
 ## Data model — migration `059_upi_autopay.sql`
 
 ### `payment_mandates` (new) — the saved recurring method
+
 One active mandate per membership.
 
-| column | notes |
-| --- | --- |
-| `id uuid pk` | |
-| `account_id uuid` | RLS anchor → `accounts` |
-| `membership_id uuid` | → `memberships` ON DELETE CASCADE |
-| `contact_id uuid` | → `contacts` |
-| `gateway text` | `'razorpay'` |
-| `gateway_customer_id text` | |
-| `gateway_token_id text` | reusable mandate token — charge against this |
-| `gateway_subscription_id text` | if using the Subscriptions product |
-| `vpa text` | masked, display only |
-| `method text` | `'upi' \| 'card' \| 'emandate'` |
-| `max_amount numeric` | mandate ceiling; RBI ≤ ₹15,000 for no per-txn AFA |
-| `frequency text` | `'monthly' \| 'quarterly'` — mirrors plan duration |
-| `status text` | `'pending' \| 'active' \| 'paused' \| 'revoked' \| 'expired' \| 'failed'` |
-| `authed_at timestamptz` | |
-| `next_charge_at date` | |
-| `created_at / updated_at` | |
+| column                         | notes                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------- |
+| `id uuid pk`                   |                                                                           |
+| `account_id uuid`              | RLS anchor → `accounts`                                                   |
+| `membership_id uuid`           | → `memberships` ON DELETE CASCADE                                         |
+| `contact_id uuid`              | → `contacts`                                                              |
+| `gateway text`                 | `'razorpay'`                                                              |
+| `gateway_customer_id text`     |                                                                           |
+| `gateway_token_id text`        | reusable mandate token — charge against this                              |
+| `gateway_subscription_id text` | if using the Subscriptions product                                        |
+| `vpa text`                     | masked, display only                                                      |
+| `method text`                  | `'upi' \| 'card' \| 'emandate'`                                           |
+| `max_amount numeric`           | mandate ceiling; RBI ≤ ₹15,000 for no per-txn AFA                         |
+| `frequency text`               | `'monthly' \| 'quarterly'` — mirrors plan duration                        |
+| `status text`                  | `'pending' \| 'active' \| 'paused' \| 'revoked' \| 'expired' \| 'failed'` |
+| `authed_at timestamptz`        |                                                                           |
+| `next_charge_at date`          |                                                                           |
+| `created_at / updated_at`      |                                                                           |
 
 `UNIQUE (membership_id) WHERE status = 'active'` — one live mandate per member.
 
 ### `payments` additions — reuse the ledger, don't fork it
+
 - `source text NOT NULL DEFAULT 'manual'` — `'manual' \| 'auto'`.
 - `mandate_id uuid REFERENCES payment_mandates(id) ON DELETE SET NULL`.
 - `gateway_payment_id text` — Razorpay payment id; reconcile + dedupe key.
@@ -80,21 +82,32 @@ One active mandate per membership.
 is still `'upi'` or `'card'`; `source` is what distinguishes it.
 
 ### `webhook_events` (new) — idempotency + audit
-| column | notes |
-| --- | --- |
-| `id text pk` | gateway event id; dedupe via `ON CONFLICT DO NOTHING` |
-| `account_id uuid` | |
-| `type text` | `'subscription.charged'`, `'payment.failed'`, … |
-| `payload jsonb` | raw event |
-| `processed_at timestamptz` | |
+
+| column                                    | notes                                                  |
+| ----------------------------------------- | ------------------------------------------------------ |
+| `id text pk`                              | gateway event id; atomic claim key                     |
+| `account_id uuid`                         |                                                        |
+| `type text`                               | `'subscription.charged'`, `'payment.failed'`, …        |
+| `payload jsonb`                           | verified event; processing errors do not overwrite it  |
+| `processed_at timestamptz`                |                                                        |
+| `processing_status text`                  | `'pending' \| 'processing' \| 'processed' \| 'failed'` |
+| `attempt_count integer`                   | incremented only when an attempt is actually claimed   |
+| `last_attempt_at / processing_started_at` | recovery context + stale-worker lease                  |
+| `last_error text`                         | latest bounded processing error                        |
 
 ### `memberships.collection_mode`
+
 `text NOT NULL DEFAULT 'manual'` — `'manual' \| 'auto'`. Decides who chases:
 manual → renewal cron + WhatsApp remind (today's flow); auto → gateway collects.
 
-### `accounts` gateway credentials
+### `account_payment_credentials` gateway credentials
+
 - `razorpay_key_id text`
-- `razorpay_webhook_secret text` — secret; RLS admin-read only, never client-exposed.
+- `razorpay_key_secret text`
+- `razorpay_webhook_secret text`
+- RLS stays enabled with no browser policies and all `anon` / `authenticated`
+  privileges revoked. Only authenticated server routes may use the service role
+  to read/write an account derived from the caller’s session.
 
 (If multi-gateway later, promote to a `gateway_accounts` table. Hardcode
 Razorpay for v1.)
@@ -102,6 +115,7 @@ Razorpay for v1.)
 ## RPCs (SECURITY DEFINER, service-callable)
 
 **`record_gateway_payment(p_account_id, p_membership_id, p_gateway_payment_id, p_amount, p_method, p_period_end, p_mandate_id)`**
+
 - Runs as owner; `SET LOCAL app.system_payment = '1'`.
 - Dedupes on `gateway_payment_id` (webhook retries → no double row).
 - Inserts `payments` with `source='auto'`, `user_id=NULL`, resolving the period
@@ -121,10 +135,17 @@ webhook's authenticated/halted confirmations.
   Razorpay customer + subscription/mandate order, inserts `payment_mandates`
   (`status='pending'`), returns the auth link / QR to show the member. Gated
   `canManageMandates` (agent+). INR-only (`upiAvailableFor`).
+- **`GET|POST .../connection`** — admin-only, account-scoped status and manual
+  credential updates. Stored secrets are presence booleans on GET and are never
+  returned to browser JavaScript. The server connection loader returns an
+  API-key/OAuth authentication union, so partner OAuth token loading can be
+  added later without changing mandate or webhook logic.
 - **`POST .../webhook`** — the money path (service-role Supabase client):
   1. Read raw body, **verify HMAC** against `razorpay_webhook_secret`
      (constant-time). Bad sig → 400, no DB touch.
-  2. `webhook_events` insert `ON CONFLICT (id) DO NOTHING`; already-seen → 200 no-op.
+  2. Atomically claim `webhook_events`: completed → 200 no-op; failed/pending
+     or stale processing lease → increment attempt and retry; concurrent live
+     attempt → 200 busy.
   3. Route by event type:
      - `subscription.authenticated` / mandate active → `activate_mandate`, set
        `memberships.collection_mode='auto'`.
@@ -133,7 +154,12 @@ webhook's authenticated/halted confirmations.
      - `payment.failed` → mark the attempt failed → enqueue dunning.
      - `subscription.halted` / `mandate.revoked` → `revoke_mandate`, set
        `collection_mode='manual'` (back to the existing chase flow).
-  4. Return 200 on every handled event (else Razorpay retries storm).
+  4. Complete with `processed_at`; on handler failure retain state/error and
+     return 500 so Razorpay can redeliver. Ledger idempotency remains the final
+     financial duplicate guard.
+  5. `razorpay_missing_payment_ledger` reports charged events with no matching
+     `payments.gateway_payment_id`. It is read-only and service-only; replay or
+     reconciliation always requires explicit approval.
 
 ## Fallback + dunning (existing flow, unchanged)
 
@@ -171,23 +197,28 @@ webhook's authenticated/halted confirmations.
 ## Security checklist
 
 - Webhook HMAC verify, constant-time, before any DB write.
-- `webhook_events` dedupe + `gateway_payment_id` unique guard = idempotency;
-  retries can't double-credit.
-- `razorpay_webhook_secret` / key server-only, RLS admin-read, never bundled.
+- Completed `webhook_events` dedupe + `gateway_payment_id` unique guard =
+  idempotency; retries cannot double-credit, while failures remain recoverable.
+- `razorpay_webhook_secret` / API credentials are server-only, browser grants
+  are revoked, and stored secret values are never returned or bundled.
 - Keep `validate_membership_payment`'s amount/period/balance checks in the
   system path.
-- Service-role client used ONLY in the webhook route; never imported client-side.
+- Service-role credential access is limited to authenticated account-scoped
+  connection/mandate routes and the verified webhook route; never client-side.
 
-## Phasing
+## Shipped sequence
 
 1. Migration `059` — tables, columns, `record_gateway_payment`, the
-   `validate_membership_payment` GUC bypass, grants/RLS. Verify via MCP
-   (`pg_policies` + schema query). **Apply to live only after review.**
+   `validate_membership_payment` GUC bypass, grants/RLS.
 2. Webhook route + HMAC + idempotency. Test with Razorpay test mode + sandbox
    VPA `success@razorpay`.
 3. Mandate-setup route + dialog UI.
-4. Dunning: extend the renewal cron for failed-auto members.
-5. Update `CLAUDE.md` (data-model + Member-detail bullets) in the same change.
+4. Payment-safety migration `20260726090000` — server-only credential grants,
+   retryable event claims, attempt/error history, and missing-ledger
+   diagnostics. Applied and schema/grants verified through the Supabase
+   connector; no existing event was replayed or reconciled.
+
+Still deferred: richer failed-payment dunning and mandate/subscription lifecycle.
 
 ## Future: one-click "Connect Razorpay" (OAuth onboarding)
 
@@ -209,15 +240,17 @@ bank, UsefulDesk never holds funds — OAuth only grants delegated API access.
 **Adoption cost:** become a Razorpay Technology Partner (application + approval,
 days–weeks) · register an OAuth app (`client_id`/`client_secret`) · build a
 Connect button + callback route (code → token exchange) + per-account token
-storage & **refresh logic** (90-day expiry) · give `razorpay.ts` a **Bearer-auth
-mode** alongside the existing Basic-auth key path.
+storage & **refresh logic** (90-day expiry) · teach the server connection loader
+to select/refresh the OAuth token. `razorpay.ts` already accepts Bearer auth
+alongside the existing Basic-auth key path.
 
 **Clean swap — the current build already abstracts this.** `RazorpayCredentials`
-+ `account_payment_credentials` are the only creds surface; OAuth is additive:
-add `access_token` / `refresh_token` / `token_expires_at` columns, the connect +
-callback routes, and a Bearer mode in `razorpay.ts`. Everything downstream
-(mandate route, webhook, RPCs, UI) is unchanged. Keep the key-paste path as a
-power-user fallback.
+
+- `account_payment_credentials` are the only creds surface; OAuth is additive:
+  add `access_token` / `refresh_token` / `token_expires_at` columns, the connect +
+  callback routes, and a Bearer mode in `razorpay.ts`. Everything downstream
+  (mandate route, webhook, RPCs, UI) is unchanged. Keep the key-paste path as a
+  power-user fallback.
 
 **Sequencing:** (1) pilot with key-paste (current) → (2) apply for Technology
 Partner → (3) build OAuth "Connect Razorpay" once approved → (4) keep both

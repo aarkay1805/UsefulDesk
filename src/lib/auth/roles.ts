@@ -237,8 +237,8 @@ export function canManageMandates(role: AccountRole): boolean {
 /**
  * Owner / admin: cancel a live auto-debit mandate (destructive — stops
  * the recurring collection) and edit the account's payment-gateway
- * credentials. Mirrors the account_payment_credentials admin-only RLS
- * and payment_mandates delete policy (migration 059).
+ * credentials. The connection route enforces this capability before its
+ * service-role-only credential boundary; mandate deletion remains RLS-gated.
  */
 export function canConfigurePaymentGateway(role: AccountRole): boolean {
   return hasMinRole(role, 'admin');

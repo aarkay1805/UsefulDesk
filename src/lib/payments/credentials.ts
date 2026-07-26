@@ -7,64 +7,127 @@
  * already have scoped the request to the right account_id themselves.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type {
-  AccountGatewayConfig,
-  RazorpayCredentials,
-} from "./razorpay";
+import 'server-only';
 
-/** Fetch a gym's stored gateway config, or null if it never connected. */
-export async function getAccountGatewayConfig(
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { RazorpayAuthentication } from './razorpay';
+
+export interface RazorpayConnectionStatus {
+  keyId: string;
+  hasApiSecret: boolean;
+  hasWebhookSecret: boolean;
+  configured: boolean;
+}
+
+export interface RazorpayConnection {
+  accountId: string;
+  gateway: 'razorpay';
+  authentication: RazorpayAuthentication;
+}
+
+export interface RazorpayCredentialPatch {
+  keyId: string | null;
+  keySecret?: string;
+  webhookSecret?: string;
+}
+
+/** Return only browser-safe connection metadata; secret values never leave. */
+export async function getRazorpayConnectionStatus(
   admin: SupabaseClient,
-  accountId: string,
-): Promise<AccountGatewayConfig | null> {
-  const { data } = await admin
-    .from("account_payment_credentials")
-    .select("razorpay_key_id, razorpay_webhook_secret")
-    .eq("account_id", accountId)
+  accountId: string
+): Promise<RazorpayConnectionStatus> {
+  const { data, error } = await admin
+    .from('account_payment_credentials')
+    .select('razorpay_key_id, razorpay_key_secret, razorpay_webhook_secret')
+    .eq('account_id', accountId)
     .maybeSingle();
 
-  if (!data) return null;
+  if (error) throw new Error(`load Razorpay connection: ${error.message}`);
+  const keyId = (data?.razorpay_key_id as string | null) ?? '';
+  const hasApiSecret = Boolean(data?.razorpay_key_secret);
+  const hasWebhookSecret = Boolean(data?.razorpay_webhook_secret);
   return {
-    keyId: (data.razorpay_key_id as string | null) ?? null,
-    // The secret key is never selected here — it must not travel further
-    // than the API-credential helper below (least exposure).
-    keySecret: null,
-    webhookSecret: (data.razorpay_webhook_secret as string | null) ?? null,
+    keyId,
+    hasApiSecret,
+    hasWebhookSecret,
+    configured: Boolean(keyId && hasApiSecret && hasWebhookSecret),
   };
 }
 
 /**
- * Fetch the FULL API credentials (key id + secret) for server calls to
- * the gym's Razorpay account. Returns null unless BOTH are present.
- * Kept separate from getAccountGatewayConfig so most call-sites read the
- * public bits without ever materialising the secret.
+ * Load the account-scoped authentication used by Razorpay API operations.
+ * OAuth token selection/refresh will be added here later; callers consume the
+ * authentication union and do not know how the account connected.
  */
-export async function getRazorpayCredentials(
+export async function getRazorpayConnection(
   admin: SupabaseClient,
-  accountId: string,
-): Promise<RazorpayCredentials | null> {
-  const { data } = await admin
-    .from("account_payment_credentials")
-    .select("razorpay_key_id, razorpay_key_secret")
-    .eq("account_id", accountId)
+  accountId: string
+): Promise<RazorpayConnection | null> {
+  const { data, error } = await admin
+    .from('account_payment_credentials')
+    .select('razorpay_key_id, razorpay_key_secret')
+    .eq('account_id', accountId)
     .maybeSingle();
 
+  if (error) throw new Error(`load Razorpay credentials: ${error.message}`);
   const keyId = data?.razorpay_key_id as string | null | undefined;
   const keySecret = data?.razorpay_key_secret as string | null | undefined;
   if (!keyId || !keySecret) return null;
-  return { keyId, keySecret };
+  return {
+    accountId,
+    gateway: 'razorpay',
+    authentication: { mode: 'api_key', keyId, keySecret },
+  };
 }
 
 /** The gym's webhook signing secret, or null. */
 export async function getWebhookSecret(
   admin: SupabaseClient,
-  accountId: string,
+  accountId: string
 ): Promise<string | null> {
-  const { data } = await admin
-    .from("account_payment_credentials")
-    .select("razorpay_webhook_secret")
-    .eq("account_id", accountId)
+  const { data, error } = await admin
+    .from('account_payment_credentials')
+    .select('razorpay_webhook_secret')
+    .eq('account_id', accountId)
     .maybeSingle();
+  if (error) throw new Error(`load Razorpay webhook secret: ${error.message}`);
   return (data?.razorpay_webhook_secret as string | null) ?? null;
+}
+
+/**
+ * Store manual test credentials inside the server boundary. The account id is
+ * supplied by authenticated server context, never accepted from the browser.
+ * Omitted secret fields preserve their existing values.
+ */
+export async function saveManualRazorpayCredentials(
+  admin: SupabaseClient,
+  accountId: string,
+  patch: RazorpayCredentialPatch
+): Promise<RazorpayConnectionStatus> {
+  const current = await getRazorpayConnectionStatus(admin, accountId);
+  const row: Record<string, string | null> = {
+    account_id: accountId,
+    gateway: 'razorpay',
+    razorpay_key_id: patch.keyId,
+  };
+  if (patch.keySecret) row.razorpay_key_secret = patch.keySecret;
+  if (patch.webhookSecret) {
+    row.razorpay_webhook_secret = patch.webhookSecret;
+  }
+
+  const { error } = await admin
+    .from('account_payment_credentials')
+    .upsert(row, { onConflict: 'account_id' });
+  if (error) throw new Error(`save Razorpay credentials: ${error.message}`);
+
+  return {
+    keyId: patch.keyId ?? '',
+    hasApiSecret: current.hasApiSecret || Boolean(patch.keySecret),
+    hasWebhookSecret: current.hasWebhookSecret || Boolean(patch.webhookSecret),
+    configured: Boolean(
+      patch.keyId &&
+      (current.hasApiSecret || patch.keySecret) &&
+      (current.hasWebhookSecret || patch.webhookSecret)
+    ),
+  };
 }

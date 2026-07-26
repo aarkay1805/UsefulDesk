@@ -10,23 +10,28 @@
 //   1. Read the RAW body (signature is over raw bytes).
 //   2. Look up this account's webhook secret; verify HMAC. Bad sig → 400,
 //      no DB write.
-//   3. Dedupe on Razorpay's event id (webhook_events) — a retry is a
-//      200 no-op.
+//   3. Atomically claim Razorpay's event id. Completed events are a 200 no-op;
+//      failed/stale attempts are safely claimable again.
 //   4. Route the event to our SECURITY DEFINER RPCs (record_gateway_payment
 //      / activate_mandate / revoke_mandate).
-//   5. Return 200 on every handled event so Razorpay doesn't retry-storm.
+//   5. Return 500 after a recorded processing failure so Razorpay can redeliver.
 //
 // Runs as the service role (no session), so the gateway RPCs — which set
 // the `app.system_payment` GUC — are the only sanctioned insert path.
 // ============================================================
 
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 
-import { supabaseAdmin } from "@/lib/automations/admin-client";
-import { getWebhookSecret } from "@/lib/payments/credentials";
-import { toRupees, verifyWebhookSignature } from "@/lib/payments/razorpay";
+import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { getWebhookSecret } from '@/lib/payments/credentials';
+import { toRupees, verifyWebhookSignature } from '@/lib/payments/razorpay';
+import {
+  processWebhookDelivery,
+  type WebhookClaimResult,
+  type WebhookEventStore,
+} from '@/lib/payments/webhook-processing';
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
 interface RazorpayEvent {
   event: string;
@@ -49,97 +54,134 @@ interface RazorpayPaymentEntity {
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ accountId: string }> },
+  { params }: { params: Promise<{ accountId: string }> }
 ) {
   const { accountId } = await params;
   const admin = supabaseAdmin();
 
   // 1. Raw body + signature.
   const raw = await request.text();
-  const signature = request.headers.get("x-razorpay-signature");
-  const eventId = request.headers.get("x-razorpay-event-id");
+  const signature = request.headers.get('x-razorpay-signature');
+  const eventId = request.headers.get('x-razorpay-event-id');
 
   // 2. Verify against THIS gym's secret.
   const secret = await getWebhookSecret(admin, accountId);
   if (!secret) {
     return NextResponse.json(
-      { error: "Webhook not configured for this account" },
-      { status: 400 },
+      { error: 'Webhook not configured for this account' },
+      { status: 400 }
     );
   }
   if (!verifyWebhookSignature(raw, signature, secret)) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
   let event: RazorpayEvent;
   try {
     event = JSON.parse(raw) as RazorpayEvent;
   } catch {
-    return NextResponse.json({ error: "Malformed payload" }, { status: 400 });
+    return NextResponse.json({ error: 'Malformed payload' }, { status: 400 });
   }
 
-  // 3. Idempotency. Razorpay's event id is unique per event; on a retry
-  // the insert conflicts and we short-circuit. Fall back to a synthetic
-  // key if the header is somehow absent.
+  // 3. Idempotency + recovery. Fall back to a stable synthetic key if the
+  // event-id header is absent; signature verification has already succeeded.
   const dedupeId = eventId ?? `${accountId}:${signature}`;
-  const { data: claimed, error: claimErr } = await admin
-    .from("webhook_events")
-    .upsert(
-      {
-        id: dedupeId,
-        account_id: accountId,
-        gateway: "razorpay",
-        type: event.event,
-        payload: event as unknown as Record<string, unknown>,
-      },
-      { onConflict: "id", ignoreDuplicates: true },
-    )
-    .select("id")
-    .maybeSingle();
-
-  if (claimErr) {
-    // Couldn't even record the event — let Razorpay retry.
-    return NextResponse.json({ error: "Could not persist event" }, { status: 500 });
-  }
-  if (!claimed) {
-    // Already processed — no-op success.
-    return NextResponse.json({ ok: true, deduped: true });
-  }
-
-  // 4. Route.
+  const store = razorpayEventStore(admin, accountId, dedupeId, event);
+  let result;
   try {
-    await handleEvent(admin, accountId, event);
+    result = await processWebhookDelivery(store, () =>
+      handleEvent(admin, accountId, event)
+    );
   } catch (err) {
-    // Record the failure on the event row for audit, but still 200 —
-    // a poison event shouldn't wedge Razorpay's retry queue forever.
-    // (A dunning/reconcile pass surfaces unprocessed rows.)
-    await admin
-      .from("webhook_events")
-      .update({
-        processed_at: null,
-        payload: {
-          ...(event as unknown as Record<string, unknown>),
-          _error: err instanceof Error ? err.message : String(err),
-        },
-      })
-      .eq("id", dedupeId);
-    return NextResponse.json({ ok: true, handled: false });
+    console.error('[razorpay webhook] event state persistence failed:', err);
+    return NextResponse.json(
+      { error: 'Could not persist event state' },
+      { status: 500 }
+    );
   }
 
-  await admin
-    .from("webhook_events")
-    .update({ processed_at: new Date().toISOString() })
-    .eq("id", dedupeId);
-
-  return NextResponse.json({ ok: true });
+  switch (result.outcome) {
+    case 'processed':
+      return NextResponse.json({ ok: true });
+    case 'duplicate':
+      return NextResponse.json({ ok: true, deduped: true });
+    case 'busy':
+      return NextResponse.json({ ok: true, processing: true });
+    case 'conflict':
+      return NextResponse.json(
+        { error: 'Event id conflicts with another account or gateway' },
+        { status: 409 }
+      );
+    case 'failed':
+      console.error('[razorpay webhook] handler failed:', result.error);
+      return NextResponse.json(
+        { error: 'Event processing failed; retry is safe' },
+        { status: 500 }
+      );
+  }
 }
 
 type Admin = ReturnType<typeof supabaseAdmin>;
 
+function razorpayEventStore(
+  admin: Admin,
+  accountId: string,
+  eventId: string,
+  event: RazorpayEvent
+): WebhookEventStore {
+  return {
+    async claim() {
+      const { data, error } = await admin.rpc('claim_razorpay_webhook_event', {
+        p_event_id: eventId,
+        p_account_id: accountId,
+        p_type: event.event,
+        p_payload: event,
+        p_lease_seconds: 300,
+      });
+      if (error) throw new Error(`claim webhook event: ${error.message}`);
+      if (
+        data !== 'claimed' &&
+        data !== 'processed' &&
+        data !== 'busy' &&
+        data !== 'conflict'
+      ) {
+        throw new Error(`claim webhook event returned invalid state: ${data}`);
+      }
+      return data as WebhookClaimResult;
+    },
+    async complete() {
+      const { data, error } = await admin.rpc(
+        'complete_razorpay_webhook_event',
+        {
+          p_event_id: eventId,
+          p_account_id: accountId,
+        }
+      );
+      if (error || data !== true) {
+        throw new Error(
+          `complete webhook event: ${error?.message ?? 'event was not updated'}`
+        );
+      }
+    },
+    async fail(message) {
+      const { data, error } = await admin.rpc('fail_razorpay_webhook_event', {
+        p_event_id: eventId,
+        p_account_id: accountId,
+        p_error: message,
+      });
+      if (error || data !== true) {
+        throw new Error(
+          `fail webhook event: ${error?.message ?? 'event was not updated'}`
+        );
+      }
+    },
+  };
+}
+
 async function handleEvent(
   admin: Admin,
   accountId: string,
-  event: RazorpayEvent,
+  event: RazorpayEvent
 ) {
   const sub = event.payload.subscription?.entity;
   const payment = event.payload.payment?.entity;
@@ -152,18 +194,22 @@ async function handleEvent(
   const notesAccount = sub?.notes?.account_id;
   if (notesAccount && notesAccount !== accountId) {
     throw new Error(
-      `account mismatch: webhook URL is for account ${accountId} but the subscription belongs to ${notesAccount} — update the webhook URL in the Razorpay dashboard to this gym's URL from Settings → Payments & currency`,
+      `account mismatch: webhook URL is for account ${accountId} but the subscription belongs to ${notesAccount} — update the webhook URL in the Razorpay dashboard to this gym's URL from Settings → Payments & currency`
     );
   }
 
   switch (event.event) {
-    case "subscription.authenticated":
-    case "subscription.activated": {
+    case 'subscription.authenticated':
+    case 'subscription.activated': {
       if (!sub) return;
-      const mandateId = await mandateIdForSubscription(admin, accountId, sub.id);
+      const mandateId = await mandateIdForSubscription(
+        admin,
+        accountId,
+        sub.id
+      );
       if (!mandateId)
         throw new Error(`no mandate found for subscription ${sub.id}`);
-      const { error } = await admin.rpc("activate_mandate", {
+      const { error } = await admin.rpc('activate_mandate', {
         p_mandate_id: mandateId,
         p_token_id: sub.token_id ?? null,
         p_subscription_id: sub.id,
@@ -172,51 +218,64 @@ async function handleEvent(
       return;
     }
 
-    case "subscription.charged": {
+    case 'subscription.charged': {
       if (!sub || !payment) return;
       const membershipId = sub.notes?.membership_id;
-      if (!membershipId) throw new Error("charge missing membership_id in notes");
-      const mandateId = await mandateIdForSubscription(admin, accountId, sub.id);
+      if (!membershipId)
+        throw new Error('charge missing membership_id in notes');
+      const mandateId = await mandateIdForSubscription(
+        admin,
+        accountId,
+        sub.id
+      );
       // record_gateway_charge settles the current cycle on the first
       // charge and auto-renews (opens the next period + rolls the
       // membership forward) on every subsequent one — one transaction,
       // idempotent on the gateway payment id (migration 060).
-      const { error } = await admin.rpc("record_gateway_charge", {
+      const { error } = await admin.rpc('record_gateway_charge', {
         p_account_id: accountId,
         p_membership_id: membershipId,
         p_gateway_payment_id: payment.id,
         p_amount: toRupees(payment.amount),
-        p_method: payment.method === "card" ? "card" : "upi",
+        p_method: payment.method === 'card' ? 'card' : 'upi',
         p_mandate_id: mandateId,
       });
       if (error) throw new Error(`record_gateway_charge: ${error.message}`);
       return;
     }
 
-    case "subscription.pending":
-    case "subscription.halted": {
+    case 'subscription.pending':
+    case 'subscription.halted': {
       // A charge failed / the mandate is stalling → fall back to manual
       // chase (renewal cron + WhatsApp remind).
       if (!sub) return;
-      const mandateId = await mandateIdForSubscription(admin, accountId, sub.id);
+      const mandateId = await mandateIdForSubscription(
+        admin,
+        accountId,
+        sub.id
+      );
       if (!mandateId) return;
-      const { error } = await admin.rpc("revoke_mandate", {
+      const { error } = await admin.rpc('revoke_mandate', {
         p_mandate_id: mandateId,
-        p_status: "failed",
+        p_status: 'failed',
       });
       if (error) throw new Error(`revoke_mandate(failed): ${error.message}`);
       return;
     }
 
-    case "subscription.cancelled":
-    case "subscription.completed":
-    case "subscription.expired": {
+    case 'subscription.cancelled':
+    case 'subscription.completed':
+    case 'subscription.expired': {
       if (!sub) return;
-      const mandateId = await mandateIdForSubscription(admin, accountId, sub.id);
+      const mandateId = await mandateIdForSubscription(
+        admin,
+        accountId,
+        sub.id
+      );
       if (!mandateId) return;
       const status =
-        event.event === "subscription.cancelled" ? "revoked" : "expired";
-      const { error } = await admin.rpc("revoke_mandate", {
+        event.event === 'subscription.cancelled' ? 'revoked' : 'expired';
+      const { error } = await admin.rpc('revoke_mandate', {
         p_mandate_id: mandateId,
         p_status: status,
       });
@@ -235,13 +294,13 @@ async function handleEvent(
 async function mandateIdForSubscription(
   admin: Admin,
   accountId: string,
-  subscriptionId: string,
+  subscriptionId: string
 ): Promise<string | null> {
   const { data } = await admin
-    .from("payment_mandates")
-    .select("id")
-    .eq("account_id", accountId)
-    .eq("gateway_subscription_id", subscriptionId)
+    .from('payment_mandates')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('gateway_subscription_id', subscriptionId)
     .maybeSingle();
   return (data?.id as string | undefined) ?? null;
 }

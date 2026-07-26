@@ -2,13 +2,23 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Coins, IndianRupee, Loader2, Repeat, Copy, Check } from 'lucide-react';
+import {
+  Coins,
+  IndianRupee,
+  Loader2,
+  Repeat,
+  Copy,
+  Check,
+  TriangleAlert,
+} from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { CURRENCIES } from '@/lib/currency';
+import { getErrorMessage } from '@/lib/errors';
 import { isValidVpa, upiAvailableFor } from '@/lib/payments/upi';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -158,13 +168,11 @@ export function DealsSettings() {
  * Razorpay connection (migration 059) — the gym's OWN gateway keys that
  * power UPI-AutoPay auto-debit. Model 1: money flows member → this gym's
  * Razorpay → this gym's bank; UsefulDesk never touches it. Writes to
- * `account_payment_credentials`, whose RLS is admin-only, so the same
- * admin gate as the cards above applies. Secrets are write-mostly: we
- * never echo a stored key/secret back into the inputs — a blank field on
+ * the server-only Razorpay connection route. Stored credentials are never
+ * selected into browser JavaScript. Secrets are write-only: a blank field on
  * save leaves the existing value untouched.
  */
 function RazorpayCard() {
-  const supabase = createClient();
   const { accountId, canEditSettings } = useAuth();
   const { locale } = useLocale();
 
@@ -176,31 +184,48 @@ function RazorpayCard() {
     hasSecret: boolean;
     hasWebhook: boolean;
   } | null>(null);
+  const [health, setHealth] = useState<{
+    failedEventCount: number;
+    missingLedgerCount: number;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!accountId) return;
+    if (!accountId || !canEditSettings) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('account_payment_credentials')
-        .select('razorpay_key_id, razorpay_key_secret, razorpay_webhook_secret')
-        .eq('account_id', accountId)
-        .maybeSingle();
-      if (cancelled) return;
-      setLoaded({
-        keyId: data?.razorpay_key_id ?? '',
-        hasSecret: !!data?.razorpay_key_secret,
-        hasWebhook: !!data?.razorpay_webhook_secret,
-      });
-      setKeyId(data?.razorpay_key_id ?? '');
+      try {
+        const response = await fetch('/api/payments/razorpay/connection', {
+          cache: 'no-store',
+        });
+        const body = await response.json();
+        if (!response.ok) {
+          throw new Error(body.error || 'Failed to load Razorpay connection');
+        }
+        if (cancelled) return;
+        setLoaded({
+          keyId: body.connection.keyId,
+          hasSecret: body.connection.hasApiSecret,
+          hasWebhook: body.connection.hasWebhookSecret,
+        });
+        setHealth({
+          failedEventCount: body.health.failedEventCount,
+          missingLedgerCount: body.health.missingLedgerCount,
+        });
+        setKeyId(body.connection.keyId);
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(
+            getErrorMessage(error, 'Failed to load Razorpay connection')
+          );
+        }
+      }
     })();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId]);
+  }, [accountId, canEditSettings]);
 
   // The per-gym webhook URL to paste into Razorpay's dashboard.
   const webhookUrl =
@@ -220,29 +245,36 @@ function RazorpayCard() {
     // Only send secret fields when the admin actually entered one, so a
     // blank input preserves the stored value.
     const payload: Record<string, string | null> = {
-      account_id: accountId,
-      gateway: 'razorpay',
-      razorpay_key_id: keyId.trim() || null,
+      keyId: keyId.trim() || null,
     };
-    if (keySecret.trim()) payload.razorpay_key_secret = keySecret.trim();
-    if (webhookSecret.trim()) payload.razorpay_webhook_secret = webhookSecret.trim();
+    if (keySecret.trim()) payload.keySecret = keySecret.trim();
+    if (webhookSecret.trim()) payload.webhookSecret = webhookSecret.trim();
 
-    const { error } = await supabase
-      .from('account_payment_credentials')
-      .upsert(payload, { onConflict: 'account_id' });
-    setSaving(false);
-    if (error) {
-      toast.error('Failed to save Razorpay credentials');
-      return;
+    try {
+      const response = await fetch('/api/payments/razorpay/connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || 'Failed to save Razorpay credentials');
+      }
+      setLoaded({
+        keyId: body.connection.keyId,
+        hasSecret: body.connection.hasApiSecret,
+        hasWebhook: body.connection.hasWebhookSecret,
+      });
+      setKeySecret('');
+      setWebhookSecret('');
+      toast.success('Razorpay connected');
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error, 'Failed to save Razorpay credentials')
+      );
+    } finally {
+      setSaving(false);
     }
-    setLoaded({
-      keyId: keyId.trim(),
-      hasSecret: loaded!.hasSecret || !!keySecret.trim(),
-      hasWebhook: loaded!.hasWebhook || !!webhookSecret.trim(),
-    });
-    setKeySecret('');
-    setWebhookSecret('');
-    toast.success('Razorpay connected');
   }
 
   async function copyWebhookUrl() {
@@ -275,6 +307,20 @@ function RazorpayCard() {
           </p>
         ) : (
           <>
+            {health &&
+            (health.failedEventCount > 0 || health.missingLedgerCount > 0) ? (
+              <Alert variant="destructive">
+                <TriangleAlert />
+                <AlertTitle>Payment reconciliation needs review</AlertTitle>
+                <AlertDescription>
+                  {health.missingLedgerCount} charged event
+                  {health.missingLedgerCount === 1 ? '' : 's'} have no matching
+                  payment-ledger record, and {health.failedEventCount} webhook
+                  attempt{health.failedEventCount === 1 ? '' : 's'} are failed.
+                  Nothing has been replayed or changed automatically.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <div className="grid gap-3 sm:max-w-md">
               <div className="grid gap-2">
                 <Label htmlFor="rzp-key-id" className="text-muted-foreground">
@@ -289,7 +335,10 @@ function RazorpayCard() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="rzp-key-secret" className="text-muted-foreground">
+                <Label
+                  htmlFor="rzp-key-secret"
+                  className="text-muted-foreground"
+                >
                   Key secret
                 </Label>
                 <Input
@@ -297,12 +346,19 @@ function RazorpayCard() {
                   type="password"
                   value={keySecret}
                   onChange={(e) => setKeySecret(e.target.value)}
-                  placeholder={loaded?.hasSecret ? '•••••••• saved — enter to replace' : 'Key secret'}
+                  placeholder={
+                    loaded?.hasSecret
+                      ? '•••••••• saved — enter to replace'
+                      : 'Key secret'
+                  }
                   disabled={!canEditSettings || !loaded}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="rzp-webhook-secret" className="text-muted-foreground">
+                <Label
+                  htmlFor="rzp-webhook-secret"
+                  className="text-muted-foreground"
+                >
                   Webhook secret
                 </Label>
                 <Input
@@ -310,7 +366,11 @@ function RazorpayCard() {
                   type="password"
                   value={webhookSecret}
                   onChange={(e) => setWebhookSecret(e.target.value)}
-                  placeholder={loaded?.hasWebhook ? '•••••••• saved — enter to replace' : 'Webhook signing secret'}
+                  placeholder={
+                    loaded?.hasWebhook
+                      ? '•••••••• saved — enter to replace'
+                      : 'Webhook signing secret'
+                  }
                   disabled={!canEditSettings || !loaded}
                 />
               </div>
@@ -329,7 +389,11 @@ function RazorpayCard() {
                     aria-label="Copy webhook URL"
                     disabled={!webhookUrl}
                   >
-                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    {copied ? (
+                      <Check className="size-4" />
+                    ) : (
+                      <Copy className="size-4" />
+                    )}
                   </Button>
                 </div>
                 <p className="text-muted-foreground text-xs">

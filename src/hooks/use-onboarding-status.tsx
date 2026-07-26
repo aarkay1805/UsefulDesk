@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   createContext,
@@ -8,20 +8,20 @@ import {
   useMemo,
   useRef,
   useState,
-} from "react";
-import { usePathname } from "next/navigation";
-import { toast } from "sonner";
+} from 'react';
+import { usePathname } from 'next/navigation';
+import { toast } from 'sonner';
 
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { getErrorMessage } from "@/lib/errors";
-import { RENEWAL_TEMPLATE_NAME } from "@/lib/memberships/renewal-reminders";
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { getErrorMessage } from '@/lib/errors';
+import { RENEWAL_TEMPLATE_NAME } from '@/lib/memberships/renewal-reminders';
 import {
   deriveOnboardingSteps,
   ONBOARDING_STEP_COUNT,
   type OnboardingRawStatus,
   type OnboardingStep,
-} from "@/lib/onboarding/steps";
+} from '@/lib/onboarding/steps';
 
 interface OnboardingStatusValue {
   /**
@@ -59,13 +59,18 @@ export function OnboardingProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { accountId, account, profileLoading, canEditSettings, refreshProfile } =
-    useAuth();
+  const {
+    accountId,
+    account,
+    profileLoading,
+    canEditSettings,
+    refreshProfile,
+  } = useAuth();
   const pathname = usePathname();
   // Entering/leaving /get-started flips this, re-running the effect —
   // returning from a completed step always shows fresh state without
   // the page needing a setState-in-effect refresh call.
-  const onGetStartedPage = pathname.startsWith("/get-started");
+  const onGetStartedPage = pathname.startsWith('/get-started');
   const [raw, setRaw] = useState<OnboardingRawStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [nonce, setNonce] = useState(0);
@@ -98,58 +103,59 @@ export function OnboardingProvider({
         team,
         invites,
       ] = await Promise.allSettled([
-          supabase.from("whatsapp_config").select("status").maybeSingle(),
-          supabase
-            .from("message_templates")
-            .select("id", { count: "exact", head: true })
-            .eq("name", RENEWAL_TEMPLATE_NAME)
-            .eq("status", "APPROVED"),
-          supabase
-            .from("membership_plans")
-            .select("id", { count: "exact", head: true }),
-          supabase
-            .from("memberships")
-            .select("id", { count: "exact", head: true }),
-          supabase
-            .from("account_payment_credentials")
-            .select("razorpay_key_id, razorpay_key_secret, razorpay_webhook_secret")
-            .maybeSingle(),
-          supabase
-            .from("payments")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "paid"),
-          fetch("/api/account/members", { cache: "no-store" }).then((r) =>
-            r.json(),
-          ),
-          fetch("/api/account/invitations", { cache: "no-store" }).then((r) =>
-            r.json(),
-          ),
-        ]);
+        supabase.from('whatsapp_config').select('status').maybeSingle(),
+        supabase
+          .from('message_templates')
+          .select('id', { count: 'exact', head: true })
+          .eq('name', RENEWAL_TEMPLATE_NAME)
+          .eq('status', 'APPROVED'),
+        supabase
+          .from('membership_plans')
+          .select('id', { count: 'exact', head: true }),
+        supabase
+          .from('memberships')
+          .select('id', { count: 'exact', head: true }),
+        fetch('/api/payments/razorpay/connection', {
+          cache: 'no-store',
+        }).then(async (response) => {
+          const body = await response.json();
+          if (!response.ok) throw new Error(body.error);
+          return body.connection as { configured: boolean };
+        }),
+        supabase
+          .from('payments')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'paid'),
+        fetch('/api/account/members', { cache: 'no-store' }).then((r) =>
+          r.json()
+        ),
+        fetch('/api/account/invitations', { cache: 'no-store' }).then((r) =>
+          r.json()
+        ),
+      ]);
       if (cancelled) return;
 
       const count = (res: PromiseSettledResult<{ count: number | null }>) =>
-        res.status === "fulfilled" ? (res.value.count ?? 0) : 0;
+        res.status === 'fulfilled' ? (res.value.count ?? 0) : 0;
 
       setRaw({
         whatsappConnected:
-          config.status === "fulfilled" &&
-          config.value.data?.status === "connected",
+          config.status === 'fulfilled' &&
+          config.value.data?.status === 'connected',
         templateApproved:
-          template.status === "fulfilled" && (template.value.count ?? 0) > 0,
+          template.status === 'fulfilled' && (template.value.count ?? 0) > 0,
         planCount: count(plans),
         membershipCount: count(memberships),
         razorpayConnected:
-          paymentCredentials.status === "fulfilled" &&
-          !!paymentCredentials.value.data?.razorpay_key_id &&
-          !!paymentCredentials.value.data?.razorpay_key_secret &&
-          !!paymentCredentials.value.data?.razorpay_webhook_secret,
+          paymentCredentials.status === 'fulfilled' &&
+          paymentCredentials.value.configured,
         paidPaymentCount: count(payments),
         teamSize:
-          team.status === "fulfilled" && Array.isArray(team.value?.members)
+          team.status === 'fulfilled' && Array.isArray(team.value?.members)
             ? team.value.members.length
             : null,
         pendingInvites:
-          invites.status === "fulfilled" &&
+          invites.status === 'fulfilled' &&
           Array.isArray(invites.value?.invitations)
             ? invites.value.invitations.length
             : null,
@@ -173,7 +179,7 @@ export function OnboardingProvider({
             allDone: false,
             recommended: null,
           },
-    [raw],
+    [raw]
   );
 
   const persistDismissal = useCallback(async () => {
@@ -182,10 +188,10 @@ export function OnboardingProvider({
     // .select('id') — an RLS-blocked update fails silently with zero
     // rows; an empty result means the write did NOT land.
     const { data, error } = await supabase
-      .from("accounts")
+      .from('accounts')
       .update({ onboarding_dismissed_at: new Date().toISOString() })
-      .eq("id", accountId)
-      .select("id");
+      .eq('id', accountId)
+      .select('id');
     if (error || !data?.length) return false;
     await refreshProfile();
     return true;
@@ -226,7 +232,7 @@ export function OnboardingProvider({
       refresh,
       dismiss,
     }),
-    [active, loading, derived, refresh, dismiss],
+    [active, loading, derived, refresh, dismiss]
   );
 
   return (
@@ -240,7 +246,7 @@ export function useOnboardingStatus(): OnboardingStatusValue {
   const ctx = useContext(OnboardingContext);
   if (!ctx) {
     throw new Error(
-      "useOnboardingStatus must be used within an OnboardingProvider",
+      'useOnboardingStatus must be used within an OnboardingProvider'
     );
   }
   return ctx;

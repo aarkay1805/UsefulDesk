@@ -6,6 +6,12 @@
 
 ---
 
+## Razorpay credential and webhook recovery safety
+
+Razorpay credentials now cross one server-only, account-scoped connection boundary: browser roles have no table privileges, the manual key-paste flow uses an authenticated route, and downstream API calls accept either today’s Basic credentials or a future partner OAuth token without payment-logic changes. Webhook events use atomic claim/complete/fail states with attempt, lease, and error history; failures return a retryable response while completed duplicates remain no-ops. A service-only missing-ledger view and admin Payment-settings warning report charged events without mutating or replaying them. Migration `20260726090000` was applied through the Supabase connector; existing charged events were only reported for explicit approval. Key code: `src/lib/payments/credentials.ts`, `src/lib/payments/webhook-processing.ts`, `src/app/api/payments/razorpay/`, and `supabase/migrations/20260726090000_razorpay_payment_safety.sql`.
+
+---
+
 ## Dashboard route authentication defense in depth
 
 Every page in the `(dashboard)` route group is now covered by the proxy's early anonymous redirect, including Finance, Reports, and Get Started, while a server layout backstop independently validates the Supabase user before rendering dashboard content. A filesystem contract test keeps future dashboard pages synchronized with the proxy policy; authentication, invitation, onboarding, public capture, and tokenized routes retain their existing access. No schema change. Key code: `src/lib/auth/dashboard-routes.ts`, `src/proxy.ts`, and `src/app/(dashboard)/layout.tsx`.

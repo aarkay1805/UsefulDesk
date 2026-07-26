@@ -16,30 +16,40 @@
  * key path. It is consumed only by API route handlers.
  */
 
-import { createHmac, timingSafeEqual } from "node:crypto";
+import 'server-only';
 
-const RAZORPAY_API_BASE = "https://api.razorpay.com/v1";
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
-export interface RazorpayCredentials {
+const RAZORPAY_API_BASE = 'https://api.razorpay.com/v1';
+
+export interface RazorpayApiKeyAuthentication {
+  mode: 'api_key';
   keyId: string;
   keySecret: string;
 }
 
-/** A gym's stored gateway config (row from account_payment_credentials). */
-export interface AccountGatewayConfig {
-  keyId: string | null;
-  keySecret: string | null;
-  webhookSecret: string | null;
+export interface RazorpayOAuthAuthentication {
+  mode: 'oauth';
+  accessToken: string;
 }
+
+/**
+ * The authenticated server-to-server boundary consumed by every Razorpay
+ * operation. Manual pilot credentials use Basic auth today; partner OAuth can
+ * add token loading/refreshing behind the connection loader without changing
+ * mandate or webhook processing.
+ */
+export type RazorpayAuthentication =
+  RazorpayApiKeyAuthentication | RazorpayOAuthAuthentication;
 
 export class RazorpayError extends Error {
   constructor(
     message: string,
     readonly status: number,
-    readonly body: unknown,
+    readonly body: unknown
   ) {
     super(message);
-    this.name = "RazorpayError";
+    this.name = 'RazorpayError';
   }
 }
 
@@ -53,8 +63,11 @@ export function toRupees(paise: number): number {
   return paise / 100;
 }
 
-function authHeader({ keyId, keySecret }: RazorpayCredentials): string {
-  const token = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+function authHeader(auth: RazorpayAuthentication): string {
+  if (auth.mode === 'oauth') return `Bearer ${auth.accessToken}`;
+  const token = Buffer.from(`${auth.keyId}:${auth.keySecret}`).toString(
+    'base64'
+  );
   return `Basic ${token}`;
 }
 
@@ -64,19 +77,19 @@ function authHeader({ keyId, keySecret }: RazorpayCredentials): string {
  * (Razorpay returns `{ error: { description } }`).
  */
 export async function razorpayFetch<T = unknown>(
-  creds: RazorpayCredentials,
+  creds: RazorpayAuthentication,
   path: string,
-  init?: { method?: string; body?: unknown },
+  init?: { method?: string; body?: unknown }
 ): Promise<T> {
   const res = await fetch(`${RAZORPAY_API_BASE}${path}`, {
-    method: init?.method ?? "GET",
+    method: init?.method ?? 'GET',
     headers: {
       Authorization: authHeader(creds),
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: init?.body ? JSON.stringify(init.body) : undefined,
     // Never cache authenticated gateway responses.
-    cache: "no-store",
+    cache: 'no-store',
   });
 
   const text = await res.text();
@@ -95,7 +108,7 @@ export async function razorpayFetch<T = unknown>(
 
 export interface RazorpayCustomer {
   id: string;
-  entity: "customer";
+  entity: 'customer';
   name?: string;
   contact?: string;
   email?: string;
@@ -103,26 +116,26 @@ export interface RazorpayCustomer {
 
 export interface RazorpayPlan {
   id: string;
-  entity: "plan";
-  period: "daily" | "weekly" | "monthly" | "yearly";
+  entity: 'plan';
+  period: 'daily' | 'weekly' | 'monthly' | 'yearly';
   interval: number;
   item: { amount: number; currency: string; name: string };
 }
 
 export interface RazorpaySubscription {
   id: string;
-  entity: "subscription";
+  entity: 'subscription';
   plan_id: string;
   customer_id?: string;
   status:
-    | "created"
-    | "authenticated"
-    | "active"
-    | "pending"
-    | "halted"
-    | "cancelled"
-    | "completed"
-    | "expired";
+    | 'created'
+    | 'authenticated'
+    | 'active'
+    | 'pending'
+    | 'halted'
+    | 'cancelled'
+    | 'completed'
+    | 'expired';
   /** The hosted UPI-mandate auth page the member approves. */
   short_url?: string;
   /** The reusable mandate token, present once authenticated. */
@@ -134,11 +147,11 @@ export interface RazorpaySubscription {
 // ---- higher-level flows -------------------------------------------
 
 export async function createCustomer(
-  creds: RazorpayCredentials,
-  input: { name?: string; contact?: string; email?: string },
+  creds: RazorpayAuthentication,
+  input: { name?: string; contact?: string; email?: string }
 ): Promise<RazorpayCustomer> {
-  return razorpayFetch<RazorpayCustomer>(creds, "/customers", {
-    method: "POST",
+  return razorpayFetch<RazorpayCustomer>(creds, '/customers', {
+    method: 'POST',
     // fail_existing:0 → return the existing customer instead of erroring
     // when this contact was already created (idempotent onboarding).
     body: { ...input, fail_existing: 0 },
@@ -151,24 +164,24 @@ export async function createCustomer(
  * duration (monthly = period 'monthly' interval 1, quarterly = interval 3).
  */
 export async function createPlan(
-  creds: RazorpayCredentials,
+  creds: RazorpayAuthentication,
   input: {
     amountRupees: number;
     currency?: string;
     name: string;
-    period: RazorpayPlan["period"];
+    period: RazorpayPlan['period'];
     interval: number;
-  },
+  }
 ): Promise<RazorpayPlan> {
-  return razorpayFetch<RazorpayPlan>(creds, "/plans", {
-    method: "POST",
+  return razorpayFetch<RazorpayPlan>(creds, '/plans', {
+    method: 'POST',
     body: {
       period: input.period,
       interval: input.interval,
       item: {
         name: input.name,
         amount: toPaise(input.amountRupees),
-        currency: input.currency ?? "INR",
+        currency: input.currency ?? 'INR',
       },
     },
   });
@@ -185,18 +198,18 @@ export async function createPlan(
  * page), satisfying the RBI first-transaction rule.
  */
 export async function createSubscription(
-  creds: RazorpayCredentials,
+  creds: RazorpayAuthentication,
   input: {
     planId: string;
     customerId?: string;
     totalCount: number;
     notes?: Record<string, string>;
-  },
+  }
 ): Promise<RazorpaySubscription> {
   // Razorpay derives the per-debit ceiling from the plan amount for a
   // subscription mandate; there is no separate max-amount field here.
-  return razorpayFetch<RazorpaySubscription>(creds, "/subscriptions", {
-    method: "POST",
+  return razorpayFetch<RazorpaySubscription>(creds, '/subscriptions', {
+    method: 'POST',
     body: {
       plan_id: input.planId,
       customer_id: input.customerId,
@@ -208,24 +221,24 @@ export async function createSubscription(
 }
 
 export async function fetchSubscription(
-  creds: RazorpayCredentials,
-  subscriptionId: string,
+  creds: RazorpayAuthentication,
+  subscriptionId: string
 ): Promise<RazorpaySubscription> {
   return razorpayFetch<RazorpaySubscription>(
     creds,
-    `/subscriptions/${subscriptionId}`,
+    `/subscriptions/${subscriptionId}`
   );
 }
 
 export async function cancelSubscription(
-  creds: RazorpayCredentials,
+  creds: RazorpayAuthentication,
   subscriptionId: string,
-  cancelAtCycleEnd = false,
+  cancelAtCycleEnd = false
 ): Promise<RazorpaySubscription> {
   return razorpayFetch<RazorpaySubscription>(
     creds,
     `/subscriptions/${subscriptionId}/cancel`,
-    { method: "POST", body: { cancel_at_cycle_end: cancelAtCycleEnd ? 1 : 0 } },
+    { method: 'POST', body: { cancel_at_cycle_end: cancelAtCycleEnd ? 1 : 0 } }
   );
 }
 
@@ -240,12 +253,12 @@ export async function cancelSubscription(
 export function verifyWebhookSignature(
   rawBody: string,
   signature: string | null,
-  secret: string,
+  secret: string
 ): boolean {
   if (!signature) return false;
-  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-  const a = Buffer.from(expected, "utf8");
-  const b = Buffer.from(signature, "utf8");
+  const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
+  const a = Buffer.from(expected, 'utf8');
+  const b = Buffer.from(signature, 'utf8');
   // timingSafeEqual throws on length mismatch — guard first.
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
@@ -256,22 +269,22 @@ export function verifyWebhookSignature(
  * (payment_mandates.status). Unknown states park as 'pending'.
  */
 export function mandateStatusFromSubscription(
-  status: RazorpaySubscription["status"],
-): "pending" | "active" | "paused" | "revoked" | "expired" | "failed" {
+  status: RazorpaySubscription['status']
+): 'pending' | 'active' | 'paused' | 'revoked' | 'expired' | 'failed' {
   switch (status) {
-    case "authenticated":
-    case "active":
-      return "active";
-    case "halted":
-    case "pending":
-      return "failed";
-    case "cancelled":
-      return "revoked";
-    case "completed":
-    case "expired":
-      return "expired";
-    case "created":
+    case 'authenticated':
+    case 'active':
+      return 'active';
+    case 'halted':
+    case 'pending':
+      return 'failed';
+    case 'cancelled':
+      return 'revoked';
+    case 'completed':
+    case 'expired':
+      return 'expired';
+    case 'created':
     default:
-      return "pending";
+      return 'pending';
   }
 }
