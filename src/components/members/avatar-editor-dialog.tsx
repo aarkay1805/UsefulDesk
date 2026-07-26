@@ -199,8 +199,8 @@ export function AvatarEditorDialog({
           <DialogTitle>{src ? "Crop photo" : "Member photo"}</DialogTitle>
           <DialogDescription>
             {src
-              ? "Drag to reposition, scroll or use the slider to zoom. The crop is square."
-              : "Upload a photo or paste one with Command+V on Mac or Control+V on Windows. It's optimized to WebP before saving."}
+              ? "Position and crop the photo."
+              : "Upload or paste a photo."}
           </DialogDescription>
         </DialogHeader>
 

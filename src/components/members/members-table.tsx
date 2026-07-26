@@ -1,7 +1,7 @@
 "use client";
 
 // The "All members" table — server-paginated, sortable, filterable, with
-// multi-select bulk actions (remind / add note / record payment). Borrows
+// multi-select bulk actions (remind / add note / record payment / delete). Borrows
 // the leads table's data-layer idioms: fetch-sequence guard, shared
 // filter definition (applyMemberFilters — also used by select-all-matching
 // and CSV export), and the Collapse bulk toolbar. Deliberately NOT the
@@ -26,6 +26,7 @@ import {
   RefreshCw,
   Settings,
   StickyNote,
+  Trash2,
   UserPlus,
   Wallet,
   X,
@@ -103,7 +104,7 @@ import {
   requestLeadAssignment,
   respondLeadAssignment,
 } from "@/lib/leads/transfers";
-import { canResolveAnyLeadTransfer } from "@/lib/auth/roles";
+import { canDeleteMember, canResolveAnyLeadTransfer } from "@/lib/auth/roles";
 import {
   ColumnHeader,
   type ColumnFilterProp,
@@ -260,6 +261,9 @@ export function MembersTable({
   const canResolveAnyAssignment = profile?.account_role
     ? canResolveAnyLeadTransfer(profile.account_role)
     : false;
+  const canDeleteSelected = profile?.account_role
+    ? canDeleteMember(profile.account_role)
+    : false;
   // Include archived plans so members on a retired plan still filter.
   const { plans } = useMembershipPlans(false);
 
@@ -289,7 +293,9 @@ export function MembersTable({
   const [noteOpen, setNoteOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [remindOpen, setRemindOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [reminding, setReminding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Contextual row-action dialogs opened from the Actions column.
   const [followUpFor, setFollowUpFor] = useState<Membership | null>(null);
@@ -1141,6 +1147,68 @@ export function MembersTable({
     bulkDone();
   }
 
+  // Delete through the same admin-gated RPC as the member profile danger
+  // zone. A small worker pool keeps an all-matching selection responsive
+  // without flooding PostgREST, and successful rows disappear even when a
+  // later row fails.
+  async function deleteSelectedMembers() {
+    const entries = [...selected.entries()];
+    if (entries.length === 0 || !canDeleteSelected) return;
+
+    setDeleting(true);
+    const contactIds = [...new Set(entries.map(([, contactId]) => contactId))];
+    const results: { contactId: string; error: unknown }[] = [];
+    let nextIndex = 0;
+
+    async function worker() {
+      while (nextIndex < contactIds.length) {
+        const contactId = contactIds[nextIndex++];
+        try {
+          const { error } = await supabase.rpc("delete_member", {
+            p_contact_id: contactId,
+          });
+          results.push({ contactId, error });
+        } catch (error) {
+          results.push({ contactId, error });
+        }
+      }
+    }
+
+    await Promise.all(
+      Array.from({ length: Math.min(5, contactIds.length) }, () => worker())
+    );
+
+    const failed = results.filter((result) => result.error);
+    const failedContactIds = new Set(failed.map((result) => result.contactId));
+    const deletedCount = contactIds.length - failed.length;
+
+    setDeleting(false);
+    setDeleteOpen(false);
+
+    if (deletedCount > 0) {
+      setSelected(
+        new Map(
+          entries.filter(([, contactId]) => failedContactIds.has(contactId))
+        )
+      );
+      onChanged();
+    }
+
+    if (failed.length === 0) {
+      toast.success(
+        `${deletedCount} member${deletedCount === 1 ? "" : "s"} deleted`
+      );
+    } else if (deletedCount > 0) {
+      toast.success(
+        `${deletedCount} member${deletedCount === 1 ? "" : "s"} deleted · ${failed.length} failed`
+      );
+    } else {
+      toast.error(
+        getErrorMessage(failed[0]?.error, "Failed to delete members")
+      );
+    }
+  }
+
   return (
     <div className="space-y-3">
       {/* Match the Leads data surface: search and table actions live inside
@@ -1302,6 +1370,16 @@ export function MembersTable({
             >
               <Wallet />
               Record payment
+            </GatedButton>
+            <GatedButton
+              variant="destructive-ghost"
+              size="sm"
+              canAct={canDeleteSelected}
+              gateReason="delete members"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 />
+              Delete
             </GatedButton>
 
             <Button
@@ -1566,6 +1644,49 @@ export function MembersTable({
         membershipIds={[...selected.keys()]}
         onDone={bulkDone}
       />
+
+      <Dialog
+        open={deleteOpen}
+        onOpenChange={(open) => !deleting && setDeleteOpen(open)}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              Delete {selected.size} selected member
+              {selected.size === 1 ? "" : "s"}?
+            </DialogTitle>
+            <DialogDescription>
+              This permanently removes the selected member profiles,
+              memberships, attendance, and notes. Payment ledger entries are
+              retained without member links for accounting. This action cannot
+              be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleting}
+              onClick={deleteSelectedMembers}
+            >
+              {deleting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
+              Delete member{selected.size === 1 ? "" : "s"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Bulk-remind confirm — a WhatsApp blast shouldn't be one stray click. */}
       <Dialog open={remindOpen} onOpenChange={setRemindOpen}>

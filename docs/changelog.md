@@ -6,9 +6,15 @@
 
 ---
 
+## Bulk member deletion
+
+All Members selection now includes an owner/admin-only **Delete** action for the current row selection or every member matching the active search and filters. One confirmation covers the whole selection; deletion uses the existing `delete_member` RPC with bounded concurrency, retains anonymized payment-ledger entries, reports partial failures honestly, and leaves failed rows selected for retry. Key code: `src/components/members/members-table.tsx`.
+
+---
+
 ## Member photo clipboard paste
 
-The member photo dialog now accepts an image pasted with Command+V on macOS or Control+V on Windows, routes it through the same size validation and square crop preview as a selected file, and leaves the existing WebP optimization and upload flow unchanged. Clipboard extraction falls back across browser item/file representations and ignores non-image clipboard content. Key code: `src/components/members/avatar-editor-dialog.tsx` and `src/lib/images/clipboard.ts`.
+The member photo dialog now accepts an image pasted with Command+V on macOS or Control+V on Windows, routes it through the same size validation and square crop preview as a selected file, and leaves the existing WebP optimization and upload flow unchanged. Clipboard extraction falls back across browser item/file representations and ignores non-image clipboard content; the dialog keeps its upload and crop guidance deliberately brief. Key code: `src/components/members/avatar-editor-dialog.tsx` and `src/lib/images/clipboard.ts`.
 
 ---
 
