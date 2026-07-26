@@ -78,6 +78,12 @@ import {
   validateMemberMapping,
   type MemberImportRow,
 } from '@/lib/memberships/import-commit';
+import {
+  MemberImportFileError,
+  memberImportFileKind,
+  parseMemberImportWorkbook,
+  type MemberImportSheet,
+} from '@/lib/memberships/import-workbook';
 import { MEMBER_IMPORT_FIELDS } from '@/lib/memberships/member-field-registry';
 import { setMembershipCancellation } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
@@ -137,9 +143,13 @@ export function ImportMembersCsvDialog({
     loading: staffLoading,
   } = useAccountStaff();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileReadSequence = useRef(0);
 
   const [step, setStep] = useState<Step>(1);
   const [file, setFile] = useState<File | null>(null);
+  const [readingFile, setReadingFile] = useState(false);
+  const [workbookSheets, setWorkbookSheets] = useState<MemberImportSheet[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState('');
   const [raw, setRaw] = useState<RawCsv | null>(null);
   const [mapping, setMapping] = useState<string[]>([]);
   const [dateOrder, setDateOrder] = useState<DateOrder>(accountDateOrder);
@@ -169,6 +179,9 @@ export function ImportMembersCsvDialog({
     if (open) {
       setStep(1);
       setFile(null);
+      setReadingFile(false);
+      setWorkbookSheets([]);
+      setSelectedSheet('');
       setRaw(null);
       setMapping([]);
       setDateOrder(accountDateOrder);
@@ -183,7 +196,6 @@ export function ImportMembersCsvDialog({
       setImporting(false);
       setResult(null);
       setCreateCol(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
 
@@ -252,19 +264,16 @@ export function ImportMembersCsvDialog({
   );
 
   function handleOpenChange(next: boolean) {
-    if (!importing) onOpenChange(next);
+    if (importing) return;
+    if (!next) {
+      fileReadSequence.current++;
+      setReadingFile(false);
+    }
+    onOpenChange(next);
   }
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selected = event.target.files?.[0];
-    if (!selected) return;
-    const parsed = parseCsvRaw(await selected.text());
-    if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-      toast.error('No rows found. Ensure the file has a header row and data.');
-      return;
-    }
+  function prepareRawTable(parsed: RawCsv) {
     const nextMapping = autoMapMemberColumns(parsed.headers, customFields);
-    setFile(selected);
     setRaw(parsed);
     setMapping(nextMapping);
     setResult(null);
@@ -278,6 +287,81 @@ export function ImportMembersCsvDialog({
       )
     );
     setDateOrder(detected === 'ambiguous' ? accountDateOrder : detected);
+  }
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0];
+    if (!selected) return;
+    const kind = memberImportFileKind(selected.name);
+    if (!kind) {
+      toast.error(
+        selected.name.toLowerCase().endsWith('.xls')
+          ? 'Legacy .xls files are not supported. Save the workbook as .xlsx or .csv and try again.'
+          : 'Unsupported file. Choose a .csv or .xlsx file.'
+      );
+      event.target.value = '';
+      return;
+    }
+
+    const sequence = ++fileReadSequence.current;
+    setFile(selected);
+    setReadingFile(true);
+    setWorkbookSheets([]);
+    setSelectedSheet('');
+    setRaw(null);
+    setMapping([]);
+    setResult(null);
+
+    try {
+      if (kind === 'csv') {
+        const parsed = parseCsvRaw(await selected.text());
+        if (sequence !== fileReadSequence.current) return;
+        if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+          throw new MemberImportFileError(
+            'No rows found. Ensure the file has a header row and data.'
+          );
+        }
+        prepareRawTable(parsed);
+        return;
+      }
+
+      const sheets = await parseMemberImportWorkbook(selected);
+      if (sequence !== fileReadSequence.current) return;
+      setWorkbookSheets(sheets);
+      if (sheets.length === 1 && sheets[0].raw) {
+        setSelectedSheet(sheets[0].name);
+        prepareRawTable(sheets[0].raw);
+      } else {
+        const firstUsable = sheets.find((sheet) => sheet.raw);
+        if (!firstUsable) {
+          toast.error(
+            sheets[0]?.error ?? 'No usable worksheets found in this workbook.'
+          );
+        }
+      }
+    } catch (error) {
+      if (sequence !== fileReadSequence.current) return;
+      setFile(null);
+      setWorkbookSheets([]);
+      setSelectedSheet('');
+      setRaw(null);
+      setMapping([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      toast.error(
+        error instanceof MemberImportFileError
+          ? error.message
+          : getErrorMessage(error, 'Could not read this file')
+      );
+    } finally {
+      if (sequence === fileReadSequence.current) setReadingFile(false);
+    }
+  }
+
+  function handleWorksheetChange(name: string) {
+    const sheet = workbookSheets.find((item) => item.name === name);
+    if (!sheet?.raw) return;
+    setSelectedSheet(name);
+    prepareRawTable(sheet.raw);
   }
 
   function setColumn(column: number, key: string) {
@@ -693,7 +777,7 @@ export function ImportMembersCsvDialog({
   }
 
   const descriptions: Record<Step, string> = {
-    1: 'Upload a CSV of members to begin.',
+    1: 'Upload a CSV or Excel workbook of members to begin.',
     2: 'Map your file columns to member fields.',
     3: 'Check and edit members exactly as they will appear.',
     4: 'Review the import receipt and confirm.',
@@ -739,9 +823,13 @@ export function ImportMembersCsvDialog({
                   {step === 1 && (
                     <UploadStep
                       file={file}
+                      readingFile={readingFile}
                       raw={raw}
+                      workbookSheets={workbookSheets}
+                      selectedSheet={selectedSheet}
                       inputRef={fileInputRef}
                       onFileChange={handleFileChange}
+                      onWorksheetChange={handleWorksheetChange}
                     />
                   )}
                   {step === 2 && raw && (
@@ -856,7 +944,7 @@ export function ImportMembersCsvDialog({
                   {step === 1 && (
                     <Button
                       type="button"
-                      disabled={!raw?.rows.length}
+                      disabled={readingFile || !raw?.rows.length}
                       onClick={() => setStep(2)}
                     >
                       Next
@@ -914,7 +1002,7 @@ export function ImportMembersCsvDialog({
           <DialogHeader>
             <DialogTitle>Create custom field</DialogTitle>
             <DialogDescription>
-              Adds the field to every contact, then maps this CSV column to it.
+              Adds the field to every contact, then maps this file column to it.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-1">
@@ -1008,23 +1096,35 @@ function StepIndicator({ step }: { step: Step }) {
 
 function UploadStep({
   file,
+  readingFile,
   raw,
+  workbookSheets,
+  selectedSheet,
   inputRef,
   onFileChange,
+  onWorksheetChange,
 }: {
   file: File | null;
+  readingFile: boolean;
   raw: RawCsv | null;
+  workbookSheets: MemberImportSheet[];
+  selectedSheet: string;
   inputRef: React.RefObject<HTMLInputElement | null>;
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onWorksheetChange: (name: string) => void;
 }) {
+  const usableSheetCount = workbookSheets.filter((sheet) => sheet.raw).length;
+  const unavailableSheets = workbookSheets.filter((sheet) => sheet.error);
+
   return (
     <div className="space-y-4">
       <div
         role="button"
-        tabIndex={0}
-        onClick={() => inputRef.current?.click()}
+        tabIndex={readingFile ? -1 : 0}
+        aria-disabled={readingFile}
+        onClick={() => !readingFile && inputRef.current?.click()}
         onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
+          if (!readingFile && (event.key === 'Enter' || event.key === ' ')) {
             event.preventDefault();
             inputRef.current?.click();
           }
@@ -1036,7 +1136,17 @@ function UploadStep({
             : 'border-border/80 bg-background/40 hover:border-border-hover'
         )}
       >
-        {file ? (
+        {readingFile ? (
+          <>
+            <div className="bg-muted/80 ring-border/80 flex size-10 items-center justify-center rounded-lg ring-1">
+              <Loader2 className="text-muted-foreground size-5 animate-spin" />
+            </div>
+            <p className="text-foreground max-w-full truncate px-2 text-sm font-medium">
+              {file?.name}
+            </p>
+            <p className="text-muted-foreground text-[11px]">Reading file…</p>
+          </>
+        ) : file ? (
           <>
             <div className="bg-primary/15 ring-primary/25 flex size-10 items-center justify-center rounded-lg ring-1">
               <FileText className="text-primary-text size-5" />
@@ -1044,11 +1154,18 @@ function UploadStep({
             <p className="text-foreground max-w-full truncate px-2 text-sm font-medium">
               {file.name}
             </p>
-            <Badge variant="neutral">
-              {raw?.rows.length ?? 0} row
-              {raw?.rows.length === 1 ? '' : 's'} · {raw?.headers.length ?? 0}{' '}
-              column{raw?.headers.length === 1 ? '' : 's'}
-            </Badge>
+            {raw ? (
+              <Badge variant="neutral">
+                {raw.rows.length} row{raw.rows.length === 1 ? '' : 's'} ·{' '}
+                {raw.headers.length} column
+                {raw.headers.length === 1 ? '' : 's'}
+              </Badge>
+            ) : workbookSheets.length > 0 ? (
+              <Badge variant="neutral">
+                {workbookSheets.length} worksheet
+                {workbookSheets.length === 1 ? '' : 's'}
+              </Badge>
+            ) : null}
           </>
         ) : (
           <>
@@ -1056,7 +1173,7 @@ function UploadStep({
               <Upload className="text-muted-foreground size-5" />
             </div>
             <p className="text-muted-foreground text-sm">
-              Click to choose a CSV file
+              Click to choose a CSV or Excel file
             </p>
             <p className="text-muted-foreground text-[11px]">
               Any column layout — you&apos;ll map fields next
@@ -1064,17 +1181,64 @@ function UploadStep({
           </>
         )}
       </div>
+      {workbookSheets.length > 1 && (
+        <div className="mx-auto max-w-sm space-y-1.5">
+          <Label htmlFor="member-import-worksheet">Worksheet</Label>
+          <Select
+            value={selectedSheet || undefined}
+            onValueChange={(value) => value && onWorksheetChange(value)}
+          >
+            <SelectTrigger id="member-import-worksheet" className="w-full">
+              <SelectValue placeholder="Choose a worksheet" />
+            </SelectTrigger>
+            <SelectContent>
+              {workbookSheets.map((sheet) => (
+                <SelectItem
+                  key={sheet.name}
+                  value={sheet.name}
+                  disabled={!sheet.raw}
+                >
+                  {sheet.name} (
+                  {sheet.raw ? `${sheet.rowCount} rows` : 'unavailable'})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {usableSheetCount === 0 ? (
+            <p className="text-destructive text-xs">
+              {unavailableSheets[0]?.error ??
+                'No worksheet has both a header row and usable member data.'}
+            </p>
+          ) : (
+            <>
+              <p className="text-muted-foreground text-xs">
+                Select the worksheet that contains your member table.
+              </p>
+              {unavailableSheets.length > 0 && (
+                <p className="text-amber-foreground text-xs">
+                  {unavailableSheets[0].error}
+                  {unavailableSheets.length > 1
+                    ? ` ${unavailableSheets.length - 1} more worksheet${unavailableSheets.length === 2 ? ' is' : 's are'} unavailable.`
+                    : ''}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+      {workbookSheets.length === 1 && !workbookSheets[0].raw && (
+        <p className="text-destructive text-center text-xs">
+          {workbookSheets[0].error}
+        </p>
+      )}
       <p className="text-muted-foreground text-center text-xs">
-        Exported from Excel or Google Sheets? Use{' '}
-        <span className="text-foreground font-medium">
-          File → Save as → .csv
-        </span>{' '}
-        first.
+        Supports .csv and .xlsx. For legacy .xls files, save as .xlsx or .csv.
       </p>
       <input
         ref={inputRef}
         type="file"
-        accept=".csv,text/csv"
+        accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        disabled={readingFile}
         onChange={onFileChange}
         className="hidden"
       />

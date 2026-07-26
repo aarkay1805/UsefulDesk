@@ -6,6 +6,12 @@
 
 ---
 
+## Members Excel workbook import
+
+The existing four-step Members import now accepts modern `.xlsx` workbooks as well as CSV, requires a worksheet choice when a workbook has multiple tabs, and feeds the selected sheet into the unchanged mapping, validation, editable preview, and commit pipeline. Excel parsing is loaded in the browser only when needed; invalid, protected, empty, oversized (over 10 MB), overly tall (over 5,000 data rows), and overly wide (over 100 columns) sheets surface actionable errors. Legacy `.xls` remains conversion-only because the safe selected parser supports modern OOXML workbooks, not the older binary format. Key code: `src/components/members/import-members-csv-dialog.tsx` and `src/lib/memberships/import-workbook.ts`.
+
+---
+
 ## Razorpay credential and webhook recovery safety
 
 Razorpay credentials now cross one server-only, account-scoped connection boundary: browser roles have no table privileges, the manual key-paste flow uses an authenticated route, and downstream API calls accept either today’s Basic credentials or a future partner OAuth token without payment-logic changes. Webhook events use atomic claim/complete/fail states with attempt, lease, and error history; failures return a retryable response while completed duplicates remain no-ops. A service-only missing-ledger view and admin Payment-settings warning report charged events without mutating or replaying them. Migration `20260726090000` was applied through the Supabase connector; existing charged events were only reported for explicit approval. Key code: `src/lib/payments/credentials.ts`, `src/lib/payments/webhook-processing.ts`, `src/app/api/payments/razorpay/`, and `supabase/migrations/20260726090000_razorpay_payment_safety.sql`.

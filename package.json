@@ -60,6 +60,7 @@
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.7",
     "react-easy-crop": "^6.2.2",
+    "read-excel-file": "^9.3.4",
     "recharts": "^3.8.1",
     "server-only": "0.0.1",
     "shadcn": "^4.11.0",
