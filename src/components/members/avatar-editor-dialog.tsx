@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Loader2, Trash2, Upload } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { getClipboardImageFile } from "@/lib/images/clipboard";
 import { cropToWebp } from "@/lib/images/optimize";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Button } from "@/components/ui/button";
@@ -83,10 +84,7 @@ export function AvatarEditorDialog({
     onOpenChange(false);
   }
 
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-picking the same file
-    if (!file) return;
+  function readImageFile(file: File) {
     if (!file.type.startsWith("image/")) {
       toast.error("Choose an image file.");
       return;
@@ -96,9 +94,28 @@ export function AvatarEditorDialog({
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => setSrc(reader.result as string);
+    reader.onload = () => {
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setAreaPx(null);
+      setSrc(reader.result as string);
+    };
     reader.onerror = () => toast.error("Could not read that file.");
     reader.readAsDataURL(file);
+  }
+
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (file) readImageFile(file);
+  }
+
+  function onPaste(e: React.ClipboardEvent<HTMLDivElement>) {
+    if (busy) return;
+    const file = getClipboardImageFile(e.clipboardData);
+    if (!file) return;
+    e.preventDefault();
+    readImageFile(file);
   }
 
   async function persist(avatarUrl: string | null) {
@@ -177,13 +194,13 @@ export function AvatarEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onPaste={onPaste}>
         <DialogHeader>
           <DialogTitle>{src ? "Crop photo" : "Member photo"}</DialogTitle>
           <DialogDescription>
             {src
               ? "Drag to reposition, scroll or use the slider to zoom. The crop is square."
-              : "Upload or change this member's photo. It's optimized to WebP before saving."}
+              : "Upload a photo or paste one with Command+V on Mac or Control+V on Windows. It's optimized to WebP before saving."}
           </DialogDescription>
         </DialogHeader>
 

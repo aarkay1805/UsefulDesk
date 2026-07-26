@@ -10,9 +10,17 @@ const migration = readFileSync(
   'utf8'
 );
 
-function policy(name: string) {
+const avatarUploadFix = readFileSync(
+  resolve(
+    process.cwd(),
+    'supabase/migrations/20260726151441_allow_avatar_upload_metadata_returning.sql'
+  ),
+  'utf8'
+);
+
+function policy(name: string, sql = migration) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return migration.match(
+  return sql.match(
     new RegExp(
       `CREATE POLICY "${escaped}"[\\s\\S]*?(?=\\n(?:DROP|CREATE) POLICY|\\n--|$)`
     )
@@ -77,6 +85,22 @@ describe('storage media policy contract', () => {
     }
 
     expect(policy('Users can update their own avatar')).toContain('WITH CHECK');
+  });
+
+  it('returns avatar upload metadata without allowing bucket listing', () => {
+    const sql = policy(
+      'Users can read their own avatar upload metadata',
+      avatarUploadFix
+    );
+
+    expect(sql).toBeDefined();
+    expect(sql).toMatch(/FOR SELECT TO authenticated/);
+    expect(sql).toMatch(
+      /\(storage\.foldername\(name\)\)\[1\] = \(SELECT auth\.uid\(\)\)::TEXT/
+    );
+    expect(sql).toContain("'object.upload'");
+    expect(sql).toContain("'object.upload_update'");
+    expect(sql).not.toContain("'object.list'");
   });
 
   it('preserves receipt capabilities and persisted-object delete guards', () => {

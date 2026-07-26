@@ -6,6 +6,12 @@
 
 ---
 
+## Member photo clipboard paste
+
+The member photo dialog now accepts an image pasted with Command+V on macOS or Control+V on Windows, routes it through the same size validation and square crop preview as a selected file, and leaves the existing WebP optimization and upload flow unchanged. Clipboard extraction falls back across browser item/file representations and ignores non-image clipboard content. Key code: `src/components/members/avatar-editor-dialog.tsx` and `src/lib/images/clipboard.ts`.
+
+---
+
 ## AI-assisted member CSV migration
 
 The four-step Members importer now accepts an owner explanation and offers **Analyze file**, using the existing account-scoped AI provider with only headers, bounded samples, counts, and the explanation. The model can propose only a hand-validated, allowlisted recipe; pure code removes summary rows, groups by source identity, selects the latest parsed start date, splits common plan/term labels, preserves explicit expiry and legacy IDs, maps expired semantics, and surfaces every shared-phone, missing-phone, and financial exception with an owner/status/next action. Inconsistent payments are removed from the ledger payload rather than forged, plans remain human-matched, older history is explicitly excluded, and manual mapping remains available when AI is off or declined. The final commit now shows determinate row-level progress plus finishing stages, so large imports no longer appear stalled. Key code: `src/lib/memberships/migration-recipe.ts`, `src/app/api/members/import-analyze/route.ts`, and `src/components/members/import-members-csv-dialog.tsx`.
@@ -32,7 +38,7 @@ Every page in the `(dashboard)` route group is now covered by the proxy's early 
 
 ## Storage and media access hardening
 
-Storage API enumeration is closed across avatars, WhatsApp chat/flow media, and private payment/expense receipts: exact-object retrieval remains available, but `object.list` is not authorized. Chat/flow uploads, updates, and deletes now require authenticated agent capability plus the canonical tenant path; avatar writes remain authenticated and user-folder scoped; private receipt writes retain agent/admin capability and persisted-object deletion guards. Chat/flow media intentionally remain public because Meta fetches their persisted URLs asynchronously, so anyone with an exact URL can still retrieve an object; moving them private requires a separate delivery migration with evidence that expiring signed URLs remain valid for retries. Key code: `supabase/migrations/20260725230417_harden_storage_media_access.sql` and `src/lib/storage/storage-policies-contract.test.ts`.
+Storage API enumeration is closed across avatars, WhatsApp chat/flow media, and private payment/expense receipts: exact-object retrieval remains available, but `object.list` is not authorized. Chat/flow uploads, updates, and deletes now require authenticated agent capability plus the canonical tenant path; avatar writes remain authenticated and user-folder scoped; private receipt writes retain agent/admin capability and persisted-object deletion guards. Because Storage returns newly inserted object metadata, a follow-up user-folder- and operation-scoped avatar SELECT policy permits only upload metadata reads without reopening listing. Chat/flow media intentionally remain public because Meta fetches their persisted URLs asynchronously from persisted public URLs, so anyone with an exact URL can still retrieve an object; moving them private requires a separate delivery migration with evidence that expiring signed URLs remain valid for retries. Key code: `supabase/migrations/20260725230417_harden_storage_media_access.sql`, `supabase/migrations/20260726151441_allow_avatar_upload_metadata_returning.sql`, and `src/lib/storage/storage-policies-contract.test.ts`.
 
 ---
 
