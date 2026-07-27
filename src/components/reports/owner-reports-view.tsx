@@ -511,16 +511,20 @@ function PlanPerformanceCard({
         {report.plans.length > 0 ? (
           <div className="overflow-x-auto">
             <div className="min-w-[38rem]">
-              <div
-                role="row"
-                className="border-border text-foreground grid grid-cols-[minmax(11rem,1fr)_4.5rem_4rem_4rem_7rem_1.5rem] items-center gap-2 border-b px-4 text-sm font-medium"
-              >
-                <span className="flex h-10 items-center">Plan</span>
-                <span className="text-right">Active</span>
-                <span className="text-right">New</span>
-                <span className="text-right">Visits</span>
-                <span className="text-right">Revenue</span>
-                <span className="sr-only">Expand</span>
+              <div className="border-border border-b">
+                <div
+                  role="row"
+                  className="text-foreground mx-4 flex h-10 items-center border border-transparent text-sm font-medium"
+                >
+                  <span className="grid min-w-0 flex-1 grid-cols-[minmax(11rem,1fr)_4.5rem_4rem_4rem_7rem] items-center gap-2">
+                    <span>Plan</span>
+                    <span className="text-right">Active</span>
+                    <span className="text-right">New</span>
+                    <span className="text-right">Visits</span>
+                    <span className="text-right">Revenue</span>
+                  </span>
+                  <span aria-hidden className="size-4 shrink-0" />
+                </div>
               </div>
               <Accordion multiple className="px-4">
                 {report.plans.map((plan) => (
