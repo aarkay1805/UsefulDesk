@@ -49,9 +49,7 @@ function weeklyTrend(data: FinanceTrendPoint[]): FinanceTrendPoint[] {
     result.push({
       date: days[0].date,
       income: days.reduce((sum, day) => sum + day.income, 0),
-      expenses: days.some((day) => day.expenses !== null)
-        ? days.reduce((sum, day) => sum + (day.expenses ?? 0), 0)
-        : null,
+      expenses: days.reduce((sum, day) => sum + day.expenses, 0),
     });
   }
   return result;
@@ -60,19 +58,15 @@ function weeklyTrend(data: FinanceTrendPoint[]): FinanceTrendPoint[] {
 export function FinanceCashFlowChart({
   data,
   monthLabel,
-  expenseTrackingAvailable,
   fmt,
 }: {
   data: FinanceTrendPoint[];
   monthLabel: string;
-  expenseTrackingAvailable: boolean;
   fmt: LocaleFormatters;
 }) {
   const [grouping, setGrouping] = useState<Grouping>('daily');
   const chartData = grouping === 'daily' ? data : weeklyTrend(data);
-  const hasData = data.some(
-    (point) => point.income > 0 || (point.expenses ?? 0) > 0
-  );
+  const hasData = data.some((point) => point.income > 0 || point.expenses > 0);
 
   return (
     <Card className="h-full">
@@ -99,7 +93,6 @@ export function FinanceCashFlowChart({
           <span className="text-muted-foreground inline-flex items-center gap-1.5">
             <span className="size-2 rounded-sm bg-red-500" />
             Expenses
-            {!expenseTrackingAvailable ? ' · not tracked yet' : ''}
           </span>
         </div>
 
@@ -163,15 +156,13 @@ export function FinanceCashFlowChart({
                   radius={[3, 3, 0, 0]}
                   maxBarSize={22}
                 />
-                {expenseTrackingAvailable ? (
-                  <Bar
-                    dataKey="expenses"
-                    name="expenses"
-                    fill="var(--color-red-500)"
-                    radius={[3, 3, 0, 0]}
-                    maxBarSize={14}
-                  />
-                ) : null}
+                <Bar
+                  dataKey="expenses"
+                  name="expenses"
+                  fill="var(--color-red-500)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={14}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -180,7 +171,7 @@ export function FinanceCashFlowChart({
             icon={BarChart3}
             className="h-72"
             title="No cash movement in this month"
-            hint="Recorded membership payments will appear here by day."
+            hint="Recorded income and expenses will appear here by day."
           />
         )}
       </CardContent>

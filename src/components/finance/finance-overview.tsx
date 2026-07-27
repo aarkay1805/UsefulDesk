@@ -125,7 +125,6 @@ export function FinanceOverview({
               <FinanceCashFlowChart
                 data={data.trend}
                 monthLabel={fmt.month(data.period.start)}
-                expenseTrackingAvailable={data.expenseTrackingAvailable}
                 fmt={fmt}
               />
             </div>
@@ -144,7 +143,6 @@ export function FinanceOverview({
             <div className="xl:col-span-3">
               <FinanceRecentTransactionsCard
                 transactions={data.recentTransactions}
-                expenseTrackingAvailable={data.expenseTrackingAvailable}
                 fmt={fmt}
               />
             </div>
@@ -189,15 +187,15 @@ function FinanceMetricGrid({
       />
       <MetricCard
         title="Expenses"
-        value="—"
+        value={fmt.money(data.expenses.current)}
         icon={ReceiptText}
-        subtitle="Available after the expense log is enabled"
+        subtitle="Posted expenses this month"
       />
       <MetricCard
         title="Profit"
-        value="—"
+        value={fmt.money(data.profit.current)}
         icon={TrendingUp}
-        subtitle="Requires recorded expenses"
+        subtitle="Revenue minus posted expenses"
       />
       <MetricCard
         title="Next month projected"

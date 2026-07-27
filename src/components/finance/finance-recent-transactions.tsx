@@ -23,11 +23,9 @@ const METHOD_LABEL: Record<string, string> = {
 
 export function FinanceRecentTransactionsCard({
   transactions,
-  expenseTrackingAvailable,
   fmt,
 }: {
   transactions: FinanceRecentTransaction[];
-  expenseTrackingAvailable: boolean;
   fmt: LocaleFormatters;
 }) {
   return (
@@ -37,65 +35,57 @@ export function FinanceRecentTransactionsCard({
       </CardHeader>
       <CardContent className="px-0">
         {transactions.length > 0 ? (
-          <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-4">Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead className="pr-4 text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.map((transaction) => {
-                  const income = transaction.kind === 'membership';
-                  return (
-                    <TableRow key={`${transaction.kind}:${transaction.id}`}>
-                      <TableCell className="pl-4 whitespace-nowrap">
-                        {fmt.date(transaction.occurredAt)}
-                      </TableCell>
-                      <TableCell className="max-w-48 truncate font-medium">
-                        {transaction.description}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={income ? 'info' : 'danger'}>
-                          {income ? 'Membership' : 'Expense'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {METHOD_LABEL[transaction.method] ?? transaction.method}
-                      </TableCell>
-                      <TableCell
-                        className={`pr-4 text-right font-medium tabular-nums ${
-                          income
-                            ? 'text-emerald-foreground'
-                            : 'text-red-foreground'
-                        }`}
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          {income ? (
-                            <ArrowDownLeft className="size-3.5" />
-                          ) : (
-                            <ArrowUpRight className="size-3.5" />
-                          )}
-                          {income ? '+' : '−'}
-                          {fmt.money(transaction.amount)}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            {!expenseTrackingAvailable ? (
-              <p className="text-muted-foreground border-border border-t px-4 py-3 text-xs">
-                Expense entries will join this feed when the expense ledger is
-                enabled.
-              </p>
-            ) : null}
-          </>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-4">Date</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Method</TableHead>
+                <TableHead className="pr-4 text-right">Amount</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {transactions.map((transaction) => {
+                const income = transaction.kind === 'membership';
+                return (
+                  <TableRow key={`${transaction.kind}:${transaction.id}`}>
+                    <TableCell className="pl-4 whitespace-nowrap">
+                      {fmt.date(transaction.occurredAt)}
+                    </TableCell>
+                    <TableCell className="max-w-48 truncate font-medium">
+                      {transaction.description}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={income ? 'info' : 'danger'}>
+                        {income ? 'Membership' : 'Expense'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {METHOD_LABEL[transaction.method] ?? transaction.method}
+                    </TableCell>
+                    <TableCell
+                      className={`pr-4 text-right font-medium tabular-nums ${
+                        income
+                          ? 'text-emerald-foreground'
+                          : 'text-red-foreground'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {income ? (
+                          <ArrowDownLeft className="size-3.5" />
+                        ) : (
+                          <ArrowUpRight className="size-3.5" />
+                        )}
+                        {income ? '+' : '−'}
+                        {fmt.money(transaction.amount)}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         ) : (
           <div className="px-4">
             <EmptyState

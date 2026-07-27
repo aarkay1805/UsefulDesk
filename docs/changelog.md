@@ -6,6 +6,18 @@
 
 ---
 
+## Semantic trend direction colours
+
+KPI comparison rows now use one product-wide directional treatment through the shared `MetricCard`: upward trends are emerald, downward trends are red, and unchanged values remain neutral across Reports, Dashboard, and Finance. The arrow and label share the same semantic foreground token instead of borrowing the account accent. Key code: `src/components/dashboard/metric-card.tsx`; durable rule: `docs/ui-patterns.md`.
+
+---
+
+## Finance Overview expense integration
+
+Finance Overview now reads posted expense-ledger rows for the selected and previous calendar months: Expenses and Profit cards show real totals, cash flow plots money out by expense date, Recent transactions merges income and expenses, and CSV export carries the same figures. Voided expenses remain excluded everywhere, and zero is shown only when the active ledger has no posted expense for that period. Key code: `src/lib/finance/overview.ts`, `src/components/finance/finance-overview.tsx`, and `src/components/finance/finance-cash-flow-chart.tsx`.
+
+---
+
 ## Repository-wide ESLint cleanup
 
 The current Next.js 16 / React 19 tree now passes ESLint with zero errors and zero warnings without rule overrides. The stale 56-error report was not reproducible from the supplied `main` revision (its untouched baseline was zero errors and 11 warnings); the remaining cleanup removed dead imports/state, made auth-driven effects depend on stable scalar IDs, cancellation-guarded the contact-form option loaders, and moved authenticated message images onto `next/image` without changing their proxy/blob delivery. Key code: `src/components/contacts/contact-form.tsx`, `src/components/inbox/message-bubble.tsx`, and the affected Inbox and Settings call sites.

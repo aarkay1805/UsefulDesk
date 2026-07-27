@@ -9,6 +9,7 @@ import {
 } from '@/lib/memberships/periods';
 import type {
   Contact,
+  Expense,
   Membership,
   MembershipPeriodInvoice,
   Payment,
@@ -27,7 +28,7 @@ export interface FinanceMonthRange {
 export interface FinanceTrendPoint {
   date: string;
   income: number;
-  expenses: number | null;
+  expenses: number;
 }
 
 export interface FinanceInvoiceHealth {
@@ -56,19 +57,29 @@ export interface FinanceRecentTransaction {
 export interface FinanceOverviewData {
   period: FinanceMonthRange;
   revenue: { current: number; previous: number };
-  expenses: { current: number | null; previous: number | null };
-  profit: { current: number | null; previous: number | null };
+  expenses: { current: number; previous: number };
+  profit: { current: number; previous: number };
   projection: { amount: number; renewals: number };
   trend: FinanceTrendPoint[];
   invoiceHealth: FinanceInvoiceHealth;
   collectionMethods: FinanceCollectionMethod[];
   recentTransactions: FinanceRecentTransaction[];
-  expenseTrackingAvailable: boolean;
 }
 
 type PaymentRow = Payment & {
   contact?: Pick<Contact, 'name'> | null;
 };
+
+export type FinanceOverviewExpenseRow = Pick<
+  Expense,
+  | 'id'
+  | 'occurred_on'
+  | 'amount'
+  | 'description'
+  | 'method'
+  | 'status'
+  | 'created_at'
+>;
 
 type ProjectionMembership = Membership & {
   plan: NonNullable<Membership['plan']>;
@@ -129,9 +140,8 @@ export function financeYearOptions(
   }
   const createdYear = yearFrom(accountCreatedAt) ?? currentYear;
   const firstYear = Math.min(currentYear, createdYear, selectedYear);
-  return Array.from(
-    { length: currentYear - firstYear + 1 },
-    (_, index) => String(currentYear - index)
+  return Array.from({ length: currentYear - firstYear + 1 }, (_, index) =>
+    String(currentYear - index)
   );
 }
 
@@ -144,6 +154,63 @@ function paymentMethod(
   method: PaymentMethod
 ): FinanceCollectionMethod['method'] {
   return method === 'bank' || method === 'other' ? 'bank_other' : method;
+}
+
+export function summarizeFinanceExpenses(
+  rows: FinanceOverviewExpenseRow[],
+  period: FinanceMonthRange
+): {
+  current: number;
+  previous: number;
+  daily: Array<{ date: string; amount: number }>;
+  transactions: FinanceRecentTransaction[];
+} {
+  const posted = rows.filter((expense) => expense.status === 'posted');
+  const currentRows = posted.filter(
+    (expense) =>
+      expense.occurred_on >= period.start &&
+      expense.occurred_on < period.nextStart
+  );
+  const previousRows = posted.filter(
+    (expense) =>
+      expense.occurred_on >= period.previousStart &&
+      expense.occurred_on < period.start
+  );
+  const daily = new Map<string, number>();
+  for (const expense of currentRows) {
+    daily.set(
+      expense.occurred_on,
+      (daily.get(expense.occurred_on) ?? 0) + number(expense.amount)
+    );
+  }
+
+  return {
+    current: currentRows.reduce(
+      (sum, expense) => sum + number(expense.amount),
+      0
+    ),
+    previous: previousRows.reduce(
+      (sum, expense) => sum + number(expense.amount),
+      0
+    ),
+    daily: Array.from(daily, ([date, amount]) => ({ date, amount })).sort(
+      (left, right) => left.date.localeCompare(right.date)
+    ),
+    transactions: [...currentRows]
+      .sort(
+        (left, right) =>
+          right.occurred_on.localeCompare(left.occurred_on) ||
+          right.created_at.localeCompare(left.created_at)
+      )
+      .map((expense) => ({
+        id: expense.id,
+        occurredAt: expense.occurred_on,
+        description: expense.description,
+        kind: 'expense' as const,
+        method: paymentMethod(expense.method),
+        amount: number(expense.amount),
+      })),
+  };
 }
 
 function instantBounds(
@@ -193,44 +260,58 @@ export async function loadFinanceOverview(
   const projectionStart = period.nextStart;
   const projectionEnd = `${shiftFinanceMonth(month, 2)}-01`;
 
-  const [payments, invoices, projectionMemberships] = await Promise.all([
-    fetchAll<PaymentRow>((from, to) =>
-      db
-        .from('payments')
-        .select(
-          'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, gateway_payment_id, created_at, contact:contacts(name)'
-        )
-        .eq('status', 'paid')
-        .gte('paid_at', bounds.previousStart)
-        .lt('paid_at', bounds.nextStart)
-        .order('paid_at', { ascending: false })
-        .range(from, to)
-    ),
-    fetchAll<MembershipPeriodInvoice>((from, to) =>
-      db
-        .from('membership_period_invoices')
-        .select(
-          'id, account_id, membership_id, contact_id, plan_id, period_start, period_end, fee_amount, state, created_at, amount_paid, balance'
-        )
-        .gte('created_at', bounds.currentStart)
-        .lt('created_at', bounds.nextStart)
-        .order('created_at', { ascending: false })
-        .range(from, to)
-    ),
-    fetchAll<ProjectionMembership>((from, to) =>
-      db
-        .from('memberships')
-        .select(
-          'id, account_id, contact_id, user_id, plan_id, pricing_option_id, start_date, end_date, status, fee_amount, fee_status, is_trial, collection_mode, created_at, updated_at, plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
-        )
-        .eq('status', 'active')
-        .eq('is_trial', false)
-        .gte('end_date', projectionStart)
-        .lt('end_date', projectionEnd)
-        .order('id')
-        .range(from, to)
-    ),
-  ]);
+  const [payments, invoices, projectionMemberships, expenseRows] =
+    await Promise.all([
+      fetchAll<PaymentRow>((from, to) =>
+        db
+          .from('payments')
+          .select(
+            'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, gateway_payment_id, created_at, contact:contacts(name)'
+          )
+          .eq('status', 'paid')
+          .gte('paid_at', bounds.previousStart)
+          .lt('paid_at', bounds.nextStart)
+          .order('paid_at', { ascending: false })
+          .range(from, to)
+      ),
+      fetchAll<MembershipPeriodInvoice>((from, to) =>
+        db
+          .from('membership_period_invoices')
+          .select(
+            'id, account_id, membership_id, contact_id, plan_id, period_start, period_end, fee_amount, state, created_at, amount_paid, balance'
+          )
+          .gte('created_at', bounds.currentStart)
+          .lt('created_at', bounds.nextStart)
+          .order('created_at', { ascending: false })
+          .range(from, to)
+      ),
+      fetchAll<ProjectionMembership>((from, to) =>
+        db
+          .from('memberships')
+          .select(
+            'id, account_id, contact_id, user_id, plan_id, pricing_option_id, start_date, end_date, status, fee_amount, fee_status, is_trial, collection_mode, created_at, updated_at, plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
+          )
+          .eq('status', 'active')
+          .eq('is_trial', false)
+          .gte('end_date', projectionStart)
+          .lt('end_date', projectionEnd)
+          .order('id')
+          .range(from, to)
+      ),
+      fetchAll<FinanceOverviewExpenseRow>((from, to) =>
+        db
+          .from('expenses')
+          .select(
+            'id, occurred_on, amount, description, method, status, created_at'
+          )
+          .eq('status', 'posted')
+          .gte('occurred_on', period.previousStart)
+          .lt('occurred_on', period.nextStart)
+          .order('occurred_on', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(from, to)
+      ),
+    ]);
 
   const currentPayments = payments.filter(
     (payment) =>
@@ -253,6 +334,15 @@ export async function loadFinanceOverview(
       0
     ),
   };
+  const expenseSnapshot = summarizeFinanceExpenses(expenseRows, period);
+  const expenses = {
+    current: expenseSnapshot.current,
+    previous: expenseSnapshot.previous,
+  };
+  const profit = {
+    current: revenue.current - expenses.current,
+    previous: revenue.previous - expenses.previous,
+  };
 
   const daily = new Map<string, FinanceTrendPoint>();
   for (
@@ -260,12 +350,16 @@ export async function loadFinanceOverview(
     date <= period.end;
     date = istAddDays(date, 1)
   ) {
-    daily.set(date, { date, income: 0, expenses: null });
+    daily.set(date, { date, income: 0, expenses: 0 });
   }
   for (const payment of currentPayments) {
     const date = todayInTz(timeZone, new Date(payment.paid_at));
     const point = daily.get(date);
     if (point) point.income += number(payment.amount);
+  }
+  for (const expense of expenseSnapshot.daily) {
+    const point = daily.get(expense.date);
+    if (point) point.expenses += expense.amount;
   }
 
   const invoiceHealth: FinanceInvoiceHealth = {
@@ -326,8 +420,8 @@ export async function loadFinanceOverview(
   return {
     period,
     revenue,
-    expenses: { current: null, previous: null },
-    profit: { current: null, previous: null },
+    expenses,
+    profit,
     projection: {
       amount: projectionAmount,
       renewals: projectionRenewals,
@@ -335,15 +429,19 @@ export async function loadFinanceOverview(
     trend: Array.from(daily.values()),
     invoiceHealth,
     collectionMethods,
-    recentTransactions: currentPayments.slice(0, 4).map((payment) => ({
-      id: payment.id,
-      occurredAt: payment.paid_at,
-      description: payment.contact?.name?.trim() || 'Deleted member',
-      kind: 'membership',
-      method: paymentMethod(payment.method),
-      amount: number(payment.amount),
-    })),
-    expenseTrackingAvailable: false,
+    recentTransactions: [
+      ...currentPayments.map((payment) => ({
+        id: payment.id,
+        occurredAt: payment.paid_at,
+        description: payment.contact?.name?.trim() || 'Deleted member',
+        kind: 'membership' as const,
+        method: paymentMethod(payment.method),
+        amount: number(payment.amount),
+      })),
+      ...expenseSnapshot.transactions,
+    ]
+      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+      .slice(0, 4),
   };
 }
 
@@ -358,17 +456,13 @@ export function financeOverviewCsv(data: FinanceOverviewData): string {
     [],
     ['Summary', 'Current month', 'Previous month'],
     ['Revenue', data.revenue.current, data.revenue.previous],
-    ['Expenses', data.expenses.current ?? '', data.expenses.previous ?? ''],
-    ['Profit', data.profit.current ?? '', data.profit.previous ?? ''],
+    ['Expenses', data.expenses.current, data.expenses.previous],
+    ['Profit', data.profit.current, data.profit.previous],
     ['Next month projected', data.projection.amount, ''],
     ['Projected renewals', data.projection.renewals, ''],
     [],
     ['Date', 'Income', 'Expenses'],
-    ...data.trend.map((point) => [
-      point.date,
-      point.income,
-      point.expenses ?? '',
-    ]),
+    ...data.trend.map((point) => [point.date, point.income, point.expenses]),
     [],
     ['Payment method', 'Payments', 'Amount'],
     ...data.collectionMethods.map((method) => [

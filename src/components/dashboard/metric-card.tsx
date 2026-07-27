@@ -47,7 +47,7 @@ export function MetricCard({ title, value, icon: Icon, delta, subtitle }: Metric
 function DeltaRow({ sign, label }: { sign: number; label: string }) {
   const tone =
     sign > 0
-      ? 'text-primary-text'
+      ? 'text-emerald-foreground'
       : sign < 0
       ? 'text-red-foreground'
       : 'text-muted-foreground'

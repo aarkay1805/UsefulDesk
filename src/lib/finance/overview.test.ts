@@ -5,6 +5,7 @@ import {
   financeOverviewCsv,
   financeYearOptions,
   shiftFinanceMonth,
+  summarizeFinanceExpenses,
   type FinanceOverviewData,
 } from './overview';
 
@@ -38,15 +39,72 @@ describe('Finance calendar months', () => {
   });
 });
 
+describe('summarizeFinanceExpenses', () => {
+  it('tracks posted current and previous expenses while excluding void rows', () => {
+    const period = financeMonthRange('2026-07');
+    const summary = summarizeFinanceExpenses(
+      [
+        {
+          id: 'current-1',
+          occurred_on: '2026-07-15',
+          amount: 12000,
+          description: 'Rent',
+          method: 'bank',
+          status: 'posted',
+          created_at: '2026-07-15T09:00:00Z',
+        },
+        {
+          id: 'current-2',
+          occurred_on: '2026-07-15',
+          amount: 1500,
+          description: 'Cleaning',
+          method: 'cash',
+          status: 'posted',
+          created_at: '2026-07-15T10:00:00Z',
+        },
+        {
+          id: 'previous',
+          occurred_on: '2026-06-20',
+          amount: 5000,
+          description: 'Marketing',
+          method: 'upi',
+          status: 'posted',
+          created_at: '2026-06-20T10:00:00Z',
+        },
+        {
+          id: 'void',
+          occurred_on: '2026-07-21',
+          amount: 9000,
+          description: 'Voided equipment entry',
+          method: 'card',
+          status: 'void',
+          created_at: '2026-07-21T10:00:00Z',
+        },
+      ],
+      period
+    );
+
+    expect(summary.current).toBe(13500);
+    expect(summary.previous).toBe(5000);
+    expect(summary.daily).toEqual([{ date: '2026-07-15', amount: 13500 }]);
+    expect(summary.transactions.map((transaction) => transaction.id)).toEqual([
+      'current-2',
+      'current-1',
+    ]);
+    expect(summary.transactions[0].method).toBe('cash');
+    expect(summary.transactions[1].method).toBe('bank_other');
+  });
+});
+
 describe('financeOverviewCsv', () => {
-  it('keeps unavailable expense values blank rather than inventing zeroes', () => {
+  it('exports tracked expense and profit values', () => {
     const data = {
       period: financeMonthRange('2026-07'),
       revenue: { current: 6000, previous: 5000 },
-      expenses: { current: null, previous: null },
-      profit: { current: null, previous: null },
+      expenses: { current: 1500, previous: 1000 },
+      profit: { current: 4500, previous: 4000 },
       projection: { amount: 4500, renewals: 1 },
-      trend: [{ date: '2026-07-01', income: 6000, expenses: null }],
+      trend: [{ date: '2026-07-01', income: 6000, expenses: 1500 }],
       invoiceHealth: {
         paid: 1,
         partiallyPaid: 0,
@@ -56,11 +114,11 @@ describe('financeOverviewCsv', () => {
       },
       collectionMethods: [{ method: 'upi', payments: 1, amount: 6000 }],
       recentTransactions: [],
-      expenseTrackingAvailable: false,
     } satisfies FinanceOverviewData;
 
     const csv = financeOverviewCsv(data);
-    expect(csv).toContain('Expenses,,');
-    expect(csv).not.toContain('Expenses,0,0');
+    expect(csv).toContain('Expenses,1500,1000');
+    expect(csv).toContain('Profit,4500,4000');
+    expect(csv).toContain('2026-07-01,6000,1500');
   });
 });

@@ -18,6 +18,10 @@ When you spot a mismatch: **fix it at the master component** so every call-site 
 
 **Semantic colour foregrounds never use a raw palette shade.** Use `text-{hue}-foreground` for coloured text/icons (`red`, `amber`, `emerald`, `blue`, and the other declared semantic hues). Each token starts from that hue's `-500` fill primitive and blends 45% toward the live page foreground, mirroring the adaptive contrast rule used by `text-primary-text`; this keeps the hue recognisable while clearing WCAG AA over its 10% subtle tint in light and dark modes. `text-destructive` aliases the same red foreground. A component may vary a subtle background's opacity, but not its foreground token. The only exception is `components/tremor/chart-colors.ts`, whose `-500` classes are data-mark colours locked to matching fills and strokes, not semantic product text.
 
+## Directional trends
+
+Every KPI delta uses the shared `MetricCard` direction treatment: upward/positive is `text-emerald-foreground`, downward/negative is `text-red-foreground`, and unchanged is `text-muted-foreground`. The arrow and label always share the same tone. Direction colours are semantic and must never inherit the account accent; sort arrows, disclosure chevrons, and money-flow direction icons are not trend deltas and keep their own established treatments.
+
 ## Clickable cards — hover is the BORDER, never the fill
 
 A clickable card (any bordered box that navigates or acts — nav tile, action row, selectable option) hovers with **`hover:border-border-hover` and nothing else**. The fill does not move: no `hover:bg-*`.

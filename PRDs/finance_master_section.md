@@ -1,6 +1,6 @@
 # Finance master section
 
-> Status: **Overview, Invoices, Payments, and Expenses built; Overview expense integration pending** · Product roadmap · Last updated: 2026-07-24
+> Status: **Overview, Invoices, Payments, Expenses, and Overview expense integration built** · Product roadmap · Last updated: 2026-07-27
 > Reference audit: FitGymSoftware Finance, inspected in-product on 2026-07-23. The reference is used for capability discovery only; its information architecture and visual design are not implementation targets.
 
 ## 1. Decision
@@ -117,12 +117,12 @@ The page follows the approved mockup hierarchy:
 Data rules:
 
 - Revenue is the append-preserving paid-payment total for the selected calendar month and compares with the previous calendar month.
-- Cash flow plots day-wise income and can group it by week without changing the selected period.
+- Cash flow plots day-wise income and posted expenses and can group both by week without changing the selected period.
 - Invoice health groups issued periods into Paid, Partially paid, Overdue, Open, and Outstanding.
 - Collection mix uses the fixed Cash / UPI / Card / Bank & other method families.
 - Next month projected uses active memberships expiring in the next calendar month and the shared next-invoice projection.
-- Expenses and Profit remain visibly unavailable until the expense ledger is integrated into Overview. They must never render fabricated zeroes.
-- Recent transactions initially contains payment-ledger entries; posted expenses join the same timeline when Overview expense integration ships.
+- Expenses and Profit use posted expense-ledger rows for the selected and previous calendar months; voided expenses never contribute.
+- Recent transactions merges payment-ledger income and posted expenses in effective-date order.
 
 The Overview is analytical, not an exception/action queue. Reports remains the broader business-analysis surface for retention, acquisition, and plan performance.
 
@@ -367,16 +367,15 @@ Built:
 - `/finance`, sidebar item, page title, and URL-backed Overview/Invoices/Payments/Expenses header tabs;
 - calendar-month navigation shared by every tab, with separate Month/Year controls, adjacent and current-month shortcuts, future guards, and available years derived from account history;
 - Revenue with previous-month comparison and Next month projected from active renewals;
-- day/weekly income cash flow, invoice health, collection mix, and recent payment transactions;
-- admin-only CSV export with unavailable expense/profit cells left blank;
-- honest Expenses and Profit placeholders until a real expense ledger exists;
+- day/weekly income-and-expense cash flow, invoice health, collection mix, and merged recent transactions;
+- admin-only CSV export with the same revenue, expense, profit, and daily cash-flow truth as the page;
+- posted Expense totals and Revenue-minus-Expenses Profit for the selected and previous calendar months;
 - analytical Finance Payments with tenant-safe database paging, filtered totals/method mix, full export, receipt audit, and member deep links;
 - Members → Payments restored as the operational due/payment home, including its existing server paging, filters, complete CSV export, reminders, payment entry, and realtime behavior.
 
 Remaining Phase A hardening:
 
 - complete the role/timezone/currency/large-ledger acceptance matrix against a connected test account;
-- connect posted expense totals, net cash, and recent expense transactions to Overview without duplicating the Expenses ledger.
 
 Exit criteria:
 
@@ -518,6 +517,6 @@ Each phase must cover:
 
 ## 12. Recommended build order
 
-Overview, the account-wide issued-invoice master, the analytical Payments ledger, and the classified Expenses ledger are built. Next, connect posted expense totals to Overview, Profit, the expense cash-flow series, owner-report export, and the combined recent-transactions timeline already reserved in the approved design.
+Overview, the account-wide issued-invoice master, the analytical Payments ledger, and the classified Expenses ledger are built. Posted expense totals now flow through Overview, Profit, cash flow, CSV export, and the combined recent-transactions timeline. Next, connect expenses to owner-report export and add expense-category settings.
 
 Keep AutoPay recovery under Members → Payments, where staff can act on the member. Only add document sharing or GST behavior after immutable invoice identity and snapshots are proven.
