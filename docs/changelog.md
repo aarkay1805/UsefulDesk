@@ -8,7 +8,7 @@
 
 ## WhatsApp referral attribution
 
-Inbound Click-to-WhatsApp messages now retain Meta’s normalized referral object on each message, classify Instagram/Facebook only from a trusted HTTPS source hostname, and set `contacts.source` as a compare-and-set first touch without changing `received_via='whatsapp'`. Referral-bearing retries are conversation-scoped and idempotent; the Inbox shows the ad/post context on the exact message, while the shared contact header exposes the resulting acquisition source. Migration `20260727200000` is included but was not applied as part of this no-deployment task. Key code: `src/lib/whatsapp/referral.ts`, `src/app/api/whatsapp/webhook/route.ts`, and `src/components/inbox/message-bubble.tsx`.
+Inbound Click-to-WhatsApp messages now retain Meta’s normalized referral object on each message, classify Instagram/Facebook only from a trusted HTTPS source hostname, and set `contacts.source` as a compare-and-set first touch without changing `received_via='whatsapp'`. Referral-bearing retries are conversation-scoped and idempotent; the Inbox shows the ad/post context on the exact message, while the shared contact header exposes the resulting acquisition source. Migration `20260727200000` was applied through the Supabase connector. Key code: `src/lib/whatsapp/referral.ts`, `src/app/api/whatsapp/webhook/route.ts`, and `src/components/inbox/message-bubble.tsx`.
 
 ---
 
