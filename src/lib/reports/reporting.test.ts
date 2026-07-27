@@ -67,6 +67,7 @@ describe('owner reporting helpers', () => {
             source: 'walk_in',
             leads: '3',
             members: '2',
+            revenue: '7500',
             conversionRate: '40',
           },
         ],
@@ -91,6 +92,7 @@ describe('owner reporting helpers', () => {
     expect(report.sources[0]).toMatchObject({
       label: 'Front desk',
       members: 2,
+      revenue: 7500,
     });
   });
 
@@ -118,6 +120,9 @@ describe('owner reporting helpers', () => {
     expect(csv).toContain('"Gold, annual"');
     expect(csv).toContain('"Gold, annual",1 year,9000');
     expect(csv).toContain('Date,Revenue,Visits,New members');
+    expect(csv).toContain(
+      'Lead source,Open leads,Members,Revenue,Conversion (%)'
+    );
   });
 
   it('aggregates the exact paginated compatibility dataset', () => {
@@ -130,6 +135,7 @@ describe('owner reporting helpers', () => {
             source: 'manual',
             paid_at: '2026-07-18T10:00:00Z',
             plan_id: 'plan-1',
+            membership_id: 'member-1',
           },
           {
             amount: 500,
@@ -137,6 +143,7 @@ describe('owner reporting helpers', () => {
             source: 'manual',
             paid_at: '2026-07-11T10:00:00Z',
             plan_id: 'plan-1',
+            membership_id: 'member-1',
           },
         ],
         attendance: [
@@ -230,7 +237,10 @@ describe('owner reporting helpers', () => {
       revenue: 1000,
       visits: 1,
     });
-    expect(report.sources[0].label).toBe('Member referral');
+    expect(report.sources[0]).toMatchObject({
+      label: 'Member referral',
+      revenue: 1000,
+    });
   });
 
   it('keeps billing-option history attached to the period that produced it', () => {

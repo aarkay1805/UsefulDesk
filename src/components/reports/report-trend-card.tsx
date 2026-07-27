@@ -49,7 +49,7 @@ export function RevenueTrendCard({
 
   return (
     <Card>
-      <CardHeader className="border-b">
+      <CardHeader>
         <CardTitle>Collections over time</CardTitle>
         <CardDescription>Paid revenue by day</CardDescription>
       </CardHeader>
@@ -154,7 +154,7 @@ export function ActivityTrendCard({
 
   return (
     <Card>
-      <CardHeader className="border-b">
+      <CardHeader>
         <CardTitle>Member activity</CardTitle>
         <CardDescription>Daily visits and new member joins</CardDescription>
       </CardHeader>

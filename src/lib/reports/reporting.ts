@@ -159,6 +159,7 @@ export function normalizeOwnerReport(
             : (sourceLabels.get(source) ?? humaniseKey(source)),
         leads: number(row.leads),
         members: number(row.members),
+        revenue: number(row.revenue),
         conversionRate: number(row.conversionRate),
       };
     }),
@@ -195,6 +196,7 @@ export interface OwnerReportFallbackRows {
     source: string | null;
     paid_at: string;
     plan_id: string | null;
+    membership_id: string | null;
   }>;
   attendance: Array<{
     checked_in_at: string;
@@ -424,13 +426,31 @@ export function aggregateOwnerReport(
     }
   }
 
-  const sourceStats = new Map<string, { leads: number; members: number }>();
+  const sourceStats = new Map<
+    string,
+    { leads: number; members: number; revenue: number }
+  >();
   for (const contact of currentCohort) {
     const source = contact.source?.trim() || 'unknown';
-    const stat = sourceStats.get(source) ?? { leads: 0, members: 0 };
+    const stat = sourceStats.get(source) ?? {
+      leads: 0,
+      members: 0,
+      revenue: 0,
+    };
     if (convertedBy(contact.id, bounds.currentEnd)) stat.members += 1;
     else stat.leads += 1;
     sourceStats.set(source, stat);
+  }
+  const cohortIds = new Set(currentCohort.map((contact) => contact.id));
+  for (const payment of currentPayments) {
+    const membership = payment.membership_id
+      ? memberById.get(payment.membership_id)
+      : null;
+    if (!membership || !cohortIds.has(membership.contact_id)) continue;
+    const contact = contactById.get(membership.contact_id);
+    const source = contact?.source?.trim() || 'unknown';
+    const stat = sourceStats.get(source);
+    if (stat) stat.revenue += number(payment.amount);
   }
 
   const methodStats = new Map<string, { payments: number; amount: number }>();
@@ -617,7 +637,7 @@ async function loadFallbackRows(
     fetchAll<OwnerReportFallbackRows['payments'][number]>((from, to) =>
       db
         .from('payments')
-        .select('id, amount, method, source, paid_at, plan_id')
+        .select('id, amount, method, source, paid_at, plan_id, membership_id')
         .eq('status', 'paid')
         .gte('paid_at', previousStart)
         .lt('paid_at', currentEnd)
@@ -986,23 +1006,29 @@ export async function loadOwnerReport(
   range: { start: string; end: string },
   timeZone: string
 ): Promise<OwnerReport> {
-  const [reportResult, sourceResult, planOptionsResult] = await Promise.all([
-    db.rpc('owner_report', {
-      p_start_date: range.start,
-      p_end_date: range.end,
-      p_time_zone: timeZone,
-    }),
-    db
-      .from('lead_field_options')
-      .select('key, label')
-      .eq('field', 'source')
-      .order('sort_order', { ascending: true }),
-    db.rpc('owner_report_plan_options', {
-      p_start_date: range.start,
-      p_end_date: range.end,
-      p_time_zone: timeZone,
-    }),
-  ]);
+  const [reportResult, sourceResult, sourceRevenueResult, planOptionsResult] =
+    await Promise.all([
+      db.rpc('owner_report', {
+        p_start_date: range.start,
+        p_end_date: range.end,
+        p_time_zone: timeZone,
+      }),
+      db
+        .from('lead_field_options')
+        .select('key, label')
+        .eq('field', 'source')
+        .order('sort_order', { ascending: true }),
+      db.rpc('owner_report_source_revenue', {
+        p_start_date: range.start,
+        p_end_date: range.end,
+        p_time_zone: timeZone,
+      }),
+      db.rpc('owner_report_plan_options', {
+        p_start_date: range.start,
+        p_end_date: range.end,
+        p_time_zone: timeZone,
+      }),
+    ]);
 
   if (sourceResult.error) throw sourceResult.error;
 
@@ -1022,6 +1048,44 @@ export async function loadOwnerReport(
     }
     const fallbackRows = await loadFallbackRows(db, range, timeZone);
     report = aggregateOwnerReport(fallbackRows, range, timeZone, labels);
+  }
+
+  if (!sourceRevenueResult.error) {
+    const revenueBySource = new Map(
+      rows(sourceRevenueResult.data).map((row) => [
+        text(row.source, 'unknown'),
+        number(row.revenue),
+      ])
+    );
+    report = {
+      ...report,
+      sources: report.sources.map((source) => ({
+        ...source,
+        revenue: revenueBySource.get(source.source) ?? 0,
+      })),
+    };
+  } else if (
+    !missingRpc(sourceRevenueResult.error, 'owner_report_source_revenue')
+  ) {
+    throw sourceRevenueResult.error;
+  } else if (!reportResult.error) {
+    const fallbackRows = await loadFallbackRows(db, range, timeZone);
+    const fallbackReport = aggregateOwnerReport(
+      fallbackRows,
+      range,
+      timeZone,
+      labels
+    );
+    const revenueBySource = new Map(
+      fallbackReport.sources.map((source) => [source.source, source.revenue])
+    );
+    report = {
+      ...report,
+      sources: report.sources.map((source) => ({
+        ...source,
+        revenue: revenueBySource.get(source.source) ?? 0,
+      })),
+    };
   }
 
   let optionsByPlan: Map<
@@ -1150,12 +1214,19 @@ export function ownerReportCsv(report: OwnerReport): string {
       )
     ),
     '',
-    csvRow(['Lead source', 'Open leads', 'Members', 'Conversion (%)']),
+    csvRow([
+      'Lead source',
+      'Open leads',
+      'Members',
+      'Revenue',
+      'Conversion (%)',
+    ]),
     ...report.sources.map((source) =>
       csvRow([
         source.label,
         source.leads,
         source.members,
+        source.revenue,
         source.conversionRate,
       ])
     ),

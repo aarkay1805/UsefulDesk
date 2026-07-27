@@ -48,7 +48,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -395,7 +394,7 @@ function AttentionCard({
 
   return (
     <Card className="h-full">
-      <CardHeader className="border-b">
+      <CardHeader>
         <CardTitle>Needs attention</CardTitle>
         <CardDescription>Live operating queues for today</CardDescription>
       </CardHeader>
@@ -445,25 +444,25 @@ function CollectionsCard({
 
   return (
     <Card className="h-full">
-      <CardHeader className="border-b">
+      <CardHeader>
         <CardTitle>Collection mix</CardTitle>
-        <CardDescription>Paid revenue by payment method</CardDescription>
-        <CardAction>
-          <span className="text-foreground text-sm font-semibold tabular-nums">
-            {fmt.money(total)}
-          </span>
-        </CardAction>
+        <CardDescription>
+          Paid revenue by payment method and source
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {report.collectionMethods.length > 0 ? (
           report.collectionMethods.map((item) => (
             <div key={item.method} className="space-y-1.5">
               <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-foreground font-medium">
-                  {collectionMethodLabel(item.method)}
+                <span className="text-foreground flex items-center gap-1.5 font-medium">
+                  <span>{collectionMethodLabel(item.method)}</span>
+                  <span className="text-muted-foreground font-normal tabular-nums">
+                    · {fmt.number(item.payments)}
+                  </span>
                 </span>
                 <span className="text-muted-foreground tabular-nums">
-                  {fmt.money(item.amount)} · {fmt.number(item.payments)}
+                  {fmt.money(item.amount)}
                 </span>
               </div>
               <Progress value={item.amount} max={total} />
@@ -478,13 +477,29 @@ function CollectionsCard({
         )}
 
         {report.collectionSources.length > 0 && (
-          <div className="border-border flex flex-wrap gap-2 border-t pt-4">
+          <div className="border-border space-y-4 border-t pt-4">
             {report.collectionSources.map((source) => (
-              <Badge key={source.source} variant="neutral">
-                {source.source === 'auto' ? 'AutoPay' : 'Manual'}{' '}
-                <span className="tabular-nums">{fmt.money(source.amount)}</span>
-              </Badge>
+              <div key={source.source} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-foreground font-medium">
+                    {source.source === 'auto' ? 'AutoPay' : 'Manual'}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {fmt.money(source.amount)}
+                  </span>
+                </div>
+                <Progress value={source.amount} max={total} />
+              </div>
             ))}
+          </div>
+        )}
+
+        {report.collectionMethods.length > 0 && (
+          <div className="border-border flex items-center justify-between gap-3 border-t pt-4 text-sm">
+            <span className="text-foreground font-medium">Total</span>
+            <span className="text-foreground font-semibold tabular-nums">
+              {fmt.money(total)}
+            </span>
           </div>
         )}
       </CardContent>
@@ -501,7 +516,7 @@ function PlanPerformanceCard({
 }) {
   return (
     <Card>
-      <CardHeader className="border-b">
+      <CardHeader>
         <CardTitle>Plan performance</CardTitle>
         <CardDescription>
           Membership, collections, and usage by plan
@@ -510,28 +525,27 @@ function PlanPerformanceCard({
       <CardContent className="px-0">
         {report.plans.length > 0 ? (
           <div className="overflow-x-auto">
-            <div className="min-w-[38rem]">
+            <div className="min-w-[29rem]">
               <div className="border-border border-b">
                 <div
                   role="row"
-                  className="text-foreground mx-4 flex h-10 items-center border border-transparent text-sm font-medium"
+                  className="text-muted-foreground mx-4 flex h-10 items-center border border-transparent text-sm font-medium"
                 >
-                  <span className="grid min-w-0 flex-1 grid-cols-[minmax(11rem,1fr)_4.5rem_4rem_4rem_7rem] items-center gap-2">
-                    <span>Plan</span>
+                  <span className="grid min-w-0 flex-1 grid-cols-[minmax(8rem,1fr)_minmax(3.75rem,4.5rem)_minmax(3.5rem,4rem)_minmax(3.75rem,4rem)_minmax(6rem,7rem)] items-center gap-2">
+                    <span className="pl-6">Plan</span>
                     <span className="text-right">Active</span>
                     <span className="text-right">New</span>
                     <span className="text-right">Visits</span>
                     <span className="text-right">Revenue</span>
                   </span>
-                  <span aria-hidden className="size-4 shrink-0" />
                 </div>
               </div>
-              <Accordion multiple className="px-4">
+              <Accordion multiple>
                 {report.plans.map((plan) => (
                   <AccordionItem key={plan.id} value={plan.id}>
-                    <AccordionTrigger className="hover:no-underline">
-                      <span className="grid min-w-0 flex-1 grid-cols-[minmax(11rem,1fr)_4.5rem_4rem_4rem_7rem] items-center gap-2">
-                        <span className="truncate font-medium">
+                    <AccordionTrigger className="hover:bg-muted/50 rounded-none px-4 hover:no-underline **:data-[slot=accordion-trigger-icon]:absolute **:data-[slot=accordion-trigger-icon]:top-1/2 **:data-[slot=accordion-trigger-icon]:left-4 **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:-translate-y-1/2">
+                      <span className="grid min-w-0 flex-1 grid-cols-[minmax(8rem,1fr)_minmax(3.75rem,4.5rem)_minmax(3.5rem,4rem)_minmax(3.75rem,4rem)_minmax(6rem,7rem)] items-center gap-2">
+                        <span className="truncate pl-6 font-medium">
                           {plan.name}
                         </span>
                         <span className="text-right tabular-nums">
@@ -557,14 +571,13 @@ function PlanPerformanceCard({
                             <col className="w-[4.5rem]" />
                             <col className="w-[4.5rem]" />
                             <col className="w-[7.5rem]" />
-                            <col className="w-2" />
                           </colgroup>
                           <TableBody>
                             {plan.billingOptions.map((option) => (
                               <TableRow
                                 key={option.id ?? `${plan.id}-unassigned`}
                               >
-                                <TableCell>
+                                <TableCell className="pl-10">
                                   <span className="block font-medium">
                                     {option.durationCount && option.durationUnit
                                       ? durationLabel(
@@ -588,16 +601,15 @@ function PlanPerformanceCard({
                                 <TableCell className="text-right tabular-nums">
                                   {fmt.number(option.visits)}
                                 </TableCell>
-                                <TableCell className="text-right font-medium tabular-nums">
+                                <TableCell className="pr-4 text-right font-medium tabular-nums">
                                   {fmt.money(option.revenue)}
                                 </TableCell>
-                                <TableCell aria-hidden />
                               </TableRow>
                             ))}
                           </TableBody>
                         </Table>
                       ) : (
-                        <p className="text-muted-foreground py-3 text-sm">
+                        <p className="text-muted-foreground py-3 pr-4 pl-10 text-sm">
                           No billing options are available for this plan.
                         </p>
                       )}
@@ -629,7 +641,7 @@ function SourcePerformanceCard({
 }) {
   return (
     <Card>
-      <CardHeader className="border-b">
+      <CardHeader>
         <CardTitle>Lead source performance</CardTitle>
         <CardDescription>
           Acquisition cohort for the selected period
@@ -637,13 +649,31 @@ function SourcePerformanceCard({
       </CardHeader>
       <CardContent className="px-0">
         {report.sources.length > 0 ? (
-          <Table>
+          <Table className="min-w-[30rem] table-fixed">
+            <colgroup>
+              <col />
+              <col className="w-16" />
+              <col className="w-20" />
+              <col className="w-[7.5rem]" />
+              <col className="w-24" />
+            </colgroup>
             <TableHeader>
-              <TableRow>
-                <TableHead className="pl-4">Source</TableHead>
-                <TableHead className="text-right">Leads</TableHead>
-                <TableHead className="text-right">Members</TableHead>
-                <TableHead className="pr-4 text-right">Conversion</TableHead>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="text-muted-foreground pl-4">
+                  Source
+                </TableHead>
+                <TableHead className="text-muted-foreground text-right">
+                  Leads
+                </TableHead>
+                <TableHead className="text-muted-foreground text-right">
+                  Members
+                </TableHead>
+                <TableHead className="text-muted-foreground text-right">
+                  Revenue
+                </TableHead>
+                <TableHead className="text-muted-foreground pr-4 text-right">
+                  Conversion
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -657,6 +687,9 @@ function SourcePerformanceCard({
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {fmt.number(source.members)}
+                  </TableCell>
+                  <TableCell className="text-right font-medium tabular-nums">
+                    {fmt.money(source.revenue)}
                   </TableCell>
                   <TableCell className="pr-4 text-right">
                     <Badge variant="info" className="tabular-nums">

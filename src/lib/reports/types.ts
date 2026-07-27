@@ -62,6 +62,7 @@ export interface OwnerReport {
     label: string;
     leads: number;
     members: number;
+    revenue: number;
     conversionRate: number;
   }>;
   collectionMethods: Array<{

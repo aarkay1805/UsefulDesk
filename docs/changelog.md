@@ -6,6 +6,12 @@
 
 ---
 
+## Responsive report performance tables
+
+Reports cards now use clean divider-free title/subtitle headers throughout the page. Collection mix follows the same stacked header hierarchy as the other sections, renders payment methods and Manual/AutoPay sources as consistent label/value/progress metrics instead of source badges, attaches each transaction count to its method label so the value column remains currency-only, and moves its aggregate amount into a final Total row beneath the breakdown. Plan performance compresses flexible columns to content-aware minimums before horizontal scrolling, places each disclosure chevron inside the Plan column, removes the trailing alignment shims from parent and nested rows, aligns the Plan header plus parent and nested labels on one text axis, and gives every expandable plan row the same edge-to-edge divider and full-width neutral hover geometry as Lead source performance. Plan and lead-source table headers use muted labels without header-row hover. Lead source performance adds paid Revenue attributed through each selected-period acquisition contact’s membership, with the same value in CSV export and an exact paginated fallback when the reporting RPC is unavailable. Migration `20260727151311` was applied through the Supabase connector. Key code: `src/components/reports/owner-reports-view.tsx`, `src/components/reports/report-trend-card.tsx`, `src/lib/reports/reporting.ts`, and `supabase/migrations/20260727151311_owner_report_source_revenue.sql`.
+
+---
+
 ## Plan billing-option performance
 
 Reports → Plan performance now keeps each plan as a summary row and expands into its billing-option breakdown with Active, New, Visits, and Revenue metrics plus the option’s standard fee for context. Revenue follows the historical invoice period and attendance follows the billing period active on the visit date, so later plan changes do not rewrite past option performance; CSV export includes the same breakdown. Migration `20260727120000` was applied through the Supabase connector. Key code: `src/components/reports/owner-reports-view.tsx`, `src/lib/reports/reporting.ts`, and `supabase/migrations/20260727120000_owner_report_plan_options.sql`.
