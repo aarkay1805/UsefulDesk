@@ -131,7 +131,7 @@ describe('owner reporting helpers', () => {
     );
   });
 
-  it('aggregates the exact paginated compatibility dataset', () => {
+  it('scopes the exact paginated compatibility dataset by assigned staff', () => {
     const report = aggregateOwnerReport(
       {
         payments: [
@@ -202,12 +202,14 @@ describe('owner reporting helpers', () => {
             source: 'referral',
             churn_risk: true,
             created_at: '2026-07-18T06:00:00Z',
+            assigned_to: 'agent-1',
           },
           {
             id: 'contact-2',
             source: 'walk_in',
             churn_risk: false,
             created_at: '2026-07-15T06:00:00Z',
+            assigned_to: 'agent-2',
           },
         ],
         plans: [
@@ -233,7 +235,8 @@ describe('owner reporting helpers', () => {
       { start: '2026-07-12', end: '2026-07-18' },
       'UTC',
       new Map([['referral', 'Member referral']]),
-      new Date('2026-07-18T12:00:00Z')
+      new Date('2026-07-18T12:00:00Z'),
+      'agent-1'
     );
 
     expect(report.metrics.revenue).toEqual({ current: 1000, previous: 500 });
@@ -244,16 +247,16 @@ describe('owner reporting helpers', () => {
     });
     expect(report.metrics.visits.current).toBe(1);
     expect(report.metrics.conversion).toMatchObject({
-      acquired: 2,
+      acquired: 1,
       converted: 1,
-      current: 50,
+      current: 100,
     });
     expect(report.attention).toMatchObject({
       renewalsDue: 1,
       outstandingDues: 1,
       inactiveMembers: 1,
       churnRisk: 1,
-      trialFollowups: 1,
+      trialFollowups: 0,
       failedMandates: 1,
     });
     expect(report.plans[0]).toMatchObject({
@@ -294,6 +297,7 @@ describe('owner reporting helpers', () => {
         memberships: [
           {
             id: 'member-1',
+            contact_id: 'contact-1',
             plan_id: 'plan-1',
             pricing_option_id: 'yearly',
             is_trial: false,
@@ -341,10 +345,12 @@ describe('owner reporting helpers', () => {
             sort_order: 1,
           },
         ],
+        contacts: [{ id: 'contact-1', assigned_to: 'agent-1' }],
       },
       { start: '2026-07-12', end: '2026-07-31' },
       'UTC',
-      new Date('2026-07-18T12:00:00Z')
+      new Date('2026-07-18T12:00:00Z'),
+      'agent-1'
     );
 
     expect(options.get('plan-1')).toEqual([

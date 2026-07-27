@@ -6,6 +6,12 @@
 
 ---
 
+## Staff-scoped owner reporting
+
+Reports now has an **All staff** master filter in the app bar plus one option per account teammate. Selecting a teammate scopes every KPI, trend, attention queue, plan/source breakdown, and CSV export to leads and members currently assigned to that user; the default keeps the existing account aggregate. Lead source rows now reuse the canonical source icons from Leads. Migration `20260727190000` was applied through the Supabase connector and keeps all four reporting RPCs `SECURITY INVOKER` with an optional staff UUID. Key code: `src/components/reports/owner-reports-view.tsx`, `src/lib/reports/reporting.ts`, and `supabase/migrations/20260727190000_staff_scoped_owner_reports.sql`.
+
+---
+
 ## Average Sale Price reporting
 
 Reports now replaces the Attendance Visits summary card with **Average Sale Price**: the selected-period total of each new non-trial member’s first invoice value divided by that period’s new-member count, with the same calculation for the prior-period comparison and CSV summary. The initial invoice’s net `fee_amount` keeps joining discounts in the sale value; attendance remains available in the activity trend and plan breakdowns. Migration `20260727170803` was applied through the Supabase connector and adds an account-RLS-scoped reporting RPC with an exact paginated fallback. Key code: `src/components/reports/owner-reports-view.tsx`, `src/lib/reports/reporting.ts`, and `supabase/migrations/20260727170803_owner_report_average_sale_price.sql`.

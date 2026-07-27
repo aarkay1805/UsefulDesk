@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   Target,
   UserPlus,
+  UsersRound,
   UserRoundX,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -33,6 +34,8 @@ import type {
 } from '@/lib/reports/types';
 import { humaniseKey } from '@/lib/leads/field-options';
 import { PageHeaderActions } from '@/components/layout/page-header-actions';
+import { SourceIcon } from '@/components/leads/source-icon';
+import { useAccountStaff } from '@/components/members/use-account-staff';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { Skeleton, SkeletonCard } from '@/components/dashboard/skeleton';
 import { EmptyState } from '@/components/dashboard/empty-state';
@@ -53,6 +56,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import {
   Select,
   SelectContent,
@@ -76,27 +80,37 @@ const REPORT_RANGES: Array<{ value: ReportRangeDays; label: string }> = [
   { value: 90, label: 'Last 90 days' },
 ];
 
-type ReportCache = Record<ReportRangeDays, OwnerReport | null>;
+const ALL_STAFF = 'all';
+
+type ReportCache = Record<string, OwnerReport>;
+
+function reportCacheKey(days: ReportRangeDays, staffUserId: string | null) {
+  return `${days}:${staffUserId ?? ALL_STAFF}`;
+}
 
 export function OwnerReportsView() {
   const { fmt, locale } = useLocale();
+  const { staff, loading: staffLoading } = useAccountStaff();
   const [rangeDays, setRangeDays] = useState<ReportRangeDays>(30);
-  const [reports, setReports] = useState<ReportCache>({
-    7: null,
-    30: null,
-    90: null,
-  });
+  const [staffUserId, setStaffUserId] = useState<string | null>(null);
+  const [reports, setReports] = useState<ReportCache>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
 
   const fetchReport = useCallback(
-    (days: ReportRangeDays) => {
+    (days: ReportRangeDays, selectedStaffUserId: string | null) => {
       const id = ++requestId.current;
       const dateRange = reportDateRange(fmt.today(), days);
-      void loadOwnerReport(createClient(), dateRange, locale.timeZone)
+      const cacheKey = reportCacheKey(days, selectedStaffUserId);
+      void loadOwnerReport(
+        createClient(),
+        dateRange,
+        locale.timeZone,
+        selectedStaffUserId
+      )
         .then((nextReport) => {
-          setReports((current) => ({ ...current, [days]: nextReport }));
+          setReports((current) => ({ ...current, [cacheKey]: nextReport }));
           if (requestId.current === id) setError(null);
         })
         .catch((reason: unknown) => {
@@ -115,18 +129,18 @@ export function OwnerReportsView() {
   );
 
   useEffect(() => {
-    fetchReport(30);
+    fetchReport(30, null);
     return () => {
       requestId.current += 1;
     };
   }, [fetchReport]);
 
-  const report = reports[rangeDays];
+  const report = reports[reportCacheKey(rangeDays, staffUserId)] ?? null;
 
   function handleRangeChange(value: ReportRangeDays | null) {
     if (!value) return;
     setRangeDays(value);
-    if (reports[value]) {
+    if (reports[reportCacheKey(value, staffUserId)]) {
       requestId.current += 1;
       setLoading(false);
       setError(null);
@@ -134,13 +148,28 @@ export function OwnerReportsView() {
     }
     setLoading(true);
     setError(null);
-    fetchReport(value);
+    fetchReport(value, staffUserId);
+  }
+
+  function handleStaffChange(value: string | null) {
+    if (!value) return;
+    const nextStaffUserId = value === ALL_STAFF ? null : value;
+    setStaffUserId(nextStaffUserId);
+    if (reports[reportCacheKey(rangeDays, nextStaffUserId)]) {
+      requestId.current += 1;
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    fetchReport(rangeDays, nextStaffUserId);
   }
 
   function retry() {
     setLoading(true);
     setError(null);
-    fetchReport(rangeDays);
+    fetchReport(rangeDays, staffUserId);
   }
 
   function exportReport() {
@@ -161,6 +190,34 @@ export function OwnerReportsView() {
   return (
     <div className="space-y-5">
       <PageHeaderActions>
+        <Select
+          value={staffUserId ?? ALL_STAFF}
+          onValueChange={handleStaffChange}
+        >
+          <SelectTrigger
+            aria-label="Staff member"
+            className="w-16 sm:w-40"
+            disabled={staffLoading}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end">
+            <SelectItem value={ALL_STAFF}>
+              <UsersRound className="text-muted-foreground" />
+              <span>All staff</span>
+            </SelectItem>
+            {staff.map((member) => (
+              <SelectItem key={member.user_id} value={member.user_id}>
+                <UserAvatar
+                  name={member.full_name}
+                  src={member.avatar_url}
+                  size="sm"
+                />
+                <span>{member.full_name}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select<ReportRangeDays>
           value={rangeDays}
           onValueChange={handleRangeChange}
@@ -678,8 +735,11 @@ function SourcePerformanceCard({
             <TableBody>
               {report.sources.map((source) => (
                 <TableRow key={source.source}>
-                  <TableCell className="max-w-48 truncate pl-4 font-medium">
-                    {source.label}
+                  <TableCell className="max-w-48 pl-4 font-medium">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <SourceIcon source={source.source} label={source.label} />
+                      <span className="truncate">{source.label}</span>
+                    </span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {fmt.number(source.leads)}

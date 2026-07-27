@@ -225,6 +225,7 @@ export interface OwnerReportFallbackRows {
     source: string | null;
     churn_risk: boolean | null;
     created_at: string;
+    assigned_to: string | null;
   }>;
   plans: Array<{
     id: string;
@@ -298,8 +299,47 @@ export function aggregateOwnerReport(
   range: { start: string; end: string },
   timeZone: string,
   sourceLabels: ReadonlyMap<string, string> = new Map(),
-  now: Date = new Date()
+  now: Date = new Date(),
+  staffUserId: string | null = null
 ): OwnerReport {
+  if (staffUserId) {
+    const contactIds = new Set(
+      data.contacts
+        .filter((contact) => contact.assigned_to === staffUserId)
+        .map((contact) => contact.id)
+    );
+    const memberships = data.memberships.filter((membership) =>
+      contactIds.has(membership.contact_id)
+    );
+    const membershipIds = new Set(
+      memberships.map((membership) => membership.id)
+    );
+    data = {
+      ...data,
+      contacts: data.contacts.filter((contact) => contactIds.has(contact.id)),
+      memberships,
+      payments: data.payments.filter(
+        (payment) =>
+          payment.membership_id !== null &&
+          membershipIds.has(payment.membership_id)
+      ),
+      attendance: data.attendance.filter(
+        (visit) =>
+          visit.membership_id !== null && membershipIds.has(visit.membership_id)
+      ),
+      periods: data.periods.filter((period) =>
+        membershipIds.has(period.membership_id)
+      ),
+      dues: data.dues.filter((due) => membershipIds.has(due.membership_id)),
+      activity: data.activity.filter((row) =>
+        membershipIds.has(row.membership_id)
+      ),
+      mandates: data.mandates.filter((mandate) =>
+        membershipIds.has(mandate.membership_id)
+      ),
+    };
+  }
+
   const bounds = timestampBounds(range, timeZone);
   const today = todayInTz(timeZone, now);
   const renewalEnd = shiftDate(today, 7);
@@ -714,7 +754,7 @@ async function loadFallbackRows(
     fetchAll<OwnerReportFallbackRows['contacts'][number]>((from, to) =>
       db
         .from('contacts')
-        .select('id, source, churn_risk, created_at')
+        .select('id, source, churn_risk, created_at, assigned_to')
         .order('id')
         .range(from, to)
     ),
@@ -777,6 +817,7 @@ interface PlanOptionFallbackRows {
   }>;
   memberships: Array<{
     id: string;
+    contact_id: string;
     plan_id: string | null;
     pricing_option_id: string | null;
     is_trial: boolean;
@@ -802,14 +843,49 @@ interface PlanOptionFallbackRows {
     is_active: boolean;
     sort_order: number;
   }>;
+  contacts: Array<{
+    id: string;
+    assigned_to: string | null;
+  }>;
 }
 
 export function aggregatePlanOptionBreakdown(
   data: PlanOptionFallbackRows,
   range: { start: string; end: string },
   timeZone: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  staffUserId: string | null = null
 ): Map<string, OwnerReport['plans'][number]['billingOptions']> {
+  if (staffUserId) {
+    const contactIds = new Set(
+      data.contacts
+        .filter((contact) => contact.assigned_to === staffUserId)
+        .map((contact) => contact.id)
+    );
+    const memberships = data.memberships.filter((membership) =>
+      contactIds.has(membership.contact_id)
+    );
+    const membershipIds = new Set(
+      memberships.map((membership) => membership.id)
+    );
+    data = {
+      ...data,
+      memberships,
+      payments: data.payments.filter(
+        (payment) =>
+          payment.membership_id !== null &&
+          membershipIds.has(payment.membership_id)
+      ),
+      attendance: data.attendance.filter(
+        (visit) =>
+          visit.membership_id !== null && membershipIds.has(visit.membership_id)
+      ),
+      periods: data.periods.filter((period) =>
+        membershipIds.has(period.membership_id)
+      ),
+    };
+  }
+
   const bounds = timestampBounds(range, timeZone);
   const today = todayInTz(timeZone, now);
   const memberships = new Map(
@@ -987,7 +1063,7 @@ async function loadPlanOptionFallbackRows(
   const bounds = timestampBounds(range, timeZone);
   const currentStart = new Date(bounds.currentStart).toISOString();
   const currentEnd = new Date(bounds.currentEnd).toISOString();
-  const [payments, attendance, memberships, periods, pricingOptions] =
+  const [payments, attendance, memberships, periods, pricingOptions, contacts] =
     await Promise.all([
       fetchAll<PlanOptionFallbackRows['payments'][number]>((from, to) =>
         db
@@ -1012,7 +1088,7 @@ async function loadPlanOptionFallbackRows(
         db
           .from('memberships')
           .select(
-            'id, plan_id, pricing_option_id, is_trial, converted_at, created_at, status, end_date'
+            'id, contact_id, plan_id, pricing_option_id, is_trial, converted_at, created_at, status, end_date'
           )
           .order('id')
           .range(from, to)
@@ -1035,9 +1111,23 @@ async function loadPlanOptionFallbackRows(
           .order('id')
           .range(from, to)
       ),
+      fetchAll<PlanOptionFallbackRows['contacts'][number]>((from, to) =>
+        db
+          .from('contacts')
+          .select('id, assigned_to')
+          .order('id')
+          .range(from, to)
+      ),
     ]);
 
-  return { payments, attendance, memberships, periods, pricingOptions };
+  return {
+    payments,
+    attendance,
+    memberships,
+    periods,
+    pricingOptions,
+    contacts,
+  };
 }
 
 function missingRpc(error: unknown, functionName: string): boolean {
@@ -1054,7 +1144,8 @@ function missingRpc(error: unknown, functionName: string): boolean {
 export async function loadOwnerReport(
   db: SupabaseClient,
   range: { start: string; end: string },
-  timeZone: string
+  timeZone: string,
+  staffUserId: string | null = null
 ): Promise<OwnerReport> {
   const [
     reportResult,
@@ -1067,6 +1158,7 @@ export async function loadOwnerReport(
       p_start_date: range.start,
       p_end_date: range.end,
       p_time_zone: timeZone,
+      p_staff_user_id: staffUserId,
     }),
     db
       .from('lead_field_options')
@@ -1077,16 +1169,19 @@ export async function loadOwnerReport(
       p_start_date: range.start,
       p_end_date: range.end,
       p_time_zone: timeZone,
+      p_staff_user_id: staffUserId,
     }),
     db.rpc('owner_report_plan_options', {
       p_start_date: range.start,
       p_end_date: range.end,
       p_time_zone: timeZone,
+      p_staff_user_id: staffUserId,
     }),
     db.rpc('owner_report_average_sale_price', {
       p_start_date: range.start,
       p_end_date: range.end,
       p_time_zone: timeZone,
+      p_staff_user_id: staffUserId,
     }),
   ]);
 
@@ -1107,7 +1202,14 @@ export async function loadOwnerReport(
       throw reportResult.error;
     }
     const fallbackRows = await loadFallbackRows(db, range, timeZone);
-    report = aggregateOwnerReport(fallbackRows, range, timeZone, labels);
+    report = aggregateOwnerReport(
+      fallbackRows,
+      range,
+      timeZone,
+      labels,
+      undefined,
+      staffUserId
+    );
   }
 
   if (!averageSalePriceResult.error) {
@@ -1132,7 +1234,9 @@ export async function loadOwnerReport(
           fallbackRows,
           range,
           timeZone,
-          labels
+          labels,
+          undefined,
+          staffUserId
         ).metrics.averageSalePrice,
       },
     };
@@ -1162,7 +1266,9 @@ export async function loadOwnerReport(
       fallbackRows,
       range,
       timeZone,
-      labels
+      labels,
+      undefined,
+      staffUserId
     );
     const revenueBySource = new Map(
       fallbackReport.sources.map((source) => [source.source, source.revenue])
@@ -1187,7 +1293,13 @@ export async function loadOwnerReport(
       throw planOptionsResult.error;
     }
     const fallbackRows = await loadPlanOptionFallbackRows(db, range, timeZone);
-    optionsByPlan = aggregatePlanOptionBreakdown(fallbackRows, range, timeZone);
+    optionsByPlan = aggregatePlanOptionBreakdown(
+      fallbackRows,
+      range,
+      timeZone,
+      undefined,
+      staffUserId
+    );
   }
 
   return {
