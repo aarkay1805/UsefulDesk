@@ -11,7 +11,6 @@ import {
   CreditCard,
   Download,
   FlaskConical,
-  Footprints,
   RefreshCw,
   ShieldAlert,
   Target,
@@ -286,10 +285,10 @@ function KpiGrid({
         {...comparisonProps(report.metrics.newMembers, fmt)}
       />
       <MetricCard
-        title="Attendance visits"
-        value={fmt.number(report.metrics.visits.current)}
-        icon={Footprints}
-        {...comparisonProps(report.metrics.visits, fmt)}
+        title="Average Sale Price"
+        value={fmt.money(report.metrics.averageSalePrice.current)}
+        icon={CircleDollarSign}
+        {...comparisonProps(report.metrics.averageSalePrice, fmt)}
       />
       <MetricCard
         title="Lead conversion"

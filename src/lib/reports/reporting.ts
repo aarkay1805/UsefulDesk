@@ -116,6 +116,7 @@ export function normalizeOwnerReport(
         ...metric(newMembers),
         activeTotal: number(newMembers.activeTotal),
       },
+      averageSalePrice: metric(metrics.averageSalePrice),
       visits: metric(metrics.visits),
       conversion: {
         ...metric(conversion),
@@ -211,6 +212,13 @@ export interface OwnerReportFallbackRows {
     created_at: string;
     status: string;
     end_date: string;
+  }>;
+  periods: Array<{
+    id: string;
+    membership_id: string;
+    period_start: string;
+    fee_amount: NullableNumber;
+    created_at: string;
   }>;
   contacts: Array<{
     id: string;
@@ -330,6 +338,35 @@ export function aggregateOwnerReport(
   const previousJoins = joinedMembers.filter((member) =>
     inWindow(member.joinedAt, bounds.previousStart, bounds.currentStart)
   );
+  const firstInvoiceByMembership = new Map<
+    string,
+    OwnerReportFallbackRows['periods'][number]
+  >();
+  for (const period of [...data.periods].sort(
+    (a, b) =>
+      a.period_start.localeCompare(b.period_start) ||
+      a.created_at.localeCompare(b.created_at) ||
+      a.id.localeCompare(b.id)
+  )) {
+    if (!firstInvoiceByMembership.has(period.membership_id)) {
+      firstInvoiceByMembership.set(period.membership_id, period);
+    }
+  }
+  const averageSalePrice = (
+    members: Array<(typeof joinedMembers)[number]>
+  ): number =>
+    members.length === 0
+      ? 0
+      : Math.round(
+          (members.reduce(
+            (total, member) =>
+              total +
+              number(firstInvoiceByMembership.get(member.id)?.fee_amount),
+            0
+          ) /
+            members.length) *
+            100
+        ) / 100;
   const currentCohort = data.contacts.filter((contact) =>
     inWindow(contact.created_at, bounds.currentStart, bounds.currentEnd)
   );
@@ -501,6 +538,10 @@ export function aggregateOwnerReport(
         previous: previousJoins.length,
         activeTotal: activeMembers.length,
       },
+      averageSalePrice: {
+        current: averageSalePrice(currentJoins),
+        previous: averageSalePrice(previousJoins),
+      },
       visits: {
         current: currentVisits.length,
         previous: previousVisits.length,
@@ -628,6 +669,7 @@ async function loadFallbackRows(
     payments,
     attendance,
     memberships,
+    periods,
     contacts,
     plans,
     dues,
@@ -659,6 +701,13 @@ async function loadFallbackRows(
         .select(
           'id, contact_id, plan_id, is_trial, converted_at, created_at, status, end_date'
         )
+        .order('id')
+        .range(from, to)
+    ),
+    fetchAll<OwnerReportFallbackRows['periods'][number]>((from, to) =>
+      db
+        .from('membership_periods')
+        .select('id, membership_id, period_start, fee_amount, created_at')
         .order('id')
         .range(from, to)
     ),
@@ -705,6 +754,7 @@ async function loadFallbackRows(
     payments,
     attendance,
     memberships,
+    periods,
     contacts,
     plans,
     dues,
@@ -1006,29 +1056,39 @@ export async function loadOwnerReport(
   range: { start: string; end: string },
   timeZone: string
 ): Promise<OwnerReport> {
-  const [reportResult, sourceResult, sourceRevenueResult, planOptionsResult] =
-    await Promise.all([
-      db.rpc('owner_report', {
-        p_start_date: range.start,
-        p_end_date: range.end,
-        p_time_zone: timeZone,
-      }),
-      db
-        .from('lead_field_options')
-        .select('key, label')
-        .eq('field', 'source')
-        .order('sort_order', { ascending: true }),
-      db.rpc('owner_report_source_revenue', {
-        p_start_date: range.start,
-        p_end_date: range.end,
-        p_time_zone: timeZone,
-      }),
-      db.rpc('owner_report_plan_options', {
-        p_start_date: range.start,
-        p_end_date: range.end,
-        p_time_zone: timeZone,
-      }),
-    ]);
+  const [
+    reportResult,
+    sourceResult,
+    sourceRevenueResult,
+    planOptionsResult,
+    averageSalePriceResult,
+  ] = await Promise.all([
+    db.rpc('owner_report', {
+      p_start_date: range.start,
+      p_end_date: range.end,
+      p_time_zone: timeZone,
+    }),
+    db
+      .from('lead_field_options')
+      .select('key, label')
+      .eq('field', 'source')
+      .order('sort_order', { ascending: true }),
+    db.rpc('owner_report_source_revenue', {
+      p_start_date: range.start,
+      p_end_date: range.end,
+      p_time_zone: timeZone,
+    }),
+    db.rpc('owner_report_plan_options', {
+      p_start_date: range.start,
+      p_end_date: range.end,
+      p_time_zone: timeZone,
+    }),
+    db.rpc('owner_report_average_sale_price', {
+      p_start_date: range.start,
+      p_end_date: range.end,
+      p_time_zone: timeZone,
+    }),
+  ]);
 
   if (sourceResult.error) throw sourceResult.error;
 
@@ -1048,6 +1108,34 @@ export async function loadOwnerReport(
     }
     const fallbackRows = await loadFallbackRows(db, range, timeZone);
     report = aggregateOwnerReport(fallbackRows, range, timeZone, labels);
+  }
+
+  if (!averageSalePriceResult.error) {
+    report = {
+      ...report,
+      metrics: {
+        ...report.metrics,
+        averageSalePrice: metric(averageSalePriceResult.data),
+      },
+    };
+  } else if (
+    !missingRpc(averageSalePriceResult.error, 'owner_report_average_sale_price')
+  ) {
+    throw averageSalePriceResult.error;
+  } else if (!reportResult.error) {
+    const fallbackRows = await loadFallbackRows(db, range, timeZone);
+    report = {
+      ...report,
+      metrics: {
+        ...report.metrics,
+        averageSalePrice: aggregateOwnerReport(
+          fallbackRows,
+          range,
+          timeZone,
+          labels
+        ).metrics.averageSalePrice,
+      },
+    };
   }
 
   if (!sourceRevenueResult.error) {
@@ -1137,9 +1225,9 @@ export function ownerReportCsv(report: OwnerReport): string {
       report.metrics.newMembers.previous,
     ]),
     csvRow([
-      'Attendance visits',
-      report.metrics.visits.current,
-      report.metrics.visits.previous,
+      'Average Sale Price',
+      report.metrics.averageSalePrice.current,
+      report.metrics.averageSalePrice.previous,
     ]),
     csvRow([
       'Lead conversion (%)',

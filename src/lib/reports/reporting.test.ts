@@ -34,6 +34,7 @@ describe('owner reporting helpers', () => {
         metrics: {
           revenue: { current: '12500.50', previous: '10000' },
           newMembers: { current: '4', previous: 2, activeTotal: '98' },
+          averageSalePrice: { current: '3125.125', previous: '5000' },
           visits: { current: 31, previous: '29' },
           conversion: {
             current: '40.0',
@@ -77,6 +78,10 @@ describe('owner reporting helpers', () => {
 
     expect(report.metrics.revenue.current).toBe(12500.5);
     expect(report.metrics.newMembers.activeTotal).toBe(98);
+    expect(report.metrics.averageSalePrice).toEqual({
+      current: 3125.125,
+      previous: 5000,
+    });
     expect(report.attention.outstandingAmount).toBe(3750.25);
     expect(report.trend[0]).toMatchObject({ visits: 9, newMembers: 0 });
     expect(report.plans[0].billingOptions[0]).toEqual({
@@ -119,6 +124,7 @@ describe('owner reporting helpers', () => {
 
     expect(csv).toContain('"Gold, annual"');
     expect(csv).toContain('"Gold, annual",1 year,9000');
+    expect(csv).toContain('Average Sale Price,0,0');
     expect(csv).toContain('Date,Revenue,Visits,New members');
     expect(csv).toContain(
       'Lead source,Open leads,Members,Revenue,Conversion (%)'
@@ -174,6 +180,22 @@ describe('owner reporting helpers', () => {
             end_date: '2026-07-19',
           },
         ],
+        periods: [
+          {
+            id: 'period-current',
+            membership_id: 'member-1',
+            period_start: '2026-07-18',
+            fee_amount: '2400',
+            created_at: '2026-07-18T07:00:01Z',
+          },
+          {
+            id: 'period-renewal',
+            membership_id: 'member-1',
+            period_start: '2026-08-18',
+            fee_amount: '4000',
+            created_at: '2026-08-18T07:00:01Z',
+          },
+        ],
         contacts: [
           {
             id: 'contact-1',
@@ -216,6 +238,10 @@ describe('owner reporting helpers', () => {
 
     expect(report.metrics.revenue).toEqual({ current: 1000, previous: 500 });
     expect(report.metrics.newMembers.current).toBe(1);
+    expect(report.metrics.averageSalePrice).toEqual({
+      current: 2400,
+      previous: 0,
+    });
     expect(report.metrics.visits.current).toBe(1);
     expect(report.metrics.conversion).toMatchObject({
       acquired: 2,

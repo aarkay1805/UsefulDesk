@@ -16,6 +16,7 @@ export interface OwnerReport {
   metrics: {
     revenue: ReportMetric;
     newMembers: ReportMetric & { activeTotal: number };
+    averageSalePrice: ReportMetric;
     visits: ReportMetric;
     conversion: ReportMetric & {
       acquired: number;
