@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLocale } from '@/hooks/use-locale';
+import { durationLabel } from '@/lib/memberships/pricing';
 import {
   loadOwnerReport,
   ownerReportCsv,
@@ -37,6 +38,12 @@ import { MetricCard } from '@/components/dashboard/metric-card';
 import { Skeleton, SkeletonCard } from '@/components/dashboard/skeleton';
 import { EmptyState } from '@/components/dashboard/empty-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -502,38 +509,100 @@ function PlanPerformanceCard({
       </CardHeader>
       <CardContent className="px-0">
         {report.plans.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-4">Plan</TableHead>
-                <TableHead className="text-right">Active</TableHead>
-                <TableHead className="text-right">New</TableHead>
-                <TableHead className="text-right">Visits</TableHead>
-                <TableHead className="pr-4 text-right">Revenue</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {report.plans.map((plan) => (
-                <TableRow key={plan.id}>
-                  <TableCell className="max-w-44 truncate pl-4 font-medium">
-                    {plan.name}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {fmt.number(plan.activeMembers)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {fmt.number(plan.newMembers)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {fmt.number(plan.visits)}
-                  </TableCell>
-                  <TableCell className="pr-4 text-right font-medium tabular-nums">
-                    {fmt.money(plan.revenue)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="overflow-x-auto">
+            <div className="min-w-[38rem]">
+              <div
+                role="row"
+                className="border-border text-foreground grid grid-cols-[minmax(11rem,1fr)_4.5rem_4rem_4rem_7rem_1.5rem] items-center gap-2 border-b px-4 text-sm font-medium"
+              >
+                <span className="flex h-10 items-center">Plan</span>
+                <span className="text-right">Active</span>
+                <span className="text-right">New</span>
+                <span className="text-right">Visits</span>
+                <span className="text-right">Revenue</span>
+                <span className="sr-only">Expand</span>
+              </div>
+              <Accordion multiple className="px-4">
+                {report.plans.map((plan) => (
+                  <AccordionItem key={plan.id} value={plan.id}>
+                    <AccordionTrigger className="hover:no-underline">
+                      <span className="grid min-w-0 flex-1 grid-cols-[minmax(11rem,1fr)_4.5rem_4rem_4rem_7rem] items-center gap-2">
+                        <span className="truncate font-medium">
+                          {plan.name}
+                        </span>
+                        <span className="text-right tabular-nums">
+                          {fmt.number(plan.activeMembers)}
+                        </span>
+                        <span className="text-right tabular-nums">
+                          {fmt.number(plan.newMembers)}
+                        </span>
+                        <span className="text-right tabular-nums">
+                          {fmt.number(plan.visits)}
+                        </span>
+                        <span className="text-right font-medium tabular-nums">
+                          {fmt.money(plan.revenue)}
+                        </span>
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      {plan.billingOptions.length > 0 ? (
+                        <Table className="table-fixed">
+                          <colgroup>
+                            <col />
+                            <col className="w-20" />
+                            <col className="w-[4.5rem]" />
+                            <col className="w-[4.5rem]" />
+                            <col className="w-[7.5rem]" />
+                            <col className="w-2" />
+                          </colgroup>
+                          <TableBody>
+                            {plan.billingOptions.map((option) => (
+                              <TableRow
+                                key={option.id ?? `${plan.id}-unassigned`}
+                              >
+                                <TableCell>
+                                  <span className="block font-medium">
+                                    {option.durationCount && option.durationUnit
+                                      ? durationLabel(
+                                          option.durationCount,
+                                          option.durationUnit
+                                        )
+                                      : 'Unassigned billing option'}
+                                  </span>
+                                  {option.price !== null && (
+                                    <span className="text-muted-foreground block text-xs tabular-nums">
+                                      {fmt.money(option.price)} standard fee
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                  {fmt.number(option.activeMembers)}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                  {fmt.number(option.newMembers)}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                  {fmt.number(option.visits)}
+                                </TableCell>
+                                <TableCell className="text-right font-medium tabular-nums">
+                                  {fmt.money(option.revenue)}
+                                </TableCell>
+                                <TableCell aria-hidden />
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <p className="text-muted-foreground py-3 text-sm">
+                          No billing options are available for this plan.
+                        </p>
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </div>
+          </div>
         ) : (
           <div className="px-4">
             <EmptyState

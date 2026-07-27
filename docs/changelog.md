@@ -6,6 +6,12 @@
 
 ---
 
+## Plan billing-option performance
+
+Reports → Plan performance now keeps each plan as a summary row and expands into its billing-option breakdown with Active, New, Visits, and Revenue metrics plus the option’s standard fee for context. Revenue follows the historical invoice period and attendance follows the billing period active on the visit date, so later plan changes do not rewrite past option performance; CSV export includes the same breakdown. Migration `20260727120000` was applied through the Supabase connector. Key code: `src/components/reports/owner-reports-view.tsx`, `src/lib/reports/reporting.ts`, and `supabase/migrations/20260727120000_owner_report_plan_options.sql`.
+
+---
+
 ## Consequence-first member import review
 
 The AI-assisted Members importer now groups repeated migration findings by customer outcome instead of rendering one jargon-heavy card per row: harmless expiry differences are one no-action notice, unusable/shared phones state that those members will be skipped, and inconsistent payments state that the member imports with the payment omitted. Preview opens on retained rows needing attention, carries financial migration notices into the import check, and can show all affected retained rows even beyond the normal 200-row preview cap. Key code: `src/lib/memberships/migration-recipe.ts`, `src/components/members/import-members-csv-dialog.tsx`, and `src/components/members/import-members-preview.tsx`.

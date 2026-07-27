@@ -1,3 +1,5 @@
+import type { DurationUnit } from '@/types';
+
 export type ReportRangeDays = 7 | 30 | 90;
 
 export interface ReportMetric {
@@ -44,6 +46,16 @@ export interface OwnerReport {
     newMembers: number;
     revenue: number;
     visits: number;
+    billingOptions: Array<{
+      id: string | null;
+      durationCount: number | null;
+      durationUnit: DurationUnit | null;
+      price: number | null;
+      activeMembers: number;
+      newMembers: number;
+      revenue: number;
+      visits: number;
+    }>;
   }>;
   sources: Array<{
     source: string;

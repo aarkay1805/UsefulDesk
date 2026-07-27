@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aggregatePlanOptionBreakdown,
   aggregateOwnerReport,
   normalizeOwnerReport,
   ownerReportCsv,
@@ -43,6 +44,24 @@ describe('owner reporting helpers', () => {
         },
         attention: { outstandingAmount: '3750.25' },
         trend: [{ date: '2026-07-18', revenue: '2500', visits: '9' }],
+        plans: [
+          {
+            id: 'plan-1',
+            name: 'Gold',
+            billingOptions: [
+              {
+                id: 'monthly',
+                durationCount: '1',
+                durationUnit: 'month',
+                price: '1500',
+                activeMembers: '8',
+                newMembers: '2',
+                revenue: '6000',
+                visits: '24',
+              },
+            ],
+          },
+        ],
         sources: [
           {
             source: 'walk_in',
@@ -59,6 +78,16 @@ describe('owner reporting helpers', () => {
     expect(report.metrics.newMembers.activeTotal).toBe(98);
     expect(report.attention.outstandingAmount).toBe(3750.25);
     expect(report.trend[0]).toMatchObject({ visits: 9, newMembers: 0 });
+    expect(report.plans[0].billingOptions[0]).toEqual({
+      id: 'monthly',
+      durationCount: 1,
+      durationUnit: 'month',
+      price: 1500,
+      activeMembers: 8,
+      newMembers: 2,
+      revenue: 6000,
+      visits: 24,
+    });
     expect(report.sources[0]).toMatchObject({
       label: 'Front desk',
       members: 2,
@@ -69,11 +98,25 @@ describe('owner reporting helpers', () => {
     const report = normalizeOwnerReport({
       period: { start: '2026-07-12', end: '2026-07-18', days: 7 },
       metrics: {},
-      plans: [{ id: '1', name: 'Gold, annual' }],
+      plans: [
+        {
+          id: '1',
+          name: 'Gold, annual',
+          billingOptions: [
+            {
+              id: 'annual',
+              durationCount: 1,
+              durationUnit: 'year',
+              price: 9000,
+            },
+          ],
+        },
+      ],
     });
     const csv = ownerReportCsv(report);
 
     expect(csv).toContain('"Gold, annual"');
+    expect(csv).toContain('"Gold, annual",1 year,9000');
     expect(csv).toContain('Date,Revenue,Visits,New members');
   });
 
@@ -188,5 +231,101 @@ describe('owner reporting helpers', () => {
       visits: 1,
     });
     expect(report.sources[0].label).toBe('Member referral');
+  });
+
+  it('keeps billing-option history attached to the period that produced it', () => {
+    const options = aggregatePlanOptionBreakdown(
+      {
+        payments: [
+          {
+            amount: 1000,
+            paid_at: '2026-07-18T10:00:00Z',
+            plan_id: 'plan-1',
+            membership_id: 'member-1',
+            period_end: '2026-07-19',
+          },
+        ],
+        attendance: [
+          {
+            checked_in_at: '2026-07-18T08:00:00Z',
+            membership_id: 'member-1',
+          },
+          {
+            checked_in_at: '2026-07-25T08:00:00Z',
+            membership_id: 'member-1',
+          },
+        ],
+        memberships: [
+          {
+            id: 'member-1',
+            plan_id: 'plan-1',
+            pricing_option_id: 'yearly',
+            is_trial: false,
+            converted_at: null,
+            created_at: '2026-07-14T07:00:00Z',
+            status: 'active',
+            end_date: '2027-07-19',
+          },
+        ],
+        periods: [
+          {
+            membership_id: 'member-1',
+            plan_id: 'plan-1',
+            pricing_option_id: 'monthly',
+            period_start: '2026-07-14',
+            period_end: '2026-07-19',
+            created_at: '2026-07-14T07:00:00Z',
+          },
+          {
+            membership_id: 'member-1',
+            plan_id: 'plan-1',
+            pricing_option_id: 'yearly',
+            period_start: '2026-07-20',
+            period_end: '2027-07-19',
+            created_at: '2026-07-20T07:00:00Z',
+          },
+        ],
+        pricingOptions: [
+          {
+            id: 'monthly',
+            plan_id: 'plan-1',
+            duration_count: 1,
+            duration_unit: 'month',
+            price: 1000,
+            is_active: true,
+            sort_order: 0,
+          },
+          {
+            id: 'yearly',
+            plan_id: 'plan-1',
+            duration_count: 1,
+            duration_unit: 'year',
+            price: 9000,
+            is_active: true,
+            sort_order: 1,
+          },
+        ],
+      },
+      { start: '2026-07-12', end: '2026-07-31' },
+      'UTC',
+      new Date('2026-07-18T12:00:00Z')
+    );
+
+    expect(options.get('plan-1')).toEqual([
+      expect.objectContaining({
+        id: 'monthly',
+        activeMembers: 0,
+        newMembers: 1,
+        revenue: 1000,
+        visits: 1,
+      }),
+      expect.objectContaining({
+        id: 'yearly',
+        activeMembers: 1,
+        newMembers: 0,
+        revenue: 0,
+        visits: 1,
+      }),
+    ]);
   });
 });

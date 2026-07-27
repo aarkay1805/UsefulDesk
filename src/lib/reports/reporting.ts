@@ -5,6 +5,8 @@ import {
   resolveFieldOptions,
 } from '@/lib/leads/field-options';
 import { dayStartInTz, todayInTz } from '@/lib/locale/format';
+import { durationLabel } from '@/lib/memberships/pricing';
+import type { DurationUnit } from '@/types';
 import type { OwnerReport, ReportRangeDays } from './types';
 
 type JsonRecord = Record<string, unknown>;
@@ -26,6 +28,34 @@ function text(value: unknown, fallback = ''): string {
 function number(value: unknown): number {
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function nullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function durationUnit(value: unknown): DurationUnit | null {
+  return value === 'day' ||
+    value === 'week' ||
+    value === 'month' ||
+    value === 'year'
+    ? value
+    : null;
+}
+
+function normalizeBillingOptions(value: unknown) {
+  return rows(value).map((row) => ({
+    id: text(row.id) || null,
+    durationCount: nullableNumber(row.durationCount),
+    durationUnit: durationUnit(row.durationUnit),
+    price: nullableNumber(row.price),
+    activeMembers: number(row.activeMembers),
+    newMembers: number(row.newMembers),
+    revenue: number(row.revenue),
+    visits: number(row.visits),
+  }));
 }
 
 function metric(value: unknown) {
@@ -117,6 +147,7 @@ export function normalizeOwnerReport(
       newMembers: number(row.newMembers),
       revenue: number(row.revenue),
       visits: number(row.visits),
+      billingOptions: normalizeBillingOptions(row.billingOptions),
     })),
     sources: rows(root.sources).map((row) => {
       const source = text(row.source, 'unknown');
@@ -142,6 +173,17 @@ export function normalizeOwnerReport(
       amount: number(row.amount),
     })),
   };
+}
+
+export function normalizePlanOptionBreakdown(
+  payload: unknown
+): Map<string, OwnerReport['plans'][number]['billingOptions']> {
+  return new Map(
+    rows(payload).map((row) => [
+      text(row.planId),
+      normalizeBillingOptions(row.billingOptions),
+    ])
+  );
 }
 
 type NullableNumber = number | string | null;
@@ -351,6 +393,7 @@ export function aggregateOwnerReport(
       newMembers: 0,
       revenue: 0,
       visits: 0,
+      billingOptions: [],
     });
   }
   for (const membership of activeMembers) {
@@ -650,13 +693,290 @@ async function loadFallbackRows(
   };
 }
 
-function missingOwnerReport(error: unknown): boolean {
+interface PlanOptionFallbackRows {
+  payments: Array<{
+    amount: NullableNumber;
+    paid_at: string;
+    plan_id: string | null;
+    membership_id: string | null;
+    period_end: string | null;
+  }>;
+  attendance: Array<{
+    checked_in_at: string;
+    membership_id: string | null;
+  }>;
+  memberships: Array<{
+    id: string;
+    plan_id: string | null;
+    pricing_option_id: string | null;
+    is_trial: boolean;
+    converted_at: string | null;
+    created_at: string;
+    status: string;
+    end_date: string;
+  }>;
+  periods: Array<{
+    membership_id: string;
+    plan_id: string | null;
+    pricing_option_id: string | null;
+    period_start: string;
+    period_end: string;
+    created_at: string;
+  }>;
+  pricingOptions: Array<{
+    id: string;
+    plan_id: string;
+    duration_count: number;
+    duration_unit: DurationUnit;
+    price: NullableNumber;
+    is_active: boolean;
+    sort_order: number;
+  }>;
+}
+
+export function aggregatePlanOptionBreakdown(
+  data: PlanOptionFallbackRows,
+  range: { start: string; end: string },
+  timeZone: string,
+  now: Date = new Date()
+): Map<string, OwnerReport['plans'][number]['billingOptions']> {
+  const bounds = timestampBounds(range, timeZone);
+  const today = todayInTz(timeZone, now);
+  const memberships = new Map(
+    data.memberships.map((membership) => [membership.id, membership])
+  );
+  const periods = new Map<string, PlanOptionFallbackRows['periods']>();
+  for (const period of data.periods) {
+    const current = periods.get(period.membership_id) ?? [];
+    current.push(period);
+    periods.set(period.membership_id, current);
+  }
+  for (const rowsForMember of periods.values()) {
+    rowsForMember.sort(
+      (a, b) =>
+        a.period_start.localeCompare(b.period_start) ||
+        a.created_at.localeCompare(b.created_at)
+    );
+  }
+
+  const stats = new Map<
+    string,
+    OwnerReport['plans'][number]['billingOptions'][number] & {
+      planId: string;
+      sortOrder: number;
+      isActive: boolean;
+    }
+  >();
+  const key = (planId: string, optionId: string | null) =>
+    `${planId}:${optionId ?? 'unassigned'}`;
+  const ensure = (
+    planId: string,
+    optionId: string | null,
+    option?: PlanOptionFallbackRows['pricingOptions'][number]
+  ) => {
+    const statKey = key(planId, optionId);
+    const existing = stats.get(statKey);
+    if (existing) return existing;
+    const next = {
+      planId,
+      id: optionId,
+      durationCount: option?.duration_count ?? null,
+      durationUnit: option?.duration_unit ?? null,
+      price: nullableNumber(option?.price),
+      activeMembers: 0,
+      newMembers: 0,
+      revenue: 0,
+      visits: 0,
+      sortOrder: option?.sort_order ?? Number.MAX_SAFE_INTEGER,
+      isActive: option?.is_active ?? false,
+    };
+    stats.set(statKey, next);
+    return next;
+  };
+
+  for (const option of data.pricingOptions) {
+    ensure(option.plan_id, option.id, option);
+  }
+
+  const periodForDay = (membershipId: string, day: string) => {
+    const rowsForMember = periods.get(membershipId) ?? [];
+    return [...rowsForMember]
+      .reverse()
+      .find((period) => period.period_start <= day && period.period_end >= day);
+  };
+
+  for (const membership of data.memberships) {
+    if (
+      membership.plan_id &&
+      membership.status === 'active' &&
+      !membership.is_trial &&
+      membership.end_date >= today
+    ) {
+      ensure(membership.plan_id, membership.pricing_option_id).activeMembers +=
+        1;
+    }
+
+    const joinedAt = membership.converted_at ?? membership.created_at;
+    if (
+      membership.plan_id &&
+      !membership.is_trial &&
+      inWindow(joinedAt, bounds.currentStart, bounds.currentEnd)
+    ) {
+      const firstPeriod = periods.get(membership.id)?.[0];
+      ensure(
+        firstPeriod?.plan_id ?? membership.plan_id,
+        firstPeriod?.pricing_option_id ?? membership.pricing_option_id
+      ).newMembers += 1;
+    }
+  }
+
+  for (const payment of data.payments) {
+    if (!inWindow(payment.paid_at, bounds.currentStart, bounds.currentEnd)) {
+      continue;
+    }
+    const membership = payment.membership_id
+      ? memberships.get(payment.membership_id)
+      : null;
+    const period = payment.membership_id
+      ? (periods.get(payment.membership_id) ?? []).find(
+          (candidate) => candidate.period_end === payment.period_end
+        )
+      : null;
+    const planId = payment.plan_id ?? period?.plan_id ?? membership?.plan_id;
+    if (!planId) continue;
+    ensure(
+      planId,
+      period?.pricing_option_id ?? membership?.pricing_option_id ?? null
+    ).revenue += number(payment.amount);
+  }
+
+  for (const visit of data.attendance) {
+    if (
+      !visit.membership_id ||
+      !inWindow(visit.checked_in_at, bounds.currentStart, bounds.currentEnd)
+    ) {
+      continue;
+    }
+    const membership = memberships.get(visit.membership_id);
+    if (!membership?.plan_id) continue;
+    const visitDay = todayInTz(timeZone, new Date(visit.checked_in_at));
+    const period = periodForDay(visit.membership_id, visitDay);
+    ensure(
+      period?.plan_id ?? membership.plan_id,
+      period?.pricing_option_id ?? membership.pricing_option_id
+    ).visits += 1;
+  }
+
+  const result = new Map<
+    string,
+    OwnerReport['plans'][number]['billingOptions']
+  >();
+  for (const stat of stats.values()) {
+    if (
+      !stat.isActive &&
+      stat.activeMembers === 0 &&
+      stat.newMembers === 0 &&
+      stat.revenue === 0 &&
+      stat.visits === 0
+    ) {
+      continue;
+    }
+    const current = result.get(stat.planId) ?? [];
+    current.push({
+      id: stat.id,
+      durationCount: stat.durationCount,
+      durationUnit: stat.durationUnit,
+      price: stat.price,
+      activeMembers: stat.activeMembers,
+      newMembers: stat.newMembers,
+      revenue: stat.revenue,
+      visits: stat.visits,
+    });
+    result.set(stat.planId, current);
+  }
+  for (const [planId, options] of result) {
+    options.sort((a, b) => {
+      const aStat = stats.get(key(planId, a.id));
+      const bStat = stats.get(key(planId, b.id));
+      return (
+        (aStat?.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+          (bStat?.sortOrder ?? Number.MAX_SAFE_INTEGER) ||
+        (a.durationCount ?? Number.MAX_SAFE_INTEGER) -
+          (b.durationCount ?? Number.MAX_SAFE_INTEGER)
+      );
+    });
+  }
+  return result;
+}
+
+async function loadPlanOptionFallbackRows(
+  db: SupabaseClient,
+  range: { start: string; end: string },
+  timeZone: string
+): Promise<PlanOptionFallbackRows> {
+  const bounds = timestampBounds(range, timeZone);
+  const currentStart = new Date(bounds.currentStart).toISOString();
+  const currentEnd = new Date(bounds.currentEnd).toISOString();
+  const [payments, attendance, memberships, periods, pricingOptions] =
+    await Promise.all([
+      fetchAll<PlanOptionFallbackRows['payments'][number]>((from, to) =>
+        db
+          .from('payments')
+          .select('id, amount, paid_at, plan_id, membership_id, period_end')
+          .eq('status', 'paid')
+          .gte('paid_at', currentStart)
+          .lt('paid_at', currentEnd)
+          .order('id')
+          .range(from, to)
+      ),
+      fetchAll<PlanOptionFallbackRows['attendance'][number]>((from, to) =>
+        db
+          .from('attendance')
+          .select('id, checked_in_at, membership_id')
+          .gte('checked_in_at', currentStart)
+          .lt('checked_in_at', currentEnd)
+          .order('id')
+          .range(from, to)
+      ),
+      fetchAll<PlanOptionFallbackRows['memberships'][number]>((from, to) =>
+        db
+          .from('memberships')
+          .select(
+            'id, plan_id, pricing_option_id, is_trial, converted_at, created_at, status, end_date'
+          )
+          .order('id')
+          .range(from, to)
+      ),
+      fetchAll<PlanOptionFallbackRows['periods'][number]>((from, to) =>
+        db
+          .from('membership_periods')
+          .select(
+            'id, membership_id, plan_id, pricing_option_id, period_start, period_end, created_at'
+          )
+          .order('id')
+          .range(from, to)
+      ),
+      fetchAll<PlanOptionFallbackRows['pricingOptions'][number]>((from, to) =>
+        db
+          .from('plan_pricing_options')
+          .select(
+            'id, plan_id, duration_count, duration_unit, price, is_active, sort_order'
+          )
+          .order('id')
+          .range(from, to)
+      ),
+    ]);
+
+  return { payments, attendance, memberships, periods, pricingOptions };
+}
+
+function missingRpc(error: unknown, functionName: string): boolean {
   const row = record(error);
   const code = text(row.code).toUpperCase();
   const message = text(row.message).toLowerCase();
   return (
     code === 'PGRST202' ||
-    message.includes('owner_report') ||
+    message.includes(functionName.toLowerCase()) ||
     message.includes('schema cache')
   );
 }
@@ -666,7 +986,7 @@ export async function loadOwnerReport(
   range: { start: string; end: string },
   timeZone: string
 ): Promise<OwnerReport> {
-  const [reportResult, sourceResult] = await Promise.all([
+  const [reportResult, sourceResult, planOptionsResult] = await Promise.all([
     db.rpc('owner_report', {
       p_start_date: range.start,
       p_end_date: range.end,
@@ -677,6 +997,11 @@ export async function loadOwnerReport(
       .select('key, label')
       .eq('field', 'source')
       .order('sort_order', { ascending: true }),
+    db.rpc('owner_report_plan_options', {
+      p_start_date: range.start,
+      p_end_date: range.end,
+      p_time_zone: timeZone,
+    }),
   ]);
 
   if (sourceResult.error) throw sourceResult.error;
@@ -688,13 +1013,38 @@ export async function loadOwnerReport(
       optionLabel(sourceOptions, source.key),
     ])
   );
+  let report: OwnerReport;
   if (!reportResult.error) {
-    return normalizeOwnerReport(reportResult.data, labels);
+    report = normalizeOwnerReport(reportResult.data, labels);
+  } else {
+    if (!missingRpc(reportResult.error, 'owner_report')) {
+      throw reportResult.error;
+    }
+    const fallbackRows = await loadFallbackRows(db, range, timeZone);
+    report = aggregateOwnerReport(fallbackRows, range, timeZone, labels);
   }
-  if (!missingOwnerReport(reportResult.error)) throw reportResult.error;
 
-  const fallbackRows = await loadFallbackRows(db, range, timeZone);
-  return aggregateOwnerReport(fallbackRows, range, timeZone, labels);
+  let optionsByPlan: Map<
+    string,
+    OwnerReport['plans'][number]['billingOptions']
+  >;
+  if (!planOptionsResult.error) {
+    optionsByPlan = normalizePlanOptionBreakdown(planOptionsResult.data);
+  } else {
+    if (!missingRpc(planOptionsResult.error, 'owner_report_plan_options')) {
+      throw planOptionsResult.error;
+    }
+    const fallbackRows = await loadPlanOptionFallbackRows(db, range, timeZone);
+    optionsByPlan = aggregatePlanOptionBreakdown(fallbackRows, range, timeZone);
+  }
+
+  return {
+    ...report,
+    plans: report.plans.map((plan) => ({
+      ...plan,
+      billingOptions: optionsByPlan.get(plan.id) ?? [],
+    })),
+  };
 }
 
 function csvCell(value: string | number): string {
@@ -773,6 +1123,31 @@ export function ownerReportCsv(report: OwnerReport): string {
         plan.revenue,
         plan.visits,
       ])
+    ),
+    '',
+    csvRow([
+      'Plan',
+      'Billing option',
+      'Standard fee',
+      'Active members',
+      'New members',
+      'Revenue',
+      'Visits',
+    ]),
+    ...report.plans.flatMap((plan) =>
+      plan.billingOptions.map((option) =>
+        csvRow([
+          plan.name,
+          option.durationCount && option.durationUnit
+            ? durationLabel(option.durationCount, option.durationUnit)
+            : 'Unassigned billing option',
+          option.price ?? '',
+          option.activeMembers,
+          option.newMembers,
+          option.revenue,
+          option.visits,
+        ])
+      )
     ),
     '',
     csvRow(['Lead source', 'Open leads', 'Members', 'Conversion (%)']),
