@@ -20,14 +20,15 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const isLeadsPage = pathname.startsWith('/leads');
-  const contentPaddingTop = isLeadsPage
+  const hasRoomyContentTop =
+    pathname.startsWith('/leads') ||
+    pathname === '/members' ||
+    pathname === '/reports';
+  const contentPaddingTop = hasRoomyContentTop
     ? 'pt-6'
-    : pathname === '/members'
-      ? 'pt-6'
-      : pathname === '/finance'
-        ? 'pt-5'
-        : 'pt-3';
+    : pathname === '/finance'
+      ? 'pt-5'
+      : 'pt-3';
 
   // Sidebar drawer state — only used on mobile. On lg+ the sidebar is
   // always visible and this stays at `false` (ignored by the component).
@@ -69,8 +70,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
-        {/* Leads and Members use a roomier 24px separation below their
-            tabbed headers. Finance matches its 20px section rhythm; other
+        {/* Leads, Members, and Reports use a roomier 24px separation below
+            their headers. Finance matches its 20px section rhythm; other
             routes retain the standard 12px gap. */}
         <main
           className={cn(

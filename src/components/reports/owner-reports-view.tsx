@@ -243,25 +243,6 @@ export function OwnerReportsView() {
         </Button>
       </PageHeaderActions>
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-muted-foreground text-sm">
-            Revenue, retention, attendance, and acquisition in one owner view.
-          </p>
-          <p className="text-muted-foreground mt-1 text-xs tabular-nums">
-            {report
-              ? `${fmt.date(report.period.start)} – ${fmt.date(report.period.end)}`
-              : `Performance for the last ${rangeDays} days`}
-            {' · '}attention counts are live as of today
-          </p>
-        </div>
-        {report && (
-          <Badge variant="neutral" className="tabular-nums">
-            {fmt.number(report.metrics.newMembers.activeTotal)} active members
-          </Badge>
-        )}
-      </div>
-
       {error && (
         <Alert variant="destructive">
           <AlertCircle />
