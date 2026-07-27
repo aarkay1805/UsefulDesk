@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { loadFbSdk, type FbLoginResponse } from '@/lib/meta/fb-sdk';
+import { loadFbSdk } from '@/lib/meta/fb-sdk';
 
 // Public identifiers — safe to ship to the browser. When either is
 // missing the component renders nothing and the manual credential

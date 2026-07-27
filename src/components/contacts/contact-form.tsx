@@ -34,8 +34,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertTriangle } from 'lucide-react';
+
+const EMPTY_CONTACT_TAGS: ContactTag[] = [];
 
 interface ContactFormProps {
   open: boolean;
@@ -52,7 +53,7 @@ export function ContactForm({
   open,
   onOpenChange,
   contact,
-  contactTags = [],
+  contactTags = EMPTY_CONTACT_TAGS,
   onSaved,
   onViewExisting,
 }: ContactFormProps) {
@@ -90,42 +91,58 @@ export function ContactForm({
   const [loadingCustom, setLoadingCustom] = useState(false);
 
   useEffect(() => {
-    if (open) {
-      setName(contact?.name ?? '');
-      setPhone(contact?.phone ?? '');
-      setEmail(contact?.email ?? '');
-      setCompany(contact?.company ?? '');
-      setLeadStatus(contact?.lead_status ?? '');
-      setSource(contact?.source ?? '');
-      setGender(contact?.gender ?? '');
-      setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
-      setDupMatch(null);
-      fetchTags();
-      fetchCustomFields();
-    }
-  }, [open, contact]);
+    if (!open) return;
 
-  async function fetchCustomFields() {
-    setLoadingCustom(true);
-    // Field definitions are account-wide; values only exist when editing.
-    const [fieldsRes, valuesRes] = await Promise.all([
-      supabase.from('custom_fields').select('*').order('field_name'),
-      contact?.id
-        ? supabase
-            .from('contact_custom_values')
-            .select('*')
-            .eq('contact_id', contact.id)
-        : Promise.resolve({ data: [] as { custom_field_id: string; value: string | null }[] }),
-    ]);
+    setName(contact?.name ?? '');
+    setPhone(contact?.phone ?? '');
+    setEmail(contact?.email ?? '');
+    setCompany(contact?.company ?? '');
+    setLeadStatus(contact?.lead_status ?? '');
+    setSource(contact?.source ?? '');
+    setGender(contact?.gender ?? '');
+    setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
+    setDupMatch(null);
 
-    if (fieldsRes.data) setCustomFields(fieldsRes.data);
-    const map: Record<string, string> = {};
-    (valuesRes.data ?? []).forEach((v) => {
-      map[v.custom_field_id] = v.value ?? '';
-    });
-    setCustomValues(map);
-    setLoadingCustom(false);
-  }
+    let cancelled = false;
+    const contactId = contact?.id;
+
+    (async () => {
+      setLoadingTags(true);
+      const { data } = await supabase.from('tags').select('*').order('name');
+      if (cancelled) return;
+      if (data) setTags(data);
+      setLoadingTags(false);
+    })();
+
+    (async () => {
+      setLoadingCustom(true);
+      // Field definitions are account-wide; values only exist when editing.
+      const [fieldsRes, valuesRes] = await Promise.all([
+        supabase.from('custom_fields').select('*').order('field_name'),
+        contactId
+          ? supabase
+              .from('contact_custom_values')
+              .select('*')
+              .eq('contact_id', contactId)
+          : Promise.resolve({
+              data: [] as { custom_field_id: string; value: string | null }[],
+            }),
+      ]);
+      if (cancelled) return;
+
+      if (fieldsRes.data) setCustomFields(fieldsRes.data);
+      const map: Record<string, string> = {};
+      (valuesRes.data ?? []).forEach((value) => {
+        map[value.custom_field_id] = value.value ?? '';
+      });
+      setCustomValues(map);
+      setLoadingCustom(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, contact, contactTags, supabase]);
 
   // Look up an existing contact with this number (new contacts only).
   // Runs on blur so we don't query on every keystroke.
@@ -147,16 +164,6 @@ export function ContactForm({
     } finally {
       setCheckingDup(false);
     }
-  }
-
-  async function fetchTags() {
-    setLoadingTags(true);
-    const { data } = await supabase
-      .from('tags')
-      .select('*')
-      .order('name');
-    if (data) setTags(data);
-    setLoadingTags(false);
   }
 
   function toggleTag(tagId: string) {

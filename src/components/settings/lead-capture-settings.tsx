@@ -70,10 +70,6 @@ export function LeadCaptureSettings() {
   const [intro, setIntro] = useState('');
   const [consentText, setConsentText] = useState('');
 
-  // Manual refetch is a nonce bump — never a setState-wrapping call
-  // straight out of an effect (react-hooks/set-state-in-effect).
-  const [nonce, setNonce] = useState(0);
-
   useEffect(() => {
     if (!accountId) return;
     let cancelled = false;
@@ -108,7 +104,7 @@ export function LeadCaptureSettings() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, accountId, nonce]);
+  }, [supabase, accountId]);
 
   const formUrl = form
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/f/${form.token}`

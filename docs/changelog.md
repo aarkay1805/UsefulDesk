@@ -6,6 +6,12 @@
 
 ---
 
+## Repository-wide ESLint cleanup
+
+The current Next.js 16 / React 19 tree now passes ESLint with zero errors and zero warnings without rule overrides. The stale 56-error report was not reproducible from the supplied `main` revision (its untouched baseline was zero errors and 11 warnings); the remaining cleanup removed dead imports/state, made auth-driven effects depend on stable scalar IDs, cancellation-guarded the contact-form option loaders, and moved authenticated message images onto `next/image` without changing their proxy/blob delivery. Key code: `src/components/contacts/contact-form.tsx`, `src/components/inbox/message-bubble.tsx`, and the affected Inbox and Settings call sites.
+
+---
+
 ## WhatsApp referral attribution
 
 Inbound Click-to-WhatsApp messages now retain Meta’s normalized referral object on each message, classify Instagram/Facebook only from a trusted HTTPS source hostname, and set `contacts.source` as a compare-and-set first touch without changing `received_via='whatsapp'`. Referral-bearing retries are conversation-scoped and idempotent; the Inbox shows the ad/post context on the exact message, while the shared contact header exposes the resulting acquisition source. Migration `20260727200000` was applied through the Supabase connector. Key code: `src/lib/whatsapp/referral.ts`, `src/app/api/whatsapp/webhook/route.ts`, and `src/components/inbox/message-bubble.tsx`.

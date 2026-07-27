@@ -31,7 +31,6 @@ function HeaderSlot({
     // The Header commits in the same shell render as the page, so the
     // slot exists by the time effects run. One-time DOM lookup — not a
     // data fetch, so the async-IIFE loading pattern doesn't apply.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSlot(document.getElementById(slotId));
   }, [slotId]);
 

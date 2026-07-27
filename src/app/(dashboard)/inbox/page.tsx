@@ -16,7 +16,6 @@ import {
   ContactProfileSheet,
 } from "@/components/inbox/contact-sidebar";
 import { useMatchMedia } from "@/hooks/use-match-media";
-import { toast } from "sonner";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
