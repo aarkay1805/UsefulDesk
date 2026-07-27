@@ -89,11 +89,7 @@ Import can assign leads to a teammate who **doesn't exist yet**:
    (a) import 2.0 (engine + wizard + grid + combobox + renderers + tsconfig),
    (b) migration 049 + pending-assignee feature (invitations API + settings +
    leads page + filters), (c) docs (CLAUDE.md, PRDs, HANDOFF.md).
-   `tsconfig.json` change = excludes untracked `agent-skills/` +
-   `ui-ux-pro-max-skill/` dirs that broke `next build` typecheck.
 2. **Manual QA** the three unverified flows above; then delete the QA invite.
-3. Consider `.gitignore` for `agent-skills/` + `ui-ux-pro-max-skill/` if they
-   aren't meant to be committed.
 
 ## Open items (deliberately deferred)
 
