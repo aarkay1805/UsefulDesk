@@ -8,7 +8,7 @@
 
 ## Finance month controls in the app bar
 
-Finance now keeps its shared month/year navigator, adjacent-month actions, current-month shortcut, export, and tab-specific primary action in the app bar across Overview, Invoices, Payments, and Expenses. The duplicate content-row placement is gone; narrow headers retain month/year and icon actions while progressively hiding secondary navigation labels. Key code: `src/components/finance/finance-month-actions.tsx`.
+Finance now keeps a simplified Google Calendar-style period navigator in the app bar across Overview, Invoices, Payments, and Expenses: **Today**, previous/next arrows, then one localized Month Year label. The label owns a fixed responsive width, so short and long month names never move the navigation buttons. The former Month and Year dropdowns plus separate Current month action are gone; narrow headers retain adjacent navigation and the period label while hiding Today. Export and tab-specific primary actions remain alongside it. Key code: `src/components/finance/finance-month-actions.tsx`.
 
 ---
 
@@ -224,7 +224,7 @@ Members → Payments now exposes exactly two counted urgency filters: **Due toda
 
 ## Finance period navigation
 
-Finance now uses separate localized Month and Year controls with adjacent previous/next navigation, future-month guards, and a Current month shortcut on every tab. The available year list begins at the account's creation year rather than an arbitrary history window, while historical deep links remain selectable. Finance tabs do not repeat the selected period in redundant page subtitles. The URL and every loader/export stay on the existing `month=YYYY-MM` contract; Day/Week remains a contextual chart control. Key code: `src/components/finance/finance-month-actions.tsx`, `src/components/finance/`, `src/lib/finance/overview.ts`, `src/lib/locale/format.ts`, and `src/hooks/use-auth.tsx`.
+Finance uses one calendar-month scope on every tab, now presented as **Today**, previous/next arrows, and a single localized Month Year label. Navigation remains bounded by account history and the current month, while historical deep links remain selectable. Finance tabs do not repeat the selected period in redundant page subtitles. The URL and every loader/export stay on the existing `month=YYYY-MM` contract; Day/Week remains a contextual chart control. Key code: `src/components/finance/finance-month-actions.tsx`, `src/components/finance/`, `src/lib/finance/overview.ts`, `src/lib/locale/format.ts`, and `src/hooks/use-auth.tsx`.
 
 ---
 

@@ -1,32 +1,15 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Loader2,
-} from 'lucide-react';
+import type { ReactNode } from 'react';
+import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react';
 
 import { PageHeaderActions } from '@/components/layout/page-header-actions';
 import { Button } from '@/components/ui/button';
 import { GatedButton } from '@/components/ui/gated-button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { canExportFinance } from '@/lib/auth/roles';
-import { financeYearOptions, shiftFinanceMonth } from '@/lib/finance/overview';
-
-const MONTH_VALUES = Array.from({ length: 12 }, (_, index) =>
-  String(index + 1).padStart(2, '0')
-);
+import { shiftFinanceMonth } from '@/lib/finance/overview';
 
 export function FinanceMonthActions({
   month,
@@ -46,24 +29,11 @@ export function FinanceMonthActions({
   const { account, accountRole } = useAuth();
   const { fmt } = useLocale();
   const currentMonth = fmt.today().slice(0, 7);
-  const selectedYear = month.slice(0, 4);
-  const selectedMonth = month.slice(5, 7);
   const mayExport = accountRole ? canExportFinance(accountRole) : false;
-  const yearOptions = useMemo(
-    () => financeYearOptions(currentMonth, account?.created_at, month),
-    [account?.created_at, currentMonth, month]
-  );
-  const earliestMonth = `${yearOptions.at(-1)}-01`;
-
-  function changeYear(year: string) {
-    const nextMonth = `${year}-${selectedMonth}`;
-    onMonthChange(nextMonth > currentMonth ? currentMonth : nextMonth);
-  }
-
-  function changeMonth(monthValue: string) {
-    const nextMonth = `${selectedYear}-${monthValue}`;
-    if (nextMonth <= currentMonth) onMonthChange(nextMonth);
-  }
+  const accountCreatedYear = account?.created_at?.slice(0, 4);
+  const earliestMonth = accountCreatedYear
+    ? `${accountCreatedYear}-01`
+    : currentMonth;
 
   return (
     <PageHeaderActions>
@@ -75,72 +45,38 @@ export function FinanceMonthActions({
         <Button
           type="button"
           variant="outline"
-          size="icon"
           className="hidden sm:inline-flex"
+          disabled={month === currentMonth}
+          onClick={() => onMonthChange(currentMonth)}
+        >
+          Today
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
           aria-label="Previous month"
           disabled={month <= earliestMonth}
           onClick={() => onMonthChange(shiftFinanceMonth(month, -1))}
         >
           <ChevronLeft />
         </Button>
-        <Select
-          value={selectedMonth}
-          onValueChange={(value) => value && changeMonth(value)}
-        >
-          <SelectTrigger aria-label="Finance month" className="w-16 sm:w-28">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="end">
-            {MONTH_VALUES.map((monthValue) => {
-              const option = `${selectedYear}-${monthValue}`;
-              return (
-                <SelectItem
-                  key={monthValue}
-                  value={monthValue}
-                  disabled={option > currentMonth}
-                >
-                  {fmt.monthName(`${selectedYear}-${monthValue}-01`)}
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-        <Select
-          value={selectedYear}
-          onValueChange={(value) => value && changeYear(value)}
-        >
-          <SelectTrigger aria-label="Finance year" className="w-20 sm:w-24">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="end">
-            {yearOptions.map((year) => (
-              <SelectItem key={year} value={year}>
-                {year}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="icon"
-          className="hidden sm:inline-flex"
           aria-label="Next month"
           disabled={month >= currentMonth}
           onClick={() => onMonthChange(shiftFinanceMonth(month, 1))}
         >
           <ChevronRight />
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="hidden lg:inline-flex"
-          disabled={month === currentMonth}
-          onClick={() => onMonthChange(currentMonth)}
+        <span
+          className="text-foreground w-20 shrink-0 truncate px-1 text-sm font-medium tabular-nums sm:w-32 sm:text-base"
+          aria-live="polite"
         >
-          <CalendarDays />
-          Current month
-        </Button>
+          {fmt.month(`${month}-01`)}
+        </span>
       </div>
       <GatedButton
         type="button"
