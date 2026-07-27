@@ -8,6 +8,8 @@ Membership plans · member records · renewal action lists (expiring / expired /
 
 ## ✅ Phase 2 — India-first workflows
 
+Shipped addition: **automatic Click-to-WhatsApp referral attribution that preserves every inbound ad/post touch on its message, labels Instagram/Facebook only when a trusted Meta source URL proves the platform, keeps WhatsApp as the immutable intake channel, fills an absent contact acquisition source without overwriting prior attribution, and surfaces both message-level context and contact-level source in the Inbox**.
+
 Shipped addition: **AI-assisted member migration that proposes a typed allowlisted interpretation from bounded CSV samples, deterministically selects each source member’s latest dated row, separates plan terms, preserves expired semantics and legacy IDs, blocks shared-phone merges and unsafe payments, groups repeated findings by their real import consequence, carries every actionable financial row into an uncapped attention-focused preview, retains manual mapping plus human preview, and reports determinate row-level progress during large commits**.
 
 Shipped addition: **member photo clipboard paste with concise dialog guidance and platform-standard Command+V / Control+V shortcuts feeding the existing validated square-crop preview and optimized WebP upload flow**.

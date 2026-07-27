@@ -667,6 +667,16 @@ export function ContactDetailContent({
                     {contact.company}
                   </span>
                 )}
+                {contact.source && (
+                  <span className="flex items-center gap-1">
+                    <SourceIcon
+                      source={contact.source}
+                      label={fieldOptions.sourceLabel(contact.source)}
+                      className="size-3"
+                    />
+                    {fieldOptions.sourceLabel(contact.source)}
+                  </span>
+                )}
               </div>
             </div>
           </div>

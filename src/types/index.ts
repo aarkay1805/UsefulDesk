@@ -337,6 +337,25 @@ export type ContentType =
   | 'interactive';
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
+export interface MessageReferral {
+  source_url: string | null;
+  source_id: string | null;
+  source_type: 'ad' | 'post' | null;
+  headline: string | null;
+  body: string | null;
+  media_type: 'image' | 'video' | null;
+  image_url: string | null;
+  video_url: string | null;
+  thumbnail_url: string | null;
+  ctwa_clid: string | null;
+  /**
+   * Derived only from a trusted Meta-owned source_url hostname. Null when
+   * the payload does not prove whether the ad/post was on Instagram or
+   * Facebook.
+   */
+  source_platform: 'instagram' | 'facebook' | null;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -357,6 +376,12 @@ export interface Message {
    * cue (renders with a "↩ button reply" affordance).
    */
   interactive_reply_id?: string;
+  /**
+   * Normalized Meta Click-to-WhatsApp referral attached to this exact
+   * inbound message. Each message keeps its own touch; null for ordinary
+   * WhatsApp messages.
+   */
+  referral?: MessageReferral | null;
 }
 
 export type ReactionActor = 'customer' | 'agent';

@@ -13,6 +13,11 @@ import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook'
+import {
+  contactSourceFromReferral,
+  parseWhatsAppReferral,
+  type WhatsAppReferral,
+} from '@/lib/whatsapp/referral'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -59,6 +64,11 @@ interface WhatsAppMessage {
   }
   /** Present when the customer swipe-replies to one of our messages. */
   context?: { id: string }
+  /**
+   * Present when this inbound message followed a Click-to-WhatsApp ad
+   * or post. Parsed as external input before it is persisted.
+   */
+  referral?: unknown
 }
 
 interface WhatsAppWebhookEntry {
@@ -572,6 +582,7 @@ async function processMessage(
 ) {
   const senderPhone = normalizePhone(message.from)
   const contactName = contact.profile.name
+  const referral = parseWhatsAppReferral(message.referral)
 
   // Find or create contact
   const contactOutcome = await findOrCreateContact(
@@ -582,6 +593,12 @@ async function processMessage(
   )
   if (!contactOutcome) return
   const contactRecord = contactOutcome.contact
+
+  // Acquisition source is a first-touch field, separate from
+  // received_via='whatsapp'. Only a trusted source URL can resolve the
+  // platform, and the compare-and-set below never overwrites a source
+  // that a teammate or an earlier capture already established.
+  await setReferralFirstTouchSource(contactRecord, referral)
 
   // Find or create conversation
   const convResult = await findOrCreateConversation(
@@ -680,9 +697,22 @@ async function processMessage(
     // the column; null for every other content_type so existing inserts
     // behave identically.
     interactive_reply_id: interactiveReplyId,
+    // The normalized referral lives on this exact message, so repeated
+    // ad/post touches remain independently visible in conversation history.
+    referral,
   })
 
   if (msgError) {
+    // The partial unique index in migration 20260727200000 makes Meta
+    // retries idempotent for referral-bearing messages within a
+    // conversation. The first delivery already persisted the touch.
+    if (referral && isUniqueViolation(msgError)) {
+      console.info(
+        '[webhook] duplicate referral delivery ignored:',
+        message.id
+      )
+      return
+    }
     console.error('Error inserting message:', msgError)
     return
   }
@@ -962,6 +992,44 @@ async function parseMessageContent(
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ContactRow = any
+
+/**
+ * Compare-and-set the contact acquisition source from a trusted referral
+ * platform. Matching the exact value observed by findExistingContact keeps
+ * a concurrent human edit from being overwritten.
+ */
+async function setReferralFirstTouchSource(
+  contact: ContactRow,
+  referral: WhatsAppReferral | null,
+) {
+  const source = contactSourceFromReferral(referral)
+  if (!source) return
+
+  const observed =
+    typeof contact.source === 'string' ? contact.source : null
+  if (observed?.trim()) return
+
+  let query = supabaseAdmin()
+    .from('contacts')
+    .update({
+      source,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', contact.id)
+
+  query =
+    observed === null
+      ? query.is('source', null)
+      : query.eq('source', observed)
+
+  const { error } = await query
+  if (error) {
+    console.error(
+      '[webhook] failed to set referral first-touch source:',
+      error.message
+    )
+  }
+}
 
 interface ContactOutcome {
   contact: ContactRow

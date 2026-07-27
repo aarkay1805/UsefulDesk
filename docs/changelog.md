@@ -6,6 +6,12 @@
 
 ---
 
+## WhatsApp referral attribution
+
+Inbound Click-to-WhatsApp messages now retain Meta’s normalized referral object on each message, classify Instagram/Facebook only from a trusted HTTPS source hostname, and set `contacts.source` as a compare-and-set first touch without changing `received_via='whatsapp'`. Referral-bearing retries are conversation-scoped and idempotent; the Inbox shows the ad/post context on the exact message, while the shared contact header exposes the resulting acquisition source. Migration `20260727200000` is included but was not applied as part of this no-deployment task. Key code: `src/lib/whatsapp/referral.ts`, `src/app/api/whatsapp/webhook/route.ts`, and `src/components/inbox/message-bubble.tsx`.
+
+---
+
 ## Staff-scoped owner reporting
 
 Reports now has an **All staff** master filter in the app bar plus one option per account teammate. Selecting a teammate scopes every KPI, trend, attention queue, plan/source breakdown, and CSV export to leads and members currently assigned to that user; the default keeps the existing account aggregate. Lead source rows now reuse the canonical source icons from Leads, and the page opens directly on the KPI grid with a 24px content inset instead of a duplicate subtitle, date/status line, or active-member badge. Migration `20260727190000` was applied through the Supabase connector and keeps all four reporting RPCs `SECURITY INVOKER` with an optional staff UUID. Key code: `src/components/reports/owner-reports-view.tsx`, `src/lib/reports/reporting.ts`, and `supabase/migrations/20260727190000_staff_scoped_owner_reports.sql`.

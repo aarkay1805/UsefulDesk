@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import type { Message, MessageReaction } from "@/types";
+import type { Message, MessageReaction, MessageReferral } from "@/types";
 import {
   Clock,
   Check,
@@ -13,10 +13,18 @@ import {
   LayoutTemplate,
   ImageOff,
   CornerDownLeft,
+  ExternalLink,
+  Megaphone,
 } from "lucide-react";
 import { useLocale } from "@/hooks/use-locale";
 import { ReplyQuote } from "./reply-quote";
 import { MessageReactions } from "./message-reactions";
+import { Badge } from "@/components/ui/badge";
+import { SourceIcon } from "@/components/leads/source-icon";
+import {
+  referralDisplayLabel,
+  referralSourceHref,
+} from "@/lib/whatsapp/referral";
 
 interface MessageBubbleProps {
   message: Message;
@@ -120,6 +128,44 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
       className="max-h-64 max-w-60 rounded-lg object-cover"
       onError={() => setError(true)}
     />
+  );
+}
+
+function ReferralContext({ referral }: { referral: MessageReferral }) {
+  const label = referralDisplayLabel(referral);
+  const href = referralSourceHref(referral);
+  const sourceKey = referral.source_platform;
+
+  return (
+    <div className="mb-2 max-w-60 space-y-1.5 border-b border-border/50 pb-2">
+      <Badge variant="neutral">
+        {sourceKey ? (
+          <SourceIcon source={sourceKey} label={label} />
+        ) : (
+          <Megaphone className="size-3" aria-hidden />
+        )}
+        {label}
+      </Badge>
+      {referral.headline && (
+        <p className="text-xs font-medium">{referral.headline}</p>
+      )}
+      {referral.body && (
+        <p className="line-clamp-2 text-xs text-muted-foreground">
+          {referral.body}
+        </p>
+      )}
+      {href && (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-primary-text hover:underline"
+        >
+          View source
+          <ExternalLink className="size-3" aria-hidden />
+        </a>
+      )}
+    </div>
   );
 }
 
@@ -283,6 +329,7 @@ export function MessageBubble({
             onPrimary={isAgent}
           />
         )}
+        {message.referral && <ReferralContext referral={message.referral} />}
         <MessageContent message={message} />
         <div
           className={cn(
