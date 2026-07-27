@@ -6,6 +6,12 @@
 
 ---
 
+## Finance month controls in the app bar
+
+Finance now keeps its shared month/year navigator, adjacent-month actions, current-month shortcut, export, and tab-specific primary action in the app bar across Overview, Invoices, Payments, and Expenses. The duplicate content-row placement is gone; narrow headers retain month/year and icon actions while progressively hiding secondary navigation labels. Key code: `src/components/finance/finance-month-actions.tsx`.
+
+---
+
 ## Semantic trend direction colours
 
 KPI comparison rows now use one product-wide directional treatment through the shared `MetricCard`: upward trends are emerald, downward trends are red, and unchanged values remain neutral across Reports, Dashboard, and Finance. The arrow and label share the same semantic foreground token instead of borrowing the account accent. Key code: `src/components/dashboard/metric-card.tsx`; durable rule: `docs/ui-patterns.md`.

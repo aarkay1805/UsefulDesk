@@ -329,7 +329,7 @@ export function FinanceExpenses({
             disabled={categories.length === 0}
           >
             <Plus />
-            Add expense
+            <span className="hidden sm:inline">Add expense</span>
           </GatedButton>
         }
       />

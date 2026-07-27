@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useMemo, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import {
   CalendarDays,
   ChevronLeft,
@@ -22,10 +22,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { canExportFinance } from '@/lib/auth/roles';
-import {
-  financeYearOptions,
-  shiftFinanceMonth,
-} from '@/lib/finance/overview';
+import { financeYearOptions, shiftFinanceMonth } from '@/lib/finance/overview';
 
 const MONTH_VALUES = Array.from({ length: 12 }, (_, index) =>
   String(index + 1).padStart(2, '0')
@@ -69,94 +66,75 @@ export function FinanceMonthActions({
   }
 
   return (
-    <Fragment>
-      <PageHeaderActions>
-        <GatedButton
-          type="button"
-          variant="ghost"
-          canAct={mayExport}
-          gateReason="export financial data"
-          onClick={onExport}
-          disabled={exportDisabled || exporting}
-        >
-          {exporting ? <Loader2 className="animate-spin" /> : <Download />}
-          <span className="hidden sm:inline">
-            {exporting ? 'Exporting…' : 'Export'}
-          </span>
-        </GatedButton>
-        {primaryAction}
-      </PageHeaderActions>
-
+    <PageHeaderActions>
       <div
-        className="flex flex-wrap items-center gap-2"
+        className="flex min-w-0 items-center gap-1 sm:gap-2"
         role="group"
         aria-label="Finance reporting month"
       >
-        <div className="flex max-w-full items-center gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Previous month"
-            disabled={month <= earliestMonth}
-            onClick={() => onMonthChange(shiftFinanceMonth(month, -1))}
-          >
-            <ChevronLeft />
-          </Button>
-          <Select
-            value={selectedMonth}
-            onValueChange={(value) => value && changeMonth(value)}
-          >
-            <SelectTrigger
-              aria-label="Finance month"
-              className="w-24 sm:w-32"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="start">
-              {MONTH_VALUES.map((monthValue) => {
-                const option = `${selectedYear}-${monthValue}`;
-                return (
-                  <SelectItem
-                    key={monthValue}
-                    value={monthValue}
-                    disabled={option > currentMonth}
-                  >
-                    {fmt.monthName(`${selectedYear}-${monthValue}-01`)}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-          <Select
-            value={selectedYear}
-            onValueChange={(value) => value && changeYear(value)}
-          >
-            <SelectTrigger aria-label="Finance year" className="w-20 sm:w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="start">
-              {yearOptions.map((year) => (
-                <SelectItem key={year} value={year}>
-                  {year}
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="hidden sm:inline-flex"
+          aria-label="Previous month"
+          disabled={month <= earliestMonth}
+          onClick={() => onMonthChange(shiftFinanceMonth(month, -1))}
+        >
+          <ChevronLeft />
+        </Button>
+        <Select
+          value={selectedMonth}
+          onValueChange={(value) => value && changeMonth(value)}
+        >
+          <SelectTrigger aria-label="Finance month" className="w-16 sm:w-28">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end">
+            {MONTH_VALUES.map((monthValue) => {
+              const option = `${selectedYear}-${monthValue}`;
+              return (
+                <SelectItem
+                  key={monthValue}
+                  value={monthValue}
+                  disabled={option > currentMonth}
+                >
+                  {fmt.monthName(`${selectedYear}-${monthValue}-01`)}
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Next month"
-            disabled={month >= currentMonth}
-            onClick={() => onMonthChange(shiftFinanceMonth(month, 1))}
-          >
-            <ChevronRight />
-          </Button>
-        </div>
+              );
+            })}
+          </SelectContent>
+        </Select>
+        <Select
+          value={selectedYear}
+          onValueChange={(value) => value && changeYear(value)}
+        >
+          <SelectTrigger aria-label="Finance year" className="w-20 sm:w-24">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end">
+            {yearOptions.map((year) => (
+              <SelectItem key={year} value={year}>
+                {year}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="hidden sm:inline-flex"
+          aria-label="Next month"
+          disabled={month >= currentMonth}
+          onClick={() => onMonthChange(shiftFinanceMonth(month, 1))}
+        >
+          <ChevronRight />
+        </Button>
         <Button
           type="button"
           variant="ghost"
+          className="hidden lg:inline-flex"
           disabled={month === currentMonth}
           onClick={() => onMonthChange(currentMonth)}
         >
@@ -164,6 +142,23 @@ export function FinanceMonthActions({
           Current month
         </Button>
       </div>
-    </Fragment>
+      <GatedButton
+        type="button"
+        variant="ghost"
+        canAct={mayExport}
+        gateReason="export financial data"
+        aria-label={
+          exporting ? 'Exporting finance data' : 'Export finance data'
+        }
+        onClick={onExport}
+        disabled={exportDisabled || exporting}
+      >
+        {exporting ? <Loader2 className="animate-spin" /> : <Download />}
+        <span className="hidden sm:inline">
+          {exporting ? 'Exporting…' : 'Export'}
+        </span>
+      </GatedButton>
+      {primaryAction}
+    </PageHeaderActions>
   );
 }
