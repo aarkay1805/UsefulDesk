@@ -71,7 +71,6 @@ import {
 } from '@/components/presence/presence-dot';
 import { InviteMemberDialog } from './invite-member-dialog';
 import { SettingsPanelHead } from './settings-panel-head';
-import { AccountDangerZone } from './account-danger-zone';
 import { ROLE_META } from './role-meta';
 
 interface Member {
@@ -136,7 +135,7 @@ export function MembersTab() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [removingMember, setRemovingMember] = useState<Member | null>(null);
   const [pendingMemberAction, setPendingMemberAction] = useState<string | null>(
-    null,
+    null
   );
 
   const loadEverything = useCallback(async () => {
@@ -188,8 +187,8 @@ export function MembersTab() {
     setPendingMemberAction(member.user_id);
     setMembers((prev) =>
       prev.map((m) =>
-        m.user_id === member.user_id ? { ...m, role: nextRole } : m,
-      ),
+        m.user_id === member.user_id ? { ...m, role: nextRole } : m
+      )
     );
     try {
       const res = await fetch(`/api/account/members/${member.user_id}`, {
@@ -205,8 +204,8 @@ export function MembersTab() {
         // `member.role === nextRole` guard at the top).
         setMembers((prev) =>
           prev.map((m) =>
-            m.user_id === member.user_id ? { ...m, role: previousRole } : m,
-          ),
+            m.user_id === member.user_id ? { ...m, role: previousRole } : m
+          )
         );
         const payload = await res.json().catch(() => ({}));
         toast.error(payload.error || 'Failed to update role');
@@ -217,8 +216,8 @@ export function MembersTab() {
       // Same revert on network failure.
       setMembers((prev) =>
         prev.map((m) =>
-          m.user_id === member.user_id ? { ...m, role: previousRole } : m,
-        ),
+          m.user_id === member.user_id ? { ...m, role: previousRole } : m
+        )
       );
       console.error('[MembersTab] role change error:', err);
       toast.error('Could not reach the server');
@@ -233,7 +232,7 @@ export function MembersTab() {
     try {
       const res = await fetch(
         `/api/account/members/${removingMember.user_id}`,
-        { method: 'DELETE' },
+        { method: 'DELETE' }
       );
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
@@ -242,7 +241,7 @@ export function MembersTab() {
       }
       toast.success(`Removed ${removingMember.full_name || 'member'}`);
       setMembers((prev) =>
-        prev.filter((m) => m.user_id !== removingMember.user_id),
+        prev.filter((m) => m.user_id !== removingMember.user_id)
       );
       setRemovingMember(null);
     } catch (err) {
@@ -280,10 +279,9 @@ export function MembersTab() {
   async function handleCopyLink(invite: Invitation) {
     setLinkingId(invite.id);
     try {
-      const res = await fetch(
-        `/api/account/invitations/${invite.id}/link`,
-        { method: 'POST' }
-      );
+      const res = await fetch(`/api/account/invitations/${invite.id}/link`, {
+        method: 'POST',
+      });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         toast.error(payload.error || 'Failed to generate link');
@@ -294,7 +292,9 @@ export function MembersTab() {
         await navigator.clipboard.writeText(url);
         setCopiedId(invite.id);
         window.setTimeout(() => setCopiedId(null), 2000);
-        toast.success('Invite link copied — this replaces any link shared before.');
+        toast.success(
+          'Invite link copied — this replaces any link shared before.'
+        );
       } catch {
         // Clipboard blocked (insecure context / permissions) — show the URL.
         toast.message('Invite link (copy it):', { description: url });
@@ -310,7 +310,7 @@ export function MembersTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin text-primary-text" />
+        <Loader2 className="text-primary-text size-6 animate-spin" />
       </div>
     );
   }
@@ -336,7 +336,7 @@ export function MembersTab() {
         (() => {
           const counts = summarize(members.map((m) => getPresence(m.user_id)));
           return (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
               <span className="inline-flex items-center gap-1.5">
                 <PresenceDot status="online" />
                 {counts.online} online
@@ -359,7 +359,7 @@ export function MembersTab() {
       {/* Roster */}
       <Card>
         <CardContent className="p-0">
-          <ul className="divide-y divide-border">
+          <ul className="divide-border divide-y">
             {members.map((member) => {
               const roleMeta = ROLE_META[member.role];
               const RoleIcon = roleMeta.icon;
@@ -371,7 +371,7 @@ export function MembersTab() {
               const presenceText = presenceLabel(
                 presence,
                 presenceRow?.last_seen_at ?? null,
-                now,
+                now
               );
 
               return (
@@ -410,17 +410,17 @@ export function MembersTab() {
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium text-foreground">
+                        <span className="text-foreground truncate text-sm font-medium">
                           {member.full_name || 'Unnamed'}
                         </span>
                         {isSelf && (
-                          <Badge className="bg-muted text-muted-foreground border-border text-[10px] uppercase tracking-wide">
+                          <Badge className="bg-muted text-muted-foreground border-border text-[10px] tracking-wide uppercase">
                             You
                           </Badge>
                         )}
                       </div>
                       {member.email && (
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="text-muted-foreground truncate text-xs">
                           {member.email}
                         </p>
                       )}
@@ -429,7 +429,7 @@ export function MembersTab() {
 
                   {/* Joined date stays desktop-only. The mobile row's
                       vertical density makes the joined date noise. */}
-                  <div className="hidden sm:block text-right text-xs text-muted-foreground">
+                  <div className="text-muted-foreground hidden text-right text-xs sm:block">
                     Joined {fmtDate(member.joined_at)}
                   </div>
 
@@ -453,7 +453,7 @@ export function MembersTab() {
                         }
                       >
                         <SelectTrigger
-                          className="w-32 border-border text-foreground"
+                          className="border-border text-foreground w-32"
                           disabled={isBusy}
                         >
                           <SelectValue />
@@ -499,8 +499,8 @@ export function MembersTab() {
       <RequireRole min="admin">
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <UsersRound className="size-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold text-foreground">
+            <UsersRound className="text-muted-foreground size-4" />
+            <h3 className="text-foreground text-sm font-semibold">
               Pending invitations
             </h3>
             <Badge className="bg-muted text-muted-foreground border-border">
@@ -508,7 +508,7 @@ export function MembersTab() {
             </Badge>
           </div>
           {invitations.length > 0 ? (
-            <p className="mb-3 text-xs text-muted-foreground">
+            <p className="text-muted-foreground mb-3 text-xs">
               Invite links are stored hashed, so <b>Copy link</b> mints a fresh
               one each time — which invalidates any link you shared for that
               invite before. Share the newest one.
@@ -518,12 +518,13 @@ export function MembersTab() {
           {invitations.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-                <Mail className="size-6 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">
+                <Mail className="text-muted-foreground size-6" />
+                <p className="text-muted-foreground mt-2 text-sm">
                   No pending invitations.
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Click <span className="text-muted-foreground">Invite member</span>{' '}
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Click{' '}
+                  <span className="text-muted-foreground">Invite member</span>{' '}
                   above to generate a shareable link.
                 </p>
               </CardContent>
@@ -531,60 +532,61 @@ export function MembersTab() {
           ) : (
             <Card>
               <CardContent className="p-0">
-                <ul className="divide-y divide-border">
+                <ul className="divide-border divide-y">
                   {invitations.map((inv) => {
                     const inviteRoleMeta = ROLE_META[inv.role];
                     const InviteRoleIcon = inviteRoleMeta.icon;
                     return (
-                    <li
-                      key={inv.id}
-                      className="flex items-center gap-4 px-4 py-3"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground">
-                            {inv.full_name || inv.label || 'Untitled invite'}
-                          </span>
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${inviteRoleMeta.className}`}
-                          >
-                            <InviteRoleIcon className="size-3" />
-                            {inviteRoleMeta.label}
-                          </span>
+                      <li
+                        key={inv.id}
+                        className="flex items-center gap-4 px-4 py-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-foreground text-sm font-medium">
+                              {inv.full_name || inv.label || 'Untitled invite'}
+                            </span>
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${inviteRoleMeta.className}`}
+                            >
+                              <InviteRoleIcon className="size-3" />
+                              {inviteRoleMeta.label}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground mt-0.5 text-xs">
+                            Created {fmtDate(inv.created_at)} ·{' '}
+                            {fmtExpiresIn(inv.expires_at)}
+                          </p>
                         </div>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          Created {fmtDate(inv.created_at)} · {fmtExpiresIn(inv.expires_at)}
-                        </p>
-                      </div>
 
-                      {/* Copy link — rotates the token, so the freshest
+                        {/* Copy link — rotates the token, so the freshest
                           copy is the only working link (see the note above). */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={linkingId === inv.id}
-                        onClick={() => handleCopyLink(inv)}
-                        className="border-border text-muted-foreground hover:bg-muted"
-                      >
-                        {linkingId === inv.id ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : copiedId === inv.id ? (
-                          <Check className="size-4 text-emerald-foreground" />
-                        ) : (
-                          <Link2 className="size-4" />
-                        )}
-                        {copiedId === inv.id ? 'Copied' : 'Copy link'}
-                      </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={linkingId === inv.id}
+                          onClick={() => handleCopyLink(inv)}
+                          className="border-border text-muted-foreground hover:bg-muted"
+                        >
+                          {linkingId === inv.id ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : copiedId === inv.id ? (
+                            <Check className="text-emerald-foreground size-4" />
+                          ) : (
+                            <Link2 className="size-4" />
+                          )}
+                          {copiedId === inv.id ? 'Copied' : 'Copy link'}
+                        </Button>
 
-                      <Button
-                        variant="destructive-ghost"
-                        size="sm"
-                        onClick={() => handleRevoke(inv)}
-                      >
-                        <MailX className="size-4" />
-                        Revoke
-                      </Button>
-                    </li>
+                        <Button
+                          variant="destructive-ghost"
+                          size="sm"
+                          onClick={() => handleRevoke(inv)}
+                        >
+                          <MailX className="size-4" />
+                          Revoke
+                        </Button>
+                      </li>
                     );
                   })}
                 </ul>
@@ -593,10 +595,6 @@ export function MembersTab() {
           )}
         </div>
       </RequireRole>
-
-      {/* Owner-only danger zone. Self-gates via useCan — renders null
-          for everyone below owner. */}
-      <AccountDangerZone />
 
       <InviteMemberDialog
         open={inviteOpen}
@@ -612,18 +610,18 @@ export function MembersTab() {
       >
         <DialogContent className="bg-popover border-border sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-popover-foreground">
-              <AlertTriangle className="size-4 text-amber-foreground" />
+            <DialogTitle className="text-popover-foreground flex items-center gap-2">
+              <AlertTriangle className="text-amber-foreground size-4" />
               Remove member
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Remove{' '}
-              <span className="font-medium text-muted-foreground">
+              <span className="text-muted-foreground font-medium">
                 {removingMember?.full_name || 'this teammate'}
               </span>{' '}
-              from the account? They&apos;ll be signed out of this account
-              and given a fresh personal account on their next sign-in. Their
-              login isn&apos;t deleted.
+              from the account? They&apos;ll be signed out of this account and
+              given a fresh personal account on their next sign-in. Their login
+              isn&apos;t deleted.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="bg-popover border-border">

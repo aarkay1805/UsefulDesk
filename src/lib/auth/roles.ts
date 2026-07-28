@@ -260,6 +260,11 @@ export function canManageOrganization(role: OrganizationRole | null): boolean {
   return role === 'owner';
 }
 
+/** Organization owner only: permanently erase every branch and org record. */
+export function canDeleteOrganization(role: OrganizationRole | null): boolean {
+  return role === 'owner';
+}
+
 /** Organization owner: owner-only, read-only cross-branch reporting. */
 export function canViewConsolidatedReports(
   role: OrganizationRole | null

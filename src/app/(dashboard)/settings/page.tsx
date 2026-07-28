@@ -18,6 +18,7 @@ import { PlansSettings } from '@/components/settings/plans-settings';
 import { RenewalRemindersSettings } from '@/components/settings/renewal-reminders-settings';
 import { DealsSettings } from '@/components/settings/deals-settings';
 import { LocalizationSettings } from '@/components/settings/localization-settings';
+import { OrganizationSettings } from '@/components/settings/organization-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import {
@@ -52,7 +53,7 @@ export default function SettingsPage() {
       deals: defaultCurrency,
       localization: locale.countryCode,
     }),
-    [mode, defaultCurrency, locale.countryCode],
+    [mode, defaultCurrency, locale.countryCode]
   );
 
   const panel: Record<SettingsSection, ReactNode> = {
@@ -68,6 +69,7 @@ export default function SettingsPage() {
     reminders: <RenewalRemindersSettings />,
     deals: <DealsSettings />,
     localization: <LocalizationSettings />,
+    organization: <OrganizationSettings />,
     members: <MembersTab />,
     api: <ApiKeysSettings />,
   };
@@ -75,10 +77,10 @@ export default function SettingsPage() {
   return (
     <div>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+        <h1 className="text-foreground text-2xl font-bold tracking-tight">
           Settings
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-sm">
           Everything in one place — your account and your workspace. Pick a
           section to manage it.
         </p>

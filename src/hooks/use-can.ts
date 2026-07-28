@@ -3,6 +3,7 @@
 import { useAuth } from '@/hooks/use-auth';
 import {
   canArchiveBranch,
+  canDeleteOrganization,
   canEditSettings,
   canManageMembers,
   canSendMessages,
@@ -22,6 +23,7 @@ export type CanAction =
   | 'send-messages'
   | 'view-only'
   | 'archive-branch'
+  | 'delete-organization'
   | 'transfer-ownership';
 
 /**
@@ -38,8 +40,12 @@ export type CanAction =
  *   <Button disabled={!canEdit} title={canEdit ? "Save" : "Read-only"} />
  */
 export function useCan(action: CanAction): boolean {
-  const { profileLoading, accountRole } = useAuth();
-  if (profileLoading || !accountRole) return false;
+  const { profileLoading, accountRole, isOrganizationOwner } = useAuth();
+  if (profileLoading) return false;
+  if (action === 'delete-organization') {
+    return canDeleteOrganization(isOrganizationOwner ? 'owner' : null);
+  }
+  if (!accountRole) return false;
 
   switch (action) {
     case 'manage-members':

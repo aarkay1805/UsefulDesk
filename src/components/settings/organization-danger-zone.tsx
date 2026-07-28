@@ -1,0 +1,178 @@
+'use client';
+
+import { useState } from 'react';
+import { AlertTriangle, Loader2, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { useAuth } from '@/hooks/use-auth';
+import { useCan } from '@/hooks/use-can';
+import { branchHref } from '@/lib/auth/branch-context';
+import { createClient } from '@/lib/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
+export function OrganizationDangerZone() {
+  const { account, branches } = useAuth();
+  const canDelete = useCan('delete-organization');
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  if (!account || !canDelete) return null;
+
+  const currentBranch = branches.find(
+    (branch) => branch.account_id === account.id
+  );
+  const organizationName = currentBranch?.organization_name;
+  if (!organizationName) return null;
+
+  const confirmed = typed === organizationName;
+
+  async function handleDelete() {
+    if (!confirmed || busy) return;
+    setBusy(true);
+
+    try {
+      const response = await fetch('/api/organization', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: typed }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        nextAccountId?: string | null;
+        warningCount?: number;
+      };
+      if (!response.ok) {
+        toast.error(payload.error || 'Failed to delete the organization');
+        setBusy(false);
+        return;
+      }
+
+      if (payload.warningCount) {
+        toast.warning(
+          'Organization deleted, but some unused teammate logins need administrator cleanup.'
+        );
+      } else {
+        toast.success('Organization permanently deleted');
+      }
+
+      if (payload.nextAccountId) {
+        window.location.href = branchHref('/dashboard', payload.nextAccountId);
+        return;
+      }
+
+      await createClient()
+        .auth.signOut({ scope: 'local' })
+        .catch(() => {});
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('[OrganizationDangerZone] delete failed:', error);
+      toast.error('Could not reach the server');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="min-w-0">
+            <p className="text-destructive flex items-center gap-1.5 text-sm font-semibold">
+              <AlertTriangle className="size-4" />
+              Delete organization
+            </p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Permanently erase{' '}
+              <span className="font-medium">{organizationName}</span>, all{' '}
+              {branches.length} branches, contacts, conversations, memberships,
+              payments, integrations, audit history, and stored media. Teammates
+              who only belong here lose their login.
+            </p>
+          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="shrink-0"
+            onClick={() => {
+              setTyped('');
+              setOpen(true);
+            }}
+          >
+            <Trash2 className="size-4" />
+            Delete organization
+          </Button>
+        </div>
+      </CardContent>
+
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (busy) return;
+          setOpen(next);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete {organizationName}?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes every branch and all organization data.
+              It cannot be undone or restored from UsefulDesk.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="delete-organization-confirm">
+              Type {organizationName} to confirm
+            </Label>
+            <Input
+              id="delete-organization-confirm"
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
+              autoComplete="off"
+              placeholder={organizationName}
+              disabled={busy}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={!confirmed || busy}
+            >
+              {busy ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                <>
+                  <Trash2 className="size-4" />
+                  Permanently delete
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}

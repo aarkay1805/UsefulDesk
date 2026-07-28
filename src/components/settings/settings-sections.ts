@@ -7,6 +7,7 @@ import {
   KeyRound,
   LayoutGrid,
   Magnet,
+  Network,
   Palette,
   PlugZap,
   Shield,
@@ -37,6 +38,7 @@ export const SETTINGS_SECTIONS = [
   'reminders',
   'deals',
   'localization',
+  'organization',
   'members',
   'api',
 ] as const;
@@ -54,25 +56,99 @@ export interface SectionMeta {
 }
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
-  overview: { id: 'overview', label: 'Overview', icon: LayoutGrid, group: 'top' },
-  profile: { id: 'profile', label: 'Your profile', icon: User, group: 'account' },
-  security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
-  appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
-  whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace' },
+  overview: {
+    id: 'overview',
+    label: 'Overview',
+    icon: LayoutGrid,
+    group: 'top',
+  },
+  profile: {
+    id: 'profile',
+    label: 'Your profile',
+    icon: User,
+    group: 'account',
+  },
+  security: {
+    id: 'security',
+    label: 'Login & security',
+    icon: Shield,
+    group: 'account',
+  },
+  appearance: {
+    id: 'appearance',
+    label: 'Appearance',
+    icon: Palette,
+    group: 'account',
+  },
+  whatsapp: {
+    id: 'whatsapp',
+    label: 'WhatsApp',
+    icon: PlugZap,
+    group: 'workspace',
+  },
   // "Where do my leads come from" — the public capture form and (once
   // Meta App Review clears) Facebook/Instagram lead ads live together.
-  capture: { id: 'capture', label: 'Lead capture', icon: Magnet, group: 'workspace' },
-  templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },
-  fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'workspace' },
-  plans: { id: 'plans', label: 'Membership plans', icon: Dumbbell, group: 'workspace' },
-  reminders: { id: 'reminders', label: 'Renewal reminders', icon: BellRing, group: 'workspace' },
-  deals: { id: 'deals', label: 'Payments & currency', icon: Coins, group: 'workspace' },
-  localization: { id: 'localization', label: 'Localization', icon: Globe2, group: 'workspace' },
-  members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
+  capture: {
+    id: 'capture',
+    label: 'Lead capture',
+    icon: Magnet,
+    group: 'workspace',
+  },
+  templates: {
+    id: 'templates',
+    label: 'Templates',
+    icon: FileText,
+    group: 'workspace',
+  },
+  fields: {
+    id: 'fields',
+    label: 'Fields & tags',
+    icon: Tags,
+    group: 'workspace',
+  },
+  plans: {
+    id: 'plans',
+    label: 'Membership plans',
+    icon: Dumbbell,
+    group: 'workspace',
+  },
+  reminders: {
+    id: 'reminders',
+    label: 'Renewal reminders',
+    icon: BellRing,
+    group: 'workspace',
+  },
+  deals: {
+    id: 'deals',
+    label: 'Payments & currency',
+    icon: Coins,
+    group: 'workspace',
+  },
+  localization: {
+    id: 'localization',
+    label: 'Localization',
+    icon: Globe2,
+    group: 'workspace',
+  },
+  organization: {
+    id: 'organization',
+    label: 'Organization & branches',
+    icon: Network,
+    group: 'workspace',
+  },
+  members: {
+    id: 'members',
+    label: 'Team members',
+    icon: UsersRound,
+    group: 'workspace',
+  },
   api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },
 };
 
-export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[] = [
+export const RAIL_GROUPS: {
+  label: string | null;
+  group: SectionMeta['group'];
+}[] = [
   { label: null, group: 'top' },
   { label: 'Account', group: 'account' },
   { label: 'Workspace', group: 'workspace' },

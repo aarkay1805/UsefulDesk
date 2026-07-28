@@ -44,6 +44,7 @@ export function SettingsOverview({
     defaultCurrency,
     locale,
     canManageMembers,
+    branches,
   } = useAuth();
   const { mode, theme } = useTheme();
   const userId = user?.id;
@@ -66,34 +67,45 @@ export function SettingsOverview({
     // Cheap counts — resolve fast, render immediately.
     (async () => {
       setCountsLoading(true);
-      const [membersRes, invitesRes, templatesTotal, templatesPending, tagsRes, fieldsRes] =
-        await Promise.allSettled([
-          fetch('/api/account/members', { cache: 'no-store' }).then((r) => r.json()),
-          canManageMembers
-            ? fetch('/api/account/invitations', { cache: 'no-store' }).then((r) =>
-                r.json(),
-              )
-            : Promise.resolve(null),
-          supabase
-            .from('message_templates')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId),
-          supabase
-            .from('message_templates')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .eq('status', 'PENDING'),
-          supabase
-            .from('tags')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId),
-          supabase.from('custom_fields').select('id', { count: 'exact', head: true }),
-        ]);
+      const [
+        membersRes,
+        invitesRes,
+        templatesTotal,
+        templatesPending,
+        tagsRes,
+        fieldsRes,
+      ] = await Promise.allSettled([
+        fetch('/api/account/members', { cache: 'no-store' }).then((r) =>
+          r.json()
+        ),
+        canManageMembers
+          ? fetch('/api/account/invitations', { cache: 'no-store' }).then((r) =>
+              r.json()
+            )
+          : Promise.resolve(null),
+        supabase
+          .from('message_templates')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId),
+        supabase
+          .from('message_templates')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'PENDING'),
+        supabase
+          .from('tags')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId),
+        supabase
+          .from('custom_fields')
+          .select('id', { count: 'exact', head: true }),
+      ]);
 
       if (cancelled) return;
 
       const members =
-        membersRes.status === 'fulfilled' && Array.isArray(membersRes.value?.members)
+        membersRes.status === 'fulfilled' &&
+        Array.isArray(membersRes.value?.members)
           ? membersRes.value.members.length
           : null;
       const pendingInvites =
@@ -108,15 +120,18 @@ export function SettingsOverview({
         pendingInvites,
         templates:
           templatesTotal.status === 'fulfilled'
-            ? templatesTotal.value.count ?? null
+            ? (templatesTotal.value.count ?? null)
             : null,
         templatesPending:
           templatesPending.status === 'fulfilled'
-            ? templatesPending.value.count ?? null
+            ? (templatesPending.value.count ?? null)
             : null,
-        tags: tagsRes.status === 'fulfilled' ? tagsRes.value.count ?? null : null,
+        tags:
+          tagsRes.status === 'fulfilled' ? (tagsRes.value.count ?? null) : null,
         customFields:
-          fieldsRes.status === 'fulfilled' ? fieldsRes.value.count ?? null : null,
+          fieldsRes.status === 'fulfilled'
+            ? (fieldsRes.value.count ?? null)
+            : null,
       });
       setCountsLoading(false);
     })();
@@ -130,11 +145,14 @@ export function SettingsOverview({
           .select('phone_number_id')
           .eq('account_id', acctId)
           .maybeSingle(),
-        fetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) => r.json()),
+        fetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) =>
+          r.json()
+        ),
       ]);
       if (cancelled) return;
       setWhatsapp({
-        configured: row.status === 'fulfilled' && !!row.value.data?.phone_number_id,
+        configured:
+          row.status === 'fulfilled' && !!row.value.data?.phone_number_id,
         connected: health.status === 'fulfilled' && !!health.value?.connected,
       });
       setWhatsappLoading(false);
@@ -150,7 +168,8 @@ export function SettingsOverview({
   const RoleIcon = roleMeta?.icon;
 
   const currencyLabel =
-    CURRENCIES.find((c) => c.code === defaultCurrency)?.label ?? defaultCurrency;
+    CURRENCIES.find((c) => c.code === defaultCurrency)?.label ??
+    defaultCurrency;
   const countryLabel =
     COUNTRY_PRESETS[locale.countryCode]?.label ?? locale.countryCode;
   const themeName = THEMES.find((t) => t.id === theme)?.name ?? theme;
@@ -163,6 +182,11 @@ export function SettingsOverview({
     loading: boolean;
     subtitle: ReactNode;
   }[] = [
+    {
+      section: 'organization',
+      loading: false,
+      subtitle: `${branches.length} branch${branches.length === 1 ? '' : 'es'}`,
+    },
     {
       section: 'whatsapp',
       loading: whatsappLoading,
@@ -248,11 +272,11 @@ export function SettingsOverview({
           fallbackClassName="text-xl"
         />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-base font-semibold text-foreground">
+          <div className="text-foreground truncate text-base font-semibold">
             {displayName}
           </div>
           {profile?.email ? (
-            <div className="truncate text-sm text-muted-foreground">
+            <div className="text-muted-foreground truncate text-sm">
               {profile.email}
             </div>
           ) : null}
@@ -276,18 +300,18 @@ export function SettingsOverview({
               type="button"
               onClick={() => onSelect(section)}
               className={cn(
-                'group flex items-start gap-3.5 rounded-xl border border-border bg-card p-4 text-left transition-colors',
-                'hover:border-border-hover',
+                'group border-border bg-card flex items-start gap-3.5 rounded-xl border p-4 text-left transition-colors',
+                'hover:border-border-hover'
               )}
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-text">
+              <span className="bg-primary-soft text-primary-text flex size-9 shrink-0 items-center justify-center rounded-lg">
                 <Icon className="size-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-foreground">
+                <span className="text-foreground block text-sm font-semibold">
                   {meta.label}
                 </span>
-                <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
                   {loading ? (
                     <>
                       <Loader2 className="size-3 animate-spin" /> Loading…
@@ -297,7 +321,7 @@ export function SettingsOverview({
                   )}
                 </span>
               </span>
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              <ChevronRight className="text-muted-foreground size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
             </button>
           );
         })}

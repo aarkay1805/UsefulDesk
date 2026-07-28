@@ -49,8 +49,8 @@ describe('multi-branch database security contract', () => {
     expect(migration).toMatch(
       /IF v_header IS NOT NULL THEN[\s\S]*?IF v_header !~\*[\s\S]*?RETURN NULL;[\s\S]*?RETURN v_header::uuid;/
     );
-    expect(migration).toContain(
-      'SELECT EXISTS (SELECT 1 FROM target)\n    AND ('
+    expect(migration).toMatch(
+      /SELECT EXISTS \(SELECT 1 FROM target\)\r?\n    AND \(/
     );
     expect(consentOrderingMigration).toContain('clock_timestamp()');
   });
