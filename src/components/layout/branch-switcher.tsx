@@ -25,6 +25,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -108,51 +109,54 @@ export function BranchSwitcher({ collapsed }: { collapsed: boolean }) {
           sideOffset={6}
           className="min-w-72"
         >
-          <DropdownMenuLabel>Branches</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {branches.map((branch) => {
-            const selected = branch.account_id === account.id;
-            const archived = branch.branch_status === 'archived';
-            const loading = switchingTo === branch.account_id;
-            return (
-              <DropdownMenuItem
-                key={branch.account_id}
-                disabled={archived || switchingTo !== null}
-                onClick={async () => {
-                  if (selected || archived) return;
-                  setSwitchingTo(branch.account_id);
-                  try {
-                    await switchBranch(branch.account_id);
-                  } catch (error) {
-                    console.error('[BranchSwitcher] switch failed:', error);
-                    toast.error('Could not switch branch');
-                    setSwitchingTo(null);
-                  }
-                }}
-              >
-                {loading ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Building2 className="size-4" />
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate">{branch.account_name}</span>
-                  <span className="text-muted-foreground block truncate text-xs">
-                    {branch.organization_name} · {branch.role}
-                    {archived
-                      ? ' · Archived'
-                      : branch.readiness_state !== 'ready'
-                        ? ` · ${branch.readiness_state}`
-                        : ''}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Branches</DropdownMenuLabel>
+            {branches.map((branch) => {
+              const selected = branch.account_id === account.id;
+              const archived = branch.branch_status === 'archived';
+              const loading = switchingTo === branch.account_id;
+              return (
+                <DropdownMenuItem
+                  key={branch.account_id}
+                  disabled={archived || switchingTo !== null}
+                  onClick={async () => {
+                    if (selected || archived) return;
+                    setSwitchingTo(branch.account_id);
+                    try {
+                      await switchBranch(branch.account_id);
+                    } catch (error) {
+                      console.error('[BranchSwitcher] switch failed:', error);
+                      toast.error('Could not switch branch');
+                      setSwitchingTo(null);
+                    }
+                  }}
+                >
+                  {loading ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Building2 className="size-4" />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">
+                      {branch.account_name}
+                    </span>
+                    <span className="text-muted-foreground block truncate text-xs">
+                      {branch.organization_name} · {branch.role}
+                      {archived
+                        ? ' · Archived'
+                        : branch.readiness_state !== 'ready'
+                          ? ` · ${branch.readiness_state}`
+                          : ''}
+                    </span>
                   </span>
-                </span>
-                {selected ? <Check className="size-4" /> : null}
-              </DropdownMenuItem>
-            );
-          })}
+                  {selected ? <Check className="size-4" /> : null}
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
           {isOrganizationOwner ? (
             <>
-              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
                   setBranchName('');
