@@ -4,6 +4,7 @@ import { sendTemplateMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
+import { assertBusinessMessageAllowed } from '@/lib/consent/business-messaging';
 import {
   sanitizePhoneForMeta,
   isValidE164,
@@ -168,6 +169,24 @@ export async function POST(request: Request) {
           phone: recipient.phone,
           status: 'failed',
           error: 'Invalid phone number format',
+        });
+        failedCount++;
+        continue;
+      }
+
+      try {
+        await assertBusinessMessageAllowed(
+          supabase,
+          accountId,
+          recipient.phone,
+          'broadcast'
+        );
+      } catch (error) {
+        results.push({
+          phone: recipient.phone,
+          status: 'failed',
+          error:
+            error instanceof Error ? error.message : 'Consent check failed',
         });
         failedCount++;
         continue;

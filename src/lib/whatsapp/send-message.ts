@@ -37,6 +37,10 @@ import {
 } from '@/lib/whatsapp/phone-utils';
 import type { MessageTemplate } from '@/types';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
+import {
+  assertBusinessMessageAllowed,
+  MessageSuppressedError,
+} from '@/lib/consent/business-messaging';
 
 export const MEDIA_KINDS = ['image', 'video', 'document', 'audio'] as const;
 export const VALID_MESSAGE_TYPES = [
@@ -185,7 +189,12 @@ export async function sendMessageToConversation(
     );
   }
 
-  validateSendMessageParams({ messageType, contentText, mediaUrl, templateName });
+  validateSendMessageParams({
+    messageType,
+    contentText,
+    mediaUrl,
+    templateName,
+  });
 
   const isMediaKind = (MEDIA_KINDS as readonly string[]).includes(messageType);
 
@@ -217,6 +226,28 @@ export async function sendMessageToConversation(
       'Invalid phone number format',
       400
     );
+  }
+
+  if (messageType === 'template') {
+    try {
+      await assertBusinessMessageAllowed(
+        db,
+        accountId,
+        contact.phone,
+        'template'
+      );
+    } catch (error) {
+      if (error instanceof MessageSuppressedError) {
+        throw new SendMessageError(error.code, error.message, 409);
+      }
+      throw new SendMessageError(
+        'consent_check_failed',
+        error instanceof Error
+          ? error.message
+          : 'Could not verify WhatsApp consent',
+        503
+      );
+    }
   }
 
   // WhatsApp config, account-scoped.

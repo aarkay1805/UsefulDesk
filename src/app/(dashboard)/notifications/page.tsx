@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import type { Notification } from "@/types";
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import type { Notification } from '@/types';
 import {
   ArrowLeftRight,
   Ban,
@@ -16,19 +16,20 @@ import {
   UserCheck,
   UserPlus,
   X,
-} from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { Button } from "@/components/ui/button";
-import { MotionList, MotionListItem } from "@/components/ui/motion-list";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { MotionList, MotionListItem } from '@/components/ui/motion-list';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import {
   respondLeadAssignment,
   respondLeadTransfer,
-} from "@/lib/leads/transfers";
+} from '@/lib/leads/transfers';
+import { branchHref } from '@/lib/auth/branch-context';
 
 // Icon per notification type.
-const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
+const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
   conversation_assigned: UserPlus,
   lead_assigned: UserCheck,
   follow_up_reminder: ClipboardList,
@@ -46,7 +47,7 @@ export default function NotificationsPage() {
   const router = useRouter();
   const { accountId } = useAuth();
   const [notifications, setNotifications] = useState<Notification[] | null>(
-    null,
+    null
   );
   const [error, setError] = useState<string | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
@@ -55,10 +56,10 @@ export default function NotificationsPage() {
     if (!accountId) return;
     const supabase = createClient();
     const { data, error: fetchErr } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("account_id", accountId)
-      .order("created_at", { ascending: false })
+      .from('notifications')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('created_at', { ascending: false })
       .limit(100);
     if (fetchErr) {
       setError(fetchErr.message);
@@ -75,39 +76,46 @@ export default function NotificationsPage() {
   // "mark all read" fired from another tab/device stays in sync here.
   useEffect(() => {
     const supabase = createClient();
+    if (!accountId) return;
     const channel = supabase
-      .channel("notifications-page")
+      .channel(`notifications-page:${accountId}`)
       .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notifications" },
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `account_id=eq.${accountId}`,
+        },
         (payload) => {
-          if (payload.eventType === "INSERT") {
+          if (payload.eventType === 'INSERT') {
             const row = payload.new as Notification;
             setNotifications((prev) => {
               if (!prev) return [row];
               if (prev.some((n) => n.id === row.id)) return prev;
               return [row, ...prev];
             });
-          } else if (payload.eventType === "UPDATE") {
+          } else if (payload.eventType === 'UPDATE') {
             const row = payload.new as Notification;
-            setNotifications((prev) =>
-              prev?.map((n) => (n.id === row.id ? { ...n, ...row } : n)) ??
-              prev,
+            setNotifications(
+              (prev) =>
+                prev?.map((n) => (n.id === row.id ? { ...n, ...row } : n)) ??
+                prev
             );
-          } else if (payload.eventType === "DELETE") {
+          } else if (payload.eventType === 'DELETE') {
             const oldRow = payload.old as Partial<Notification>;
             setNotifications(
-              (prev) => prev?.filter((n) => n.id !== oldRow.id) ?? prev,
+              (prev) => prev?.filter((n) => n.id !== oldRow.id) ?? prev
             );
           }
-        },
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [accountId]);
 
   const markRead = useCallback(
     async (id: string) => {
@@ -118,21 +126,21 @@ export default function NotificationsPage() {
           prev?.map((n) =>
             n.id === id && !n.read_at
               ? { ...n, read_at: new Date().toISOString() }
-              : n,
-          ) ?? prev,
+              : n
+          ) ?? prev
       );
       const supabase = createClient();
       const { error: updateErr } = await supabase
-        .from("notifications")
+        .from('notifications')
         .update({ read_at: new Date().toISOString() })
-        .eq("id", id)
-        .is("read_at", null);
+        .eq('id', id)
+        .is('read_at', null);
       if (updateErr) {
-        toast.error("Failed to mark notification as read");
+        toast.error('Failed to mark notification as read');
         load();
       }
     },
-    [load],
+    [load]
   );
 
   // Accept / decline a lead transfer inline (migration 050). The RPC guards
@@ -145,16 +153,16 @@ export default function NotificationsPage() {
       try {
         const supabase = createClient();
         await respondLeadTransfer(supabase, n.reference_id, accept);
-        toast.success(accept ? "Transfer accepted" : "Transfer declined");
+        toast.success(accept ? 'Transfer accepted' : 'Transfer declined');
         if (!n.read_at) markRead(n.id);
         load();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Action failed");
+        toast.error(e instanceof Error ? e.message : 'Action failed');
       } finally {
         setActingId(null);
       }
     },
-    [load, markRead],
+    [load, markRead]
   );
 
   // Approve / reject an assignment request inline (migration 052).
@@ -165,34 +173,34 @@ export default function NotificationsPage() {
       try {
         const supabase = createClient();
         await respondLeadAssignment(supabase, n.reference_id, approve);
-        toast.success(approve ? "Assignment approved" : "Assignment rejected");
+        toast.success(approve ? 'Assignment approved' : 'Assignment rejected');
         if (!n.read_at) markRead(n.id);
         load();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Action failed");
+        toast.error(e instanceof Error ? e.message : 'Action failed');
       } finally {
         setActingId(null);
       }
     },
-    [load, markRead],
+    [load, markRead]
   );
 
   const handleClick = useCallback(
     (n: Notification) => {
       if (!n.read_at) markRead(n.id);
       if (n.conversation_id) {
-        router.push(`/inbox?c=${n.conversation_id}`);
+        router.push(branchHref(`/inbox?c=${n.conversation_id}`, n.account_id));
       } else if (
-        n.type === "lead_assigned" ||
-        n.type === "follow_up_reminder" ||
-        n.type === "lead_transfer_request" ||
-        n.type === "lead_transfer_accepted" ||
-        n.type === "lead_transfer_declined" ||
-        n.type === "lead_transfer_cancelled" ||
-        n.type === "lead_assignment_request" ||
-        n.type === "lead_assignment_approved" ||
-        n.type === "lead_assignment_rejected" ||
-        n.type === "lead_assignment_cancelled"
+        n.type === 'lead_assigned' ||
+        n.type === 'follow_up_reminder' ||
+        n.type === 'lead_transfer_request' ||
+        n.type === 'lead_transfer_accepted' ||
+        n.type === 'lead_transfer_declined' ||
+        n.type === 'lead_transfer_cancelled' ||
+        n.type === 'lead_assignment_request' ||
+        n.type === 'lead_assignment_approved' ||
+        n.type === 'lead_assignment_rejected' ||
+        n.type === 'lead_assignment_cancelled'
       ) {
         // Lead-scoped notifications deep-link straight to the lead's
         // detail sheet (leads are contacts). A follow-up reminder also
@@ -201,33 +209,37 @@ export default function NotificationsPage() {
         // carries no contact (older rows), fall back to the list.
         if (n.contact_id) {
           const focus =
-            n.type === "follow_up_reminder" ? "&focus=followup" : "";
-          router.push(`/leads?contact=${n.contact_id}${focus}`);
+            n.type === 'follow_up_reminder' ? '&focus=followup' : '';
+          router.push(
+            branchHref(`/leads?contact=${n.contact_id}${focus}`, n.account_id)
+          );
         } else {
-          router.push("/leads");
+          router.push(branchHref('/leads', n.account_id));
         }
       }
     },
-    [markRead, router],
+    [markRead, router]
   );
 
-  const unreadIds = notifications?.filter((n) => !n.read_at).map((n) => n.id) ?? [];
+  const unreadIds =
+    notifications?.filter((n) => !n.read_at).map((n) => n.id) ?? [];
 
   const markAllRead = useCallback(async () => {
     if (unreadIds.length === 0) return;
     setMarkingAll(true);
     const now = new Date().toISOString();
     setNotifications(
-      (prev) => prev?.map((n) => (n.read_at ? n : { ...n, read_at: now })) ?? prev,
+      (prev) =>
+        prev?.map((n) => (n.read_at ? n : { ...n, read_at: now })) ?? prev
     );
     const supabase = createClient();
     const { error: updateErr } = await supabase
-      .from("notifications")
+      .from('notifications')
       .update({ read_at: now })
-      .is("read_at", null);
+      .is('read_at', null);
     setMarkingAll(false);
     if (updateErr) {
-      toast.error("Failed to mark all as read");
+      toast.error('Failed to mark all as read');
       load();
     }
   }, [unreadIds.length, load]);
@@ -235,7 +247,7 @@ export default function NotificationsPage() {
   if (error) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-2">
-        <p className="text-sm text-destructive">{error}</p>
+        <p className="text-destructive text-sm">{error}</p>
         <Button variant="outline" onClick={() => window.location.reload()}>
           Retry
         </Button>
@@ -246,7 +258,7 @@ export default function NotificationsPage() {
   if (notifications === null) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary-text" />
+        <Loader2 className="text-primary-text h-6 w-6 animate-spin" />
       </div>
     );
   }
@@ -255,8 +267,8 @@ export default function NotificationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-foreground text-2xl font-bold">Notifications</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
             Conversations other teammates assign to you show up here.
           </p>
         </div>
@@ -276,14 +288,14 @@ export default function NotificationsPage() {
       </div>
 
       {notifications.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/40">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <Bell className="h-6 w-6 text-primary-text" />
+        <div className="border-border bg-muted/40 flex h-48 flex-col items-center justify-center rounded-xl border border-dashed">
+          <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-xl">
+            <Bell className="text-primary-text h-6 w-6" />
           </div>
-          <p className="mt-3 text-sm font-medium text-foreground">
+          <p className="text-foreground mt-3 text-sm font-medium">
             No notifications yet
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="text-muted-foreground mt-1 text-xs">
             You&apos;ll see an alert here when someone assigns you a
             conversation.
           </p>
@@ -292,122 +304,126 @@ export default function NotificationsPage() {
         <div className="space-y-2">
           <MotionList>
             {notifications.map((n) => {
-            const Icon = TYPE_ICON[n.type] ?? Bell;
-            const isUnread = !n.read_at;
-            return (
-              <MotionListItem key={n.id}>
-                <button
-                  type="button"
-                  onClick={() => handleClick(n)}
-                  className={cn(
-                    "flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors",
-                    isUnread
-                      ? "border-primary/30 bg-primary/5 hover:border-primary/50"
-                      : "border-border bg-card hover:border-border-hover",
-                  )}
-                >
-                  <div
+              const Icon = TYPE_ICON[n.type] ?? Bell;
+              const isUnread = !n.read_at;
+              return (
+                <MotionListItem key={n.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleClick(n)}
                     className={cn(
-                      "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg",
-                      isUnread ? "bg-primary/15" : "bg-muted",
+                      'flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors',
+                      isUnread
+                        ? 'border-primary/30 bg-primary/5 hover:border-primary/50'
+                        : 'border-border bg-card hover:border-border-hover'
                     )}
-                    aria-hidden
                   >
-                    <Icon
+                    <div
                       className={cn(
-                        "h-5 w-5",
-                        isUnread ? "text-primary-text" : "text-muted-foreground",
+                        'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg',
+                        isUnread ? 'bg-primary/15' : 'bg-muted'
                       )}
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span
+                      aria-hidden
+                    >
+                      <Icon
                         className={cn(
-                          "truncate text-sm font-semibold",
-                          isUnread ? "text-foreground" : "text-muted-foreground",
+                          'h-5 w-5',
+                          isUnread
+                            ? 'text-primary-text'
+                            : 'text-muted-foreground'
                         )}
-                      >
-                        {n.title}
-                      </span>
-                      {isUnread && (
-                        <span
-                          aria-label="Unread"
-                          className="h-2 w-2 flex-shrink-0 rounded-full bg-primary"
-                        />
-                      )}
+                      />
                     </div>
-                    {n.body && (
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {n.body}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            'truncate text-sm font-semibold',
+                            isUnread
+                              ? 'text-foreground'
+                              : 'text-muted-foreground'
+                          )}
+                        >
+                          {n.title}
+                        </span>
+                        {isUnread && (
+                          <span
+                            aria-label="Unread"
+                            className="bg-primary h-2 w-2 flex-shrink-0 rounded-full"
+                          />
+                        )}
+                      </div>
+                      {n.body && (
+                        <p className="text-muted-foreground mt-0.5 truncate text-xs">
+                          {n.body}
+                        </p>
+                      )}
+                      <p className="text-muted-foreground/70 mt-1 text-[11px]">
+                        {formatDistanceToNow(new Date(n.created_at), {
+                          addSuffix: true,
+                        })}
                       </p>
-                    )}
-                    <p className="mt-1 text-[11px] text-muted-foreground/70">
-                      {formatDistanceToNow(new Date(n.created_at), {
-                        addSuffix: true,
-                      })}
-                    </p>
-                  </div>
-                </button>
+                    </div>
+                  </button>
 
-                {/* Inline Accept/Decline for an unresolved transfer request
+                  {/* Inline Accept/Decline for an unresolved transfer request
                     (migration 050). Sibling of the row button — nested
                     buttons are invalid HTML. Hidden once the row is read
                     (acting marks it read). */}
-                {n.type === "lead_transfer_request" && isUnread && (
-                  <div className="mt-2 flex gap-2 pl-16">
-                    <Button
-                      size="sm"
-                      disabled={actingId === n.id}
-                      onClick={() => respondTransfer(n, true)}
-                    >
-                      {actingId === n.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Check className="h-4 w-4" />
-                      )}
-                      Accept
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={actingId === n.id}
-                      onClick={() => respondTransfer(n, false)}
-                    >
-                      <X className="h-4 w-4" />
-                      Decline
-                    </Button>
-                  </div>
-                )}
+                  {n.type === 'lead_transfer_request' && isUnread && (
+                    <div className="mt-2 flex gap-2 pl-16">
+                      <Button
+                        size="sm"
+                        disabled={actingId === n.id}
+                        onClick={() => respondTransfer(n, true)}
+                      >
+                        {actingId === n.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4" />
+                        )}
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={actingId === n.id}
+                        onClick={() => respondTransfer(n, false)}
+                      >
+                        <X className="h-4 w-4" />
+                        Decline
+                      </Button>
+                    </div>
+                  )}
 
-                {n.type === "lead_assignment_request" && isUnread && (
-                  <div className="mt-2 flex gap-2 pl-16">
-                    <Button
-                      size="sm"
-                      disabled={actingId === n.id}
-                      onClick={() => respondAssignment(n, true)}
-                    >
-                      {actingId === n.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Check className="h-4 w-4" />
-                      )}
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={actingId === n.id}
-                      onClick={() => respondAssignment(n, false)}
-                    >
-                      <X className="h-4 w-4" />
-                      Reject
-                    </Button>
-                  </div>
-                )}
-              </MotionListItem>
-            );
-          })}
+                  {n.type === 'lead_assignment_request' && isUnread && (
+                    <div className="mt-2 flex gap-2 pl-16">
+                      <Button
+                        size="sm"
+                        disabled={actingId === n.id}
+                        onClick={() => respondAssignment(n, true)}
+                      >
+                        {actingId === n.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4" />
+                        )}
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={actingId === n.id}
+                        onClick={() => respondAssignment(n, false)}
+                      >
+                        <X className="h-4 w-4" />
+                        Reject
+                      </Button>
+                    </div>
+                  )}
+                </MotionListItem>
+              );
+            })}
           </MotionList>
         </div>
       )}

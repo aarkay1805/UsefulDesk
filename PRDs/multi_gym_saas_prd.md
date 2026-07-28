@@ -1,6 +1,8 @@
 # PRD: Multi-Gym SaaS — One Deployment, Many Gyms
 
-> **Status:** Draft · **Owner:** Platform · **Last updated:** 2026-07-05
+> **Status:** Draft · **Owner:** Platform · **Last updated:** 2026-07-28
+>
+> **Architecture update:** Phase 4 multi-branch now uses **organization → existing account branches**, not a `branches` table beneath one account. In this PRD, SaaS tenant billing/lifecycle may attach to the organization, while operational isolation and one WhatsApp number/inbox remain per account branch. The older one-account-per-user statements below describe the pre-migration baseline, not the current membership model.
 > **Context docs:** [india_gym_crm_pain_points.md](./india_gym_crm_pain_points.md) · `CLAUDE.md` · `AGENTS.md`
 
 ## 1. Purpose
@@ -14,13 +16,15 @@ This PRD covers **only the platform/tenancy layer** required for that shift. The
 The codebase is already partially multi-tenant, which is why this is a bridge, not a rebuild.
 
 **Already built (reusable as-is):**
-- **Tenancy:** `accounts` table; `profiles.account_id` maps users to one account; RLS `is_account_member(account_id, min_role)` on every table; roles `owner > admin > agent > viewer` (`account_role_enum`). Migration `017_account_sharing.sql`.
-- **Account-per-signup:** `handle_new_user` mints a fresh account + `owner` role atomically on every signup. Open public signup at `/signup`. Locked invariant: **one account per user**.
+
+- **Tenancy:** `accounts` remain the operational/RLS tenant boundary and are grouped by `organizations`; `account_memberships` maps users to one or more explicit branch accounts. `profiles.account_id` is a compatibility default only. RLS `is_account_member(account_id, min_role)` requires the row account to equal the selected request branch; roles remain `owner > admin > agent > viewer`.
+- **Organization-per-signup:** `handle_new_user` mints an organization, legal entity, first branch account, branch-owner membership, and organization-owner membership atomically. Open public signup remains at `/signup`.
 - **Per-tenant WhatsApp storage:** `whatsapp_config` is one row per account (`UNIQUE(account_id)`, `UNIQUE(phone_number_id)`), holding the encrypted access token (AES-256-GCM), `waba_id`, `verify_token`, registration state.
 - **Per-tenant inbound routing:** the shared webhook `POST /api/whatsapp/webhook` demuxes every inbound by `phone_number_id` → `whatsapp_config` → `account_id`. One URL serves all tenants.
-- **Single-app signature model:** `verifyMetaWebhookSignature` checks a single global `META_APP_SECRET`. This is *correct* for SaaS **because all tenant WABAs subscribe to the one platform Meta app** — Meta signs every tenant's inbound with the same secret.
+- **Single-app signature model:** `verifyMetaWebhookSignature` checks a single global `META_APP_SECRET`. This is _correct_ for SaaS **because all tenant WABAs subscribe to the one platform Meta app** — Meta signs every tenant's inbound with the same secret.
 
 **Not built (the gap this PRD closes):**
+
 - Self-serve **WhatsApp onboarding** (today: manual paste of token/waba/phone_number_id + 2FA PIN via Settings → the single-org path).
 - **Billing / subscriptions** (none — no plan SKUs, no payment integration).
 - **Entitlements / quotas** per plan (none — every account is unlimited).
@@ -30,13 +34,15 @@ The codebase is already partially multi-tenant, which is why this is a bridge, n
 ## 3. Goals / Non-goals
 
 **Goals**
+
 - A gym owner can sign up, connect their WhatsApp number, and send their first renewal reminder **without any platform-operator involvement**.
 - One Meta app, one deployment, one Supabase project serve all gyms with hard data isolation.
 - Gyms are billed on a recurring subscription (INR-first) with plan-based limits enforced.
 - The platform operator has a console to view, support, suspend, and meter tenants.
 
 **Non-goals (this phase)**
-- Franchise / multi-branch within a single gym (that's Roadmap Phase 4; one account = one gym = one number here).
+
+- Unified cross-branch operations remain out of scope: no merged inbox, cross-branch check-in, portable membership, automatic transfer, or shared integration credentials.
 - Reselling / white-label sub-accounts.
 - Migrating existing self-host forks into the SaaS.
 - Replacing the gym domain layer (already built).
@@ -50,23 +56,23 @@ The codebase is already partially multi-tenant, which is why this is a bridge, n
 
 ## 5. Tenancy model
 
-- **Tenant = `accounts` row.** Unchanged. One gym = one account = one WhatsApp number (`whatsapp_config.UNIQUE(account_id)`).
+- **Operational tenant/branch = `accounts` row.** One account = one branch = one WhatsApp number (`whatsapp_config.UNIQUE(account_id)`). An `organization` groups branches for owner access and read-only consolidated reporting.
 - **Isolation = RLS.** Every domain table already filters by `is_account_member(account_id)`. New tables in this PRD must follow the same pattern (copy from `017`).
 - **Platform tables** (plans, subscriptions, usage, platform_admins) are **not** account-scoped in the tenant sense — they are read via service-role in server routes or gated by a super-admin check, never exposed to tenant sessions except the tenant's own subscription row.
 - **Storage:** media buckets (`chat-media`) must remain account-pathed so one gym can't read another's uploads. Audit current upload paths (`uploadAccountMedia`) for tenant prefixing before GA.
 
 ## 6. Scope — capability map
 
-| # | Capability | Build size | Depends on |
-|---|-----------|-----------|-----------|
-| 6.1 | WhatsApp Embedded Signup onboarding | **Large** | Meta App Review |
-| 6.2 | Tenant lifecycle & status gating | Medium | — |
-| 6.3 | Billing & subscriptions (INR) | Large | Razorpay |
-| 6.4 | Plan entitlements & quota enforcement | Medium | 6.3 |
-| 6.5 | Platform operator console (super-admin) | Medium | — |
-| 6.6 | Usage metering (WhatsApp conversations) | Medium | 6.1 |
-| 6.7 | Onboarding wizard & activation | Small | 6.1 |
-| 6.8 | Compliance & data protection (DPDP) | Small–Med | — |
+| #   | Capability                              | Build size | Depends on      |
+| --- | --------------------------------------- | ---------- | --------------- |
+| 6.1 | WhatsApp Embedded Signup onboarding     | **Large**  | Meta App Review |
+| 6.2 | Tenant lifecycle & status gating        | Medium     | —               |
+| 6.3 | Billing & subscriptions (INR)           | Large      | Razorpay        |
+| 6.4 | Plan entitlements & quota enforcement   | Medium     | 6.3             |
+| 6.5 | Platform operator console (super-admin) | Medium     | —               |
+| 6.6 | Usage metering (WhatsApp conversations) | Medium     | 6.1             |
+| 6.7 | Onboarding wizard & activation          | Small      | 6.1             |
+| 6.8 | Compliance & data protection (DPDP)     | Small–Med  | —               |
 
 ## 7. Feature spec — 6.1 WhatsApp Embedded Signup (the critical path)
 
@@ -75,6 +81,7 @@ The codebase is already partially multi-tenant, which is why this is a bridge, n
 **Solution:** replace it with Meta **Embedded Signup** (Facebook Login for Business), so a gym connects its own WABA + number to the platform app via a popup.
 
 ### 7.1 Prerequisites (Meta — mostly done)
+
 - Platform Meta app `1874296123566785` in **Live** mode.
 - Business `27242553562081417` (UsefulMade) — **verified** ✅ (confirmed 2026-07-05).
 - App Review **Advanced Access** for `whatsapp_business_messaging`, `whatsapp_business_management`, `business_management` (in progress).
@@ -82,6 +89,7 @@ The codebase is already partially multi-tenant, which is why this is a bridge, n
 - `META_APP_ID` added to env (currently only `META_APP_SECRET` is set).
 
 ### 7.2 Flow
+
 1. Gym clicks **Connect WhatsApp** in onboarding.
 2. Frontend launches the FB JS SDK `FB.login()` with `config_id` and `response_type: 'code'`, scopes `whatsapp_business_management,whatsapp_business_messaging,business_management`.
 3. Gym, inside Meta's popup: selects/creates a WABA, adds/verifies a phone number, sets display name. Meta shares the WABA with the platform business On-Behalf-Of.
@@ -95,20 +103,23 @@ The codebase is already partially multi-tenant, which is why this is a bridge, n
 6. Inbox is live — inbound routes through the existing webhook automatically.
 
 ### 7.3 App-level webhook (one-time, platform)
+
 - The platform app's webhook must subscribe the **`messages`** field with callback `https://<platform-domain>/api/whatsapp/webhook` (the gap found during single-org debugging — an app with a callback but no subscribed fields delivers nothing).
 - All tenants inherit this single app-level subscription; no per-tenant webhook wiring needed.
 
 ### 7.4 Changes vs today
-| Piece | Today | After |
-|-------|-------|-------|
-| Token acquisition | manual paste | code→token exchange (ES) |
-| `phone_number_id` / `waba_id` | manual entry | returned by ES |
-| Number registration + PIN | manual | handled in ES |
-| WABA→app subscribe | `subscribeWabaToApp` | unchanged (reused) |
-| `whatsapp_config` write | `POST /config` | `POST /embedded-signup` |
-| Webhook per tenant | n/a | unchanged — shared, demux by phone_number_id |
+
+| Piece                         | Today                | After                                        |
+| ----------------------------- | -------------------- | -------------------------------------------- |
+| Token acquisition             | manual paste         | code→token exchange (ES)                     |
+| `phone_number_id` / `waba_id` | manual entry         | returned by ES                               |
+| Number registration + PIN     | manual               | handled in ES                                |
+| WABA→app subscribe            | `subscribeWabaToApp` | unchanged (reused)                           |
+| `whatsapp_config` write       | `POST /config`       | `POST /embedded-signup`                      |
+| Webhook per tenant            | n/a                  | unchanged — shared, demux by phone_number_id |
 
 ### 7.5 Keep the manual path
+
 Retain `POST /api/whatsapp/config` behind a flag / advanced setting for edge cases (BYO test numbers, support recovery). ES is the default.
 
 ## 8. Feature spec — 6.2 Tenant lifecycle & status
@@ -165,11 +176,13 @@ Add a status machine to `accounts`:
 ## 13. Feature spec — 6.7 Onboarding wizard
 
 Linear, phone-first, "owner feels in control in 30 seconds" (product principle):
+
 1. Sign up (email/password) → account minted.
 2. **Connect WhatsApp** (Embedded Signup) — the activation moment.
 3. Create first **membership plan** (reuse Settings → Membership plans).
 4. Import members (reuse CSV import / `import-wizard`).
 5. See the **Renewals** action list populate → send first reminder (needs approved `gym_renewal_reminder` template).
+
 - Progress checklist on the dashboard; skippable; resumable. Activation = WhatsApp connected + ≥1 plan + ≥1 member.
 
 ## 14. Feature spec — 6.8 Compliance & data protection
@@ -182,6 +195,7 @@ Linear, phone-first, "owner feels in control in 30 seconds" (product principle):
 ## 15. Data model changes (migrations `035+`)
 
 New tables (all following the `017` RLS pattern; idempotent; reuse `update_updated_at_column()`):
+
 - `platform_plans` (public-read of active SKUs; admin write).
 - `subscriptions` (tenant reads own row; service-role/admin write).
 - `billing_events` (service-role only).
@@ -189,32 +203,33 @@ New tables (all following the `017` RLS pattern; idempotent; reuse `update_updat
 - `platform_admins` (super-admin only).
 
 Altered:
+
 - `accounts`: add `status`, `trial_ends_at`, `plan_id` (denormalized current plan for fast gating).
 
 No change to `whatsapp_config` schema — Embedded Signup reuses the existing columns.
 
 ## 16. Architecture changes summary
 
-| Area | Change |
-|------|--------|
-| Onboarding | New `POST /api/whatsapp/embedded-signup`; new FB Login for Business front-end; keep `/config` as fallback |
+| Area              | Change                                                                                                      |
+| ----------------- | ----------------------------------------------------------------------------------------------------------- |
+| Onboarding        | New `POST /api/whatsapp/embedded-signup`; new FB Login for Business front-end; keep `/config` as fallback   |
 | Webhook (inbound) | **No change** — shared route already demuxes by `phone_number_id`; ensure app-level `messages` subscription |
-| Signature | **No change** — single `META_APP_SECRET` verifies all tenants |
-| Billing | New Razorpay integration + `POST /api/billing/webhook` |
-| Gating | New `assertTenantCanSend` / `getEntitlements` guards in send/broadcast/cron routes |
-| Admin | New `/admin` surface + `is_platform_admin()` |
-| Env | Add `META_APP_ID`, `META_ES_CONFIG_ID`, `RAZORPAY_*` |
+| Signature         | **No change** — single `META_APP_SECRET` verifies all tenants                                               |
+| Billing           | New Razorpay integration + `POST /api/billing/webhook`                                                      |
+| Gating            | New `assertTenantCanSend` / `getEntitlements` guards in send/broadcast/cron routes                          |
+| Admin             | New `/admin` surface + `is_platform_admin()`                                                                |
+| Env               | Add `META_APP_ID`, `META_ES_CONFIG_ID`, `RAZORPAY_*`                                                        |
 
 ## 17. Meta / WhatsApp requirements (status)
 
-| Requirement | Status |
-|-------------|--------|
-| Platform Meta app, Live mode | app `1874296123566785` |
-| Business Verification | ✅ verified |
+| Requirement                                                 | Status                    |
+| ----------------------------------------------------------- | ------------------------- |
+| Platform Meta app, Live mode                                | app `1874296123566785`    |
+| Business Verification                                       | ✅ verified               |
 | Advanced Access: messaging, management, business_management | ⏳ App Review in progress |
-| Facebook Login for Business + ES config_id | ☐ to set up |
-| App-level webhook `messages` field | ☐ one-time |
-| Approved `gym_renewal_reminder` utility template | required for renewals |
+| Facebook Login for Business + ES config_id                  | ☐ to set up               |
+| App-level webhook `messages` field                          | ☐ one-time                |
+| Approved `gym_renewal_reminder` utility template            | required for renewals     |
 
 ## 18. Phased rollout
 

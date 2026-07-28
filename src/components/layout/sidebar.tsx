@@ -85,6 +85,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ModeToggle } from '@/components/layout/mode-toggle';
+import { BranchSwitcher } from '@/components/layout/branch-switcher';
+import { branchHref } from '@/lib/auth/branch-context';
 
 interface NavItem {
   href: string;
@@ -206,7 +208,8 @@ function SidebarNavLink({
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { profile, profileLoading, account, accountRole, signOut } = useAuth();
+  const { profile, profileLoading, account, accountId, accountRole, signOut } =
+    useAuth();
   const onboarding = useOnboardingStatus();
   const totalUnread = useTotalUnread({ sound: true });
   const unreadNotifications = useUnreadNotifications();
@@ -340,6 +343,15 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           </button>
         </div>
 
+        <div
+          className={cn(
+            'shrink-0 px-3 pb-2',
+            collapsed && 'lg:flex lg:justify-center'
+          )}
+        >
+          <BranchSwitcher collapsed={collapsed} />
+        </div>
+
         {/* Main navigation */}
         <ScrollArea className="min-h-0 flex-1" scrollbarVisibility="hover">
           <nav className="px-3 py-4">
@@ -356,7 +368,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     !onboarding.allDone && (
                       <li>
                         <SidebarNavLink
-                          href="/get-started"
+                          href={branchHref('/get-started', accountId)}
                           label="Get Started"
                           icon={Rocket}
                           isActive={pathname.startsWith('/get-started')}
@@ -399,7 +411,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     return (
                       <li key={item.href}>
                         <SidebarNavLink
-                          href={item.href}
+                          href={branchHref(item.href, accountId)}
                           label={item.label}
                           icon={item.icon}
                           isActive={isActive}
@@ -468,7 +480,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 return (
                   <li key={item.href}>
                     <SidebarNavLink
-                      href={item.href}
+                      href={branchHref(item.href, accountId)}
                       label={item.label}
                       icon={item.icon}
                       isActive={isActive}
@@ -580,7 +592,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 <DropdownMenuItem
                   render={
                     <Link
-                      href="/settings?tab=profile"
+                      href={branchHref('/settings?tab=profile', accountId)}
                       onClick={onClose}
                       className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
                     />
@@ -592,7 +604,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 <DropdownMenuItem
                   render={
                     <Link
-                      href="/settings?tab=whatsapp"
+                      href={branchHref('/settings?tab=whatsapp', accountId)}
                       onClick={onClose}
                       className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
                     />

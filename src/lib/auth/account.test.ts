@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // getCurrentAccount resolves the caller's account context. The
-// regression this file guards (issue #294): account loading must NOT
+// regression this file guards (issue #294): branch loading must NOT
 // depend on a PostgREST embedded FK join (`accounts!inner`), because a
 // stale schema cache makes that embed fail hard and blanks the whole
 // context. It must instead read the profile and then the account with
@@ -62,8 +62,12 @@ function makeClient(opts: {
 }
 
 const createClient = vi.fn();
+const requestHeaders = vi.fn();
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => createClient(),
+}));
+vi.mock('next/headers', () => ({
+  headers: () => requestHeaders(),
 }));
 
 const {
@@ -75,10 +79,71 @@ const {
 } = await import('./account');
 
 afterEach(() => {
-  vi.clearAllMocks();
+  createClient.mockReset();
+  requestHeaders.mockReset();
 });
 
 describe('getCurrentAccount', () => {
+  it('uses an explicit authorized B branch instead of legacy profile A', async () => {
+    requestHeaders.mockResolvedValue(
+      new Headers({
+        'x-usefuldesk-account-id': '22222222-2222-4222-8222-222222222222',
+      })
+    );
+    const { client } = makeClient({
+      user: { id: 'user-1' },
+      byTable: {
+        profiles: {
+          data: {
+            account_id: '11111111-1111-4111-8111-111111111111',
+          },
+          error: null,
+        },
+        account_memberships: { data: { role: 'agent' }, error: null },
+        accounts: {
+          data: {
+            id: '22222222-2222-4222-8222-222222222222',
+            name: 'Branch B',
+          },
+          error: null,
+        },
+      },
+    });
+    createClient.mockReturnValue(client);
+
+    await expect(getCurrentAccount()).resolves.toMatchObject({
+      accountId: '22222222-2222-4222-8222-222222222222',
+      role: 'agent',
+      account: { name: 'Branch B' },
+    });
+  });
+
+  it('fails closed when an explicit C branch has no membership', async () => {
+    requestHeaders.mockResolvedValue(
+      new Headers({
+        'x-usefuldesk-account-id': '33333333-3333-4333-8333-333333333333',
+      })
+    );
+    const { client } = makeClient({
+      user: { id: 'user-1' },
+      byTable: {
+        profiles: {
+          data: {
+            account_id: '11111111-1111-4111-8111-111111111111',
+          },
+          error: null,
+        },
+        account_memberships: { data: null, error: null },
+      },
+    });
+    createClient.mockReturnValue(client);
+
+    await expect(getCurrentAccount()).rejects.toMatchObject({
+      status: 403,
+      message: 'You do not have access to this branch',
+    });
+  });
+
   it('resolves context via a plain accounts lookup, not an embedded join', async () => {
     const { client, calls } = makeClient({
       user: { id: 'user-1' },
@@ -87,6 +152,7 @@ describe('getCurrentAccount', () => {
           data: { account_id: 'acct-1', account_role: 'owner' },
           error: null,
         },
+        account_memberships: { data: { role: 'owner' }, error: null },
         accounts: { data: { id: 'acct-1', name: 'Acme' }, error: null },
       },
     });
@@ -103,11 +169,19 @@ describe('getCurrentAccount', () => {
 
     // Two queries: profiles by user_id, then accounts by id. Neither
     // selects an embedded relationship — the regression guard.
-    expect(calls.map((c) => c.table)).toEqual(['profiles', 'accounts']);
+    expect(calls.map((c) => c.table)).toEqual([
+      'profiles',
+      'account_memberships',
+      'accounts',
+    ]);
     expect(calls[0].columns).not.toMatch(/accounts!/);
     expect(calls[0].eqArgs).toEqual([['user_id', 'user-1']]);
-    expect(calls[1].columns).not.toMatch(/accounts!/);
-    expect(calls[1].eqArgs).toEqual([['id', 'acct-1']]);
+    expect(calls[1].eqArgs).toEqual([
+      ['account_id', 'acct-1'],
+      ['user_id', 'user-1'],
+    ]);
+    expect(calls[2].columns).not.toMatch(/accounts!/);
+    expect(calls[2].eqArgs).toEqual([['id', 'acct-1']]);
   });
 
   it('throws UnauthorizedError when there is no session', async () => {
@@ -139,6 +213,7 @@ describe('getCurrentAccount', () => {
           data: { account_id: 'acct-1', account_role: 'admin' },
           error: null,
         },
+        account_memberships: { data: { role: 'admin' }, error: null },
         accounts: { data: null, error: { code: 'PGRST200' } },
       },
     });
@@ -172,6 +247,7 @@ describe('getCurrentAccount', () => {
           data: { account_id: 'acct-1', account_role: 'viewer' },
           error: null,
         },
+        account_memberships: { data: { role: 'viewer' }, error: null },
         accounts: { data: null, error: null },
       },
     });
@@ -191,6 +267,7 @@ describe('capability guards', () => {
           data: { account_id: 'acct-1', account_role: role },
           error: null,
         },
+        account_memberships: { data: { role }, error: null },
         accounts: { data: { id: 'acct-1', name: 'Acme' }, error: null },
       },
     }).client;

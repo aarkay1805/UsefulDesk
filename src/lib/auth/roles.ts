@@ -19,6 +19,7 @@ import type { ReceivedVia } from '@/types';
 import { isHumanReceived } from '@/lib/leads/attributes';
 
 export type AccountRole = 'owner' | 'admin' | 'agent' | 'viewer';
+export type OrganizationRole = 'owner';
 
 /** Ordered list of every valid role, lowest privilege first. */
 export const ACCOUNT_ROLES: readonly AccountRole[] = [
@@ -251,5 +252,22 @@ export function canDeleteAccount(role: AccountRole): boolean {
 
 /** Owner only: hand the account to another member. */
 export function canTransferOwnership(role: AccountRole): boolean {
+  return role === 'owner';
+}
+
+/** Organization owner: create branches and read consolidated reporting. */
+export function canManageOrganization(role: OrganizationRole | null): boolean {
+  return role === 'owner';
+}
+
+/** Organization owner: owner-only, read-only cross-branch reporting. */
+export function canViewConsolidatedReports(
+  role: OrganizationRole | null
+): boolean {
+  return canManageOrganization(role);
+}
+
+/** Branch owner: archive into retained read-only history, never hard-delete. */
+export function canArchiveBranch(role: AccountRole): boolean {
   return role === 'owner';
 }

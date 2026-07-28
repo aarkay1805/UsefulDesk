@@ -73,6 +73,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ActivityTrendCard, RevenueTrendCard } from './report-trend-card';
+import { useAuth } from '@/hooks/use-auth';
+import { OrganizationReportsView } from './organization-reports-view';
 
 const REPORT_RANGES: Array<{ value: ReportRangeDays; label: string }> = [
   { value: 7, label: 'Last 7 days' },
@@ -90,6 +92,10 @@ function reportCacheKey(days: ReportRangeDays, staffUserId: string | null) {
 
 export function OwnerReportsView() {
   const { fmt, locale } = useLocale();
+  const { accountId, organizationId, isOrganizationOwner } = useAuth();
+  const [reportScope, setReportScope] = useState<'branch' | 'organization'>(
+    'branch'
+  );
   const { staff, loading: staffLoading } = useAccountStaff();
   const [rangeDays, setRangeDays] = useState<ReportRangeDays>(30);
   const [staffUserId, setStaffUserId] = useState<string | null>(null);
@@ -105,6 +111,7 @@ export function OwnerReportsView() {
       const cacheKey = reportCacheKey(days, selectedStaffUserId);
       void loadOwnerReport(
         createClient(),
+        accountId!,
         dateRange,
         locale.timeZone,
         selectedStaffUserId
@@ -125,15 +132,16 @@ export function OwnerReportsView() {
           if (requestId.current === id) setLoading(false);
         });
     },
-    [fmt, locale.timeZone]
+    [accountId, fmt, locale.timeZone]
   );
 
   useEffect(() => {
+    if (!accountId) return;
     fetchReport(30, null);
     return () => {
       requestId.current += 1;
     };
-  }, [fetchReport]);
+  }, [accountId, fetchReport]);
 
   const report = reports[reportCacheKey(rangeDays, staffUserId)] ?? null;
 
@@ -187,9 +195,36 @@ export function OwnerReportsView() {
     URL.revokeObjectURL(url);
   }
 
+  if (reportScope === 'organization' && organizationId && isOrganizationOwner) {
+    return (
+      <OrganizationReportsView
+        organizationId={organizationId}
+        onShowSelectedBranch={() => setReportScope('branch')}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
       <PageHeaderActions>
+        {isOrganizationOwner ? (
+          <Select
+            value={reportScope}
+            onValueChange={(value) => {
+              if (value === 'branch' || value === 'organization') {
+                setReportScope(value);
+              }
+            }}
+          >
+            <SelectTrigger aria-label="Report scope" className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              <SelectItem value="branch">Selected branch</SelectItem>
+              <SelectItem value="organization">All branches</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : null}
         <Select
           value={staffUserId ?? ALL_STAFF}
           onValueChange={handleStaffChange}

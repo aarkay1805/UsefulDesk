@@ -1,6 +1,10 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isDashboardPath } from '@/lib/auth/dashboard-routes';
+import {
+  BRANCH_QUERY_PARAM,
+  isBranchAccountId,
+} from '@/lib/auth/branch-context';
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -82,6 +86,36 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return withRefreshedCookies(NextResponse.redirect(url));
+  }
+
+  // Preserve the durable branch query across legacy dashboard links that
+  // navigate by pathname only. The same-origin Referer is tab-local, so this
+  // does not create a globally mutable branch that can invalidate another tab
+  // or device. The redirect also forces a clean route render before any
+  // branch-scoped request can start.
+  if (
+    user &&
+    isDashboardPath(request.nextUrl.pathname) &&
+    !request.nextUrl.searchParams.has(BRANCH_QUERY_PARAM)
+  ) {
+    const referer = request.headers.get('referer');
+    if (referer) {
+      try {
+        const from = new URL(referer);
+        const branch = from.searchParams.get(BRANCH_QUERY_PARAM);
+        if (
+          from.origin === request.nextUrl.origin &&
+          isBranchAccountId(branch)
+        ) {
+          const url = request.nextUrl.clone();
+          url.searchParams.set(BRANCH_QUERY_PARAM, branch);
+          return withRefreshedCookies(NextResponse.redirect(url));
+        }
+      } catch {
+        // A malformed Referer is untrusted input; fall through to the legacy
+        // branch default rather than guessing.
+      }
+    }
   }
 
   // API routes that need auth (not webhooks)

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Conversation, Message } from '@/types';
 import { playInboxMessageTone } from '@/lib/notifications/notification-sounds';
+import { useAuth } from '@/hooks/use-auth';
 
 interface UseTotalUnreadOptions {
   /** Play the generated inbox chime for each new inbound customer message. */
@@ -21,6 +22,7 @@ interface UseTotalUnreadOptions {
 export function useTotalUnread({
   sound = false,
 }: UseTotalUnreadOptions = {}): number {
+  const { accountId } = useAuth();
   const [total, setTotal] = useState(0);
 
   // Keep a live local mirror of {id: unread_count} so INSERT/UPDATE/DELETE
@@ -28,6 +30,7 @@ export function useTotalUnread({
   const countsRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
+    if (!accountId) return;
     const supabase = createClient();
     let cancelled = false;
 
@@ -36,7 +39,8 @@ export function useTotalUnread({
     (async () => {
       const { data, error } = await supabase
         .from('conversations')
-        .select('id, unread_count');
+        .select('id, unread_count')
+        .eq('account_id', accountId);
       if (cancelled || error || !data) return;
 
       const map = new Map<string, number>();
@@ -51,7 +55,7 @@ export function useTotalUnread({
     })();
 
     const channel = supabase
-      .channel('total-unread-realtime')
+      .channel(`total-unread-realtime:${accountId}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
@@ -64,7 +68,12 @@ export function useTotalUnread({
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'conversations' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+          filter: `account_id=eq.${accountId}`,
+        },
         (payload) => {
           const map = countsRef.current;
           if (payload.eventType === 'DELETE') {
@@ -87,7 +96,7 @@ export function useTotalUnread({
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [sound]);
+  }, [accountId, sound]);
 
   return total;
 }

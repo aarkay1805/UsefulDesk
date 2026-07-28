@@ -29,6 +29,7 @@ import {
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
+import { assertBusinessMessageAllowed } from '@/lib/consent/business-messaging';
 
 /** Thrown by createBroadcast on a caller-visible failure; route maps it. */
 export class BroadcastError extends Error {
@@ -63,6 +64,7 @@ interface PlannedRecipient {
 }
 
 export interface BroadcastPlan {
+  accountId: string;
   broadcastId: string;
   templateName: string;
   templateLanguage: string;
@@ -148,7 +150,9 @@ export async function createBroadcast(
   const resolved: { contactId: string; phone: string; params: string[] }[] = [];
   let rejected = 0;
   for (const r of recipients) {
-    const sanitized = sanitizePhoneForMeta(typeof r.to === 'string' ? r.to : '');
+    const sanitized = sanitizePhoneForMeta(
+      typeof r.to === 'string' ? r.to : ''
+    );
     if (!isValidE164(sanitized)) {
       rejected++;
       continue;
@@ -231,10 +235,15 @@ export async function createBroadcast(
   const byContact = new Map(deduped.map((r) => [r.contactId, r]));
   const planned: PlannedRecipient[] = recipientRows.map((row) => {
     const r = byContact.get(row.contact_id as string)!;
-    return { recipientRowId: row.id as string, phone: r.phone, params: r.params };
+    return {
+      recipientRowId: row.id as string,
+      phone: r.phone,
+      params: r.params,
+    };
   });
 
   return {
+    accountId,
     broadcastId: broadcast.id,
     templateName,
     templateLanguage,
@@ -270,7 +279,19 @@ export async function deliverBroadcast(
     let sentMessageId: string | null = null;
     let lastError: string | null = null;
 
-    for (const variant of variants) {
+    try {
+      await assertBusinessMessageAllowed(
+        db,
+        plan.accountId,
+        recipient.phone,
+        'broadcast'
+      );
+    } catch (error) {
+      lastError =
+        error instanceof Error ? error.message : 'Consent check failed';
+    }
+
+    for (const variant of lastError ? [] : variants) {
       try {
         const result = await sendTemplateMessage({
           phoneNumberId: plan.phoneNumberId,
@@ -285,7 +306,8 @@ export async function deliverBroadcast(
         lastError = null;
         break;
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
+        const message =
+          error instanceof Error ? error.message : 'Unknown error';
         lastError = message;
         // Only a "recipient not allowed" error is worth another variant.
         if (!isRecipientNotAllowedError(message)) break;

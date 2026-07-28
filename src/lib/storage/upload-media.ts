@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from '@/lib/supabase/client';
+import { browserBranchId } from '@/lib/auth/branch-context';
 
 /**
  * Shared media-upload helper for Supabase Storage buckets that use the
@@ -46,18 +47,18 @@ export const MEDIA_MAX_BYTES_BY_KIND = {
 export function buildMediaPath(
   accountId: string,
   fileName: string,
-  now: number = Date.now(),
+  now: number = Date.now()
 ): string {
   // Only treat the trailing segment as an extension when there's a real
   // one — a bare name like "README" has no extension and falls back to
   // "bin" rather than becoming "readme".
   const hasExt = /\.[^.]+$/.test(fileName);
-  const ext = hasExt ? fileName.split(".").pop()!.toLowerCase() : "bin";
+  const ext = hasExt ? fileName.split('.').pop()!.toLowerCase() : 'bin';
   const safeBase =
     fileName
-      .replace(/\.[^.]+$/, "")
-      .replace(/[^a-zA-Z0-9_-]+/g, "_")
-      .slice(0, 40) || "file";
+      .replace(/\.[^.]+$/, '')
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
+      .slice(0, 40) || 'file';
   return `account-${accountId}/${now}-${safeBase}.${ext}`;
 }
 
@@ -85,7 +86,7 @@ export interface UploadPrivateAccountMediaResult {
  */
 export async function uploadAccountMedia(
   bucket: string,
-  file: File,
+  file: File
 ): Promise<UploadAccountMediaResult> {
   const supabase = createClient();
 
@@ -94,27 +95,22 @@ export async function uploadAccountMedia(
     error: userErr,
   } = await supabase.auth.getUser();
   if (userErr || !user) {
-    throw new Error("Not signed in.");
+    throw new Error('Not signed in.');
   }
 
-  // Resolve account_id so the path is account-scoped (matches the
-  // bucket's RLS write policy from migration 020/023). User-scoped
-  // paths would be rejected.
-  const { data: profile, error: profileErr } = await supabase
-    .from("profiles")
-    .select("account_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (profileErr || !profile?.account_id) {
-    throw new Error("Could not resolve your account.");
+  const accountId = browserBranchId();
+  if (!accountId) {
+    throw new Error('Open a branch before uploading media.');
   }
 
-  const path = buildMediaPath(profile.account_id as string, file.name);
-  const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, {
-    cacheControl: "3600",
-    upsert: false,
-    contentType: file.type,
-  });
+  const path = buildMediaPath(accountId, file.name);
+  const { error: upErr } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type,
+    });
   if (upErr) throw new Error(upErr.message);
 
   const {
@@ -131,30 +127,28 @@ export async function uploadAccountMedia(
  */
 export async function uploadPrivateAccountMedia(
   bucket: string,
-  file: File,
+  file: File
 ): Promise<UploadPrivateAccountMediaResult> {
   const supabase = createClient();
   const {
     data: { user },
     error: userErr,
   } = await supabase.auth.getUser();
-  if (userErr || !user) throw new Error("Not signed in.");
+  if (userErr || !user) throw new Error('Not signed in.');
 
-  const { data: profile, error: profileErr } = await supabase
-    .from("profiles")
-    .select("account_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (profileErr || !profile?.account_id) {
-    throw new Error("Could not resolve your account.");
+  const accountId = browserBranchId();
+  if (!accountId) {
+    throw new Error('Open a branch before uploading media.');
   }
 
-  const path = buildMediaPath(profile.account_id as string, file.name);
-  const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file, {
-    cacheControl: "3600",
-    upsert: false,
-    contentType: file.type,
-  });
+  const path = buildMediaPath(accountId, file.name);
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type,
+    });
   if (uploadError) throw new Error(uploadError.message);
 
   const { data, error: signError } = await supabase.storage
@@ -171,7 +165,7 @@ export async function uploadPrivateAccountMedia(
 export async function createPrivateMediaUrl(
   bucket: string,
   path: string,
-  expiresInSeconds: number = 5 * 60,
+  expiresInSeconds: number = 5 * 60
 ): Promise<string> {
   const supabase = createClient();
   const { data, error } = await supabase.storage
@@ -191,7 +185,10 @@ export async function createPrivateMediaUrl(
  * Best-effort: callers fire-and-forget and swallow errors (a missed
  * delete is a storage nit, not something to surface to the user).
  */
-export async function deleteAccountMedia(bucket: string, path: string): Promise<void> {
+export async function deleteAccountMedia(
+  bucket: string,
+  path: string
+): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase.storage.from(bucket).remove([path]);
   if (error) throw new Error(error.message);

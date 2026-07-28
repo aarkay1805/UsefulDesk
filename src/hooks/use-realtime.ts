@@ -1,18 +1,19 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useCallback, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { Message, Conversation } from "@/types";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { Message, Conversation } from '@/types';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface RealtimeEvent<T> {
-  eventType: "INSERT" | "UPDATE" | "DELETE";
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
   new: T;
   old: Partial<T>;
 }
 
 interface UseRealtimeOptions {
   channelName: string;
+  accountId: string | null;
   onMessageEvent?: (event: RealtimeEvent<Message>) => void;
   onConversationEvent?: (event: RealtimeEvent<Conversation>) => void;
   enabled?: boolean;
@@ -20,6 +21,7 @@ interface UseRealtimeOptions {
 
 export function useRealtime({
   channelName,
+  accountId,
   onMessageEvent,
   onConversationEvent,
   enabled = true,
@@ -40,36 +42,42 @@ export function useRealtime({
   });
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !accountId) return;
 
     const supabase = createClient();
 
     const channel = supabase
-      .channel(channelName)
+      .channel(`${channelName}:${accountId}`)
       .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "messages" },
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages' },
         (payload) => {
           onMessageRef.current?.({
-            eventType: payload.eventType as RealtimeEvent<Message>["eventType"],
+            eventType: payload.eventType as RealtimeEvent<Message>['eventType'],
             new: payload.new as Message,
             old: payload.old as Partial<Message>,
           });
         }
       )
       .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "conversations" },
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+          filter: `account_id=eq.${accountId}`,
+        },
         (payload) => {
           onConversationRef.current?.({
-            eventType: payload.eventType as RealtimeEvent<Conversation>["eventType"],
+            eventType:
+              payload.eventType as RealtimeEvent<Conversation>['eventType'],
             new: payload.new as Conversation,
             old: payload.old as Partial<Conversation>,
           });
         }
       )
       .subscribe((status) => {
-        setIsConnected(status === "SUBSCRIBED");
+        setIsConnected(status === 'SUBSCRIBED');
       });
 
     channelRef.current = channel;
@@ -79,7 +87,7 @@ export function useRealtime({
       channelRef.current = null;
       setIsConnected(false);
     };
-  }, [channelName, enabled]);
+  }, [accountId, channelName, enabled]);
 
   const unsubscribe = useCallback(() => {
     if (channelRef.current) {

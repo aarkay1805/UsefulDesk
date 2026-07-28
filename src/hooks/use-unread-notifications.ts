@@ -1,8 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { Notification } from "@/types";
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { Notification } from '@/types';
+import { useAuth } from '@/hooks/use-auth';
 
 /**
  * Count of unread notifications for the current user. Used by the
@@ -13,9 +14,11 @@ import type { Notification } from "@/types";
  * `useTotalUnread` for conversations.
  */
 export function useUnreadNotifications(): number {
+  const { accountId } = useAuth();
   const [count, setCount] = useState(0);
 
   useEffect(() => {
+    if (!accountId) return;
     const supabase = createClient();
     let cancelled = false;
 
@@ -23,33 +26,39 @@ export function useUnreadNotifications(): number {
       // head:true skips fetching rows — we only need the `count`
       // supabase-js returns alongside the (empty) response body.
       const { count: unreadCount, error } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .is("read_at", null);
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('account_id', accountId)
+        .is('read_at', null);
       if (cancelled || error) return;
       setCount(unreadCount ?? 0);
     })();
 
     const channel = supabase
-      .channel("notifications-unread-count")
+      .channel(`notifications-unread-count:${accountId}`)
       .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notifications" },
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `account_id=eq.${accountId}`,
+        },
         (payload) => {
-          if (payload.eventType === "INSERT") {
+          if (payload.eventType === 'INSERT') {
             const row = payload.new as Notification;
             if (!row.read_at) setCount((n) => n + 1);
-          } else if (payload.eventType === "UPDATE") {
+          } else if (payload.eventType === 'UPDATE') {
             // Updates here only ever set read_at (marking a notification
             // read). Derive purely from the new row so we don't rely on
             // payload.old columns, which require REPLICA IDENTITY FULL.
             const newRow = payload.new as Notification;
             if (newRow.read_at) setCount((n) => Math.max(0, n - 1));
-          } else if (payload.eventType === "DELETE") {
+          } else if (payload.eventType === 'DELETE') {
             const oldRow = payload.old as Partial<Notification>;
             if (!oldRow.read_at) setCount((n) => Math.max(0, n - 1));
           }
-        },
+        }
       )
       .subscribe();
 
@@ -57,7 +66,7 @@ export function useUnreadNotifications(): number {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [accountId]);
 
   return count;
 }

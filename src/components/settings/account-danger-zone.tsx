@@ -3,16 +3,14 @@
 // ============================================================
 // AccountDangerZone — Settings → Members (bottom)
 //
-// Owner-only, irreversible: permanently delete the whole account and
-// every scrap of its Platform Data via DELETE /api/account. The route
-// re-checks owner role + the typed name server-side, so this UI gate
-// is defence-in-depth, not the only guard.
+// Owner-only branch closure. DELETE /api/account is retained as the
+// compatibility verb, but it archives the branch and preserves financial,
+// member, and message history.
 //
 // Guardrail mirrors the API: the Delete button stays disabled until
 // the owner types the account name exactly (the GitHub/Stripe pattern
-// for an unrecoverable delete). On success the account — including the
-// caller's own login — is gone, so we hard-navigate to the root, which
-// the proxy bounces to sign-in.
+// for a sensitive lifecycle change). On success we hard-reload so every
+// branch-scoped request, cache, dialog, and subscription is torn down.
 // ============================================================
 
 import { useState } from 'react';
@@ -21,6 +19,7 @@ import { AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
+import { branchHref } from '@/lib/auth/branch-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -34,20 +33,21 @@ import {
 } from '@/components/ui/dialog';
 
 export function AccountDangerZone() {
-  const { account } = useAuth();
-  const canDelete = useCan('delete-account');
+  const { account, branches } = useAuth();
+  const canArchive = useCan('archive-branch');
 
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
 
   // Self-gate: only the owner ever sees this section.
-  if (!canDelete || !account) return null;
+  if (!canArchive || !account) return null;
 
   const accountName = account.name;
+  const accountId = account.id;
   const confirmed = typed.trim() === accountName;
 
-  async function handleDelete() {
+  async function handleArchive() {
     if (!confirmed || busy) return;
     setBusy(true);
     try {
@@ -58,17 +58,20 @@ export function AccountDangerZone() {
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to delete the account');
+        toast.error(payload.error || 'Failed to archive the branch');
         setBusy(false);
         return;
       }
-      // Account + this login are gone. Hard-navigate so no stale client
-      // state (Supabase session, cached queries) lingers; the proxy
-      // redirects the now-unauthenticated request to sign-in.
-      toast.success('Account deleted');
-      window.location.href = '/';
+      toast.success('Branch archived');
+      const nextBranch = branches.find(
+        (branch) =>
+          branch.account_id !== accountId && branch.branch_status === 'active'
+      );
+      window.location.href = nextBranch
+        ? branchHref('/dashboard', nextBranch.account_id)
+        : '/dashboard';
     } catch (err) {
-      console.error('[AccountDangerZone] delete error:', err);
+      console.error('[AccountDangerZone] archive error:', err);
       toast.error('Could not reach the server');
       setBusy(false);
     }
@@ -79,15 +82,14 @@ export function AccountDangerZone() {
       <CardContent className="p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-destructive">
+            <p className="text-destructive flex items-center gap-1.5 text-sm font-semibold">
               <AlertTriangle className="size-4" />
-              Delete account
+              Archive branch
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Permanently delete <span className="font-medium">{accountName}</span>{' '}
-              and everything in it — every contact, conversation, message,
-              connected WhatsApp credential, member, and teammate login. This
-              cannot be undone.
+            <p className="text-muted-foreground mt-1 text-sm">
+              Close <span className="font-medium">{accountName}</span> for new
+              operational work while retaining its contacts, messages,
+              memberships, payments, and finance history for audit and reports.
             </p>
           </div>
           <Button
@@ -99,7 +101,7 @@ export function AccountDangerZone() {
               setOpen(true);
             }}
           >
-            <Trash2 className="size-4" /> Delete account
+            <Trash2 className="size-4" /> Archive branch
           </Button>
         </div>
       </CardContent>
@@ -114,22 +116,23 @@ export function AccountDangerZone() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="size-4 text-destructive" />
-              Delete {accountName}?
+              <AlertTriangle className="text-destructive size-4" />
+              Archive {accountName}?
             </DialogTitle>
             <DialogDescription>
-              This permanently erases all account data and signs out every
-              teammate — their logins are deleted too. This action cannot be
-              undone.
+              This branch becomes unavailable for operational work. Historical
+              financial and message records are retained, and other branch
+              memberships remain unchanged.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2">
             <label
               htmlFor="delete-account-confirm"
-              className="text-sm text-muted-foreground"
+              className="text-muted-foreground text-sm"
             >
-              Type <span className="font-medium text-foreground">{accountName}</span>{' '}
+              Type{' '}
+              <span className="text-foreground font-medium">{accountName}</span>{' '}
               to confirm.
             </label>
             <Input
@@ -152,16 +155,16 @@ export function AccountDangerZone() {
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDelete}
+              onClick={handleArchive}
               disabled={!confirmed || busy}
             >
               {busy ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" /> Deleting…
+                  <Loader2 className="size-4 animate-spin" /> Archiving…
                 </>
               ) : (
                 <>
-                  <Trash2 className="size-4" /> Delete account
+                  <Trash2 className="size-4" /> Archive branch
                 </>
               )}
             </Button>

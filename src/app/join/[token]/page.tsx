@@ -99,15 +99,12 @@ export default function JoinPage() {
   // route group, so it doesn't reach this page. We hit Supabase
   // directly the same way `/login` and `/signup` do.
   const [authedUserId, setAuthedUserId] = useState<string | null | undefined>(
-    undefined, // undefined = unknown / still loading; null = signed out
+    undefined // undefined = unknown / still loading; null = signed out
   );
   const [accepting, setAccepting] = useState(false);
-  // `redeem_invitation` returns 409 when the caller's current account
-  // has domain data, or they're already a member of a shared account.
-  // A transient toast wasn't enough — the user has no actionable next
-  // step. Surface a blocking modal that walks them through it.
+  // `redeem_invitation` returns 409 only when this membership already exists.
+  // Keep the result visible so the user can return to their branch selector.
   const [conflictMessage, setConflictMessage] = useState<string | null>(null);
-  const [signingOut, setSigningOut] = useState(false);
 
   // Extracted so the "Try again" button on the server_error card
   // can re-run the same logic without remounting the component.
@@ -169,21 +166,16 @@ export default function JoinPage() {
     try {
       const res = await fetch(
         `/api/invitations/${encodeURIComponent(token)}/redeem`,
-        { method: 'POST' },
+        { method: 'POST' }
       );
       if (!res.ok) {
         const payload = (await res.json().catch(() => ({}))) as {
           error?: string;
         };
-        // 409 = caller already has data / is in another shared
-        // account. The redeem RPC's error message is descriptive
-        // enough to show directly; we open a modal so the user has
-        // a clear next-action (sign out → use different email)
-        // rather than a 3-second toast.
+        // 409 means this exact branch membership already exists.
         if (res.status === 409) {
           setConflictMessage(
-            payload.error ||
-              'You are already in another account. Sign in with a different email to join this one.',
+            payload.error || 'You already have access to this branch.'
           );
         } else {
           toast.error(payload.error || 'Failed to accept invitation');
@@ -191,10 +183,13 @@ export default function JoinPage() {
         setAccepting(false);
         return;
       }
-      toast.success('Welcome to the team');
-      // Full reload (not router.push) so AuthProvider re-fetches
-      // the profile with the new account_id and account_role.
-      window.location.href = '/dashboard';
+      const payload = (await res.json()) as { accountId?: string };
+      toast.success('Branch access added');
+      const destination = new URL('/dashboard', window.location.origin);
+      if (payload.accountId) {
+        destination.searchParams.set('branch', payload.accountId);
+      }
+      window.location.href = `${destination.pathname}${destination.search}`;
     } catch (err) {
       console.error('[join] redeem error:', err);
       toast.error('Could not reach the server');
@@ -202,28 +197,13 @@ export default function JoinPage() {
     }
   }, [token]);
 
-  const handleSignOutAndRetry = useCallback(async () => {
-    setSigningOut(true);
-    try {
-      await createClient().auth.signOut();
-      // Hard reload so the new auth state propagates everywhere
-      // (middleware, AuthProvider). Preserves the invite token in
-      // the URL so the rebuilt page renders the signed-out CTA path.
-      window.location.reload();
-    } catch (err) {
-      console.error('[join] sign-out error:', err);
-      toast.error('Could not sign out. Try refreshing the page.');
-      setSigningOut(false);
-    }
-  }, []);
-
   // ----- Loading state (peek pending OR auth not yet resolved) -----
   if (peek === null || authedUserId === undefined) {
     return (
-      <Card className="w-full max-w-md border-border bg-card">
+      <Card className="border-border bg-card w-full max-w-md">
         <CardContent className="flex flex-col items-center gap-3 py-12">
-          <Loader2 className="size-6 animate-spin text-primary-text" />
-          <p className="text-sm text-muted-foreground">Verifying invitation…</p>
+          <Loader2 className="text-primary-text size-6 animate-spin" />
+          <p className="text-muted-foreground text-sm">Verifying invitation…</p>
         </CardContent>
       </Card>
     );
@@ -233,12 +213,14 @@ export default function JoinPage() {
   if (!peek.ok) {
     const copy = FAIL_COPY[peek.reason];
     return (
-      <Card className="w-full max-w-md border-border bg-card">
+      <Card className="border-border bg-card w-full max-w-md">
         <CardHeader className="items-center text-center">
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10">
-            <MailX className="h-6 w-6 text-red-foreground" />
+            <MailX className="text-red-foreground h-6 w-6" />
           </div>
-          <CardTitle className="text-xl text-foreground">{copy.title}</CardTitle>
+          <CardTitle className="text-foreground text-xl">
+            {copy.title}
+          </CardTitle>
           <CardDescription className="text-muted-foreground">
             {copy.body}
           </CardDescription>
@@ -255,14 +237,14 @@ export default function JoinPage() {
             <>
               <Button
                 onClick={loadPeekAndAuth}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
               >
                 Try again
               </Button>
               <Link href="/signup">
                 <Button
                   variant="outline"
-                  className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
                 >
                   Create a new account instead
                 </Button>
@@ -271,14 +253,14 @@ export default function JoinPage() {
           ) : (
             <>
               <Link href="/signup">
-                <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+                <Button className="bg-primary text-primary-foreground hover:bg-primary/90 w-full">
                   Create a new account instead
                 </Button>
               </Link>
               <Link href="/login">
                 <Button
                   variant="outline"
-                  className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
                 >
                   Sign in
                 </Button>
@@ -293,17 +275,17 @@ export default function JoinPage() {
   // ----- Peek OK -----
   const inviteHeader = (
     <CardHeader className="items-center text-center">
-      <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-        <UsersRound className="h-6 w-6 text-primary-text" />
+      <div className="bg-primary/10 mb-2 flex h-12 w-12 items-center justify-center rounded-xl">
+        <UsersRound className="text-primary-text h-6 w-6" />
       </div>
-      <CardTitle className="text-xl text-foreground">
+      <CardTitle className="text-foreground text-xl">
         You&apos;re invited to{' '}
         <span className="text-primary-text">{peek.account_name}</span>
       </CardTitle>
       <CardDescription className="text-muted-foreground">
         You&apos;ll join as{' '}
-        <span className="inline-flex items-center gap-1 text-foreground">
-          <ShieldCheck className="size-3.5 text-primary-text" />
+        <span className="text-foreground inline-flex items-center gap-1">
+          <ShieldCheck className="text-primary-text size-3.5" />
           {ROLE_LABEL[peek.role]}
         </span>
         . Link valid until{' '}
@@ -321,13 +303,13 @@ export default function JoinPage() {
   if (authedUserId) {
     return (
       <>
-        <Card className="w-full max-w-md border-border bg-card">
+        <Card className="border-border bg-card w-full max-w-md">
           {inviteHeader}
           <CardContent className="flex flex-col gap-3">
             <Button
               onClick={handleAccept}
               disabled={accepting}
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
             >
               {accepting ? (
                 <>
@@ -341,18 +323,16 @@ export default function JoinPage() {
                 </>
               )}
             </Button>
-            <p className="text-center text-xs text-muted-foreground">
-              Accepting moves your login into{' '}
-              <span className="text-muted-foreground">{peek.account_name}</span>. Your
-              empty personal account from signup will be cleaned up.
+            <p className="text-muted-foreground text-center text-xs">
+              Accepting adds{' '}
+              <span className="text-muted-foreground">{peek.account_name}</span>
+              . Your existing branch access stays unchanged.
             </p>
           </CardContent>
         </Card>
 
-        {/* Conflict modal — opens when the redeem endpoint returns 409
-            (caller already in a shared account or has domain data).
-            Blocks the flow until the user picks a recovery action so
-            they aren't stuck retrying an inevitable failure. */}
+        {/* A duplicate redemption is harmless: keep access unchanged and send
+            the user back to the durable branch selector. */}
         <Dialog
           open={conflictMessage !== null}
           onOpenChange={(open) => {
@@ -361,21 +341,21 @@ export default function JoinPage() {
         >
           <DialogContent className="bg-popover border-border sm:max-w-md">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-popover-foreground">
-                <AlertTriangle className="size-4 text-amber-foreground" />
-                Can&apos;t join {peek.account_name} with this account
+              <DialogTitle className="text-popover-foreground flex items-center gap-2">
+                <AlertTriangle className="text-amber-foreground size-4" />
+                Branch access already exists
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
                 {conflictMessage}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-2 py-2 text-xs text-muted-foreground">
+            <div className="text-muted-foreground space-y-2 py-2 text-xs">
               <p>
-                To join{' '}
-                <span className="text-popover-foreground">{peek.account_name}</span>,
-                sign out and sign up again with a different email address.
-                The invite link stays valid as long as it hasn&apos;t
-                expired.
+                Open the dashboard and choose{' '}
+                <span className="text-popover-foreground">
+                  {peek.account_name}
+                </span>{' '}
+                from the branch selector.
               </p>
             </div>
             <DialogFooter className="bg-popover border-border">
@@ -384,21 +364,15 @@ export default function JoinPage() {
                 onClick={() => setConflictMessage(null)}
                 className="border-border text-popover-foreground hover:bg-muted"
               >
-                Stay signed in
+                Close
               </Button>
               <Button
-                onClick={handleSignOutAndRetry}
-                disabled={signingOut}
+                onClick={() => {
+                  window.location.href = '/dashboard';
+                }}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                {signingOut ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Signing out…
-                  </>
-                ) : (
-                  'Sign out & use a different email'
-                )}
+                Open dashboard
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -409,18 +383,18 @@ export default function JoinPage() {
 
   // ----- Not authed: prompt to sign up or sign in -----
   return (
-    <Card className="w-full max-w-md border-border bg-card">
+    <Card className="border-border bg-card w-full max-w-md">
       {inviteHeader}
       <CardContent className="flex flex-col gap-2">
         <Link href={`/signup?invite=${encodeURIComponent(token!)}`}>
-          <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+          <Button className="bg-primary text-primary-foreground hover:bg-primary/90 w-full">
             Create account &amp; join
           </Button>
         </Link>
         <Link href={`/login?invite=${encodeURIComponent(token!)}`}>
           <Button
             variant="outline"
-            className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
           >
             I already have an account
           </Button>

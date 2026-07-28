@@ -31,6 +31,11 @@ import {
   type AccountRole,
 } from '@/lib/auth/roles';
 import { isMode, isThemeId, type Mode, type ThemeId } from '@/lib/themes';
+import {
+  BRANCH_QUERY_PARAM,
+  branchIdFromUrl,
+  isBranchAccountId,
+} from '@/lib/auth/branch-context';
 
 interface Profile {
   id: string;
@@ -53,7 +58,7 @@ interface Profile {
   appearance_mode: Mode | null;
 }
 
-interface AccountSummary {
+export interface AccountSummary {
   id: string;
   name: string;
   /** Account creation bounds historical period pickers without a fixed year list. */
@@ -76,6 +81,25 @@ interface AccountSummary {
   /** When the Get Started onboarding was hidden (explicit dismiss or
    *  auto-set once every step completed). Null = still show it. */
   onboarding_dismissed_at: string | null;
+  organization_id: string;
+  legal_entity_id: string;
+  branch_status: 'active' | 'read_only' | 'archived';
+  readiness_state: 'setup' | 'ready' | 'attention';
+}
+
+export interface BranchAccount {
+  account_id: string;
+  account_name: string;
+  organization_id: string;
+  organization_name: string;
+  legal_entity_id: string;
+  legal_entity_name: string;
+  role: AccountRole;
+  branch_status: 'active' | 'read_only' | 'archived';
+  readiness_state: 'setup' | 'ready' | 'attention';
+  default_currency: string;
+  timezone: string;
+  is_organization_owner: boolean;
 }
 
 interface AuthContextValue {
@@ -117,6 +141,16 @@ interface AuthContextValue {
   accountRole: AccountRole | null;
   /** Lightweight account meta — id + name + default_currency. Null while loading. */
   account: AccountSummary | null;
+  /** Every branch this login may enter, returned by an auth-bound RPC. */
+  branches: BranchAccount[];
+  /** Selected organization, derived from the selected branch. */
+  organizationId: string | null;
+  /** True only for the selected branch's organization owner. */
+  isOrganizationOwner: boolean;
+  /** Fail-closed reason when an explicit URL branch is malformed/unauthorized. */
+  branchAccessError: string | null;
+  /** Audit the switch, then hard-reload into the target branch URL. */
+  switchBranch: (accountId: string) => Promise<void>;
   /** Account default deal currency. Falls back to DEFAULT_CURRENCY
    *  while loading or when no account is resolved, so callers can use
    *  it unconditionally. */
@@ -154,6 +188,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [account, setAccount] = useState<AccountSummary | null>(null);
+  const [branches, setBranches] = useState<BranchAccount[]>([]);
+  const [branchAccessError, setBranchAccessError] = useState<string | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   // Tracked separately from `loading`. The session settles fast (one
   // local cookie read); the profile fetch crosses the network and
@@ -194,6 +232,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data) {
+        const { data: branchRows, error: branchesError } =
+          await supabase.rpc('my_branch_accounts');
+        if (branchesError) {
+          console.error('[AuthProvider] fetchBranches error:', branchesError);
+          lastFetchedUserIdRef.current = null;
+          setBranchAccessError('Could not load your branch access.');
+          return;
+        }
+
+        const availableBranches = (
+          (branchRows ?? []) as BranchAccount[]
+        ).filter(
+          (branch) =>
+            isBranchAccountId(branch.account_id) && isAccountRole(branch.role)
+        );
+        setBranches(availableBranches);
+
+        const currentUrl =
+          typeof window === 'undefined' ? null : new URL(window.location.href);
+        const hasExplicitBranch =
+          currentUrl?.searchParams.has(BRANCH_QUERY_PARAM) ?? false;
+        const requestedBranch = currentUrl ? branchIdFromUrl(currentUrl) : null;
+        const selectedBranchId = hasExplicitBranch
+          ? requestedBranch
+          : data.account_id;
+        const selectedBranch = availableBranches.find(
+          (branch) => branch.account_id === selectedBranchId
+        );
+
+        if (hasExplicitBranch && (!requestedBranch || !selectedBranch)) {
+          setAccount(null);
+          setBranchAccessError(
+            requestedBranch
+              ? 'You do not have access to this branch.'
+              : 'This branch link is invalid.'
+          );
+          setProfile({
+            id: data.id,
+            full_name: data.full_name,
+            email: data.email,
+            avatar_url: data.avatar_url,
+            role: data.role,
+            beta_features: data.beta_features ?? [],
+            account_id: null,
+            account_role: null,
+            appearance_theme: null,
+            appearance_mode: null,
+          });
+          return;
+        }
+
+        if (selectedBranch?.branch_status === 'archived') {
+          setAccount(null);
+          setBranchAccessError(
+            'This branch is archived. Its retained history is available in organization reporting.'
+          );
+          return;
+        }
+
+        if (!selectedBranch) {
+          setAccount(null);
+          setBranchAccessError(
+            'Your login is not linked to an available branch.'
+          );
+          return;
+        }
+        setBranchAccessError(null);
+
         // Keep the newly-added appearance columns out of the essential
         // profile query above. During a rolling deploy, application code
         // can arrive before migration 070; an unknown column would make
@@ -233,16 +339,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // (with account_id / account_role) still resolves even if the
         // account name lookup itself can't.
         let accountRow: AccountSummary | null = null;
-        if (data.account_id) {
+        if (selectedBranch.account_id) {
           const { data: account, error: accountErr } = await supabase
             .from('accounts')
             // default_currency added in 021, localization columns in
             // 055; every field is narrowed below / by
             // resolveAccountLocale for older schemas where it reads null.
             .select(
-              'id, name, created_at, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system, onboarding_dismissed_at'
+              'id, name, created_at, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system, onboarding_dismissed_at, organization_id, legal_entity_id, branch_status, readiness_state'
             )
-            .eq('id', data.account_id)
+            .eq('id', selectedBranch.account_id)
             .maybeSingle();
           if (accountErr) {
             console.error('[AuthProvider] fetchAccount error:', {
@@ -266,6 +372,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               phone_country_code: account.phone_country_code ?? null,
               measurement_system: account.measurement_system ?? null,
               onboarding_dismissed_at: account.onboarding_dismissed_at ?? null,
+              organization_id: account.organization_id,
+              legal_entity_id: account.legal_entity_id,
+              branch_status: account.branch_status,
+              readiness_state: account.readiness_state,
             };
           }
         }
@@ -275,9 +385,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // migration that broadens the enum without updating TS would
         // otherwise crash here — fall back to null and let UI gates
         // treat the caller as least-privileged.
-        const accountRole = isAccountRole(data.account_role)
-          ? data.account_role
-          : null;
+        const accountRole = selectedBranch.role;
 
         setProfile({
           id: data.id,
@@ -290,7 +398,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // (older deployments running 011 lazily) — `null` reads as no
           // opt-ins, which is the safe default for any future beta gate.
           beta_features: data.beta_features ?? [],
-          account_id: data.account_id ?? null,
+          account_id: selectedBranch.account_id,
           account_role: accountRole,
           appearance_theme: appearanceTheme,
           appearance_mode: appearanceMode,
@@ -370,6 +478,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastFetchedUserIdRef.current = null;
         setProfile(null);
         setAccount(null);
+        setBranches([]);
+        setBranchAccessError(null);
         setProfileLoading(false);
       }
 
@@ -389,6 +499,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setProfile(null);
     setAccount(null);
+    setBranches([]);
+    setBranchAccessError(null);
     window.location.href = '/login';
   }, []);
 
@@ -396,6 +508,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user?.id) return;
     await fetchProfile(user.id);
   }, [user?.id, fetchProfile]);
+
+  const switchBranch = useCallback(
+    async (accountId: string) => {
+      const target = branches.find(
+        (branch) =>
+          branch.account_id === accountId && branch.branch_status !== 'archived'
+      );
+      if (!target) throw new Error('You do not have access to this branch.');
+
+      const supabase = createClient();
+      const { error } = await supabase.rpc('record_branch_switch', {
+        p_target_account_id: accountId,
+      });
+      if (error) throw error;
+
+      const url = new URL(window.location.href);
+      url.searchParams.set(BRANCH_QUERY_PARAM, accountId);
+      window.location.assign(`${url.pathname}${url.search}${url.hash}`);
+    },
+    [branches]
+  );
 
   // Derive the role booleans once per profile change rather than on
   // every consumer render. Cheap regardless, but the memo also gives
@@ -436,6 +569,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         refreshProfile,
         account,
+        branches,
+        organizationId: account?.organization_id ?? null,
+        isOrganizationOwner:
+          branches.find((branch) => branch.account_id === derived.accountId)
+            ?.is_organization_owner ?? false,
+        branchAccessError,
+        switchBranch,
         defaultCurrency: account?.default_currency ?? DEFAULT_CURRENCY,
         ...localized,
         ...derived,
@@ -467,6 +607,11 @@ export function useAuth(): AuthContextValue {
       },
       refreshProfile: async () => {},
       account: null,
+      branches: [],
+      organizationId: null,
+      isOrganizationOwner: false,
+      branchAccessError: null,
+      switchBranch: async () => {},
       defaultCurrency: DEFAULT_CURRENCY,
       locale: DEFAULT_ACCOUNT_LOCALE,
       fmt: DEFAULT_FORMATTERS,

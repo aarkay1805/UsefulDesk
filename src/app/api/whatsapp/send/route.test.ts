@@ -125,6 +125,12 @@ function makeSupabaseMock() {
         error: null,
       })),
     },
+    rpc: vi.fn(async (name: string) => {
+      if (name === 'business_message_allowed') {
+        return { data: true, error: null };
+      }
+      return { data: null, error: null };
+    }),
     from: vi.fn((table: string) => builder(table)),
   };
 }

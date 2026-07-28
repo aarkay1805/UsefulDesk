@@ -1143,6 +1143,7 @@ function missingRpc(error: unknown, functionName: string): boolean {
 
 export async function loadOwnerReport(
   db: SupabaseClient,
+  accountId: string,
   range: { start: string; end: string },
   timeZone: string,
   staffUserId: string | null = null
@@ -1154,7 +1155,8 @@ export async function loadOwnerReport(
     planOptionsResult,
     averageSalePriceResult,
   ] = await Promise.all([
-    db.rpc('owner_report', {
+    db.rpc('selected_branch_owner_report', {
+      p_account_id: accountId,
       p_start_date: range.start,
       p_end_date: range.end,
       p_time_zone: timeZone,
@@ -1165,19 +1167,22 @@ export async function loadOwnerReport(
       .select('key, label')
       .eq('field', 'source')
       .order('sort_order', { ascending: true }),
-    db.rpc('owner_report_source_revenue', {
+    db.rpc('selected_branch_owner_report_source_revenue', {
+      p_account_id: accountId,
       p_start_date: range.start,
       p_end_date: range.end,
       p_time_zone: timeZone,
       p_staff_user_id: staffUserId,
     }),
-    db.rpc('owner_report_plan_options', {
+    db.rpc('selected_branch_owner_report_plan_options', {
+      p_account_id: accountId,
       p_start_date: range.start,
       p_end_date: range.end,
       p_time_zone: timeZone,
       p_staff_user_id: staffUserId,
     }),
-    db.rpc('owner_report_average_sale_price', {
+    db.rpc('selected_branch_owner_report_average_sale_price', {
+      p_account_id: accountId,
       p_start_date: range.start,
       p_end_date: range.end,
       p_time_zone: timeZone,
@@ -1198,7 +1203,7 @@ export async function loadOwnerReport(
   if (!reportResult.error) {
     report = normalizeOwnerReport(reportResult.data, labels);
   } else {
-    if (!missingRpc(reportResult.error, 'owner_report')) {
+    if (!missingRpc(reportResult.error, 'selected_branch_owner_report')) {
       throw reportResult.error;
     }
     const fallbackRows = await loadFallbackRows(db, range, timeZone);
@@ -1221,7 +1226,10 @@ export async function loadOwnerReport(
       },
     };
   } else if (
-    !missingRpc(averageSalePriceResult.error, 'owner_report_average_sale_price')
+    !missingRpc(
+      averageSalePriceResult.error,
+      'selected_branch_owner_report_average_sale_price'
+    )
   ) {
     throw averageSalePriceResult.error;
   } else if (!reportResult.error) {
@@ -1257,7 +1265,10 @@ export async function loadOwnerReport(
       })),
     };
   } else if (
-    !missingRpc(sourceRevenueResult.error, 'owner_report_source_revenue')
+    !missingRpc(
+      sourceRevenueResult.error,
+      'selected_branch_owner_report_source_revenue'
+    )
   ) {
     throw sourceRevenueResult.error;
   } else if (!reportResult.error) {
@@ -1289,7 +1300,12 @@ export async function loadOwnerReport(
   if (!planOptionsResult.error) {
     optionsByPlan = normalizePlanOptionBreakdown(planOptionsResult.data);
   } else {
-    if (!missingRpc(planOptionsResult.error, 'owner_report_plan_options')) {
+    if (
+      !missingRpc(
+        planOptionsResult.error,
+        'selected_branch_owner_report_plan_options'
+      )
+    ) {
       throw planOptionsResult.error;
     }
     const fallbackRows = await loadPlanOptionFallbackRows(db, range, timeZone);

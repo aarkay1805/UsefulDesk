@@ -26,9 +26,15 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { createClient } from '@/lib/supabase/server';
+import {
+  BRANCH_HEADER,
+  BRANCH_QUERY_PARAM,
+  isBranchAccountId,
+} from './branch-context';
 import {
   canEditSettings,
   canSendMessages,
@@ -89,12 +95,55 @@ export interface AccountContext {
   supabase: SupabaseClient;
   /** `auth.uid()` for the caller. Always defined when this resolves. */
   userId: string;
-  /** Caller's account_id from their profile row. */
+  /** Explicitly selected branch account. */
   accountId: string;
-  /** Caller's role within their account. */
+  /** Caller's role within the selected branch. */
   role: AccountRole;
-  /** Lightweight account meta — id + name. */
-  account: { id: string; name: string };
+  /** Lightweight selected-branch metadata. */
+  account: {
+    id: string;
+    name: string;
+    organizationId: string;
+    legalEntityId: string;
+    branchStatus: 'active' | 'read_only' | 'archived';
+    readinessState: 'setup' | 'ready' | 'attention';
+  };
+}
+
+interface RequestedBranch {
+  accountId: string | null;
+  explicit: boolean;
+  invalid: boolean;
+}
+
+async function requestedBranchFromRequest(): Promise<RequestedBranch> {
+  try {
+    const requestHeaders = await headers();
+    const direct = requestHeaders.get(BRANCH_HEADER);
+    if (direct !== null) {
+      return {
+        accountId: isBranchAccountId(direct) ? direct : null,
+        explicit: true,
+        invalid: !isBranchAccountId(direct),
+      };
+    }
+
+    const referer = requestHeaders.get('referer');
+    if (!referer) return { accountId: null, explicit: false, invalid: false };
+    const url = new URL(referer);
+    if (!url.searchParams.has(BRANCH_QUERY_PARAM)) {
+      return { accountId: null, explicit: false, invalid: false };
+    }
+    const branch = url.searchParams.get(BRANCH_QUERY_PARAM);
+    return {
+      accountId: isBranchAccountId(branch) ? branch : null,
+      explicit: true,
+      invalid: !isBranchAccountId(branch),
+    };
+  } catch {
+    // Unit tests and non-request execution have no Next request store.
+    return { accountId: null, explicit: false, invalid: false };
+  }
 }
 
 /**
@@ -110,19 +159,19 @@ export interface AccountContext {
  * minimum-role check — it's a thin wrapper over this.
  */
 export async function getCurrentAccount(): Promise<AccountContext> {
-  const supabase = await createClient();
+  const sessionClient = await createClient();
 
   const {
     data: { user },
     error: userErr,
-  } = await supabase.auth.getUser();
+  } = await sessionClient.auth.getUser();
   if (userErr || !user) {
     throw new UnauthorizedError();
   }
 
-  const { data, error } = await supabase
+  const { data: profile, error } = await sessionClient
     .from('profiles')
-    .select('account_id, account_role')
+    .select('account_id')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -130,17 +179,36 @@ export async function getCurrentAccount(): Promise<AccountContext> {
     console.error('[getCurrentAccount] profile fetch error:', error);
     throw new ForbiddenError('Could not load account context');
   }
-  if (!data || !data.account_id || !data.account_role) {
+  if (!profile || !profile.account_id) {
     // Pre-migration profile, or a manual insert that skipped the
     // signup trigger. The user is authenticated but the app has
     // no way to scope their queries — treat as forbidden.
     throw new ForbiddenError('Profile is not linked to an account');
   }
-  if (!isAccountRole(data.account_role)) {
-    // The DB enum should make this impossible, but a future
-    // migration that broadens the enum without updating TS would
-    // hit this — surface it rather than silently widening.
-    throw new ForbiddenError(`Unknown account role: ${data.account_role}`);
+  const requested = await requestedBranchFromRequest();
+  if (requested.invalid) {
+    throw new ForbiddenError('Invalid branch context');
+  }
+  const accountId = requested.accountId ?? profile.account_id;
+  const supabase = await createClient(accountId);
+
+  const { data: membership, error: membershipErr } = await supabase
+    .from('account_memberships')
+    .select('role')
+    .eq('account_id', accountId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (membershipErr) {
+    console.error('[getCurrentAccount] membership fetch error:', membershipErr);
+    throw new ForbiddenError('Could not load branch context');
+  }
+  if (!membership || !isAccountRole(membership.role)) {
+    throw new ForbiddenError(
+      requested.explicit
+        ? 'You do not have access to this branch'
+        : 'Profile is not linked to an account'
+    );
   }
 
   // Load the account with a plain point lookup by id rather than an
@@ -155,8 +223,10 @@ export async function getCurrentAccount(): Promise<AccountContext> {
   // RLS, so it stays robust against cache staleness and older schemas.
   const { data: account, error: accountErr } = await supabase
     .from('accounts')
-    .select('id, name')
-    .eq('id', data.account_id)
+    .select(
+      'id, name, organization_id, legal_entity_id, branch_status, readiness_state'
+    )
+    .eq('id', accountId)
     .maybeSingle();
 
   if (accountErr) {
@@ -168,13 +238,23 @@ export async function getCurrentAccount(): Promise<AccountContext> {
     // or an RLS gap. Same "can't scope this user" outcome as above.
     throw new ForbiddenError('Profile is not linked to an account');
   }
+  if (account.branch_status === 'archived') {
+    throw new ForbiddenError('This branch is archived');
+  }
 
   return {
     supabase,
     userId: user.id,
-    accountId: data.account_id,
-    role: data.account_role,
-    account: { id: account.id, name: account.name },
+    accountId,
+    role: membership.role,
+    account: {
+      id: account.id,
+      name: account.name,
+      organizationId: account.organization_id,
+      legalEntityId: account.legal_entity_id,
+      branchStatus: account.branch_status,
+      readinessState: account.readiness_state,
+    },
   };
 }
 

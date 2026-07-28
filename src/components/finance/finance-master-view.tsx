@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocale } from '@/hooks/use-locale';
 import { financeHref, type FinanceView } from '@/lib/finance/views';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
 
 const VIEW_LABEL: Record<FinanceView, string> = {
   overview: 'Overview',
@@ -29,10 +30,12 @@ export function FinanceMasterView({
 }) {
   const router = useRouter();
   const { fmt } = useLocale();
+  const { accountId } = useAuth();
   const month = requestedMonth ?? fmt.today().slice(0, 7);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (!accountId) return;
     const supabase = createClient();
     let timer: number | null = null;
     const bump = () => {
@@ -40,30 +43,55 @@ export function FinanceMasterView({
       timer = window.setTimeout(() => setReloadKey((key) => key + 1), 400);
     };
     const channel = supabase
-      .channel('finance-overview')
+      .channel(`finance-overview:${accountId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'payments' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payments',
+          filter: `account_id=eq.${accountId}`,
+        },
         bump
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'membership_periods' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'membership_periods',
+          filter: `account_id=eq.${accountId}`,
+        },
         bump
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'memberships' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'memberships',
+          filter: `account_id=eq.${accountId}`,
+        },
         bump
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'expenses' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'expenses',
+          filter: `account_id=eq.${accountId}`,
+        },
         bump
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'expense_categories' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'expense_categories',
+          filter: `account_id=eq.${accountId}`,
+        },
         bump
       )
       .subscribe();
@@ -72,7 +100,7 @@ export function FinanceMasterView({
       if (timer) window.clearTimeout(timer);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [accountId]);
 
   function changeView(nextView: FinanceView) {
     router.replace(financeHref(nextView, month), { scroll: false });

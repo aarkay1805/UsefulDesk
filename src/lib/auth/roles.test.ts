@@ -3,6 +3,7 @@ import {
   ACCOUNT_ROLES,
   type AccountRole,
   canDeleteAccount,
+  canArchiveBranch,
   canDeleteAnyLead,
   canDeleteAnyNote,
   canDeleteLead,
@@ -22,6 +23,8 @@ import {
   canResolveAnyLeadTransfer,
   canSendMessages,
   canTransferOwnership,
+  canManageOrganization,
+  canViewConsolidatedReports,
   canViewOnly,
   hasMinRole,
   isAccountRole,
@@ -322,5 +325,19 @@ describe('capability predicates', () => {
     expect(canTransferOwnership('admin')).toBe(false);
     expect(canTransferOwnership('agent')).toBe(false);
     expect(canTransferOwnership('viewer')).toBe(false);
+  });
+
+  it('canArchiveBranch: branch owner only', () => {
+    expect(canArchiveBranch('owner')).toBe(true);
+    expect(canArchiveBranch('admin')).toBe(false);
+    expect(canArchiveBranch('agent')).toBe(false);
+    expect(canArchiveBranch('viewer')).toBe(false);
+  });
+
+  it('organization management and consolidated reports are org-owner only', () => {
+    expect(canManageOrganization('owner')).toBe(true);
+    expect(canManageOrganization(null)).toBe(false);
+    expect(canViewConsolidatedReports('owner')).toBe(true);
+    expect(canViewConsolidatedReports(null)).toBe(false);
   });
 });

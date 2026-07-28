@@ -39,6 +39,10 @@ import {
   validateSendMessageParams,
   SendMessageError,
 } from '@/lib/whatsapp/send-message';
+import {
+  assertBusinessMessageAllowed,
+  MessageSuppressedError,
+} from '@/lib/consent/business-messaging';
 
 export async function POST(request: Request) {
   try {
@@ -85,6 +89,28 @@ export async function POST(request: Request) {
       mediaUrl: typeof body.media_url === 'string' ? body.media_url : null,
       templateName: typeof template?.name === 'string' ? template.name : null,
     });
+
+    // API sends are business-initiated even when the payload is plain text.
+    // Check before creating contact/conversation side effects.
+    try {
+      await assertBusinessMessageAllowed(
+        ctx.supabase,
+        ctx.accountId,
+        to,
+        'api'
+      );
+    } catch (error) {
+      if (error instanceof MessageSuppressedError) {
+        throw new SendMessageError(error.code, error.message, 409);
+      }
+      throw new SendMessageError(
+        'consent_check_failed',
+        error instanceof Error
+          ? error.message
+          : 'Could not verify WhatsApp consent',
+        503
+      );
+    }
 
     // Find-or-create the conversation for this phone, then send. Both
     // steps share `SendMessageError`, so one catch maps the whole

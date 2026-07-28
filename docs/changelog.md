@@ -6,6 +6,12 @@
 
 ---
 
+## Organization-over-accounts multi-branch foundation
+
+UsefulDesk now groups existing account tenants under organizations, with explicit legal entities and many-to-many branch memberships while preserving each account as an isolated operational branch. Durable branch URLs/header-scoped RLS fail closed on unauthorized or stale context; the sidebar selector works expanded, collapsed, and mobile, hard-reloads on switch, supports credential-free setup-state branch creation, and archives closures without deleting history. Invitation, staff/role, ownership, signup, presence, expense, media, reporting, realtime filters, and branch lifecycle paths are branch-aware. Owner Reports adds a read-only organization view with branch/legal-entity drilldowns and separate currency totals. A minimal organization contact index warns without merging; standalone inbound STOP-style commands create organization-wide suppression, and proactive templates, API sends, broadcasts, automations, and renewal reminders stay blocked unless a later explicit branch/purpose opt-in reopens that narrow scope. Migrations `20260728162503`, `20260728170116`, `20260728170241`, `20260728170553`, `20260728170731`, and `20260728171042` were applied through the Supabase connector and contain the incremental backfill, policies, archived-branch operational lock, last-active-branch guard, wall-clock consent ordering, foreign-key indexes, audit trail, and RPC boundaries. Key code: `src/lib/auth/branch-context.ts`, `src/hooks/use-auth.tsx`, `src/components/layout/branch-switcher.tsx`, `src/components/reports/organization-reports-view.tsx`, and the `20260728` organization/branch migrations. Gotcha: `profiles.account_id/account_role` is compatibility metadata only; never use it as the branch membership source of truth.
+
+---
+
 ## Finance month controls in the app bar
 
 Finance now keeps a simplified Google Calendar-style period navigator in the app bar across Overview, Invoices, Payments, and Expenses: **Today**, previous/next arrows, then one localized Month Year label. The label owns a fixed responsive width, so short and long month names never move the navigation buttons. The former Month and Year dropdowns plus separate Current month action are gone; narrow headers retain adjacent navigation and the period label while hiding Today. Export and tab-specific primary actions remain alongside it. Key code: `src/components/finance/finance-month-actions.tsx`.

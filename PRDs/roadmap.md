@@ -30,9 +30,11 @@ Built: attendance + plan visit limits / session packs, with separate Name and Pl
 
 Left: trainer payroll and class-delivery accountability beyond assigned-member performance · **Finance master section** (`PRDs/finance_master_section.md`) supporting integration: connect posted expenses to owner-report export and add expense-category settings; human invoice numbering, PDF/WhatsApp sharing, and GST-ready documents wait for an approved immutable invoice-identity migration and compliance validation; the failed-AutoPay recovery loop stays with Members → Payments.
 
-## ⬜ Phase 4 — franchise / multi-branch
+## 🚧 Phase 4 — franchise / multi-branch
 
-`branches` table + `branch_id` + an RLS rework · branch dashboards · centralized member view · branch-scoped roles · standardized reports. Family/household plans slot in here.
+Built foundation: **organization-over-accounts multi-branch** — an organization/gym group contains existing `accounts`, and each account remains one isolated operational branch with its own WhatsApp number/inbox, members, plans, attendance, payments, finance, staff, automations, API/public surfaces, storage, and integrations. `account_memberships` is the many-to-many branch-role source of truth; durable `?branch=<account-id>` URLs plus request headers bind RLS to exactly one selected branch, while switching hard-reloads and audits the transition. Organization owners can create setup-state branches without copied credentials, switch in expanded/collapsed/mobile chrome, archive a branch without deleting history, and read owner-only consolidated reports with branch, legal-entity, and separate-currency attribution. Invitations are additive, staff/role/ownership RPCs are branch-explicit, duplicate discovery is warning-only, and proactive WhatsApp opt-out is organization-wide with narrow branch/purpose re-opt-in audit events.
+
+Left: richer legal-entity administration and tax documents · explicit organization deletion/export flow · connection-readiness checklist and recovery tooling · broader consolidated finance/retention drilldowns · authorized duplicate-person discovery UI · branch transfer workflows. Deliberately deferred: unified live inbox, cross-branch check-in, membership portability, automatic member transfer, shared payment/WhatsApp credentials, and merged member/contact records. Family/household plans remain separate work.
 
 ## Don't build early
 

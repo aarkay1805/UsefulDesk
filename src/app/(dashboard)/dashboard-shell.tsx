@@ -11,13 +11,21 @@ import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
 import { useNotificationAudio } from '@/hooks/use-notification-audio';
 import { useFollowUpReminderRingtone } from '@/hooks/use-follow-up-reminder-ringtone';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
 // client components can't export Next's metadata object.
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const {
+    user,
+    loading,
+    profileLoading,
+    branchAccessError,
+    branches,
+    switchBranch,
+  } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const hasRoomyContentTop =
@@ -59,6 +67,34 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 
   if (!user) return null;
 
+  if (!profileLoading && branchAccessError) {
+    const fallbackBranch = branches.find(
+      (branch) => branch.branch_status !== 'archived'
+    );
+    return (
+      <div className="bg-background flex h-screen items-center justify-center px-4">
+        <div className="flex max-w-md flex-col items-center gap-4 text-center">
+          <BuildingBranchError />
+          <div>
+            <h1 className="text-foreground text-lg font-semibold">
+              Branch unavailable
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {branchAccessError}
+            </p>
+          </div>
+          {fallbackBranch ? (
+            <Button
+              onClick={() => void switchBranch(fallbackBranch.account_id)}
+            >
+              Open {fallbackBranch.account_name}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-background flex h-screen overflow-hidden">
       {/* Replaces the browser cache with this user's saved profile
@@ -82,6 +118,16 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+    </div>
+  );
+}
+
+function BuildingBranchError() {
+  return (
+    <div className="bg-muted text-muted-foreground flex size-12 items-center justify-center rounded-xl">
+      <span aria-hidden className="text-xl">
+        ×
+      </span>
     </div>
   );
 }
