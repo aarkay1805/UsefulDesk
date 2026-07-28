@@ -509,26 +509,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetchProfile(user.id);
   }, [user?.id, fetchProfile]);
 
-  const switchBranch = useCallback(
-    async (accountId: string) => {
-      const target = branches.find(
-        (branch) =>
-          branch.account_id === accountId && branch.branch_status !== 'archived'
-      );
-      if (!target) throw new Error('You do not have access to this branch.');
+  const switchBranch = useCallback(async (accountId: string) => {
+    if (!isBranchAccountId(accountId)) {
+      throw new Error('This branch link is invalid.');
+    }
 
-      const supabase = createClient();
-      const { error } = await supabase.rpc('record_branch_switch', {
-        p_target_account_id: accountId,
-      });
-      if (error) throw error;
+    // The database is the authority for branch access. Do not preflight
+    // against `branches`: a branch created or joined moments ago can be newer
+    // than this provider snapshot even though its membership already exists.
+    const supabase = createClient();
+    const { error } = await supabase.rpc('record_branch_switch', {
+      p_target_account_id: accountId,
+    });
+    if (error) throw error;
 
-      const url = new URL(window.location.href);
-      url.searchParams.set(BRANCH_QUERY_PARAM, accountId);
-      window.location.assign(`${url.pathname}${url.search}${url.hash}`);
-    },
-    [branches]
-  );
+    const url = new URL(window.location.href);
+    url.searchParams.set(BRANCH_QUERY_PARAM, accountId);
+    window.location.assign(`${url.pathname}${url.search}${url.hash}`);
+  }, []);
 
   // Derive the role booleans once per profile change rather than on
   // every consumer render. Cheap regardless, but the memo also gives
