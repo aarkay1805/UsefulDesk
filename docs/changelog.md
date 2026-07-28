@@ -6,6 +6,12 @@
 
 ---
 
+## Branch restore and permanent deletion
+
+Organization owners who own a branch can now manage every branch from **Settings → Organization & branches**: active/read-only branches can be archived or permanently deleted, and archived branches can be restored or permanently deleted. Exact branch-name confirmation protects archive/delete, the final branch and last surviving active branch are guarded, and hard deletion purges branch Storage, transactionally re-homes shared users, removes branch-only logins, and records a durable deletion audit. Migration `20260728200000_branch_restore_and_erasure.sql` was applied through the Supabase connector as `20260728183018`; key code: `src/app/api/organization/branches/[accountId]/route.ts` and `src/components/settings/branch-actions.tsx`. Gotcha: deleting the final branch remains the separate organization-erasure flow.
+
+---
+
 ## Permanent organization erasure
 
 Organization owners now have a dedicated **Settings → Organization & branches** surface that lists every branch, moves current-branch archival out of Team members, and exposes an exact-name-confirmed permanent organization deletion. `DELETE /api/organization` snapshots cross-organization access, removes account-prefixed and exact legacy Storage objects through the Storage API, transactionally re-homes profiles that still belong elsewhere, deletes every branch and organization-scoped row through the owner-rechecking `delete_organization` RPC, and hard-deletes only Auth users left with no other organization access. A service-only `data_deletion_requests` record survives with completion counts or the failed stage. Migration `20260728175827_organization_erasure.sql` was applied through the Supabase connector as `20260728180541`; key code: `src/app/api/organization/route.ts`, `src/lib/storage/organization-erasure.ts`, and `src/components/settings/organization-settings.tsx`. Gotcha: Storage must be purged through its API before the relational RPC—never delete `storage.objects` rows directly.

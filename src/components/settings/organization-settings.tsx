@@ -5,7 +5,7 @@ import { Check, Building2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { AccountDangerZone } from './account-danger-zone';
+import { BranchActions } from './branch-actions';
 import { OrganizationDangerZone } from './organization-danger-zone';
 import { SettingsPanelHead } from './settings-panel-head';
 
@@ -35,7 +35,7 @@ export function OrganizationSettings() {
     <section>
       <SettingsPanelHead
         title="Organization & branches"
-        description="Review branch access and manage irreversible organization lifecycle actions."
+        description="Review branch access, restore archived branches, or manage branch and organization lifecycle actions."
       />
 
       <Card>
@@ -80,6 +80,7 @@ export function OrganizationSettings() {
                       aria-label="Current branch"
                     />
                   ) : null}
+                  <BranchActions branch={branch} selected={selected} />
                 </div>
               );
             })}
@@ -96,11 +97,9 @@ export function OrganizationSettings() {
           <div>
             <h3 className="text-sm font-semibold">Danger zone</h3>
             <p className="text-muted-foreground mt-1 text-sm">
-              Archive only the current branch, or permanently erase the entire
-              organization.
+              Permanently erase the entire organization and all of its branches.
             </p>
           </div>
-          <AccountDangerZone />
           <OrganizationDangerZone />
         </div>
       ) : null}

@@ -24,6 +24,7 @@ import {
   canSendMessages,
   canTransferOwnership,
   canDeleteOrganization,
+  canManageBranchLifecycle,
   canManageOrganization,
   canViewConsolidatedReports,
   canViewOnly,
@@ -338,6 +339,9 @@ describe('capability predicates', () => {
   it('organization management and consolidated reports are org-owner only', () => {
     expect(canManageOrganization('owner')).toBe(true);
     expect(canManageOrganization(null)).toBe(false);
+    expect(canManageBranchLifecycle('owner', 'owner')).toBe(true);
+    expect(canManageBranchLifecycle('owner', 'admin')).toBe(false);
+    expect(canManageBranchLifecycle(null, 'owner')).toBe(false);
     expect(canDeleteOrganization('owner')).toBe(true);
     expect(canDeleteOrganization(null)).toBe(false);
     expect(canViewConsolidatedReports('owner')).toBe(true);

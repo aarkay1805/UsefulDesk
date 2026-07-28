@@ -255,9 +255,17 @@ export function canTransferOwnership(role: AccountRole): boolean {
   return role === 'owner';
 }
 
-/** Organization owner: create branches and read consolidated reporting. */
+/** Organization owner: create, archive, restore, and delete branches. */
 export function canManageOrganization(role: OrganizationRole | null): boolean {
   return role === 'owner';
+}
+
+/** Organization owner who also owns the target branch: branch lifecycle. */
+export function canManageBranchLifecycle(
+  organizationRole: OrganizationRole | null,
+  branchRole: AccountRole
+): boolean {
+  return canManageOrganization(organizationRole) && branchRole === 'owner';
 }
 
 /** Organization owner only: permanently erase every branch and org record. */
@@ -272,7 +280,7 @@ export function canViewConsolidatedReports(
   return canManageOrganization(role);
 }
 
-/** Branch owner: archive into retained read-only history, never hard-delete. */
+/** Branch owner: archive the selected branch into retained read-only history. */
 export function canArchiveBranch(role: AccountRole): boolean {
   return role === 'owner';
 }

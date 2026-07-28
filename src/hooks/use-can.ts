@@ -6,6 +6,7 @@ import {
   canDeleteOrganization,
   canEditSettings,
   canManageMembers,
+  canManageOrganization,
   canSendMessages,
   canTransferOwnership,
   canViewOnly,
@@ -23,6 +24,7 @@ export type CanAction =
   | 'send-messages'
   | 'view-only'
   | 'archive-branch'
+  | 'manage-organization'
   | 'delete-organization'
   | 'transfer-ownership';
 
@@ -42,6 +44,9 @@ export type CanAction =
 export function useCan(action: CanAction): boolean {
   const { profileLoading, accountRole, isOrganizationOwner } = useAuth();
   if (profileLoading) return false;
+  if (action === 'manage-organization') {
+    return canManageOrganization(isOrganizationOwner ? 'owner' : null);
+  }
   if (action === 'delete-organization') {
     return canDeleteOrganization(isOrganizationOwner ? 'owner' : null);
   }
