@@ -10,14 +10,22 @@ const memberIdentitySource = readFileSync(
   join(process.cwd(), 'src/components/members/member-identity.tsx'),
   'utf8'
 );
-const membersTableSource = readFileSync(
-  join(process.cwd(), 'src/components/members/members-table.tsx'),
+const quickViewSource = readFileSync(
+  join(
+    process.cwd(),
+    'src/components/members/member-avatar-quick-view.tsx'
+  ),
   'utf8'
 );
-
-const quickViewSource = membersTableSource.match(
-  /function MemberAvatarQuickView\(([\s\S]*?)\n}\n\nfunction filtersForQuickMemberCount/
-)?.[1];
+const memberViewSources = [
+  ['renewals', 'renewal-action-lists.tsx'],
+  ['followups', 'follow-up-lists.tsx'],
+  ['trials', 'trial-action-lists.tsx'],
+  ['payments', 'payments-table.tsx'],
+  ['retention', 'inactive-action-lists.tsx'],
+  ['all', 'members-table.tsx'],
+  ['attendance', 'attendance-view.tsx'],
+] as const;
 
 describe('member avatar quick view', () => {
   it('opens quickly and leaves enough time to move into the card', () => {
@@ -36,15 +44,35 @@ describe('member avatar quick view', () => {
   });
 
   it('uses loaded row data for the large photo and direct actions', () => {
-    expect(quickViewSource).toBeDefined();
     expect(quickViewSource).toContain('className="size-36"');
     expect(quickViewSource).toContain('Details');
     expect(quickViewSource).toContain('<SendReminderButton');
     expect(quickViewSource).toContain('<FollowUpButton');
     expect(quickViewSource).not.toContain('fetch(');
     expect(quickViewSource).not.toContain('createClient');
-    expect(membersTableSource).toContain(
-      'branchHref(`/members?view=all&member=${m.id}`, accountId)'
+  });
+
+  it.each(memberViewSources)(
+    'is wired into the %s members view',
+    (view, file) => {
+      const source = readFileSync(
+        join(process.cwd(), 'src/components/members', file),
+        'utf8'
+      );
+      expect(source).toContain('buildMemberAvatarPreview({');
+      expect(source).toMatch(new RegExp(`view: ["']${view}["']`));
+    }
+  );
+
+  it('loads at-risk avatars with the list instead of on hover', () => {
+    const source = readFileSync(
+      join(
+        process.cwd(),
+        'src/components/members/inactive-action-lists.tsx'
+      ),
+      'utf8'
     );
+    expect(source).toContain(".select('id, avatar_url')");
+    expect(source).toContain('contact_avatar_url');
   });
 });

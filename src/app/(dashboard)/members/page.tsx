@@ -296,7 +296,11 @@ export default function MembersPage() {
             />
           </div>
         ) : view === 'retention' ? (
-          <InactiveActionLists onSelect={openDetail} reloadKey={reloadKey} />
+          <InactiveActionLists
+            readiness={readiness}
+            onSelect={openDetail}
+            reloadKey={reloadKey}
+          />
         ) : view === 'all' ? (
           <MembersTable
             readiness={readiness}
@@ -309,6 +313,7 @@ export default function MembersPage() {
           />
         ) : (
           <AttendanceView
+            readiness={readiness}
             reloadKey={reloadKey}
             onAttendanceChanged={reload}
             onSelect={openDetail}

@@ -68,6 +68,7 @@ import {
   type SortDir,
 } from '@/components/table/column-header';
 import { MemberIdentity } from './member-identity';
+import { buildMemberAvatarPreview } from './member-avatar-quick-view';
 import {
   BulkCompleteFollowUpsDialog,
   CompleteFollowUpDialog,
@@ -195,7 +196,7 @@ export function FollowUpLists({
 }: FollowUpListsProps) {
   const supabase = useMemo(() => createClient(), []);
   const { fmt } = useLocale();
-  const { user } = useAuth();
+  const { user, accountId } = useAuth();
   const userId = user?.id ?? null;
   const { staff, nameById, avatarById } = useAccountStaff();
 
@@ -421,6 +422,18 @@ export function FollowUpLists({
             name={followUp.contact?.name}
             secondary={followUp.contact?.phone || followUp.contact?.email}
             src={followUp.contact?.avatar_url}
+            avatarPreview={
+              followUp.membership
+                ? buildMemberAvatarPreview({
+                    membership: followUp.membership,
+                    accountId,
+                    view: 'followups',
+                    readiness,
+                    onSelect: () => onSelect(followUp.membership!.id),
+                    onReminderSent: onChanged,
+                  })
+                : undefined
+            }
           />
         );
       case 'dueDate': {

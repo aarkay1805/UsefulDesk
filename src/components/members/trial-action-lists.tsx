@@ -26,6 +26,7 @@ import { FollowUpDialog } from "@/components/follow-ups/follow-up-dialog";
 import { FollowUpButton } from "@/components/follow-ups/follow-up-button";
 import { TrialBadge } from "./membership-status-badge";
 import { MemberIdentity } from "./member-identity";
+import { buildMemberAvatarPreview } from "./member-avatar-quick-view";
 import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
 import { RenewMembershipDialog } from "./renew-membership-dialog";
 
@@ -69,7 +70,7 @@ export function TrialActionLists({
   onSelect,
   reloadKey,
 }: TrialActionListsProps) {
-  const { canSendMessages } = useAuth();
+  const { accountId, canSendMessages } = useAuth();
   const { fmt } = useLocale();
   const [trials, setTrials] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,6 +126,8 @@ export function TrialActionLists({
             meta={BUCKET_META[key]}
             rows={buckets[key]}
             readiness={readiness}
+            accountId={accountId}
+            canFollowUp={canSendMessages}
             onSelect={onSelect}
             onFollowUp={canSendMessages ? setFollowingUp : undefined}
             onConvert={setConverting}
@@ -166,6 +169,8 @@ function TrialList({
   meta,
   rows,
   readiness,
+  accountId,
+  canFollowUp,
   onSelect,
   onFollowUp,
   onConvert,
@@ -174,6 +179,8 @@ function TrialList({
   meta: { label: string; icon: React.ReactNode; empty: string };
   rows: Membership[];
   readiness: ReminderReadiness;
+  accountId: string | null;
+  canFollowUp: boolean;
   onSelect: (id: string) => void;
   onFollowUp?: (m: Membership) => void;
   onConvert: (m: Membership) => void;
@@ -217,6 +224,18 @@ function TrialList({
                     name={m.contact?.name}
                     secondary={m.contact?.phone}
                     src={m.contact?.avatar_url}
+                    avatarPreview={buildMemberAvatarPreview({
+                      membership: m,
+                      accountId,
+                      view: "trials",
+                      readiness,
+                      canFollowUp,
+                      onSelect: () => onSelect(m.id),
+                      onFollowUp: onFollowUp
+                        ? () => onFollowUp(m)
+                        : undefined,
+                      onReminderSent: onChanged,
+                    })}
                     meta={
                       <p className="truncate text-xs text-muted-foreground">
                         {m.plan?.name ?? "Trial pass"} · {when}

@@ -33,7 +33,6 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { branchHref } from "@/lib/auth/branch-context";
 import { getErrorMessage } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/hooks/use-locale";
@@ -82,7 +81,6 @@ import { GatedButton } from "@/components/ui/gated-button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Separator } from "@/components/ui/separator";
 import { Chip, ChipCount, ChipGroup } from "@/components/ui/chip";
-import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   Table,
   TableBody,
@@ -120,6 +118,7 @@ import {
 } from "./membership-status-badge";
 import { MembersFilters } from "./members-filters";
 import { MemberIdentity } from "./member-identity";
+import { buildMemberAvatarPreview } from "./member-avatar-quick-view";
 import { BulkRecordPaymentDialog } from "./bulk-record-payment-dialog";
 import { FollowUpDialog } from "@/components/follow-ups/follow-up-dialog";
 import { FollowUpButton } from "@/components/follow-ups/follow-up-button";
@@ -148,58 +147,6 @@ const EMPTY_QUICK_MEMBER_FILTER_COUNTS: Record<QuickMemberFilter, number> = {
   feesDue: 0,
   followUps: 0,
 };
-
-function MemberAvatarQuickView({
-  membership,
-  readiness,
-  canEdit,
-  onSelect,
-  onFollowUp,
-}: {
-  membership: Membership;
-  readiness: ReminderReadiness;
-  canEdit: boolean;
-  onSelect: () => void;
-  onFollowUp: () => void;
-}) {
-  const name = membership.contact?.name?.trim() || "Unnamed";
-
-  return (
-    <div
-      className="flex flex-col gap-2.5"
-      onClick={(event) => event.stopPropagation()}
-    >
-      <div className="flex flex-col items-center gap-2 py-1">
-        <UserAvatar
-          name={name}
-          src={membership.contact?.avatar_url}
-          className="size-36"
-          fallbackClassName="text-4xl"
-        />
-        <div className="min-w-0 text-center">
-          <p className="font-heading text-foreground truncate text-base font-medium">
-            {name}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            Member ID{" "}
-            <span className="font-mono tabular-nums">
-              {membership.member_number}
-            </span>
-          </p>
-        </div>
-      </div>
-      <Separator />
-      <div className="flex items-center justify-center gap-1">
-        <Button type="button" variant="ghost" size="sm" onClick={onSelect}>
-          <Eye className="size-3.5" />
-          Details
-        </Button>
-        <SendReminderButton membership={membership} readiness={readiness} />
-        <FollowUpButton canAct={canEdit} onClick={onFollowUp} />
-      </div>
-    </div>
-  );
-}
 
 function filtersForQuickMemberCount(
   filters: MemberFilters,
@@ -840,19 +787,15 @@ export function MembersTable({
             name={m.contact?.name}
             secondary={m.contact?.phone}
             src={m.contact?.avatar_url}
-            avatarPreview={{
-              href: branchHref(`/members?view=all&member=${m.id}`, accountId),
-              onNavigate: () => onSelect(m.id),
-              content: (
-                <MemberAvatarQuickView
-                  membership={m}
-                  readiness={readiness}
-                  canEdit={canEdit}
-                  onSelect={() => onSelect(m.id)}
-                  onFollowUp={() => setFollowUpFor(m)}
-                />
-              ),
-            }}
+            avatarPreview={buildMemberAvatarPreview({
+              membership: m,
+              accountId,
+              view: "all",
+              readiness,
+              canFollowUp: canEdit,
+              onSelect: () => onSelect(m.id),
+              onFollowUp: () => setFollowUpFor(m),
+            })}
           />
         );
       case "memberId":

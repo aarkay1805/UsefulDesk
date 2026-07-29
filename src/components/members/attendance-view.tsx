@@ -31,7 +31,10 @@ import { createClient } from '@/lib/supabase/client';
 import type { Attendance, AttendanceMethod, Membership } from '@/types';
 import { ColumnHeader, type SortDir } from '@/components/table/column-header';
 import { AttendanceOverrideDialog } from './attendance-override-dialog';
+import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
 import { MemberIdentity } from './member-identity';
+import { buildMemberAvatarPreview } from './member-avatar-quick-view';
+import type { ReminderReadiness } from './send-reminder-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/ui/search-input';
@@ -58,6 +61,7 @@ interface AttendanceSort {
 }
 
 interface AttendanceViewProps {
+  readiness: ReminderReadiness;
   /** Bump to refetch after a mutation elsewhere. */
   reloadKey: number;
   /** Opens the member detail sheet (keyed by membership id). */
@@ -67,6 +71,7 @@ interface AttendanceViewProps {
 }
 
 export function AttendanceView({
+  readiness,
   reloadKey,
   onSelect,
   onAttendanceChanged,
@@ -95,6 +100,7 @@ export function AttendanceView({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [followUpFor, setFollowUpFor] = useState<Membership | null>(null);
   const [override, setOverride] = useState<{
     membership: Membership;
     warning: CheckInWarning;
@@ -537,6 +543,16 @@ export function AttendanceView({
                         name={membership.contact?.name}
                         secondary={membership.contact?.phone}
                         src={membership.contact?.avatar_url}
+                        avatarPreview={buildMemberAvatarPreview({
+                          membership,
+                          accountId,
+                          view: 'attendance',
+                          readiness,
+                          canFollowUp: canSendMessages,
+                          onSelect: () => onSelect(membership.id),
+                          onFollowUp: () => setFollowUpFor(membership),
+                          onReminderSent: onAttendanceChanged,
+                        })}
                       />
                     </TableCell>
                     <TableCell>
@@ -638,6 +654,18 @@ export function AttendanceView({
         }
         onCancel={() => setOverride(null)}
       />
+
+      {followUpFor && (
+        <FollowUpDialog
+          open
+          onOpenChange={(open) => !open && setFollowUpFor(null)}
+          membership={followUpFor}
+          onSaved={() => {
+            setFollowUpFor(null);
+            onAttendanceChanged?.();
+          }}
+        />
+      )}
     </>
   );
 }

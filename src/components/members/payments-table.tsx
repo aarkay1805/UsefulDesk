@@ -23,6 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useLocale } from '@/hooks/use-locale';
+import { useAuth } from '@/hooks/use-auth';
 import {
   bucketForDue,
   daysOverdue,
@@ -33,7 +34,9 @@ import { memberMatchesSearch } from '@/lib/memberships/search';
 import { isChargeableAmount } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
 import type { Membership } from '@/types';
+import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
 import { MemberIdentity } from './member-identity';
+import { buildMemberAvatarPreview } from './member-avatar-quick-view';
 import {
   EMPTY_PAYMENT_DUE_FILTERS,
   PaymentDueFilters,
@@ -98,12 +101,14 @@ export function PaymentsTable({
   reloadKey,
   onChanged,
 }: PaymentsTableProps) {
+  const { accountId, canSendMessages } = useAuth();
   const { fmt } = useLocale();
 
   const [dueRows, setDueRows] = useState<DueMember[]>([]);
   const [dueLoading, setDueLoading] = useState(true);
   const [dueError, setDueError] = useState<string | null>(null);
   const [payFor, setPayFor] = useState<Membership | null>(null);
+  const [followUpFor, setFollowUpFor] = useState<Membership | null>(null);
   const [dueFilters, setDueFilters] = useState<PaymentDueFilterState>(
     EMPTY_PAYMENT_DUE_FILTERS
   );
@@ -431,6 +436,16 @@ export function PaymentsTable({
                         name={membership.contact?.name}
                         secondary={membership.contact?.phone}
                         src={membership.contact?.avatar_url}
+                        avatarPreview={buildMemberAvatarPreview({
+                          membership,
+                          accountId,
+                          view: 'payments',
+                          readiness,
+                          canFollowUp: canSendMessages,
+                          onSelect: () => onSelect(membership.id),
+                          onFollowUp: () => setFollowUpFor(membership),
+                          onReminderSent: reload,
+                        })}
                       />
                     </TableCell>
                     <TableCell className="text-muted-foreground truncate">
@@ -501,6 +516,18 @@ export function PaymentsTable({
           onOpenChange={(open) => !open && setPayFor(null)}
           membership={payFor}
           onSaved={reload}
+        />
+      )}
+
+      {followUpFor && (
+        <FollowUpDialog
+          open
+          onOpenChange={(open) => !open && setFollowUpFor(null)}
+          membership={followUpFor}
+          onSaved={() => {
+            setFollowUpFor(null);
+            reload();
+          }}
         />
       )}
     </>

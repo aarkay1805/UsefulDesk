@@ -47,6 +47,7 @@ import {
   FeeStatusBadge,
 } from './membership-status-badge';
 import { MemberIdentity } from './member-identity';
+import { buildMemberAvatarPreview } from './member-avatar-quick-view';
 import {
   SendReminderButton,
   type ReminderReadiness,
@@ -99,7 +100,7 @@ export function RenewalActionLists({
   onSelect,
   reloadKey,
 }: RenewalActionListsProps) {
-  const { canSendMessages } = useAuth();
+  const { accountId, canSendMessages } = useAuth();
   const { fmt } = useLocale();
 
   const [expiring, setExpiring] = useState<Membership[]>([]);
@@ -202,6 +203,8 @@ export function RenewalActionLists({
         }}
         loading={loading}
         readiness={readiness}
+        accountId={accountId}
+        canFollowUp={canSendMessages}
         onSelect={onSelect}
         onChanged={reload}
         onAssign={canSendMessages ? setAssigning : undefined}
@@ -245,6 +248,8 @@ function RenewalTable({
   onWindowChange,
   loading,
   readiness,
+  accountId,
+  canFollowUp,
   onSelect,
   onChanged,
   onAssign,
@@ -261,6 +266,8 @@ function RenewalTable({
   onWindowChange: (value: string) => void;
   loading: boolean;
   readiness: ReminderReadiness;
+  accountId: string | null;
+  canFollowUp: boolean;
   onSelect: (id: string) => void;
   onChanged: () => void;
   /** Present for agent+ — opens the assign-follow-up dialog. */
@@ -379,6 +386,18 @@ function RenewalTable({
                         name={m.contact?.name}
                         secondary={m.contact?.phone}
                         src={m.contact?.avatar_url}
+                        avatarPreview={buildMemberAvatarPreview({
+                          membership: m,
+                          accountId,
+                          view: 'renewals',
+                          readiness,
+                          canFollowUp,
+                          onSelect: () => onSelect(m.id),
+                          onFollowUp: onAssign
+                            ? () => onAssign(m)
+                            : undefined,
+                          onReminderSent: onChanged,
+                        })}
                       />
                     </TableCell>
                     <TableCell className="text-muted-foreground truncate">

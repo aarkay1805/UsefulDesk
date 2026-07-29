@@ -8,7 +8,7 @@
 
 ## Member avatar quick view
 
-All members now opens an instant hover/focus quick view from the avatar, with a 144px cached profile photo, name, Member ID, and direct Details, WhatsApp reminder, and Follow-up actions. The preview uses only already-loaded row data—never a hover-time query—and is opt-in on the canonical `MemberIdentity`, so other member lists are unchanged. Key code: `src/components/ui/preview-card.tsx`, `src/components/members/member-identity.tsx`, and `src/components/members/members-table.tsx`.
+Every Members tab—Renewals, Follow-ups, Trials, Payments, At risk, All members, and Attendance—now opens the same instant hover/focus quick view from the avatar, with a 144px cached profile photo, name, Member ID, and applicable Details, WhatsApp reminder, and Follow-up actions. The shared preview uses only list-loaded row data—never a hover-time query; the At risk list batches its missing contact-avatar fields into the list load. Key code: `src/components/ui/preview-card.tsx`, `src/components/members/member-identity.tsx`, and `src/components/members/member-avatar-quick-view.tsx`.
 
 ---
 

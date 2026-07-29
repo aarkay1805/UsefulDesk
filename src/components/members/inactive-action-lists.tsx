@@ -16,16 +16,23 @@ import { Badge } from '@/components/ui/badge';
 import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
 import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
 import { MemberIdentity } from './member-identity';
+import { buildMemberAvatarPreview } from './member-avatar-quick-view';
+import type { ReminderReadiness } from './send-reminder-button';
 
 interface InactiveActionListsProps {
+  readiness: ReminderReadiness;
   /** Opens the member detail sheet (keyed by membership id). */
   onSelect: (membershipId: string) => void;
   reloadKey: number;
 }
 
+type MemberActivityRow = MemberActivity & {
+  contact_avatar_url: string | null;
+};
+
 /** The follow-up dialog wants a Membership; rebuild one from the flat
  *  view row (only the fields the dialog and defaultReason read). */
-function toMembership(r: MemberActivity): Membership {
+function toMembership(r: MemberActivityRow): Membership {
   return {
     id: r.membership_id,
     account_id: r.account_id,
@@ -41,7 +48,14 @@ function toMembership(r: MemberActivity): Membership {
     is_trial: r.is_trial,
     created_at: '',
     updated_at: '',
-    contact: { name: r.contact_name, phone: r.contact_phone } as Contact,
+    contact: {
+      name: r.contact_name,
+      phone: r.contact_phone,
+      avatar_url: r.contact_avatar_url,
+    } as Contact,
+    plan: r.plan_name
+      ? ({ name: r.plan_name } as Membership['plan'])
+      : undefined,
   } as Membership;
 }
 
@@ -52,17 +66,18 @@ function toMembership(r: MemberActivity): Membership {
  * and can hand outreach to a staff owner through a Follow-up.
  */
 export function InactiveActionLists({
+  readiness,
   onSelect,
   reloadKey,
 }: InactiveActionListsProps) {
-  const { canSendMessages } = useAuth();
+  const { accountId, canSendMessages } = useAuth();
   const { fmt } = useLocale();
 
-  const [rows, setRows] = useState<MemberActivity[]>([]);
+  const [rows, setRows] = useState<MemberActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Member being handed to a staff owner via the assign dialog.
-  const [assigning, setAssigning] = useState<MemberActivity | null>(null);
+  const [assigning, setAssigning] = useState<MemberActivityRow | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -76,8 +91,28 @@ export function InactiveActionLists({
         .eq('status', 'active')
         .eq('is_trial', false)
         .gte('end_date', fmt.today());
+      const activityRows = (data as MemberActivity[]) ?? [];
+      const contactIds = [...new Set(activityRows.map((row) => row.contact_id))];
+      const { data: contacts } =
+        contactIds.length > 0
+          ? await supabase
+              .from('contacts')
+              .select('id, avatar_url')
+              .in('id', contactIds)
+          : { data: [] };
       if (cancelled) return;
-      setRows((data as MemberActivity[]) ?? []);
+      const avatarByContact = new Map(
+        (contacts ?? []).map((contact) => [
+          contact.id,
+          contact.avatar_url as string | null,
+        ])
+      );
+      setRows(
+        activityRows.map((row) => ({
+          ...row,
+          contact_avatar_url: avatarByContact.get(row.contact_id) ?? null,
+        }))
+      );
       setLoading(false);
     })();
     return () => {
@@ -103,7 +138,10 @@ export function InactiveActionLists({
           title="Missed visits"
           description={`Last visit was ${INACTIVE_DAYS}+ days ago`}
           icon={<MoonStar className="text-amber-foreground size-4" />}
-          rows={inactive}
+          rows={inactive as MemberActivityRow[]}
+          accountId={accountId}
+          readiness={readiness}
+          canFollowUp={canSendMessages}
           detail={(r) => {
             const days = daysSinceVisit(r, today);
             return `${r.plan_name ?? '—'} · last visit ${days} days ago`;
@@ -116,7 +154,10 @@ export function InactiveActionLists({
           title="Never checked in"
           description="Joined but no first visit recorded"
           icon={<Ghost className="text-muted-foreground size-4" />}
-          rows={neverVisited}
+          rows={neverVisited as MemberActivityRow[]}
+          accountId={accountId}
+          readiness={readiness}
+          canFollowUp={canSendMessages}
           detail={(r) =>
             `${r.plan_name ?? '—'} · member since ${fmt.date(r.start_date)}`
           }
@@ -146,6 +187,9 @@ function RetentionList({
   description,
   icon,
   rows,
+  accountId,
+  readiness,
+  canFollowUp,
   detail,
   onSelect,
   onAssign,
@@ -154,11 +198,14 @@ function RetentionList({
   title: string;
   description: string;
   icon: React.ReactNode;
-  rows: MemberActivity[];
-  detail: (r: MemberActivity) => string;
+  rows: MemberActivityRow[];
+  accountId: string | null;
+  readiness: ReminderReadiness;
+  canFollowUp: boolean;
+  detail: (r: MemberActivityRow) => string;
   onSelect: (membershipId: string) => void;
   /** Present for agent+ — opens the assign-follow-up dialog. */
-  onAssign?: (r: MemberActivity) => void;
+  onAssign?: (r: MemberActivityRow) => void;
   emptyLabel: string;
 }) {
   return (
@@ -183,33 +230,48 @@ function RetentionList({
         </div>
       ) : (
         <ul className="divide-border divide-y">
-          {rows.map((r) => (
-            <li
-              key={r.membership_id}
-              className="hover:bg-muted/50 cursor-pointer px-3 py-2.5 transition-colors"
-              onClick={() => onSelect(r.membership_id)}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <MemberIdentity
-                  name={r.contact_name}
-                  secondary={r.contact_phone}
-                  meta={
-                    <p className="text-muted-foreground truncate text-xs">
-                      {detail(r)}
-                    </p>
-                  }
-                />
-                {onAssign && (
-                  <div
-                    className="shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <FollowUpButton onClick={() => onAssign(r)} />
-                  </div>
-                )}
-              </div>
-            </li>
-          ))}
+          {rows.map((r) => {
+            const membership = toMembership(r);
+            return (
+              <li
+                key={r.membership_id}
+                className="hover:bg-muted/50 cursor-pointer px-3 py-2.5 transition-colors"
+                onClick={() => onSelect(r.membership_id)}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <MemberIdentity
+                    name={r.contact_name}
+                    secondary={r.contact_phone}
+                    src={r.contact_avatar_url}
+                    avatarPreview={buildMemberAvatarPreview({
+                      membership,
+                      accountId,
+                      view: 'retention',
+                      readiness,
+                      canFollowUp,
+                      onSelect: () => onSelect(r.membership_id),
+                      onFollowUp: onAssign
+                        ? () => onAssign(r)
+                        : undefined,
+                    })}
+                    meta={
+                      <p className="text-muted-foreground truncate text-xs">
+                        {detail(r)}
+                      </p>
+                    }
+                  />
+                  {onAssign && (
+                    <div
+                      className="shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <FollowUpButton onClick={() => onAssign(r)} />
+                    </div>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
