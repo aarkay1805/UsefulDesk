@@ -30,6 +30,10 @@ import {
   oneTimeBonusMonthsQuote,
 } from '@/lib/memberships/bonus-time';
 import {
+  installmentAmounts,
+  installmentSecondDueOn,
+} from '@/lib/memberships/installments';
+import {
   durationLabel,
   firstCycleFee,
   optionEndDate,
@@ -56,6 +60,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PhoneInput } from '@/components/ui/phone-input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { InlineEditActions } from '@/components/ui/inline-edit-actions';
 import {
@@ -81,6 +86,7 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 ];
 
 type ConversionDiscountMode = 'none' | OneTimeDiscountKind;
+type ConversionPaymentTiming = 'full' | 'installments';
 
 const DISCOUNT_PERCENTAGE_PRESETS = ['10', '20', '30'] as const;
 const BONUS_MONTH_PRESETS = ['1', '2', '3'] as const;
@@ -166,6 +172,8 @@ export function MemberForm({
   const [collectPayment, setCollectPayment] = useState(true);
   const [payMethod, setPayMethod] = useState<PaymentMethod>('cash');
   const [payAmount, setPayAmount] = useState('');
+  const [conversionPaymentTiming, setConversionPaymentTiming] =
+    useState<ConversionPaymentTiming>('full');
 
   // Trial / lead: a free pass with its own length instead of a plan's
   // duration. Plan optional, no fee, no payment. Convert-to-member
@@ -219,6 +227,8 @@ export function MemberForm({
     : feeAmount === ''
       ? regularFirstFee
       : Number(feeAmount) || 0;
+  const conversionInstallments = installmentAmounts(previewFee);
+  const conversionSecondDueOn = installmentSecondDueOn(fmt.today());
 
   // Standard paid-membership expiry: the picked billing option drives it; a
   // legacy membership without an option (edit mode, plan unchanged)
@@ -284,6 +294,7 @@ export function MemberForm({
     setCollectPayment(!member);
     setPayMethod('cash');
     setPayAmount('');
+    setConversionPaymentTiming('full');
     setDupMatch(null);
     setIsTrial(member?.is_trial ?? false);
     // Seed trial length from the existing trial's span, else a 7-day default.
@@ -546,8 +557,14 @@ export function MemberForm({
 
     // First payment: blank = the full fee; a typed amount may be a
     // partial joining payment but can't exceed the fee.
-    const collecting = collectPayment && !isTrial && fee > 0;
-    const payAmt = payAmount === '' ? fee : Number(payAmount);
+    const collecting = !isTrial && fee > 0 && (isConvert || collectPayment);
+    const payAmt = isConvert
+      ? conversionPaymentTiming === 'installments'
+        ? installmentAmounts(fee).now
+        : fee
+      : payAmount === ''
+        ? fee
+        : Number(payAmount);
     if (collecting) {
       if (!Number.isFinite(payAmt) || payAmt <= 0)
         return toast.error('Enter a valid payment amount');
@@ -714,18 +731,34 @@ export function MemberForm({
 
       // Optional first payment (never for a free trial).
       if (collecting) {
+        const paymentArgs =
+          isConvert && conversionPaymentTiming === 'installments'
+            ? {
+                functionName: 'record_membership_installment_payment',
+                params: {
+                  p_membership_id: mRow.id,
+                  p_period_end: endDate,
+                  p_method: payMethod,
+                  p_paid_at: new Date().toISOString(),
+                  p_idempotency_key: crypto.randomUUID(),
+                },
+              }
+            : {
+                functionName: 'record_membership_payment',
+                params: {
+                  p_membership_id: mRow.id,
+                  p_period_end: endDate,
+                  p_amount: payAmt,
+                  p_method: payMethod,
+                  p_paid_at: new Date().toISOString(),
+                  p_note: '',
+                  p_receipt_path: null,
+                  p_idempotency_key: crypto.randomUUID(),
+                },
+              };
         const { error: pErr } = await supabase.rpc(
-          'record_membership_payment',
-          {
-            p_membership_id: mRow.id,
-            p_period_end: endDate,
-            p_amount: payAmt,
-            p_method: payMethod,
-            p_paid_at: new Date().toISOString(),
-            p_note: '',
-            p_receipt_path: null,
-            p_idempotency_key: crypto.randomUUID(),
-          }
+          paymentArgs.functionName,
+          paymentArgs.params
         );
         if (pErr) {
           // The membership is saved; a payment hiccup shouldn't block it.
@@ -1424,7 +1457,108 @@ export function MemberForm({
                   </>
                 )}
 
-                {!isEdit && !isTrial && previewFee > 0 && (
+                {isConvert && !isTrial && previewFee > 0 && (
+                  <div className="border-border space-y-4 rounded-lg border p-4">
+                    <p className="text-foreground text-sm font-semibold">
+                      Payment methods
+                    </p>
+                    <RadioGroup
+                      value={conversionPaymentTiming}
+                      onValueChange={(value) =>
+                        value &&
+                        setConversionPaymentTiming(
+                          value as ConversionPaymentTiming
+                        )
+                      }
+                      className="gap-2"
+                    >
+                      <label
+                        className={cn(
+                          'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                          conversionPaymentTiming === 'full'
+                            ? 'border-primary/40 bg-primary/[0.04]'
+                            : 'border-border/80 hover:border-border-hover'
+                        )}
+                      >
+                        <RadioGroupItem value="full" className="mt-0.5" />
+                        <span className="min-w-0 space-y-0.5">
+                          <span className="text-foreground block text-sm font-medium">
+                            Pay in full
+                          </span>
+                          <span className="text-muted-foreground block text-xs">
+                            <span className="tabular-nums">
+                              {fmt.money(previewFee)}
+                            </span>{' '}
+                            due today · {fmt.date(fmt.today())}
+                          </span>
+                        </span>
+                      </label>
+                      <label
+                        className={cn(
+                          'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                          conversionPaymentTiming === 'installments'
+                            ? 'border-primary/40 bg-primary/[0.04]'
+                            : 'border-border/80 hover:border-border-hover'
+                        )}
+                      >
+                        <RadioGroupItem
+                          value="installments"
+                          className="mt-0.5"
+                        />
+                        <span className="min-w-0 space-y-0.5">
+                          <span className="text-foreground block text-sm font-medium">
+                            Part now, part later
+                          </span>
+                          <span className="text-muted-foreground block text-xs">
+                            <span className="tabular-nums">
+                              {fmt.money(conversionInstallments.now)}
+                            </span>{' '}
+                            now, then{' '}
+                            <span className="tabular-nums">
+                              {fmt.money(conversionInstallments.later)}
+                            </span>{' '}
+                            on {fmt.date(conversionSecondDueOn)}. No extra fees.
+                          </span>
+                        </span>
+                      </label>
+                    </RadioGroup>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="mf-conversion-method">
+                        Today&apos;s payment method
+                      </Label>
+                      <Select
+                        value={payMethod}
+                        onValueChange={(value) =>
+                          setPayMethod(value as PaymentMethod)
+                        }
+                      >
+                        <SelectTrigger
+                          id="mf-conversion-method"
+                          className="w-full"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PAYMENT_METHODS.map((method) => (
+                            <SelectItem key={method.value} value={method.value}>
+                              {method.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {conversionPaymentTiming === 'installments' && (
+                      <p className="text-muted-foreground text-xs">
+                        We&apos;ll remind {convertName} on WhatsApp before the
+                        second payment is due.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {!isConvert && !isEdit && !isTrial && previewFee > 0 && (
                   <div className="border-border space-y-6 rounded-lg border p-4">
                     <Label htmlFor="mf-collect-payment">
                       <Checkbox

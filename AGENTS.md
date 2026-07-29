@@ -14,14 +14,14 @@ UsefulDesk is an India-first gym CRM built on a mature multi-tenant WhatsApp CRM
 
 ## Read only the documentation your task touches
 
-| Document | Read when |
-|---|---|
-| `docs/ui-patterns.md` | Touching any UI: canonical components, tokens, forms, tables, and animation |
-| `docs/gym-domain.md` | Touching members, plans, memberships, billing, payments, auto-pay, or attendance |
-| `docs/changelog.md` | Investigating why a past product or engineering decision was made |
-| `PRDs/roadmap.md` | Checking what is built, next, or deliberately deferred |
-| `docs/renewal-reminders.md`, `docs/automations-and-cron.md`, `docs/public-api.md` | Touching those subsystems |
-| `PRDs/` | Implementing or revising the corresponding product specification |
+| Document                                                                          | Read when                                                                        |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `docs/ui-patterns.md`                                                             | Touching any UI: canonical components, tokens, forms, tables, and animation      |
+| `docs/gym-domain.md`                                                              | Touching members, plans, memberships, billing, payments, auto-pay, or attendance |
+| `docs/changelog.md`                                                               | Investigating why a past product or engineering decision was made                |
+| `PRDs/roadmap.md`                                                                 | Checking what is built, next, or deliberately deferred                           |
+| `docs/renewal-reminders.md`, `docs/automations-and-cron.md`, `docs/public-api.md` | Touching those subsystems                                                        |
+| `PRDs/`                                                                           | Implementing or revising the corresponding product specification                 |
 
 Do not preload unrelated documents "just in case."
 
@@ -89,4 +89,4 @@ Every account owns `country_code`, `locale`, `timezone`, `date_order`, `time_for
 
 ## Operational dependency
 
-One-tap renewal reminders require an account with WhatsApp connected and an approved Meta Utility template named `gym_renewal_reminder` with four body parameters: `{{1}}` member name, `{{2}}` plan, `{{3}}` expiry, and `{{4}}` fee. Without it, the Remind button disables itself with a setup hint; other functionality remains available.
+One-tap renewal reminders require an account with WhatsApp connected and an approved Meta Utility template named `gym_renewal_reminder` with four body parameters: `{{1}}` member name, `{{2}}` plan, `{{3}}` expiry, and `{{4}}` fee. Conversion installment reminders similarly require an approved `gym_installment_reminder` template with `{{1}}` member name, `{{2}}` outstanding amount, `{{3}}` plan, and `{{4}}` due date. Without the relevant template, other functionality remains available and automated sends skip with a setup note.

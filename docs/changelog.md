@@ -6,6 +6,12 @@
 
 ---
 
+## Conversion payment installments
+
+**Convert to member** now presents two payment-method choices: pay the first invoice in full, or collect 60% immediately and leave 40% due exactly 28 account-local days later with no extra fee. The split path records the payment and installment promise atomically, preserves the invoice as the balance source of truth, and sends claim-first WhatsApp reminders 7, 3, 1, and 0 days before the deadline while money remains due. It requires an approved `gym_installment_reminder` Utility template with member, amount, plan, and due-date body parameters. Key code: `src/components/members/member-form.tsx`, `src/lib/memberships/installments.ts`, `src/app/api/payment-installments/cron/route.ts`, and `supabase/migrations/20260729190000_conversion_payment_installments.sql`. The migrations were applied through the Supabase connector as `20260729181535` and `20260729181706`.
+
+---
+
 ## One-time lead conversion bonus months
 
 **Convert to member** now offers bonus months with the same progressive-disclosure pattern as its price discount: an unfilled checkbox section, editable whole-month input, and shared +1/+2/+3 month quick chips. The live quote separates regular expiry, bonus time, and first expiry. The selected billing option remains unchanged; only the first period is extended, and later renewals continue from the actual expiry at the option's normal duration and price. Membership and invoice snapshots preserve the original expiry and bonus for audit, and invoice detail exposes both. Migration `20260729173714_one_time_conversion_bonus_months.sql` was applied through the Supabase connector as `20260729174039`. Key code: `src/components/members/member-form.tsx`, `src/lib/memberships/bonus-time.ts`, and `src/components/members/invoice-detail-dialog.tsx`.

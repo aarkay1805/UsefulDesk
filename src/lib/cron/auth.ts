@@ -1,8 +1,9 @@
-import { timingSafeEqual } from 'node:crypto'
+import { timingSafeEqual } from 'node:crypto';
 
 /**
  * Shared auth for the cron endpoints (`/api/renewals/cron`,
- * `/api/follow-ups/cron`, `/api/automations/cron`, `/api/flows/cron`).
+ * `/api/payment-installments/cron`, `/api/follow-ups/cron`,
+ * `/api/automations/cron`, `/api/flows/cron`).
  *
  * Two delivery mechanisms are accepted, so any scheduler works:
  *
@@ -22,35 +23,36 @@ import { timingSafeEqual } from 'node:crypto'
  */
 
 function safeEqual(supplied: string, expected: string): boolean {
-  const suppliedBuf = Buffer.from(supplied)
-  const expectedBuf = Buffer.from(expected)
+  const suppliedBuf = Buffer.from(supplied);
+  const expectedBuf = Buffer.from(expected);
   return (
     suppliedBuf.length === expectedBuf.length &&
     timingSafeEqual(suppliedBuf, expectedBuf)
-  )
+  );
 }
 
 function configuredSecrets(): string[] {
   return [process.env.AUTOMATION_CRON_SECRET, process.env.CRON_SECRET].filter(
-    (s): s is string => Boolean(s),
-  )
+    (s): s is string => Boolean(s)
+  );
 }
 
 /** True when at least one cron secret is provisioned (else routes 503). */
 export function cronSecretConfigured(): boolean {
-  return configuredSecrets().length > 0
+  return configuredSecrets().length > 0;
 }
 
 /** True when the request carries a valid cron secret via either header. */
 export function isAuthorizedCronRequest(request: Request): boolean {
-  const secrets = configuredSecrets()
-  if (secrets.length === 0) return false
+  const secrets = configuredSecrets();
+  if (secrets.length === 0) return false;
 
-  const supplied: string[] = []
-  const header = request.headers.get('x-cron-secret')
-  if (header) supplied.push(header)
-  const bearer = request.headers.get('authorization')
-  if (bearer?.startsWith('Bearer ')) supplied.push(bearer.slice('Bearer '.length))
+  const supplied: string[] = [];
+  const header = request.headers.get('x-cron-secret');
+  if (header) supplied.push(header);
+  const bearer = request.headers.get('authorization');
+  if (bearer?.startsWith('Bearer '))
+    supplied.push(bearer.slice('Bearer '.length));
 
-  return supplied.some((s) => secrets.some((secret) => safeEqual(s, secret)))
+  return supplied.some((s) => secrets.some((secret) => safeEqual(s, secret)));
 }

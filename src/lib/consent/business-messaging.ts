@@ -1,7 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type BusinessMessagePurpose =
-  'broadcast' | 'renewal' | 'follow_up' | 'automation' | 'template' | 'api';
+  | 'broadcast'
+  | 'renewal'
+  | 'payment'
+  | 'follow_up'
+  | 'automation'
+  | 'template'
+  | 'api';
 
 export class MessageSuppressedError extends Error {
   readonly code = 'message_suppressed';

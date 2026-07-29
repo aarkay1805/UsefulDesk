@@ -1,19 +1,21 @@
 # Cron endpoints — operator runbook
 
-Four scheduled jobs keep the time-based features alive. None of them
+Five scheduled jobs keep the time-based features alive. None of them
 run by themselves: each is a plain GET route that something external
 must ping on a schedule. This page is the map.
 
-| Endpoint | Does | Needed by | Schedule |
-|----------|------|-----------|----------|
-| `/api/follow-ups/cron` | Sends in-app bell notifications for follow-up tasks whose `remind_at` slot has arrived; an active dashboard rings while those notifications remain unread | Follow-up reminders (Leads) | every 15 min |
-| `/api/automations/cron` | Resumes automation runs parked on a **Wait** step | Automations with delays | every 15 min |
-| `/api/flows/cron` | Times out flow runs abandoned mid-conversation (frees the one-active-run-per-contact lock) | WhatsApp flows | every 15 min |
-| `/api/renewals/cron` | Sends the `gym_renewal_reminder` WhatsApp template to members expiring at each configured offset | Auto renewal reminders | hourly at :30 (sends after 09:00 in each account's timezone) |
+| Endpoint                         | Does                                                                                                                                                      | Needed by                       | Schedule                                                              |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------- |
+| `/api/follow-ups/cron`           | Sends in-app bell notifications for follow-up tasks whose `remind_at` slot has arrived; an active dashboard rings while those notifications remain unread | Follow-up reminders (Leads)     | every 15 min                                                          |
+| `/api/automations/cron`          | Resumes automation runs parked on a **Wait** step                                                                                                         | Automations with delays         | every 15 min                                                          |
+| `/api/flows/cron`                | Times out flow runs abandoned mid-conversation (frees the one-active-run-per-contact lock)                                                                | WhatsApp flows                  | every 15 min                                                          |
+| `/api/renewals/cron`             | Sends the `gym_renewal_reminder` WhatsApp template to members expiring at each configured offset                                                          | Auto renewal reminders          | hourly at :30 (sends after 09:00 in each account's timezone)          |
+| `/api/payment-installments/cron` | Sends the `gym_installment_reminder` WhatsApp template while a conversion's second installment remains due                                                | Conversion payment installments | hourly at :30 (7, 3, 1, and 0 days before the account-local deadline) |
 
-All four are idempotent and dedupe claim-first — an overlapping or
-doubled run never double-sends. Renewals has its own deep-dive:
-[renewal-reminders.md](renewal-reminders.md).
+All five are idempotent and dedupe claim-first — an overlapping or
+doubled run never double-sends. Deep dives:
+[renewal reminders](renewal-reminders.md) and
+[payment installments](payment-installments.md).
 
 ### Follow-up reminder ringing
 
@@ -51,9 +53,9 @@ Two workflows ping production (`desk.usefulmade.com`):
   may stretch this to ~25 min under load, which is fine — reminder
   slots are hourly).
 - [`.github/workflows/renewals-cron.yml`](../.github/workflows/renewals-cron.yml)
-  — renewals, hourly at :30. Accounts live in different timezones
-  (migration 055); each run only processes accounts past 09:00 local,
-  and the sent-ledger keeps it to one send per day per member.
+  — renewal and payment-installment reminders, hourly at :30. Accounts
+  live in different timezones (migration 055); each route sends only
+  after 09:00 local, and its sent ledger prevents duplicate messages.
 
 Why not native Vercel Cron: the Hobby plan allows only 2 cron jobs at
 once-per-day granularity — useless for the 15-minute jobs. GitHub
@@ -77,6 +79,8 @@ curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/follow-ups
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/automations/cron
 # → { "processed": n }
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/flows/cron
+curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/renewals/cron
+curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/payment-installments/cron
 ```
 
 `401` → secret mismatch (Vercel env vs repo secret). `503` → env var
@@ -94,7 +98,8 @@ authenticate automatically — and create `vercel.json`:
     { "path": "/api/follow-ups/cron", "schedule": "*/15 * * * *" },
     { "path": "/api/automations/cron", "schedule": "*/15 * * * *" },
     { "path": "/api/flows/cron", "schedule": "*/15 * * * *" },
-    { "path": "/api/renewals/cron", "schedule": "30 3 * * *" }
+    { "path": "/api/renewals/cron", "schedule": "30 * * * *" },
+    { "path": "/api/payment-installments/cron", "schedule": "30 * * * *" }
   ]
 }
 ```
