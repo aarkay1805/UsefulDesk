@@ -166,12 +166,11 @@ export function MemberForm({
   const [bonusMonths, setBonusMonths] = useState('');
   const [bonusMonthsTouched, setBonusMonthsTouched] = useState(false);
 
-  // First-payment capture (add mode only). Defaults ON — a walk-in pays
-  // at signup; staff untick for the exception, not the rule. Amount
-  // defaults to the full fee but accepts a partial joining payment.
+  // Walk-ins usually pay at signup, but Add member can still create an
+  // unpaid invoice for the exception. Lead conversion keeps its established
+  // collection-required behavior.
   const [collectPayment, setCollectPayment] = useState(true);
   const [payMethod, setPayMethod] = useState<PaymentMethod>('cash');
-  const [payAmount, setPayAmount] = useState('');
   const [conversionPaymentTiming, setConversionPaymentTiming] =
     useState<ConversionPaymentTiming>('full');
 
@@ -195,8 +194,11 @@ export function MemberForm({
   // the lead's phone number in step 1. The old phone-comparison heuristic
   // could accidentally create a new contact and leave the lead behind.
   const isConvert = !isEdit && !!seedContact?.id;
-  const convertName =
-    name.trim() || seedContact?.name?.trim() || 'This contact';
+  const isCreate = !isEdit;
+  const displayName =
+    name.trim() ||
+    seedContact?.name?.trim() ||
+    (isConvert ? 'This contact' : 'New member');
 
   const selectedPlan = plans.find((p) => p.id === planId);
   // An ARCHIVED option still resolves when it's the membership's own
@@ -209,8 +211,8 @@ export function MemberForm({
         o.id === optionId &&
         (o.is_active || (isEdit && o.id === member?.pricing_option_id))
     ) ?? null;
-  // The fee the first payment settles against. Conversion applies its
-  // explicit one-time offer; normal add mode keeps the editable-fee fallback.
+  // Every single-member creation path shares the canonical joining offer.
+  // Edit mode keeps the existing correction-oriented fee field.
   const regularFirstFee = selectedOption ? firstCycleFee(selectedOption) : 0;
   const discountKind = discountMode === 'none' ? null : discountMode;
   const discountQuote = oneTimeDiscountQuote(
@@ -222,7 +224,7 @@ export function MemberForm({
     discountKind && discountTouched
       ? oneTimeDiscountError(regularFirstFee, discountKind, discountValue)
       : null;
-  const previewFee = isConvert
+  const previewFee = isCreate
     ? discountQuote.firstInvoiceTotal
     : feeAmount === ''
       ? regularFirstFee
@@ -250,7 +252,7 @@ export function MemberForm({
   const standardEndForPaid = standardPaidEndDate();
   const bonusMonthsQuote = oneTimeBonusMonthsQuote(
     standardEndForPaid,
-    isConvert && bonusMonthsEnabled,
+    isCreate && bonusMonthsEnabled,
     bonusMonths
   );
   const bonusMonthsFieldError =
@@ -291,9 +293,8 @@ export function MemberForm({
     setBonusMonthsEnabled(false);
     setBonusMonths('');
     setBonusMonthsTouched(false);
-    setCollectPayment(!member);
+    setCollectPayment(true);
     setPayMethod('cash');
-    setPayAmount('');
     setConversionPaymentTiming('full');
     setDupMatch(null);
     setIsTrial(member?.is_trial ?? false);
@@ -326,9 +327,9 @@ export function MemberForm({
     return () => window.removeEventListener('focus', refreshPlans);
   }, [open, refreshPlans]);
 
-  async function checkDuplicate() {
+  async function checkDuplicate(rawPhone = phone) {
     if (isEdit || !accountId) return;
-    const value = phone.trim();
+    const value = rawPhone.trim();
     if (!value || isConvert) return setDupMatch(null);
     setCheckingDup(true);
     try {
@@ -347,11 +348,10 @@ export function MemberForm({
     }
   }
 
-  async function saveConversionField(
+  async function savePersonalField(
     column: 'name' | 'phone' | 'email',
     rawValue: string
   ): Promise<boolean> {
-    if (!isConvert || !seedContact?.id || !accountId) return false;
     const value = rawValue.trim();
     if (column === 'phone' && !value) {
       toast.error('Phone number is required');
@@ -361,6 +361,20 @@ export function MemberForm({
       toast.error('Enter a valid email address');
       return false;
     }
+
+    // A not-yet-created member has no contact row to update. Keep the same
+    // click-to-edit interaction as lead conversion, but commit into the form
+    // draft until submit creates (or attaches) the contact.
+    if (!seedContact?.id) {
+      if (column === 'name') setName(value);
+      if (column === 'phone') {
+        setPhone(value);
+        await checkDuplicate(value);
+      }
+      if (column === 'email') setEmail(value);
+      return true;
+    }
+    if (!accountId) return false;
 
     try {
       if (column === 'phone') {
@@ -395,11 +409,15 @@ export function MemberForm({
     }
   }
 
-  async function saveConversionMeasurement(
+  async function savePersonalMeasurement(
     column: 'height_cm' | 'weight_kg',
     value: number | null
   ): Promise<boolean> {
-    if (!isConvert || !seedContact?.id) return false;
+    if (!seedContact?.id) {
+      if (column === 'height_cm') setHeightCm(value);
+      if (column === 'weight_kg') setWeightKg(value);
+      return true;
+    }
     try {
       const { data, error } = await supabase
         .from('contacts')
@@ -419,14 +437,18 @@ export function MemberForm({
     }
   }
 
-  async function saveConversionProfileField(
+  async function savePersonalProfileField(
     column: 'gender' | 'date_of_birth',
     value: string
   ): Promise<boolean> {
-    if (!isConvert || !seedContact?.id) return false;
     if (column === 'date_of_birth' && value && value > fmt.today()) {
       toast.error('Birthday cannot be in the future');
       return false;
+    }
+    if (!seedContact?.id) {
+      if (column === 'gender') setGender(value);
+      if (column === 'date_of_birth') setDateOfBirth(value);
+      return true;
     }
     try {
       const { data, error } = await supabase
@@ -449,7 +471,7 @@ export function MemberForm({
 
   async function saveDisplayedHeight(rawValue: string): Promise<boolean> {
     if (!rawValue.trim()) {
-      return saveConversionMeasurement('height_cm', null);
+      return savePersonalMeasurement('height_cm', null);
     }
     const value = Number(rawValue);
     if (!Number.isFinite(value) || value <= 0) {
@@ -460,12 +482,12 @@ export function MemberForm({
       locale.measurementSystem === 'imperial'
         ? feetInchesToCm(0, value)
         : Math.round(value * 10) / 10;
-    return saveConversionMeasurement('height_cm', canonical);
+    return savePersonalMeasurement('height_cm', canonical);
   }
 
   async function saveDisplayedWeight(rawValue: string): Promise<boolean> {
     if (!rawValue.trim()) {
-      return saveConversionMeasurement('weight_kg', null);
+      return savePersonalMeasurement('weight_kg', null);
     }
     const value = Number(rawValue);
     if (!Number.isFinite(value) || value <= 0) {
@@ -476,7 +498,7 @@ export function MemberForm({
       locale.measurementSystem === 'imperial'
         ? lbToKg(value)
         : Math.round(value * 10) / 10;
-    return saveConversionMeasurement('weight_kg', canonical);
+    return savePersonalMeasurement('weight_kg', canonical);
   }
 
   async function refreshConversionAvatar() {
@@ -523,7 +545,7 @@ export function MemberForm({
     if (!isTrial && !endForPaid) {
       return toast.error('Pick a billing option for this plan');
     }
-    if (isConvert && !isTrial) {
+    if (isCreate && !isTrial) {
       setDiscountTouched(true);
       setBonusMonthsTouched(true);
       const discountError = oneTimeDiscountError(
@@ -545,7 +567,7 @@ export function MemberForm({
     // not the plan's frozen price (which mirrors the first option only).
     const fee = isTrial
       ? 0
-      : isConvert
+      : isCreate
         ? discountQuote.firstInvoiceTotal
         : feeAmount === ''
           ? selectedOption
@@ -555,16 +577,12 @@ export function MemberForm({
     if (!Number.isFinite(fee) || fee < 0)
       return toast.error('Enter a valid fee');
 
-    // First payment: blank = the full fee; a typed amount may be a
-    // partial joining payment but can't exceed the fee.
-    const collecting = !isTrial && fee > 0 && (isConvert || collectPayment);
-    const payAmt = isConvert
-      ? conversionPaymentTiming === 'installments'
+    const collecting =
+      isCreate && !isTrial && fee > 0 && (isConvert || collectPayment);
+    const payAmt =
+      conversionPaymentTiming === 'installments'
         ? installmentAmounts(fee).now
-        : fee
-      : payAmount === ''
-        ? fee
-        : Number(payAmount);
+        : fee;
     if (collecting) {
       if (!Number.isFinite(payAmt) || payAmt <= 0)
         return toast.error('Enter a valid payment amount');
@@ -611,7 +629,7 @@ export function MemberForm({
       if (isConvert && seedContact?.id) {
         contactId = seedContact.id;
         // Conversion always updates the lead that opened this dialog.
-        const patch: Record<string, string> = {};
+        const patch: Record<string, string | number | null> = {};
         if (name.trim() && name.trim() !== (seedContact.name ?? '')) {
           patch.name = name.trim();
         }
@@ -644,7 +662,7 @@ export function MemberForm({
           // staff correcting a lead's name/email on the way in expects it to
           // stick (it used to be silently dropped). Only non-empty values are
           // written, so a blank field can't wipe what the contact already has.
-          const patch: Record<string, string> = {};
+          const patch: Record<string, string | number | null> = {};
           if (name.trim() && name.trim() !== (existing.name ?? ''))
             patch.name = name.trim();
           if (
@@ -654,6 +672,10 @@ export function MemberForm({
             patch.email = email.trim();
           if (phone.trim() && phone.trim() !== existing.phone)
             patch.phone = phone.trim();
+          if (gender) patch.gender = gender;
+          if (dateOfBirth) patch.date_of_birth = dateOfBirth;
+          if (heightCm !== null) patch.height_cm = heightCm;
+          if (weightKg !== null) patch.weight_kg = weightKg;
           if (Object.keys(patch).length) {
             // Silent-RLS rule: a blocked update returns no error and no rows.
             const { data: updated, error: uErr } = await supabase
@@ -674,6 +696,10 @@ export function MemberForm({
               name: name.trim() || null,
               phone: phone.trim(),
               email: email.trim() || null,
+              gender: gender || null,
+              date_of_birth: dateOfBirth || null,
+              height_cm: heightCm,
+              weight_kg: weightKg,
               // Origin (migration 048): a human added this record in the UI.
               received_via: 'manual' as const,
             })
@@ -700,20 +726,18 @@ export function MemberForm({
           is_trial: isTrial,
           notes: notes.trim() || null,
           conversion_list_price:
-            isConvert && !isTrial ? discountQuote.listPrice : null,
-          conversion_discount_type: isConvert && !isTrial ? discountKind : null,
+            isCreate && !isTrial ? discountQuote.listPrice : null,
+          conversion_discount_type: isCreate && !isTrial ? discountKind : null,
           conversion_discount_value:
-            isConvert && !isTrial && discountKind
-              ? Number(discountValue)
-              : null,
+            isCreate && !isTrial && discountKind ? Number(discountValue) : null,
           conversion_discount_amount:
-            isConvert && !isTrial ? discountQuote.discountAmount : 0,
+            isCreate && !isTrial ? discountQuote.discountAmount : 0,
           conversion_standard_end_date:
-            isConvert && !isTrial && bonusMonthsQuote.bonusMonths > 0
+            isCreate && !isTrial && bonusMonthsQuote.bonusMonths > 0
               ? standardEndForPaid
               : null,
           conversion_bonus_months:
-            isConvert && !isTrial ? bonusMonthsQuote.bonusMonths : 0,
+            isCreate && !isTrial ? bonusMonthsQuote.bonusMonths : 0,
         })
         .select('id, member_number')
         .single();
@@ -732,7 +756,7 @@ export function MemberForm({
       // Optional first payment (never for a free trial).
       if (collecting) {
         const paymentArgs =
-          isConvert && conversionPaymentTiming === 'installments'
+          conversionPaymentTiming === 'installments'
             ? {
                 functionName: 'record_membership_installment_payment',
                 params: {
@@ -802,12 +826,12 @@ export function MemberForm({
       <DialogContent
         className={cn(
           'flex max-h-[96vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-md',
-          isConvert &&
+          isCreate &&
             'h-[min(96vh,900px)] sm:max-w-[min(960px,calc(100vw-2rem))]'
         )}
       >
         <DialogHeader className="border-border shrink-0 border-b p-5">
-          <DialogTitle size={isConvert ? 'lg' : 'default'}>
+          <DialogTitle size={isCreate ? 'lg' : 'default'}>
             {isEdit
               ? 'Edit member'
               : isConvert
@@ -827,31 +851,39 @@ export function MemberForm({
           <div
             className={cn(
               'min-h-0 flex-1 overflow-y-auto',
-              isConvert
+              isCreate
                 ? 'grid md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]'
                 : 'px-4 py-2'
             )}
           >
-            {isConvert && (
+            {isCreate && (
               <aside className="border-border border-b p-5 md:border-r md:border-b-0">
                 <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setAvatarOpen(true)}
-                    aria-label="Change profile picture"
-                    className="group/avatar-edit relative shrink-0 rounded-full"
-                  >
-                    <UserAvatar size="lg" name={convertName} src={avatarUrl} />
-                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover/avatar-edit:opacity-100 group-focus-visible/avatar-edit:opacity-100">
-                      <Camera className="size-4" />
-                    </span>
-                  </button>
+                  {seedContact?.id ? (
+                    <button
+                      type="button"
+                      onClick={() => setAvatarOpen(true)}
+                      aria-label="Change profile picture"
+                      className="group/avatar-edit relative shrink-0 rounded-full"
+                    >
+                      <UserAvatar
+                        size="lg"
+                        name={displayName}
+                        src={avatarUrl}
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover/avatar-edit:opacity-100 group-focus-visible/avatar-edit:opacity-100">
+                        <Camera className="size-4" />
+                      </span>
+                    </button>
+                  ) : (
+                    <UserAvatar size="lg" name={displayName} />
+                  )}
                   <div className="min-w-0 space-y-0.5">
                     <p className="text-foreground truncate font-medium">
-                      {convertName}
+                      {displayName}
                     </p>
                     <p className="text-muted-foreground truncate text-sm">
-                      {phone.trim()}
+                      {phone.trim() || 'Add contact details below'}
                     </p>
                   </div>
                 </div>
@@ -865,21 +897,21 @@ export function MemberForm({
                       label="Name"
                       value={name}
                       placeholder="Add name"
-                      onSave={(value) => saveConversionField('name', value)}
+                      onSave={(value) => savePersonalField('name', value)}
                     />
                     <ConversionEditableDetailRow
                       label="Phone"
                       type="tel"
                       value={phone}
                       placeholder="Add phone"
-                      onSave={(value) => saveConversionField('phone', value)}
+                      onSave={(value) => savePersonalField('phone', value)}
                     />
                     <ConversionEditableDetailRow
                       label="Email"
                       value={email}
                       type="email"
                       placeholder="Add email"
-                      onSave={(value) => saveConversionField('email', value)}
+                      onSave={(value) => savePersonalField('email', value)}
                     />
                     <ConversionDateDetailRow
                       label="Birthday"
@@ -887,7 +919,7 @@ export function MemberForm({
                       displayValue={dateOfBirth ? fmt.date(dateOfBirth) : '—'}
                       max={fmt.today()}
                       onSave={(value) =>
-                        saveConversionProfileField('date_of_birth', value)
+                        savePersonalProfileField('date_of_birth', value)
                       }
                     />
                     <ConversionSelectDetailRow
@@ -902,10 +934,34 @@ export function MemberForm({
                         label: option.label,
                       }))}
                       onSave={(value) =>
-                        saveConversionProfileField('gender', value)
+                        savePersonalProfileField('gender', value)
                       }
                     />
                   </dl>
+                  {!isConvert && dupMatch && (
+                    <div className="text-amber-foreground mt-3 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs">
+                      <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                      <div className="space-y-1">
+                        <p>
+                          {dupMatch.isMember
+                            ? `${dupMatch.contact.name || 'This person'} already has a membership — open their profile to renew or edit it.`
+                            : dupMatch.exact
+                              ? `This number already belongs to ${dupMatch.contact.name || 'an existing contact'}. No duplicate is created — the membership attaches to that record, and details added here update it.`
+                              : 'A contact with a very similar number already exists.'}
+                        </p>
+                        {onViewExisting && (
+                          <button
+                            type="button"
+                            onClick={() => onViewExisting(dupMatch.contact.id)}
+                            className="font-medium underline underline-offset-2 hover:no-underline"
+                          >
+                            View{' '}
+                            {dupMatch.contact.name || dupMatch.contact.phone}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-6">
@@ -955,14 +1011,13 @@ export function MemberForm({
             <div
               className={cn(
                 'space-y-4',
-                isConvert && 'space-y-6 px-5 py-5 sm:px-6'
+                isCreate && 'space-y-6 px-5 py-5 sm:px-6'
               )}
             >
-              {!isConvert && (
+              {isEdit && (
                 <>
-                  {/* Phone leads: it's the identity key — the dedupe check fires
-                off it, so an existing member surfaces before staff types
-                out the rest of the form. */}
+                  {/* Edit mode keeps the compact correction form; creation
+                      owns the split personal-information rail above. */}
                   <div className="space-y-2">
                     <Label htmlFor="mf-phone">
                       Phone <span className="text-red-foreground">*</span>
@@ -975,7 +1030,7 @@ export function MemberForm({
                         setPhone(value);
                         if (dupMatch) setDupMatch(null);
                       }}
-                      onBlur={checkDuplicate}
+                      onBlur={() => void checkDuplicate()}
                       placeholder="98765 43210"
                     />
                     {dupMatch ? (
@@ -1036,16 +1091,16 @@ export function MemberForm({
                 </>
               )}
 
-              {/* Membership fields are shared by Add/Edit and conversion;
-                   conversion simply places them in the right-hand pane. */}
+              {/* Membership fields are shared by edit and every creation
+                   path; creation uses the canonical right-hand pane. */}
               <>
                 <div
                   className={cn(
                     'grid gap-4 sm:grid-cols-2',
-                    isConvert && 'border-border rounded-lg border p-4'
+                    isCreate && 'border-border rounded-lg border p-4'
                   )}
                 >
-                  {isConvert && (
+                  {isCreate && (
                     <h3 className="text-foreground text-base font-semibold sm:col-span-2">
                       Membership details
                     </h3>
@@ -1121,7 +1176,7 @@ export function MemberForm({
                   </div>
                 ) : (
                   <>
-                    {isConvert ? (
+                    {isCreate ? (
                       selectedOption && (
                         <>
                           <div className="border-border space-y-6 rounded-lg border p-4">
@@ -1462,209 +1517,128 @@ export function MemberForm({
                   </>
                 )}
 
-                {isConvert && !isTrial && previewFee > 0 && (
+                {isCreate && !isTrial && previewFee > 0 && (
                   <div className="border-border space-y-4 rounded-lg border p-4">
                     <p className="text-foreground text-sm font-semibold">
                       Payment methods
                     </p>
-                    <RadioGroup
-                      value={conversionPaymentTiming}
-                      onValueChange={(value) =>
-                        value &&
-                        setConversionPaymentTiming(
-                          value as ConversionPaymentTiming
-                        )
-                      }
-                      className="gap-2"
-                    >
-                      <label
-                        className={cn(
-                          'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
-                          conversionPaymentTiming === 'full'
-                            ? 'border-primary/40 bg-primary/[0.04]'
-                            : 'border-border/80 hover:border-border-hover'
-                        )}
-                      >
-                        <RadioGroupItem value="full" className="mt-0.5" />
-                        <span className="min-w-0 space-y-0.5">
-                          <span className="text-foreground block text-sm font-medium">
-                            Pay in full
-                          </span>
-                          <span className="text-muted-foreground block text-xs">
-                            <span className="tabular-nums">
-                              {fmt.money(previewFee)}
-                            </span>{' '}
-                            due today · {fmt.date(fmt.today())}
-                          </span>
-                        </span>
-                      </label>
-                      <label
-                        className={cn(
-                          'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
-                          conversionPaymentTiming === 'installments'
-                            ? 'border-primary/40 bg-primary/[0.04]'
-                            : 'border-border/80 hover:border-border-hover'
-                        )}
-                      >
-                        <RadioGroupItem
-                          value="installments"
-                          className="mt-0.5"
+                    {!isConvert && (
+                      <Label htmlFor="mf-collect-payment">
+                        <Checkbox
+                          id="mf-collect-payment"
+                          checked={collectPayment}
+                          onCheckedChange={(checked) =>
+                            setCollectPayment(checked === true)
+                          }
                         />
-                        <span className="min-w-0 space-y-0.5">
-                          <span className="text-foreground block text-sm font-medium">
-                            Part now, part later
-                          </span>
-                          <span className="text-muted-foreground block text-xs">
-                            <span className="tabular-nums">
-                              {fmt.money(conversionInstallments.now)}
-                            </span>{' '}
-                            now, then{' '}
-                            <span className="tabular-nums">
-                              {fmt.money(conversionInstallments.later)}
-                            </span>{' '}
-                            on {fmt.date(conversionSecondDueOn)}. No extra fees.
-                          </span>
-                        </span>
-                      </label>
-                    </RadioGroup>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="mf-conversion-method">
-                        Today&apos;s payment method
+                        Collect the first payment now
                       </Label>
-                      <Select
-                        value={payMethod}
-                        onValueChange={(value) =>
-                          setPayMethod(value as PaymentMethod)
-                        }
-                      >
-                        <SelectTrigger
-                          id="mf-conversion-method"
-                          className="w-full"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PAYMENT_METHODS.map((method) => (
-                            <SelectItem key={method.value} value={method.value}>
-                              {method.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {conversionPaymentTiming === 'installments' && (
-                      <p className="text-muted-foreground text-xs">
-                        We&apos;ll remind {convertName} on WhatsApp before the
-                        second payment is due.
-                      </p>
                     )}
-                  </div>
-                )}
+                    {(isConvert || collectPayment) && (
+                      <>
+                        <RadioGroup
+                          value={conversionPaymentTiming}
+                          onValueChange={(value) =>
+                            value &&
+                            setConversionPaymentTiming(
+                              value as ConversionPaymentTiming
+                            )
+                          }
+                          className="gap-2"
+                        >
+                          <label
+                            className={cn(
+                              'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                              conversionPaymentTiming === 'full'
+                                ? 'border-primary/40 bg-primary/[0.04]'
+                                : 'border-border/80 hover:border-border-hover'
+                            )}
+                          >
+                            <RadioGroupItem value="full" className="mt-0.5" />
+                            <span className="min-w-0 space-y-0.5">
+                              <span className="text-foreground block text-sm font-medium">
+                                Pay in full
+                              </span>
+                              <span className="text-muted-foreground block text-xs">
+                                <span className="tabular-nums">
+                                  {fmt.money(previewFee)}
+                                </span>{' '}
+                                due today · {fmt.date(fmt.today())}
+                              </span>
+                            </span>
+                          </label>
+                          <label
+                            className={cn(
+                              'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                              conversionPaymentTiming === 'installments'
+                                ? 'border-primary/40 bg-primary/[0.04]'
+                                : 'border-border/80 hover:border-border-hover'
+                            )}
+                          >
+                            <RadioGroupItem
+                              value="installments"
+                              className="mt-0.5"
+                            />
+                            <span className="min-w-0 space-y-0.5">
+                              <span className="text-foreground block text-sm font-medium">
+                                Part now, part later
+                              </span>
+                              <span className="text-muted-foreground block text-xs">
+                                <span className="tabular-nums">
+                                  {fmt.money(conversionInstallments.now)}
+                                </span>{' '}
+                                now, then{' '}
+                                <span className="tabular-nums">
+                                  {fmt.money(conversionInstallments.later)}
+                                </span>{' '}
+                                on {fmt.date(conversionSecondDueOn)}. No extra
+                                fees.
+                              </span>
+                            </span>
+                          </label>
+                        </RadioGroup>
 
-                {!isConvert && !isEdit && !isTrial && previewFee > 0 && (
-                  <div className="border-border space-y-6 rounded-lg border p-4">
-                    <Label htmlFor="mf-collect-payment">
-                      <Checkbox
-                        id="mf-collect-payment"
-                        checked={collectPayment}
-                        onCheckedChange={(checked) =>
-                          setCollectPayment(checked === true)
-                        }
-                      />
-                      Collect the first payment now
-                    </Label>
-                    {collectPayment && (
-                      <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
-                          <Label htmlFor="mf-pay-amount">Amount</Label>
-                          <Input
-                            id="mf-pay-amount"
-                            type="number"
-                            min={0.01}
-                            step="0.01"
-                            inputMode="decimal"
-                            value={payAmount}
-                            onChange={(e) => setPayAmount(e.target.value)}
-                            placeholder={
-                              previewFee > 0 ? String(previewFee) : '0'
-                            }
-                          />
-                          {previewFee > 0 && (
-                            <div className="flex gap-2">
-                              {/* Same one-tap splits as RecordPaymentDialog —
-                              partial joining payments are routine. */}
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                onClick={() => setPayAmount(String(previewFee))}
-                              >
-                                Full{' '}
-                                <span className="tabular-nums">
-                                  {fmt.moneyShort(previewFee)}
-                                </span>
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                onClick={() =>
-                                  setPayAmount(
-                                    String(
-                                      Math.round((previewFee / 2) * 100) / 100
-                                    )
-                                  )
-                                }
-                              >
-                                Half{' '}
-                                <span className="tabular-nums">
-                                  {fmt.moneyShort(
-                                    Math.round((previewFee / 2) * 100) / 100
-                                  )}
-                                </span>
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="mf-method">Payment method</Label>
+                          <Label htmlFor="mf-conversion-method">
+                            Today&apos;s payment method
+                          </Label>
                           <Select
                             value={payMethod}
-                            onValueChange={(v) =>
-                              setPayMethod(v as PaymentMethod)
+                            onValueChange={(value) =>
+                              setPayMethod(value as PaymentMethod)
                             }
                           >
-                            <SelectTrigger id="mf-method" className="w-full">
+                            <SelectTrigger
+                              id="mf-conversion-method"
+                              className="w-full"
+                            >
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {PAYMENT_METHODS.map((m) => (
-                                <SelectItem key={m.value} value={m.value}>
-                                  {m.label}
+                              {PAYMENT_METHODS.map((method) => (
+                                <SelectItem
+                                  key={method.value}
+                                  value={method.value}
+                                >
+                                  {method.label}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
-                        {previewFee > 0 &&
-                          payAmount !== '' &&
-                          Number(payAmount) > 0 &&
-                          Number(payAmount) < previewFee && (
-                            <p className="text-muted-foreground text-xs sm:col-span-2">
-                              Remaining due after this payment:{' '}
-                              <span className="text-foreground font-medium tabular-nums">
-                                {fmt.money(previewFee - Number(payAmount))}
-                              </span>
-                            </p>
-                          )}
-                      </div>
+
+                        {conversionPaymentTiming === 'installments' && (
+                          <p className="text-muted-foreground text-xs">
+                            We&apos;ll remind {displayName} on WhatsApp before
+                            the second payment is due.
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
 
-                {!isConvert && (
+                {isEdit && (
                   <div className="space-y-2">
                     <Label htmlFor="mf-notes">Notes</Label>
                     <Input
@@ -1680,7 +1654,7 @@ export function MemberForm({
           </div>
 
           <DialogFooter className="border-border m-0 shrink-0">
-            {isConvert && (
+            {isCreate && (
               <p className="text-muted-foreground mr-auto self-center text-xs">
                 Member ID will be assigned automatically
               </p>
@@ -1707,12 +1681,12 @@ export function MemberForm({
           </DialogFooter>
         </form>
       </DialogContent>
-      {isConvert && seedContact?.id && (
+      {isCreate && seedContact?.id && (
         <AvatarEditorDialog
           open={avatarOpen}
           onOpenChange={setAvatarOpen}
           contactId={seedContact.id}
-          name={convertName}
+          name={displayName}
           currentUrl={avatarUrl}
           onSaved={() => void refreshConversionAvatar()}
         />

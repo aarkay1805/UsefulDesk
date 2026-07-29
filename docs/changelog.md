@@ -6,6 +6,12 @@
 
 ---
 
+## Canonical single-member creation
+
+**Add member** now uses the lead-conversion experience as the canonical single-person creation flow: the same responsive split dialog, click-to-edit personal-information rail, bounded membership details, one-time discount and bonus-month offers, and full-or-60/40 first-payment decision. New-member drafts now carry Birthday, configured Gender, and localized height/weight through contact creation or deduped-contact attachment; seeded lead conversions keep immediate contact/photo editing. Batch import and bulk conversion remain batch-specific. Key code: `src/components/members/member-form.tsx`; durable rules: `docs/ui-patterns.md` and `docs/gym-domain.md`.
+
+---
+
 ## Conversion payment installments
 
 **Convert to member** now presents its plan and start-date fields inside the same bounded section treatment as the adjoining offer and payment decisions. It offers two payment-method choices: pay the first invoice in full, or collect 60% immediately and leave 40% due exactly 28 account-local days later with no extra fee. The split path records the payment and installment promise atomically, preserves the invoice as the balance source of truth, and sends claim-first WhatsApp reminders 7, 3, 1, and 0 days before the deadline while money remains due. It requires an approved `gym_installment_reminder` Utility template with member, amount, plan, and due-date body parameters. Key code: `src/components/members/member-form.tsx`, `src/lib/memberships/installments.ts`, `src/app/api/payment-installments/cron/route.ts`, and `supabase/migrations/20260729190000_conversion_payment_installments.sql`. The migrations were applied through the Supabase connector as `20260729181535` and `20260729181706`.

@@ -89,4 +89,4 @@ Every account owns `country_code`, `locale`, `timezone`, `date_order`, `time_for
 
 ## Operational dependency
 
-One-tap renewal reminders require an account with WhatsApp connected and an approved Meta Utility template named `gym_renewal_reminder` with four body parameters: `{{1}}` member name, `{{2}}` plan, `{{3}}` expiry, and `{{4}}` fee. Conversion installment reminders similarly require an approved `gym_installment_reminder` template with `{{1}}` member name, `{{2}}` outstanding amount, `{{3}}` plan, and `{{4}}` due date. Without the relevant template, other functionality remains available and automated sends skip with a setup note.
+One-tap renewal reminders require an account with WhatsApp connected and an approved Meta Utility template named `gym_renewal_reminder` with four body parameters: `{{1}}` member name, `{{2}}` plan, `{{3}}` expiry, and `{{4}}` fee. Joining-installment reminders similarly require an approved `gym_installment_reminder` template with `{{1}}` member name, `{{2}}` outstanding amount, `{{3}}` plan, and `{{4}}` due date. Without the relevant template, other functionality remains available and automated sends skip with a setup note.
