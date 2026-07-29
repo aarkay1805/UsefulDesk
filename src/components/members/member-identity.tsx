@@ -1,7 +1,14 @@
 "use client";
 
 import type React from "react";
+import { useId } from "react";
 
+import { buttonVariants } from "@/components/ui/button";
+import {
+  PreviewCard,
+  PreviewCardContent,
+  PreviewCardTrigger,
+} from "@/components/ui/preview-card";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +33,7 @@ export function MemberIdentity({
   src,
   size = "default",
   className,
+  avatarPreview,
 }: {
   name?: string | null;
   /** Communication line — phone (preferred) or email. */
@@ -36,8 +44,15 @@ export function MemberIdentity({
   src?: string | null;
   size?: "sm" | "default" | "lg";
   className?: string;
+  /** Optional hover/focus content anchored only to the avatar. */
+  avatarPreview?: {
+    content: React.ReactNode;
+    href: string;
+    onNavigate: () => void;
+  };
 }) {
   const display = name?.trim() || "Unnamed";
+  const avatarPreviewTriggerId = useId();
   // Two lines (name + phone) → centre the avatar against the pair. Three
   // or more (a `meta` context line is present) → top-align it to the
   // block's first line instead.
@@ -50,7 +65,28 @@ export function MemberIdentity({
         className
       )}
     >
-      <UserAvatar name={display} src={src} size={size} />
+      {avatarPreview ? (
+        <PreviewCard>
+          <PreviewCardTrigger
+            id={avatarPreviewTriggerId}
+            href={avatarPreview.href}
+            className={buttonVariants({ variant: "ghost", size: "icon" })}
+            aria-label={`Quick view for ${display}`}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              avatarPreview.onNavigate();
+            }}
+          >
+            <UserAvatar name={display} src={src} size={size} />
+          </PreviewCardTrigger>
+          <PreviewCardContent side="right" align="start" sideOffset={8}>
+            {avatarPreview.content}
+          </PreviewCardContent>
+        </PreviewCard>
+      ) : (
+        <UserAvatar name={display} src={src} size={size} />
+      )}
       <div className="min-w-0">
         <div className="truncate text-sm font-medium text-foreground">
           {display}

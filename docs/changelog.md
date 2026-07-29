@@ -6,6 +6,12 @@
 
 ---
 
+## Member avatar quick view
+
+All members now opens an instant hover/focus quick view from the avatar, with a 144px cached profile photo, name, Member ID, and direct Details, WhatsApp reminder, and Follow-up actions. The preview uses only already-loaded row data—never a hover-time query—and is opt-in on the canonical `MemberIdentity`, so other member lists are unchanged. Key code: `src/components/ui/preview-card.tsx`, `src/components/members/member-identity.tsx`, and `src/components/members/members-table.tsx`.
+
+---
+
 ## Branch restore and permanent deletion
 
 Organization owners who own a branch can now manage every branch from **Settings → Organization & branches**: active/read-only branches can be archived or permanently deleted, and archived branches can be restored or permanently deleted. Exact branch-name confirmation protects archive/delete, the final branch and last surviving active branch are guarded, and hard deletion purges branch Storage, transactionally re-homes shared users, removes branch-only logins, and records a durable deletion audit. Migration `20260728200000_branch_restore_and_erasure.sql` was applied through the Supabase connector as `20260728183018`; key code: `src/app/api/organization/branches/[accountId]/route.ts` and `src/components/settings/branch-actions.tsx`. Gotcha: deleting the final branch remains the separate organization-erasure flow.
