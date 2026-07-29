@@ -958,11 +958,6 @@ export function MemberForm({
                 isConvert && 'space-y-6 px-5 py-5 sm:px-6'
               )}
             >
-              {isConvert && (
-                <h3 className="text-foreground text-base font-semibold">
-                  Membership details
-                </h3>
-              )}
               {!isConvert && (
                 <>
                   {/* Phone leads: it's the identity key — the dedupe check fires
@@ -1044,7 +1039,17 @@ export function MemberForm({
               {/* Membership fields are shared by Add/Edit and conversion;
                    conversion simply places them in the right-hand pane. */}
               <>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div
+                  className={cn(
+                    'grid gap-4 sm:grid-cols-2',
+                    isConvert && 'border-border rounded-lg border p-4'
+                  )}
+                >
+                  {isConvert && (
+                    <h3 className="text-foreground text-base font-semibold sm:col-span-2">
+                      Membership details
+                    </h3>
+                  )}
                   <div className="space-y-2">
                     <PlanOptionPicker
                       idPrefix="mf"
