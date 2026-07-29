@@ -277,7 +277,7 @@ export async function loadFinanceInvoices(
     db
       .from('membership_period_invoices')
       .select(
-        'id, account_id, membership_id, contact_id, plan_id, period_start, period_end, fee_amount, state, created_at, amount_paid, balance, list_price, discount_type, discount_value, discount_amount'
+        'id, account_id, membership_id, contact_id, plan_id, period_start, period_end, fee_amount, state, created_at, amount_paid, balance, list_price, discount_type, discount_value, discount_amount, standard_period_end, bonus_months'
       )
       .gte('created_at', start.toISOString())
       .lt('created_at', next.toISOString())

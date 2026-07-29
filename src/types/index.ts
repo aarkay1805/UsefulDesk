@@ -1,4 +1,4 @@
-import type { AccountRole } from "@/lib/auth/roles";
+import type { AccountRole } from '@/lib/auth/roles';
 
 export interface Profile {
   id: string;
@@ -92,7 +92,7 @@ export interface AccountInvitation {
   id: string;
   account_id: string;
   /** Roles offered via invite — owner is never offered. */
-  role: Exclude<AccountRole, "owner">;
+  role: Exclude<AccountRole, 'owner'>;
   created_by_user_id: string | null;
   label: string | null;
   created_at: string;
@@ -113,13 +113,7 @@ export type LeadStatus = string;
  *  migration 048). 'manual'/'import' are human actions; the rest are
  *  automated captures rendered as "Auto · <channel>". */
 export type ReceivedVia =
-  | 'manual'
-  | 'import'
-  | 'whatsapp'
-  | 'meta'
-  | 'api'
-  | 'automation'
-  | 'form';
+  'manual' | 'import' | 'whatsapp' | 'meta' | 'api' | 'automation' | 'form';
 
 export interface Contact {
   id: string;
@@ -335,7 +329,8 @@ export type ContentType =
   | 'template'
   /** Customer tapped a reply button or list row on a message we sent. */
   | 'interactive';
-export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export type MessageStatus =
+  'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface MessageReferral {
   source_url: string | null;
@@ -508,8 +503,10 @@ export interface Deal {
   assignee?: Profile;
 }
 
-export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
-export type RecipientStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed';
+export type BroadcastStatus =
+  'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+export type RecipientStatus =
+  'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed';
 
 export interface Broadcast {
   id: string;
@@ -689,10 +686,7 @@ export interface WaitStepConfig {
 }
 
 export type ConditionSubject =
-  | 'contact_field'
-  | 'tag_presence'
-  | 'message_content'
-  | 'time_of_day';
+  'contact_field' | 'tag_presence' | 'message_content' | 'time_of_day';
 
 export interface ConditionStepConfig {
   subject: ConditionSubject;
@@ -883,6 +877,11 @@ export interface Membership {
   conversion_discount_type?: MembershipDiscountType | null;
   conversion_discount_value?: number | null;
   conversion_discount_amount?: number;
+  /** Standard first-period expiry plus a one-time lead-conversion
+   *  extension. Renewals continue from the actual expiry using the
+   *  selected pricing option's normal duration. */
+  conversion_standard_end_date?: string | null;
+  conversion_bonus_months?: number;
   /** Set to the freeze date while status='frozen'. */
   frozen_at?: string | null;
   /** True while this row is a trial/lead (migration 035), before it
@@ -985,12 +984,7 @@ export type MembershipCollectionMode = 'manual' | 'auto';
 export type PaymentSource = 'manual' | 'auto';
 
 export type MandateStatus =
-  | 'pending'
-  | 'active'
-  | 'paused'
-  | 'revoked'
-  | 'expired'
-  | 'failed';
+  'pending' | 'active' | 'paused' | 'revoked' | 'expired' | 'failed';
 
 /**
  * A saved recurring auto-debit mandate (migration 059) — one live mandate
@@ -1063,7 +1057,8 @@ export type MembershipPeriodState = 'open' | 'void';
  * cycle billed and collected nothing (a zero-fee cycle, or a pro-rated
  * stub whose fee rounds to zero at display precision).
  */
-export type InvoiceStatus = 'paid' | 'unpaid' | 'upcoming' | 'void' | 'no_charge';
+export type InvoiceStatus =
+  'paid' | 'unpaid' | 'upcoming' | 'void' | 'no_charge';
 
 /**
  * One persisted billing cycle = one invoice (migration 057). The
@@ -1085,6 +1080,9 @@ export interface MembershipPeriod {
   discount_type?: MembershipDiscountType | null;
   discount_value?: number | null;
   discount_amount?: number;
+  /** One-time service extension attached to the initial invoice. */
+  standard_period_end?: string | null;
+  bonus_months?: number;
   state: MembershipPeriodState;
   created_at: string;
   updated_at: string;
@@ -1110,6 +1108,9 @@ export interface MembershipPeriodInvoice {
   discount_type?: MembershipDiscountType | null;
   discount_value?: number | null;
   discount_amount?: number;
+  /** One-time service extension attached to the initial invoice. */
+  standard_period_end?: string | null;
+  bonus_months?: number;
   state: MembershipPeriodState;
   created_at: string;
   amount_paid: number;
@@ -1168,17 +1169,18 @@ export interface MemberActivity {
 // Follow-up tasks (migration 036)
 // ============================================================
 
-export type FollowUpReason = "renewal" | "payment" | "trial" | "inactive" | "other";
-export type FollowUpStatus = "open" | "done" | "cancelled";
+export type FollowUpReason =
+  'renewal' | 'payment' | 'trial' | 'inactive' | 'other';
+export type FollowUpStatus = 'open' | 'done' | 'cancelled';
 export type FollowUpOutcome =
-  | "renewed"
-  | "paid"
-  | "promised"
-  | "contacted"
-  | "trial_booked"
-  | "no_answer"
-  | "not_interested"
-  | "other";
+  | 'renewed'
+  | 'paid'
+  | 'promised'
+  | 'contacted'
+  | 'trial_booked'
+  | 'no_answer'
+  | 'not_interested'
+  | 'other';
 
 /**
  * One staff task: chase this lead or member for this reason, owned by one
@@ -1197,7 +1199,7 @@ export interface FollowUp {
   created_by: string;
   reason: FollowUpReason;
   /** Concrete follow-up type (migration 043). */
-  task_type: "call" | "email" | "todo";
+  task_type: 'call' | 'email' | 'todo';
   /** 'YYYY-MM-DD' — IST semantics, same as memberships.end_date. */
   due_date: string;
   status: FollowUpStatus;

@@ -6,6 +6,12 @@
 
 ---
 
+## One-time lead conversion bonus months
+
+**Convert to member** now offers bonus months with the same progressive-disclosure pattern as its price discount: an unfilled checkbox section, editable whole-month input, and shared +1/+2/+3 month quick chips. The live quote separates regular expiry, bonus time, and first expiry. The selected billing option remains unchanged; only the first period is extended, and later renewals continue from the actual expiry at the option's normal duration and price. Membership and invoice snapshots preserve the original expiry and bonus for audit, and invoice detail exposes both. Migration `20260729173714_one_time_conversion_bonus_months.sql` was applied through the Supabase connector as `20260729174039`. Key code: `src/components/members/member-form.tsx`, `src/lib/memberships/bonus-time.ts`, and `src/components/members/invoice-detail-dialog.tsx`.
+
+---
+
 ## Member avatar quick view
 
 Every Members tab—Renewals, Follow-ups, Trials, Payments, At risk, All members, and Attendance—now opens the same instant hover/focus quick view from the avatar, with a 144px cached profile photo, name, Member ID, and applicable Details, WhatsApp reminder, and Follow-up actions. The shared preview uses only list-loaded row data—never a hover-time query; the At risk list batches its missing contact-avatar fields into the list load. Key code: `src/components/ui/preview-card.tsx`, `src/components/members/member-identity.tsx`, and `src/components/members/member-avatar-quick-view.tsx`.

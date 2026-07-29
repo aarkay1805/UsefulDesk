@@ -278,7 +278,7 @@ export async function loadFinanceOverview(
         db
           .from('membership_period_invoices')
           .select(
-            'id, account_id, membership_id, contact_id, plan_id, period_start, period_end, fee_amount, state, created_at, amount_paid, balance'
+            'id, account_id, membership_id, contact_id, plan_id, period_start, period_end, fee_amount, state, created_at, amount_paid, balance, standard_period_end, bonus_months'
           )
           .gte('created_at', bounds.currentStart)
           .lt('created_at', bounds.nextStart)

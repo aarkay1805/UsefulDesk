@@ -25,6 +25,11 @@ import {
   type OneTimeDiscountKind,
 } from '@/lib/memberships/discount';
 import {
+  MAX_CONVERSION_BONUS_MONTHS,
+  oneTimeBonusMonthsError,
+  oneTimeBonusMonthsQuote,
+} from '@/lib/memberships/bonus-time';
+import {
   durationLabel,
   firstCycleFee,
   optionEndDate,
@@ -78,6 +83,7 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 type ConversionDiscountMode = 'none' | OneTimeDiscountKind;
 
 const DISCOUNT_PERCENTAGE_PRESETS = ['10', '20', '30'] as const;
+const BONUS_MONTH_PRESETS = ['1', '2', '3'] as const;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -150,6 +156,9 @@ export function MemberForm({
     useState<ConversionDiscountMode>('none');
   const [discountValue, setDiscountValue] = useState('');
   const [discountTouched, setDiscountTouched] = useState(false);
+  const [bonusMonthsEnabled, setBonusMonthsEnabled] = useState(false);
+  const [bonusMonths, setBonusMonths] = useState('');
+  const [bonusMonthsTouched, setBonusMonthsTouched] = useState(false);
 
   // First-payment capture (add mode only). Defaults ON — a walk-in pays
   // at signup; staff untick for the exception, not the rule. Amount
@@ -211,12 +220,12 @@ export function MemberForm({
       ? regularFirstFee
       : Number(feeAmount) || 0;
 
-  // Paid-membership expiry: the picked billing option drives it; a
+  // Standard paid-membership expiry: the picked billing option drives it; a
   // legacy membership without an option (edit mode, plan unchanged)
   // keeps its CURRENT cycle length — never the plan's frozen
   // duration_days, which mirrors the first option and may not be this
   // member's duration.
-  function paidEndDate(): string | null {
+  function standardPaidEndDate(): string | null {
     if (isEdit) {
       return editedMembershipEndDate({
         member: member ?? null,
@@ -227,6 +236,20 @@ export function MemberForm({
       });
     }
     return selectedOption ? optionEndDate(startDate, selectedOption) : null;
+  }
+  const standardEndForPaid = standardPaidEndDate();
+  const bonusMonthsQuote = oneTimeBonusMonthsQuote(
+    standardEndForPaid,
+    isConvert && bonusMonthsEnabled,
+    bonusMonths
+  );
+  const bonusMonthsFieldError =
+    bonusMonthsEnabled && bonusMonthsTouched
+      ? oneTimeBonusMonthsError(true, bonusMonths)
+      : null;
+
+  function paidEndDate(): string | null {
+    return bonusMonthsQuote.firstPeriodEndDate;
   }
 
   useEffect(() => {
@@ -255,6 +278,9 @@ export function MemberForm({
     setDiscountMode('none');
     setDiscountValue('');
     setDiscountTouched(false);
+    setBonusMonthsEnabled(false);
+    setBonusMonths('');
+    setBonusMonthsTouched(false);
     setCollectPayment(!member);
     setPayMethod('cash');
     setPayAmount('');
@@ -488,12 +514,18 @@ export function MemberForm({
     }
     if (isConvert && !isTrial) {
       setDiscountTouched(true);
+      setBonusMonthsTouched(true);
       const discountError = oneTimeDiscountError(
         regularFirstFee,
         discountKind,
         discountValue
       );
       if (discountError) return toast.error(discountError);
+      const bonusError = oneTimeBonusMonthsError(
+        bonusMonthsEnabled,
+        bonusMonths
+      );
+      if (bonusError) return toast.error(bonusError);
     }
 
     // Trials are free; a paid member's fee seeds from the option's
@@ -659,6 +691,12 @@ export function MemberForm({
               : null,
           conversion_discount_amount:
             isConvert && !isTrial ? discountQuote.discountAmount : 0,
+          conversion_standard_end_date:
+            isConvert && !isTrial && bonusMonthsQuote.bonusMonths > 0
+              ? standardEndForPaid
+              : null,
+          conversion_bonus_months:
+            isConvert && !isTrial ? bonusMonthsQuote.bonusMonths : 0,
         })
         .select('id, member_number')
         .single();
@@ -1047,175 +1085,306 @@ export function MemberForm({
                   <>
                     {isConvert ? (
                       selectedOption && (
-                        <div className="border-border space-y-6 rounded-lg border p-4">
-                          <Label htmlFor="mf-offer-discount">
-                            <Checkbox
-                              id="mf-offer-discount"
-                              checked={discountKind !== null}
-                              onCheckedChange={(checked) => {
-                                setDiscountMode(
-                                  checked === true ? 'percentage' : 'none'
-                                );
-                                setDiscountValue('');
-                                setDiscountTouched(false);
-                              }}
-                            />
-                            Offer discount
-                          </Label>
+                        <>
+                          <div className="border-border space-y-6 rounded-lg border p-4">
+                            <Label htmlFor="mf-offer-discount">
+                              <Checkbox
+                                id="mf-offer-discount"
+                                checked={discountKind !== null}
+                                onCheckedChange={(checked) => {
+                                  setDiscountMode(
+                                    checked === true ? 'percentage' : 'none'
+                                  );
+                                  setDiscountValue('');
+                                  setDiscountTouched(false);
+                                }}
+                              />
+                              Offer discount
+                            </Label>
 
-                          {discountKind && (
-                            <div className="space-y-4">
-                              <div className="grid gap-4 sm:grid-cols-[max-content_minmax(0,1fr)]">
-                                <div className="space-y-2">
-                                  <Label>Discount type</Label>
-                                  <Toolbar aria-label="Discount type">
-                                    <ToolbarToggleGroup<OneTimeDiscountKind>
-                                      value={[discountKind]}
-                                      onValueChange={(values) => {
-                                        if (!values[0]) return;
-                                        setDiscountMode(values[0]);
-                                        setDiscountValue('');
-                                        setDiscountTouched(false);
-                                      }}
-                                      aria-label="Discount type"
-                                    >
-                                      <ToolbarToggleItem value="percentage">
-                                        Percentage
-                                      </ToolbarToggleItem>
-                                      <ToolbarToggleItem value="amount">
-                                        Fixed amount
-                                      </ToolbarToggleItem>
-                                    </ToolbarToggleGroup>
-                                  </Toolbar>
-                                </div>
-
-                                <div className="min-w-0 space-y-2">
-                                  <Label htmlFor="mf-discount-value">
-                                    {discountKind === 'amount'
-                                      ? 'Discount amount'
-                                      : 'Discount percentage'}
-                                  </Label>
-                                  {discountKind === 'amount' ? (
-                                    <CurrencyInput
-                                      id="mf-discount-value"
-                                      symbol={symbol}
-                                      groupLocale={locale.locale}
-                                      value={discountValue}
-                                      onValueChange={(value) => {
-                                        setDiscountValue(value);
-                                        setDiscountTouched(true);
-                                      }}
-                                      onBlur={() => setDiscountTouched(true)}
-                                      inputMode="decimal"
-                                      placeholder="0"
-                                      aria-invalid={!!discountFieldError}
-                                      aria-describedby={
-                                        discountFieldError
-                                          ? 'mf-discount-error'
-                                          : undefined
-                                      }
-                                      className="tabular-nums"
-                                    />
-                                  ) : (
-                                    <div className="flex min-w-0 items-center gap-2">
-                                      <ChipGroup<string>
-                                        selectionMode="single"
-                                        value={
-                                          DISCOUNT_PERCENTAGE_PRESETS.includes(
-                                            discountValue as (typeof DISCOUNT_PERCENTAGE_PRESETS)[number]
-                                          )
-                                            ? [discountValue]
-                                            : []
-                                        }
+                            {discountKind && (
+                              <div className="space-y-4">
+                                <div className="grid gap-4 sm:grid-cols-[max-content_minmax(0,1fr)]">
+                                  <div className="space-y-2">
+                                    <Label>Discount type</Label>
+                                    <Toolbar aria-label="Discount type">
+                                      <ToolbarToggleGroup<OneTimeDiscountKind>
+                                        value={[discountKind]}
                                         onValueChange={(values) => {
-                                          const value = values[0];
-                                          if (!value) return;
+                                          if (!values[0]) return;
+                                          setDiscountMode(values[0]);
+                                          setDiscountValue('');
+                                          setDiscountTouched(false);
+                                        }}
+                                        aria-label="Discount type"
+                                      >
+                                        <ToolbarToggleItem value="percentage">
+                                          Percentage
+                                        </ToolbarToggleItem>
+                                        <ToolbarToggleItem value="amount">
+                                          Fixed amount
+                                        </ToolbarToggleItem>
+                                      </ToolbarToggleGroup>
+                                    </Toolbar>
+                                  </div>
+
+                                  <div className="min-w-0 space-y-2">
+                                    <Label htmlFor="mf-discount-value">
+                                      {discountKind === 'amount'
+                                        ? 'Discount amount'
+                                        : 'Discount percentage'}
+                                    </Label>
+                                    {discountKind === 'amount' ? (
+                                      <CurrencyInput
+                                        id="mf-discount-value"
+                                        symbol={symbol}
+                                        groupLocale={locale.locale}
+                                        value={discountValue}
+                                        onValueChange={(value) => {
                                           setDiscountValue(value);
                                           setDiscountTouched(true);
                                         }}
-                                        aria-label="Common discount percentages"
-                                      >
-                                        {DISCOUNT_PERCENTAGE_PRESETS.map(
-                                          (value) => (
-                                            <Chip key={value} value={value}>
-                                              {value}%
-                                            </Chip>
-                                          )
-                                        )}
-                                      </ChipGroup>
-                                      <Input
-                                        id="mf-discount-value"
-                                        type="number"
-                                        min={0}
-                                        max={100}
-                                        step="0.01"
-                                        inputMode="decimal"
-                                        value={discountValue}
-                                        onChange={(event) => {
-                                          setDiscountValue(event.target.value);
-                                          setDiscountTouched(true);
-                                        }}
                                         onBlur={() => setDiscountTouched(true)}
-                                        placeholder="10"
+                                        inputMode="decimal"
+                                        placeholder="0"
                                         aria-invalid={!!discountFieldError}
                                         aria-describedby={
                                           discountFieldError
                                             ? 'mf-discount-error'
                                             : undefined
                                         }
-                                        className="w-24 shrink-0 tabular-nums"
+                                        className="tabular-nums"
                                       />
+                                    ) : (
+                                      <div className="flex min-w-0 items-center gap-2">
+                                        <ChipGroup<string>
+                                          selectionMode="single"
+                                          value={
+                                            DISCOUNT_PERCENTAGE_PRESETS.includes(
+                                              discountValue as (typeof DISCOUNT_PERCENTAGE_PRESETS)[number]
+                                            )
+                                              ? [discountValue]
+                                              : []
+                                          }
+                                          onValueChange={(values) => {
+                                            const value = values[0];
+                                            if (!value) return;
+                                            setDiscountValue(value);
+                                            setDiscountTouched(true);
+                                          }}
+                                          aria-label="Common discount percentages"
+                                        >
+                                          {DISCOUNT_PERCENTAGE_PRESETS.map(
+                                            (value) => (
+                                              <Chip key={value} value={value}>
+                                                {value}%
+                                              </Chip>
+                                            )
+                                          )}
+                                        </ChipGroup>
+                                        <Input
+                                          id="mf-discount-value"
+                                          type="number"
+                                          min={0}
+                                          max={100}
+                                          step="0.01"
+                                          inputMode="decimal"
+                                          value={discountValue}
+                                          onChange={(event) => {
+                                            setDiscountValue(
+                                              event.target.value
+                                            );
+                                            setDiscountTouched(true);
+                                          }}
+                                          onBlur={() =>
+                                            setDiscountTouched(true)
+                                          }
+                                          placeholder="10"
+                                          aria-invalid={!!discountFieldError}
+                                          aria-describedby={
+                                            discountFieldError
+                                              ? 'mf-discount-error'
+                                              : undefined
+                                          }
+                                          className="w-24 shrink-0 tabular-nums"
+                                        />
+                                      </div>
+                                    )}
+                                    {discountFieldError && (
+                                      <p
+                                        id="mf-discount-error"
+                                        role="alert"
+                                        className="text-destructive text-xs"
+                                      >
+                                        {discountFieldError}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="border-border space-y-2 border-t pt-4">
+                                  <div className="text-muted-foreground flex items-center justify-between gap-4">
+                                    <span>Regular first invoice</span>
+                                    <span className="tabular-nums">
+                                      {fmt.money(discountQuote.listPrice)}
+                                    </span>
+                                  </div>
+                                  {discountQuote.discountAmount > 0 && (
+                                    <div className="text-muted-foreground flex items-center justify-between gap-4">
+                                      <span>
+                                        Discount
+                                        {discountKind === 'percentage' &&
+                                        discountValue
+                                          ? ` (${discountValue}%)`
+                                          : ''}
+                                      </span>
+                                      <span className="tabular-nums">
+                                        −
+                                        {fmt.money(
+                                          discountQuote.discountAmount
+                                        )}
+                                      </span>
                                     </div>
                                   )}
-                                  {discountFieldError && (
+                                  <div className="text-foreground flex items-center justify-between gap-4 font-medium">
+                                    <span>First invoice total</span>
+                                    <span className="tabular-nums">
+                                      {fmt.money(
+                                        discountQuote.firstInvoiceTotal
+                                      )}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <p className="text-muted-foreground text-xs">
+                                  {selectedPlan?.plan_type === 'recurring'
+                                    ? `Future renewals return to ${fmt.money(selectedOption.price)} per ${durationLabel(selectedOption.duration_count, selectedOption.duration_unit)}.`
+                                    : 'The regular plan price is unchanged; this offer applies only to this purchase.'}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="border-border space-y-6 rounded-lg border p-4">
+                            <Label htmlFor="mf-offer-bonus-months">
+                              <Checkbox
+                                id="mf-offer-bonus-months"
+                                checked={bonusMonthsEnabled}
+                                onCheckedChange={(checked) => {
+                                  setBonusMonthsEnabled(checked === true);
+                                  setBonusMonths('');
+                                  setBonusMonthsTouched(false);
+                                }}
+                              />
+                              Offer bonus months
+                            </Label>
+
+                            {bonusMonthsEnabled && (
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor="mf-bonus-months">
+                                    Bonus months
+                                  </Label>
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    <ChipGroup<string>
+                                      selectionMode="single"
+                                      value={
+                                        BONUS_MONTH_PRESETS.includes(
+                                          bonusMonths as (typeof BONUS_MONTH_PRESETS)[number]
+                                        )
+                                          ? [bonusMonths]
+                                          : []
+                                      }
+                                      onValueChange={(values) => {
+                                        const value = values[0];
+                                        if (!value) return;
+                                        setBonusMonths(value);
+                                        setBonusMonthsTouched(true);
+                                      }}
+                                      aria-label="Common bonus month offers"
+                                    >
+                                      {BONUS_MONTH_PRESETS.map((value) => (
+                                        <Chip key={value} value={value}>
+                                          +{value}{' '}
+                                          {value === '1' ? 'month' : 'months'}
+                                        </Chip>
+                                      ))}
+                                    </ChipGroup>
+                                    <Input
+                                      id="mf-bonus-months"
+                                      type="number"
+                                      min={1}
+                                      max={MAX_CONVERSION_BONUS_MONTHS}
+                                      step={1}
+                                      inputMode="numeric"
+                                      value={bonusMonths}
+                                      onChange={(event) => {
+                                        setBonusMonths(event.target.value);
+                                        setBonusMonthsTouched(true);
+                                      }}
+                                      onBlur={() => setBonusMonthsTouched(true)}
+                                      placeholder="1"
+                                      aria-invalid={!!bonusMonthsFieldError}
+                                      aria-describedby={
+                                        bonusMonthsFieldError
+                                          ? 'mf-bonus-months-error'
+                                          : undefined
+                                      }
+                                      className="w-24 shrink-0 tabular-nums"
+                                    />
+                                  </div>
+                                  {bonusMonthsFieldError && (
                                     <p
-                                      id="mf-discount-error"
+                                      id="mf-bonus-months-error"
                                       role="alert"
                                       className="text-destructive text-xs"
                                     >
-                                      {discountFieldError}
+                                      {bonusMonthsFieldError}
                                     </p>
                                   )}
                                 </div>
-                              </div>
 
-                              <div className="border-border space-y-2 border-t pt-4">
-                                <div className="text-muted-foreground flex items-center justify-between gap-4">
-                                  <span>Regular first invoice</span>
-                                  <span className="tabular-nums">
-                                    {fmt.money(discountQuote.listPrice)}
-                                  </span>
-                                </div>
-                                {discountQuote.discountAmount > 0 && (
-                                  <div className="text-muted-foreground flex items-center justify-between gap-4">
-                                    <span>
-                                      Discount
-                                      {discountKind === 'percentage' &&
-                                      discountValue
-                                        ? ` (${discountValue}%)`
-                                        : ''}
-                                    </span>
-                                    <span className="tabular-nums">
-                                      −{fmt.money(discountQuote.discountAmount)}
-                                    </span>
-                                  </div>
-                                )}
-                                <div className="text-foreground flex items-center justify-between gap-4 font-medium">
-                                  <span>First invoice total</span>
-                                  <span className="tabular-nums">
-                                    {fmt.money(discountQuote.firstInvoiceTotal)}
-                                  </span>
-                                </div>
-                              </div>
+                                {bonusMonthsQuote.bonusMonths > 0 &&
+                                  bonusMonthsQuote.standardEndDate &&
+                                  bonusMonthsQuote.firstPeriodEndDate && (
+                                    <div className="border-border space-y-2 border-t pt-4">
+                                      <div className="text-muted-foreground flex items-center justify-between gap-4">
+                                        <span>Regular expiry</span>
+                                        <span>
+                                          {fmt.date(
+                                            bonusMonthsQuote.standardEndDate
+                                          )}
+                                        </span>
+                                      </div>
+                                      <div className="text-muted-foreground flex items-center justify-between gap-4">
+                                        <span>Bonus time</span>
+                                        <span>
+                                          +{bonusMonthsQuote.bonusMonths}{' '}
+                                          {bonusMonthsQuote.bonusMonths === 1
+                                            ? 'month'
+                                            : 'months'}
+                                        </span>
+                                      </div>
+                                      <div className="text-foreground flex items-center justify-between gap-4 font-medium">
+                                        <span>First expiry</span>
+                                        <span>
+                                          {fmt.date(
+                                            bonusMonthsQuote.firstPeriodEndDate
+                                          )}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
 
-                              <p className="text-muted-foreground text-xs">
-                                {selectedPlan?.plan_type === 'recurring'
-                                  ? `Future renewals return to ${fmt.money(selectedOption.price)} per ${durationLabel(selectedOption.duration_count, selectedOption.duration_unit)}.`
-                                  : 'The regular plan price is unchanged; this offer applies only to this purchase.'}
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                                <p className="text-muted-foreground text-xs">
+                                  {selectedPlan?.plan_type === 'recurring'
+                                    ? `Future renewals remain ${fmt.money(selectedOption.price)} per ${durationLabel(selectedOption.duration_count, selectedOption.duration_unit)}.`
+                                    : 'The plan term is unchanged; these free months apply only to this purchase.'}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </>
                       )
                     ) : (
                       <div className="space-y-2">
@@ -1386,7 +1555,12 @@ export function MemberForm({
             </Button>
             <Button
               type="submit"
-              disabled={saving || checkingDup || !!discountFieldError}
+              disabled={
+                saving ||
+                checkingDup ||
+                !!discountFieldError ||
+                !!bonusMonthsFieldError
+              }
             >
               {saving && <Loader2 className="size-4 animate-spin" />}
               {isEdit ? 'Save' : isConvert ? 'Convert to member' : 'Add member'}
