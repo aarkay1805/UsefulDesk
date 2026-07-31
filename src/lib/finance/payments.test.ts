@@ -23,6 +23,7 @@ function payment(
     status: 'paid',
     paid_at: '2026-07-23T06:00:00.000Z',
     source: 'manual',
+    payment_purpose: 'due',
     created_at: '2026-07-23T06:00:00.000Z',
     reference: '#12345678',
     member_number: 1001,

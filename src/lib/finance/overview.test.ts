@@ -4,8 +4,10 @@ import {
   financeMonthRange,
   financeOverviewCsv,
   financeYearOptions,
+  normalizeFinanceAdPerformance,
   shiftFinanceMonth,
   summarizeFinanceExpenses,
+  summarizeFinanceRevenue,
   type FinanceOverviewData,
 } from './overview';
 
@@ -36,6 +38,40 @@ describe('Finance calendar months', () => {
     expect(
       financeYearOptions('2026-07', '2023-11-18T10:00:00Z', '2021-04')
     ).toEqual(['2026', '2025', '2024', '2023', '2022', '2021']);
+  });
+});
+
+describe('Finance revenue attribution', () => {
+  it('keeps payment purposes mutually exclusive and excludes void payments', () => {
+    expect(
+      summarizeFinanceRevenue([
+        { amount: 4_000, payment_purpose: 'joining', status: 'paid' },
+        { amount: 3_000, payment_purpose: 'renewal', status: 'paid' },
+        { amount: 2_000, payment_purpose: 'due', status: 'paid' },
+        { amount: 500, payment_purpose: 'other', status: 'paid' },
+        { amount: 9_000, payment_purpose: 'joining', status: 'void' },
+      ])
+    ).toEqual({ joining: 4_000, renewal: 3_000, due: 2_000, other: 500 });
+  });
+
+  it('normalizes numeric ad metrics and preserves unavailable ratios', () => {
+    expect(
+      normalizeFinanceAdPerformance({
+        adSpend: '1000',
+        leads: '10',
+        convertedMembers: '4',
+        joiningRevenue: '6000',
+        conversionRate: '40.0',
+        returnOnAdSpend: null,
+      })
+    ).toEqual({
+      adSpend: 1_000,
+      leads: 10,
+      convertedMembers: 4,
+      joiningRevenue: 6_000,
+      conversionRate: 40,
+      returnOnAdSpend: null,
+    });
   });
 });
 
@@ -104,6 +140,20 @@ describe('financeOverviewCsv', () => {
       expenses: { current: 1500, previous: 1000 },
       profit: { current: 4500, previous: 4000 },
       projection: { amount: 4500, renewals: 1 },
+      revenueBreakdown: {
+        joining: 3000,
+        renewal: 2000,
+        due: 1000,
+        other: 0,
+      },
+      adPerformance: {
+        adSpend: 1500,
+        leads: 10,
+        convertedMembers: 4,
+        joiningRevenue: 3000,
+        conversionRate: 40,
+        returnOnAdSpend: 2,
+      },
       trend: [{ date: '2026-07-01', income: 6000, expenses: 1500 }],
       invoiceHealth: {
         paid: 1,
@@ -119,6 +169,10 @@ describe('financeOverviewCsv', () => {
     const csv = financeOverviewCsv(data);
     expect(csv).toContain('Expenses,1500,1000');
     expect(csv).toContain('Profit,4500,4000');
+    expect(csv).toContain('New memberships,3000');
+    expect(csv).not.toContain('Other collections');
+    expect(csv).toContain('Converted members to date,4');
+    expect(csv).toContain('Return on ad spend,2');
     expect(csv).toContain('2026-07-01,6000,1500');
   });
 });

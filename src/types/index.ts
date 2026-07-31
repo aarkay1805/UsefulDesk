@@ -781,6 +781,8 @@ export type MembershipStatus = 'active' | 'frozen' | 'cancelled' | 'expired';
 export type MembershipFeeStatus = 'paid' | 'due';
 export type PaymentMethod = 'cash' | 'upi' | 'card' | 'bank' | 'other';
 export type PaymentStatus = 'paid' | 'due' | 'void';
+/** Why this ledger row was collected. Assigned by database payment flows. */
+export type PaymentPurpose = 'joining' | 'renewal' | 'due' | 'other';
 export type ExpenseStatus = 'posted' | 'void';
 export type ExpenseKind = 'recurring' | 'one_time';
 export type MembershipDiscountType = 'amount' | 'percentage';
@@ -939,6 +941,8 @@ export interface Payment {
   /** How the money arrived (migration 059). 'manual' = staff-recorded
    *  cash/UPI/card (default, unchanged); 'auto' = gateway mandate debit. */
   source?: PaymentSource;
+  /** Business event that produced the collection. Immutable after insert. */
+  payment_purpose: PaymentPurpose;
   /** The mandate that produced an auto row (null for manual). */
   mandate_id?: string | null;
   /** Gateway payment id — reconcile + dedupe key for auto rows. */

@@ -123,13 +123,14 @@ An invoice's **payment axis** is orthogonal to its Current/Past/Upcoming/Void li
 
 ## Payments ledger
 
-`payments` — **append-only**: `amount`, `method` (cash/upi/card/bank/other), `paid_at`, `period_start/end`, `screenshot_url/path`, `user_id` (**nullable** — auto-pay rows have no human recorder; render "Auto-pay"), `source` (`manual`|`auto`), `mandate_id`, `gateway_payment_id` (`UNIQUE(account_id, gateway_payment_id)` = retry-safe).
+`payments` — **append-only**: `amount`, `method` (cash/upi/card/bank/other), `paid_at`, `period_start/end`, `screenshot_url/path`, `user_id` (**nullable** — auto-pay rows have no human recorder; render "Auto-pay"), `source` (`manual`|`auto`), immutable `payment_purpose` (`joining`|`renewal`|`due`|`other`), `mandate_id`, `gateway_payment_id` (`UNIQUE(account_id, gateway_payment_id)` = retry-safe).
 
 Hardened by `20260711173414` + `058` — the ledger is DB-authoritative and tamper-resistant:
 
 - **`fee_status` is derived by triggers** (`derive_membership_fee_status`, `refresh_…`) — never written by a client.
 - Every INSERT is validated by `validate_membership_payment`: real open period, amount > 0, ≤ outstanding balance, agent access.
-- Idempotent transactional RPCs: `record_membership_payment` · `renew_membership_transaction` · `void_membership_payment` (admin-only, reasoned; **append-preserving** — status `void` + `voided_at/by/reason`; UI = `VoidPaymentDialog` + `VoidedPaymentBadge` tooltip) · `delete_member` (ledger survives — payment FKs are SET NULL).
+- Payment purpose is assigned only by trusted database paths: `record_joining_payment` covers an initial full/imported collection and the first 60% installment; `record_membership_payment` is the later/due path; renew/convert/plan-change operation markers classify manual lifecycle inserts, including trial conversion as joining, and the AutoPay target cycle classifies gateway inserts. Joining = initial collection, renewal = payment opening a later cycle, due = money applied later to an existing invoice, and other = plan-change or genuinely ambiguous history. Never accept a purpose from the browser or rewrite it after insert.
+- Idempotent transactional RPCs: `record_joining_payment` · `record_membership_payment` · `renew_membership_transaction` · `void_membership_payment` (admin-only, reasoned; **append-preserving** — status `void` + `voided_at/by/reason`; UI = `VoidPaymentDialog` + `VoidedPaymentBadge` tooltip) · `delete_member` (ledger survives — payment FKs are SET NULL).
 - **Receipts live in the PRIVATE `payment-receipts` bucket** — `uploadPrivateAccountMedia`, viewed via signed URL (`PaymentProofLink` re-signs after 4 min). **Never persist a signed URL.** Storage DELETE: agents only for objects unreferenced by a payment row (staged uploads); admins any.
 - `membership_periods` DELETE is admin-only.
 - Error toasts → `getErrorMessage` (`src/lib/errors.ts`).

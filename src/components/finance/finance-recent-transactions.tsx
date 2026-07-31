@@ -21,6 +21,13 @@ const METHOD_LABEL: Record<string, string> = {
   bank_other: 'Bank & other',
 };
 
+const PURPOSE_LABEL = {
+  joining: 'Joining',
+  renewal: 'Renewal',
+  due: 'Due payment',
+  other: 'Other',
+} as const;
+
 export function FinanceRecentTransactionsCard({
   transactions,
   fmt,
@@ -58,7 +65,9 @@ export function FinanceRecentTransactionsCard({
                     </TableCell>
                     <TableCell>
                       <Badge variant={income ? 'info' : 'danger'}>
-                        {income ? 'Membership' : 'Expense'}
+                        {income
+                          ? PURPOSE_LABEL[transaction.paymentPurpose ?? 'other']
+                          : 'Expense'}
                       </Badge>
                     </TableCell>
                     <TableCell>

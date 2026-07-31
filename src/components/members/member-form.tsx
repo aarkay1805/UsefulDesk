@@ -768,7 +768,7 @@ export function MemberForm({
                 },
               }
             : {
-                functionName: 'record_membership_payment',
+                functionName: 'record_joining_payment',
                 params: {
                   p_membership_id: mRow.id,
                   p_period_end: endDate,

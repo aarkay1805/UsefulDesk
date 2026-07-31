@@ -1,6 +1,6 @@
 # Finance master section
 
-> Status: **Overview, Invoices, Payments, Expenses, and Overview expense integration built** · Product roadmap · Last updated: 2026-07-27
+> Status: **Overview, revenue attribution, ad performance, Invoices, Payments, Expenses, and Overview expense integration built** · Product roadmap · Last updated: 2026-07-31
 > Reference audit: FitGymSoftware Finance, inspected in-product on 2026-07-23. The reference is used for capability discovery only; its information architecture and visual design are not implementation targets.
 
 ## 1. Decision
@@ -12,6 +12,7 @@ Build one **Finance** section that gives the owner a calendar-period bird's-eye 
 3. Which collection methods are contributing to cash-in?
 4. What is likely to renew next month?
 5. Once expenses are recorded, what was spent and what profit remains?
+6. How much revenue came from joins, renewals, and recovered dues—and did this month's paid social cohort return more joining revenue than its Marketing spend?
 
 The section reuses UsefulDesk's existing ledger and billing domain rather than creating a second finance model. Its default experience is analytical and period-led. Operational collection work—recording payments, chasing dues, sending reminders, and resolving member-level exceptions—remains in **Members → Payments**.
 
@@ -81,7 +82,7 @@ It is not intended to become payroll, bookkeeping, inventory accounting, statuto
 
 UsefulDesk already has the difficult “money in” primitives:
 
-- `payments`: append-preserving payment ledger with manual/auto source, cash/UPI/card/bank/other method, staff recorder, gateway references, proofs, idempotency, and admin-only voiding;
+- `payments`: append-preserving payment ledger with immutable joining/renewal/due/other purpose, manual/auto source, cash/UPI/card/bank/other method, staff recorder, gateway references, proofs, idempotency, and admin-only voiding;
 - `membership_periods`: one persisted billing cycle per invoice;
 - `membership_period_invoices`: reconciled billed, paid, and balance values;
 - `membership_dues`: outstanding balances used by the collection queue;
@@ -95,7 +96,7 @@ The master section should move and compose these capabilities. It must not dupli
 ### Current gaps
 
 - Finance is split between Members → Payments, the member sheet, and Reports.
-- Expense tracking is built, but Overview and owner reports do not yet include expense totals or net cash movement.
+- Owner Reports does not yet include the expense ledger or net cash movement; Finance Overview does.
 - Payment history is capped to a client-loaded latest set instead of a server-paged full ledger.
 - AutoPay failures are counted but are not yet a focused recovery workflow.
 - There is no stable human-facing invoice number or account-wide invoice export.
@@ -111,12 +112,17 @@ The page follows the approved mockup hierarchy:
 
 1. one calendar-month scope shared by the whole page, navigated with a Google Calendar-style `Today` action, previous/next arrows, and one fixed-width localized Month Year label so month-name length never moves the controls, plus history/future guards and admin-only CSV export;
 2. Revenue, Expenses, Profit, and Next month projected metric cards;
-3. Income & expenses cash-flow chart beside invoice health;
-4. Collection mix beside recent transactions.
+3. Revenue breakdown beside ad performance;
+4. Income & expenses cash-flow chart beside invoice health;
+5. Collection mix beside recent transactions.
 
 Data rules:
 
 - Revenue is the append-preserving paid-payment total for the selected calendar month and compares with the previous calendar month.
+- Revenue breakdown is the same selected-month, account-timezone paid ledger grouped by immutable payment purpose: New memberships, Renewals, Due payments recovered, and Other. Other appears only when non-zero so the rows always reconcile with Revenue without mislabelling legacy or mid-cycle plan-change collections.
+- Joining collections and first joining installments are `joining`; manual and AutoPay-created new cycles are `renewal`; later manual/bulk/installment-balance collections and AutoPay applied to an existing invoice are `due`; mid-cycle plan changes and genuinely ambiguous legacy rows are `other`. Browser callers never supply the classification.
+- Ad performance treats the selected month as an acquisition cohort: contacts created in that account-local month whose source is Instagram/Facebook or whose immutable origin is Meta. Converted members and joining revenue are explicitly **to date**, so a historical cohort continues updating after its acquisition month.
+- Ad spend is selected-month posted expenses in the exact `Marketing` category. Ad revenue is all paid `joining` payments from the cohort; renewals, recovered dues, other collections, and void payments do not contribute. Conversion rate and return on ad spend are unavailable when their denominator is zero.
 - Cash flow plots day-wise income and posted expenses and can group both by week without changing the selected period.
 - Invoice health groups issued periods into Paid, Partially paid, Overdue, Open, and Outstanding.
 - Collection mix uses the fixed Cash / UPI / Card / Bank & other method families.
@@ -367,8 +373,9 @@ Built:
 - `/finance`, sidebar item, page title, and URL-backed Overview/Invoices/Payments/Expenses header tabs;
 - calendar-month navigation shared by every tab, with a `Today` action, previous/next arrows, one localized Month Year label, and account-history/future guards;
 - Revenue with previous-month comparison and Next month projected from active renewals;
+- immutable joining/renewal/due/other payment attribution, a reconciling Revenue breakdown, and selected-month Meta/Instagram/Facebook acquisition-cohort ad performance with Marketing spend, to-date conversion/joining revenue, conversion rate, and return on ad spend;
 - day/weekly income-and-expense cash flow, invoice health, collection mix, and merged recent transactions;
-- admin-only CSV export with the same revenue, expense, profit, and daily cash-flow truth as the page;
+- admin-only CSV export with the same revenue attribution, ad performance, expense, profit, and daily cash-flow truth as the page;
 - posted Expense totals and Revenue-minus-Expenses Profit for the selected and previous calendar months;
 - analytical Finance Payments with tenant-safe database paging, filtered totals/method mix, full export, receipt audit, and member deep links;
 - Members → Payments restored as the operational due/payment home, including its existing server paging, filters, complete CSV export, reminders, payment entry, and realtime behavior.
@@ -380,7 +387,7 @@ Remaining Phase A hardening:
 Exit criteria:
 
 - No payment or due logic is duplicated.
-- An owner can understand the selected month's revenue, daily inflow, invoice health, collection mix, and next-month renewal projection from `/finance`.
+- An owner can understand the selected month's revenue sources, paid-social return, daily inflow, invoice health, collection mix, and next-month renewal projection from `/finance`.
 - No expense or profit figure is shown until it is backed by posted expense records.
 - An agent can still record a payment and send a reminder from Members → Payments.
 - Existing `/members?view=payments` bookmarks remain valid.
@@ -517,6 +524,6 @@ Each phase must cover:
 
 ## 12. Recommended build order
 
-Overview, the account-wide issued-invoice master, the analytical Payments ledger, and the classified Expenses ledger are built. Posted expense totals now flow through Overview, Profit, cash flow, CSV export, and the combined recent-transactions timeline. Next, connect expenses to owner-report export and add expense-category settings.
+Overview, its immutable revenue attribution and ad-performance cohort, the account-wide issued-invoice master, the analytical Payments ledger, and the classified Expenses ledger are built. Posted expense totals now flow through Overview, Profit, cash flow, ad spend, CSV export, and the combined recent-transactions timeline. Next, connect expenses to owner-report export and add expense-category settings.
 
 Keep AutoPay recovery under Members → Payments, where staff can act on the member. Only add document sharing or GST behavior after immutable invoice identity and snapshots are proven.

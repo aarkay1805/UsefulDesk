@@ -812,7 +812,7 @@ export function ImportMembersCsvDialog({
             dateAtNoonInTz(built.payment.paidOn, locale.timeZone) ?? new Date()
           ).toISOString();
           const { error: paymentError } = await supabase.rpc(
-            'record_membership_payment',
+            'record_joining_payment',
             {
               p_membership_id: createdMembership.id,
               p_period_end: membership.end_date,

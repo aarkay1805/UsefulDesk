@@ -6,6 +6,10 @@
 
 ---
 
+## Finance revenue attribution and ad performance
+
+Finance Overview now reconciles selected-month paid revenue into immutable Joining, Renewal, Due, and Other purposes and reports selected-month Marketing spend against the Instagram/Facebook/Meta lead cohort's to-date non-trial conversions and joining revenue. Initial member/import/installment collections use the validated joining RPC; later collections remain due, renewals and AutoPay are classified from their database operation/cycle, ambiguous history stays Other, Recent transactions names the purpose, contact changes refresh the view, and CSV includes both sections. Migrations `20260731120000_finance_revenue_attribution.sql` and `20260731121000_finance_ad_cohort_indexes.sql` were applied through the Supabase connector as `20260731180203` and `20260731180859`; key code also lives in `src/lib/finance/overview.ts` and `src/components/finance/finance-overview.tsx`. Gotcha: the cohort month is acquisition-local, while conversions and joining revenue intentionally continue accumulating afterward.
+
 ## Dashboard operating queues
 
 The live **Needs attention** operating queues now sit on Dashboard beside Lead Conversion Rating, replacing the Average First Response Time chart. Reports no longer renders the queue card, while its existing report payload and CSV snapshot remain intact; the response-time component and loader remain in code but are no longer fetched or surfaced. Key code: `src/components/dashboard/needs-attention-card.tsx`, `src/components/dashboard/dashboard-insights.tsx`, and `src/components/reports/owner-reports-view.tsx`.

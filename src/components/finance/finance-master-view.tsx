@@ -59,6 +59,16 @@ export function FinanceMasterView({
         {
           event: '*',
           schema: 'public',
+          table: 'contacts',
+          filter: `account_id=eq.${accountId}`,
+        },
+        bump
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
           table: 'membership_periods',
           filter: `account_id=eq.${accountId}`,
         },

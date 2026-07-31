@@ -14,6 +14,7 @@ import type {
   MembershipPeriodInvoice,
   Payment,
   PaymentMethod,
+  PaymentPurpose,
 } from '@/types';
 
 export interface FinanceMonthRange {
@@ -52,6 +53,23 @@ export interface FinanceRecentTransaction {
   kind: 'membership' | 'expense';
   method: string;
   amount: number;
+  paymentPurpose?: PaymentPurpose;
+}
+
+export type FinanceRevenueBreakdown = Record<PaymentPurpose, number>;
+
+export type FinanceRevenuePaymentRow = Pick<
+  Payment,
+  'amount' | 'payment_purpose' | 'status'
+>;
+
+export interface FinanceAdPerformance {
+  adSpend: number;
+  leads: number;
+  convertedMembers: number;
+  joiningRevenue: number;
+  conversionRate: number | null;
+  returnOnAdSpend: number | null;
 }
 
 export interface FinanceOverviewData {
@@ -60,6 +78,8 @@ export interface FinanceOverviewData {
   expenses: { current: number; previous: number };
   profit: { current: number; previous: number };
   projection: { amount: number; renewals: number };
+  revenueBreakdown: FinanceRevenueBreakdown;
+  adPerformance: FinanceAdPerformance;
   trend: FinanceTrendPoint[];
   invoiceHealth: FinanceInvoiceHealth;
   collectionMethods: FinanceCollectionMethod[];
@@ -148,6 +168,64 @@ export function financeYearOptions(
 function number(value: number | string | null | undefined): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function nullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function normalizeFinanceAdPerformance(
+  value: unknown
+): FinanceAdPerformance {
+  const row =
+    value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : {};
+  return {
+    adSpend: number(row.adSpend as number | string | null | undefined),
+    leads: number(row.leads as number | string | null | undefined),
+    convertedMembers: number(
+      row.convertedMembers as number | string | null | undefined
+    ),
+    joiningRevenue: number(
+      row.joiningRevenue as number | string | null | undefined
+    ),
+    conversionRate: nullableNumber(row.conversionRate),
+    returnOnAdSpend: nullableNumber(row.returnOnAdSpend),
+  };
+}
+
+export function summarizeFinanceRevenue(
+  rows: FinanceRevenuePaymentRow[]
+): FinanceRevenueBreakdown {
+  const breakdown: FinanceRevenueBreakdown = {
+    joining: 0,
+    renewal: 0,
+    due: 0,
+    other: 0,
+  };
+  for (const payment of rows) {
+    if (payment.status !== 'paid') continue;
+    const purpose = payment.payment_purpose ?? 'other';
+    breakdown[purpose] += number(payment.amount);
+  }
+  return breakdown;
+}
+
+async function loadFinanceAdPerformance(
+  db: SupabaseClient,
+  period: FinanceMonthRange,
+  timeZone: string
+): Promise<FinanceAdPerformance> {
+  const { data, error } = await db.rpc('finance_overview_ad_performance', {
+    p_start_date: period.start,
+    p_end_date: period.end,
+    p_time_zone: timeZone,
+  });
+  if (error) throw error;
+  return normalizeFinanceAdPerformance(data);
 }
 
 function paymentMethod(
@@ -260,58 +338,64 @@ export async function loadFinanceOverview(
   const projectionStart = period.nextStart;
   const projectionEnd = `${shiftFinanceMonth(month, 2)}-01`;
 
-  const [payments, invoices, projectionMemberships, expenseRows] =
-    await Promise.all([
-      fetchAll<PaymentRow>((from, to) =>
-        db
-          .from('payments')
-          .select(
-            'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, gateway_payment_id, created_at, contact:contacts(name)'
-          )
-          .eq('status', 'paid')
-          .gte('paid_at', bounds.previousStart)
-          .lt('paid_at', bounds.nextStart)
-          .order('paid_at', { ascending: false })
-          .range(from, to)
-      ),
-      fetchAll<MembershipPeriodInvoice>((from, to) =>
-        db
-          .from('membership_period_invoices')
-          .select(
-            'id, account_id, membership_id, contact_id, plan_id, period_start, period_end, fee_amount, state, created_at, amount_paid, balance, standard_period_end, bonus_months'
-          )
-          .gte('created_at', bounds.currentStart)
-          .lt('created_at', bounds.nextStart)
-          .order('created_at', { ascending: false })
-          .range(from, to)
-      ),
-      fetchAll<ProjectionMembership>((from, to) =>
-        db
-          .from('memberships')
-          .select(
-            'id, account_id, contact_id, user_id, plan_id, pricing_option_id, start_date, end_date, status, fee_amount, fee_status, is_trial, collection_mode, created_at, updated_at, plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
-          )
-          .eq('status', 'active')
-          .eq('is_trial', false)
-          .gte('end_date', projectionStart)
-          .lt('end_date', projectionEnd)
-          .order('id')
-          .range(from, to)
-      ),
-      fetchAll<FinanceOverviewExpenseRow>((from, to) =>
-        db
-          .from('expenses')
-          .select(
-            'id, occurred_on, amount, description, method, status, created_at'
-          )
-          .eq('status', 'posted')
-          .gte('occurred_on', period.previousStart)
-          .lt('occurred_on', period.nextStart)
-          .order('occurred_on', { ascending: false })
-          .order('created_at', { ascending: false })
-          .range(from, to)
-      ),
-    ]);
+  const [
+    payments,
+    invoices,
+    projectionMemberships,
+    expenseRows,
+    adPerformance,
+  ] = await Promise.all([
+    fetchAll<PaymentRow>((from, to) =>
+      db
+        .from('payments')
+        .select(
+          'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, payment_purpose, gateway_payment_id, created_at, contact:contacts(name)'
+        )
+        .eq('status', 'paid')
+        .gte('paid_at', bounds.previousStart)
+        .lt('paid_at', bounds.nextStart)
+        .order('paid_at', { ascending: false })
+        .range(from, to)
+    ),
+    fetchAll<MembershipPeriodInvoice>((from, to) =>
+      db
+        .from('membership_period_invoices')
+        .select(
+          'id, account_id, membership_id, contact_id, plan_id, period_start, period_end, fee_amount, state, created_at, amount_paid, balance, standard_period_end, bonus_months'
+        )
+        .gte('created_at', bounds.currentStart)
+        .lt('created_at', bounds.nextStart)
+        .order('created_at', { ascending: false })
+        .range(from, to)
+    ),
+    fetchAll<ProjectionMembership>((from, to) =>
+      db
+        .from('memberships')
+        .select(
+          'id, account_id, contact_id, user_id, plan_id, pricing_option_id, start_date, end_date, status, fee_amount, fee_status, is_trial, collection_mode, created_at, updated_at, plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
+        )
+        .eq('status', 'active')
+        .eq('is_trial', false)
+        .gte('end_date', projectionStart)
+        .lt('end_date', projectionEnd)
+        .order('id')
+        .range(from, to)
+    ),
+    fetchAll<FinanceOverviewExpenseRow>((from, to) =>
+      db
+        .from('expenses')
+        .select(
+          'id, occurred_on, amount, description, method, status, created_at'
+        )
+        .eq('status', 'posted')
+        .gte('occurred_on', period.previousStart)
+        .lt('occurred_on', period.nextStart)
+        .order('occurred_on', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(from, to)
+    ),
+    loadFinanceAdPerformance(db, period, timeZone),
+  ]);
 
   const currentPayments = payments.filter(
     (payment) =>
@@ -334,6 +418,7 @@ export async function loadFinanceOverview(
       0
     ),
   };
+  const revenueBreakdown = summarizeFinanceRevenue(currentPayments);
   const expenseSnapshot = summarizeFinanceExpenses(expenseRows, period);
   const expenses = {
     current: expenseSnapshot.current,
@@ -426,6 +511,8 @@ export async function loadFinanceOverview(
       amount: projectionAmount,
       renewals: projectionRenewals,
     },
+    revenueBreakdown,
+    adPerformance,
     trend: Array.from(daily.values()),
     invoiceHealth,
     collectionMethods,
@@ -437,6 +524,7 @@ export async function loadFinanceOverview(
         kind: 'membership' as const,
         method: paymentMethod(payment.method),
         amount: number(payment.amount),
+        paymentPurpose: payment.payment_purpose ?? 'other',
       })),
       ...expenseSnapshot.transactions,
     ]
@@ -460,6 +548,32 @@ export function financeOverviewCsv(data: FinanceOverviewData): string {
     ['Profit', data.profit.current, data.profit.previous],
     ['Next month projected', data.projection.amount, ''],
     ['Projected renewals', data.projection.renewals, ''],
+    [],
+    ['Revenue breakdown', 'Amount'],
+    ['New memberships', data.revenueBreakdown.joining],
+    ['Renewals', data.revenueBreakdown.renewal],
+    ['Due payments recovered', data.revenueBreakdown.due],
+    ...(data.revenueBreakdown.other > 0
+      ? [['Other collections', data.revenueBreakdown.other]]
+      : []),
+    [],
+    ['Ad performance', 'Value'],
+    ['Marketing spend', data.adPerformance.adSpend],
+    ['Ad-source leads', data.adPerformance.leads],
+    ['Converted members to date', data.adPerformance.convertedMembers],
+    ['Joining revenue to date', data.adPerformance.joiningRevenue],
+    [
+      'Conversion rate',
+      data.adPerformance.conversionRate === null
+        ? ''
+        : data.adPerformance.conversionRate,
+    ],
+    [
+      'Return on ad spend',
+      data.adPerformance.returnOnAdSpend === null
+        ? ''
+        : data.adPerformance.returnOnAdSpend,
+    ],
     [],
     ['Date', 'Income', 'Expenses'],
     ...data.trend.map((point) => [point.date, point.income, point.expenses]),

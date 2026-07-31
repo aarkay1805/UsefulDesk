@@ -12,10 +12,12 @@ import {
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { Skeleton, SkeletonCard } from '@/components/dashboard/skeleton';
 import { FinanceCashFlowChart } from '@/components/finance/finance-cash-flow-chart';
+import { FinanceAdPerformanceCard } from '@/components/finance/finance-ad-performance';
 import { FinanceCollectionMixCard } from '@/components/finance/finance-collection-mix';
 import { FinanceInvoiceHealthCard } from '@/components/finance/finance-invoice-health';
 import { FinanceMonthActions } from '@/components/finance/finance-month-actions';
 import { FinanceRecentTransactionsCard } from '@/components/finance/finance-recent-transactions';
+import { FinanceRevenueBreakdownCard } from '@/components/finance/finance-revenue-breakdown';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useLocale } from '@/hooks/use-locale';
@@ -122,6 +124,21 @@ export function FinanceOverview({
 
           <div className="grid gap-4 xl:grid-cols-5">
             <div className="xl:col-span-3">
+              <FinanceRevenueBreakdownCard
+                breakdown={data.revenueBreakdown}
+                fmt={fmt}
+              />
+            </div>
+            <div className="xl:col-span-2">
+              <FinanceAdPerformanceCard
+                performance={data.adPerformance}
+                fmt={fmt}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-5">
+            <div className="xl:col-span-3">
               <FinanceCashFlowChart
                 data={data.trend}
                 monthLabel={fmt.month(data.period.start)}
@@ -216,6 +233,10 @@ function FinanceOverviewSkeleton() {
         {Array.from({ length: 4 }, (_, index) => (
           <SkeletonCard key={index} />
         ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-5">
+        <Skeleton className="h-80 xl:col-span-3" />
+        <Skeleton className="h-80 xl:col-span-2" />
       </div>
       <div className="grid gap-4 xl:grid-cols-5">
         <Skeleton className="h-[25rem] xl:col-span-3" />
