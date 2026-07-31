@@ -218,15 +218,15 @@ export default function BroadcastsPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-muted-foreground">Name</TableHead>
-                <TableHead className="hidden text-muted-foreground md:table-cell">Template</TableHead>
-                <TableHead className="hidden text-right text-muted-foreground sm:table-cell">
+                <TableHead>Name</TableHead>
+                <TableHead className="hidden md:table-cell">Template</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">
                   Recipients
                 </TableHead>
-                <TableHead className="hidden text-muted-foreground lg:table-cell">Delivery</TableHead>
-                <TableHead className="hidden text-muted-foreground lg:table-cell">Read</TableHead>
-                <TableHead className="text-muted-foreground">Status</TableHead>
-                <TableHead className="hidden text-muted-foreground sm:table-cell">Date</TableHead>
+                <TableHead className="hidden lg:table-cell">Delivery</TableHead>
+                <TableHead className="hidden lg:table-cell">Read</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="hidden sm:table-cell">Date</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

@@ -182,6 +182,8 @@ The three overlays (`TemplatePicker` / `MemberForm` / `TransferRequestDialog`) l
 
 ## Tables
 
+Every table header label uses the muted neutral foreground owned by `TableHead` (`src/components/ui/table.tsx`). Do not restore foreground text or repeat `text-muted-foreground` at a call-site; consumers control only layout such as alignment, width, padding, and responsive visibility.
+
 ### Product terminology and column labels
 
 Visible product vocabulary is a shared interface contract. The same data concept keeps the exact same label across pages, tabs, tables, sort menus, column menus, filters, exports, and empty states. Never rename a familiar column to make one section sound more contextual.

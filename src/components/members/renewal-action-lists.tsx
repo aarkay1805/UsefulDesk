@@ -361,12 +361,12 @@ function RenewalTable({
             </colgroup>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-muted-foreground">Name</TableHead>
-                <TableHead className="text-muted-foreground">Plan</TableHead>
-                <TableHead className="text-muted-foreground">Expiry</TableHead>
-                <TableHead className="text-muted-foreground">Status</TableHead>
-                <TableHead className="text-muted-foreground">Fee</TableHead>
-                <TableHead className="text-muted-foreground text-right">
+                <TableHead>Name</TableHead>
+                <TableHead>Plan</TableHead>
+                <TableHead>Expiry</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Fee</TableHead>
+                <TableHead className="text-right">
                   Actions
                 </TableHead>
               </TableRow>

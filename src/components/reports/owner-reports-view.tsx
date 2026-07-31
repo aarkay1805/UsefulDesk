@@ -626,19 +626,19 @@ function SourcePerformanceCard({
             </colgroup>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="text-muted-foreground pl-4">
+                <TableHead className="pl-4">
                   Source
                 </TableHead>
-                <TableHead className="text-muted-foreground text-right">
+                <TableHead className="text-right">
                   Leads
                 </TableHead>
-                <TableHead className="text-muted-foreground text-right">
+                <TableHead className="text-right">
                   Members
                 </TableHead>
-                <TableHead className="text-muted-foreground text-right">
+                <TableHead className="text-right">
                   Revenue
                 </TableHead>
-                <TableHead className="text-muted-foreground pr-4 text-right">
+                <TableHead className="pr-4 text-right">
                   Conversion
                 </TableHead>
               </TableRow>
