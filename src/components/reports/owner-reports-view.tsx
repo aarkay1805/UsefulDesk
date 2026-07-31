@@ -1,22 +1,15 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   Banknote,
-  CalendarClock,
-  ChevronRight,
   CircleDollarSign,
-  CreditCard,
   Download,
-  FlaskConical,
   RefreshCw,
-  ShieldAlert,
   Target,
   UserPlus,
   UsersRound,
-  UserRoundX,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLocale } from '@/hooks/use-locale';
@@ -298,14 +291,7 @@ export function OwnerReportsView() {
 
       {report && !loading ? (
         <>
-          <div className="grid gap-4 xl:grid-cols-5">
-            <div className="xl:col-span-3">
-              <AttentionCard report={report} fmt={fmt} />
-            </div>
-            <div className="xl:col-span-2">
-              <CollectionsCard report={report} fmt={fmt} />
-            </div>
-          </div>
+          <CollectionsCard report={report} fmt={fmt} />
 
           <div className="grid gap-4 xl:grid-cols-2">
             <RevenueTrendCard data={report.trend} fmt={fmt} />
@@ -409,97 +395,6 @@ function pointDelta(
         ? 'No change vs previous period'
         : `${change > 0 ? '+' : ''}${fmt.number(change)} pts vs previous period`,
   };
-}
-
-function AttentionCard({
-  report,
-  fmt,
-}: {
-  report: OwnerReport;
-  fmt: ReturnType<typeof useLocale>['fmt'];
-}) {
-  const items = [
-    {
-      label: 'Renewals due',
-      detail: 'Recurring plans ending in the next 7 days',
-      value: report.attention.renewalsDue,
-      icon: CalendarClock,
-      href: '/members?view=renewals',
-      badge: '7 days',
-    },
-    {
-      label: 'Outstanding dues',
-      detail: fmt.money(report.attention.outstandingAmount),
-      value: report.attention.outstandingDues,
-      icon: CircleDollarSign,
-      href: '/members?view=payments',
-    },
-    {
-      label: 'Inactive members',
-      detail: 'No visit for 10+ days, including never visited',
-      value: report.attention.inactiveMembers,
-      icon: UserRoundX,
-      href: '/members?view=renewals',
-    },
-    {
-      label: 'Churn risk',
-      detail: 'Active members carrying a churn-risk flag',
-      value: report.attention.churnRisk,
-      icon: ShieldAlert,
-      href: '/members?view=all',
-    },
-    {
-      label: 'Trial follow-ups',
-      detail: 'Trials expired or ending within 3 days',
-      value: report.attention.trialFollowups,
-      icon: FlaskConical,
-      href: '/members?view=trials',
-    },
-    {
-      label: 'Failed mandates',
-      detail: 'AutoPay mandates without an active replacement',
-      value: report.attention.failedMandates,
-      icon: CreditCard,
-      href: '/members?view=payments',
-    },
-  ];
-
-  return (
-    <Card className="h-full">
-      <CardHeader>
-        <CardTitle>Needs attention</CardTitle>
-        <CardDescription>Live operating queues for today</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-2 sm:grid-cols-2">
-        {items.map((item) => (
-          <Link
-            key={item.label}
-            href={item.href}
-            className="hover:bg-muted/60 focus-visible:ring-ring flex min-w-0 items-center gap-3 rounded-lg p-2.5 transition-colors outline-none focus-visible:ring-2"
-          >
-            <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
-              <item.icon className="size-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2">
-                <span className="text-foreground truncate text-sm font-medium">
-                  {item.label}
-                </span>
-                {item.badge && <Badge variant="neutral">{item.badge}</Badge>}
-              </span>
-              <span className="text-muted-foreground block truncate text-xs">
-                {item.detail}
-              </span>
-            </span>
-            <span className="text-foreground shrink-0 text-base font-semibold tabular-nums">
-              {fmt.number(item.value)}
-            </span>
-            <ChevronRight className="text-muted-foreground size-4 shrink-0" />
-          </Link>
-        ))}
-      </CardContent>
-    </Card>
-  );
 }
 
 function CollectionsCard({
@@ -792,10 +687,7 @@ function SourcePerformanceCard({
 function ReportBodySkeleton() {
   return (
     <>
-      <div className="grid gap-4 xl:grid-cols-5">
-        <Skeleton className="h-96 xl:col-span-3" />
-        <Skeleton className="h-96 xl:col-span-2" />
-      </div>
+      <Skeleton className="h-96" />
       <div className="grid gap-4 xl:grid-cols-2">
         <Skeleton className="h-96" />
         <Skeleton className="h-96" />

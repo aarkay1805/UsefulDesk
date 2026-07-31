@@ -7,7 +7,7 @@ import {
 import { dayStartInTz, todayInTz } from '@/lib/locale/format';
 import { durationLabel } from '@/lib/memberships/pricing';
 import type { DurationUnit } from '@/types';
-import type { OwnerReport, ReportRangeDays } from './types';
+import type { OwnerAttention, OwnerReport, ReportRangeDays } from './types';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -93,6 +93,19 @@ export function relativeChange(
   return ((current - previous) / Math.abs(previous)) * 100;
 }
 
+export function normalizeOwnerAttention(payload: unknown): OwnerAttention {
+  const attention = record(record(payload).attention);
+  return {
+    renewalsDue: number(attention.renewalsDue),
+    outstandingDues: number(attention.outstandingDues),
+    outstandingAmount: number(attention.outstandingAmount),
+    inactiveMembers: number(attention.inactiveMembers),
+    churnRisk: number(attention.churnRisk),
+    trialFollowups: number(attention.trialFollowups),
+    failedMandates: number(attention.failedMandates),
+  };
+}
+
 export function normalizeOwnerReport(
   payload: unknown,
   sourceLabels: ReadonlyMap<string, string> = new Map()
@@ -102,7 +115,6 @@ export function normalizeOwnerReport(
   const metrics = record(root.metrics);
   const newMembers = record(metrics.newMembers);
   const conversion = record(metrics.conversion);
-  const attention = record(root.attention);
 
   return {
     period: {
@@ -124,15 +136,7 @@ export function normalizeOwnerReport(
         converted: number(conversion.converted),
       },
     },
-    attention: {
-      renewalsDue: number(attention.renewalsDue),
-      outstandingDues: number(attention.outstandingDues),
-      outstandingAmount: number(attention.outstandingAmount),
-      inactiveMembers: number(attention.inactiveMembers),
-      churnRisk: number(attention.churnRisk),
-      trialFollowups: number(attention.trialFollowups),
-      failedMandates: number(attention.failedMandates),
-    },
+    attention: normalizeOwnerAttention(payload),
     trend: rows(root.trend).map((row) => ({
       date: text(row.date),
       revenue: number(row.revenue),
@@ -1139,6 +1143,25 @@ function missingRpc(error: unknown, functionName: string): boolean {
     message.includes(functionName.toLowerCase()) ||
     message.includes('schema cache')
   );
+}
+
+/** Read the live operating snapshot from the existing branch report RPC. */
+export async function loadOwnerAttention(
+  db: SupabaseClient,
+  accountId: string,
+  today: string,
+  timeZone: string
+): Promise<OwnerAttention> {
+  const range = reportDateRange(today, 30);
+  const { data, error } = await db.rpc('selected_branch_owner_report', {
+    p_account_id: accountId,
+    p_start_date: range.start,
+    p_end_date: range.end,
+    p_time_zone: timeZone,
+    p_staff_user_id: null,
+  });
+  if (error) throw error;
+  return normalizeOwnerAttention(data);
 }
 
 export async function loadOwnerReport(

@@ -7,6 +7,16 @@ export interface ReportMetric {
   previous: number;
 }
 
+export interface OwnerAttention {
+  renewalsDue: number;
+  outstandingDues: number;
+  outstandingAmount: number;
+  inactiveMembers: number;
+  churnRisk: number;
+  trialFollowups: number;
+  failedMandates: number;
+}
+
 export interface OwnerReport {
   period: {
     start: string;
@@ -23,15 +33,7 @@ export interface OwnerReport {
       converted: number;
     };
   };
-  attention: {
-    renewalsDue: number;
-    outstandingDues: number;
-    outstandingAmount: number;
-    inactiveMembers: number;
-    churnRisk: number;
-    trialFollowups: number;
-    failedMandates: number;
-  };
+  attention: OwnerAttention;
   trend: Array<{
     date: string;
     revenue: number;

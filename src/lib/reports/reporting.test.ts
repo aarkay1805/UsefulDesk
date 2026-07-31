@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   aggregatePlanOptionBreakdown,
   aggregateOwnerReport,
+  normalizeOwnerAttention,
   normalizeOwnerReport,
   ownerReportCsv,
   relativeChange,
@@ -25,6 +26,30 @@ describe('owner reporting helpers', () => {
     expect(relativeChange(80, 100)).toBe(-20);
     expect(relativeChange(0, 0)).toBe(0);
     expect(relativeChange(25, 0)).toBeNull();
+  });
+
+  it('normalizes the live owner attention snapshot', () => {
+    expect(
+      normalizeOwnerAttention({
+        attention: {
+          renewalsDue: '3',
+          outstandingDues: 4,
+          outstandingAmount: '2750.50',
+          inactiveMembers: '5',
+          churnRisk: 2,
+          trialFollowups: '1',
+          failedMandates: null,
+        },
+      })
+    ).toEqual({
+      renewalsDue: 3,
+      outstandingDues: 4,
+      outstandingAmount: 2750.5,
+      inactiveMembers: 5,
+      churnRisk: 2,
+      trialFollowups: 1,
+      failedMandates: 0,
+    });
   });
 
   it('normalizes Postgres numeric strings and account source labels', () => {

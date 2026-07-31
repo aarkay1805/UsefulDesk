@@ -8,7 +8,6 @@ import {
   loadConversationsSeries,
   loadLeadFunnel,
   loadLeadsDonut,
-  loadResponseTime,
 } from '@/lib/dashboard/queries';
 import { loadLeadSourceRatings } from '@/lib/dashboard/lead-conversion-rating';
 import type {
@@ -17,7 +16,6 @@ import type {
   LeadFunnelData,
   LeadsDonutData,
   LeadSourceRatingData,
-  ResponseTimeSummary,
 } from '@/lib/dashboard/types';
 import { useLocale } from '@/hooks/use-locale';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
@@ -25,7 +23,7 @@ import { ConversationsChart } from '@/components/dashboard/conversations-chart';
 import { LeadConversionRating } from '@/components/dashboard/lead-conversion-rating';
 import { LeadFunnel } from '@/components/dashboard/lead-funnel';
 import { LeadsDonut } from '@/components/dashboard/leads-donut';
-import { ResponseTimeChart } from '@/components/dashboard/response-time-chart';
+import { NeedsAttentionCard } from '@/components/dashboard/needs-attention-card';
 
 type RangeDays = 7 | 30 | 90;
 
@@ -51,9 +49,6 @@ export function DashboardInsights() {
   const [ratingLoading, setRatingLoading] = useState(true);
   const [leadsDonut, setLeadsDonut] = useState<LeadsDonutData | null>(null);
   const [leadFunnel, setLeadFunnel] = useState<LeadFunnelData | null>(null);
-  const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(
-    null
-  );
   const [activity, setActivity] = useState<ActivityItem[] | null>(null);
 
   useEffect(() => {
@@ -97,13 +92,6 @@ export function DashboardInsights() {
       })
       .catch((error) =>
         console.error('[dashboard] funnel insights failed:', error)
-      );
-    void loadResponseTime(db)
-      .then((next) => {
-        if (!cancelled) setResponseTime(next);
-      })
-      .catch((error) =>
-        console.error('[dashboard] response insights failed:', error)
       );
     void loadActivity(db, 50)
       .then((next) => {
@@ -175,7 +163,7 @@ export function DashboardInsights() {
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div className="h-full lg:col-span-3">
-          <ResponseTimeChart data={responseTime} loading={!responseTime} />
+          <NeedsAttentionCard />
         </div>
         <div className="h-full lg:col-span-2">
           <LeadConversionRating

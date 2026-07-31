@@ -6,6 +6,12 @@
 
 ---
 
+## Dashboard operating queues
+
+The live **Needs attention** operating queues now sit on Dashboard beside Lead Conversion Rating, replacing the Average First Response Time chart. Reports no longer renders the queue card, while its existing report payload and CSV snapshot remain intact; the response-time component and loader remain in code but are no longer fetched or surfaced. Key code: `src/components/dashboard/needs-attention-card.tsx`, `src/components/dashboard/dashboard-insights.tsx`, and `src/components/reports/owner-reports-view.tsx`.
+
+---
+
 ## Canonical single-member creation
 
 **Add member** now uses the lead-conversion experience as the canonical single-person creation flow: the same responsive split dialog, click-to-edit personal-information rail, bounded membership details, one-time discount and bonus-month offers, and full-or-60/40 first-payment decision. New-member drafts now carry Birthday, configured Gender, and localized height/weight through contact creation or deduped-contact attachment; seeded lead conversions keep immediate contact/photo editing. Batch import and bulk conversion remain batch-specific. Key code: `src/components/members/member-form.tsx`; durable rules: `docs/ui-patterns.md` and `docs/gym-domain.md`.
