@@ -6,9 +6,13 @@
 
 ---
 
+## Finance Overview card cleanup
+
+Finance Overview cards now use divider-free headers throughout. Ad performance has a plain title without its decorative target icon or persistent acquisition-source subtitle; that explanation now lives in an accessible info tooltip on the Leads acquired row. Revenue breakdown header, stream, and expanded plan values share one right-aligned numeric axis for Payments, Share, and Revenue. Key code: `src/components/finance/finance-ad-performance.tsx` and the Overview card components in `src/components/finance/`.
+
 ## Finance revenue stream drilldowns
 
-Finance Overview's Revenue breakdown now uses the Reports Plan performance accordion pattern: each immutable revenue stream shows payment count, total-revenue share, and revenue, then expands into plan-level payment counts, within-stream share, and revenue. The selected-month paid ledger remains the single source of truth, zero-value core streams stay visible, and Other remains hidden only when zero. Key code: `src/components/finance/finance-revenue-breakdown.tsx` and `src/lib/finance/overview.ts`.
+Finance Overview's Revenue breakdown now uses the Reports Plan performance accordion pattern: each immutable revenue stream shows payment count, total-revenue share, and revenue, then expands into plan-level payment counts, within-stream share, and revenue. Stream rows use a clean chevron-only hierarchy without decorative colour dots. The selected-month paid ledger remains the single source of truth, zero-value core streams stay visible, and Other remains hidden only when zero. Key code: `src/components/finance/finance-revenue-breakdown.tsx` and `src/lib/finance/overview.ts`.
 
 ## Finance revenue attribution and ad performance
 

@@ -19,13 +19,14 @@ import type { PaymentPurpose } from '@/types';
 const PURPOSE_ROWS: Array<{
   key: PaymentPurpose;
   label: string;
-  dot: string;
 }> = [
-  { key: 'joining', label: 'New memberships', dot: 'bg-blue-500' },
-  { key: 'renewal', label: 'Renewals', dot: 'bg-emerald-500' },
-  { key: 'due', label: 'Due payments recovered', dot: 'bg-amber-500' },
-  { key: 'other', label: 'Other collections', dot: 'bg-muted-foreground' },
+  { key: 'joining', label: 'New memberships' },
+  { key: 'renewal', label: 'Renewals' },
+  { key: 'due', label: 'Due payments recovered' },
+  { key: 'other', label: 'Other collections' },
 ];
+
+const REVENUE_GRID_COLUMNS = 'grid-cols-[minmax(11rem,1fr)_5rem_5rem_8rem]';
 
 export function FinanceRevenueBreakdownCard({
   breakdown,
@@ -46,7 +47,7 @@ export function FinanceRevenueBreakdownCard({
 
   return (
     <Card className="h-full">
-      <CardHeader className="border-b">
+      <CardHeader>
         <CardTitle>Revenue breakdown</CardTitle>
       </CardHeader>
       <CardContent className="px-0">
@@ -58,7 +59,9 @@ export function FinanceRevenueBreakdownCard({
                   role="row"
                   className="text-muted-foreground mx-4 flex h-10 items-center border border-transparent text-sm font-medium"
                 >
-                  <span className="grid min-w-0 flex-1 grid-cols-[minmax(11rem,1fr)_minmax(4rem,5rem)_minmax(4rem,5rem)_minmax(7rem,8rem)] items-center gap-2">
+                  <span
+                    className={`grid min-w-0 flex-1 items-center ${REVENUE_GRID_COLUMNS}`}
+                  >
                     <span className="pl-10">Revenue stream / plan</span>
                     <span className="text-right">Payments</span>
                     <span className="text-right">Share</span>
@@ -81,12 +84,11 @@ export function FinanceRevenueBreakdownCard({
                   return (
                     <AccordionItem key={row.key} value={row.key}>
                       <AccordionTrigger className="hover:bg-muted/50 rounded-none px-4 hover:no-underline **:data-[slot=accordion-trigger-icon]:absolute **:data-[slot=accordion-trigger-icon]:top-1/2 **:data-[slot=accordion-trigger-icon]:left-4 **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:-translate-y-1/2">
-                        <span className="grid min-w-0 flex-1 grid-cols-[minmax(11rem,1fr)_minmax(4rem,5rem)_minmax(4rem,5rem)_minmax(7rem,8rem)] items-center gap-2">
-                          <span className="flex min-w-0 items-center gap-2 pl-6 font-medium">
-                            <span
-                              className={`size-2 shrink-0 rounded-full ${row.dot}`}
-                            />
-                            <span className="truncate">{row.label}</span>
+                        <span
+                          className={`grid min-w-0 flex-1 items-center ${REVENUE_GRID_COLUMNS}`}
+                        >
+                          <span className="min-w-0 truncate pl-10 font-medium">
+                            {row.label}
                           </span>
                           <span className="text-right tabular-nums">
                             {fmt.number(stream.payments)}
@@ -116,10 +118,10 @@ export function FinanceRevenueBreakdownCard({
                                   <TableCell className="pl-14 font-medium">
                                     {plan.name}
                                   </TableCell>
-                                  <TableCell className="text-right tabular-nums">
+                                  <TableCell className="pr-4 text-right tabular-nums">
                                     {fmt.number(plan.payments)}
                                   </TableCell>
-                                  <TableCell className="text-muted-foreground text-right tabular-nums">
+                                  <TableCell className="text-muted-foreground pr-4 text-right tabular-nums">
                                     {fmt.number(
                                       Math.round(
                                         (plan.amount / stream.amount) * 100

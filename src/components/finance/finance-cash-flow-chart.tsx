@@ -70,7 +70,7 @@ export function FinanceCashFlowChart({
 
   return (
     <Card className="h-full">
-      <CardHeader className="border-b">
+      <CardHeader>
         <CardTitle>Cash flow · {monthLabel}</CardTitle>
         <CardAction>
           <Toolbar aria-label="Cash flow grouping">

@@ -50,7 +50,7 @@ export function FinanceInvoiceHealthCard({
 
   return (
     <Card className="h-full">
-      <CardHeader className="border-b">
+      <CardHeader>
         <CardTitle>Invoice health</CardTitle>
       </CardHeader>
       <CardContent>

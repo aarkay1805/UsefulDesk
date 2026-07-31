@@ -37,7 +37,7 @@ export function FinanceRecentTransactionsCard({
 }) {
   return (
     <Card className="h-full">
-      <CardHeader className="border-b">
+      <CardHeader>
         <CardTitle>Recent transactions</CardTitle>
       </CardHeader>
       <CardContent className="px-0">

@@ -1,12 +1,12 @@
-import { Target } from 'lucide-react';
+import { Info } from 'lucide-react';
 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { FinanceAdPerformance } from '@/lib/finance/overview';
 import type { LocaleFormatters } from '@/lib/locale/format';
 
@@ -28,14 +28,8 @@ export function FinanceAdPerformanceCard({
 
   return (
     <Card className="h-full">
-      <CardHeader className="border-b">
-        <CardTitle className="flex items-center gap-2">
-          <Target className="text-muted-foreground size-4" />
-          Ad performance
-        </CardTitle>
-        <CardDescription>
-          Instagram, Facebook and automated Meta leads
-        </CardDescription>
+      <CardHeader>
+        <CardTitle>Ad performance</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -57,7 +51,28 @@ export function FinanceAdPerformanceCard({
 
         <div className="divide-border divide-y">
           <div className="flex items-center gap-3 py-2.5">
-            <span className="text-muted-foreground flex-1">Leads acquired</span>
+            <div className="flex-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger
+                    delay={350}
+                    render={
+                      <button
+                        type="button"
+                        aria-label="About leads acquired"
+                        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex cursor-help items-center gap-1.5 rounded-sm text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                      />
+                    }
+                  >
+                    <Info aria-hidden="true" className="size-3.5" />
+                    <span>Leads acquired</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Instagram, Facebook and automated Meta leads
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <span className="font-medium tabular-nums">
               {fmt.number(performance.leads)}
             </span>

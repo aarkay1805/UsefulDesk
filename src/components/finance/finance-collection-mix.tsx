@@ -52,7 +52,7 @@ export function FinanceCollectionMixCard({
 
   return (
     <Card className="h-full">
-      <CardHeader className="border-b">
+      <CardHeader>
         <CardTitle>Collection mix</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
