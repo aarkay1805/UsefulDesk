@@ -132,6 +132,7 @@ export function FinanceOverview({
                 month={month}
                 accountId={accountId}
                 fmt={fmt}
+                onChanged={() => setRetryKey((key) => key + 1)}
               />
             </div>
             <div className="xl:col-span-2">

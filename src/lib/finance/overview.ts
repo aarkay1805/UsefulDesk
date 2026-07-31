@@ -64,7 +64,6 @@ export interface FinanceRevenuePayment {
   membershipId: string | null;
   memberNumber: number | null;
   contactName: string | null;
-  contactPhone: string | null;
   contactAvatarUrl: string | null;
   planName: string | null;
   paidAt: string;
@@ -92,7 +91,7 @@ export type FinanceRevenueStreamPaymentRow = FinanceRevenuePaymentRow &
     Payment,
     'id' | 'membership_id' | 'paid_at' | 'period_end' | 'method' | 'source'
   > & {
-    contact?: Pick<Contact, 'name' | 'phone' | 'avatar_url'> | null;
+    contact?: Pick<Contact, 'name' | 'avatar_url'> | null;
     plan?: Pick<MembershipPlan, 'name'> | null;
     membership?: Pick<Membership, 'member_number' | 'start_date'> | null;
   };
@@ -122,7 +121,7 @@ export interface FinanceOverviewData {
 }
 
 type PaymentRow = Payment & {
-  contact?: Pick<Contact, 'name' | 'phone' | 'avatar_url'> | null;
+  contact?: Pick<Contact, 'name' | 'avatar_url'> | null;
   plan?: Pick<MembershipPlan, 'name'> | null;
   membership?: Pick<Membership, 'member_number' | 'start_date'> | null;
 };
@@ -281,7 +280,6 @@ export function summarizeFinanceRevenueStreams(
       membershipId: payment.membership_id,
       memberNumber: payment.membership?.member_number ?? null,
       contactName: payment.contact?.name?.trim() || null,
-      contactPhone: payment.contact?.phone?.trim() || null,
       contactAvatarUrl: payment.contact?.avatar_url ?? null,
       planName: payment.plan?.name?.trim() || null,
       paidAt: payment.paid_at,
@@ -450,7 +448,7 @@ export async function loadFinanceOverview(
       db
         .from('payments')
         .select(
-          'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, payment_purpose, gateway_payment_id, created_at, contact:contacts(name, phone, avatar_url), plan:membership_plans(name), membership:memberships(member_number, start_date)'
+          'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, payment_purpose, gateway_payment_id, created_at, contact:contacts(name, avatar_url), plan:membership_plans(name), membership:memberships(member_number, start_date)'
         )
         .eq('status', 'paid')
         .gte('paid_at', bounds.previousStart)

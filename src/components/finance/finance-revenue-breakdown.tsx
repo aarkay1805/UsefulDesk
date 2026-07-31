@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { ArrowRight, Banknote } from 'lucide-react';
 
@@ -32,6 +33,12 @@ import type {
 import { financeHref } from '@/lib/finance/views';
 import type { LocaleFormatters } from '@/lib/locale/format';
 import type { PaymentMethod, PaymentPurpose } from '@/types';
+
+const FinanceMemberDetailSheet = dynamic(() =>
+  import('@/components/finance/finance-member-detail-sheet').then(
+    (module) => module.FinanceMemberDetailSheet
+  )
+);
 
 const PURPOSE_ROWS: Array<{
   key: PaymentPurpose;
@@ -76,14 +83,19 @@ export function FinanceRevenueBreakdownCard({
   month,
   accountId,
   fmt,
+  onChanged,
 }: {
   breakdown: FinanceRevenueBreakdown;
   streams: FinanceRevenueStream[];
   month: string;
   accountId: string | null;
   fmt: LocaleFormatters;
+  onChanged: () => void;
 }) {
   const [expandedSources, setExpandedSources] = useState<PaymentPurpose[]>([]);
+  const [detailMembershipId, setDetailMembershipId] = useState<string | null>(
+    null
+  );
   const total = Object.values(breakdown).reduce(
     (sum, amount) => sum + amount,
     0
@@ -91,7 +103,6 @@ export function FinanceRevenueBreakdownCard({
   const rows = PURPOSE_ROWS.filter(
     (row) => row.key !== 'other' || breakdown.other > 0
   );
-
   return (
     <Card className="h-full">
       <CardHeader>
@@ -185,6 +196,7 @@ export function FinanceRevenueBreakdownCard({
                               </TableHeader>
                               <TableBody>
                                 {stream.recentPayments.map((payment) => {
+                                  const membershipId = payment.membershipId;
                                   const context = paymentContext(
                                     row.key,
                                     payment,
@@ -200,14 +212,55 @@ export function FinanceRevenueBreakdownCard({
                                     .join(' · ');
 
                                   return (
-                                    <TableRow key={payment.id}>
+                                    <TableRow
+                                      key={payment.id}
+                                      className={
+                                        membershipId
+                                          ? 'cursor-pointer'
+                                          : undefined
+                                      }
+                                      tabIndex={membershipId ? 0 : undefined}
+                                      aria-label={
+                                        membershipId
+                                          ? `Open ${payment.contactName ?? 'member'} details`
+                                          : undefined
+                                      }
+                                      onClick={
+                                        membershipId
+                                          ? () =>
+                                              setDetailMembershipId(
+                                                membershipId
+                                              )
+                                          : undefined
+                                      }
+                                      onKeyDown={
+                                        membershipId
+                                          ? (event) => {
+                                              if (
+                                                event.currentTarget !==
+                                                event.target
+                                              ) {
+                                                return;
+                                              }
+                                              if (
+                                                event.key === 'Enter' ||
+                                                event.key === ' '
+                                              ) {
+                                                event.preventDefault();
+                                                setDetailMembershipId(
+                                                  membershipId
+                                                );
+                                              }
+                                            }
+                                          : undefined
+                                      }
+                                    >
                                       <TableCell className="pl-14">
                                         <MemberIdentity
                                           name={
                                             payment.contactName ??
                                             'Deleted member'
                                           }
-                                          secondary={payment.contactPhone}
                                           src={payment.contactAvatarUrl}
                                           size="sm"
                                           meta={
@@ -292,6 +345,15 @@ export function FinanceRevenueBreakdownCard({
           </div>
         )}
       </CardContent>
+      {detailMembershipId ? (
+        <FinanceMemberDetailSheet
+          membershipId={detailMembershipId}
+          onOpenChange={(open) => {
+            if (!open) setDetailMembershipId(null);
+          }}
+          onChanged={onChanged}
+        />
+      ) : null}
     </Card>
   );
 }

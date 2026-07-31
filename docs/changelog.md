@@ -8,7 +8,7 @@
 
 ## Finance revenue-source payment drilldowns
 
-Finance Overview now expands each immutable revenue source into its five latest contributing payments instead of duplicating Reports' plan aggregation. Nested rows use canonical member identity with plan and Member ID as context, collection/cycle timing, method, Manual/AutoPay source, and amount; View all preserves the selected branch and opens Finance Payments with a durable revenue-source URL filter backed by exact database-side totals, paging, and export. Migration `20260801090000_finance_payment_purpose_filter.sql` was applied through the Supabase connector as `20260731190701`; key code: `src/components/finance/finance-revenue-breakdown.tsx`, `src/lib/finance/overview.ts`, and `src/lib/finance/payments.ts`.
+Finance Overview now expands each immutable revenue source into its five latest contributing payments instead of duplicating Reports' plan aggregation. Nested rows use canonical member identity without exposing phone numbers, preserve plan and Member ID as context, and open the established member detail sheet in place; collection/cycle timing, method, Manual/AutoPay source, and amount remain visible. View all preserves the selected branch and opens Finance Payments with a durable revenue-source URL filter backed by exact database-side totals, paging, and export. Migration `20260801090000_finance_payment_purpose_filter.sql` was applied through the Supabase connector as `20260731190701`; key code: `src/components/finance/finance-revenue-breakdown.tsx`, `src/lib/finance/overview.ts`, and `src/lib/finance/payments.ts`.
 
 ## Finance Overview card cleanup
 

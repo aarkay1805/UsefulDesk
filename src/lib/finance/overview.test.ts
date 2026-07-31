@@ -28,7 +28,6 @@ function revenuePayment(
     source: 'manual',
     contact: {
       name: 'Aarav Shah',
-      phone: '9876543210',
       avatar_url: undefined,
     },
     plan: { name: 'Gold' },
