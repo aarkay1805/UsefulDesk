@@ -11,6 +11,7 @@ import type {
   Contact,
   Expense,
   Membership,
+  MembershipPlan,
   MembershipPeriodInvoice,
   Payment,
   PaymentMethod,
@@ -58,10 +59,29 @@ export interface FinanceRecentTransaction {
 
 export type FinanceRevenueBreakdown = Record<PaymentPurpose, number>;
 
+export interface FinanceRevenuePlanBreakdown {
+  id: string | null;
+  name: string;
+  payments: number;
+  amount: number;
+}
+
+export interface FinanceRevenueStream {
+  purpose: PaymentPurpose;
+  payments: number;
+  amount: number;
+  plans: FinanceRevenuePlanBreakdown[];
+}
+
 export type FinanceRevenuePaymentRow = Pick<
   Payment,
   'amount' | 'payment_purpose' | 'status'
 >;
+
+export type FinanceRevenueStreamPaymentRow = FinanceRevenuePaymentRow &
+  Pick<Payment, 'plan_id'> & {
+    plan?: Pick<MembershipPlan, 'name'> | null;
+  };
 
 export interface FinanceAdPerformance {
   adSpend: number;
@@ -79,6 +99,7 @@ export interface FinanceOverviewData {
   profit: { current: number; previous: number };
   projection: { amount: number; renewals: number };
   revenueBreakdown: FinanceRevenueBreakdown;
+  revenueStreams: FinanceRevenueStream[];
   adPerformance: FinanceAdPerformance;
   trend: FinanceTrendPoint[];
   invoiceHealth: FinanceInvoiceHealth;
@@ -88,6 +109,7 @@ export interface FinanceOverviewData {
 
 type PaymentRow = Payment & {
   contact?: Pick<Contact, 'name'> | null;
+  plan?: Pick<MembershipPlan, 'name'> | null;
 };
 
 export type FinanceOverviewExpenseRow = Pick<
@@ -212,6 +234,60 @@ export function summarizeFinanceRevenue(
     breakdown[purpose] += number(payment.amount);
   }
   return breakdown;
+}
+
+export function summarizeFinanceRevenueStreams(
+  rows: FinanceRevenueStreamPaymentRow[]
+): FinanceRevenueStream[] {
+  const purposes: PaymentPurpose[] = ['joining', 'renewal', 'due', 'other'];
+  const streams = new Map<
+    PaymentPurpose,
+    {
+      payments: number;
+      amount: number;
+      plans: Map<string, FinanceRevenuePlanBreakdown>;
+    }
+  >(
+    purposes.map((purpose) => [
+      purpose,
+      { payments: 0, amount: 0, plans: new Map() },
+    ])
+  );
+
+  for (const payment of rows) {
+    if (payment.status !== 'paid') continue;
+    const purpose = payment.payment_purpose ?? 'other';
+    const stream = streams.get(purpose);
+    if (!stream) continue;
+
+    const amount = number(payment.amount);
+    const planKey = payment.plan_id ?? 'unassigned';
+    const plan = stream.plans.get(planKey) ?? {
+      id: payment.plan_id,
+      name: payment.plan?.name?.trim() || 'Unassigned plan',
+      payments: 0,
+      amount: 0,
+    };
+
+    stream.payments += 1;
+    stream.amount += amount;
+    plan.payments += 1;
+    plan.amount += amount;
+    stream.plans.set(planKey, plan);
+  }
+
+  return purposes.map((purpose) => {
+    const stream = streams.get(purpose)!;
+    return {
+      purpose,
+      payments: stream.payments,
+      amount: stream.amount,
+      plans: Array.from(stream.plans.values()).sort(
+        (left, right) =>
+          right.amount - left.amount || left.name.localeCompare(right.name)
+      ),
+    };
+  });
 }
 
 async function loadFinanceAdPerformance(
@@ -349,7 +425,7 @@ export async function loadFinanceOverview(
       db
         .from('payments')
         .select(
-          'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, payment_purpose, gateway_payment_id, created_at, contact:contacts(name)'
+          'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, payment_purpose, gateway_payment_id, created_at, contact:contacts(name), plan:membership_plans(name)'
         )
         .eq('status', 'paid')
         .gte('paid_at', bounds.previousStart)
@@ -419,6 +495,7 @@ export async function loadFinanceOverview(
     ),
   };
   const revenueBreakdown = summarizeFinanceRevenue(currentPayments);
+  const revenueStreams = summarizeFinanceRevenueStreams(currentPayments);
   const expenseSnapshot = summarizeFinanceExpenses(expenseRows, period);
   const expenses = {
     current: expenseSnapshot.current,
@@ -512,6 +589,7 @@ export async function loadFinanceOverview(
       renewals: projectionRenewals,
     },
     revenueBreakdown,
+    revenueStreams,
     adPerformance,
     trend: Array.from(daily.values()),
     invoiceHealth,

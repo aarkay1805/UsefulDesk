@@ -6,6 +6,10 @@
 
 ---
 
+## Finance revenue stream drilldowns
+
+Finance Overview's Revenue breakdown now uses the Reports Plan performance accordion pattern: each immutable revenue stream shows payment count, total-revenue share, and revenue, then expands into plan-level payment counts, within-stream share, and revenue. The selected-month paid ledger remains the single source of truth, zero-value core streams stay visible, and Other remains hidden only when zero. Key code: `src/components/finance/finance-revenue-breakdown.tsx` and `src/lib/finance/overview.ts`.
+
 ## Finance revenue attribution and ad performance
 
 Finance Overview now reconciles selected-month paid revenue into immutable Joining, Renewal, Due, and Other purposes and reports selected-month Marketing spend against the Instagram/Facebook/Meta lead cohort's to-date non-trial conversions and joining revenue. Initial member/import/installment collections use the validated joining RPC; later collections remain due, renewals and AutoPay are classified from their database operation/cycle, ambiguous history stays Other, Recent transactions names the purpose, contact changes refresh the view, and CSV includes both sections. Migrations `20260731120000_finance_revenue_attribution.sql` and `20260731121000_finance_ad_cohort_indexes.sql` were applied through the Supabase connector as `20260731180203` and `20260731180859`; key code also lives in `src/lib/finance/overview.ts` and `src/components/finance/finance-overview.tsx`. Gotcha: the cohort month is acquisition-local, while conversions and joining revenue intentionally continue accumulating afterward.

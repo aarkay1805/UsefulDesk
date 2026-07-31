@@ -126,6 +126,7 @@ export function FinanceOverview({
             <div className="xl:col-span-3">
               <FinanceRevenueBreakdownCard
                 breakdown={data.revenueBreakdown}
+                streams={data.revenueStreams}
                 fmt={fmt}
               />
             </div>

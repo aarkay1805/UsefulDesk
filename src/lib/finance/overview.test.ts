@@ -8,6 +8,7 @@ import {
   shiftFinanceMonth,
   summarizeFinanceExpenses,
   summarizeFinanceRevenue,
+  summarizeFinanceRevenueStreams,
   type FinanceOverviewData,
 } from './overview';
 
@@ -72,6 +73,73 @@ describe('Finance revenue attribution', () => {
       conversionRate: 40,
       returnOnAdSpend: null,
     });
+  });
+
+  it('breaks each revenue stream down by plan and payment count', () => {
+    expect(
+      summarizeFinanceRevenueStreams([
+        {
+          amount: 4_000,
+          payment_purpose: 'joining',
+          status: 'paid',
+          plan_id: 'gold',
+          plan: { name: 'Gold' },
+        },
+        {
+          amount: 2_000,
+          payment_purpose: 'joining',
+          status: 'paid',
+          plan_id: 'silver',
+          plan: { name: 'Silver' },
+        },
+        {
+          amount: 1_000,
+          payment_purpose: 'joining',
+          status: 'paid',
+          plan_id: 'gold',
+          plan: { name: 'Gold' },
+        },
+        {
+          amount: 3_000,
+          payment_purpose: 'renewal',
+          status: 'paid',
+          plan_id: null,
+          plan: null,
+        },
+        {
+          amount: 9_000,
+          payment_purpose: 'joining',
+          status: 'void',
+          plan_id: 'gold',
+          plan: { name: 'Gold' },
+        },
+      ])
+    ).toEqual([
+      {
+        purpose: 'joining',
+        payments: 3,
+        amount: 7_000,
+        plans: [
+          { id: 'gold', name: 'Gold', payments: 2, amount: 5_000 },
+          { id: 'silver', name: 'Silver', payments: 1, amount: 2_000 },
+        ],
+      },
+      {
+        purpose: 'renewal',
+        payments: 1,
+        amount: 3_000,
+        plans: [
+          {
+            id: null,
+            name: 'Unassigned plan',
+            payments: 1,
+            amount: 3_000,
+          },
+        ],
+      },
+      { purpose: 'due', payments: 0, amount: 0, plans: [] },
+      { purpose: 'other', payments: 0, amount: 0, plans: [] },
+    ]);
   });
 });
 
@@ -146,6 +214,7 @@ describe('financeOverviewCsv', () => {
         due: 1000,
         other: 0,
       },
+      revenueStreams: [],
       adPerformance: {
         adSpend: 1500,
         leads: 10,
