@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { financeHref, parseFinanceMonth, parseFinanceView } from './views';
+import {
+  financeHref,
+  parseFinanceMonth,
+  parseFinancePaymentPurposes,
+  parseFinanceView,
+} from './views';
 
 describe('finance views', () => {
   it('accepts known views and falls back to the overview', () => {
@@ -24,5 +29,15 @@ describe('finance views', () => {
     expect(financeHref('invoices', '2026-07')).toBe(
       '/finance?view=invoices&month=2026-07'
     );
+    expect(financeHref('payments', '2026-07', ['renewal', 'due'])).toBe(
+      '/finance?view=payments&month=2026-07&purpose=renewal&purpose=due'
+    );
+  });
+
+  it('accepts only unique immutable payment purposes', () => {
+    expect(
+      parseFinancePaymentPurposes(['renewal', 'invalid', 'renewal', 'due'])
+    ).toEqual(['renewal', 'due']);
+    expect(parseFinancePaymentPurposes(undefined)).toEqual([]);
   });
 });

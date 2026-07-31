@@ -20,6 +20,7 @@ import {
 import type {
   MembershipPlan,
   PaymentMethod,
+  PaymentPurpose,
   PaymentSource,
   PaymentStatus,
 } from '@/types';
@@ -42,6 +43,13 @@ const PAYMENT_SOURCES: { value: PaymentSource; label: string }[] = [
   { value: 'auto', label: 'Auto-pay' },
 ];
 
+const PAYMENT_PURPOSES: { value: PaymentPurpose; label: string }[] = [
+  { value: 'joining', label: 'New memberships' },
+  { value: 'renewal', label: 'Renewals' },
+  { value: 'due', label: 'Due payments recovered' },
+  { value: 'other', label: 'Other collections' },
+];
+
 export function FinancePaymentFilters({
   value,
   onChange,
@@ -59,6 +67,7 @@ export function FinancePaymentFilters({
     value.methods.length +
     value.statuses.length +
     value.sources.length +
+    value.purposes.length +
     value.planIds.length +
     value.recordedBy.length +
     Number(Boolean(value.paidFrom)) +
@@ -123,6 +132,13 @@ export function FinancePaymentFilters({
             options={PAYMENT_SOURCES}
             selected={value.sources}
             onToggle={(choice) => toggle('sources', choice as PaymentSource)}
+          />
+          <Separator className="my-3" />
+          <FilterGroup
+            label="Revenue source"
+            options={PAYMENT_PURPOSES}
+            selected={value.purposes}
+            onToggle={(choice) => toggle('purposes', choice as PaymentPurpose)}
           />
           <Separator className="my-3" />
           <FilterGroup

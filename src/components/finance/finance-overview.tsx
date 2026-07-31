@@ -20,6 +20,7 @@ import { FinanceRecentTransactionsCard } from '@/components/finance/finance-rece
 import { FinanceRevenueBreakdownCard } from '@/components/finance/finance-revenue-breakdown';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { getErrorMessage } from '@/lib/errors';
 import {
@@ -40,6 +41,7 @@ export function FinanceOverview({
   onMonthChange: (month: string) => void;
 }) {
   const { fmt, locale } = useLocale();
+  const { accountId } = useAuth();
   const [data, setData] = useState<FinanceOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,6 +129,8 @@ export function FinanceOverview({
               <FinanceRevenueBreakdownCard
                 breakdown={data.revenueBreakdown}
                 streams={data.revenueStreams}
+                month={month}
+                accountId={accountId}
                 fmt={fmt}
               />
             </div>

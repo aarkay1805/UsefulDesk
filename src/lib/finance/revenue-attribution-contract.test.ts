@@ -9,6 +9,9 @@ const read = (path: string) =>
 const migration = read(
   'supabase/migrations/20260731120000_finance_revenue_attribution.sql'
 );
+const paymentFilterMigration = read(
+  'supabase/migrations/20260801090000_finance_payment_purpose_filter.sql'
+);
 
 describe('Finance revenue-attribution database contract', () => {
   it('stores an immutable, database-derived payment purpose', () => {
@@ -82,6 +85,23 @@ describe('Finance revenue-attribution database contract', () => {
     );
     expect(migration).toMatch(
       /REVOKE ALL ON FUNCTION public\.finance_overview_ad_performance[\s\S]*FROM PUBLIC, anon;/
+    );
+  });
+
+  it('filters the analytical payment ledger by immutable revenue purpose', () => {
+    expect(paymentFilterMigration).toContain('p_purposes TEXT[] DEFAULT NULL');
+    expect(paymentFilterMigration).toContain(
+      'payment.payment_purpose = ANY(p_purposes)'
+    );
+    expect(paymentFilterMigration).toContain('SECURITY INVOKER');
+    expect(paymentFilterMigration).toContain(
+      'public.is_account_member(payment.account_id)'
+    );
+    expect(paymentFilterMigration).toMatch(
+      /REVOKE ALL ON FUNCTION public\.finance_payment_ledger[\s\S]*FROM PUBLIC, anon;/
+    );
+    expect(paymentFilterMigration).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.finance_payment_ledger[\s\S]*TO authenticated;/
     );
   });
 });

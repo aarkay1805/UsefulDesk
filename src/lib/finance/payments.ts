@@ -6,6 +6,7 @@ import { istAddDays } from '@/lib/memberships/expiry';
 import type {
   Payment,
   PaymentMethod,
+  PaymentPurpose,
   PaymentSource,
   PaymentStatus,
 } from '@/types';
@@ -28,6 +29,7 @@ export interface FinancePaymentFilterState {
   methods: PaymentMethod[];
   statuses: PaymentStatus[];
   sources: PaymentSource[];
+  purposes: PaymentPurpose[];
   planIds: string[];
   recordedBy: string[];
   paidFrom: string;
@@ -38,6 +40,7 @@ export const EMPTY_FINANCE_PAYMENT_FILTERS: FinancePaymentFilterState = {
   methods: [],
   statuses: [],
   sources: [],
+  purposes: [],
   planIds: [],
   recordedBy: [],
   paidFrom: '',
@@ -196,6 +199,7 @@ export async function loadFinancePayments(
     p_methods: query.filters.methods.length ? query.filters.methods : null,
     p_statuses: query.filters.statuses.length ? query.filters.statuses : null,
     p_sources: query.filters.sources.length ? query.filters.sources : null,
+    p_purposes: query.filters.purposes.length ? query.filters.purposes : null,
     p_plan_ids: query.filters.planIds.length ? query.filters.planIds : null,
     p_recorded_by: query.filters.recordedBy.length
       ? query.filters.recordedBy

@@ -56,7 +56,7 @@ import {
 } from '@/lib/finance/payments';
 import { financeMonthRange } from '@/lib/finance/overview';
 import { createClient } from '@/lib/supabase/client';
-import type { MembershipPlan, PaymentMethod } from '@/types';
+import type { MembershipPlan, PaymentMethod, PaymentPurpose } from '@/types';
 
 const PAGE_SIZE = 25;
 
@@ -96,11 +96,15 @@ const QUICK_VIEWS: {
 export function FinancePayments({
   reloadKey,
   month,
+  paymentPurposes,
   onMonthChange,
+  onPaymentPurposesChange,
 }: {
   reloadKey: number;
   month: string;
+  paymentPurposes: PaymentPurpose[];
   onMonthChange: (month: string) => void;
+  onPaymentPurposesChange: (purposes: PaymentPurpose[]) => void;
 }) {
   const router = useRouter();
   const { fmt, locale } = useLocale();
@@ -116,6 +120,10 @@ export function FinancePayments({
   const [quickView, setQuickView] = useState<FinancePaymentQuickView>('all');
   const [filters, setFilters] = useState<FinancePaymentFilterState>(
     EMPTY_FINANCE_PAYMENT_FILTERS
+  );
+  const activeFilters = useMemo(
+    () => ({ ...filters, purposes: paymentPurposes }),
+    [filters, paymentPurposes]
   );
   const [sort, setSort] = useState<SortState>({
     key: 'paid_on',
@@ -147,7 +155,7 @@ export function FinancePayments({
   const querySignature = JSON.stringify({
     search,
     quickView,
-    filters,
+    filters: activeFilters,
     sort,
   });
   const [previousQuerySignature, setPreviousQuerySignature] =
@@ -168,7 +176,7 @@ export function FinancePayments({
           timeZone: locale.timeZone,
           search,
           quickView,
-          filters,
+          filters: activeFilters,
           sort: {
             key: sort.key as FinancePaymentSortKey,
             dir: sort.dir,
@@ -189,7 +197,7 @@ export function FinancePayments({
       cancelled = true;
     };
   }, [
-    filters,
+    activeFilters,
     locale.timeZone,
     month,
     page,
@@ -211,6 +219,7 @@ export function FinancePayments({
     filters.methods.length > 0 ||
     filters.statuses.length > 0 ||
     filters.sources.length > 0 ||
+    paymentPurposes.length > 0 ||
     filters.planIds.length > 0 ||
     filters.recordedBy.length > 0 ||
     Boolean(filters.paidFrom) ||
@@ -233,6 +242,11 @@ export function FinancePayments({
     router.push(`/members?${params.toString()}`);
   }
 
+  function changeFilters(next: FinancePaymentFilterState) {
+    setFilters({ ...next, purposes: [] });
+    onPaymentPurposesChange(next.purposes);
+  }
+
   async function exportPayments() {
     if (result.summary.count === 0) return;
     setExporting(true);
@@ -242,7 +256,7 @@ export function FinancePayments({
         timeZone: locale.timeZone,
         search,
         quickView,
-        filters,
+        filters: activeFilters,
         sort: {
           key: sort.key as FinancePaymentSortKey,
           dir: sort.dir,
@@ -336,8 +350,8 @@ export function FinancePayments({
               aria-label="Search payments"
             />
             <FinancePaymentFilters
-              value={filters}
-              onChange={setFilters}
+              value={activeFilters}
+              onChange={changeFilters}
               plans={plans}
               staff={staffOptions}
               range={{ start: period.start, end: period.end }}

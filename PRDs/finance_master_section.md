@@ -121,7 +121,7 @@ Overview block headers are divider-free. Ad performance uses a plain title; its 
 Data rules:
 
 - Revenue is the append-preserving paid-payment total for the selected calendar month and compares with the previous calendar month.
-- Revenue breakdown is the same selected-month, account-timezone paid ledger grouped by immutable payment purpose: New memberships, Renewals, Due payments recovered, and Other. Each stream is a chevron-only expandable summary—without decorative colour markers—with payment count, total-revenue share, and revenue; its disclosure groups the same paid rows by plan with payment count, within-stream share, and revenue. Other appears only when non-zero so the rows always reconcile with Revenue without mislabelling legacy or mid-cycle plan-change collections.
+- Revenue sources is the same selected-month, account-timezone paid ledger grouped by immutable payment purpose: New memberships, Renewals, Due payments recovered, and Other. Each stream is a chevron-only expandable summary—without decorative colour markers—with payment count, total-revenue share, and revenue; its disclosure shows the five latest contributing payments with canonical member identity, plan as secondary context, collection date, stream-specific cycle context, method, Manual/AutoPay source, and amount. A branch-preserving View all link opens Finance Payments with the month and revenue source durably filtered in the URL. Other appears only when non-zero so the rows always reconcile with Revenue without mislabelling legacy or mid-cycle plan-change collections. Plan aggregation remains in Reports → Plan performance rather than being duplicated on Finance Overview.
 - Joining collections and first joining installments are `joining`; manual and AutoPay-created new cycles are `renewal`; later manual/bulk/installment-balance collections and AutoPay applied to an existing invoice are `due`; mid-cycle plan changes and genuinely ambiguous legacy rows are `other`. Browser callers never supply the classification.
 - Ad performance treats the selected month as an acquisition cohort: contacts created in that account-local month whose source is Instagram/Facebook or whose immutable origin is Meta. Converted members and joining revenue are explicitly **to date**, so a historical cohort continues updating after its acquisition month.
 - Ad spend is selected-month posted expenses in the exact `Marketing` category. Ad revenue is all paid `joining` payments from the cohort; renewals, recovered dues, other collections, and void payments do not contribute. Conversion rate and return on ad spend are unavailable when their denominator is zero.
@@ -149,6 +149,7 @@ Built:
 - `SearchInput` for name, phone, Member ID, payment reference, or gateway reference;
 - calendar-month scope with an account-timezone date-range refinement;
 - filters for status, plan, payment method, source, and recorded by;
+- immutable revenue-source filtering for New memberships, Renewals, Due payments recovered, and Other, including Overview deep links;
 - All / Collected / Auto-pay / Voided quick views with live counts;
 - database-side pagination, sorting, exact filtered totals, and method split through the tenant-guarded `finance_payment_ledger` RPC;
 - full-result CSV export using the same RPC/filter contract;

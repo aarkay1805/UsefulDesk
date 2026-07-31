@@ -59,10 +59,19 @@ export interface FinanceRecentTransaction {
 
 export type FinanceRevenueBreakdown = Record<PaymentPurpose, number>;
 
-export interface FinanceRevenuePlanBreakdown {
-  id: string | null;
-  name: string;
-  payments: number;
+export interface FinanceRevenuePayment {
+  id: string;
+  membershipId: string | null;
+  memberNumber: number | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  contactAvatarUrl: string | null;
+  planName: string | null;
+  paidAt: string;
+  membershipStartDate: string | null;
+  periodEnd: string | null;
+  method: PaymentMethod;
+  source: Payment['source'];
   amount: number;
 }
 
@@ -70,7 +79,7 @@ export interface FinanceRevenueStream {
   purpose: PaymentPurpose;
   payments: number;
   amount: number;
-  plans: FinanceRevenuePlanBreakdown[];
+  recentPayments: FinanceRevenuePayment[];
 }
 
 export type FinanceRevenuePaymentRow = Pick<
@@ -79,8 +88,13 @@ export type FinanceRevenuePaymentRow = Pick<
 >;
 
 export type FinanceRevenueStreamPaymentRow = FinanceRevenuePaymentRow &
-  Pick<Payment, 'plan_id'> & {
+  Pick<
+    Payment,
+    'id' | 'membership_id' | 'paid_at' | 'period_end' | 'method' | 'source'
+  > & {
+    contact?: Pick<Contact, 'name' | 'phone' | 'avatar_url'> | null;
     plan?: Pick<MembershipPlan, 'name'> | null;
+    membership?: Pick<Membership, 'member_number' | 'start_date'> | null;
   };
 
 export interface FinanceAdPerformance {
@@ -108,8 +122,9 @@ export interface FinanceOverviewData {
 }
 
 type PaymentRow = Payment & {
-  contact?: Pick<Contact, 'name'> | null;
+  contact?: Pick<Contact, 'name' | 'phone' | 'avatar_url'> | null;
   plan?: Pick<MembershipPlan, 'name'> | null;
+  membership?: Pick<Membership, 'member_number' | 'start_date'> | null;
 };
 
 export type FinanceOverviewExpenseRow = Pick<
@@ -245,12 +260,12 @@ export function summarizeFinanceRevenueStreams(
     {
       payments: number;
       amount: number;
-      plans: Map<string, FinanceRevenuePlanBreakdown>;
+      recentPayments: FinanceRevenuePayment[];
     }
   >(
     purposes.map((purpose) => [
       purpose,
-      { payments: 0, amount: 0, plans: new Map() },
+      { payments: 0, amount: 0, recentPayments: [] },
     ])
   );
 
@@ -261,19 +276,25 @@ export function summarizeFinanceRevenueStreams(
     if (!stream) continue;
 
     const amount = number(payment.amount);
-    const planKey = payment.plan_id ?? 'unassigned';
-    const plan = stream.plans.get(planKey) ?? {
-      id: payment.plan_id,
-      name: payment.plan?.name?.trim() || 'Unassigned plan',
-      payments: 0,
-      amount: 0,
+    const recentPayment: FinanceRevenuePayment = {
+      id: payment.id,
+      membershipId: payment.membership_id,
+      memberNumber: payment.membership?.member_number ?? null,
+      contactName: payment.contact?.name?.trim() || null,
+      contactPhone: payment.contact?.phone?.trim() || null,
+      contactAvatarUrl: payment.contact?.avatar_url ?? null,
+      planName: payment.plan?.name?.trim() || null,
+      paidAt: payment.paid_at,
+      membershipStartDate: payment.membership?.start_date ?? null,
+      periodEnd: payment.period_end ?? null,
+      method: payment.method,
+      source: payment.source,
+      amount,
     };
 
     stream.payments += 1;
     stream.amount += amount;
-    plan.payments += 1;
-    plan.amount += amount;
-    stream.plans.set(planKey, plan);
+    stream.recentPayments.push(recentPayment);
   }
 
   return purposes.map((purpose) => {
@@ -282,10 +303,14 @@ export function summarizeFinanceRevenueStreams(
       purpose,
       payments: stream.payments,
       amount: stream.amount,
-      plans: Array.from(stream.plans.values()).sort(
-        (left, right) =>
-          right.amount - left.amount || left.name.localeCompare(right.name)
-      ),
+      recentPayments: stream.recentPayments
+        .slice()
+        .sort(
+          (left, right) =>
+            right.paidAt.localeCompare(left.paidAt) ||
+            right.id.localeCompare(left.id)
+        )
+        .slice(0, 5),
     };
   });
 }
@@ -425,7 +450,7 @@ export async function loadFinanceOverview(
       db
         .from('payments')
         .select(
-          'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, payment_purpose, gateway_payment_id, created_at, contact:contacts(name), plan:membership_plans(name)'
+          'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, payment_purpose, gateway_payment_id, created_at, contact:contacts(name, phone, avatar_url), plan:membership_plans(name), membership:memberships(member_number, start_date)'
         )
         .eq('status', 'paid')
         .gte('paid_at', bounds.previousStart)

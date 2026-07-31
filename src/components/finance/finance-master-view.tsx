@@ -9,10 +9,12 @@ import { FinanceOverview } from '@/components/finance/finance-overview';
 import { FinancePayments } from '@/components/finance/finance-payments';
 import { PageHeaderTabs } from '@/components/layout/page-header-actions';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { branchHref } from '@/lib/auth/branch-context';
 import { useLocale } from '@/hooks/use-locale';
 import { financeHref, type FinanceView } from '@/lib/finance/views';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import type { PaymentPurpose } from '@/types';
 
 const VIEW_LABEL: Record<FinanceView, string> = {
   overview: 'Overview',
@@ -24,9 +26,11 @@ const VIEW_LABEL: Record<FinanceView, string> = {
 export function FinanceMasterView({
   view,
   month: requestedMonth,
+  paymentPurposes,
 }: {
   view: FinanceView;
   month: string | null;
+  paymentPurposes: PaymentPurpose[];
 }) {
   const router = useRouter();
   const { fmt } = useLocale();
@@ -113,11 +117,30 @@ export function FinanceMasterView({
   }, [accountId]);
 
   function changeView(nextView: FinanceView) {
-    router.replace(financeHref(nextView, month), { scroll: false });
+    router.replace(branchHref(financeHref(nextView, month), accountId), {
+      scroll: false,
+    });
   }
 
   function changeMonth(nextMonth: string) {
-    router.replace(financeHref(view, nextMonth), { scroll: false });
+    router.replace(
+      branchHref(
+        financeHref(
+          view,
+          nextMonth,
+          view === 'payments' ? paymentPurposes : []
+        ),
+        accountId
+      ),
+      { scroll: false }
+    );
+  }
+
+  function changePaymentPurposes(next: PaymentPurpose[]) {
+    router.replace(
+      branchHref(financeHref('payments', month, next), accountId),
+      { scroll: false }
+    );
   }
 
   return (
@@ -161,7 +184,9 @@ export function FinanceMasterView({
           key={month}
           reloadKey={reloadKey}
           month={month}
+          paymentPurposes={paymentPurposes}
           onMonthChange={changeMonth}
+          onPaymentPurposesChange={changePaymentPurposes}
         />
       ) : (
         <FinanceExpenses

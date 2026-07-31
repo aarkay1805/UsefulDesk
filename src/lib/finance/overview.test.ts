@@ -10,7 +10,32 @@ import {
   summarizeFinanceRevenue,
   summarizeFinanceRevenueStreams,
   type FinanceOverviewData,
+  type FinanceRevenueStreamPaymentRow,
 } from './overview';
+
+function revenuePayment(
+  overrides: Partial<FinanceRevenueStreamPaymentRow> = {}
+): FinanceRevenueStreamPaymentRow {
+  return {
+    id: 'payment-1',
+    membership_id: 'membership-1',
+    amount: 4_000,
+    payment_purpose: 'joining',
+    status: 'paid',
+    paid_at: '2026-07-20T10:00:00Z',
+    period_end: '2026-08-19',
+    method: 'upi',
+    source: 'manual',
+    contact: {
+      name: 'Aarav Shah',
+      phone: '9876543210',
+      avatar_url: undefined,
+    },
+    plan: { name: 'Gold' },
+    membership: { member_number: 1001, start_date: '2026-07-20' },
+    ...overrides,
+  };
+}
 
 describe('Finance calendar months', () => {
   it('shifts across year boundaries', () => {
@@ -75,70 +100,68 @@ describe('Finance revenue attribution', () => {
     });
   });
 
-  it('breaks each revenue stream down by plan and payment count', () => {
+  it('keeps the five latest contributing payments inside each stream', () => {
     expect(
       summarizeFinanceRevenueStreams([
-        {
-          amount: 4_000,
-          payment_purpose: 'joining',
-          status: 'paid',
-          plan_id: 'gold',
-          plan: { name: 'Gold' },
-        },
-        {
+        revenuePayment(),
+        revenuePayment({
+          id: 'payment-2',
           amount: 2_000,
-          payment_purpose: 'joining',
-          status: 'paid',
-          plan_id: 'silver',
+          paid_at: '2026-07-22T10:00:00Z',
           plan: { name: 'Silver' },
-        },
-        {
+        }),
+        revenuePayment({
+          id: 'payment-3',
           amount: 1_000,
-          payment_purpose: 'joining',
-          status: 'paid',
-          plan_id: 'gold',
-          plan: { name: 'Gold' },
-        },
-        {
+          paid_at: '2026-07-21T10:00:00Z',
+        }),
+        revenuePayment({
+          id: 'payment-4',
           amount: 3_000,
           payment_purpose: 'renewal',
-          status: 'paid',
-          plan_id: null,
+          paid_at: '2026-07-23T10:00:00Z',
           plan: null,
-        },
-        {
+        }),
+        revenuePayment({
+          id: 'payment-5',
           amount: 9_000,
-          payment_purpose: 'joining',
           status: 'void',
-          plan_id: 'gold',
-          plan: { name: 'Gold' },
-        },
+        }),
       ])
     ).toEqual([
       {
         purpose: 'joining',
         payments: 3,
         amount: 7_000,
-        plans: [
-          { id: 'gold', name: 'Gold', payments: 2, amount: 5_000 },
-          { id: 'silver', name: 'Silver', payments: 1, amount: 2_000 },
+        recentPayments: [
+          expect.objectContaining({
+            id: 'payment-2',
+            planName: 'Silver',
+            amount: 2_000,
+          }),
+          expect.objectContaining({ id: 'payment-3', amount: 1_000 }),
+          expect.objectContaining({
+            id: 'payment-1',
+            memberNumber: 1001,
+            contactName: 'Aarav Shah',
+            amount: 4_000,
+          }),
         ],
       },
       {
         purpose: 'renewal',
         payments: 1,
         amount: 3_000,
-        plans: [
-          {
-            id: null,
-            name: 'Unassigned plan',
-            payments: 1,
+        recentPayments: [
+          expect.objectContaining({
+            id: 'payment-4',
+            planName: null,
             amount: 3_000,
-          },
+          }),
         ],
       },
-      { purpose: 'due', payments: 0, amount: 0, plans: [] },
-      { purpose: 'other', payments: 0, amount: 0, plans: [] },
+      { purpose: 'due', payments: 0, amount: 0, recentPayments: [] },
+      { purpose: 'other', payments: 0, amount: 0, recentPayments: [] },
     ]);
   });
 });

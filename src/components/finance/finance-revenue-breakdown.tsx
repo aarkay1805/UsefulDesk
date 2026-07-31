@@ -1,20 +1,37 @@
-import { Banknote } from 'lucide-react';
+'use client';
+
+import Link from 'next/link';
+import { useState } from 'react';
+import { ArrowRight, Banknote } from 'lucide-react';
 
 import { EmptyState } from '@/components/dashboard/empty-state';
+import { MemberIdentity } from '@/components/members/member-identity';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { branchHref } from '@/lib/auth/branch-context';
 import type {
   FinanceRevenueBreakdown,
+  FinanceRevenuePayment,
   FinanceRevenueStream,
 } from '@/lib/finance/overview';
+import { financeHref } from '@/lib/finance/views';
 import type { LocaleFormatters } from '@/lib/locale/format';
-import type { PaymentPurpose } from '@/types';
+import type { PaymentMethod, PaymentPurpose } from '@/types';
 
 const PURPOSE_ROWS: Array<{
   key: PaymentPurpose;
@@ -26,17 +43,47 @@ const PURPOSE_ROWS: Array<{
   { key: 'other', label: 'Other collections' },
 ];
 
+const METHOD_LABEL: Record<PaymentMethod, string> = {
+  cash: 'Cash',
+  upi: 'UPI',
+  card: 'Card',
+  bank: 'Bank',
+  other: 'Other',
+};
+
 const REVENUE_GRID_COLUMNS = 'grid-cols-[minmax(11rem,1fr)_5rem_5rem_8rem]';
+
+function paymentContext(
+  purpose: PaymentPurpose,
+  payment: FinanceRevenuePayment,
+  fmt: LocaleFormatters
+): string | null {
+  if (purpose === 'joining' && payment.membershipStartDate) {
+    return `Joined ${fmt.date(payment.membershipStartDate)}`;
+  }
+  if (purpose === 'renewal' && payment.periodEnd) {
+    return `Renewed through ${fmt.date(payment.periodEnd)}`;
+  }
+  if (purpose === 'due' && payment.periodEnd) {
+    return `Billing period ended ${fmt.date(payment.periodEnd)}`;
+  }
+  return null;
+}
 
 export function FinanceRevenueBreakdownCard({
   breakdown,
   streams,
+  month,
+  accountId,
   fmt,
 }: {
   breakdown: FinanceRevenueBreakdown;
   streams: FinanceRevenueStream[];
+  month: string;
+  accountId: string | null;
   fmt: LocaleFormatters;
 }) {
+  const [expandedSources, setExpandedSources] = useState<PaymentPurpose[]>([]);
   const total = Object.values(breakdown).reduce(
     (sum, amount) => sum + amount,
     0
@@ -48,12 +95,12 @@ export function FinanceRevenueBreakdownCard({
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>Revenue breakdown</CardTitle>
+        <CardTitle>Revenue sources</CardTitle>
       </CardHeader>
       <CardContent className="px-0">
         {total > 0 ? (
           <div className="overflow-x-auto">
-            <div className="min-w-[31rem]">
+            <div className="min-w-[42rem]">
               <div className="border-border border-b">
                 <div
                   role="row"
@@ -62,14 +109,14 @@ export function FinanceRevenueBreakdownCard({
                   <span
                     className={`grid min-w-0 flex-1 items-center ${REVENUE_GRID_COLUMNS}`}
                   >
-                    <span className="pl-10">Revenue stream / plan</span>
+                    <span className="pl-10">Revenue source</span>
                     <span className="text-right">Payments</span>
                     <span className="text-right">Share</span>
                     <span className="text-right">Revenue</span>
                   </span>
                 </div>
               </div>
-              <Accordion multiple>
+              <Accordion multiple value={expandedSources}>
                 {rows.map((row) => {
                   const stream = streams.find(
                     (item) => item.purpose === row.key
@@ -77,13 +124,26 @@ export function FinanceRevenueBreakdownCard({
                     purpose: row.key,
                     payments: 0,
                     amount: breakdown[row.key],
-                    plans: [],
+                    recentPayments: [],
                   };
                   const percent = Math.round((stream.amount / total) * 100);
+                  const paymentsHref = branchHref(
+                    financeHref('payments', month, [row.key]),
+                    accountId
+                  );
 
                   return (
                     <AccordionItem key={row.key} value={row.key}>
-                      <AccordionTrigger className="hover:bg-muted/50 rounded-none px-4 hover:no-underline **:data-[slot=accordion-trigger-icon]:absolute **:data-[slot=accordion-trigger-icon]:top-1/2 **:data-[slot=accordion-trigger-icon]:left-4 **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:-translate-y-1/2">
+                      <AccordionTrigger
+                        className="hover:bg-muted/50 rounded-none px-4 hover:no-underline **:data-[slot=accordion-trigger-icon]:absolute **:data-[slot=accordion-trigger-icon]:top-1/2 **:data-[slot=accordion-trigger-icon]:left-4 **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:-translate-y-1/2"
+                        onClick={() =>
+                          setExpandedSources((current) =>
+                            current.includes(row.key)
+                              ? current.filter((value) => value !== row.key)
+                              : [...current, row.key]
+                          )
+                        }
+                      >
                         <span
                           className={`grid min-w-0 flex-1 items-center ${REVENUE_GRID_COLUMNS}`}
                         >
@@ -102,43 +162,117 @@ export function FinanceRevenueBreakdownCard({
                         </span>
                       </AccordionTrigger>
                       <AccordionContent>
-                        {stream.plans.length > 0 ? (
-                          <Table className="table-fixed">
-                            <colgroup>
-                              <col />
-                              <col className="w-20" />
-                              <col className="w-20" />
-                              <col className="w-32" />
-                            </colgroup>
-                            <TableBody>
-                              {stream.plans.map((plan) => (
-                                <TableRow
-                                  key={plan.id ?? `${row.key}-unassigned`}
-                                >
-                                  <TableCell className="pl-14 font-medium">
-                                    {plan.name}
-                                  </TableCell>
-                                  <TableCell className="pr-4 text-right tabular-nums">
-                                    {fmt.number(plan.payments)}
-                                  </TableCell>
-                                  <TableCell className="text-muted-foreground pr-4 text-right tabular-nums">
-                                    {fmt.number(
-                                      Math.round(
-                                        (plan.amount / stream.amount) * 100
-                                      )
-                                    )}
-                                    %
-                                  </TableCell>
-                                  <TableCell className="pr-4 text-right font-medium tabular-nums">
-                                    {fmt.money(plan.amount)}
-                                  </TableCell>
+                        {stream.recentPayments.length > 0 ? (
+                          <>
+                            <Table className="table-fixed">
+                              <colgroup>
+                                <col className="w-[45%]" />
+                                <col className="w-[22%]" />
+                                <col className="w-[18%]" />
+                                <col className="w-[15%]" />
+                              </colgroup>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="pl-14">
+                                    Member
+                                  </TableHead>
+                                  <TableHead>Collected on</TableHead>
+                                  <TableHead>Collection</TableHead>
+                                  <TableHead className="pr-4 text-right">
+                                    Revenue
+                                  </TableHead>
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
+                              </TableHeader>
+                              <TableBody>
+                                {stream.recentPayments.map((payment) => {
+                                  const context = paymentContext(
+                                    row.key,
+                                    payment,
+                                    fmt
+                                  );
+                                  const memberMeta = [
+                                    payment.planName,
+                                    payment.memberNumber
+                                      ? `Member ID ${payment.memberNumber}`
+                                      : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' · ');
+
+                                  return (
+                                    <TableRow key={payment.id}>
+                                      <TableCell className="pl-14">
+                                        <MemberIdentity
+                                          name={
+                                            payment.contactName ??
+                                            'Deleted member'
+                                          }
+                                          secondary={payment.contactPhone}
+                                          src={payment.contactAvatarUrl}
+                                          size="sm"
+                                          meta={
+                                            memberMeta ? (
+                                              <div className="text-muted-foreground truncate text-xs">
+                                                {memberMeta}
+                                              </div>
+                                            ) : undefined
+                                          }
+                                        />
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="grid gap-0.5">
+                                          <span className="tabular-nums">
+                                            {fmt.date(payment.paidAt)}
+                                          </span>
+                                          {context ? (
+                                            <span className="text-muted-foreground truncate text-xs">
+                                              {context}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="grid justify-items-start gap-1">
+                                          <span>
+                                            {METHOD_LABEL[payment.method]}
+                                          </span>
+                                          <Badge
+                                            variant={
+                                              payment.source === 'auto'
+                                                ? 'info'
+                                                : 'neutral'
+                                            }
+                                          >
+                                            {payment.source === 'auto'
+                                              ? 'Auto-pay'
+                                              : 'Manual'}
+                                          </Badge>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="pr-4 text-right font-medium tabular-nums">
+                                        {fmt.money(payment.amount)}
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                            <div className="border-border flex justify-end border-t px-4 py-2">
+                              <Link
+                                href={paymentsHref}
+                                className={buttonVariants({
+                                  variant: 'link',
+                                  size: 'sm',
+                                })}
+                              >
+                                View all {row.label.toLowerCase()}
+                                <ArrowRight />
+                              </Link>
+                            </div>
+                          </>
                         ) : (
                           <p className="text-muted-foreground py-3 pr-4 pl-14 text-sm">
-                            No collections in this revenue stream.
+                            No collections in this revenue source.
                           </p>
                         )}
                       </AccordionContent>

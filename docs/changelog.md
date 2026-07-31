@@ -6,6 +6,10 @@
 
 ---
 
+## Finance revenue-source payment drilldowns
+
+Finance Overview now expands each immutable revenue source into its five latest contributing payments instead of duplicating Reports' plan aggregation. Nested rows use canonical member identity with plan and Member ID as context, collection/cycle timing, method, Manual/AutoPay source, and amount; View all preserves the selected branch and opens Finance Payments with a durable revenue-source URL filter backed by exact database-side totals, paging, and export. Migration `20260801090000_finance_payment_purpose_filter.sql` was applied through the Supabase connector as `20260731190701`; key code: `src/components/finance/finance-revenue-breakdown.tsx`, `src/lib/finance/overview.ts`, and `src/lib/finance/payments.ts`.
+
 ## Finance Overview card cleanup
 
 Finance Overview cards now use divider-free headers throughout. Ad performance has a plain title without its decorative target icon or persistent acquisition-source subtitle; that explanation now lives in an accessible info tooltip on the Leads acquired row. Revenue breakdown header, stream, and expanded plan values share one right-aligned numeric axis for Payments, Share, and Revenue. Key code: `src/components/finance/finance-ad-performance.tsx` and the Overview card components in `src/components/finance/`.
