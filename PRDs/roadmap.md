@@ -4,7 +4,7 @@
 
 ## ✅ Phase 1 — the renewal wedge
 
-Membership plans, including responsive label-free billing-option comparison cards with a clear monthly-price/total/cadence hierarchy and reliable same-plan savings · member records · renewal action lists (expiring / expired / due) · one-tap WhatsApp reminder · manual payment recording · staff assignment · owner tiles.
+Membership plans, including responsive label-free billing-option comparison cards with a clear monthly-price/total/cadence hierarchy and reliable same-plan savings · member records · renewal action lists (expiring / expired / due) with the Memberships / Services source segment grouped first inside the queue toolbar · one-tap WhatsApp reminder · manual payment recording · staff assignment · owner tiles.
 
 ## ✅ Phase 2 — India-first workflows
 

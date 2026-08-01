@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   CalendarClock,
   CircleAlert,
@@ -64,10 +64,12 @@ export function ServiceRenewalActionLists({
   onSelect,
   reloadKey,
   canAct,
+  sourceControl,
 }: {
   onSelect: (membershipId: string) => void;
   reloadKey: number;
   canAct: boolean;
+  sourceControl: ReactNode;
 }) {
   const { fmt } = useLocale();
   const [rows, setRows] = useState<ServiceQueueRow[]>([]);
@@ -183,6 +185,7 @@ export function ServiceRenewalActionLists({
     <>
       <section className="border-border bg-card overflow-hidden rounded-2xl border">
         <div className="border-border flex flex-wrap items-center gap-2 border-b p-2">
+          {sourceControl}
           <Toolbar aria-label="Service renewal status">
             <ToolbarToggleGroup<Bucket>
               value={[bucket]}

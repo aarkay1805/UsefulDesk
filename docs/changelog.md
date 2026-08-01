@@ -6,6 +6,12 @@
 
 ---
 
+## Renewal queue source control
+
+Members → Renewals now keeps the Memberships / Services source segment inside the bordered queue toolbar as its leftmost control, immediately before Expiring / Expired, on both source views. Key code: `src/components/members/renewal-action-lists.tsx` and `src/components/members/service-renewal-action-lists.tsx`.
+
+---
+
 ## Products, services, and trainer-priced personal training
 
 UsefulDesk now sells member-only services and merchandise alone or alongside joining/renewal membership in one transactional immutable invoice. Settings owns archived catalogue records, calendar duration options, trainers, and explicit trainer-specific pricing; owner-facing setup calls these **trainer fees**, with plain set/edit CTAs and completion copy instead of a technical rate matrix. The Trainers tab lists every registered teammate with a role-preserving Trainer switch, while no-login Independent trainers use the same roster identity row with a permanent-delete trash action and keep a concise access subtitle plus contextual Add action in the correctly aligned card header. Deleting an independent trainer removes saved rates but historical invoices and assignments retain their snapshots. Member profiles show service/purchase history and support Add, Renew, Cancel, and prorated trainer reassignment. Generic line allocations preserve membership-only dues while proportional paise-exact cash/credit allocation, partial payments, combined 60/40 promises, service renewal queues, and claim-first WhatsApp automation reconcile at invoice level. The desktop setup follow-up removes duplicate Settings chrome, prevents duplicate active durations/unit prices in both the form and database, labels every control, uses account-currency inputs with canonical `Trainer fee not set` copy, confirms archive actions, and permanently deletes unused items while database constraints retain anything with invoice or service history. Eight applied migrations starting at `20260801160314`; key code: `src/app/api/member-checkouts/route.ts`, `src/lib/products-services.ts`, `src/components/settings/products-services-settings.tsx`, and `src/components/members/` product/service surfaces. Gotcha: trainer-priced options have no fallback, AutoPay never consumes member credit, and issued invoices never accept later lines.

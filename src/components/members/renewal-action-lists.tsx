@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   CalendarClock,
   CircleAlert,
@@ -192,29 +198,33 @@ export function RenewalActionLists({
     bucket === 'expiring'
       ? 'No memberships expiring in this window.'
       : 'No expired memberships in this window.';
+  const sourceControl = (
+    <Toolbar aria-label="Renewal source">
+      <ToolbarToggleGroup<'memberships' | 'services'>
+        value={[source]}
+        onValueChange={(values) => {
+          const next = values[0];
+          if (next) setSource(next);
+        }}
+      >
+        <ToolbarToggleItem value="memberships">Memberships</ToolbarToggleItem>
+        <ToolbarToggleItem value="services">Services</ToolbarToggleItem>
+      </ToolbarToggleGroup>
+    </Toolbar>
+  );
 
   return (
     <>
-      <Toolbar aria-label="Renewal source" className="mb-3">
-        <ToolbarToggleGroup<'memberships' | 'services'>
-          value={[source]}
-          onValueChange={(values) => {
-            const next = values[0];
-            if (next) setSource(next);
-          }}
-        >
-          <ToolbarToggleItem value="memberships">Memberships</ToolbarToggleItem>
-          <ToolbarToggleItem value="services">Services</ToolbarToggleItem>
-        </ToolbarToggleGroup>
-      </Toolbar>
       {source === 'services' ? (
         <ServiceRenewalActionLists
           onSelect={onSelect}
           reloadKey={reloadKey}
           canAct={canSell}
+          sourceControl={sourceControl}
         />
       ) : (
         <RenewalTable
+          sourceControl={sourceControl}
           bucket={bucket}
           onBucketChange={setBucket}
           rows={activeRows}
@@ -264,6 +274,7 @@ export function RenewalActionLists({
 }
 
 function RenewalTable({
+  sourceControl,
   bucket,
   onBucketChange,
   rows,
@@ -282,6 +293,7 @@ function RenewalTable({
   onRenew,
   emptyLabel,
 }: {
+  sourceControl: ReactNode;
   bucket: RenewalBucket;
   onBucketChange: (bucket: RenewalBucket) => void;
   rows: Membership[];
@@ -307,6 +319,7 @@ function RenewalTable({
   return (
     <section className="border-border bg-card overflow-hidden rounded-2xl border">
       <div className="border-border flex flex-wrap items-center gap-2 border-b p-2">
+        {sourceControl}
         <Toolbar aria-label="Renewal status">
           <ToolbarToggleGroup<RenewalBucket>
             aria-label="Renewal status"
