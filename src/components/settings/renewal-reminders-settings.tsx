@@ -292,7 +292,7 @@ export function RenewalRemindersSettings() {
                 </p>
                 <p className="text-muted-foreground text-sm">
                   Remind members about expiring personal training and other
-                  renewable services. Missing current trainer rates are skipped.
+                  renewable services. Missing current trainer fees are skipped.
                 </p>
               </div>
             </div>

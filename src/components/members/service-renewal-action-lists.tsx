@@ -282,7 +282,7 @@ export function ServiceRenewalActionLists({
                     <TableCell>
                       {row.current_renewal_price == null ? (
                         <span className="text-amber-foreground text-xs">
-                          Rate missing
+                          Trainer fee not set
                         </span>
                       ) : (
                         fmt.money(row.current_renewal_price)

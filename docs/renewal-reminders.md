@@ -29,7 +29,7 @@ GitHub Action (hourly at :30)
 
 ### Service reminders
 
-Settings → Renewal reminders has a separate service toggle and offsets. `claim_service_renewal_reminders` reads `service_renewal_queue`, waits until 09:00 in each account timezone, and claims `(member_service_id, end_date, days_before)` before sending. It requires an active catalogue item/option and a current fixed or trainer-specific renewal rate; missing rates are skipped and remain visible as **Rate missing** in Members → Renewals → Services. The Utility template body parameters are member name, service, expiry, and current renewal price. A reminder never renews a service or changes its dates.
+Settings → Renewal reminders has a separate service toggle and offsets. `claim_service_renewal_reminders` reads `service_renewal_queue`, waits until 09:00 in each account timezone, and claims `(member_service_id, end_date, days_before)` before sending. It requires an active catalogue item/option and a current fixed or trainer-specific renewal rate; missing rates are skipped and remain visible as **Trainer fee not set** in Members → Renewals → Services. The Utility template body parameters are member name, service, expiry, and current renewal price. A reminder never renews a service or changes its dates.
 
 Key code: [`route`](../src/app/api/renewals/cron/route.ts) ·
 [`lib`](../src/lib/memberships/renewal-reminders.ts) ·

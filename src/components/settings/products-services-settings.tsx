@@ -34,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -86,16 +87,31 @@ const EMPTY_ITEM = {
   requiresTrainer: false,
 };
 
-function trainerPricingLabel(
+function configuredTrainerFeeCount(
   option: HydratedItem['catalog_options'][number],
-  activeTrainerCount: number
-): string {
-  const pricedTrainerCount = option.trainer_rates.filter(
-    (rate) => rate.is_active
+  trainers: Trainer[]
+): number {
+  const activeTrainerIds = new Set(
+    trainers.filter((trainer) => trainer.is_active).map((trainer) => trainer.id)
+  );
+  return option.trainer_rates.filter(
+    (rate) => rate.is_active && activeTrainerIds.has(rate.trainer_id)
   ).length;
-  return pricedTrainerCount === 0
-    ? 'Rate missing'
-    : `${pricedTrainerCount} of ${activeTrainerCount} active trainers priced`;
+}
+
+function trainerFeeStatusLabel(
+  option: HydratedItem['catalog_options'][number],
+  trainers: Trainer[]
+): string {
+  const activeTrainerCount = trainers.filter(
+    (trainer) => trainer.is_active
+  ).length;
+  const configuredFeeCount = configuredTrainerFeeCount(option, trainers);
+  if (configuredFeeCount === 0) return 'Trainer fees not set';
+  if (configuredFeeCount === activeTrainerCount) {
+    return `Fees set for all ${activeTrainerCount} ${activeTrainerCount === 1 ? 'trainer' : 'trainers'}`;
+  }
+  return `Fees set for ${configuredFeeCount} of ${activeTrainerCount} trainers`;
 }
 
 function catalogOptionLabel(
@@ -140,10 +156,6 @@ export function ProductsServicesSettings() {
   const [trainerDeleteTarget, setTrainerDeleteTarget] =
     useState<Trainer | null>(null);
   const [deletingTrainer, setDeletingTrainer] = useState(false);
-  const activeTrainerCount = trainers.filter(
-    (trainer) => trainer.is_active
-  ).length;
-
   useEffect(() => {
     if (!accountId) return;
     let cancelled = false;
@@ -420,10 +432,7 @@ export function ProductsServicesSettings() {
                               </p>
                               <p className="text-muted-foreground text-xs">
                                 {item.requires_trainer
-                                  ? trainerPricingLabel(
-                                      option,
-                                      activeTrainerCount
-                                    )
+                                  ? trainerFeeStatusLabel(option, trainers)
                                   : option.standard_price == null
                                     ? 'Price missing'
                                     : fmt.money(option.standard_price)}
@@ -440,7 +449,9 @@ export function ProductsServicesSettings() {
                                 size="sm"
                                 onClick={() => setRateOption({ item, option })}
                               >
-                                Rate matrix
+                                {configuredTrainerFeeCount(option, trainers) > 0
+                                  ? 'Edit trainer fees'
+                                  : 'Set trainer fees'}
                               </Button>
                             ) : null}
                             {canManageCatalog ? (
@@ -535,17 +546,6 @@ export function ProductsServicesSettings() {
         </TabsContent>
 
         <TabsContent value="trainers" className="mt-4 space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-muted-foreground text-sm">
-              Team members use a Trainer switch. Independent trainers can be
-              deleted when no longer needed. Team access stays separate.
-            </p>
-            {canManageTrainers ? (
-              <Button onClick={() => setTrainerOpen(true)}>
-                <Plus className="size-4" /> Add independent trainer
-              </Button>
-            ) : null}
-          </div>
           {loading ? (
             <Loading />
           ) : (
@@ -596,15 +596,22 @@ export function ProductsServicesSettings() {
               <Card>
                 <CardHeader>
                   <CardTitle>Independent trainers</CardTitle>
+                  {canManageTrainers ? (
+                    <CardAction>
+                      <Button size="sm" onClick={() => setTrainerOpen(true)}>
+                        <Plus className="size-4" /> Add trainer
+                      </Button>
+                    </CardAction>
+                  ) : null}
                   <CardDescription>
-                    Trainers who do not need a UsefulDesk team account.
+                    For trainers without UsefulDesk team access.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                   {trainers.filter((trainer) => !trainer.linked_user_id)
                     .length === 0 ? (
                     <p className="text-muted-foreground px-4 pb-4 text-sm">
-                      No independent trainers yet.
+                      No trainers added yet.
                     </p>
                   ) : (
                     <ul className="divide-border divide-y">
@@ -716,7 +723,7 @@ export function ProductsServicesSettings() {
             <DialogTitle>Delete {deleteTarget?.name}?</DialogTitle>
             <DialogDescription>
               This permanently deletes the item, all its options, and saved
-              trainer rates. Only items with no sales or service history can be
+              trainer fees. Only items with no sales or service history can be
               deleted. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
@@ -1060,7 +1067,7 @@ function OptionDialog({
     }
     toast.success(
       item.requires_trainer
-        ? 'Duration added — configure trainer rates next'
+        ? 'Duration added — set trainer fees next'
         : 'Sellable option added'
     );
     onOpenChange(false);
@@ -1277,7 +1284,7 @@ function RateMatrixDialog({
         is_active: true,
       }));
     if (rows.some((row) => !Number.isFinite(row.price) || row.price < 0))
-      return toast.error('Enter valid trainer prices');
+      return toast.error('Enter valid trainer fees');
     const pricedTrainerIds = new Set(rows.map((row) => row.trainer_id));
     const ratesToArchive = selection.option.trainer_rates
       .filter(
@@ -1300,13 +1307,13 @@ function RateMatrixDialog({
     setSaving(false);
     if (upsertError || archiveError) {
       return toast.error(
-        upsertError?.message || archiveError?.message || 'Rates were not saved'
+        upsertError?.message || archiveError?.message || 'Fees were not saved'
       );
     }
     if (ratesToArchive.length && archived?.length !== ratesToArchive.length) {
-      return toast.error("You don't have permission to archive these rates");
+      return toast.error("You don't have permission to remove these fees");
     }
-    toast.success('Trainer rates saved');
+    toast.success('Trainer fees saved');
     onOpenChange(false);
     onSaved();
   }
@@ -1314,12 +1321,12 @@ function RateMatrixDialog({
     <Dialog open={!!selection} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Trainer rate matrix</DialogTitle>
+          <DialogTitle>Trainer fees</DialogTitle>
           <DialogDescription>
             {selection
               ? `${selection.item.name} · ${selection.option.duration_count} ${selection.option.duration_unit}${selection.option.duration_count === 1 ? '' : 's'}`
               : ''}
-            . A blank rate is unavailable at checkout.
+            . Leave a fee blank to make that trainer unavailable at checkout.
           </DialogDescription>
         </DialogHeader>
         <div className="-mx-1 max-h-80 space-y-3 overflow-y-auto px-1 py-1">
@@ -1335,7 +1342,7 @@ function RateMatrixDialog({
                   id={`trainer-rate-${trainer.id}`}
                   symbol={currencySymbol(locale.currency)}
                   groupLocale={locale.locale}
-                  placeholder="Rate missing"
+                  placeholder="Fee not set"
                   value={prices[trainer.id] ?? ''}
                   onValueChange={(value) =>
                     setPrices((current) => ({
@@ -1351,7 +1358,7 @@ function RateMatrixDialog({
         <DialogFooter showCloseButton>
           <Button onClick={save} disabled={saving}>
             {saving ? <Loader2 className="size-4 animate-spin" /> : null}Save
-            rates
+            fees
           </Button>
         </DialogFooter>
       </DialogContent>
