@@ -6,6 +6,12 @@
 
 ---
 
+## Finance cash-flow previous-month comparison
+
+Business → Overview can now compare the selected month with the previous month inside the existing Daily/Weekly cash-flow chart. The optional four-series grouped view aligns calendar days and ordinal seven-day buckets, limits a current-month comparison to the same elapsed account-local day, handles unequal month lengths, keeps previous income/expense hues at reduced opacity, and exports the aligned daily comparison in the existing Overview CSV. Both months still come from the single Overview load, and the chart is empty only when neither month has movement. Key code: `src/lib/finance/overview.ts`, `src/components/finance/finance-cash-flow-chart.tsx`, and `src/lib/finance/overview.test.ts`.
+
+---
+
 ## Member activity chart grouping
 
 Business → Performance now gives the title-only Member activity card a Daily/Weekly shared segmented toolbar. Daily points roll into seven-day totals in Weekly mode, x-axis ticks use compact day-of-month labels because the Business header already owns Month Year context, and tooltips retain the full localized date. Key code: `src/components/reports/report-trend-card.tsx` and `src/lib/reports/activity-trend.ts`.

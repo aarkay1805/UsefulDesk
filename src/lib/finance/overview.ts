@@ -33,6 +33,20 @@ export interface FinanceTrendPoint {
   expenses: number;
 }
 
+export type FinanceCashFlowGrouping = 'daily' | 'weekly';
+
+export interface FinanceCashFlowComparisonPoint {
+  ordinal: number;
+  currentStart: string | null;
+  currentEnd: string | null;
+  previousStart: string | null;
+  previousEnd: string | null;
+  currentIncome: number;
+  currentExpenses: number;
+  previousIncome: number;
+  previousExpenses: number;
+}
+
 export interface FinanceInvoiceHealth {
   paid: number;
   partiallyPaid: number;
@@ -114,6 +128,8 @@ export interface FinanceOverviewData {
   revenueBreakdown: FinanceRevenueBreakdown;
   revenueStreams: FinanceRevenueStream[];
   trend: FinanceTrendPoint[];
+  previousTrend: FinanceTrendPoint[];
+  comparisonThroughDay: number | null;
   invoiceHealth: FinanceInvoiceHealth;
   collectionMethods: FinanceCollectionMethod[];
   recentTransactions: FinanceRecentTransaction[];
@@ -134,6 +150,11 @@ export type FinanceOverviewExpenseRow = Pick<
   | 'method'
   | 'status'
   | 'created_at'
+>;
+
+export type FinanceCashFlowPaymentRow = Pick<
+  Payment,
+  'paid_at' | 'amount' | 'status'
 >;
 
 type ProjectionMembership = Membership & {
@@ -174,6 +195,17 @@ export function financeMonthRange(month: string): FinanceMonthRange {
     previousStart: `${previousMonth}-01`,
     previousEnd: istAddDays(`${month}-01`, -1),
   };
+}
+
+export function financeComparisonThroughDay(
+  selectedMonth: string,
+  today: string
+): number | null {
+  if (today.slice(0, 7) !== selectedMonth) return null;
+  const match = /^\d{4}-\d{2}-(\d{2})$/.exec(today);
+  if (!match) return null;
+  const day = Number(match[1]);
+  return Number.isInteger(day) && day >= 1 && day <= 31 ? day : null;
 }
 
 function yearFrom(value: string | null | undefined): number | null {
@@ -339,6 +371,7 @@ export function summarizeFinanceExpenses(
   current: number;
   previous: number;
   daily: Array<{ date: string; amount: number }>;
+  previousDaily: Array<{ date: string; amount: number }>;
   transactions: FinanceRecentTransaction[];
 } {
   const posted = rows.filter((expense) => expense.status === 'posted');
@@ -359,6 +392,13 @@ export function summarizeFinanceExpenses(
       (daily.get(expense.occurred_on) ?? 0) + number(expense.amount)
     );
   }
+  const previousDaily = new Map<string, number>();
+  for (const expense of previousRows) {
+    previousDaily.set(
+      expense.occurred_on,
+      (previousDaily.get(expense.occurred_on) ?? 0) + number(expense.amount)
+    );
+  }
 
   return {
     current: currentRows.reduce(
@@ -372,6 +412,10 @@ export function summarizeFinanceExpenses(
     daily: Array.from(daily, ([date, amount]) => ({ date, amount })).sort(
       (left, right) => left.date.localeCompare(right.date)
     ),
+    previousDaily: Array.from(previousDaily, ([date, amount]) => ({
+      date,
+      amount,
+    })).sort((left, right) => left.date.localeCompare(right.date)),
     transactions: [...currentRows]
       .sort(
         (left, right) =>
@@ -387,6 +431,129 @@ export function summarizeFinanceExpenses(
         amount: number(expense.amount),
       })),
   };
+}
+
+function emptyFinanceTrend(start: string, end: string): FinanceTrendPoint[] {
+  const result: FinanceTrendPoint[] = [];
+  for (let date = start; date <= end; date = istAddDays(date, 1)) {
+    result.push({ date, income: 0, expenses: 0 });
+  }
+  return result;
+}
+
+export function summarizeFinanceCashFlow(
+  payments: FinanceCashFlowPaymentRow[],
+  expenses: FinanceOverviewExpenseRow[],
+  period: FinanceMonthRange,
+  timeZone: string
+): { current: FinanceTrendPoint[]; previous: FinanceTrendPoint[] } {
+  const current = emptyFinanceTrend(period.start, period.end);
+  const previous = emptyFinanceTrend(period.previousStart, period.previousEnd);
+  const currentByDate = new Map(current.map((point) => [point.date, point]));
+  const previousByDate = new Map(previous.map((point) => [point.date, point]));
+
+  for (const payment of payments) {
+    if (payment.status !== 'paid') continue;
+    const date = todayInTz(timeZone, new Date(payment.paid_at));
+    const point = currentByDate.get(date) ?? previousByDate.get(date);
+    if (point) point.income += number(payment.amount);
+  }
+
+  for (const expense of expenses) {
+    if (expense.status !== 'posted') continue;
+    const point =
+      currentByDate.get(expense.occurred_on) ??
+      previousByDate.get(expense.occurred_on);
+    if (point) point.expenses += number(expense.amount);
+  }
+
+  return { current, previous };
+}
+
+function trendDay(point: FinanceTrendPoint): number | null {
+  const match = /^\d{4}-\d{2}-(\d{2})$/.exec(point.date);
+  if (!match) return null;
+  const day = Number(match[1]);
+  return Number.isInteger(day) && day >= 1 && day <= 31 ? day : null;
+}
+
+function sumTrend(points: FinanceTrendPoint[]): {
+  income: number;
+  expenses: number;
+} {
+  return points.reduce(
+    (total, point) => ({
+      income: total.income + point.income,
+      expenses: total.expenses + point.expenses,
+    }),
+    { income: 0, expenses: 0 }
+  );
+}
+
+export function alignFinanceCashFlowTrends(
+  current: FinanceTrendPoint[],
+  previous: FinanceTrendPoint[],
+  grouping: FinanceCashFlowGrouping,
+  throughDay: number | null = null
+): FinanceCashFlowComparisonPoint[] {
+  const currentByDay = new Map<number, FinanceTrendPoint>();
+  const previousByDay = new Map<number, FinanceTrendPoint>();
+  for (const point of current) {
+    const day = trendDay(point);
+    if (day !== null) currentByDay.set(day, point);
+  }
+  for (const point of previous) {
+    const day = trendDay(point);
+    if (day !== null) previousByDay.set(day, point);
+  }
+
+  const lastAvailableDay = Math.max(
+    0,
+    ...currentByDay.keys(),
+    ...previousByDay.keys()
+  );
+  const lastDay =
+    throughDay === null
+      ? lastAvailableDay
+      : Math.min(Math.max(throughDay, 0), lastAvailableDay);
+  const bucketSize = grouping === 'weekly' ? 7 : 1;
+  const result: FinanceCashFlowComparisonPoint[] = [];
+
+  for (let startDay = 1; startDay <= lastDay; startDay += bucketSize) {
+    const endDay = Math.min(startDay + bucketSize - 1, lastDay);
+    const currentPoints: FinanceTrendPoint[] = [];
+    const previousPoints: FinanceTrendPoint[] = [];
+    for (let day = startDay; day <= endDay; day += 1) {
+      const currentPoint = currentByDay.get(day);
+      const previousPoint = previousByDay.get(day);
+      if (currentPoint) currentPoints.push(currentPoint);
+      if (previousPoint) previousPoints.push(previousPoint);
+    }
+    const currentTotal = sumTrend(currentPoints);
+    const previousTotal = sumTrend(previousPoints);
+    result.push({
+      ordinal: startDay,
+      currentStart: currentPoints[0]?.date ?? null,
+      currentEnd: currentPoints.at(-1)?.date ?? null,
+      previousStart: previousPoints[0]?.date ?? null,
+      previousEnd: previousPoints.at(-1)?.date ?? null,
+      currentIncome: currentTotal.income,
+      currentExpenses: currentTotal.expenses,
+      previousIncome: previousTotal.income,
+      previousExpenses: previousTotal.expenses,
+    });
+  }
+
+  return result;
+}
+
+export function financeCashFlowHasMovement(
+  current: FinanceTrendPoint[],
+  previous: FinanceTrendPoint[]
+): boolean {
+  return [...current, ...previous].some(
+    (point) => point.income !== 0 || point.expenses !== 0
+  );
 }
 
 function instantBounds(
@@ -513,6 +680,12 @@ export async function loadFinanceOverview(
   const revenueBreakdown = summarizeFinanceRevenue(currentPayments);
   const revenueStreams = summarizeFinanceRevenueStreams(currentPayments);
   const expenseSnapshot = summarizeFinanceExpenses(expenseRows, period);
+  const cashFlow = summarizeFinanceCashFlow(
+    payments,
+    expenseRows,
+    period,
+    timeZone
+  );
   const expenses = {
     current: expenseSnapshot.current,
     previous: expenseSnapshot.previous,
@@ -521,24 +694,6 @@ export async function loadFinanceOverview(
     current: revenue.current - expenses.current,
     previous: revenue.previous - expenses.previous,
   };
-
-  const daily = new Map<string, FinanceTrendPoint>();
-  for (
-    let date = period.start;
-    date <= period.end;
-    date = istAddDays(date, 1)
-  ) {
-    daily.set(date, { date, income: 0, expenses: 0 });
-  }
-  for (const payment of currentPayments) {
-    const date = todayInTz(timeZone, new Date(payment.paid_at));
-    const point = daily.get(date);
-    if (point) point.income += number(payment.amount);
-  }
-  for (const expense of expenseSnapshot.daily) {
-    const point = daily.get(expense.date);
-    if (point) point.expenses += expense.amount;
-  }
 
   const invoiceHealth: FinanceInvoiceHealth = {
     paid: 0,
@@ -606,7 +761,9 @@ export async function loadFinanceOverview(
     },
     revenueBreakdown,
     revenueStreams,
-    trend: Array.from(daily.values()),
+    trend: cashFlow.current,
+    previousTrend: cashFlow.previous,
+    comparisonThroughDay: financeComparisonThroughDay(month, today),
     invoiceHealth,
     collectionMethods,
     recentTransactions: [
@@ -632,6 +789,12 @@ function csvCell(value: string | number): string {
 }
 
 export function financeOverviewCsv(data: FinanceOverviewData): string {
+  const comparison = alignFinanceCashFlowTrends(
+    data.trend,
+    data.previousTrend,
+    'daily',
+    data.comparisonThroughDay
+  );
   const lines = [
     ['Business overview', `${data.period.start} to ${data.period.end}`],
     [],
@@ -650,8 +813,22 @@ export function financeOverviewCsv(data: FinanceOverviewData): string {
       ? [['Other collections', data.revenueBreakdown.other]]
       : []),
     [],
-    ['Date', 'Income', 'Expenses'],
-    ...data.trend.map((point) => [point.date, point.income, point.expenses]),
+    [
+      'Date',
+      'Income',
+      'Expenses',
+      'Previous date',
+      'Previous income',
+      'Previous expenses',
+    ],
+    ...comparison.map((point) => [
+      point.currentStart ?? '',
+      point.currentIncome,
+      point.currentExpenses,
+      point.previousStart ?? '',
+      point.previousIncome,
+      point.previousExpenses,
+    ]),
     [],
     ['Payment method', 'Payments', 'Amount'],
     ...data.collectionMethods.map((method) => [

@@ -136,7 +136,10 @@ export function FinanceOverview({
             <div className="xl:col-span-3">
               <FinanceCashFlowChart
                 data={data.trend}
+                previousData={data.previousTrend}
+                comparisonThroughDay={data.comparisonThroughDay}
                 monthLabel={fmt.month(data.period.start)}
+                previousMonthLabel={fmt.month(data.period.previousStart)}
                 fmt={fmt}
               />
             </div>
