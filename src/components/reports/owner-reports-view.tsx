@@ -25,7 +25,6 @@ import type {
   ReportMetric,
   ReportRangeDays,
 } from '@/lib/reports/types';
-import { humaniseKey } from '@/lib/leads/field-options';
 import { PageHeaderActions } from '@/components/layout/page-header-actions';
 import { SourceIcon } from '@/components/leads/source-icon';
 import { useAccountStaff } from '@/components/members/use-account-staff';
@@ -48,7 +47,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import {
   Select,
@@ -291,8 +289,6 @@ export function OwnerReportsView() {
 
       {report && !loading ? (
         <>
-          <CollectionsCard report={report} fmt={fmt} />
-
           <div className="grid gap-4 xl:grid-cols-2">
             <RevenueTrendCard data={report.trend} fmt={fmt} />
             <ActivityTrendCard data={report.trend} fmt={fmt} />
@@ -395,83 +391,6 @@ function pointDelta(
         ? 'No change vs previous period'
         : `${change > 0 ? '+' : ''}${fmt.number(change)} pts vs previous period`,
   };
-}
-
-function CollectionsCard({
-  report,
-  fmt,
-}: {
-  report: OwnerReport;
-  fmt: ReturnType<typeof useLocale>['fmt'];
-}) {
-  const total = report.collectionMethods.reduce(
-    (sum, item) => sum + item.amount,
-    0
-  );
-
-  return (
-    <Card className="h-full">
-      <CardHeader>
-        <CardTitle>Collection mix</CardTitle>
-        <CardDescription>
-          Paid revenue by payment method and source
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {report.collectionMethods.length > 0 ? (
-          report.collectionMethods.map((item) => (
-            <div key={item.method} className="space-y-1.5">
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-foreground flex items-center gap-1.5 font-medium">
-                  <span>{collectionMethodLabel(item.method)}</span>
-                  <span className="text-muted-foreground font-normal tabular-nums">
-                    · {fmt.number(item.payments)}
-                  </span>
-                </span>
-                <span className="text-muted-foreground tabular-nums">
-                  {fmt.money(item.amount)}
-                </span>
-              </div>
-              <Progress value={item.amount} max={total} />
-            </div>
-          ))
-        ) : (
-          <EmptyState
-            icon={Banknote}
-            title="No collections in this period"
-            className="min-h-44"
-          />
-        )}
-
-        {report.collectionSources.length > 0 && (
-          <div className="border-border space-y-4 border-t pt-4">
-            {report.collectionSources.map((source) => (
-              <div key={source.source} className="space-y-1.5">
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-foreground font-medium">
-                    {source.source === 'auto' ? 'AutoPay' : 'Manual'}
-                  </span>
-                  <span className="text-muted-foreground tabular-nums">
-                    {fmt.money(source.amount)}
-                  </span>
-                </div>
-                <Progress value={source.amount} max={total} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {report.collectionMethods.length > 0 && (
-          <div className="border-border flex items-center justify-between gap-3 border-t pt-4 text-sm">
-            <span className="text-foreground font-medium">Total</span>
-            <span className="text-foreground font-semibold tabular-nums">
-              {fmt.money(total)}
-            </span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
 }
 
 function PlanPerformanceCard({
@@ -687,24 +606,18 @@ function SourcePerformanceCard({
 function ReportBodySkeleton() {
   return (
     <>
-      <Skeleton className="h-96" />
       <div className="grid gap-4 xl:grid-cols-2">
-        <Skeleton className="h-96" />
-        <Skeleton className="h-96" />
+        {Array.from({ length: 2 }, (_, index) => (
+          <Skeleton key={index} className="h-96" />
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {Array.from({ length: 2 }, (_, index) => (
+          <Skeleton key={index} className="h-96" />
+        ))}
       </div>
     </>
   );
-}
-
-function collectionMethodLabel(method: string): string {
-  const labels: Record<string, string> = {
-    cash: 'Cash',
-    upi: 'UPI',
-    card: 'Card',
-    bank: 'Bank transfer',
-    other: 'Other',
-  };
-  return labels[method] ?? humaniseKey(method);
 }
 
 function friendlyReportError(message: string): string {

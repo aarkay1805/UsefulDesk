@@ -6,6 +6,12 @@
 
 ---
 
+## Reports collection-mix consolidation
+
+Owner Reports no longer renders the duplicate Collection mix card; Finance remains the canonical visual surface for payment-method and source mix. The report payload and CSV export retain those fields for historical export compatibility, and the Reports loading skeleton now mirrors the two remaining two-column analysis rows. Key code: `src/components/reports/owner-reports-view.tsx`.
+
+---
+
 ## Ad performance help affordance
 
 Finance Overview now places the question-mark help icon on the trailing side of the Leads acquired label while preserving the existing cohort tooltip and accessible name. Key code: `src/components/finance/finance-ad-performance.tsx`.
