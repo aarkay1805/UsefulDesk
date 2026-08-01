@@ -170,7 +170,7 @@ export function FinanceRevenueBreakdownCard({
                             <Table className="table-fixed">
                               <colgroup>
                                 <col />
-                                <col className="w-36" />
+                                <col className="w-52" />
                                 <col className="w-20" />
                                 <col className="w-20" />
                                 <col className="w-32" />
@@ -253,13 +253,13 @@ export function FinanceRevenueBreakdownCard({
                                           }
                                         />
                                       </TableCell>
-                                      <TableCell>
+                                      <TableCell className="whitespace-normal">
                                         <div className="grid gap-0.5">
                                           <span className="tabular-nums">
                                             {fmt.date(payment.paidAt)}
                                           </span>
                                           {context ? (
-                                            <span className="text-muted-foreground truncate text-xs">
+                                            <span className="text-muted-foreground text-xs">
                                               {context}
                                             </span>
                                           ) : null}

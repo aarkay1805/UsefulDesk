@@ -8,7 +8,7 @@
 
 ## Finance revenue drilldown row cleanup
 
-Finance Overview revenue-source accordions now open directly into payment rows without a repeated nested header or Manual/Auto-pay badge. The payment method aligns with the parent Payments column, an intentional empty Share column preserves the parent grid, and Revenue keeps its existing right edge across every source. Key code: `src/components/finance/finance-revenue-breakdown.tsx`.
+Finance Overview revenue-source accordions now open directly into payment rows without a repeated nested header or Manual/Auto-pay badge. The payment method aligns with the parent Payments column, an intentional empty Share column preserves the parent grid, and Revenue keeps its existing right edge across every source. The flexible member column yields more room to collection dates, whose contextual line now wraps instead of truncating longer renewal descriptions. Key code: `src/components/finance/finance-revenue-breakdown.tsx`.
 
 ---
 
