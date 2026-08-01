@@ -1,4 +1,4 @@
-import { Info } from 'lucide-react';
+import { CircleHelp } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -64,8 +64,8 @@ export function FinanceAdPerformanceCard({
                       />
                     }
                   >
-                    <Info aria-hidden="true" className="size-3.5" />
                     <span>Leads acquired</span>
+                    <CircleHelp aria-hidden="true" className="size-3.5" />
                   </TooltipTrigger>
                   <TooltipContent>
                     Instagram, Facebook and automated Meta leads

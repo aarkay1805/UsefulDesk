@@ -38,6 +38,8 @@ Built: attendance + plan visit limits / session packs, with separate Name and Pl
 
 Finance Overview's built revenue-source drilldown keeps phone numbers out of nested payment rows and opens the established member detail sheet in place from any row with a live membership. Nested rows omit repeated headers and Manual/Auto-pay badges; payment method aligns with the parent Payments column while an empty Share slot preserves the parent Revenue axis across every accordion. Member identity yields space to a wider collection-date block, and longer cycle context wraps instead of truncating.
 
+Finance Overview Ad performance places its question-mark help affordance on the trailing side of Leads acquired while keeping the cohort definition available through the existing tooltip.
+
 Left: trainer payroll and class-delivery accountability beyond assigned-member performance · **Finance master section** (`PRDs/finance_master_section.md`) supporting integration: connect posted expenses to owner-report export and add expense-category settings; human invoice numbering, PDF/WhatsApp sharing, and GST-ready documents wait for an approved immutable invoice-identity migration and compliance validation; the failed-AutoPay recovery loop stays with Members → Payments.
 
 ## 🚧 Phase 4 — franchise / multi-branch
