@@ -237,14 +237,6 @@ describe('financeOverviewCsv', () => {
         other: 0,
       },
       revenueStreams: [],
-      adPerformance: {
-        adSpend: 1500,
-        leads: 10,
-        convertedMembers: 4,
-        joiningRevenue: 3000,
-        conversionRate: 40,
-        returnOnAdSpend: 2,
-      },
       trend: [{ date: '2026-07-01', income: 6000, expenses: 1500 }],
       invoiceHealth: {
         paid: 1,
@@ -262,8 +254,7 @@ describe('financeOverviewCsv', () => {
     expect(csv).toContain('Profit,4500,4000');
     expect(csv).toContain('New memberships,3000');
     expect(csv).not.toContain('Other collections');
-    expect(csv).toContain('Converted members to date,4');
-    expect(csv).toContain('Return on ad spend,2');
+    expect(csv).not.toContain('Ad performance');
     expect(csv).toContain('2026-07-01,6000,1500');
   });
 });

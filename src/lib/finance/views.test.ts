@@ -9,6 +9,7 @@ import {
 
 describe('finance views', () => {
   it('accepts known views and falls back to the overview', () => {
+    expect(parseFinanceView('performance')).toBe('performance');
     expect(parseFinanceView('invoices')).toBe('invoices');
     expect(parseFinanceView('payments')).toBe('payments');
     expect(parseFinanceView('expenses')).toBe('expenses');
@@ -26,6 +27,7 @@ describe('finance views', () => {
 
   it('builds stable deep links', () => {
     expect(financeHref('overview')).toBe('/finance?view=overview');
+    expect(financeHref('performance')).toBe('/finance?view=performance');
     expect(financeHref('invoices', '2026-07')).toBe(
       '/finance?view=invoices&month=2026-07'
     );

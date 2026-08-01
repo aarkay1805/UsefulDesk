@@ -113,7 +113,6 @@ export interface FinanceOverviewData {
   projection: { amount: number; renewals: number };
   revenueBreakdown: FinanceRevenueBreakdown;
   revenueStreams: FinanceRevenueStream[];
-  adPerformance: FinanceAdPerformance;
   trend: FinanceTrendPoint[];
   invoiceHealth: FinanceInvoiceHealth;
   collectionMethods: FinanceCollectionMethod[];
@@ -313,9 +312,9 @@ export function summarizeFinanceRevenueStreams(
   });
 }
 
-async function loadFinanceAdPerformance(
+export async function loadFinanceAdPerformance(
   db: SupabaseClient,
-  period: FinanceMonthRange,
+  period: Pick<FinanceMonthRange, 'start' | 'end'>,
   timeZone: string
 ): Promise<FinanceAdPerformance> {
   const { data, error } = await db.rpc('finance_overview_ad_performance', {
@@ -437,64 +436,58 @@ export async function loadFinanceOverview(
   const projectionStart = period.nextStart;
   const projectionEnd = `${shiftFinanceMonth(month, 2)}-01`;
 
-  const [
-    payments,
-    invoices,
-    projectionMemberships,
-    expenseRows,
-    adPerformance,
-  ] = await Promise.all([
-    fetchAll<PaymentRow>((from, to) =>
-      db
-        .from('payments')
-        .select(
-          'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, payment_purpose, gateway_payment_id, created_at, contact:contacts(name, avatar_url), plan:membership_plans(name), membership:memberships(member_number, start_date)'
-        )
-        .eq('status', 'paid')
-        .gte('paid_at', bounds.previousStart)
-        .lt('paid_at', bounds.nextStart)
-        .order('paid_at', { ascending: false })
-        .range(from, to)
-    ),
-    fetchAll<MembershipPeriodInvoice>((from, to) =>
-      db
-        .from('membership_period_invoices')
-        .select(
-          'id, account_id, membership_id, contact_id, plan_id, period_start, period_end, fee_amount, state, created_at, amount_paid, balance, standard_period_end, bonus_months'
-        )
-        .gte('created_at', bounds.currentStart)
-        .lt('created_at', bounds.nextStart)
-        .order('created_at', { ascending: false })
-        .range(from, to)
-    ),
-    fetchAll<ProjectionMembership>((from, to) =>
-      db
-        .from('memberships')
-        .select(
-          'id, account_id, contact_id, user_id, plan_id, pricing_option_id, start_date, end_date, status, fee_amount, fee_status, is_trial, collection_mode, created_at, updated_at, plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
-        )
-        .eq('status', 'active')
-        .eq('is_trial', false)
-        .gte('end_date', projectionStart)
-        .lt('end_date', projectionEnd)
-        .order('id')
-        .range(from, to)
-    ),
-    fetchAll<FinanceOverviewExpenseRow>((from, to) =>
-      db
-        .from('expenses')
-        .select(
-          'id, occurred_on, amount, description, method, status, created_at'
-        )
-        .eq('status', 'posted')
-        .gte('occurred_on', period.previousStart)
-        .lt('occurred_on', period.nextStart)
-        .order('occurred_on', { ascending: false })
-        .order('created_at', { ascending: false })
-        .range(from, to)
-    ),
-    loadFinanceAdPerformance(db, period, timeZone),
-  ]);
+  const [payments, invoices, projectionMemberships, expenseRows] =
+    await Promise.all([
+      fetchAll<PaymentRow>((from, to) =>
+        db
+          .from('payments')
+          .select(
+            'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, payment_purpose, gateway_payment_id, created_at, contact:contacts(name, avatar_url), plan:membership_plans(name), membership:memberships(member_number, start_date)'
+          )
+          .eq('status', 'paid')
+          .gte('paid_at', bounds.previousStart)
+          .lt('paid_at', bounds.nextStart)
+          .order('paid_at', { ascending: false })
+          .range(from, to)
+      ),
+      fetchAll<MembershipPeriodInvoice>((from, to) =>
+        db
+          .from('membership_period_invoices')
+          .select(
+            'id, account_id, membership_id, contact_id, plan_id, period_start, period_end, fee_amount, state, created_at, amount_paid, balance, standard_period_end, bonus_months'
+          )
+          .gte('created_at', bounds.currentStart)
+          .lt('created_at', bounds.nextStart)
+          .order('created_at', { ascending: false })
+          .range(from, to)
+      ),
+      fetchAll<ProjectionMembership>((from, to) =>
+        db
+          .from('memberships')
+          .select(
+            'id, account_id, contact_id, user_id, plan_id, pricing_option_id, start_date, end_date, status, fee_amount, fee_status, is_trial, collection_mode, created_at, updated_at, plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
+          )
+          .eq('status', 'active')
+          .eq('is_trial', false)
+          .gte('end_date', projectionStart)
+          .lt('end_date', projectionEnd)
+          .order('id')
+          .range(from, to)
+      ),
+      fetchAll<FinanceOverviewExpenseRow>((from, to) =>
+        db
+          .from('expenses')
+          .select(
+            'id, occurred_on, amount, description, method, status, created_at'
+          )
+          .eq('status', 'posted')
+          .gte('occurred_on', period.previousStart)
+          .lt('occurred_on', period.nextStart)
+          .order('occurred_on', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(from, to)
+      ),
+    ]);
 
   const currentPayments = payments.filter(
     (payment) =>
@@ -613,7 +606,6 @@ export async function loadFinanceOverview(
     },
     revenueBreakdown,
     revenueStreams,
-    adPerformance,
     trend: Array.from(daily.values()),
     invoiceHealth,
     collectionMethods,
@@ -657,24 +649,6 @@ export function financeOverviewCsv(data: FinanceOverviewData): string {
     ...(data.revenueBreakdown.other > 0
       ? [['Other collections', data.revenueBreakdown.other]]
       : []),
-    [],
-    ['Ad performance', 'Value'],
-    ['Marketing spend', data.adPerformance.adSpend],
-    ['Ad-source leads', data.adPerformance.leads],
-    ['Converted members to date', data.adPerformance.convertedMembers],
-    ['Joining revenue to date', data.adPerformance.joiningRevenue],
-    [
-      'Conversion rate',
-      data.adPerformance.conversionRate === null
-        ? ''
-        : data.adPerformance.conversionRate,
-    ],
-    [
-      'Return on ad spend',
-      data.adPerformance.returnOnAdSpend === null
-        ? ''
-        : data.adPerformance.returnOnAdSpend,
-    ],
     [],
     ['Date', 'Income', 'Expenses'],
     ...data.trend.map((point) => [point.date, point.income, point.expenses]),

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
-  Banknote,
   CircleDollarSign,
   Download,
   RefreshCw,
@@ -31,6 +30,7 @@ import { useAccountStaff } from '@/components/members/use-account-staff';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { Skeleton, SkeletonCard } from '@/components/dashboard/skeleton';
 import { EmptyState } from '@/components/dashboard/empty-state';
+import { FinanceAdPerformanceCard } from '@/components/finance/finance-ad-performance';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Accordion,
@@ -63,9 +63,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ActivityTrendCard, RevenueTrendCard } from './report-trend-card';
+import { ActivityTrendCard } from './report-trend-card';
 import { useAuth } from '@/hooks/use-auth';
 import { OrganizationReportsView } from './organization-reports-view';
+import {
+  loadFinanceAdPerformance,
+  type FinanceAdPerformance,
+} from '@/lib/finance/overview';
 
 const REPORT_RANGES: Array<{ value: ReportRangeDays; label: string }> = [
   { value: 7, label: 'Last 7 days' },
@@ -75,7 +79,12 @@ const REPORT_RANGES: Array<{ value: ReportRangeDays; label: string }> = [
 
 const ALL_STAFF = 'all';
 
-type ReportCache = Record<string, OwnerReport>;
+interface PerformanceSnapshot {
+  report: OwnerReport;
+  adPerformance: FinanceAdPerformance | null;
+}
+
+type ReportCache = Record<string, PerformanceSnapshot>;
 
 function reportCacheKey(days: ReportRangeDays, staffUserId: string | null) {
   return `${days}:${staffUserId ?? ALL_STAFF}`;
@@ -100,15 +109,24 @@ export function OwnerReportsView() {
       const id = ++requestId.current;
       const dateRange = reportDateRange(fmt.today(), days);
       const cacheKey = reportCacheKey(days, selectedStaffUserId);
-      void loadOwnerReport(
-        createClient(),
-        accountId!,
-        dateRange,
-        locale.timeZone,
+      const db = createClient();
+      void Promise.all([
+        loadOwnerReport(
+          db,
+          accountId!,
+          dateRange,
+          locale.timeZone,
+          selectedStaffUserId
+        ),
         selectedStaffUserId
-      )
-        .then((nextReport) => {
-          setReports((current) => ({ ...current, [cacheKey]: nextReport }));
+          ? Promise.resolve(null)
+          : loadFinanceAdPerformance(db, dateRange, locale.timeZone),
+      ])
+        .then(([nextReport, adPerformance]) => {
+          setReports((current) => ({
+            ...current,
+            [cacheKey]: { report: nextReport, adPerformance },
+          }));
           if (requestId.current === id) setError(null);
         })
         .catch((reason: unknown) => {
@@ -116,7 +134,7 @@ export function OwnerReportsView() {
           const message =
             reason instanceof Error
               ? reason.message
-              : 'The owner report could not be loaded.';
+              : 'Performance could not be loaded.';
           setError(message);
         })
         .finally(() => {
@@ -134,7 +152,9 @@ export function OwnerReportsView() {
     };
   }, [accountId, fetchReport]);
 
-  const report = reports[reportCacheKey(rangeDays, staffUserId)] ?? null;
+  const snapshot = reports[reportCacheKey(rangeDays, staffUserId)] ?? null;
+  const report = snapshot?.report ?? null;
+  const adPerformance = snapshot?.adPerformance ?? null;
 
   function handleRangeChange(value: ReportRangeDays | null) {
     if (!value) return;
@@ -173,13 +193,13 @@ export function OwnerReportsView() {
 
   function exportReport() {
     if (!report) return;
-    const blob = new Blob([ownerReportCsv(report)], {
+    const blob = new Blob([ownerReportCsv(report, adPerformance)], {
       type: 'text/csv;charset=utf-8',
     });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `owner-report-${report.period.start}-to-${report.period.end}.csv`;
+    anchor.download = `performance-${report.period.start}-to-${report.period.end}.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -207,7 +227,7 @@ export function OwnerReportsView() {
               }
             }}
           >
-            <SelectTrigger aria-label="Report scope" className="w-44">
+            <SelectTrigger aria-label="Performance scope" className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="end">
@@ -248,7 +268,10 @@ export function OwnerReportsView() {
           value={rangeDays}
           onValueChange={handleRangeChange}
         >
-          <SelectTrigger aria-label="Report period" className="w-36 sm:w-40">
+          <SelectTrigger
+            aria-label="Performance period"
+            className="w-36 sm:w-40"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="end">
@@ -272,7 +295,7 @@ export function OwnerReportsView() {
       {error && (
         <Alert variant="destructive">
           <AlertCircle />
-          <AlertTitle>Could not load owner reporting</AlertTitle>
+          <AlertTitle>Could not load performance</AlertTitle>
           <AlertDescription>{friendlyReportError(error)}</AlertDescription>
           <Button
             size="sm"
@@ -289,14 +312,22 @@ export function OwnerReportsView() {
 
       {report && !loading ? (
         <>
-          <div className="grid gap-4 xl:grid-cols-2">
-            <RevenueTrendCard data={report.trend} fmt={fmt} />
-            <ActivityTrendCard data={report.trend} fmt={fmt} />
-          </div>
+          <ActivityTrendCard data={report.trend} fmt={fmt} />
 
-          <div className="grid gap-4 xl:grid-cols-2">
-            <PlanPerformanceCard report={report} fmt={fmt} />
-            <SourcePerformanceCard report={report} fmt={fmt} />
+          <PlanPerformanceCard report={report} fmt={fmt} />
+
+          <div className="grid gap-4 xl:grid-cols-5">
+            <div className={adPerformance ? 'xl:col-span-3' : 'xl:col-span-5'}>
+              <SourcePerformanceCard report={report} fmt={fmt} />
+            </div>
+            {adPerformance ? (
+              <div className="xl:col-span-2">
+                <FinanceAdPerformanceCard
+                  performance={adPerformance}
+                  fmt={fmt}
+                />
+              </div>
+            ) : null}
           </div>
         </>
       ) : !error ? (
@@ -317,8 +348,8 @@ function KpiGrid({
 }) {
   if (loading || !report) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => (
+      <div className="grid gap-4 sm:grid-cols-3">
+        {Array.from({ length: 3 }, (_, index) => (
           <SkeletonCard key={index} />
         ))}
       </div>
@@ -326,13 +357,7 @@ function KpiGrid({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <MetricCard
-        title="Revenue collected"
-        value={fmt.money(report.metrics.revenue.current)}
-        icon={Banknote}
-        {...comparisonProps(report.metrics.revenue, fmt)}
-      />
+    <div className="grid gap-4 sm:grid-cols-3">
       <MetricCard
         title="New members"
         value={fmt.number(report.metrics.newMembers.current)}
@@ -545,21 +570,11 @@ function SourcePerformanceCard({
             </colgroup>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-4">
-                  Source
-                </TableHead>
-                <TableHead className="text-right">
-                  Leads
-                </TableHead>
-                <TableHead className="text-right">
-                  Members
-                </TableHead>
-                <TableHead className="text-right">
-                  Revenue
-                </TableHead>
-                <TableHead className="pr-4 text-right">
-                  Conversion
-                </TableHead>
+                <TableHead className="pl-4">Source</TableHead>
+                <TableHead className="text-right">Leads</TableHead>
+                <TableHead className="text-right">Members</TableHead>
+                <TableHead className="text-right">Revenue</TableHead>
+                <TableHead className="pr-4 text-right">Conversion</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -606,15 +621,11 @@ function SourcePerformanceCard({
 function ReportBodySkeleton() {
   return (
     <>
-      <div className="grid gap-4 xl:grid-cols-2">
-        {Array.from({ length: 2 }, (_, index) => (
-          <Skeleton key={index} className="h-96" />
-        ))}
-      </div>
-      <div className="grid gap-4 xl:grid-cols-2">
-        {Array.from({ length: 2 }, (_, index) => (
-          <Skeleton key={index} className="h-96" />
-        ))}
+      <Skeleton className="h-96" />
+      <Skeleton className="h-96" />
+      <div className="grid gap-4 xl:grid-cols-5">
+        <Skeleton className="h-96 xl:col-span-3" />
+        <Skeleton className="h-96 xl:col-span-2" />
       </div>
     </>
   );
@@ -627,7 +638,7 @@ function friendlyReportError(message: string): string {
     lower.includes('schema cache') ||
     lower.includes('pgrst202')
   ) {
-    return 'The reporting database function is not available yet. Apply the latest Supabase migration, then retry.';
+    return 'The performance database function is not available yet. Apply the latest Supabase migration, then retry.';
   }
   return message;
 }

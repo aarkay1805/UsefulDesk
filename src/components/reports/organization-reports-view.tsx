@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, Building2, RefreshCw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { branchHref } from '@/lib/auth/branch-context';
+import { financeHref } from '@/lib/finance/views';
 import { formatCurrency } from '@/lib/currency';
 import { useLocale } from '@/hooks/use-locale';
 import { reportDateRange } from '@/lib/reports/reporting';
@@ -131,7 +132,7 @@ export function OrganizationReportsView({
             if (value === 'branch') onShowSelectedBranch();
           }}
         >
-          <SelectTrigger aria-label="Report scope" className="w-44">
+          <SelectTrigger aria-label="Performance scope" className="w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="end">
@@ -143,7 +144,10 @@ export function OrganizationReportsView({
           value={rangeDays}
           onValueChange={(value) => value && setRangeDays(value)}
         >
-          <SelectTrigger aria-label="Report period" className="w-36 sm:w-40">
+          <SelectTrigger
+            aria-label="Performance period"
+            className="w-36 sm:w-40"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="end">
@@ -159,7 +163,7 @@ export function OrganizationReportsView({
       {error ? (
         <Alert variant="destructive">
           <AlertCircle />
-          <AlertTitle>Could not load consolidated reporting</AlertTitle>
+          <AlertTitle>Could not load consolidated performance</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
           <Button
             size="sm"
@@ -240,7 +244,10 @@ export function OrganizationReportsView({
                 <TableRow key={branch.accountId}>
                   <TableCell>
                     <Link
-                      href={branchHref('/reports', branch.accountId)}
+                      href={branchHref(
+                        financeHref('performance'),
+                        branch.accountId
+                      )}
                       className="text-primary-text inline-flex items-center gap-2 font-medium"
                     >
                       <Building2 className="size-4" />

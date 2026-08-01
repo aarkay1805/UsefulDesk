@@ -1,6 +1,7 @@
 import type { PaymentPurpose } from '@/types';
 
-export type FinanceView = 'overview' | 'invoices' | 'payments' | 'expenses';
+export type FinanceView =
+  'overview' | 'performance' | 'invoices' | 'payments' | 'expenses';
 
 const PAYMENT_PURPOSES: PaymentPurpose[] = [
   'joining',
@@ -10,7 +11,10 @@ const PAYMENT_PURPOSES: PaymentPurpose[] = [
 ];
 
 export function parseFinanceView(value: unknown): FinanceView {
-  return value === 'invoices' || value === 'payments' || value === 'expenses'
+  return value === 'performance' ||
+    value === 'invoices' ||
+    value === 'payments' ||
+    value === 'expenses'
     ? value
     : 'overview';
 }

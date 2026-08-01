@@ -6,6 +6,12 @@
 
 ---
 
+## Finance and Reports consolidation
+
+Finance is now the single top-level destination for financial and business analysis, with URL-backed Overview, Performance, Invoices, Payments, and Expenses tabs. Performance absorbs the former Reports page while removing its duplicate Revenue collected KPI and Collections over time chart; Ad performance moved out of Overview and follows the 7/30/90-day all-staff performance range beside lead-source analysis. The Reports sidebar item is gone, old `/reports` links redirect to Finance → Performance with valid branch context preserved, and the Dashboard/organization links target the new route. Key code: `src/components/finance/finance-master-view.tsx`, `src/components/reports/owner-reports-view.tsx`, and `src/app/(dashboard)/reports/page.tsx`.
+
+---
+
 ## Reports collection-mix consolidation
 
 Owner Reports no longer renders the duplicate Collection mix card; Finance remains the canonical visual surface for payment-method and source mix. The report payload and CSV export retain those fields for historical export compatibility, and the Reports loading skeleton now mirrors the two remaining two-column analysis rows. Key code: `src/components/reports/owner-reports-view.tsx`.

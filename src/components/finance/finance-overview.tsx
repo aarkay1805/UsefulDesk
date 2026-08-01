@@ -12,7 +12,6 @@ import {
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { Skeleton, SkeletonCard } from '@/components/dashboard/skeleton';
 import { FinanceCashFlowChart } from '@/components/finance/finance-cash-flow-chart';
-import { FinanceAdPerformanceCard } from '@/components/finance/finance-ad-performance';
 import { FinanceCollectionMixCard } from '@/components/finance/finance-collection-mix';
 import { FinanceInvoiceHealthCard } from '@/components/finance/finance-invoice-health';
 import { FinanceMonthActions } from '@/components/finance/finance-month-actions';
@@ -124,24 +123,14 @@ export function FinanceOverview({
         <>
           <FinanceMetricGrid data={data} fmt={fmt} />
 
-          <div className="grid gap-4 xl:grid-cols-5">
-            <div className="xl:col-span-3">
-              <FinanceRevenueBreakdownCard
-                breakdown={data.revenueBreakdown}
-                streams={data.revenueStreams}
-                month={month}
-                accountId={accountId}
-                fmt={fmt}
-                onChanged={() => setRetryKey((key) => key + 1)}
-              />
-            </div>
-            <div className="xl:col-span-2">
-              <FinanceAdPerformanceCard
-                performance={data.adPerformance}
-                fmt={fmt}
-              />
-            </div>
-          </div>
+          <FinanceRevenueBreakdownCard
+            breakdown={data.revenueBreakdown}
+            streams={data.revenueStreams}
+            month={month}
+            accountId={accountId}
+            fmt={fmt}
+            onChanged={() => setRetryKey((key) => key + 1)}
+          />
 
           <div className="grid gap-4 xl:grid-cols-5">
             <div className="xl:col-span-3">

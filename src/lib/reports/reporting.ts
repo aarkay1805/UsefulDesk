@@ -6,6 +6,7 @@ import {
 } from '@/lib/leads/field-options';
 import { dayStartInTz, todayInTz } from '@/lib/locale/format';
 import { durationLabel } from '@/lib/memberships/pricing';
+import type { FinanceAdPerformance } from '@/lib/finance/overview';
 import type { DurationUnit } from '@/types';
 import type { OwnerAttention, OwnerReport, ReportRangeDays } from './types';
 
@@ -1360,9 +1361,15 @@ function csvRow(values: Array<string | number>): string {
 }
 
 /** Full-fidelity export: summary, attention queue, daily data, and breakdowns. */
-export function ownerReportCsv(report: OwnerReport): string {
+export function ownerReportCsv(
+  report: OwnerReport,
+  adPerformance: FinanceAdPerformance | null = null
+): string {
   const lines: string[] = [
-    csvRow(['Owner report', `${report.period.start} to ${report.period.end}`]),
+    csvRow([
+      'Performance report',
+      `${report.period.start} to ${report.period.end}`,
+    ]),
     '',
     csvRow(['Summary', 'Current period', 'Previous period']),
     csvRow([
@@ -1469,6 +1476,18 @@ export function ownerReportCsv(report: OwnerReport): string {
         source.conversionRate,
       ])
     ),
+    ...(adPerformance
+      ? [
+          '',
+          csvRow(['Ad performance', 'Value']),
+          csvRow(['Marketing spend', adPerformance.adSpend]),
+          csvRow(['Ad-source leads', adPerformance.leads]),
+          csvRow(['Converted members to date', adPerformance.convertedMembers]),
+          csvRow(['Joining revenue to date', adPerformance.joiningRevenue]),
+          csvRow(['Conversion rate', adPerformance.conversionRate ?? '']),
+          csvRow(['Return on ad spend', adPerformance.returnOnAdSpend ?? '']),
+        ]
+      : []),
     '',
     csvRow(['Collection method', 'Payments', 'Amount']),
     ...report.collectionMethods.map((method) =>

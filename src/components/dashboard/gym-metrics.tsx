@@ -51,10 +51,10 @@ export function GymMetrics() {
           </p>
         </div>
         <Link
-          href="/reports"
+          href="/finance?view=performance"
           className="text-primary-text text-xs font-medium hover:underline"
         >
-          Open reports →
+          View performance →
         </Link>
       </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { FinanceExpenses } from '@/components/finance/finance-expenses';
@@ -8,6 +8,7 @@ import { FinanceInvoices } from '@/components/finance/finance-invoices';
 import { FinanceOverview } from '@/components/finance/finance-overview';
 import { FinancePayments } from '@/components/finance/finance-payments';
 import { PageHeaderTabs } from '@/components/layout/page-header-actions';
+import { OwnerReportsView } from '@/components/reports/owner-reports-view';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { branchHref } from '@/lib/auth/branch-context';
 import { useLocale } from '@/hooks/use-locale';
@@ -18,6 +19,7 @@ import type { PaymentPurpose } from '@/types';
 
 const VIEW_LABEL: Record<FinanceView, string> = {
   overview: 'Overview',
+  performance: 'Performance',
   invoices: 'Invoices',
   payments: 'Payments',
   expenses: 'Expenses',
@@ -37,6 +39,10 @@ export function FinanceMasterView({
   const { accountId } = useAuth();
   const month = requestedMonth ?? fmt.today().slice(0, 7);
   const [reloadKey, setReloadKey] = useState(0);
+  const keepActiveTabInView = useCallback((node: HTMLButtonElement | null) => {
+    if (!node) return;
+    node.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, []);
 
   useEffect(() => {
     if (!accountId) return;
@@ -152,17 +158,24 @@ export function FinanceMasterView({
           className="pt-2 pb-0"
         >
           <TabsList variant="line" className="h-auto gap-5 p-0">
-            {(['overview', 'invoices', 'payments', 'expenses'] as const).map(
-              (value) => (
-                <TabsTrigger
-                  key={value}
-                  value={value}
-                  className="flex-none px-0.5 pb-2 text-[0.9375rem] group-data-horizontal/tabs:after:bottom-0"
-                >
-                  {VIEW_LABEL[value]}
-                </TabsTrigger>
-              )
-            )}
+            {(
+              [
+                'overview',
+                'performance',
+                'invoices',
+                'payments',
+                'expenses',
+              ] as const
+            ).map((value) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                ref={value === view ? keepActiveTabInView : undefined}
+                className="flex-none px-0.5 pb-2 text-[0.9375rem] group-data-horizontal/tabs:after:bottom-0"
+              >
+                {VIEW_LABEL[value]}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
       </PageHeaderTabs>
@@ -173,6 +186,8 @@ export function FinanceMasterView({
           month={month}
           onMonthChange={changeMonth}
         />
+      ) : view === 'performance' ? (
+        <OwnerReportsView />
       ) : view === 'invoices' ? (
         <FinanceInvoices
           reloadKey={reloadKey}
