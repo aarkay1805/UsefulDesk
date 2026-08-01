@@ -6,6 +6,12 @@
 
 ---
 
+## Finance revenue drilldown row cleanup
+
+Finance Overview revenue-source accordions now open directly into payment rows without a repeated nested header or Manual/Auto-pay badge. The payment method aligns with the parent Payments column, an intentional empty Share column preserves the parent grid, and Revenue keeps its existing right edge across every source. Key code: `src/components/finance/finance-revenue-breakdown.tsx`.
+
+---
+
 ## Canonical underline-free text links
 
 The shared `Button` link variant now renders account-primary hyperlink text without adding an underline on hover. `AccordionContent` preserves its prose-link treatment while excluding anchors marked as Button consumers, preventing its descendant selector from re-underlining Finance revenue-source “View all”; AI Playground setup navigation and Follow-up Filters “Clear all” inherit the Button change directly. Key code: `src/components/ui/button.tsx`, `src/components/ui/accordion.tsx`, and `src/components/finance/finance-revenue-breakdown.tsx`; durable rule: `docs/ui-patterns.md`.

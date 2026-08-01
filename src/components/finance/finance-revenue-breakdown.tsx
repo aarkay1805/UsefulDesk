@@ -13,17 +13,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { branchHref } from '@/lib/auth/branch-context';
 import type {
   FinanceRevenueBreakdown,
@@ -177,23 +169,12 @@ export function FinanceRevenueBreakdownCard({
                           <>
                             <Table className="table-fixed">
                               <colgroup>
-                                <col className="w-[45%]" />
-                                <col className="w-[22%]" />
-                                <col className="w-[18%]" />
-                                <col className="w-[15%]" />
+                                <col />
+                                <col className="w-36" />
+                                <col className="w-20" />
+                                <col className="w-20" />
+                                <col className="w-32" />
                               </colgroup>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="pl-14">
-                                    Member
-                                  </TableHead>
-                                  <TableHead>Collected on</TableHead>
-                                  <TableHead>Collection</TableHead>
-                                  <TableHead className="pr-4 text-right">
-                                    Revenue
-                                  </TableHead>
-                                </TableRow>
-                              </TableHeader>
                               <TableBody>
                                 {stream.recentPayments.map((payment) => {
                                   const membershipId = payment.membershipId;
@@ -284,24 +265,10 @@ export function FinanceRevenueBreakdownCard({
                                           ) : null}
                                         </div>
                                       </TableCell>
-                                      <TableCell>
-                                        <div className="grid justify-items-start gap-1">
-                                          <span>
-                                            {METHOD_LABEL[payment.method]}
-                                          </span>
-                                          <Badge
-                                            variant={
-                                              payment.source === 'auto'
-                                                ? 'info'
-                                                : 'neutral'
-                                            }
-                                          >
-                                            {payment.source === 'auto'
-                                              ? 'Auto-pay'
-                                              : 'Manual'}
-                                          </Badge>
-                                        </div>
+                                      <TableCell className="pr-4 text-right">
+                                        {METHOD_LABEL[payment.method]}
                                       </TableCell>
+                                      <TableCell aria-hidden="true" />
                                       <TableCell className="pr-4 text-right font-medium tabular-nums">
                                         {fmt.money(payment.amount)}
                                       </TableCell>
