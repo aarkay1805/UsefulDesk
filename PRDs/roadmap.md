@@ -8,6 +8,8 @@ Membership plans · member records · renewal action lists (expiring / expired /
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **the canonical Button text-link action now stays account-primary without adding an underline on hover, while Accordion content preserves underlines only for ordinary prose links and excludes explicitly marked Button-style anchors; this covers Finance revenue drilldowns, AI Playground setup navigation, and Follow-up filter clearing**.
+
 Engineering maintenance: **shared table headers now inherit one canonical muted neutral label colour from `TableHead`, including nested Finance revenue-source payment tables, with page-level styling limited to layout**.
 
 Engineering maintenance: **the Next.js 16 / React 19 tree is ESLint-clean with no rule overrides; auth-driven effects use stable scalar dependencies, asynchronous contact-form loaders are cancellation-guarded, and authenticated Inbox images retain their existing proxy/blob delivery through `next/image`**.

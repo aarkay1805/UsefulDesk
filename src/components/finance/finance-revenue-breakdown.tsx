@@ -312,6 +312,7 @@ export function FinanceRevenueBreakdownCard({
                             </Table>
                             <div className="border-border flex justify-end border-t px-4 py-2">
                               <Link
+                                data-slot="button"
                                 href={paymentsHref}
                                 className={buttonVariants({
                                   variant: 'link',

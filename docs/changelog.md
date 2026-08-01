@@ -6,6 +6,12 @@
 
 ---
 
+## Canonical underline-free text links
+
+The shared `Button` link variant now renders account-primary hyperlink text without adding an underline on hover. `AccordionContent` preserves its prose-link treatment while excluding anchors marked as Button consumers, preventing its descendant selector from re-underlining Finance revenue-source “View all”; AI Playground setup navigation and Follow-up Filters “Clear all” inherit the Button change directly. Key code: `src/components/ui/button.tsx`, `src/components/ui/accordion.tsx`, and `src/components/finance/finance-revenue-breakdown.tsx`; durable rule: `docs/ui-patterns.md`.
+
+---
+
 ## Canonical muted table headers
 
 Every shared `TableHead` now renders header labels with the muted neutral foreground, bringing Finance revenue-source payment drilldowns and all other table consumers onto one token. Redundant page-level muted overrides were removed; alignment and layout remain call-site concerns. Key code: `src/components/ui/table.tsx`; durable rule: `docs/ui-patterns.md`.

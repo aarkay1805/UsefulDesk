@@ -65,6 +65,10 @@ button:not(:disabled),
 
 A `:disabled` control keeps the arrow (a dead affordance must not advertise itself). **Never add `cursor-pointer` to a button/tab/trigger.** A **non-button** clickable (`<div>`/`<tr>` row, card) still needs it explicitly.
 
+## Text-link actions
+
+`Button` (`ui/button.tsx`) with `variant="link"` is the canonical compact text-link action, including anchors styled through `buttonVariants`. It uses the account primary text colour without an underline at rest or on hover. Do not restore a hover underline or recreate this treatment at a call site. `AccordionContent` keeps underlines on ordinary prose links but excludes `[data-slot="button"]`; an anchor using `buttonVariants` inside an accordion must carry that slot marker so the two masters do not collide.
+
 ## Form fields
 
 ### Dialog title hierarchy
