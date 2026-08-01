@@ -76,11 +76,18 @@ describe('Finance revenue attribution', () => {
       summarizeFinanceRevenue([
         { amount: 4_000, payment_purpose: 'joining', status: 'paid' },
         { amount: 3_000, payment_purpose: 'renewal', status: 'paid' },
+        { amount: 750, payment_purpose: 'sale', status: 'paid' },
         { amount: 2_000, payment_purpose: 'due', status: 'paid' },
         { amount: 500, payment_purpose: 'other', status: 'paid' },
         { amount: 9_000, payment_purpose: 'joining', status: 'void' },
       ])
-    ).toEqual({ joining: 4_000, renewal: 3_000, due: 2_000, other: 500 });
+    ).toEqual({
+      joining: 4_000,
+      renewal: 3_000,
+      sale: 750,
+      due: 2_000,
+      other: 500,
+    });
   });
 
   it('normalizes numeric ad metrics and preserves unavailable ratios', () => {
@@ -163,6 +170,7 @@ describe('Finance revenue attribution', () => {
           }),
         ],
       },
+      { purpose: 'sale', payments: 0, amount: 0, recentPayments: [] },
       { purpose: 'due', payments: 0, amount: 0, recentPayments: [] },
       { purpose: 'other', payments: 0, amount: 0, recentPayments: [] },
     ]);
@@ -495,6 +503,7 @@ describe('financeOverviewCsv', () => {
       revenueBreakdown: {
         joining: 3000,
         renewal: 2000,
+        sale: 0,
         due: 1000,
         other: 0,
       },

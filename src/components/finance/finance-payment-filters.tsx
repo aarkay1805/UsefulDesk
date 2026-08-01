@@ -46,6 +46,7 @@ const PAYMENT_SOURCES: { value: PaymentSource; label: string }[] = [
 const PAYMENT_PURPOSES: { value: PaymentPurpose; label: string }[] = [
   { value: 'joining', label: 'New memberships' },
   { value: 'renewal', label: 'Renewals' },
+  { value: 'sale', label: 'Products & services' },
   { value: 'due', label: 'Due payments recovered' },
   { value: 'other', label: 'Other collections' },
 ];
@@ -135,7 +136,7 @@ export function FinancePaymentFilters({
           />
           <Separator className="my-3" />
           <FilterGroup
-            label="Revenue source"
+            label="Payment purpose"
             options={PAYMENT_PURPOSES}
             selected={value.purposes}
             onToggle={(choice) => toggle('purposes', choice as PaymentPurpose)}

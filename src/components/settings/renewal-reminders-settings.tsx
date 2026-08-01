@@ -1,30 +1,30 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { BellRing, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { BellRing, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
 import {
   DEFAULT_DAYS_BEFORE,
   normalizeDaysBefore,
-} from "@/lib/memberships/renewal-reminders";
-import { useReminderReadiness } from "@/components/members/send-reminder-button";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { SettingsPanelHead } from "./settings-panel-head";
+} from '@/lib/memberships/renewal-reminders';
+import { useReminderReadiness } from '@/components/members/send-reminder-button';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { SettingsPanelHead } from './settings-panel-head';
 
 /** The offsets an owner can toggle. Kept to sensible round choices —
  *  the cron accepts any, but a picker beats a free-text int array. */
 const OFFSET_CHOICES: { value: number; label: string }[] = [
-  { value: 14, label: "14 days before" },
-  { value: 7, label: "7 days before" },
-  { value: 3, label: "3 days before" },
-  { value: 1, label: "1 day before" },
-  { value: 0, label: "On expiry day" },
+  { value: 14, label: '14 days before' },
+  { value: 7, label: '7 days before' },
+  { value: 3, label: '3 days before' },
+  { value: 1, label: '1 day before' },
+  { value: 0, label: 'On expiry day' },
 ];
 
 /**
@@ -48,6 +48,10 @@ export function RenewalRemindersSettings() {
 
   const [enabled, setEnabled] = useState(false);
   const [offsets, setOffsets] = useState<number[]>(DEFAULT_DAYS_BEFORE);
+  const [serviceEnabled, setServiceEnabled] = useState(false);
+  const [serviceOffsets, setServiceOffsets] =
+    useState<number[]>(DEFAULT_DAYS_BEFORE);
+  const [serviceReady, setServiceReady] = useState(false);
 
   useEffect(() => {
     if (!accountId) return;
@@ -55,21 +59,43 @@ export function RenewalRemindersSettings() {
 
     (async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("renewal_reminder_settings")
-        .select("enabled, days_before")
-        .eq("account_id", accountId)
-        .maybeSingle();
+      const [{ data }, { data: serviceTemplate }, { data: whatsapp }] =
+        await Promise.all([
+          supabase
+            .from('renewal_reminder_settings')
+            .select(
+              'enabled, days_before, service_enabled, service_days_before'
+            )
+            .eq('account_id', accountId)
+            .maybeSingle(),
+          supabase
+            .from('message_templates')
+            .select('id')
+            .eq('name', 'gym_service_renewal_reminder')
+            .eq('status', 'APPROVED')
+            .maybeSingle(),
+          supabase.from('whatsapp_config').select('status').maybeSingle(),
+        ]);
       if (cancelled) return;
 
       if (data) {
         setEnabled(Boolean(data.enabled));
         const clean = normalizeDaysBefore(data.days_before);
         setOffsets(clean.length ? clean : DEFAULT_DAYS_BEFORE);
+        setServiceEnabled(Boolean(data.service_enabled));
+        const serviceClean = normalizeDaysBefore(data.service_days_before);
+        setServiceOffsets(
+          serviceClean.length ? serviceClean : DEFAULT_DAYS_BEFORE
+        );
       } else {
         setEnabled(false);
         setOffsets(DEFAULT_DAYS_BEFORE);
+        setServiceEnabled(false);
+        setServiceOffsets(DEFAULT_DAYS_BEFORE);
       }
+      setServiceReady(
+        whatsapp?.status === 'connected' && Boolean(serviceTemplate)
+      );
       setLoading(false);
     })();
 
@@ -80,33 +106,52 @@ export function RenewalRemindersSettings() {
 
   function toggleOffset(value: number) {
     setOffsets((prev) =>
-      prev.includes(value)
-        ? prev.filter((v) => v !== value)
-        : [...prev, value],
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    );
+  }
+
+  function toggleServiceOffset(value: number) {
+    setServiceOffsets((previous) =>
+      previous.includes(value)
+        ? previous.filter((offset) => offset !== value)
+        : [...previous, value]
     );
   }
 
   async function handleSave() {
     if (!accountId) return;
     const clean = normalizeDaysBefore(offsets);
+    const serviceClean = normalizeDaysBefore(serviceOffsets);
     if (enabled && clean.length === 0) {
-      toast.error("Pick at least one reminder day, or turn reminders off.");
+      toast.error('Pick at least one reminder day, or turn reminders off.');
+      return;
+    }
+    if (serviceEnabled && serviceClean.length === 0) {
+      toast.error(
+        'Pick at least one service reminder day, or turn service reminders off.'
+      );
       return;
     }
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("renewal_reminder_settings")
-        .upsert(
-          { account_id: accountId, enabled, days_before: clean },
-          { onConflict: "account_id" },
-        );
+      const { error } = await supabase.from('renewal_reminder_settings').upsert(
+        {
+          account_id: accountId,
+          enabled,
+          days_before: clean,
+          service_enabled: serviceEnabled,
+          service_days_before: serviceClean,
+        },
+        { onConflict: 'account_id' }
+      );
       if (error) throw error;
-      toast.success("Reminder settings saved");
+      toast.success('Reminder settings saved');
       setReloadNonce((n) => n + 1);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save settings");
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to save settings'
+      );
     } finally {
       setSaving(false);
     }
@@ -120,7 +165,7 @@ export function RenewalRemindersSettings() {
           description="Send the WhatsApp renewal reminder automatically as memberships approach expiry."
         />
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="size-6 animate-spin text-primary-text" />
+          <Loader2 className="text-primary-text size-6 animate-spin" />
         </div>
       </section>
     );
@@ -139,15 +184,19 @@ export function RenewalRemindersSettings() {
           surprised that "enabled" sends nothing when WhatsApp / the
           template aren't set up. */}
       {!readiness.loading && !readiness.ready && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-600/30 bg-amber-500/10 dark:border-amber-600/40 dark:bg-amber-950/30 px-3 py-2.5 text-sm text-amber-foreground">
+        <div className="text-amber-foreground mb-4 flex items-start gap-2 rounded-lg border border-amber-600/30 bg-amber-500/10 px-3 py-2.5 text-sm dark:border-amber-600/40 dark:bg-amber-950/30">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <span>{readiness.reason} Reminders won&apos;t send until this is done.</span>
+          <span>
+            {readiness.reason} Reminders won&apos;t send until this is done.
+          </span>
         </div>
       )}
       {!readiness.loading && readiness.ready && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-emerald-600/30 bg-emerald-500/10 dark:border-emerald-700/40 dark:bg-emerald-950/25 px-3 py-2.5 text-sm text-emerald-foreground">
+        <div className="text-emerald-foreground mb-4 flex items-start gap-2 rounded-lg border border-emerald-600/30 bg-emerald-500/10 px-3 py-2.5 text-sm dark:border-emerald-700/40 dark:bg-emerald-950/25">
           <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-          <span>WhatsApp is connected and the renewal template is approved.</span>
+          <span>
+            WhatsApp is connected and the renewal template is approved.
+          </span>
         </div>
       )}
 
@@ -156,12 +205,12 @@ export function RenewalRemindersSettings() {
           {/* Master toggle */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-start gap-3">
-              <BellRing className="mt-0.5 size-5 text-primary-text" />
+              <BellRing className="text-primary-text mt-0.5 size-5" />
               <div>
-                <p className="font-medium text-foreground">
+                <p className="text-foreground font-medium">
                   Automatic reminders
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   When on, expiring members are messaged on WhatsApp without you
                   clicking Remind. Each member gets at most one message per
                   selected day.
@@ -178,11 +227,11 @@ export function RenewalRemindersSettings() {
           {/* Offset picker */}
           <div
             className={cn(
-              "space-y-3 transition-opacity",
-              !enabled && "pointer-events-none opacity-50",
+              'space-y-3 transition-opacity',
+              !enabled && 'pointer-events-none opacity-50'
             )}
           >
-            <p className="text-sm font-medium text-foreground">Remind on</p>
+            <p className="text-foreground text-sm font-medium">Remind on</p>
             <div className="flex flex-wrap gap-2">
               {OFFSET_CHOICES.map((choice) => {
                 const on = offsets.includes(choice.value);
@@ -193,11 +242,11 @@ export function RenewalRemindersSettings() {
                     disabled={disabled || !enabled}
                     onClick={() => toggleOffset(choice.value)}
                     className={cn(
-                      "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+                      'rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
                       on
-                        ? "border-primary bg-primary/15 text-foreground"
-                        : "border-border bg-muted/40 text-muted-foreground hover:text-foreground",
-                      (disabled || !enabled) && "cursor-not-allowed",
+                        ? 'border-primary bg-primary/15 text-foreground'
+                        : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground',
+                      (disabled || !enabled) && 'cursor-not-allowed'
                     )}
                   >
                     {choice.label}
@@ -205,14 +254,15 @@ export function RenewalRemindersSettings() {
                 );
               })}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               e.g. 7 + 3 + 1 days before nudges a member three times as their
-              expiry nears. All times use IST.
+              expiry nears. Sending starts at 9am in this branch&apos;s
+              timezone.
             </p>
           </div>
 
           {canEditSettings && (
-            <div className="flex justify-end border-t border-border pt-4">
+            <div className="border-border flex justify-end border-t pt-4">
               <Button
                 onClick={handleSave}
                 disabled={saving}
@@ -223,7 +273,93 @@ export function RenewalRemindersSettings() {
                     <Loader2 className="size-4 animate-spin" /> Saving…
                   </>
                 ) : (
-                  "Save settings"
+                  'Save settings'
+                )}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-4">
+        <CardContent className="space-y-6 p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <BellRing className="text-primary-text mt-0.5 size-5" />
+              <div>
+                <p className="text-foreground font-medium">
+                  Service renewal reminders
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  Remind members about expiring personal training and other
+                  renewable services. Missing current trainer rates are skipped.
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={serviceEnabled}
+              onCheckedChange={setServiceEnabled}
+              disabled={disabled}
+            />
+          </div>
+          <div
+            className={cn(
+              'space-y-3 transition-opacity',
+              !serviceEnabled && 'pointer-events-none opacity-50'
+            )}
+          >
+            <p className="text-foreground text-sm font-medium">Remind on</p>
+            <div className="flex flex-wrap gap-2">
+              {OFFSET_CHOICES.map((choice) => {
+                const on = serviceOffsets.includes(choice.value);
+                return (
+                  <button
+                    key={choice.value}
+                    type="button"
+                    disabled={disabled || !serviceEnabled}
+                    onClick={() => toggleServiceOffset(choice.value)}
+                    className={cn(
+                      'rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
+                      on
+                        ? 'border-primary bg-primary/15 text-foreground'
+                        : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground',
+                      (disabled || !serviceEnabled) && 'cursor-not-allowed'
+                    )}
+                  >
+                    {choice.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div
+            className={cn(
+              'flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm',
+              serviceReady
+                ? 'text-emerald-foreground border-emerald-600/30 bg-emerald-500/10'
+                : 'text-amber-foreground border-amber-600/30 bg-amber-500/10'
+            )}
+          >
+            {serviceReady ? (
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+            ) : (
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            )}
+            <span>
+              {serviceReady
+                ? 'WhatsApp is connected and gym_service_renewal_reminder is approved.'
+                : 'Connect WhatsApp and approve gym_service_renewal_reminder before automatic service reminders can send.'}
+            </span>
+          </div>
+          {canEditSettings && (
+            <div className="border-border flex justify-end border-t pt-4">
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" /> Saving…
+                  </>
+                ) : (
+                  'Save settings'
                 )}
               </Button>
             </div>

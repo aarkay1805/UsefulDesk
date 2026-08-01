@@ -24,6 +24,7 @@ const METHOD_LABEL: Record<string, string> = {
 const PURPOSE_LABEL = {
   joining: 'Joining',
   renewal: 'Renewal',
+  sale: 'Product/service sale',
   due: 'Due payment',
   other: 'Other',
 } as const;

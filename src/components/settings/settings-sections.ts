@@ -2,6 +2,7 @@ import {
   BellRing,
   Coins,
   Dumbbell,
+  PackageOpen,
   FileText,
   Globe2,
   KeyRound,
@@ -35,6 +36,7 @@ export const SETTINGS_SECTIONS = [
   'templates',
   'fields',
   'plans',
+  'products-services',
   'reminders',
   'deals',
   'localization',
@@ -110,6 +112,12 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     id: 'plans',
     label: 'Membership plans',
     icon: Dumbbell,
+    group: 'workspace',
+  },
+  'products-services': {
+    id: 'products-services',
+    label: 'Products & services',
+    icon: PackageOpen,
     group: 'workspace',
   },
   reminders: {

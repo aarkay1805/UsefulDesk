@@ -16,6 +16,7 @@ const MAX_SENDS_PER_RUN = 200;
 
 interface InstallmentCandidate {
   id: string;
+  invoice_id: string | null;
   membership_id: string;
   contact_id: string;
   period_end: string;
@@ -29,8 +30,7 @@ interface InstallmentCandidate {
 }
 
 interface InvoiceBalance {
-  membership_id: string;
-  period_end: string;
+  id: string;
   balance: number;
   state: string;
 }
@@ -141,7 +141,7 @@ export async function GET(request: Request) {
       const { data, error: candidateError } = await admin
         .from('membership_installment_plans')
         .select(
-          'id, membership_id, contact_id, period_end, second_amount, second_due_on, contact:contacts(id, name, phone), membership:memberships(status, plan:membership_plans(name))'
+          'id, invoice_id, membership_id, contact_id, period_end, second_amount, second_due_on, contact:contacts(id, name, phone), membership:memberships(status, plan:membership_plans(name))'
         )
         .eq('account_id', accountId)
         .eq('second_due_on', target.dueOn);
@@ -156,16 +156,18 @@ export async function GET(request: Request) {
       const candidates = (data ?? []) as unknown as InstallmentCandidate[];
       if (candidates.length === 0) continue;
 
-      const membershipIds = candidates.map(
-        (candidate) => candidate.membership_id
-      );
-      const { data: invoiceRows, error: invoiceError } = await admin
-        .from('membership_period_invoices')
-        .select('membership_id, period_end, balance, state')
-        .eq('account_id', accountId)
-        .in('membership_id', membershipIds)
-        .eq('state', 'open')
-        .gt('balance', 0);
+      const invoiceIds = candidates
+        .map((candidate) => candidate.invoice_id)
+        .filter((id): id is string => Boolean(id));
+      const { data: invoiceRows, error: invoiceError } = invoiceIds.length
+        ? await admin
+            .from('invoice_balances')
+            .select('id, membership_id, balance, state')
+            .eq('account_id', accountId)
+            .in('id', invoiceIds)
+            .eq('state', 'open')
+            .gt('balance', 0)
+        : { data: [], error: null };
 
       if (invoiceError) {
         notes.push(
@@ -174,9 +176,9 @@ export async function GET(request: Request) {
         continue;
       }
 
-      const balanceByPeriod = new Map(
+      const balanceByInvoice = new Map(
         ((invoiceRows ?? []) as InvoiceBalance[]).map((invoice) => [
-          `${invoice.membership_id}:${invoice.period_end}`,
+          invoice.id,
           Number(invoice.balance),
         ])
       );
@@ -184,10 +186,9 @@ export async function GET(request: Request) {
       for (const candidate of candidates) {
         if (summary.sent >= MAX_SENDS_PER_RUN) break;
 
-        const balance =
-          balanceByPeriod.get(
-            `${candidate.membership_id}:${candidate.period_end}`
-          ) ?? 0;
+        const balance = candidate.invoice_id
+          ? (balanceByInvoice.get(candidate.invoice_id) ?? 0)
+          : 0;
         const phone = candidate.contact?.phone?.trim();
         if (balance <= 0 || !phone) continue;
 

@@ -104,6 +104,7 @@ describe('finance payment identity and export', () => {
     );
 
     expect(csv).toContain('Payment,Gateway reference,Member ID,Name');
+    expect(csv).toContain('Source,Payment purpose,Status');
     expect(csv).toContain(
       '#12345678,pay_123,1001,Aarav Shah,9876543210,Strength'
     );

@@ -41,7 +41,12 @@ import {
 import { currencySymbol } from '@/lib/currency';
 import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
-import type { Membership, PaymentMethod } from '@/types';
+import type {
+  CheckoutResult,
+  CheckoutSelection,
+  Membership,
+  PaymentMethod,
+} from '@/types';
 import { useMembershipPlans } from './use-membership-plans';
 import { PlanOptionPicker, TRIAL_PLAN_VALUE } from './plan-option-picker';
 import {
@@ -76,6 +81,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AvatarEditorDialog } from './avatar-editor-dialog';
+import { ProductsServicesPicker } from './products-services-picker';
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'cash', label: 'Cash' },
@@ -173,6 +179,12 @@ export function MemberForm({
   const [payMethod, setPayMethod] = useState<PaymentMethod>('cash');
   const [conversionPaymentTiming, setConversionPaymentTiming] =
     useState<ConversionPaymentTiming>('full');
+  const [checkoutSelections, setCheckoutSelections] = useState<
+    CheckoutSelection[]
+  >([]);
+  const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState(() =>
+    crypto.randomUUID()
+  );
 
   // Trial / lead: a free pass with its own length instead of a plan's
   // duration. Plan optional, no fee, no payment. Convert-to-member
@@ -229,7 +241,13 @@ export function MemberForm({
     : feeAmount === ''
       ? regularFirstFee
       : Number(feeAmount) || 0;
-  const conversionInstallments = installmentAmounts(previewFee);
+  const addOnTotal = checkoutSelections.reduce(
+    (sum, selection) =>
+      sum + Number(selection.unit_amount ?? 0) * (selection.quantity ?? 1),
+    0
+  );
+  const combinedPreviewFee = previewFee + addOnTotal;
+  const conversionInstallments = installmentAmounts(combinedPreviewFee);
   const conversionSecondDueOn = installmentSecondDueOn(fmt.today());
 
   // Standard paid-membership expiry: the picked billing option drives it; a
@@ -296,6 +314,8 @@ export function MemberForm({
     setCollectPayment(true);
     setPayMethod('cash');
     setConversionPaymentTiming('full');
+    setCheckoutSelections([]);
+    setCheckoutIdempotencyKey(crypto.randomUUID());
     setDupMatch(null);
     setIsTrial(member?.is_trial ?? false);
     // Seed trial length from the existing trial's span, else a 7-day default.
@@ -577,16 +597,18 @@ export function MemberForm({
     if (!Number.isFinite(fee) || fee < 0)
       return toast.error('Enter a valid fee');
 
+    const combinedFee = fee + addOnTotal;
     const collecting =
-      isCreate && !isTrial && fee > 0 && (isConvert || collectPayment);
+      isCreate && !isTrial && combinedFee > 0 && (isConvert || collectPayment);
     const payAmt =
       conversionPaymentTiming === 'installments'
-        ? installmentAmounts(fee).now
-        : fee;
+        ? installmentAmounts(combinedFee).now
+        : combinedFee;
     if (collecting) {
       if (!Number.isFinite(payAmt) || payAmt <= 0)
         return toast.error('Enter a valid payment amount');
-      if (payAmt > fee) return toast.error('The payment cannot exceed the fee');
+      if (payAmt > combinedFee)
+        return toast.error('The payment cannot exceed the invoice total');
     }
 
     setSaving(true);
@@ -711,6 +733,60 @@ export function MemberForm({
       }
 
       const endDate = isTrial ? istAddDays(startDate, trialLen) : endForPaid!;
+
+      if (!isTrial) {
+        const response = await fetch('/api/member-checkouts', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            mode: isConvert ? 'convert' : 'join',
+            contact_id: contactId,
+            membership: {
+              plan_id: planId,
+              pricing_option_id: optionId,
+              period_start: startDate,
+              period_end: endDate,
+              fee_amount: fee,
+              notes: notes.trim() || null,
+              list_price: discountQuote.listPrice,
+              discount_type: discountKind,
+              discount_value: discountKind ? Number(discountValue) : null,
+              discount_amount: discountQuote.discountAmount,
+              standard_period_end:
+                bonusMonthsQuote.bonusMonths > 0 ? standardEndForPaid : null,
+              bonus_months: bonusMonthsQuote.bonusMonths,
+            },
+            selections: checkoutSelections,
+            collection: {
+              amount: collecting ? payAmt : 0,
+              method: payMethod,
+              paid_at: new Date().toISOString(),
+              installment:
+                collecting && conversionPaymentTiming === 'installments',
+            },
+            idempotency_key: checkoutIdempotencyKey,
+          }),
+        });
+        const result = (await response.json()) as CheckoutResult & {
+          error?: string;
+        };
+        if (!response.ok) throw new Error(result.error || 'Checkout failed');
+
+        toast.success(
+          isConvert
+            ? `Converted to member · Member ID ${result.member_number}`
+            : `Member added · Member ID ${result.member_number}`,
+          {
+            action: onViewExisting
+              ? { label: 'View', onClick: () => onViewExisting(contactId) }
+              : undefined,
+          }
+        );
+        onOpenChange(false);
+        onSaved();
+        return;
+      }
+
       const { data: mRow, error: mErr } = await supabase
         .from('memberships')
         .insert({
@@ -1517,7 +1593,16 @@ export function MemberForm({
                   </>
                 )}
 
-                {isCreate && !isTrial && previewFee > 0 && (
+                {isCreate && !isTrial && (
+                  <ProductsServicesPicker
+                    value={checkoutSelections}
+                    onChange={setCheckoutSelections}
+                    membershipEnd={paidEndDate()}
+                    defaultStartDate={startDate}
+                  />
+                )}
+
+                {isCreate && !isTrial && combinedPreviewFee > 0 && (
                   <div className="border-border space-y-4 rounded-lg border p-4">
                     <p className="text-foreground text-sm font-semibold">
                       Payment methods
@@ -1561,7 +1646,7 @@ export function MemberForm({
                               </span>
                               <span className="text-muted-foreground block text-xs">
                                 <span className="tabular-nums">
-                                  {fmt.money(previewFee)}
+                                  {fmt.money(combinedPreviewFee)}
                                 </span>{' '}
                                 due today · {fmt.date(fmt.today())}
                               </span>

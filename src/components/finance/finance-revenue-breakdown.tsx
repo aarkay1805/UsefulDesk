@@ -38,6 +38,7 @@ const PURPOSE_ROWS: Array<{
 }> = [
   { key: 'joining', label: 'New memberships' },
   { key: 'renewal', label: 'Renewals' },
+  { key: 'sale', label: 'Products & services' },
   { key: 'due', label: 'Due payments recovered' },
   { key: 'other', label: 'Other collections' },
 ];

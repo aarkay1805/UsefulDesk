@@ -1,8 +1,6 @@
 # Auto renewal reminders — operator runbook
 
-Automated WhatsApp renewal reminders (Phase 2). An hourly job finds
-memberships approaching expiry and sends the `gym_renewal_reminder`
-template — the manual **Remind** button, on a schedule.
+Automated WhatsApp renewal reminders (Phase 2). An hourly job handles two separately configured sources: memberships use `gym_renewal_reminder`; renewable services use `gym_service_renewal_reminder`.
 
 ## How it works
 
@@ -29,6 +27,10 @@ GitHub Action (hourly at :30)
   `src/lib/locale/*`). `REMINDER_SEND_HOUR_LOCAL` = 9.
 - **Cap:** 200 sends per invocation; overflow waits for the next run.
 
+### Service reminders
+
+Settings → Renewal reminders has a separate service toggle and offsets. `claim_service_renewal_reminders` reads `service_renewal_queue`, waits until 09:00 in each account timezone, and claims `(member_service_id, end_date, days_before)` before sending. It requires an active catalogue item/option and a current fixed or trainer-specific renewal rate; missing rates are skipped and remain visible as **Rate missing** in Members → Renewals → Services. The Utility template body parameters are member name, service, expiry, and current renewal price. A reminder never renews a service or changes its dates.
+
 Key code: [`route`](../src/app/api/renewals/cron/route.ts) ·
 [`lib`](../src/lib/memberships/renewal-reminders.ts) ·
 [`settings UI`](../src/components/settings/renewal-reminders-settings.tsx) ·
@@ -36,58 +38,64 @@ migration [`033`](../supabase/migrations/033_renewal_reminders.sql).
 
 ## Status (as of setup)
 
-| Piece | State |
-|-------|-------|
-| Migration 033 (tables + RLS) | ✅ applied to prod |
-| `/api/renewals/cron` deployed | ✅ (401 without header, 200 with) |
-| `AUTOMATION_CRON_SECRET` (Vercel) | ✅ set + redeployed |
-| GitHub Action scheduler | ✅ green |
-| `gym_renewal_reminder` approved | ⬜ **blocked on Meta Business account** |
-| Account opt-in | ⬜ off by default |
-| Members with expiry dates | ⬜ business data |
+| Piece                             | State                                   |
+| --------------------------------- | --------------------------------------- |
+| Migration 033 (tables + RLS)      | ✅ applied to prod                      |
+| `/api/renewals/cron` deployed     | ✅ (401 without header, 200 with)       |
+| `AUTOMATION_CRON_SECRET` (Vercel) | ✅ set + redeployed                     |
+| GitHub Action scheduler           | ✅ green                                |
+| `gym_renewal_reminder` approved   | ⬜ **blocked on Meta Business account** |
+| Account opt-in                    | ⬜ off by default                       |
+| Members with expiry dates         | ⬜ business data                        |
 
 ## Finishing it (when Meta is ready)
 
 ### 1. Approve the template
+
 Settings → Templates → create **`gym_renewal_reminder`** (Utility), submit to
 Meta, wait for **APPROVED**. It needs exactly **4 body params**, in order:
 
-| Param | Value | Example |
-|-------|-------|---------|
-| `{{1}}` | member name | Anil |
-| `{{2}}` | plan name | Quarterly |
+| Param   | Value       | Example    |
+| ------- | ----------- | ---------- |
+| `{{1}}` | member name | Anil       |
+| `{{2}}` | plan name   | Quarterly  |
 | `{{3}}` | expiry date | 2026-07-11 |
-| `{{4}}` | fee | ₹2,700 |
+| `{{4}}` | fee         | ₹2,700     |
 
 Example body:
+
 > Hi {{1}}, your {{2}} membership expires on {{3}}. Renew now for {{4}} to
 > keep training. Reply here to confirm.
 
 Until APPROVED, the cron silently skips the account (readiness gate).
 
 ### 2. Turn it on
+
 App → Settings → **Renewal reminders** → toggle on → pick days (default
 7 / 3 / 1) → Save. Off by default per account.
 
 ### 3. Verify a real send
+
 ```bash
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/renewals/cron
 ```
+
 Returns `{ sent, failed, skipped_already_sent, accounts_considered, notes }`.
+
 - Seed a test member expiring in exactly 7 days first, so `sent > 0`.
 - Run twice → second run `skipped_already_sent` climbs, `sent = 0` (dedupe).
 - Check `renewal_reminders_sent` has a row with `wa_message_id` filled.
 
 ## Troubleshooting
 
-| Symptom | Cause / fix |
-|---------|-------------|
-| `401 Unauthorized` | header value ≠ `AUTOMATION_CRON_SECRET`. Check Vercel env + GH repo secret match. |
-| `503 cron not configured` | env var not loaded → set in Vercel, **redeploy**. |
-| 200 but `sent: 0`, `accounts_considered: 0` | no account has `enabled = true`. |
-| 200 but account skipped | WhatsApp not connected, or template not APPROVED for that account. |
-| `sent: 0` with members expiring | check offsets vs the account-local date; only exact `today + offset` matches. |
-| `accounts_before_send_hour` high | expected — those accounts' local time hasn't reached 09:00 yet; a later hourly run picks them up. |
+| Symptom                                     | Cause / fix                                                                                       |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `401 Unauthorized`                          | header value ≠ `AUTOMATION_CRON_SECRET`. Check Vercel env + GH repo secret match.                 |
+| `503 cron not configured`                   | env var not loaded → set in Vercel, **redeploy**.                                                 |
+| 200 but `sent: 0`, `accounts_considered: 0` | no account has `enabled = true`.                                                                  |
+| 200 but account skipped                     | WhatsApp not connected, or template not APPROVED for that account.                                |
+| `sent: 0` with members expiring             | check offsets vs the account-local date; only exact `today + offset` matches.                     |
+| `accounts_before_send_hour` high            | expected — those accounts' local time hasn't reached 09:00 yet; a later hourly run picks them up. |
 
 ## Ops
 

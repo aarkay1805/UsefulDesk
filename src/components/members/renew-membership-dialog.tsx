@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { getErrorMessage } from "@/lib/errors";
-import { useLocale } from "@/hooks/use-locale";
-import { daysBetween } from "@/lib/memberships/expiry";
-import { optionEndDate, renewalFee } from "@/lib/memberships/pricing";
-import type { Membership, PaymentMethod } from "@/types";
-import { useMembershipPlans } from "./use-membership-plans";
-import { PlanOptionPicker } from "./plan-option-picker";
+import { getErrorMessage } from '@/lib/errors';
+import { useLocale } from '@/hooks/use-locale';
+import { daysBetween } from '@/lib/memberships/expiry';
+import { optionEndDate, renewalFee } from '@/lib/memberships/pricing';
+import type { CheckoutSelection, Membership, PaymentMethod } from '@/types';
+import { useMembershipPlans } from './use-membership-plans';
+import { PlanOptionPicker } from './plan-option-picker';
+import { ProductsServicesPicker } from './products-services-picker';
 import {
   Dialog,
   DialogContent,
@@ -19,24 +19,24 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
-  { value: "cash", label: "Cash" },
-  { value: "upi", label: "UPI" },
-  { value: "card", label: "Card" },
-  { value: "bank", label: "Bank transfer" },
-  { value: "other", label: "Other" },
+  { value: 'cash', label: 'Cash' },
+  { value: 'upi', label: 'UPI' },
+  { value: 'card', label: 'Card' },
+  { value: 'bank', label: 'Bank transfer' },
+  { value: 'other', label: 'Other' },
 ];
 
 interface RenewMembershipDialogProps {
@@ -50,7 +50,7 @@ interface RenewMembershipDialogProps {
    *  paid period starts today (a trial's remaining days aren't carried
    *  forward), and the row is flipped off trial with converted_at
    *  stamped. Defaults to the plain 'renew' behaviour. */
-  variant?: "renew" | "convert";
+  variant?: 'renew' | 'convert';
 }
 
 export function RenewMembershipDialog({
@@ -59,38 +59,46 @@ export function RenewMembershipDialog({
   membership,
   onSaved,
   outstandingBalance = 0,
-  variant = "renew",
+  variant = 'renew',
 }: RenewMembershipDialogProps) {
-  const supabase = createClient();
   const { fmt } = useLocale();
   const { plans } = useMembershipPlans(true);
-  const isConvert = variant === "convert";
+  const isConvert = variant === 'convert';
 
-  const [planId, setPlanId] = useState(membership.plan_id ?? "");
+  const [planId, setPlanId] = useState(membership.plan_id ?? '');
   const [optionId, setOptionId] = useState<string | null>(
-    membership.pricing_option_id ?? null,
+    membership.pricing_option_id ?? null
   );
-  const [feeAmount, setFeeAmount] = useState(String(membership.fee_amount ?? ""));
+  const [feeAmount, setFeeAmount] = useState(
+    String(membership.fee_amount ?? '')
+  );
   const [collectPayment, setCollectPayment] = useState(true);
-  const [collectAmount, setCollectAmount] = useState(String(membership.fee_amount ?? ""));
-  const [method, setMethod] = useState<PaymentMethod>("cash");
+  const [collectAmount, setCollectAmount] = useState(
+    String(membership.fee_amount ?? '')
+  );
+  const [method, setMethod] = useState<PaymentMethod>('cash');
   const [saving, setSaving] = useState(false);
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey, setIdempotencyKey] = useState(() =>
+    crypto.randomUUID()
+  );
+  const [selections, setSelections] = useState<CheckoutSelection[]>([]);
 
   const selectedPlan = plans.find((p) => p.id === planId);
   const selectedOption =
-    selectedPlan?.pricing_options?.find((o) => o.id === optionId && o.is_active) ??
-    null;
+    selectedPlan?.pricing_options?.find(
+      (o) => o.id === optionId && o.is_active
+    ) ?? null;
 
   useEffect(() => {
     if (!open) return;
-    setPlanId(membership.plan_id ?? "");
+    setPlanId(membership.plan_id ?? '');
     setOptionId(membership.pricing_option_id ?? null);
-    setFeeAmount(String(membership.fee_amount ?? ""));
+    setFeeAmount(String(membership.fee_amount ?? ''));
     setCollectPayment(true);
-    setCollectAmount(String(membership.fee_amount ?? ""));
-    setMethod("cash");
+    setCollectAmount(String(membership.fee_amount ?? ''));
+    setMethod('cash');
     setIdempotencyKey(crypto.randomUUID());
+    setSelections([]);
   }, [open, membership]);
 
   // Seed the fee (and the amount to collect) from the picked billing
@@ -115,48 +123,76 @@ export function RenewMembershipDialog({
   // always starts today — a trial's leftover days aren't paid time.
   const today = fmt.today();
   const base =
-    !isConvert && membership.end_date && daysBetween(today, membership.end_date) > 0
+    !isConvert &&
+    membership.end_date &&
+    daysBetween(today, membership.end_date) > 0
       ? membership.end_date
       : today;
   const newEnd = selectedOption ? optionEndDate(base, selectedOption) : null;
+  const addOnTotal = selections.reduce(
+    (sum, selection) =>
+      sum + Number(selection.unit_amount ?? 0) * (selection.quantity ?? 1),
+    0
+  );
 
   async function handleRenew() {
     if (!selectedPlan || !selectedOption || !newEnd) {
-      return toast.error("Pick a plan and billing option");
+      return toast.error('Pick a plan and billing option');
     }
-    const fee = feeAmount === "" ? renewalFee(selectedOption) : Number(feeAmount);
-    if (!Number.isFinite(fee) || fee < 0) return toast.error("Enter a valid fee");
+    const fee =
+      feeAmount === '' ? renewalFee(selectedOption) : Number(feeAmount);
+    if (!Number.isFinite(fee) || fee < 0)
+      return toast.error('Enter a valid fee');
 
     // Collected now; a partial amount leaves the new period 'due'.
-    const collected = collectPayment ? (collectAmount === "" ? fee : Number(collectAmount)) : 0;
+    const invoiceTotal = fee + addOnTotal;
+    const collected = collectPayment
+      ? collectAmount === ''
+        ? invoiceTotal
+        : Number(collectAmount)
+      : 0;
     if (collectPayment && (!Number.isFinite(collected) || collected < 0)) {
-      return toast.error("Enter a valid amount");
+      return toast.error('Enter a valid amount');
     }
-    if (collected > fee) {
-      return toast.error("Collected amount cannot exceed the fee");
+    if (collected > invoiceTotal) {
+      return toast.error('Collected amount cannot exceed the invoice total');
     }
 
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("renew_membership_transaction", {
-        p_membership_id: membership.id,
-        p_plan_id: planId,
-        p_period_start: base,
-        p_period_end: newEnd,
-        p_fee_amount: fee,
-        p_collect_amount: collected,
-        p_method: method,
-        p_is_conversion: isConvert,
-        p_idempotency_key: idempotencyKey,
-        p_pricing_option_id: optionId,
+      const response = await fetch('/api/member-checkouts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          mode: isConvert ? 'convert' : 'membership_renewal',
+          contact_id: membership.contact_id,
+          membership_id: membership.id,
+          membership: {
+            plan_id: planId,
+            pricing_option_id: optionId,
+            period_start: base,
+            period_end: newEnd,
+            fee_amount: fee,
+          },
+          selections,
+          collection: {
+            amount: collected,
+            method,
+            paid_at: new Date().toISOString(),
+          },
+          idempotency_key: idempotencyKey,
+        }),
       });
-      if (error) throw error;
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'Checkout failed');
 
-      toast.success(isConvert ? "Trial converted to member" : "Membership renewed");
+      toast.success(
+        isConvert ? 'Trial converted to member' : 'Membership renewed'
+      );
       onOpenChange(false);
       onSaved();
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to renew"));
+      toast.error(getErrorMessage(err, 'Failed to renew'));
     } finally {
       setSaving(false);
     }
@@ -166,19 +202,22 @@ export function RenewMembershipDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{isConvert ? "Convert trial to member" : "Renew membership"}</DialogTitle>
+          <DialogTitle>
+            {isConvert ? 'Convert trial to member' : 'Renew membership'}
+          </DialogTitle>
           <DialogDescription>
             {isConvert
-              ? "Start this trial on a paid plan and record the first payment."
+              ? 'Start this trial on a paid plan and record the first payment.'
               : "Extend this member's plan and record the renewal."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {!isConvert && outstandingBalance > 0 && (
-            <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-foreground">
-              {fmt.money(outstandingBalance)} is still outstanding from existing invoices.
-              Renewing opens a separate next invoice; this balance will remain due.
+            <p className="text-amber-foreground rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+              {fmt.money(outstandingBalance)} is still outstanding from existing
+              invoices. Renewing opens a separate next invoice; this balance
+              will remain due.
             </p>
           )}
 
@@ -196,7 +235,9 @@ export function RenewMembershipDialog({
           {newEnd && (
             <div className="border-border bg-muted/40 rounded-lg border px-3 py-2 text-sm">
               <span className="text-muted-foreground">New expiry: </span>
-              <span className="text-foreground font-medium">{fmt.date(newEnd)}</span>
+              <span className="text-foreground font-medium">
+                {fmt.date(newEnd)}
+              </span>
             </div>
           )}
 
@@ -213,6 +254,20 @@ export function RenewMembershipDialog({
             />
           </div>
 
+          <ProductsServicesPicker
+            value={selections}
+            onChange={setSelections}
+            membershipEnd={newEnd}
+            defaultStartDate={base}
+          />
+
+          <div className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm font-medium">
+            <span>Combined invoice</span>
+            <span className="tabular-nums">
+              {fmt.money(Number(feeAmount || 0) + addOnTotal)}
+            </span>
+          </div>
+
           <div className="border-border bg-muted/40 space-y-2 rounded-lg border p-3">
             <label className="text-foreground flex items-center gap-2 text-sm">
               <input
@@ -221,7 +276,9 @@ export function RenewMembershipDialog({
                 onChange={(e) => setCollectPayment(e.target.checked)}
                 className="accent-primary size-4"
               />
-              {isConvert ? "Record the first payment" : "Record payment for this renewal"}
+              {isConvert
+                ? 'Record the first payment'
+                : 'Record payment for this renewal'}
             </label>
             {collectPayment && (
               <div className="grid grid-cols-2 gap-2">
@@ -254,7 +311,11 @@ export function RenewMembershipDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -263,7 +324,7 @@ export function RenewMembershipDialog({
             disabled={saving || !selectedPlan || !selectedOption}
           >
             {saving && <Loader2 className="size-4 animate-spin" />}
-            {isConvert ? "Convert" : "Renew"}
+            {isConvert ? 'Convert' : 'Renew'}
           </Button>
         </DialogFooter>
       </DialogContent>

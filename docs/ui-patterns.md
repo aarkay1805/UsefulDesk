@@ -220,6 +220,12 @@ Visible product vocabulary is a shared interface contract. The same data concept
 
 ## Badges / status pills
 
+### Products & services vocabulary
+
+Use **Products & services** for the catalogue/settings/profile section and **Services** for the Renewals source. A duration-based sold service is a **service**, not a plan or package; **trainer** is a service-assignment identity, never a staff authorization role. Service status copy is exactly **Upcoming**, **Active**, **Expired**, or **Cancelled**. Missing trainer-duration pricing reads **Rate missing** and makes the option unavailable—it must never imply a fallback or silently substitute another trainer's price. **Renew** extends by issuing a new service purchase at the current configured rate; **Reassign trainer** preserves the existing expiry and shows the prorated adjustment/credit result.
+
+Settings → Products & services → Trainers shows every registered team member with a **Trainer** switch. Turning it on links that team account to one trainer identity; turning it off archives the identity from new assignments while preserving rates and service history. The switch never changes the teammate's account role or permissions. Trainers without team access stay under **Independent trainers**, but both sections use the same canonical avatar/name/context/**Trainer**-switch roster row.
+
 `Badge` (`ui/badge.tsx`) is the canonical pill.
 
 - **Never override a Badge's height, typography, padding, radius, border, or colours with call-site `className`.** Use the unmodified primitive and its documented variant. Two badges in the same family must therefore have identical geometry and type treatment.

@@ -81,9 +81,11 @@ It is not intended to become payroll, bookkeeping, inventory accounting, statuto
 
 ## 4. Existing UsefulDesk foundation
 
+The generic invoice layer now supports immutable membership, service, merchandise, and service-adjustment lines. Business → Invoices reads `invoice_balances` (total, cash paid, credit applied, balance) rather than assuming one membership period per invoice. Membership analytics and `fee_status` deliberately remain membership-line-only. Payments keep purpose as the collection-event axis—including `sale` for a standalone checkout—while invoice line kind is the revenue-category axis. Human numbering, PDFs, sharing, GST, refunds, and inventory remain deferred.
+
 UsefulDesk already has the difficult “money in” primitives:
 
-- `payments`: append-preserving payment ledger with immutable joining/renewal/due/other purpose, manual/auto source, cash/UPI/card/bank/other method, staff recorder, gateway references, proofs, idempotency, and admin-only voiding;
+- `payments`: append-preserving payment ledger with immutable joining/renewal/sale/due/other purpose, manual/auto source, cash/UPI/card/bank/other method, staff recorder, gateway references, proofs, idempotency, and admin-only voiding;
 - `membership_periods`: one persisted billing cycle per invoice;
 - `membership_period_invoices`: reconciled billed, paid, and balance values;
 - `membership_dues`: outstanding balances used by the collection queue;
@@ -122,7 +124,7 @@ Data rules:
 
 - Revenue is the append-preserving paid-payment total for the selected calendar month and compares with the previous calendar month.
 - Revenue sources is the same selected-month, account-timezone paid ledger grouped by immutable payment purpose: New memberships, Renewals, Due payments recovered, and Other. Each stream is a chevron-only expandable summary—without decorative colour markers—with payment count, total-revenue share, and revenue; its disclosure shows the five latest contributing payments with canonical member identity, plan as secondary context, collection date, stream-specific cycle context, method, Manual/AutoPay source, and amount. Phone numbers stay hidden in this analytical list, while keyboard-clickable member rows open the established member detail sheet in place. A branch-preserving View all link opens Business → Payments with the month and revenue source durably filtered in the URL. Other appears only when non-zero so the rows always reconcile with Revenue without mislabelling legacy or mid-cycle plan-change collections. Plan aggregation remains in Business → Performance rather than being duplicated on Overview.
-- Joining collections and first joining installments are `joining`; manual and AutoPay-created new cycles are `renewal`; later manual/bulk/installment-balance collections and AutoPay applied to an existing invoice are `due`; mid-cycle plan changes and genuinely ambiguous legacy rows are `other`. Browser callers never supply the classification.
+- Joining collections and first joining installments are `joining`; manual and AutoPay-created new membership cycles are `renewal`; a collection issued with a standalone product/service checkout is `sale`; later manual/bulk/installment-balance collections and AutoPay applied to an existing invoice are `due`; mid-cycle plan changes and genuinely ambiguous legacy rows are `other`. Browser callers never supply the classification.
 - Cash flow plots day-wise income and posted expenses and can group both by week without changing the selected period. An optional **Compare previous month** checkbox adds previous income and expenses as non-cumulative grouped bars in the same semantic hues at reduced opacity. Daily comparison aligns by day of month and Weekly aligns ordinal seven-day buckets. A live current-month comparison stops both periods at the same elapsed account-local day; historical comparisons use both complete months, including unmatched 28/29/30/31-day tails. Tooltips show both localized dates or ranges and all four localized money values, the empty state appears only when neither month moved cash, and the existing Overview CSV appends the aligned previous date/income/expense fields.
 - Invoice health groups issued periods into Paid, Partially paid, Overdue, Open, and Outstanding.
 - Collection mix uses the fixed Cash / UPI / Card / Bank & other method families.
@@ -390,7 +392,7 @@ Built:
 - `/finance`, sidebar item, page title, and URL-backed Overview/Performance/Invoices/Payments/Expenses header tabs;
 - one calendar-month navigator shared by all five tabs, with a `Today` action, previous/next arrows, one localized Month Year label, and account-history/future guards;
 - Revenue with previous-month comparison and Next month projected from active renewals;
-- immutable joining/renewal/due/other payment attribution and a reconciling Revenue breakdown on Overview;
+- immutable joining/renewal/sale/due/other payment attribution and a reconciling Revenue breakdown on Overview;
 - calendar-month staff-scoped business analysis plus All-staff Meta/Instagram/Facebook acquisition-cohort ad performance on Performance;
 - day/weekly income-and-expense cash flow with an optional previous-month four-series comparison, invoice health, collection mix, and merged recent transactions;
 - admin-only Overview CSV export with revenue attribution, expense, profit, current and aligned previous daily cash-flow truth, plus Performance CSV export with its historical and All-staff ad-performance truth;

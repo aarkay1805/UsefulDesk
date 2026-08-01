@@ -13,6 +13,11 @@ import {
   canManageExpenseCategories,
   canRecordExpenses,
   canRecordPayments,
+  canManageCatalog,
+  canManageTrainers,
+  canSellProductsServices,
+  canReassignTrainer,
+  canOverrideSalePrice,
   canVoidExpenses,
   canManageMandates,
   canConfigurePaymentGateway,
@@ -139,6 +144,27 @@ describe('capability predicates', () => {
     expect(canRecordPayments('admin')).toBe(true);
     expect(canRecordPayments('agent')).toBe(true);
     expect(canRecordPayments('viewer')).toBe(false);
+  });
+
+  it.each([
+    ['canManageCatalog', canManageCatalog],
+    ['canManageTrainers', canManageTrainers],
+    ['canOverrideSalePrice', canOverrideSalePrice],
+  ] as const)('%s: admin+ only', (_label, capability) => {
+    expect(capability('owner')).toBe(true);
+    expect(capability('admin')).toBe(true);
+    expect(capability('agent')).toBe(false);
+    expect(capability('viewer')).toBe(false);
+  });
+
+  it.each([
+    ['canSellProductsServices', canSellProductsServices],
+    ['canReassignTrainer', canReassignTrainer],
+  ] as const)('%s: agent+ only', (_label, capability) => {
+    expect(capability('owner')).toBe(true);
+    expect(capability('admin')).toBe(true);
+    expect(capability('agent')).toBe(true);
+    expect(capability('viewer')).toBe(false);
   });
 
   it('canExportFinance: admin+ only', () => {

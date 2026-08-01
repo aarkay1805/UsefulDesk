@@ -12,6 +12,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
+import { canSellProductsServices } from '@/lib/auth/roles';
 import {
   istAddDays,
   daysUntil,
@@ -55,6 +56,7 @@ import {
 import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
 import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
 import { RenewMembershipDialog } from './renew-membership-dialog';
+import { ServiceRenewalActionLists } from './service-renewal-action-lists';
 
 interface RenewalActionListsProps {
   readiness: ReminderReadiness;
@@ -100,8 +102,9 @@ export function RenewalActionLists({
   onSelect,
   reloadKey,
 }: RenewalActionListsProps) {
-  const { accountId, canSendMessages } = useAuth();
+  const { accountId, canSendMessages, accountRole } = useAuth();
   const { fmt } = useLocale();
+  const canSell = accountRole ? canSellProductsServices(accountRole) : false;
 
   const [expiring, setExpiring] = useState<Membership[]>([]);
   const [expired, setExpired] = useState<Membership[]>([]);
@@ -118,6 +121,9 @@ export function RenewalActionLists({
   const [assigning, setAssigning] = useState<Membership | null>(null);
   // Member being renewed via the renew dialog.
   const [renewing, setRenewing] = useState<Membership | null>(null);
+  const [source, setSource] = useState<'memberships' | 'services'>(
+    'memberships'
+  );
 
   useEffect(() => {
     const supabase = createClient();
@@ -189,28 +195,48 @@ export function RenewalActionLists({
 
   return (
     <>
-      <RenewalTable
-        bucket={bucket}
-        onBucketChange={setBucket}
-        rows={activeRows}
-        expiringCount={expiringFiltered.length}
-        expiredCount={expiredFiltered.length}
-        windows={activeWindows}
-        windowValue={activeWindow}
-        onWindowChange={(value) => {
-          if (bucket === 'expiring') setExpiringWindow(value);
-          else setExpiredWindow(value);
-        }}
-        loading={loading}
-        readiness={readiness}
-        accountId={accountId}
-        canFollowUp={canSendMessages}
-        onSelect={onSelect}
-        onChanged={reload}
-        onAssign={canSendMessages ? setAssigning : undefined}
-        onRenew={setRenewing}
-        emptyLabel={emptyLabel}
-      />
+      <Toolbar aria-label="Renewal source" className="mb-3">
+        <ToolbarToggleGroup<'memberships' | 'services'>
+          value={[source]}
+          onValueChange={(values) => {
+            const next = values[0];
+            if (next) setSource(next);
+          }}
+        >
+          <ToolbarToggleItem value="memberships">Memberships</ToolbarToggleItem>
+          <ToolbarToggleItem value="services">Services</ToolbarToggleItem>
+        </ToolbarToggleGroup>
+      </Toolbar>
+      {source === 'services' ? (
+        <ServiceRenewalActionLists
+          onSelect={onSelect}
+          reloadKey={reloadKey}
+          canAct={canSell}
+        />
+      ) : (
+        <RenewalTable
+          bucket={bucket}
+          onBucketChange={setBucket}
+          rows={activeRows}
+          expiringCount={expiringFiltered.length}
+          expiredCount={expiredFiltered.length}
+          windows={activeWindows}
+          windowValue={activeWindow}
+          onWindowChange={(value) => {
+            if (bucket === 'expiring') setExpiringWindow(value);
+            else setExpiredWindow(value);
+          }}
+          loading={loading}
+          readiness={readiness}
+          accountId={accountId}
+          canFollowUp={canSendMessages}
+          onSelect={onSelect}
+          onChanged={reload}
+          onAssign={canSendMessages ? setAssigning : undefined}
+          onRenew={setRenewing}
+          emptyLabel={emptyLabel}
+        />
+      )}
 
       {assigning && (
         <FollowUpDialog
@@ -342,7 +368,7 @@ function RenewalTable({
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
-          <CheckCircle2 className="size-6 text-emerald-foreground" />
+          <CheckCircle2 className="text-emerald-foreground size-6" />
           <p className="text-muted-foreground text-sm">{emptyLabel}</p>
         </div>
       ) : (
@@ -366,9 +392,7 @@ function RenewalTable({
                 <TableHead>Expiry</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Fee</TableHead>
-                <TableHead className="text-right">
-                  Actions
-                </TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -393,9 +417,7 @@ function RenewalTable({
                           readiness,
                           canFollowUp,
                           onSelect: () => onSelect(m.id),
-                          onFollowUp: onAssign
-                            ? () => onAssign(m)
-                            : undefined,
+                          onFollowUp: onAssign ? () => onAssign(m) : undefined,
                           onReminderSent: onChanged,
                         })}
                       />

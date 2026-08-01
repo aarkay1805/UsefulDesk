@@ -782,7 +782,7 @@ export type MembershipFeeStatus = 'paid' | 'due';
 export type PaymentMethod = 'cash' | 'upi' | 'card' | 'bank' | 'other';
 export type PaymentStatus = 'paid' | 'due' | 'void';
 /** Why this ledger row was collected. Assigned by database payment flows. */
-export type PaymentPurpose = 'joining' | 'renewal' | 'due' | 'other';
+export type PaymentPurpose = 'joining' | 'renewal' | 'sale' | 'due' | 'other';
 export type ExpenseStatus = 'posted' | 'void';
 export type ExpenseKind = 'recurring' | 'one_time';
 export type MembershipDiscountType = 'amount' | 'percentage';
@@ -913,6 +913,8 @@ export interface Payment {
   account_id: string;
   membership_id: string | null;
   contact_id: string | null;
+  /** Generic invoice settled by this collection. */
+  invoice_id?: string | null;
   /** Snapshot of the plan billed at pay time. */
   plan_id: string | null;
   /** Who recorded the payment. Null for a gateway auto-debit row
@@ -1118,6 +1120,168 @@ export interface MembershipPeriodInvoice {
   state: MembershipPeriodState;
   created_at: string;
   amount_paid: number;
+  balance: number;
+  pricing_option_id?: string | null;
+  credit_applied?: number;
+  invoice_id?: string | null;
+  invoice_line_id?: string | null;
+}
+
+// ============================================================
+// Products, services, trainers, invoices, and member credits
+// ============================================================
+
+export type CatalogItemKind = 'service' | 'merchandise';
+export type InvoiceLineKind =
+  'membership' | 'service' | 'merchandise' | 'service_adjustment';
+export type CheckoutMode =
+  'join' | 'convert' | 'membership_renewal' | 'sale' | 'service_renewal';
+export type MemberServiceStatus =
+  'upcoming' | 'active' | 'expired' | 'cancelled';
+
+export interface Trainer {
+  id: string;
+  account_id: string;
+  display_name: string;
+  title: string | null;
+  linked_user_id: string | null;
+  is_active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CatalogOption {
+  id: string;
+  account_id: string;
+  item_id: string;
+  duration_count: number | null;
+  duration_unit: DurationUnit | null;
+  standard_price: number | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  trainer_rates?: TrainerRate[];
+}
+
+export interface CatalogItem {
+  id: string;
+  account_id: string;
+  kind: CatalogItemKind;
+  name: string;
+  description: string | null;
+  requires_trainer: boolean;
+  is_active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  catalog_options?: CatalogOption[];
+}
+
+export interface TrainerRate {
+  id: string;
+  account_id: string;
+  trainer_id: string;
+  option_id: string;
+  price: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoiceLine {
+  id: string;
+  account_id: string;
+  invoice_id: string;
+  kind: InvoiceLineKind;
+  membership_period_id: string | null;
+  member_service_id: string | null;
+  catalog_item_id: string | null;
+  catalog_option_id: string | null;
+  trainer_id: string | null;
+  description: string;
+  quantity: number;
+  unit_amount: number;
+  line_amount: number;
+  service_start: string | null;
+  service_end: string | null;
+  state: 'active' | 'void';
+  amount_paid: number;
+  credit_applied: number;
+  balance: number;
+  created_at: string;
+}
+
+export interface Invoice {
+  id: string;
+  account_id: string;
+  contact_id: string | null;
+  membership_id: string | null;
+  membership_period_id: string | null;
+  source:
+    | 'joining'
+    | 'membership_renewal'
+    | 'sale'
+    | 'service_renewal'
+    | 'service_adjustment';
+  state: 'open' | 'void';
+  issued_at: string;
+  customer_name_snapshot: string | null;
+  member_number_snapshot: number | null;
+  currency: string;
+  total: number;
+  amount_paid: number;
+  credit_applied: number;
+  balance: number;
+}
+
+export interface MemberService {
+  id: string;
+  account_id: string;
+  membership_id: string | null;
+  contact_id: string | null;
+  invoice_line_id: string;
+  catalog_item_id: string | null;
+  catalog_option_id: string | null;
+  item_name_snapshot: string;
+  option_duration_count: number;
+  option_duration_unit: DurationUnit;
+  start_date: string;
+  end_date: string;
+  sold_amount: number;
+  status: 'active' | 'cancelled';
+  derived_status: MemberServiceStatus;
+  trainer_id: string | null;
+  trainer_name: string | null;
+  trainer_title: string | null;
+  assigned_full_rate: number | null;
+  current_renewal_price: number | null;
+  requires_trainer: boolean;
+  invoice_id: string;
+  amount_paid: number;
+  credit_applied: number;
+  balance: number;
+}
+
+export interface CheckoutSelection {
+  item_id: string;
+  option_id: string;
+  trainer_id?: string | null;
+  quantity?: number;
+  start_date?: string;
+  renewed_from_service_id?: string;
+  unit_amount?: number;
+  override_reason?: string;
+}
+
+export interface CheckoutResult {
+  membership_id: string;
+  member_number: number;
+  invoice_id: string;
+  total: number;
+  cash_paid: number;
+  credit_applied: number;
   balance: number;
 }
 

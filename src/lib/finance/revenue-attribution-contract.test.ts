@@ -12,6 +12,9 @@ const migration = read(
 const paymentFilterMigration = read(
   'supabase/migrations/20260801090000_finance_payment_purpose_filter.sql'
 );
+const productCheckoutMigration = read(
+  'supabase/migrations/20260801160957_products_services_checkout_rpcs.sql'
+);
 
 describe('Finance revenue-attribution database contract', () => {
   it('stores an immutable, database-derived payment purpose', () => {
@@ -41,6 +44,16 @@ describe('Finance revenue-attribution database contract', () => {
     expect(migration).toContain('public.record_joining_payment(');
     expect(migration).toContain("COALESCE(NEW.source, 'manual') = 'auto'");
     expect(migration).toContain("ELSE 'due'");
+  });
+
+  it('extends immutable purpose with standalone product and service sales', () => {
+    expect(productCheckoutMigration).toContain(
+      "CHECK (payment_purpose IN ('joining', 'renewal', 'sale', 'due', 'other'))"
+    );
+    expect(productCheckoutMigration).toContain(
+      "PERFORM set_config('app.payment_purpose', v_purpose, TRUE)"
+    );
+    expect(productCheckoutMigration).toContain("WHEN 'sale' THEN 'sale'");
   });
 
   it('keeps joining and later collection browser flows separate', () => {

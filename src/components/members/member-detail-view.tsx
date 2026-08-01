@@ -1,7 +1,13 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { toast } from "sonner";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { toast } from 'sonner';
 import {
   Loader2,
   Phone,
@@ -14,6 +20,7 @@ import {
   Play,
   UserCheck,
   UserPlus,
+  Plus,
   MoreHorizontal,
   Camera,
   Ban,
@@ -22,39 +29,51 @@ import {
   Repeat,
   ArrowLeftRight,
   Hash,
-} from "lucide-react";
+  ShoppingBag,
+} from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { useLocale } from "@/hooks/use-locale";
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { useLocale } from '@/hooks/use-locale';
 import {
   canCorrectPayments,
   canDeleteMember,
   canManageMandates,
-} from "@/lib/auth/roles";
-import { effectiveStatus, daysUntil, unfreezeEndDate } from "@/lib/memberships/expiry";
-import { isRenewalChaseable, durationLabel } from "@/lib/memberships/pricing";
+  canReassignTrainer,
+  canSellProductsServices,
+} from '@/lib/auth/roles';
+import {
+  effectiveStatus,
+  daysUntil,
+  unfreezeEndDate,
+} from '@/lib/memberships/expiry';
+import { isRenewalChaseable, durationLabel } from '@/lib/memberships/pricing';
 import {
   usageSummary,
   type CheckInWarning,
-} from "@/lib/memberships/attendance-limits";
-import { fetchCheckInUsage } from "@/lib/memberships/check-in";
+} from '@/lib/memberships/attendance-limits';
+import { fetchCheckInUsage } from '@/lib/memberships/check-in';
 import type {
   Membership,
   Payment,
   Attendance,
   MembershipPeriodInvoice,
   PaymentMandate,
-} from "@/types";
+  MemberService,
+  InvoiceLine,
+  CheckoutSelection,
+} from '@/types';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+} from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -62,10 +81,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { UserAvatar } from "@/components/ui/user-avatar";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/components/ui/card";
+} from '@/components/ui/dialog';
+import { UserAvatar } from '@/components/ui/user-avatar';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardAction,
+  CardContent,
+} from '@/components/ui/card';
 import {
   Table,
   TableHeader,
@@ -73,86 +98,92 @@ import {
   TableHead,
   TableRow,
   TableCell,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 import {
   setMembershipCancellation,
   unfreezeMembership,
   isCollectiblePeriod,
   invoicePaymentState,
   isChargeableAmount,
-} from "@/lib/memberships/periods";
+} from '@/lib/memberships/periods';
 import {
   MembershipStatusBadge,
   FeeStatusBadge,
   TrialBadge,
   PlanTypeBadge,
   InvoicePaymentBadge,
-} from "./membership-status-badge";
-import { AttendanceOverrideDialog } from "./attendance-override-dialog";
-import { InvoiceDetailDialog } from "./invoice-detail-dialog";
-import { RenewMembershipDialog } from "./renew-membership-dialog";
-import { ChangePlanDialog } from "./change-plan-dialog";
-import { AvatarEditorDialog } from "./avatar-editor-dialog";
-import { RecordPaymentDialog } from "./record-payment-dialog";
-import { SetUpAutoPayDialog } from "./set-up-autopay-dialog";
-import { ContactNotesThread } from "@/components/contacts/contact-notes-thread";
-import { CopyUpiLinkButton, useUpiConfig } from "./copy-upi-link-button";
-import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
-import { BmiCard } from "./bmi-card";
-import { ChurnRiskCard } from "./churn-risk-card";
-import { MemberPersonalInfo } from "./member-personal-info";
-import { MemberCommunication } from "./member-communication";
-import { MemberDangerZone } from "./member-danger-zone";
-import { VoidPaymentDialog } from "./void-payment-dialog";
+} from './membership-status-badge';
+import { AttendanceOverrideDialog } from './attendance-override-dialog';
+import { InvoiceDetailDialog } from './invoice-detail-dialog';
+import { RenewMembershipDialog } from './renew-membership-dialog';
+import { ChangePlanDialog } from './change-plan-dialog';
+import { AvatarEditorDialog } from './avatar-editor-dialog';
+import { RecordPaymentDialog } from './record-payment-dialog';
+import { SetUpAutoPayDialog } from './set-up-autopay-dialog';
+import { ContactNotesThread } from '@/components/contacts/contact-notes-thread';
+import { CopyUpiLinkButton, useUpiConfig } from './copy-upi-link-button';
+import {
+  SendReminderButton,
+  type ReminderReadiness,
+} from './send-reminder-button';
+import { BmiCard } from './bmi-card';
+import { ChurnRiskCard } from './churn-risk-card';
+import { MemberPersonalInfo } from './member-personal-info';
+import { MemberCommunication } from './member-communication';
+import { MemberDangerZone } from './member-danger-zone';
+import { VoidPaymentDialog } from './void-payment-dialog';
+import { ProductServiceSaleDialog } from './product-service-sale-dialog';
+import { ReassignTrainerDialog } from './reassign-trainer-dialog';
 
 /** Jump-nav sections, in scroll order. Ids double as `#sec-<id>`. */
 const SECTIONS = [
-  { id: "membership", label: "Membership" },
-  { id: "payments", label: "Billing" },
-  { id: "notes", label: "Notes & follow-ups" },
-  { id: "attendance", label: "Attendance" },
-  { id: "communication", label: "Communication" },
-  { id: "personal", label: "Personal info" },
-  { id: "settings", label: "Settings" },
+  { id: 'membership', label: 'Membership' },
+  { id: 'products', label: 'Products & services' },
+  { id: 'payments', label: 'Billing' },
+  { id: 'notes', label: 'Notes & follow-ups' },
+  { id: 'attendance', label: 'Attendance' },
+  { id: 'communication', label: 'Communication' },
+  { id: 'personal', label: 'Personal info' },
+  { id: 'settings', label: 'Settings' },
 ] as const;
 
-type LifecycleAction = "freeze" | "resume" | "cancel" | "reactivate";
+type LifecycleAction = 'freeze' | 'resume' | 'cancel' | 'reactivate';
 
 const LIFECYCLE_COPY: Record<
   LifecycleAction,
   { title: string; description: string; action: string; destructive?: boolean }
 > = {
   freeze: {
-    title: "Freeze membership?",
+    title: 'Freeze membership?',
     description:
-      "Check-ins will pause. Existing invoice balances remain due, and the frozen days will be added to this cycle when you resume.",
-    action: "Freeze membership",
+      'Check-ins will pause. Existing invoice balances remain due, and the frozen days will be added to this cycle when you resume.',
+    action: 'Freeze membership',
   },
   resume: {
-    title: "Resume membership?",
+    title: 'Resume membership?',
     description:
-      "Check-ins will resume and this cycle will be extended by the paused days. Existing payments stay attached to the cycle.",
-    action: "Resume membership",
+      'Check-ins will resume and this cycle will be extended by the paused days. Existing payments stay attached to the cycle.',
+    action: 'Resume membership',
   },
   cancel: {
-    title: "Cancel membership?",
+    title: 'Cancel membership?',
     description:
-      "The membership will stop and its current invoice will be voided. Settled past cycles remain in billing history, and you can reactivate later.",
-    action: "Cancel membership",
+      'The membership will stop and its current invoice will be voided. Settled past cycles remain in billing history, and you can reactivate later.',
+    action: 'Cancel membership',
     destructive: true,
   },
   reactivate: {
-    title: "Reactivate membership?",
+    title: 'Reactivate membership?',
     description:
-      "The membership and its current billing period will reopen. Review the balance before collecting another payment.",
-    action: "Reactivate membership",
+      'The membership and its current billing period will reopen. Review the balance before collecting another payment.',
+    action: 'Reactivate membership',
   },
 };
 
@@ -200,21 +231,29 @@ export function MemberDetailView({
   const { user, canSendMessages, accountRole } = useAuth();
   const { locale, fmt } = useLocale();
   const upi = useUpiConfig();
+  const canSell = accountRole ? canSellProductsServices(accountRole) : false;
+  const canReassign = accountRole ? canReassignTrainer(accountRole) : false;
 
   const [membership, setMembership] = useState<Membership | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [visits, setVisits] = useState<Attendance[]>([]);
   const [invoices, setInvoices] = useState<MembershipPeriodInvoice[]>([]);
+  const [services, setServices] = useState<MemberService[]>([]);
+  const [merchandise, setMerchandise] = useState<InvoiceLine[]>([]);
   /** Visits inside the plan's usage window (062) — null = untracked. */
   const [usageCount, setUsageCount] = useState<number | null>(null);
-  const [overrideWarning, setOverrideWarning] = useState<CheckInWarning | null>(null);
+  const [overrideWarning, setOverrideWarning] = useState<CheckInWarning | null>(
+    null
+  );
   const [busy, setBusy] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [changePlanOpen, setChangePlanOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   // The period to record against (arrears); null = current period.
-  const [payPeriod, setPayPeriod] = useState<MembershipPeriodInvoice | null>(null);
+  const [payPeriod, setPayPeriod] = useState<MembershipPeriodInvoice | null>(
+    null
+  );
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   // Track the open invoice by ID and derive the object from the latest
   // fetch, so a mutation inside the modal (void) shows fresh numbers
@@ -225,7 +264,16 @@ export function MemberDetailView({
   const [mandate, setMandate] = useState<PaymentMandate | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
-  const [pendingLifecycle, setPendingLifecycle] = useState<LifecycleAction | null>(null);
+  const [saleOpen, setSaleOpen] = useState(false);
+  const [saleMode, setSaleMode] = useState<'sale' | 'service_renewal'>('sale');
+  const [saleInitial, setSaleInitial] = useState<CheckoutSelection[]>([]);
+  const [reassignServiceTarget, setReassignServiceTarget] =
+    useState<MemberService | null>(null);
+  const [cancelServiceTarget, setCancelServiceTarget] =
+    useState<MemberService | null>(null);
+  const [cancelServiceReason, setCancelServiceReason] = useState('');
+  const [pendingLifecycle, setPendingLifecycle] =
+    useState<LifecycleAction | null>(null);
   const [returnToInvoiceAfterPay, setReturnToInvoiceAfterPay] = useState(false);
   // Bumped to re-pull this sheet after a mutation (renew/payment/freeze/check-in).
   const [nonce, setNonce] = useState(0);
@@ -235,7 +283,7 @@ export function MemberDetailView({
   const navContainerRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
   const jumpTargetRef = useRef<string | null>(null);
-  const [activeSection, setActiveSection] = useState<string>("membership");
+  const [activeSection, setActiveSection] = useState<string>('membership');
 
   useEffect(() => {
     if (!open || !membershipId) return;
@@ -243,11 +291,11 @@ export function MemberDetailView({
     (async () => {
       setLoadError(null);
       const { data: m, error: memberError } = await supabase
-        .from("memberships")
+        .from('memberships')
         .select(
-          "*, contact:contacts(*), plan:membership_plans(*), pricing_option:plan_pricing_options(*)",
+          '*, contact:contacts(*), plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
         )
-        .eq("id", membershipId)
+        .eq('id', membershipId)
         .maybeSingle();
       if (cancelled) return;
       if (memberError) {
@@ -255,42 +303,73 @@ export function MemberDetailView({
         return;
       }
       if (!m) {
-        setLoadError("Member not found or you no longer have access.");
+        setLoadError('Member not found or you no longer have access.');
         return;
       }
 
-      const [paymentsResult, attendanceResult, invoicesResult, mandateResult] =
-        await Promise.all([
-          supabase
-            .from("payments")
-            .select("*")
-            .eq("membership_id", membershipId)
-            .order("paid_at", { ascending: false }),
-          supabase
-            .from("attendance")
-            .select("*")
-            .eq("membership_id", membershipId)
-            .order("checked_in_at", { ascending: false })
-            .limit(20),
-          supabase
-            .from("membership_period_invoices")
-            .select("*")
-            .eq("membership_id", membershipId)
-            .order("period_start", { ascending: false }),
-          // The live auto-debit mandate (if any). Not load-critical — a
-          // failure here just hides the auto-pay status, never blocks the
-          // sheet.
-          supabase
-            .from("payment_mandates")
-            .select("*")
-            .eq("membership_id", membershipId)
-            .in("status", ["pending", "active"])
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-        ]);
+      const [
+        paymentsResult,
+        attendanceResult,
+        invoicesResult,
+        mandateResult,
+        servicesResult,
+        merchandiseResult,
+      ] = await Promise.all([
+        supabase
+          .from('payments')
+          .select('*')
+          .eq('membership_id', membershipId)
+          .order('paid_at', { ascending: false }),
+        supabase
+          .from('attendance')
+          .select('*')
+          .eq('membership_id', membershipId)
+          .order('checked_in_at', { ascending: false })
+          .limit(20),
+        supabase
+          .from('membership_period_invoices')
+          .select('*')
+          .eq('membership_id', membershipId)
+          .order('period_start', { ascending: false }),
+        // The live auto-debit mandate (if any). Not load-critical — a
+        // failure here just hides the auto-pay status, never blocks the
+        // sheet.
+        supabase
+          .from('payment_mandates')
+          .select('*')
+          .eq('membership_id', membershipId)
+          .in('status', ['pending', 'active'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('member_service_details')
+          .select('*')
+          .eq('membership_id', membershipId)
+          .order('start_date', { ascending: false }),
+        (async () => {
+          const { data: genericInvoices, error: genericError } = await supabase
+            .from('invoices')
+            .select('id')
+            .eq('membership_id', membershipId);
+          if (genericError) return { data: null, error: genericError };
+          const ids = (genericInvoices ?? []).map((invoice) => invoice.id);
+          if (ids.length === 0) return { data: [], error: null };
+          return supabase
+            .from('invoice_line_balances')
+            .select('*')
+            .in('invoice_id', ids)
+            .eq('kind', 'merchandise')
+            .order('created_at', { ascending: false });
+        })(),
+      ]);
       if (cancelled) return;
-      const childError = paymentsResult.error ?? attendanceResult.error ?? invoicesResult.error;
+      const childError =
+        paymentsResult.error ??
+        attendanceResult.error ??
+        invoicesResult.error ??
+        servicesResult.error ??
+        merchandiseResult.error;
       if (childError) {
         setLoadError(childError.message);
         return;
@@ -299,6 +378,8 @@ export function MemberDetailView({
       setPayments((paymentsResult.data as Payment[]) ?? []);
       setVisits((attendanceResult.data as Attendance[]) ?? []);
       setInvoices((invoicesResult.data as MembershipPeriodInvoice[]) ?? []);
+      setServices((servicesResult.data as MemberService[]) ?? []);
+      setMerchandise((merchandiseResult.data as InvoiceLine[]) ?? []);
       setMandate((mandateResult.data as PaymentMandate | null) ?? null);
 
       // Usage vs the plan's limit / pack size (062) — count visits in
@@ -307,7 +388,7 @@ export function MemberDetailView({
         supabase,
         m as Membership,
         fmt.today(),
-        locale,
+        locale
       );
       if (cancelled) return;
       setUsageCount(usage ? usage.used : null);
@@ -323,9 +404,9 @@ export function MemberDetailView({
     if (!membership) return;
     const root = scrollRef.current;
     if (!root) return;
-    const els = SECTIONS.map((s) => document.getElementById(`sec-${s.id}`)).filter(
-      (el): el is HTMLElement => el !== null,
-    );
+    const els = SECTIONS.map((s) =>
+      document.getElementById(`sec-${s.id}`)
+    ).filter((el): el is HTMLElement => el !== null);
     let frame = 0;
     let settleTimer: ReturnType<typeof setTimeout> | null = null;
     const syncActiveSection = () => {
@@ -333,11 +414,13 @@ export function MemberDetailView({
       frame = requestAnimationFrame(() => {
         const navHeight = navContainerRef.current?.offsetHeight ?? 0;
         const navBottom = root.getBoundingClientRect().top + navHeight;
-        const atBottom = root.scrollTop + root.clientHeight >= root.scrollHeight - 1;
+        const atBottom =
+          root.scrollTop + root.clientHeight >= root.scrollHeight - 1;
         const active = atBottom
           ? els.at(-1)
-          : (els.find((el) => el.getBoundingClientRect().bottom > navBottom) ?? els.at(-1));
-        if (active) setActiveSection(active.id.replace("sec-", ""));
+          : (els.find((el) => el.getBoundingClientRect().bottom > navBottom) ??
+            els.at(-1));
+        if (active) setActiveSection(active.id.replace('sec-', ''));
       });
     };
     const handleScroll = () => {
@@ -352,10 +435,10 @@ export function MemberDetailView({
       syncActiveSection();
       settleTimer = setTimeout(syncActiveSection, 100);
     };
-    root.addEventListener("scroll", handleScroll, { passive: true });
+    root.addEventListener('scroll', handleScroll, { passive: true });
     syncActiveSection();
     return () => {
-      root.removeEventListener("scroll", handleScroll);
+      root.removeEventListener('scroll', handleScroll);
       if (settleTimer) clearTimeout(settleTimer);
       cancelAnimationFrame(frame);
     };
@@ -370,15 +453,17 @@ export function MemberDetailView({
     const scroller = navRef.current;
     if (!scroller) return;
     const idx = SECTIONS.findIndex((s) => s.id === activeSection);
-    const tab = scroller.querySelectorAll<HTMLElement>('[data-slot="tabs-trigger"]')[idx];
+    const tab = scroller.querySelectorAll<HTMLElement>(
+      '[data-slot="tabs-trigger"]'
+    )[idx];
     if (!tab) return;
     if (scroller.scrollWidth <= scroller.clientWidth) return; // nothing to scroll (desktop)
     const left = tab.offsetLeft - (scroller.clientWidth - tab.offsetWidth) / 2;
     scroller.scrollTo({
       left: Math.max(0, left),
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : 'smooth',
     });
   }, [activeSection]);
 
@@ -396,9 +481,9 @@ export function MemberDetailView({
       navHeight;
     root.scrollTo({
       top,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : 'smooth',
     });
   }
 
@@ -414,16 +499,16 @@ export function MemberDetailView({
     // Chain .select('id') — an RLS-blocked update returns no error + zero
     // rows, so an empty result is the real failure signal.
     const { data, error } = await supabase
-      .from("memberships")
-      .update({ status: "frozen", frozen_at: fmt.today() })
-      .eq("id", membership.id)
-      .select("id");
+      .from('memberships')
+      .update({ status: 'frozen', frozen_at: fmt.today() })
+      .eq('id', membership.id)
+      .select('id');
     setBusy(false);
     if (error || !data?.length) {
       toast.error(error?.message ?? "Couldn't freeze — check your access.");
       return false;
     }
-    toast.success("Membership frozen");
+    toast.success('Membership frozen');
     refreshAll();
     return true;
   }
@@ -441,7 +526,7 @@ export function MemberDetailView({
       toast.error(error.message);
       return false;
     }
-    toast.success("Membership resumed");
+    toast.success('Membership resumed');
     refreshAll();
     return true;
   }
@@ -451,13 +536,17 @@ export function MemberDetailView({
     setBusy(true);
     // Cancel + void the current cycle's invoice atomically (058);
     // settled past cycles stay paid.
-    const { error } = await setMembershipCancellation(supabase, membership.id, true);
+    const { error } = await setMembershipCancellation(
+      supabase,
+      membership.id,
+      true
+    );
     setBusy(false);
     if (error) {
       toast.error(error.message);
       return false;
     }
-    toast.success("Membership cancelled");
+    toast.success('Membership cancelled');
     refreshAll();
     return true;
   }
@@ -465,13 +554,17 @@ export function MemberDetailView({
   async function reactivate(): Promise<boolean> {
     if (!membership) return false;
     setBusy(true);
-    const { error } = await setMembershipCancellation(supabase, membership.id, false);
+    const { error } = await setMembershipCancellation(
+      supabase,
+      membership.id,
+      false
+    );
     setBusy(false);
     if (error) {
       toast.error(error.message);
       return false;
     }
-    toast.success("Membership reactivated");
+    toast.success('Membership reactivated');
     refreshAll();
     return true;
   }
@@ -479,11 +572,11 @@ export function MemberDetailView({
   async function confirmLifecycleAction() {
     if (!pendingLifecycle) return;
     const succeeded =
-      pendingLifecycle === "freeze"
+      pendingLifecycle === 'freeze'
         ? await freeze()
-        : pendingLifecycle === "resume"
+        : pendingLifecycle === 'resume'
           ? await unfreeze()
-          : pendingLifecycle === "cancel"
+          : pendingLifecycle === 'cancel'
             ? await cancelMembership()
             : await reactivate();
     if (succeeded) setPendingLifecycle(null);
@@ -492,17 +585,17 @@ export function MemberDetailView({
   async function doCheckInInsert() {
     if (!membership || !user) return;
     setBusy(true);
-    const { error } = await supabase.from("attendance").insert({
+    const { error } = await supabase.from('attendance').insert({
       account_id: membership.account_id,
       contact_id: membership.contact_id,
       membership_id: membership.id,
       user_id: user.id,
-      method: "manual",
+      method: 'manual',
     });
     setBusy(false);
     setOverrideWarning(null);
     if (error) return toast.error(error.message);
-    toast.success("Checked in");
+    toast.success('Checked in');
     refreshAll();
   }
 
@@ -531,21 +624,28 @@ export function MemberDetailView({
   // ledger fallback only covers pre-057 data that has no period row.
   const collectedCurrent = membership
     ? payments
-        .filter((p) => p.status === "paid" && p.period_end === membership.end_date)
+        .filter(
+          (p) => p.status === 'paid' && p.period_end === membership.end_date
+        )
         .reduce((s, p) => s + (Number(p.amount) || 0), 0)
     : 0;
   const currentInvoice = membership
     ? (invoices.find((inv) => inv.period_end === membership.end_date) ?? null)
     : null;
-  const currentFee = Number(currentInvoice?.fee_amount ?? membership?.fee_amount ?? 0);
+  const currentFee = Number(
+    currentInvoice?.fee_amount ?? membership?.fee_amount ?? 0
+  );
   const currentPaid = Number(currentInvoice?.amount_paid ?? collectedCurrent);
   const balance =
-    membership?.status === "cancelled" || currentInvoice?.state === "void"
+    membership?.status === 'cancelled' || currentInvoice?.state === 'void'
       ? 0
-      : Math.max(Number(currentInvoice?.balance ?? currentFee - currentPaid), 0);
+      : Math.max(
+          Number(currentInvoice?.balance ?? currentFee - currentPaid),
+          0
+        );
   const outstandingBalance = invoices.reduce((total, invoice) => {
     const invoiceBalance = Number(invoice.balance);
-    return invoice.state !== "void" && isChargeableAmount(invoiceBalance)
+    return invoice.state !== 'void' && isChargeableAmount(invoiceBalance)
       ? total + invoiceBalance
       : total;
   }, 0);
@@ -562,7 +662,7 @@ export function MemberDetailView({
     !!membership &&
     !!accountRole &&
     canManageMandates(accountRole) &&
-    membership.status === "active" &&
+    membership.status === 'active' &&
     !membership.is_trial &&
     isRenewalChaseable(membership.plan) &&
     !mandate;
@@ -570,7 +670,9 @@ export function MemberDetailView({
   // Usage vs limit / sessions left (062) — the Attendance section line.
   const usagePlan = membership?.plan ?? null;
   const usageStats =
-    usagePlan && usageCount !== null ? usageSummary(usagePlan, usageCount) : null;
+    usagePlan && usageCount !== null
+      ? usageSummary(usagePlan, usageCount)
+      : null;
   const usageLine = usageStats
     ? { text: usageStats.label, danger: usageStats.danger }
     : null;
@@ -587,10 +689,14 @@ export function MemberDetailView({
     : null;
   // The end_date column's meaning depends on plan type + whether it's passed.
   const termLabel =
-    eff === "expired" ? "Expired" : isRecurringMembership ? "Renews" : "Expires";
-  const showRelativeTerm = eff === "active" || eff === "expired";
+    eff === 'expired'
+      ? 'Expired'
+      : isRecurringMembership
+        ? 'Renews'
+        : 'Expires';
+  const showRelativeTerm = eff === 'active' || eff === 'expired';
   const relativeTerm =
-    days < 0 ? `${-days}d ago` : days === 0 ? "today" : `in ${days}d`;
+    days < 0 ? `${-days}d ago` : days === 0 ? 'today' : `in ${days}d`;
 
   const activeInvoice = activeInvoiceId
     ? (invoices.find((inv) => inv.id === activeInvoiceId) ?? null)
@@ -608,7 +714,54 @@ export function MemberDetailView({
     setReturnToInvoiceAfterPay(true);
     setPayOpen(true);
   }
-  const lifecycleCopy = pendingLifecycle ? LIFECYCLE_COPY[pendingLifecycle] : null;
+
+  function openSale() {
+    setSaleMode('sale');
+    setSaleInitial([]);
+    setSaleOpen(true);
+  }
+
+  function renewService(service: MemberService) {
+    if (!service.catalog_item_id || !service.catalog_option_id) return;
+    if (
+      service.requires_trainer &&
+      (!service.trainer_id || service.current_renewal_price == null)
+    ) {
+      toast.error(
+        "Configure the current trainer's rate before renewing this service."
+      );
+      return;
+    }
+    setSaleMode('service_renewal');
+    setSaleInitial([
+      {
+        item_id: service.catalog_item_id,
+        option_id: service.catalog_option_id,
+        trainer_id: service.trainer_id,
+        quantity: 1,
+        start_date: service.end_date,
+        renewed_from_service_id: service.id,
+        unit_amount: Number(service.current_renewal_price),
+      },
+    ]);
+    setSaleOpen(true);
+  }
+
+  async function confirmCancelService() {
+    if (!cancelServiceTarget || !cancelServiceReason.trim()) return;
+    const { error } = await supabase.rpc('cancel_member_service', {
+      p_member_service_id: cancelServiceTarget.id,
+      p_reason: cancelServiceReason.trim(),
+    });
+    if (error) return toast.error(error.message);
+    toast.success('Service cancelled. No financial credit was created.');
+    setCancelServiceTarget(null);
+    setCancelServiceReason('');
+    refreshAll();
+  }
+  const lifecycleCopy = pendingLifecycle
+    ? LIFECYCLE_COPY[pendingLifecycle]
+    : null;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -660,7 +813,7 @@ export function MemberDetailView({
                     className="group/avatar-edit relative shrink-0 rounded-full"
                   >
                     <UserAvatar
-                      name={membership.contact?.name || "?"}
+                      name={membership.contact?.name || '?'}
                       src={membership.contact?.avatar_url}
                       className="size-11 sm:size-14"
                       fallbackClassName="text-base sm:text-lg"
@@ -671,7 +824,7 @@ export function MemberDetailView({
                   </button>
                 ) : (
                   <UserAvatar
-                    name={membership.contact?.name || "?"}
+                    name={membership.contact?.name || '?'}
                     src={membership.contact?.avatar_url}
                     className="size-11 sm:size-14"
                     fallbackClassName="text-base sm:text-lg"
@@ -680,13 +833,16 @@ export function MemberDetailView({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <SheetTitle className="text-base sm:text-lg">
-                      {membership.contact?.name || "Unnamed member"}
+                      {membership.contact?.name || 'Unnamed member'}
                     </SheetTitle>
                     {membership.is_trial && <TrialBadge />}
-                    {eff && <MembershipStatusBadge status={eff} daysToExpiry={days} />}
-                    {!membership.is_trial && membership.status !== "cancelled" && (
-                      <FeeStatusBadge status={membership.fee_status} />
+                    {eff && (
+                      <MembershipStatusBadge status={eff} daysToExpiry={days} />
                     )}
+                    {!membership.is_trial &&
+                      membership.status !== 'cancelled' && (
+                        <FeeStatusBadge status={membership.fee_status} />
+                      )}
                   </div>
                   <SheetDescription className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                     <span className="flex items-center gap-1.5">
@@ -698,7 +854,7 @@ export function MemberDetailView({
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Phone className="size-3.5" />
-                      {membership.contact?.phone || "No phone"}
+                      {membership.contact?.phone || 'No phone'}
                     </span>
                     {membership.contact?.email && (
                       <span className="flex items-center gap-1.5">
@@ -708,7 +864,8 @@ export function MemberDetailView({
                     )}
                     <span className="flex items-center gap-1.5">
                       <CalendarDays className="size-3.5" />
-                      Member since {fmt.date(membership.created_at.slice(0, 10))}
+                      Member since{' '}
+                      {fmt.date(membership.created_at.slice(0, 10))}
                     </span>
                   </SheetDescription>
                 </div>
@@ -745,10 +902,20 @@ export function MemberDetailView({
                   ref={navRef}
                   className="[scrollbar-width:none] overflow-x-auto px-4 sm:px-5 [&::-webkit-scrollbar]:hidden"
                 >
-                  <Tabs value={activeSection} onValueChange={(v) => v && jumpTo(v)}>
-                    <TabsList variant="line" aria-label="Member detail sections">
+                  <Tabs
+                    value={activeSection}
+                    onValueChange={(v) => v && jumpTo(v)}
+                  >
+                    <TabsList
+                      variant="line"
+                      aria-label="Member detail sections"
+                    >
                       {SECTIONS.map((s) => (
-                        <TabsTrigger key={s.id} value={s.id} className="flex-none">
+                        <TabsTrigger
+                          key={s.id}
+                          value={s.id}
+                          className="flex-none"
+                        >
                           {s.label}
                         </TabsTrigger>
                       ))}
@@ -782,7 +949,10 @@ export function MemberDetailView({
                               >
                                 <MoreHorizontal className="size-4" />
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="min-w-52">
+                              <DropdownMenuContent
+                                align="end"
+                                className="min-w-52"
+                              >
                                 {/* Renew — opens the next billing cycle. Lives
                                     here (not as a header primary) because it's
                                     only the right move near/after expiry; the
@@ -790,99 +960,115 @@ export function MemberDetailView({
                                     too, but that row is absent once a
                                     membership has lapsed, so this is the path
                                     that always works. */}
-                                {membership.status === "active" && !membership.is_trial && (
-                                  <DropdownMenuItem
-                                    onClick={() => setRenewOpen(true)}
-                                    disabled={!canSendMessages}
-                                    title={
-                                      !canSendMessages
-                                        ? "You need member-management access to renew memberships."
-                                        : undefined
-                                    }
-                                  >
-                                    <RefreshCw className="size-4" /> Renew membership
-                                  </DropdownMenuItem>
-                                )}
+                                {membership.status === 'active' &&
+                                  !membership.is_trial && (
+                                    <DropdownMenuItem
+                                      onClick={() => setRenewOpen(true)}
+                                      disabled={!canSendMessages}
+                                      title={
+                                        !canSendMessages
+                                          ? 'You need member-management access to renew memberships.'
+                                          : undefined
+                                      }
+                                    >
+                                      <RefreshCw className="size-4" /> Renew
+                                      membership
+                                    </DropdownMenuItem>
+                                  )}
                                 {/* Plan swap/upgrade — the intent behind most
                                     "edit" clicks. Only an active paid cycle
                                     can be switched mid-flight. */}
-                                {membership.status === "active" && !membership.is_trial && (
-                                  <DropdownMenuItem
-                                    onClick={() => setChangePlanOpen(true)}
-                                    disabled={!canSendMessages}
-                                    title={
-                                      !canSendMessages
-                                        ? "You need member-management access to change plans."
-                                        : undefined
-                                    }
-                                  >
-                                    <ArrowLeftRight className="size-4" /> Change plan
-                                  </DropdownMenuItem>
-                                )}
+                                {membership.status === 'active' &&
+                                  !membership.is_trial && (
+                                    <DropdownMenuItem
+                                      onClick={() => setChangePlanOpen(true)}
+                                      disabled={!canSendMessages}
+                                      title={
+                                        !canSendMessages
+                                          ? 'You need member-management access to change plans.'
+                                          : undefined
+                                      }
+                                    >
+                                      <ArrowLeftRight className="size-4" />{' '}
+                                      Change plan
+                                    </DropdownMenuItem>
+                                  )}
                                 <DropdownMenuItem
                                   onClick={() => onEdit(membership)}
                                   disabled={!canSendMessages}
                                   title={
                                     !canSendMessages
-                                      ? "You need member-management access to edit memberships."
+                                      ? 'You need member-management access to edit memberships.'
                                       : undefined
                                   }
                                 >
                                   <Pencil className="size-4" /> Edit membership
                                 </DropdownMenuItem>
-                                {membership.status === "frozen" ? (
+                                {membership.status === 'frozen' ? (
                                   <DropdownMenuItem
-                                    onClick={() => setPendingLifecycle("resume")}
+                                    onClick={() =>
+                                      setPendingLifecycle('resume')
+                                    }
                                     disabled={busy || !canSendMessages}
                                     title={
                                       !canSendMessages
-                                        ? "You need member-management access to resume memberships."
+                                        ? 'You need member-management access to resume memberships.'
                                         : undefined
                                     }
                                   >
-                                    <Play className="size-4" /> Resume membership
+                                    <Play className="size-4" /> Resume
+                                    membership
                                   </DropdownMenuItem>
                                 ) : (
-                                  membership.status === "active" && (
+                                  membership.status === 'active' && (
                                     <DropdownMenuItem
-                                      onClick={() => setPendingLifecycle("freeze")}
+                                      onClick={() =>
+                                        setPendingLifecycle('freeze')
+                                      }
                                       disabled={busy || !canSendMessages}
                                       title={
                                         !canSendMessages
-                                          ? "You need member-management access to freeze memberships."
+                                          ? 'You need member-management access to freeze memberships.'
                                           : undefined
                                       }
                                     >
-                                      <Snowflake className="size-4" /> Freeze membership
+                                      <Snowflake className="size-4" /> Freeze
+                                      membership
                                     </DropdownMenuItem>
                                   )
                                 )}
-                                {membership.status === "cancelled" ? (
+                                {membership.status === 'cancelled' ? (
                                   <DropdownMenuItem
-                                    onClick={() => setPendingLifecycle("reactivate")}
+                                    onClick={() =>
+                                      setPendingLifecycle('reactivate')
+                                    }
                                     disabled={busy || !canSendMessages}
                                     title={
                                       !canSendMessages
-                                        ? "You need member-management access to reactivate memberships."
+                                        ? 'You need member-management access to reactivate memberships.'
                                         : undefined
                                     }
                                   >
-                                    <RotateCcw className="size-4" /> Reactivate membership
+                                    <RotateCcw className="size-4" /> Reactivate
+                                    membership
                                   </DropdownMenuItem>
                                 ) : (
                                   <>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                       variant="destructive"
-                                      onClick={() => setPendingLifecycle("cancel")}
+                                      onClick={() =>
+                                        setPendingLifecycle('cancel')
+                                      }
                                       disabled={busy || !canSendMessages}
                                       title={
                                         !canSendMessages
-                                          ? "You need member-management access to cancel memberships."
+                                          ? 'You need member-management access to cancel memberships.'
                                           : undefined
                                       }
                                     >
-                                      <Ban className="size-4" /> Cancel membership
+                                      <Ban className="size-4" /> Cancel
+                                      membership
                                     </DropdownMenuItem>
                                   </>
                                 )}
@@ -892,14 +1078,18 @@ export function MemberDetailView({
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4">
                           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                            <Stat label="Plan">{membership.plan?.name ?? "—"}</Stat>
-                            <Stat label={isRecurringMembership ? "Billing" : "Fee"}>
+                            <Stat label="Plan">
+                              {membership.plan?.name ?? '—'}
+                            </Stat>
+                            <Stat
+                              label={isRecurringMembership ? 'Billing' : 'Fee'}
+                            >
                               {isRecurringMembership && pricingOption ? (
                                 <span className="tabular-nums">
                                   {fmt.money(pricingOption.price)}
                                   {cadenceLabel && (
                                     <span className="text-muted-foreground font-normal">
-                                      {" "}
+                                      {' '}
                                       / {cadenceLabel}
                                     </span>
                                   )}
@@ -910,7 +1100,9 @@ export function MemberDetailView({
                                 </span>
                               )}
                             </Stat>
-                            <Stat label="Started">{fmt.date(membership.start_date)}</Stat>
+                            <Stat label="Started">
+                              {fmt.date(membership.start_date)}
+                            </Stat>
                             <Stat label={termLabel}>
                               <span className="tabular-nums">
                                 {fmt.date(membership.end_date)}
@@ -922,54 +1114,254 @@ export function MemberDetailView({
                               )}
                             </Stat>
                           </dl>
-                          {isRecurringMembership && membership.status === "active" && (
-                            <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                              <Repeat className="size-3.5 shrink-0" />
-                              {mandate?.status === "active" ? (
-                                <>
-                                  Auto-renews
-                                  {cadenceLabel ? ` every ${cadenceLabel}` : ""} on{" "}
-                                  {fmt.date(membership.end_date)}.
-                                </>
-                              ) : (
-                                <>
-                                  Renews
-                                  {cadenceLabel ? ` every ${cadenceLabel}` : ""} — next cycle
-                                  starts {fmt.date(membership.end_date)}.
-                                </>
-                              )}
-                            </p>
-                          )}
-                          {planType === "non_recurring" && (
+                          {isRecurringMembership &&
+                            membership.status === 'active' && (
+                              <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                                <Repeat className="size-3.5 shrink-0" />
+                                {mandate?.status === 'active' ? (
+                                  <>
+                                    Auto-renews
+                                    {cadenceLabel
+                                      ? ` every ${cadenceLabel}`
+                                      : ''}{' '}
+                                    on {fmt.date(membership.end_date)}.
+                                  </>
+                                ) : (
+                                  <>
+                                    Renews
+                                    {cadenceLabel
+                                      ? ` every ${cadenceLabel}`
+                                      : ''}{' '}
+                                    — next cycle starts{' '}
+                                    {fmt.date(membership.end_date)}.
+                                  </>
+                                )}
+                              </p>
+                            )}
+                          {planType === 'non_recurring' && (
                             <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
                               <CalendarDays className="size-3.5 shrink-0" />
-                              Fixed-term plan — ends {fmt.date(membership.end_date)} and does
-                              not renew.
+                              Fixed-term plan — ends{' '}
+                              {fmt.date(membership.end_date)} and does not
+                              renew.
                             </p>
                           )}
-                          {membership.plan?.plan_type === "session_pack" && usageLine && (
-                            <p
-                              className={`text-xs ${
-                                usageLine.danger
-                                  ? "text-red-foreground"
-                                  : "text-muted-foreground"
-                              }`}
-                            >
-                              {usageLine.text}
-                            </p>
-                          )}
-                          {membership.status === "frozen" && membership.frozen_at && (
-                            <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                              <Snowflake className="size-3.5" />
-                              Frozen since {fmt.date(membership.frozen_at)} — the paused days are
-                              added back on resume.
-                            </p>
-                          )}
+                          {membership.plan?.plan_type === 'session_pack' &&
+                            usageLine && (
+                              <p
+                                className={`text-xs ${
+                                  usageLine.danger
+                                    ? 'text-red-foreground'
+                                    : 'text-muted-foreground'
+                                }`}
+                              >
+                                {usageLine.text}
+                              </p>
+                            )}
+                          {membership.status === 'frozen' &&
+                            membership.frozen_at && (
+                              <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                                <Snowflake className="size-3.5" />
+                                Frozen since {fmt.date(membership.frozen_at)} —
+                                the paused days are added back on resume.
+                              </p>
+                            )}
                           {membership.notes && (
                             <p className="border-border bg-muted/40 text-muted-foreground rounded-lg border px-3 py-2 text-sm">
                               {membership.notes}
                             </p>
                           )}
+                        </CardContent>
+                      </Card>
+                    </Section>
+
+                    {/* Member-only catalogue history. Service dates remain
+                        independent from the membership lifecycle. */}
+                    <Section id="products">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Products &amp; services</CardTitle>
+                          {canSell ? (
+                            <CardAction>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={openSale}
+                              >
+                                <Plus className="size-4" /> Add purchase
+                              </Button>
+                            </CardAction>
+                          ) : null}
+                        </CardHeader>
+                        <CardContent className="space-y-5">
+                          <div className="space-y-2">
+                            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                              Services
+                            </p>
+                            {services.length === 0 ? (
+                              <p className="text-muted-foreground text-sm">
+                                No services purchased yet.
+                              </p>
+                            ) : (
+                              <div className="divide-y rounded-lg border">
+                                {services.map((service) => (
+                                  <div
+                                    key={service.id}
+                                    className="flex flex-wrap items-center gap-3 px-3 py-3"
+                                  >
+                                    <div className="min-w-48 flex-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <p className="font-medium">
+                                          {service.item_name_snapshot}
+                                        </p>
+                                        <Badge
+                                          variant={
+                                            service.derived_status === 'active'
+                                              ? 'success'
+                                              : service.derived_status ===
+                                                  'upcoming'
+                                                ? 'info'
+                                                : service.derived_status ===
+                                                    'cancelled'
+                                                  ? 'danger'
+                                                  : 'neutral'
+                                          }
+                                        >
+                                          {service.derived_status
+                                            .charAt(0)
+                                            .toUpperCase() +
+                                            service.derived_status.slice(1)}
+                                        </Badge>
+                                      </div>
+                                      <p className="text-muted-foreground mt-1 text-xs">
+                                        {fmt.date(service.start_date)}–
+                                        {fmt.date(service.end_date)}
+                                        {service.trainer_name
+                                          ? ` · ${service.trainer_name}`
+                                          : ''}
+                                        {service.trainer_title
+                                          ? `, ${service.trainer_title}`
+                                          : ''}
+                                      </p>
+                                      <p className="text-muted-foreground mt-1 text-xs">
+                                        Sold {fmt.money(service.sold_amount)}
+                                        {Number(service.balance) > 0
+                                          ? ` · ${fmt.money(service.balance)} due`
+                                          : ' · Settled'}
+                                      </p>
+                                    </div>
+                                    {(canSell ||
+                                      (canReassign &&
+                                        service.requires_trainer)) &&
+                                    service.status !== 'cancelled' ? (
+                                      <div className="flex gap-1">
+                                        {canSell ? (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                              renewService(service)
+                                            }
+                                          >
+                                            <RefreshCw className="size-4" />{' '}
+                                            Renew
+                                          </Button>
+                                        ) : null}
+                                        {canSell ||
+                                        (canReassign &&
+                                          service.requires_trainer) ? (
+                                          <DropdownMenu>
+                                            <DropdownMenuTrigger
+                                              render={
+                                                <Button
+                                                  size="icon-sm"
+                                                  variant="ghost"
+                                                  aria-label={`Manage ${service.item_name_snapshot}`}
+                                                />
+                                              }
+                                            >
+                                              <MoreHorizontal className="size-4" />
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                              {canReassign &&
+                                              service.requires_trainer ? (
+                                                <DropdownMenuItem
+                                                  onClick={() =>
+                                                    setReassignServiceTarget(
+                                                      service
+                                                    )
+                                                  }
+                                                >
+                                                  <ArrowLeftRight className="size-4" />{' '}
+                                                  Reassign trainer
+                                                </DropdownMenuItem>
+                                              ) : null}
+                                              {canSell ? (
+                                                <DropdownMenuItem
+                                                  variant="destructive"
+                                                  onClick={() =>
+                                                    setCancelServiceTarget(
+                                                      service
+                                                    )
+                                                  }
+                                                >
+                                                  <Ban className="size-4" />{' '}
+                                                  Cancel service
+                                                </DropdownMenuItem>
+                                              ) : null}
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        ) : null}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                              Merchandise history
+                            </p>
+                            {merchandise.length === 0 ? (
+                              <p className="text-muted-foreground text-sm">
+                                No merchandise purchased yet.
+                              </p>
+                            ) : (
+                              <div className="divide-y rounded-lg border">
+                                {merchandise.map((line) => (
+                                  <div
+                                    key={line.id}
+                                    className="flex items-center gap-3 px-3 py-2.5"
+                                  >
+                                    <ShoppingBag className="text-muted-foreground size-4" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-sm font-medium">
+                                        {line.description}
+                                        {line.quantity > 1
+                                          ? ` × ${line.quantity}`
+                                          : ''}
+                                      </p>
+                                      <p className="text-muted-foreground text-xs">
+                                        {fmt.date(line.created_at)}
+                                      </p>
+                                    </div>
+                                    <div className="text-right text-sm">
+                                      <p className="tabular-nums">
+                                        {fmt.money(line.line_amount)}
+                                      </p>
+                                      {Number(line.balance) > 0 ? (
+                                        <p className="text-amber-foreground text-xs">
+                                          {fmt.money(line.balance)} due
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </CardContent>
                       </Card>
                     </Section>
@@ -992,7 +1384,7 @@ export function MemberDetailView({
                                     <CopyUpiLinkButton
                                       upi={upi}
                                       amount={balance}
-                                      note={`${membership.plan?.name ?? "Membership"} fee`}
+                                      note={`${membership.plan?.name ?? 'Membership'} fee`}
                                       size="sm"
                                     />
                                     {canSendMessages && (
@@ -1005,7 +1397,8 @@ export function MemberDetailView({
                                           setPayOpen(true);
                                         }}
                                       >
-                                        <Wallet className="size-4" /> Record payment
+                                        <Wallet className="size-4" /> Record
+                                        payment
                                       </Button>
                                     )}
                                   </>
@@ -1016,7 +1409,8 @@ export function MemberDetailView({
                                     variant="outline"
                                     onClick={() => setAutoPayOpen(true)}
                                   >
-                                    <Repeat className="size-4" /> Set up auto-pay
+                                    <Repeat className="size-4" /> Set up
+                                    auto-pay
                                   </Button>
                                 )}
                               </CardAction>
@@ -1025,30 +1419,34 @@ export function MemberDetailView({
                         <CardContent className="space-y-5">
                           {membership.is_trial ? (
                             <p className="text-muted-foreground text-sm">
-                              Trials are not billed. Convert to a member to start invoicing.
+                              Trials are not billed. Convert to a member to
+                              start invoicing.
                             </p>
                           ) : (
                             <>
-                              {membership.status === "cancelled" && (
+                              {membership.status === 'cancelled' && (
                                 <p className="border-border bg-muted/30 text-muted-foreground rounded-lg border px-3 py-2 text-sm">
-                                  This membership is cancelled. Its current billing period is not
-                                  collectible.
+                                  This membership is cancelled. Its current
+                                  billing period is not collectible.
                                 </p>
                               )}
 
                               {mandate && (
                                 <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
                                   <Repeat className="size-3.5" />
-                                  {mandate.status === "active" ? (
+                                  {mandate.status === 'active' ? (
                                     <>
                                       Auto-pay on
                                       {mandate.vpa
                                         ? ` · ${mandate.vpa}`
-                                        : " · UPI AutoPay"}
-                                      {" — renewals collect automatically."}
+                                        : ' · UPI AutoPay'}
+                                      {' — renewals collect automatically.'}
                                     </>
                                   ) : (
-                                    <>Auto-pay mandate pending the member&apos;s approval.</>
+                                    <>
+                                      Auto-pay mandate pending the member&apos;s
+                                      approval.
+                                    </>
                                   )}
                                 </p>
                               )}
@@ -1067,7 +1465,9 @@ export function MemberDetailView({
                                               7 columns can't read at 390px, and the
                                               row opens InvoiceDetailDialog, which
                                               carries every one of them. */}
-                                          <TableHead className="text-xs">Period</TableHead>
+                                          <TableHead className="text-xs">
+                                            Period
+                                          </TableHead>
                                           <TableHead className="text-right text-xs">
                                             Invoice
                                           </TableHead>
@@ -1077,30 +1477,38 @@ export function MemberDetailView({
                                           <TableHead className="hidden text-right text-xs sm:table-cell">
                                             Balance
                                           </TableHead>
-                                          <TableHead className="text-xs">Payment</TableHead>
+                                          <TableHead className="text-xs">
+                                            Payment
+                                          </TableHead>
                                           <TableHead className="hidden text-xs sm:table-cell">
                                             Cycle
                                           </TableHead>
                                           <TableHead className="w-8">
-                                            <span className="sr-only">Details</span>
+                                            <span className="sr-only">
+                                              Details
+                                            </span>
                                           </TableHead>
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
                                         {invoices.map((inv) => {
-                                          const invBalance = Number(inv.balance);
+                                          const invBalance = Number(
+                                            inv.balance
+                                          );
                                           // Payment axis is epsilon-aware: a
                                           // pro-rated stub (₹0.32) renders ₹0,
                                           // so it must not read "Due".
-                                          const payState = invoicePaymentState(inv);
+                                          const payState =
+                                            invoicePaymentState(inv);
                                           const lifecycle =
-                                            inv.state === "void"
-                                              ? "Void"
+                                            inv.state === 'void'
+                                              ? 'Void'
                                               : inv.period_start > today
-                                                ? "Upcoming"
-                                                : inv.period_end === membership.end_date
-                                                  ? "Current"
-                                                  : "Past";
+                                                ? 'Upcoming'
+                                                : inv.period_end ===
+                                                    membership.end_date
+                                                  ? 'Current'
+                                                  : 'Past';
                                           return (
                                             <TableRow
                                               key={inv.id}
@@ -1113,20 +1521,27 @@ export function MemberDetailView({
                                                     2026" is 196px, over half the
                                                     table's width at 390px. */}
                                                 <span className="flex flex-col leading-tight tabular-nums sm:hidden">
-                                                  <span>{fmt.dateShort(inv.period_start)}</span>
+                                                  <span>
+                                                    {fmt.dateShort(
+                                                      inv.period_start
+                                                    )}
+                                                  </span>
                                                   <span className="text-muted-foreground">
-                                                    – {fmt.dateShort(inv.period_end)}
+                                                    –{' '}
+                                                    {fmt.dateShort(
+                                                      inv.period_end
+                                                    )}
                                                   </span>
                                                 </span>
                                                 <span className="hidden sm:inline">
-                                                  {fmt.date(inv.period_start)} –{" "}
+                                                  {fmt.date(inv.period_start)} –{' '}
                                                   {fmt.date(inv.period_end)}
                                                 </span>
                                               </TableCell>
                                               <TableCell className="text-right tabular-nums">
                                                 {fmt.money(inv.fee_amount)}
                                               </TableCell>
-                                              <TableCell className="hidden text-right text-emerald-foreground tabular-nums sm:table-cell">
+                                              <TableCell className="text-emerald-foreground hidden text-right tabular-nums sm:table-cell">
                                                 {fmt.money(inv.amount_paid)}
                                               </TableCell>
                                               {/* An outstanding balance is the
@@ -1140,23 +1555,25 @@ export function MemberDetailView({
                                               <TableCell
                                                 className={`hidden text-right tabular-nums sm:table-cell ${
                                                   isChargeableAmount(invBalance)
-                                                    ? "text-amber-foreground"
-                                                    : ""
+                                                    ? 'text-amber-foreground'
+                                                    : ''
                                                 }`}
                                               >
                                                 {fmt.money(invBalance)}
                                               </TableCell>
                                               <TableCell>
-                                                <InvoicePaymentBadge state={payState} />
+                                                <InvoicePaymentBadge
+                                                  state={payState}
+                                                />
                                               </TableCell>
                                               <TableCell className="hidden sm:table-cell">
                                                 <Badge
                                                   variant={
-                                                    lifecycle === "Void"
-                                                      ? "neutral"
-                                                      : lifecycle === "Upcoming"
-                                                        ? "info"
-                                                        : "secondary"
+                                                    lifecycle === 'Void'
+                                                      ? 'neutral'
+                                                      : lifecycle === 'Upcoming'
+                                                        ? 'info'
+                                                        : 'secondary'
                                                   }
                                                 >
                                                   {lifecycle}
@@ -1190,7 +1607,6 @@ export function MemberDetailView({
                                   </div>
                                 )}
                               </div>
-
                             </>
                           )}
                         </CardContent>
@@ -1221,7 +1637,12 @@ export function MemberDetailView({
                         <CardHeader>
                           <CardTitle>Attendance</CardTitle>
                           <CardAction>
-                            <Button size="sm" variant="outline" onClick={checkIn} disabled={busy}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={checkIn}
+                              disabled={busy}
+                            >
                               <UserCheck className="size-3.5" /> Check in
                             </Button>
                           </CardAction>
@@ -1229,7 +1650,9 @@ export function MemberDetailView({
                         <CardContent>
                           {usageLine && (
                             <p className="mb-2 text-xs">
-                              <Badge variant={usageLine.danger ? "danger" : "info"}>
+                              <Badge
+                                variant={usageLine.danger ? 'danger' : 'info'}
+                              >
                                 {usageLine.text}
                               </Badge>
                             </p>
@@ -1245,7 +1668,7 @@ export function MemberDetailView({
                                   key={v.id}
                                   className="text-muted-foreground flex items-center gap-2 py-1.5 text-sm"
                                 >
-                                  <UserCheck className="size-3.5 shrink-0 text-emerald-foreground" />
+                                  <UserCheck className="text-emerald-foreground size-3.5 shrink-0" />
                                   {fmt.dateTime(v.checked_in_at)}
                                 </li>
                               ))}
@@ -1283,8 +1706,10 @@ export function MemberDetailView({
                     <Section id="settings">
                       <MemberDangerZone
                         contactId={membership.contact_id}
-                        memberName={membership.contact?.name || ""}
-                        canDelete={accountRole ? canDeleteMember(accountRole) : false}
+                        memberName={membership.contact?.name || ''}
+                        canDelete={
+                          accountRole ? canDeleteMember(accountRole) : false
+                        }
                         onDeleted={() => {
                           onOpenChange(false);
                           onChanged();
@@ -1363,7 +1788,8 @@ export function MemberDetailView({
                 refreshAll();
               }}
               onCancelled={() => {
-                if (returnToInvoiceAfterPay && activeInvoice) setInvoiceOpen(true);
+                if (returnToInvoiceAfterPay && activeInvoice)
+                  setInvoiceOpen(true);
                 setReturnToInvoiceAfterPay(false);
               }}
             />
@@ -1393,7 +1819,9 @@ export function MemberDetailView({
               <DialogContent className="sm:max-w-sm">
                 <DialogHeader>
                   <DialogTitle>{lifecycleCopy?.title}</DialogTitle>
-                  <DialogDescription>{lifecycleCopy?.description}</DialogDescription>
+                  <DialogDescription>
+                    {lifecycleCopy?.description}
+                  </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
                   <Button
@@ -1406,7 +1834,9 @@ export function MemberDetailView({
                   </Button>
                   <Button
                     type="button"
-                    variant={lifecycleCopy?.destructive ? "destructive" : "default"}
+                    variant={
+                      lifecycleCopy?.destructive ? 'destructive' : 'default'
+                    }
                     onClick={confirmLifecycleAction}
                     disabled={busy}
                   >
@@ -1417,7 +1847,7 @@ export function MemberDetailView({
               </DialogContent>
             </Dialog>
             <VoidPaymentDialog
-              key={paymentToVoid?.id ?? "no-payment"}
+              key={paymentToVoid?.id ?? 'no-payment'}
               payment={paymentToVoid}
               open={!!paymentToVoid}
               onOpenChange={(next) => {
@@ -1429,7 +1859,7 @@ export function MemberDetailView({
               open={avatarOpen}
               onOpenChange={setAvatarOpen}
               contactId={membership.contact_id}
-              name={membership.contact?.name || "Member"}
+              name={membership.contact?.name || 'Member'}
               currentUrl={membership.contact?.avatar_url}
               onSaved={refreshAll}
             />
@@ -1440,6 +1870,69 @@ export function MemberDetailView({
               onConfirm={doCheckInInsert}
               onCancel={() => setOverrideWarning(null)}
             />
+            <ProductServiceSaleDialog
+              key={`${saleMode}:${saleInitial.map((selection) => selection.option_id).join(',')}:${saleOpen ? 'open' : 'closed'}`}
+              open={saleOpen}
+              onOpenChange={setSaleOpen}
+              membership={membership}
+              mode={saleMode}
+              initialSelections={saleInitial}
+              onSaved={refreshAll}
+            />
+            <ReassignTrainerDialog
+              key={reassignServiceTarget?.id ?? 'no-service'}
+              service={reassignServiceTarget}
+              open={!!reassignServiceTarget}
+              onOpenChange={(next) => {
+                if (!next) setReassignServiceTarget(null);
+              }}
+              onSaved={refreshAll}
+            />
+            <Dialog
+              open={!!cancelServiceTarget}
+              onOpenChange={(next) => {
+                if (!next) {
+                  setCancelServiceTarget(null);
+                  setCancelServiceReason('');
+                }
+              }}
+            >
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Cancel service?</DialogTitle>
+                  <DialogDescription>
+                    The service stops, but this does not issue a refund or
+                    credit.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cancel-service-reason">Reason</Label>
+                  <Input
+                    id="cancel-service-reason"
+                    value={cancelServiceReason}
+                    onChange={(event) =>
+                      setCancelServiceReason(event.target.value)
+                    }
+                    placeholder="Required for history"
+                  />
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCancelServiceTarget(null)}
+                  >
+                    Keep service
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={confirmCancelService}
+                    disabled={!cancelServiceReason.trim()}
+                  >
+                    Cancel service
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </>
         )}
       </SheetContent>

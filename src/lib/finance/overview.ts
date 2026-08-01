@@ -12,7 +12,6 @@ import type {
   Expense,
   Membership,
   MembershipPlan,
-  MembershipPeriodInvoice,
   Payment,
   PaymentMethod,
   PaymentPurpose,
@@ -140,6 +139,16 @@ type PaymentRow = Payment & {
   plan?: Pick<MembershipPlan, 'name'> | null;
   membership?: Pick<Membership, 'member_number' | 'start_date'> | null;
 };
+
+interface GenericFinanceInvoice {
+  id: string;
+  state: 'open' | 'void';
+  issued_at: string;
+  total: number;
+  amount_paid: number;
+  credit_applied: number;
+  balance: number;
+}
 
 export type FinanceOverviewExpenseRow = Pick<
   Expense,
@@ -270,6 +279,7 @@ export function summarizeFinanceRevenue(
   const breakdown: FinanceRevenueBreakdown = {
     joining: 0,
     renewal: 0,
+    sale: 0,
     due: 0,
     other: 0,
   };
@@ -284,7 +294,13 @@ export function summarizeFinanceRevenue(
 export function summarizeFinanceRevenueStreams(
   rows: FinanceRevenueStreamPaymentRow[]
 ): FinanceRevenueStream[] {
-  const purposes: PaymentPurpose[] = ['joining', 'renewal', 'due', 'other'];
+  const purposes: PaymentPurpose[] = [
+    'joining',
+    'renewal',
+    'sale',
+    'due',
+    'other',
+  ];
   const streams = new Map<
     PaymentPurpose,
     {
@@ -617,15 +633,15 @@ export async function loadFinanceOverview(
           .order('paid_at', { ascending: false })
           .range(from, to)
       ),
-      fetchAll<MembershipPeriodInvoice>((from, to) =>
+      fetchAll<GenericFinanceInvoice>((from, to) =>
         db
-          .from('membership_period_invoices')
+          .from('invoice_balances')
           .select(
-            'id, account_id, membership_id, contact_id, plan_id, period_start, period_end, fee_amount, state, created_at, amount_paid, balance, standard_period_end, bonus_months'
+            'id, state, issued_at, total, amount_paid, credit_applied, balance'
           )
-          .gte('created_at', bounds.currentStart)
-          .lt('created_at', bounds.nextStart)
-          .order('created_at', { ascending: false })
+          .gte('issued_at', bounds.currentStart)
+          .lt('issued_at', bounds.nextStart)
+          .order('issued_at', { ascending: false })
           .range(from, to)
       ),
       fetchAll<ProjectionMembership>((from, to) =>
@@ -705,7 +721,11 @@ export async function loadFinanceOverview(
   const healthDay = period.end < today ? period.end : today;
   for (const invoice of invoices) {
     if (invoice.state === 'void') continue;
-    const paymentState = invoicePaymentState(invoice);
+    const paymentState = invoicePaymentState({
+      fee_amount: invoice.total,
+      amount_paid: Number(invoice.amount_paid) + Number(invoice.credit_applied),
+      balance: invoice.balance,
+    });
     if (paymentState === 'paid') {
       invoiceHealth.paid += 1;
       continue;
@@ -715,7 +735,7 @@ export async function loadFinanceOverview(
     if (isChargeableAmount(balance)) invoiceHealth.outstanding += balance;
     if (isChargeableAmount(invoice.amount_paid)) {
       invoiceHealth.partiallyPaid += 1;
-    } else if (invoice.period_end < healthDay) {
+    } else if (todayInTz(timeZone, new Date(invoice.issued_at)) < healthDay) {
       invoiceHealth.overdue += 1;
     } else {
       invoiceHealth.open += 1;
@@ -808,6 +828,7 @@ export function financeOverviewCsv(data: FinanceOverviewData): string {
     ['Revenue breakdown', 'Amount'],
     ['New memberships', data.revenueBreakdown.joining],
     ['Renewals', data.revenueBreakdown.renewal],
+    ['Products & services', data.revenueBreakdown.sale],
     ['Due payments recovered', data.revenueBreakdown.due],
     ...(data.revenueBreakdown.other > 0
       ? [['Other collections', data.revenueBreakdown.other]]

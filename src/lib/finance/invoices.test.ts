@@ -221,9 +221,20 @@ describe('finance invoice filtering and totals', () => {
   });
 
   it('exports the internal record reference and reconciled values', () => {
-    const csv = financeInvoicesCsv(rows);
+    const csv = financeInvoicesCsv([
+      {
+        ...rows[0],
+        source: 'sale',
+        lineKinds: ['service', 'merchandise'],
+        credit_applied: 250,
+      },
+      ...rows.slice(1),
+    ]);
     expect(csv).toContain('Invoice record,Member ID,Name');
     expect(csv).toContain('#12345678,1001,Aarav Shah');
+    expect(csv).toContain('Invoice source,Revenue categories');
+    expect(csv).toContain('sale,service + merchandise');
+    expect(csv).toContain('Cash paid,Credit applied,Balance');
     expect(csv).not.toContain('Invoice number');
   });
 });

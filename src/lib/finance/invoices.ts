@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { InvoiceLineKind } from '@/types';
 
-import { dayStartInTz } from '@/lib/locale/format';
+import { dayStartInTz, todayInTz } from '@/lib/locale/format';
 import {
   invoicePaymentState,
   isChargeableAmount,
@@ -32,6 +33,29 @@ export interface FinanceInvoiceRow extends MembershipPeriodInvoice {
   paymentState: InvoicePaymentState;
   overdue: boolean;
   reference: string;
+  source?:
+    | 'joining'
+    | 'membership_renewal'
+    | 'sale'
+    | 'service_renewal'
+    | 'service_adjustment';
+  lineKinds?: InvoiceLineKind[];
+}
+
+interface GenericInvoiceRow {
+  id: string;
+  account_id: string;
+  contact_id: string | null;
+  membership_id: string | null;
+  membership_period_id: string | null;
+  source: NonNullable<FinanceInvoiceRow['source']>;
+  state: 'open' | 'void';
+  issued_at: string;
+  created_at: string;
+  total: number;
+  amount_paid: number;
+  credit_applied: number;
+  balance: number;
 }
 
 export interface FinanceInvoiceFilterState {
@@ -273,24 +297,83 @@ export async function loadFinanceInvoices(
     throw new Error('Could not resolve invoice dates in the account time zone');
   }
 
-  const invoices = await fetchAll<MembershipPeriodInvoice>((from, to) =>
+  const genericInvoices = await fetchAll<GenericInvoiceRow>((from, to) =>
     db
-      .from('membership_period_invoices')
-      .select(
-        'id, account_id, membership_id, contact_id, plan_id, period_start, period_end, fee_amount, state, created_at, amount_paid, balance, list_price, discount_type, discount_value, discount_amount, standard_period_end, bonus_months'
-      )
-      .gte('created_at', start.toISOString())
-      .lt('created_at', next.toISOString())
-      .order('created_at', { ascending: false })
+      .from('invoice_balances')
+      .select('*')
+      .gte('issued_at', start.toISOString())
+      .lt('issued_at', next.toISOString())
+      .order('issued_at', { ascending: false })
       .range(from, to)
   );
 
+  const periodIds = genericInvoices
+    .map((invoice) => invoice.membership_period_id)
+    .filter((id): id is string => !!id);
+  const { data: periodRows, error: periodError } = periodIds.length
+    ? await db
+        .from('membership_periods')
+        .select('id, plan_id, period_start, period_end')
+        .in('id', periodIds)
+    : { data: [], error: null };
+  if (periodError) throw periodError;
+  const invoiceIds = genericInvoices.map((invoice) => invoice.id);
+  const { data: lineRows, error: lineError } = invoiceIds.length
+    ? await db
+        .from('invoice_lines')
+        .select('invoice_id, kind')
+        .in('invoice_id', invoiceIds)
+        .eq('state', 'active')
+    : { data: [], error: null };
+  if (lineError) throw lineError;
+  const periods = new Map(
+    (periodRows ?? []).map((period) => [period.id, period])
+  );
+
+  const invoices: MembershipPeriodInvoice[] = genericInvoices.map((invoice) => {
+    const period = invoice.membership_period_id
+      ? periods.get(invoice.membership_period_id)
+      : null;
+    const issuedDay = todayInTz(timeZone, new Date(invoice.issued_at));
+    return {
+      id: invoice.id,
+      account_id: invoice.account_id,
+      membership_id: invoice.membership_id ?? '',
+      contact_id: invoice.contact_id ?? '',
+      plan_id: period?.plan_id ?? null,
+      period_start: period?.period_start ?? issuedDay,
+      period_end: period?.period_end ?? issuedDay,
+      fee_amount: Number(invoice.total),
+      state: invoice.state,
+      created_at: invoice.issued_at,
+      amount_paid: Number(invoice.amount_paid),
+      credit_applied: Number(invoice.credit_applied),
+      balance: Number(invoice.balance),
+      invoice_id: invoice.id,
+    };
+  });
+
   const membershipIds = Array.from(
-    new Set(invoices.map((invoice) => invoice.membership_id))
+    new Set(invoices.map((invoice) => invoice.membership_id).filter(Boolean))
   );
   const memberships =
     membershipIds.length > 0 ? await loadMemberships(db, membershipIds) : [];
-  return normalizeFinanceInvoiceRows(invoices, memberships, today);
+  const sourceById = new Map(
+    genericInvoices.map((invoice) => [invoice.id, invoice.source])
+  );
+  const lineKindsByInvoice = new Map<string, Set<InvoiceLineKind>>();
+  for (const line of lineRows ?? []) {
+    const kinds = lineKindsByInvoice.get(line.invoice_id) ?? new Set();
+    kinds.add(line.kind as InvoiceLineKind);
+    lineKindsByInvoice.set(line.invoice_id, kinds);
+  }
+  return normalizeFinanceInvoiceRows(invoices, memberships, today).map(
+    (row) => ({
+      ...row,
+      source: sourceById.get(row.id),
+      lineKinds: [...(lineKindsByInvoice.get(row.id) ?? new Set())],
+    })
+  );
 }
 
 function csvCell(value: string | number): string {
@@ -306,13 +389,16 @@ export function financeInvoicesCsv(rows: FinanceInvoiceRow[]): string {
       'Name',
       'Phone',
       'Plan',
-      'Billing period start',
-      'Billing period end',
+      'Invoice source',
+      'Revenue categories',
+      'Service / billing start',
+      'Service / billing end',
       'Issued on',
       'Lifecycle',
       'Payment status',
       'Invoice total',
-      'Paid',
+      'Cash paid',
+      'Credit applied',
       'Balance',
       'Collection mode',
     ],
@@ -322,6 +408,8 @@ export function financeInvoicesCsv(rows: FinanceInvoiceRow[]): string {
       row.membership?.contact?.name ?? 'Deleted member',
       row.membership?.contact?.phone ?? '',
       row.membership?.plan?.name ?? '',
+      row.source ?? '',
+      (row.lineKinds ?? []).join(' + '),
       row.period_start,
       row.period_end,
       row.created_at,
@@ -329,6 +417,7 @@ export function financeInvoicesCsv(rows: FinanceInvoiceRow[]): string {
       row.paymentState,
       Number(row.fee_amount),
       Number(row.amount_paid),
+      Number(row.credit_applied ?? 0),
       Number(row.balance),
       row.membership?.collection_mode ?? 'manual',
     ]),

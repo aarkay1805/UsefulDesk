@@ -206,6 +206,31 @@ export function canRecordPayments(role: AccountRole): boolean {
   return hasMinRole(role, 'agent');
 }
 
+/** Owner / admin: manage and safely delete unused catalogue items. */
+export function canManageCatalog(role: AccountRole): boolean {
+  return hasMinRole(role, 'admin');
+}
+
+/** Owner / admin: manage trainer identities and duration-specific rates. */
+export function canManageTrainers(role: AccountRole): boolean {
+  return hasMinRole(role, 'admin');
+}
+
+/** Owner / admin / agent: sell catalogue items to an existing member. */
+export function canSellProductsServices(role: AccountRole): boolean {
+  return hasMinRole(role, 'agent');
+}
+
+/** Owner / admin / agent: reassign an active trainer-priced service. */
+export function canReassignTrainer(role: AccountRole): boolean {
+  return hasMinRole(role, 'agent');
+}
+
+/** Owner / admin: override a configured sale price with an audit reason. */
+export function canOverrideSalePrice(role: AccountRole): boolean {
+  return hasMinRole(role, 'admin');
+}
+
 /** Owner / admin: download account-wide financial data. */
 export function canExportFinance(role: AccountRole): boolean {
   return hasMinRole(role, 'admin');

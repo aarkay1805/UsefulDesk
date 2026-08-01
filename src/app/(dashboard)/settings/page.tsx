@@ -15,6 +15,7 @@ import { LeadCapturePanel } from '@/components/settings/lead-capture-panel';
 import { TemplateManager } from '@/components/settings/template-manager';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
 import { PlansSettings } from '@/components/settings/plans-settings';
+import { ProductsServicesSettings } from '@/components/settings/products-services-settings';
 import { RenewalRemindersSettings } from '@/components/settings/renewal-reminders-settings';
 import { DealsSettings } from '@/components/settings/deals-settings';
 import { LocalizationSettings } from '@/components/settings/localization-settings';
@@ -66,6 +67,7 @@ export default function SettingsPage() {
     templates: <TemplateManager />,
     fields: <FieldsAndTagsPanel />,
     plans: <PlansSettings />,
+    'products-services': <ProductsServicesSettings />,
     reminders: <RenewalRemindersSettings />,
     deals: <DealsSettings />,
     localization: <LocalizationSettings />,
@@ -75,21 +77,9 @@ export default function SettingsPage() {
   };
 
   return (
-    <div>
-      <div>
-        <h1 className="text-foreground text-2xl font-bold tracking-tight">
-          Settings
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Everything in one place — your account and your workspace. Pick a
-          section to manage it.
-        </p>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
-        <SettingsRail active={section} onSelect={go} hints={hints} />
-        <div className="min-w-0">{panel[section]}</div>
-      </div>
+    <div className="grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
+      <SettingsRail active={section} onSelect={go} hints={hints} />
+      <div className="min-w-0">{panel[section]}</div>
     </div>
   );
 }

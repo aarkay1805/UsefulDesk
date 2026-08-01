@@ -34,6 +34,7 @@ import { isRenewalChaseable } from '@/lib/memberships/pricing';
 // misconfigured account with a huge expiring cohort hammering Meta in
 // one run. Anything above this simply waits for the next run.
 const MAX_SENDS_PER_RUN = 200;
+const SERVICE_TEMPLATE_NAME = 'gym_service_renewal_reminder';
 
 /** Shape of a membership row hydrated for a reminder (to-one embeds). */
 interface ReminderCandidate {
@@ -66,6 +67,8 @@ export async function GET(request: Request) {
     sent: 0,
     failed: 0,
     skipped_already_sent: 0,
+    service_sent: 0,
+    service_failed: 0,
   };
   const notes: string[] = [];
 
@@ -79,11 +82,7 @@ export async function GET(request: Request) {
   if (settingsErr) {
     return NextResponse.json({ error: settingsErr.message }, { status: 500 });
   }
-  if (!settingsRows || settingsRows.length === 0) {
-    return NextResponse.json({ ...summary, note: 'no accounts opted in' });
-  }
-
-  for (const s of settingsRows) {
+  for (const s of settingsRows ?? []) {
     if (summary.sent >= MAX_SENDS_PER_RUN) {
       notes.push(
         'hit MAX_SENDS_PER_RUN — remaining accounts deferred to next run'
@@ -273,7 +272,122 @@ export async function GET(request: Request) {
     }
   }
 
+  // Services use their own schedule and claim ledger. The RPC atomically
+  // claims only due rows with a current sellable rate; failed claims are
+  // reopened on a later run, while sent rows are permanently deduped.
+  if (summary.sent < MAX_SENDS_PER_RUN) {
+    const { data: serviceCandidates, error: serviceClaimError } =
+      await admin.rpc('claim_service_renewal_reminders', {
+        p_limit: MAX_SENDS_PER_RUN - summary.sent,
+      });
+    if (serviceClaimError) {
+      notes.push(
+        `service reminder claim failed — ${serviceClaimError.message}`
+      );
+    } else {
+      for (const candidate of (serviceCandidates ??
+        []) as ServiceReminderCandidate[]) {
+        try {
+          const [{ data: config }, { data: template }, { data: account }] =
+            await Promise.all([
+              admin
+                .from('whatsapp_config')
+                .select('status')
+                .eq('account_id', candidate.account_id)
+                .maybeSingle(),
+              admin
+                .from('message_templates')
+                .select('language')
+                .eq('account_id', candidate.account_id)
+                .eq('name', SERVICE_TEMPLATE_NAME)
+                .eq('status', 'APPROVED')
+                .maybeSingle(),
+              admin
+                .from('accounts')
+                .select(
+                  'owner_user_id, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system'
+                )
+                .eq('id', candidate.account_id)
+                .single(),
+            ]);
+          if (
+            !config ||
+            config.status !== 'connected' ||
+            !template ||
+            !account
+          ) {
+            throw new Error(
+              `setup required: connect WhatsApp and approve ${SERVICE_TEMPLATE_NAME}`
+            );
+          }
+          if (!candidate.phone) throw new Error('member has no phone number');
+          const fmt = buildFormatters(resolveAccountLocale(account));
+          const conversationId = await findOrCreateConversation(
+            admin,
+            candidate.account_id,
+            account.owner_user_id,
+            candidate.contact_id
+          );
+          const params = [
+            candidate.member_name?.trim() || 'there',
+            candidate.item_name_snapshot,
+            fmt.date(candidate.end_date),
+            fmt.money(candidate.current_renewal_price),
+          ];
+          const { whatsapp_message_id } = await engineSendTemplate({
+            accountId: candidate.account_id,
+            userId: account.owner_user_id,
+            conversationId,
+            contactId: candidate.contact_id,
+            templateName: SERVICE_TEMPLATE_NAME,
+            language: template.language ?? 'en_US',
+            params,
+            purpose: 'renewal',
+          });
+          await admin.rpc('finish_service_renewal_reminder', {
+            p_member_service_id: candidate.id,
+            p_end_date: candidate.end_date,
+            p_days_before: candidate.days_until_expiry,
+            p_succeeded: true,
+            p_wa_message_id: whatsapp_message_id,
+            p_error: null,
+          });
+          summary.service_sent++;
+          summary.sent++;
+        } catch (error) {
+          await admin.rpc('finish_service_renewal_reminder', {
+            p_member_service_id: candidate.id,
+            p_end_date: candidate.end_date,
+            p_days_before: candidate.days_until_expiry,
+            p_succeeded: false,
+            p_wa_message_id: null,
+            p_error: error instanceof Error ? error.message : String(error),
+          });
+          summary.service_failed++;
+          summary.failed++;
+          notes.push(
+            `account ${candidate.account_id} service ${candidate.id}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
+        }
+      }
+    }
+  }
+
   return NextResponse.json({ ...summary, notes });
+}
+
+interface ServiceReminderCandidate {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  member_name: string | null;
+  phone: string | null;
+  item_name_snapshot: string;
+  end_date: string;
+  days_until_expiry: number;
+  current_renewal_price: number;
 }
 
 type Admin = ReturnType<typeof supabaseAdmin>;

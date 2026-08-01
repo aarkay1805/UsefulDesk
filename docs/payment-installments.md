@@ -1,12 +1,12 @@
-# Conversion payment installments
+# Joining checkout payment installments
 
-Lead conversion can collect the first invoice either in full or as a fixed no-fee 60/40 split:
+Add member and lead conversion can collect the first invoice either in full or as a fixed no-fee 60/40 split. The split applies to the complete checkout total, including membership, services, and merchandise:
 
 - 60% is recorded immediately through the append-only payment ledger.
 - 40% remains on the same invoice and is due 28 account-local calendar days later.
 - WhatsApp reminders are attempted 7, 3, 1, and 0 days before that deadline, after 09:00 in the account timezone.
 
-`record_membership_installment_payment` creates the first payment and `membership_installment_plans` row in one transaction. The invoice view remains the source of truth for the outstanding balance, so later manual payments automatically stop reminders once the invoice is settled. `installment_reminders_sent` is a claim-first dedupe ledger; a failed send releases its claim for retry.
+`perform_join_checkout` creates the membership, combined immutable invoice, first payment, proportional line allocations, and `membership_installment_plans` row in one idempotent transaction. The generic `invoice_balances` view remains the source of truth for the outstanding balance, so later manual payments automatically stop reminders once the invoice is settled. `installment_reminders_sent` is a claim-first dedupe ledger; a failed send releases its claim for retry. Standalone sales may accept any partial payment or remain due, but do not create this scheduled 60/40 promise.
 
 ## WhatsApp prerequisite
 
@@ -17,7 +17,7 @@ The account must have WhatsApp connected and an approved Meta Utility template n
 3. plan name
 4. installment due date
 
-If the template is missing or not approved, conversion and payment collection still work; the cron skips the message and reports the setup issue in its response notes.
+If the template is missing or not approved, joining/conversion and payment collection still work; the cron skips the message and reports the setup issue in its response notes.
 
 ## Operations
 

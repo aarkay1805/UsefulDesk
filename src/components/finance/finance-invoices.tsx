@@ -17,9 +17,11 @@ import { Skeleton, SkeletonCard } from '@/components/dashboard/skeleton';
 import { FinanceInvoiceFilters } from '@/components/finance/finance-invoice-filters';
 import { FinanceMonthActions } from '@/components/finance/finance-month-actions';
 import { LeadsSort, type SortState } from '@/components/leads/leads-sort';
-import { InvoiceDetailDialog } from '@/components/members/invoice-detail-dialog';
 import { MemberIdentity } from '@/components/members/member-identity';
-import { RecordPaymentDialog } from '@/components/members/record-payment-dialog';
+import {
+  GenericInvoiceDetailDialog,
+  GenericRecordPaymentDialog,
+} from '@/components/finance/generic-invoice-dialogs';
 import { ColumnHeader } from '@/components/table/column-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -357,7 +359,7 @@ export function FinanceInvoices({
                 hint={
                   hasQuery
                     ? 'Clear a filter or search term to see more invoice records.'
-                    : 'A persisted billing cycle will appear here when a membership is created or renewed.'
+                    : 'A new membership, renewal, service, or merchandise checkout will appear here.'
                 }
               />
             ) : (
@@ -567,31 +569,22 @@ export function FinanceInvoices({
         </>
       )}
 
-      <InvoiceDetailDialog
+      <GenericInvoiceDetailDialog
         open={invoiceOpen}
         onOpenChange={setInvoiceOpen}
         invoice={selectedInvoice}
-        canAct={mayRecordPayments}
-        membershipEndDate={selectedInvoice?.membership?.end_date}
-        onRecord={(invoice) => {
-          const row = rows.find((candidate) => candidate.id === invoice.id);
-          if (row) recordInvoice(row);
+        canRecord={mayRecordPayments}
+        onRecord={() => {
+          if (selectedInvoice) recordInvoice(selectedInvoice);
         }}
-        onRenew={() => undefined}
       />
 
-      {paymentTarget?.membership ? (
-        <RecordPaymentDialog
+      {paymentTarget ? (
+        <GenericRecordPaymentDialog
+          invoice={paymentTarget}
           open
           onOpenChange={(open) => {
             if (!open) setPaymentTargetId(null);
-          }}
-          membership={paymentTarget.membership}
-          period={{
-            period_start: paymentTarget.period_start,
-            period_end: paymentTarget.period_end,
-            fee_amount: paymentTarget.fee_amount,
-            balance: paymentTarget.balance,
           }}
           onSaved={() => {
             setPaymentTargetId(null);

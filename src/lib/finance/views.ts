@@ -6,6 +6,7 @@ export type FinanceView =
 const PAYMENT_PURPOSES: PaymentPurpose[] = [
   'joining',
   'renewal',
+  'sale',
   'due',
   'other',
 ];
