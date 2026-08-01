@@ -137,8 +137,9 @@ export function ProductsServicesSettings() {
   const [pendingTrainerUserId, setPendingTrainerUserId] = useState<
     string | null
   >(null);
-  const [pendingIndependentTrainerId, setPendingIndependentTrainerId] =
-    useState<string | null>(null);
+  const [trainerDeleteTarget, setTrainerDeleteTarget] =
+    useState<Trainer | null>(null);
+  const [deletingTrainer, setDeletingTrainer] = useState(false);
   const activeTrainerCount = trainers.filter(
     (trainer) => trainer.is_active
   ).length;
@@ -311,38 +312,35 @@ export function ProductsServicesSettings() {
     );
   }
 
-  async function setIndependentTrainerActive(
-    trainer: Trainer,
-    active: boolean
-  ) {
-    if (!accountId || pendingIndependentTrainerId) return;
-    setPendingIndependentTrainerId(trainer.id);
+  async function confirmTrainerDelete() {
+    if (!accountId || !trainerDeleteTarget || deletingTrainer) return;
+    setDeletingTrainer(true);
     const { data, error } = await supabase
       .from('trainers')
-      .update({ is_active: active })
-      .eq('id', trainer.id)
+      .delete()
+      .eq('id', trainerDeleteTarget.id)
       .eq('account_id', accountId)
-      .select('*')
-      .single();
-    setPendingIndependentTrainerId(null);
+      .is('linked_user_id', null)
+      .select('id');
+    setDeletingTrainer(false);
 
-    if (error || !data) {
-      toast.error(getErrorMessage(error, 'Trainer status was not updated'));
+    if (error || !data?.length) {
+      toast.error(
+        getErrorMessage(
+          error,
+          "You don't have permission to delete this trainer"
+        )
+      );
       refresh();
       return;
     }
 
-    const savedTrainer = data as Trainer;
     setTrainers((current) =>
-      current.map((currentTrainer) =>
-        currentTrainer.id === savedTrainer.id ? savedTrainer : currentTrainer
-      )
+      current.filter((trainer) => trainer.id !== trainerDeleteTarget.id)
     );
-    toast.success(
-      active
-        ? `${trainer.display_name} is now available for assignments`
-        : `${trainer.display_name} removed from trainer assignments`
-    );
+    toast.success(`${trainerDeleteTarget.display_name} deleted`);
+    setTrainerDeleteTarget(null);
+    refresh();
   }
 
   return (
@@ -539,8 +537,8 @@ export function ProductsServicesSettings() {
         <TabsContent value="trainers" className="mt-4 space-y-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-muted-foreground text-sm">
-              Trainer status is managed the same way for team members and
-              independent trainers. Team access stays separate.
+              Team members use a Trainer switch. Independent trainers can be
+              deleted when no longer needed. Team access stays separate.
             </p>
             {canManageTrainers ? (
               <Button onClick={() => setTrainerOpen(true)}>
@@ -612,27 +610,33 @@ export function ProductsServicesSettings() {
                     <ul className="divide-border divide-y">
                       {trainers
                         .filter((trainer) => !trainer.linked_user_id)
-                        .map((trainer) => {
-                          const isPending =
-                            pendingIndependentTrainerId === trainer.id;
-                          return (
-                            <TrainerSwitchRow
-                              key={trainer.id}
-                              switchId={`independent-trainer-${trainer.id}`}
-                              name={trainer.display_name}
-                              context={trainer.title || 'Trainer'}
-                              checked={trainer.is_active}
-                              pending={isPending}
-                              disabled={!canManageTrainers}
-                              onCheckedChange={(active) =>
-                                void setIndependentTrainerActive(
-                                  trainer,
-                                  active
-                                )
-                              }
-                            />
-                          );
-                        })}
+                        .map((trainer) => (
+                          <TrainerRosterRow
+                            key={trainer.id}
+                            name={trainer.display_name}
+                            context={trainer.title || 'Trainer'}
+                            action={
+                              <Button
+                                variant="destructive-ghost"
+                                size="icon-sm"
+                                onClick={() => setTrainerDeleteTarget(trainer)}
+                                disabled={
+                                  !canManageTrainers ||
+                                  (deletingTrainer &&
+                                    trainerDeleteTarget?.id === trainer.id)
+                                }
+                                aria-label={`Delete ${trainer.display_name}`}
+                              >
+                                {deletingTrainer &&
+                                trainerDeleteTarget?.id === trainer.id ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="size-4" />
+                                )}
+                              </Button>
+                            }
+                          />
+                        ))}
                     </ul>
                   )}
                 </CardContent>
@@ -735,6 +739,44 @@ export function ProductsServicesSettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog
+        open={trainerDeleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deletingTrainer) setTrainerDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Delete {trainerDeleteTarget?.display_name}?
+            </DialogTitle>
+            <DialogDescription>
+              This permanently deletes the independent trainer and their saved
+              rates. Existing invoices and service history keep the trainer name
+              snapshot. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setTrainerDeleteTarget(null)}
+              disabled={deletingTrainer}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmTrainerDelete}
+              disabled={deletingTrainer}
+            >
+              {deletingTrainer ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : null}
+              {deletingTrainer ? 'Deleting…' : 'Delete trainer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -767,27 +809,50 @@ function TrainerSwitchRow({
   onCheckedChange: (active: boolean) => void;
 }) {
   return (
+    <TrainerRosterRow
+      name={name}
+      avatarUrl={avatarUrl}
+      context={context}
+      action={
+        <div className="flex items-center gap-2">
+          {pending ? (
+            <Loader2 className="text-muted-foreground size-4 animate-spin" />
+          ) : null}
+          <Label htmlFor={switchId}>
+            Trainer
+            <span className="sr-only"> for {name}</span>
+          </Label>
+          <Switch
+            id={switchId}
+            checked={checked}
+            disabled={disabled || pending}
+            onCheckedChange={(active) => onCheckedChange(active === true)}
+          />
+        </div>
+      }
+    />
+  );
+}
+
+function TrainerRosterRow({
+  name,
+  avatarUrl,
+  context,
+  action,
+}: {
+  name: string;
+  avatarUrl?: string | null;
+  context: string;
+  action: React.ReactNode;
+}) {
+  return (
     <li className="flex items-center gap-3 px-4 py-3">
       <UserAvatar name={name} src={avatarUrl} className="size-9" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{name}</p>
         <p className="text-muted-foreground truncate text-sm">{context}</p>
       </div>
-      <div className="flex items-center gap-2">
-        {pending ? (
-          <Loader2 className="text-muted-foreground size-4 animate-spin" />
-        ) : null}
-        <Label htmlFor={switchId}>
-          Trainer
-          <span className="sr-only"> for {name}</span>
-        </Label>
-        <Switch
-          id={switchId}
-          checked={checked}
-          disabled={disabled || pending}
-          onCheckedChange={(active) => onCheckedChange(active === true)}
-        />
-      </div>
+      {action}
     </li>
   );
 }
