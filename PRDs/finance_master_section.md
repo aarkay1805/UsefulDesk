@@ -1,11 +1,11 @@
-# Finance master section
+# Business section
 
-> Status: **Unified Finance shell with Overview, Performance, Invoices, Payments, and Expenses built** · Product roadmap · Last updated: 2026-08-01
+> Status: **Unified Business shell with Overview, Performance, Invoices, Payments, and Expenses built** · Product roadmap · Last updated: 2026-08-01
 > Reference audit: FitGymSoftware Finance, inspected in-product on 2026-07-23. The reference is used for capability discovery only; its information architecture and visual design are not implementation targets.
 
 ## 1. Decision
 
-Build one **Finance** section that gives the owner a financial and business-performance view without making them assemble the answer across Members, a separate Reports page, and spreadsheets:
+Build one **Business** section that gives the owner a financial and business-performance view without making them assemble the answer across Members, a separate Reports page, and spreadsheets:
 
 1. What revenue came in, and how does it compare with the previous period?
 2. What was invoiced, paid, partially paid, or left outstanding?
@@ -19,7 +19,7 @@ The section reuses UsefulDesk's existing ledger and billing domain rather than c
 Proposed top-level navigation:
 
 ```text
-Finance
+Business
 ├── Overview
 ├── Performance
 ├── Invoices
@@ -96,7 +96,7 @@ The master section should move and compose these capabilities. It must not dupli
 
 ### Current gaps
 
-- Financial and business-performance analysis was split between Finance and Reports, with overlapping revenue summaries and trends.
+- Financial and business-performance analysis was split between the former Finance and Reports destinations, with overlapping revenue summaries and trends.
 - Payment history is capped to a client-loaded latest set instead of a server-paged full ledger.
 - AutoPay failures are counted but are not yet a focused recovery workflow.
 - There is no stable human-facing invoice number or account-wide invoice export.
@@ -121,7 +121,7 @@ Overview block headers are divider-free.
 Data rules:
 
 - Revenue is the append-preserving paid-payment total for the selected calendar month and compares with the previous calendar month.
-- Revenue sources is the same selected-month, account-timezone paid ledger grouped by immutable payment purpose: New memberships, Renewals, Due payments recovered, and Other. Each stream is a chevron-only expandable summary—without decorative colour markers—with payment count, total-revenue share, and revenue; its disclosure shows the five latest contributing payments with canonical member identity, plan as secondary context, collection date, stream-specific cycle context, method, Manual/AutoPay source, and amount. Phone numbers stay hidden in this analytical list, while keyboard-clickable member rows open the established member detail sheet in place. A branch-preserving View all link opens Finance Payments with the month and revenue source durably filtered in the URL. Other appears only when non-zero so the rows always reconcile with Revenue without mislabelling legacy or mid-cycle plan-change collections. Plan aggregation remains in Finance → Performance rather than being duplicated on Overview.
+- Revenue sources is the same selected-month, account-timezone paid ledger grouped by immutable payment purpose: New memberships, Renewals, Due payments recovered, and Other. Each stream is a chevron-only expandable summary—without decorative colour markers—with payment count, total-revenue share, and revenue; its disclosure shows the five latest contributing payments with canonical member identity, plan as secondary context, collection date, stream-specific cycle context, method, Manual/AutoPay source, and amount. Phone numbers stay hidden in this analytical list, while keyboard-clickable member rows open the established member detail sheet in place. A branch-preserving View all link opens Business → Payments with the month and revenue source durably filtered in the URL. Other appears only when non-zero so the rows always reconcile with Revenue without mislabelling legacy or mid-cycle plan-change collections. Plan aggregation remains in Business → Performance rather than being duplicated on Overview.
 - Joining collections and first joining installments are `joining`; manual and AutoPay-created new cycles are `renewal`; later manual/bulk/installment-balance collections and AutoPay applied to an existing invoice are `due`; mid-cycle plan changes and genuinely ambiguous legacy rows are `other`. Browser callers never supply the classification.
 - Cash flow plots day-wise income and posted expenses and can group both by week without changing the selected period.
 - Invoice health groups issued periods into Paid, Partially paid, Overdue, Open, and Outstanding.
@@ -134,15 +134,15 @@ The Overview is analytical, not an exception/action queue. Business-performance 
 
 ### 5.2 Performance
 
-Purpose: give owners and staff one period-scoped view of acquisition, membership, and plan performance without repeating Finance Overview's money summary.
+Purpose: give owners and staff one period-scoped view of acquisition, membership, and plan performance without repeating Business → Overview's money summary.
 
 Built:
 
-- 7/30/90-day range selection plus All staff or teammate assignment scope;
+- the same account-history-bounded calendar-month navigator used by every other Business tab, plus All staff or teammate assignment scope;
 - owner-only branch/organization scope with separate-currency consolidated totals;
 - New members, Average Sale Price, and Lead conversion KPIs;
 - member activity, plan/billing-option performance, and lead-source performance;
-- paid-social cohort performance beside lead-source analysis for the All staff scope. The cohort follows the selected performance range; Marketing spend is account-level and is therefore not shown for an individual staff scope;
+- paid-social cohort performance beside lead-source analysis for the All staff scope. The cohort follows the selected calendar month; Marketing spend is account-level and is therefore not shown for an individual staff scope;
 - CSV export containing the full historical report payload and the All-staff ad-performance cohort;
 - legacy `/reports` URLs redirect to `/finance?view=performance`, preserving a valid branch query.
 
@@ -150,7 +150,7 @@ Performance deliberately omits the Revenue collected KPI and Collections over ti
 
 ### 5.3 Payments
 
-Finance Payments is the account-wide analytical money-in ledger. It does not replace the operational queue in **Members → Payments**.
+Business → Payments is the account-wide analytical money-in ledger. It does not replace the operational queue in **Members → Payments**.
 
 Members retains two existing toolbar views:
 
@@ -175,7 +175,7 @@ Deliberately retained in Members → Payments:
 - due buckets and reminder actions;
 - full/half amount shortcuts and balance preview.
 
-The **AutoPay failed** queue remains pending on the Phase B failure-event domain. It belongs under Members → Payments with the member, failure reason, last attempt, and recovery actions; Finance must not fabricate it from raw webhook diagnostics.
+The **AutoPay failed** queue remains pending on the Phase B failure-event domain. It belongs under Members → Payments with the member, failure reason, last attempt, and recovery actions; Business must not fabricate it from raw webhook diagnostics.
 
 Do not add:
 
@@ -189,7 +189,7 @@ Deep-link rules:
 - `/members?view=payments` remains the operational destination;
 - Dashboard attention links deep-link to the matching Members payment queue;
 - member-level billing and payment actions remain in the member sheet;
-- Finance Payments does not gain mutation actions that would duplicate those flows.
+- Business → Payments does not gain mutation actions that would duplicate those flows.
 
 ### 5.4 Invoices
 
@@ -303,7 +303,7 @@ Seed a concise default category set:
 - Taxes & licences
 - Other
 
-Custom category management belongs in Settings → Payments & currency, not the Finance navigation.
+Custom category management belongs in Settings → Payments & currency, not the Business navigation.
 
 ## 6. What to include, adapt, or defer
 
@@ -381,21 +381,21 @@ Buttons should be gated with a reason, not hidden. Viewers remain read-only.
 
 ## 8. Phased delivery roadmap
 
-### Phase A — Finance shell and Overview
+### Phase A — Business shell and Overview
 
 Goal: create one discoverable financial snapshot without changing financial truth.
 
 Built:
 
 - `/finance`, sidebar item, page title, and URL-backed Overview/Performance/Invoices/Payments/Expenses header tabs;
-- calendar-month navigation shared by Overview and the three ledgers, with a `Today` action, previous/next arrows, one localized Month Year label, and account-history/future guards; Performance keeps its own 7/30/90-day period control;
+- one calendar-month navigator shared by all five tabs, with a `Today` action, previous/next arrows, one localized Month Year label, and account-history/future guards;
 - Revenue with previous-month comparison and Next month projected from active renewals;
 - immutable joining/renewal/due/other payment attribution and a reconciling Revenue breakdown on Overview;
-- 7/30/90-day staff-scoped business analysis plus All-staff Meta/Instagram/Facebook acquisition-cohort ad performance on Performance;
+- calendar-month staff-scoped business analysis plus All-staff Meta/Instagram/Facebook acquisition-cohort ad performance on Performance;
 - day/weekly income-and-expense cash flow, invoice health, collection mix, and merged recent transactions;
 - admin-only Overview CSV export with revenue attribution, expense, profit, and daily cash-flow truth, plus Performance CSV export with its historical and All-staff ad-performance truth;
 - posted Expense totals and Revenue-minus-Expenses Profit for the selected and previous calendar months;
-- analytical Finance Payments with tenant-safe database paging, filtered totals/method mix, full export, receipt audit, and member deep links;
+- analytical Business → Payments with tenant-safe database paging, filtered totals/method mix, full export, receipt audit, and member deep links;
 - Members → Payments restored as the operational due/payment home, including its existing server paging, filters, complete CSV export, reminders, payment entry, and realtime behavior.
 
 Remaining Phase A hardening:
@@ -405,7 +405,7 @@ Remaining Phase A hardening:
 Exit criteria:
 
 - No payment or due logic is duplicated.
-- An owner can understand revenue sources, daily inflow, invoice health, collection mix, next-month renewal projection, and period business performance from `/finance` without choosing between Finance and Reports.
+- An owner can understand revenue sources, daily inflow, invoice health, collection mix, next-month renewal projection, and period business performance from the Business page without choosing between Finance and Reports.
 - No expense or profit figure is shown until it is backed by posted expense records.
 - An agent can still record a payment and send a reminder from Members → Payments.
 - Existing `/members?view=payments` bookmarks remain valid.
@@ -496,9 +496,9 @@ Exit criteria:
 
 ## 9. UX and engineering invariants
 
-- One page header; all Finance tabs and actions portal into shared header slots.
+- One page header; all Business tabs and actions portal into shared header slots.
 - Reuse existing `SearchInput`, Filters/Sort pill triggers, `ChipGroup`, `ColumnHeader`, `MemberIdentity`, `DatePicker`, `CurrencyInput`, tables, dialogs, badges, and pagination.
-- If mobile Finance requires a new responsive data-list primitive, stop during implementation and agree whether to create a master component; do not ship page-specific cards.
+- If mobile Business requires a new responsive data-list primitive, stop during implementation and agree whether to create a master component; do not ship page-specific cards.
 - Search → Filters → Sort → chips → trailing actions.
 - No native selects or date inputs.
 - All account money/date/time formatting uses `useLocale()` or server-built formatters.

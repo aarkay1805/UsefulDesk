@@ -105,7 +105,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
         {/* Leads and Members use a roomier 24px separation below their
-            headers. Finance matches its 20px section rhythm; other routes
+            headers. Business matches its 20px section rhythm; other routes
             retain the standard 12px gap. */}
         <main
           className={cn(

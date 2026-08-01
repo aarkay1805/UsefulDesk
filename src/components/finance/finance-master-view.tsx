@@ -187,7 +187,7 @@ export function FinanceMasterView({
           onMonthChange={changeMonth}
         />
       ) : view === 'performance' ? (
-        <OwnerReportsView />
+        <OwnerReportsView month={month} onMonthChange={changeMonth} />
       ) : view === 'invoices' ? (
         <FinanceInvoices
           reloadKey={reloadKey}

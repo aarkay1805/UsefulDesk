@@ -633,7 +633,7 @@ function csvCell(value: string | number): string {
 
 export function financeOverviewCsv(data: FinanceOverviewData): string {
   const lines = [
-    ['Finance overview', `${data.period.start} to ${data.period.end}`],
+    ['Business overview', `${data.period.start} to ${data.period.end}`],
     [],
     ['Summary', 'Current month', 'Previous month'],
     ['Revenue', data.revenue.current, data.revenue.previous],

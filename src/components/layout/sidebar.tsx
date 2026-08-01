@@ -11,9 +11,9 @@ import { useUnreadNotifications } from '@/hooks/use-unread-notifications';
 import {
   Bell,
   Bot,
+  BriefcaseBusiness,
   Crown,
   Dumbbell,
-  Landmark,
   LayoutDashboard,
   LogOut,
   MessageSquare,
@@ -107,7 +107,7 @@ const navSections: { key: string; items: NavItem[] }[] = [
       { href: '/notifications', label: 'Notifications', icon: Bell },
       { href: '/leads', label: 'Leads', icon: Users },
       { href: '/members', label: 'Members', icon: Dumbbell },
-      { href: '/finance', label: 'Finance', icon: Landmark },
+      { href: '/finance', label: 'Business', icon: BriefcaseBusiness },
     ],
   },
   {

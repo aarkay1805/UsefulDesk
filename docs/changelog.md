@@ -6,9 +6,9 @@
 
 ---
 
-## Finance and Reports consolidation
+## Business page consolidation
 
-Finance is now the single top-level destination for financial and business analysis, with URL-backed Overview, Performance, Invoices, Payments, and Expenses tabs. Performance absorbs the former Reports page while removing its duplicate Revenue collected KPI and Collections over time chart; Ad performance moved out of Overview and follows the 7/30/90-day all-staff performance range beside lead-source analysis. The Reports sidebar item is gone, old `/reports` links redirect to Finance → Performance with valid branch context preserved, and the Dashboard/organization links target the new route. Key code: `src/components/finance/finance-master-view.tsx`, `src/components/reports/owner-reports-view.tsx`, and `src/app/(dashboard)/reports/page.tsx`.
+Business is now the single top-level destination for financial and business analysis, with URL-backed Overview, Performance, Invoices, Payments, and Expenses tabs. Performance absorbs the former Reports page while removing its duplicate Revenue collected KPI and Collections over time chart; it uses the exact Today / previous / next / Month Year navigator shared by the other tabs, and the selected calendar month scopes staff, organization, ad-performance, and CSV data. Ad performance sits beside lead-source analysis for All staff. The former Finance and Reports sidebar labels collapse into Business, while the stable `/finance` route and old `/reports` redirect preserve bookmarks and branch context. Key code: `src/components/finance/finance-month-actions.tsx`, `src/components/finance/finance-master-view.tsx`, `src/components/reports/owner-reports-view.tsx`, and `src/app/(dashboard)/reports/page.tsx`.
 
 ---
 

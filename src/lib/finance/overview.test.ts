@@ -250,6 +250,7 @@ describe('financeOverviewCsv', () => {
     } satisfies FinanceOverviewData;
 
     const csv = financeOverviewCsv(data);
+    expect(csv).toContain('Business overview,2026-07-01 to 2026-07-31');
     expect(csv).toContain('Expenses,1500,1000');
     expect(csv).toContain('Profit,4500,4000');
     expect(csv).toContain('New memberships,3000');

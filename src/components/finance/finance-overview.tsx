@@ -64,7 +64,7 @@ export function FinanceOverview({
       } catch (reason) {
         if (cancelled) return;
         setError(
-          getErrorMessage(reason, 'Finance overview could not be loaded')
+          getErrorMessage(reason, 'Business overview could not be loaded')
         );
       } finally {
         if (!cancelled) setLoading(false);
@@ -84,7 +84,7 @@ export function FinanceOverview({
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `finance-overview-${data.period.month}.csv`;
+    anchor.download = `business-overview-${data.period.month}.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -103,7 +103,7 @@ export function FinanceOverview({
       {error ? (
         <Alert variant="destructive">
           <RefreshCw />
-          <AlertTitle>Could not load Finance</AlertTitle>
+          <AlertTitle>Could not load overview</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
           <Button
             type="button"

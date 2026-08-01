@@ -50,7 +50,7 @@ export function VoidExpenseDialog({
         p_reason: reason.trim(),
       });
       if (error) throw error;
-      toast.success('Expense voided; Finance totals were recalculated');
+      toast.success('Expense voided; Business totals were recalculated');
       onOpenChange(false);
       onVoided();
     } catch (reason) {

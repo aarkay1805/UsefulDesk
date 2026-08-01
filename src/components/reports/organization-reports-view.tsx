@@ -6,10 +6,10 @@ import { AlertCircle, Building2, RefreshCw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { branchHref } from '@/lib/auth/branch-context';
 import { financeHref } from '@/lib/finance/views';
+import { financeMonthRange } from '@/lib/finance/overview';
 import { formatCurrency } from '@/lib/currency';
 import { useLocale } from '@/hooks/use-locale';
-import { reportDateRange } from '@/lib/reports/reporting';
-import type { ReportRangeDays } from '@/lib/reports/types';
+import { BusinessMonthNavigator } from '@/components/finance/finance-month-actions';
 import { PageHeaderActions } from '@/components/layout/page-header-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -50,23 +50,22 @@ interface OrganizationReport {
   currencyTotals: Array<{ currency: string; revenue: number }>;
 }
 
-const RANGE_OPTIONS: Array<{ value: ReportRangeDays; label: string }> = [
-  { value: 7, label: 'Last 7 days' },
-  { value: 30, label: 'Last 30 days' },
-  { value: 90, label: 'Last 90 days' },
-];
-
 export function OrganizationReportsView({
   organizationId,
+  month,
+  onMonthChange,
+  accountCreatedAt,
   onShowSelectedBranch,
 }: {
   organizationId: string;
+  month: string;
+  onMonthChange: (month: string) => void;
+  accountCreatedAt?: string | null;
   onShowSelectedBranch: () => void;
 }) {
   const { fmt, locale } = useLocale();
-  const [rangeDays, setRangeDays] = useState<ReportRangeDays>(30);
   const [nonce, setNonce] = useState(0);
-  const requestKey = `${organizationId}:${rangeDays}:${nonce}`;
+  const requestKey = `${organizationId}:${month}:${nonce}`;
   const [result, setResult] = useState<{
     key: string;
     report: OrganizationReport | null;
@@ -77,7 +76,7 @@ export function OrganizationReportsView({
     let cancelled = false;
     (async () => {
       try {
-        const range = reportDateRange(fmt.today(), rangeDays);
+        const range = financeMonthRange(month);
         const { data, error: rpcError } = await createClient().rpc(
           'organization_report_summary',
           {
@@ -112,7 +111,7 @@ export function OrganizationReportsView({
     return () => {
       cancelled = true;
     };
-  }, [fmt, organizationId, rangeDays, requestKey]);
+  }, [month, organizationId, requestKey]);
 
   const loading = result.key !== requestKey;
   const report = loading ? null : result.report;
@@ -126,6 +125,11 @@ export function OrganizationReportsView({
   return (
     <div className="space-y-5">
       <PageHeaderActions>
+        <BusinessMonthNavigator
+          month={month}
+          onMonthChange={onMonthChange}
+          accountCreatedAt={accountCreatedAt}
+        />
         <Select
           value="organization"
           onValueChange={(value) => {
@@ -138,24 +142,6 @@ export function OrganizationReportsView({
           <SelectContent align="end">
             <SelectItem value="branch">Selected branch</SelectItem>
             <SelectItem value="organization">All branches</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select<ReportRangeDays>
-          value={rangeDays}
-          onValueChange={(value) => value && setRangeDays(value)}
-        >
-          <SelectTrigger
-            aria-label="Performance period"
-            className="w-36 sm:w-40"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="end">
-            {RANGE_OPTIONS.map((range) => (
-              <SelectItem key={range.value} value={range.value}>
-                {range.label}
-              </SelectItem>
-            ))}
           </SelectContent>
         </Select>
       </PageHeaderActions>
@@ -245,7 +231,7 @@ export function OrganizationReportsView({
                   <TableCell>
                     <Link
                       href={branchHref(
-                        financeHref('performance'),
+                        financeHref('performance', month),
                         branch.accountId
                       )}
                       className="text-primary-text inline-flex items-center gap-2 font-medium"

@@ -27,57 +27,15 @@ export function FinanceMonthActions({
   primaryAction?: ReactNode;
 }) {
   const { account, accountRole } = useAuth();
-  const { fmt } = useLocale();
-  const currentMonth = fmt.today().slice(0, 7);
   const mayExport = accountRole ? canExportFinance(accountRole) : false;
-  const accountCreatedYear = account?.created_at?.slice(0, 4);
-  const earliestMonth = accountCreatedYear
-    ? `${accountCreatedYear}-01`
-    : currentMonth;
 
   return (
     <PageHeaderActions>
-      <div
-        className="flex min-w-0 items-center gap-1 sm:gap-2"
-        role="group"
-        aria-label="Finance reporting month"
-      >
-        <Button
-          type="button"
-          variant="outline"
-          className="hidden sm:inline-flex"
-          disabled={month === currentMonth}
-          onClick={() => onMonthChange(currentMonth)}
-        >
-          Today
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Previous month"
-          disabled={month <= earliestMonth}
-          onClick={() => onMonthChange(shiftFinanceMonth(month, -1))}
-        >
-          <ChevronLeft />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Next month"
-          disabled={month >= currentMonth}
-          onClick={() => onMonthChange(shiftFinanceMonth(month, 1))}
-        >
-          <ChevronRight />
-        </Button>
-        <span
-          className="text-foreground w-20 shrink-0 truncate px-1 text-sm font-medium tabular-nums sm:w-32 sm:text-base"
-          aria-live="polite"
-        >
-          {fmt.month(`${month}-01`)}
-        </span>
-      </div>
+      <BusinessMonthNavigator
+        month={month}
+        onMonthChange={onMonthChange}
+        accountCreatedAt={account?.created_at}
+      />
       <GatedButton
         type="button"
         variant="ghost"
@@ -96,5 +54,66 @@ export function FinanceMonthActions({
       </GatedButton>
       {primaryAction}
     </PageHeaderActions>
+  );
+}
+
+export function BusinessMonthNavigator({
+  month,
+  onMonthChange,
+  accountCreatedAt,
+}: {
+  month: string;
+  onMonthChange: (month: string) => void;
+  accountCreatedAt?: string | null;
+}) {
+  const { fmt } = useLocale();
+  const currentMonth = fmt.today().slice(0, 7);
+  const accountCreatedYear = accountCreatedAt?.slice(0, 4);
+  const earliestMonth = accountCreatedYear
+    ? `${accountCreatedYear}-01`
+    : currentMonth;
+
+  return (
+    <div
+      className="flex min-w-0 items-center gap-1 sm:gap-2"
+      role="group"
+      aria-label="Business reporting month"
+    >
+      <Button
+        type="button"
+        variant="outline"
+        className="hidden sm:inline-flex"
+        disabled={month === currentMonth}
+        onClick={() => onMonthChange(currentMonth)}
+      >
+        Today
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Previous month"
+        disabled={month <= earliestMonth}
+        onClick={() => onMonthChange(shiftFinanceMonth(month, -1))}
+      >
+        <ChevronLeft />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Next month"
+        disabled={month >= currentMonth}
+        onClick={() => onMonthChange(shiftFinanceMonth(month, 1))}
+      >
+        <ChevronRight />
+      </Button>
+      <span
+        className="text-foreground w-20 shrink-0 truncate px-1 text-sm font-medium tabular-nums sm:w-32 sm:text-base"
+        aria-live="polite"
+      >
+        {fmt.month(`${month}-01`)}
+      </span>
+    </div>
   );
 }

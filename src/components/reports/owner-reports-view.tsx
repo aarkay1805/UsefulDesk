@@ -17,13 +17,8 @@ import {
   loadOwnerReport,
   ownerReportCsv,
   relativeChange,
-  reportDateRange,
 } from '@/lib/reports/reporting';
-import type {
-  OwnerReport,
-  ReportMetric,
-  ReportRangeDays,
-} from '@/lib/reports/types';
+import type { OwnerReport, ReportMetric } from '@/lib/reports/types';
 import { PageHeaderActions } from '@/components/layout/page-header-actions';
 import { SourceIcon } from '@/components/leads/source-icon';
 import { useAccountStaff } from '@/components/members/use-account-staff';
@@ -31,6 +26,7 @@ import { MetricCard } from '@/components/dashboard/metric-card';
 import { Skeleton, SkeletonCard } from '@/components/dashboard/skeleton';
 import { EmptyState } from '@/components/dashboard/empty-state';
 import { FinanceAdPerformanceCard } from '@/components/finance/finance-ad-performance';
+import { BusinessMonthNavigator } from '@/components/finance/finance-month-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Accordion,
@@ -67,15 +63,10 @@ import { ActivityTrendCard } from './report-trend-card';
 import { useAuth } from '@/hooks/use-auth';
 import { OrganizationReportsView } from './organization-reports-view';
 import {
+  financeMonthRange,
   loadFinanceAdPerformance,
   type FinanceAdPerformance,
 } from '@/lib/finance/overview';
-
-const REPORT_RANGES: Array<{ value: ReportRangeDays; label: string }> = [
-  { value: 7, label: 'Last 7 days' },
-  { value: 30, label: 'Last 30 days' },
-  { value: 90, label: 'Last 90 days' },
-];
 
 const ALL_STAFF = 'all';
 
@@ -86,18 +77,23 @@ interface PerformanceSnapshot {
 
 type ReportCache = Record<string, PerformanceSnapshot>;
 
-function reportCacheKey(days: ReportRangeDays, staffUserId: string | null) {
-  return `${days}:${staffUserId ?? ALL_STAFF}`;
+function reportCacheKey(month: string, staffUserId: string | null) {
+  return `${month}:${staffUserId ?? ALL_STAFF}`;
 }
 
-export function OwnerReportsView() {
+export function OwnerReportsView({
+  month,
+  onMonthChange,
+}: {
+  month: string;
+  onMonthChange: (month: string) => void;
+}) {
   const { fmt, locale } = useLocale();
-  const { accountId, organizationId, isOrganizationOwner } = useAuth();
+  const { account, accountId, organizationId, isOrganizationOwner } = useAuth();
   const [reportScope, setReportScope] = useState<'branch' | 'organization'>(
     'branch'
   );
   const { staff, loading: staffLoading } = useAccountStaff();
-  const [rangeDays, setRangeDays] = useState<ReportRangeDays>(30);
   const [staffUserId, setStaffUserId] = useState<string | null>(null);
   const [reports, setReports] = useState<ReportCache>({});
   const [loading, setLoading] = useState(true);
@@ -105,10 +101,10 @@ export function OwnerReportsView() {
   const requestId = useRef(0);
 
   const fetchReport = useCallback(
-    (days: ReportRangeDays, selectedStaffUserId: string | null) => {
+    (selectedMonth: string, selectedStaffUserId: string | null) => {
       const id = ++requestId.current;
-      const dateRange = reportDateRange(fmt.today(), days);
-      const cacheKey = reportCacheKey(days, selectedStaffUserId);
+      const dateRange = financeMonthRange(selectedMonth);
+      const cacheKey = reportCacheKey(selectedMonth, selectedStaffUserId);
       const db = createClient();
       void Promise.all([
         loadOwnerReport(
@@ -141,54 +137,39 @@ export function OwnerReportsView() {
           if (requestId.current === id) setLoading(false);
         });
     },
-    [accountId, fmt, locale.timeZone]
+    [accountId, locale.timeZone]
   );
 
   useEffect(() => {
-    if (!accountId) return;
-    fetchReport(30, null);
+    if (!accountId || reportScope === 'organization') return;
+    fetchReport(month, staffUserId);
     return () => {
       requestId.current += 1;
     };
-  }, [accountId, fetchReport]);
+  }, [accountId, fetchReport, month, reportScope, staffUserId]);
 
-  const snapshot = reports[reportCacheKey(rangeDays, staffUserId)] ?? null;
+  const snapshot = reports[reportCacheKey(month, staffUserId)] ?? null;
   const report = snapshot?.report ?? null;
   const adPerformance = snapshot?.adPerformance ?? null;
 
-  function handleRangeChange(value: ReportRangeDays | null) {
-    if (!value) return;
-    setRangeDays(value);
-    if (reports[reportCacheKey(value, staffUserId)]) {
-      requestId.current += 1;
-      setLoading(false);
-      setError(null);
-      return;
-    }
+  function handleMonthChange(nextMonth: string) {
     setLoading(true);
     setError(null);
-    fetchReport(value, staffUserId);
+    onMonthChange(nextMonth);
   }
 
   function handleStaffChange(value: string | null) {
     if (!value) return;
     const nextStaffUserId = value === ALL_STAFF ? null : value;
-    setStaffUserId(nextStaffUserId);
-    if (reports[reportCacheKey(rangeDays, nextStaffUserId)]) {
-      requestId.current += 1;
-      setLoading(false);
-      setError(null);
-      return;
-    }
     setLoading(true);
     setError(null);
-    fetchReport(rangeDays, nextStaffUserId);
+    setStaffUserId(nextStaffUserId);
   }
 
   function retry() {
     setLoading(true);
     setError(null);
-    fetchReport(rangeDays, staffUserId);
+    fetchReport(month, staffUserId);
   }
 
   function exportReport() {
@@ -210,6 +191,9 @@ export function OwnerReportsView() {
     return (
       <OrganizationReportsView
         organizationId={organizationId}
+        month={month}
+        onMonthChange={handleMonthChange}
+        accountCreatedAt={account?.created_at}
         onShowSelectedBranch={() => setReportScope('branch')}
       />
     );
@@ -218,6 +202,11 @@ export function OwnerReportsView() {
   return (
     <div className="space-y-5">
       <PageHeaderActions>
+        <BusinessMonthNavigator
+          month={month}
+          onMonthChange={handleMonthChange}
+          accountCreatedAt={account?.created_at}
+        />
         {isOrganizationOwner ? (
           <Select
             value={reportScope}
@@ -260,24 +249,6 @@ export function OwnerReportsView() {
                   size="sm"
                 />
                 <span>{member.full_name}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select<ReportRangeDays>
-          value={rangeDays}
-          onValueChange={handleRangeChange}
-        >
-          <SelectTrigger
-            aria-label="Performance period"
-            className="w-36 sm:w-40"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="end">
-            {REPORT_RANGES.map((range) => (
-              <SelectItem key={range.value} value={range.value}>
-                {range.label}
               </SelectItem>
             ))}
           </SelectContent>
