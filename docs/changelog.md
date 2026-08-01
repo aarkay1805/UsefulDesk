@@ -6,6 +6,12 @@
 
 ---
 
+## Membership-plan monthly price comparison
+
+Settings → Membership plans now groups each plan in a clean catalogue card and presents every active billing option as an equal-weight responsive comparison card, without decorative plan avatars, a false selected state, or a duplicate cycle-name header. Each option leads directly with the dominant effective monthly price and savings badge, then anchors its bold total and quieter billing cadence at the bottom. Monthly, day/week, and session-pack options keep their real total as the hero; fixed terms say “term” and packs say “Valid for” rather than implying recurring billing. Savings appears only when the same active non-session plan has exactly one comparable active 1-month option; missing or ambiguous baselines and non-discounts never produce a savings claim. Plan actions sit in one overflow menu. Key code: `src/lib/memberships/pricing.ts` and `src/components/settings/plans-settings.tsx`.
+
+---
+
 ## Finance cash-flow previous-month comparison
 
 Business → Overview can now compare the selected month with the previous month inside the existing Daily/Weekly cash-flow chart. The optional four-series grouped view aligns calendar days and ordinal seven-day buckets, limits a current-month comparison to the same elapsed account-local day, handles unequal month lengths, keeps previous income/expense hues at reduced opacity, and exports the aligned daily comparison in the existing Overview CSV. The comparison checkbox sits beside the grouping control, while the series legend stays below the plot. Both months still come from the single Overview load, and the chart is empty only when neither month has movement. Key code: `src/lib/finance/overview.ts`, `src/components/finance/finance-cash-flow-chart.tsx`, and `src/lib/finance/overview.test.ts`.

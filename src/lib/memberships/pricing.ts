@@ -49,6 +49,75 @@ export function renewalFee(option: Pick<PlanPricingOption, "price">): number {
   return Number(option.price);
 }
 
+export interface MonthlyPriceInsight {
+  effectiveMonthlyPrice: number;
+  savingsPercent: number | null;
+}
+
+/** Customer-facing cadence copy without changing the option's semantics. */
+export function pricingCadenceLabel(
+  plan: Pick<MembershipPlan, "plan_type">,
+  option: Pick<PlanPricingOption, "duration_count" | "duration_unit">,
+): string {
+  const { duration_count: count, duration_unit: unit } = option;
+  const duration = durationLabel(count, unit);
+
+  if (plan.plan_type === "session_pack") return `Valid for ${duration}`;
+  if (plan.plan_type === "non_recurring") return `${count}-${unit} term`;
+  if (unit === "month" && count === 1) return "Billed monthly";
+  if (unit === "month" && count === 3) return "Billed quarterly";
+  if ((unit === "month" && count === 12) || (unit === "year" && count === 1)) {
+    return "Billed annually";
+  }
+  return `Billed every ${duration}`;
+}
+
+/**
+ * Customer-facing monthly comparison for a multi-month pricing option.
+ *
+ * Only calendar-exact month/year terms qualify. Day/week options are not
+ * silently approximated, and a session pack's duration is a validity window
+ * rather than months of equivalent service. Savings additionally requires
+ * exactly one active 1-month option on this same plan; comparing unrelated
+ * plans (or choosing between ambiguous monthly rows) would overstate the
+ * offer. Setup fees stay out because the displayed option price and future
+ * renewal price both exclude that one-time charge.
+ */
+export function monthlyPriceInsight(
+  plan: MembershipPlan,
+  option: PlanPricingOption,
+): MonthlyPriceInsight | null {
+  if (plan.plan_type === "session_pack") return null;
+
+  const months =
+    option.duration_unit === "month"
+      ? option.duration_count
+      : option.duration_unit === "year"
+        ? option.duration_count * 12
+        : null;
+  if (months === null || months <= 1) return null;
+
+  const price = Number(option.price);
+  const effectiveMonthlyPrice = price / months;
+  const monthlyOptions = activeOptions(plan).filter(
+    (candidate) =>
+      candidate.duration_unit === "month" && candidate.duration_count === 1,
+  );
+
+  let savingsPercent: number | null = null;
+  if (monthlyOptions.length === 1) {
+    const monthlyBaseline = Number(monthlyOptions[0].price) * months;
+    if (monthlyBaseline > 0) {
+      const roundedSavings = Math.round(
+        ((monthlyBaseline - price) / monthlyBaseline) * 100,
+      );
+      if (roundedSavings > 0) savingsPercent = roundedSavings;
+    }
+  }
+
+  return { effectiveMonthlyPrice, savingsPercent };
+}
+
 /**
  * Whether a membership participates in the renewal chase (cron
  * reminders, Renewals action lists, auto-pay eligibility). Only

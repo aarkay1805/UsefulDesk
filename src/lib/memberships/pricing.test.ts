@@ -6,7 +6,9 @@ import {
   durationLabel,
   firstCycleFee,
   isRenewalChaseable,
+  monthlyPriceInsight,
   optionEndDate,
+  pricingCadenceLabel,
   renewalFee,
 } from "./pricing";
 import type { MembershipPlan, PlanPricingOption } from "@/types";
@@ -91,6 +93,107 @@ describe("durationLabel", () => {
     expect(durationLabel(3, "month")).toBe("3 months");
     expect(durationLabel(90, "day")).toBe("90 days");
     expect(durationLabel(1, "year")).toBe("1 year");
+  });
+});
+
+describe("monthlyPriceInsight", () => {
+  it("shows the effective monthly price and same-plan monthly savings", () => {
+    const monthly = opt({ id: "monthly", price: 2500 });
+    const annual = opt({
+      id: "annual",
+      duration_count: 1,
+      duration_unit: "year",
+      price: 24000,
+      sort_order: 1,
+    });
+
+    expect(monthlyPriceInsight(plan([monthly, annual]), annual)).toEqual({
+      effectiveMonthlyPrice: 2000,
+      savingsPercent: 20,
+    });
+  });
+
+  it("keeps the effective price but omits unreliable savings", () => {
+    const annual = opt({
+      id: "annual",
+      duration_count: 12,
+      duration_unit: "month",
+      price: 24000,
+    });
+    const archivedMonthly = opt({
+      id: "monthly",
+      price: 2500,
+      is_active: false,
+    });
+
+    expect(monthlyPriceInsight(plan([archivedMonthly, annual]), annual)).toEqual({
+      effectiveMonthlyPrice: 2000,
+      savingsPercent: null,
+    });
+
+    const duplicateMonthly = opt({ id: "monthly-2", price: 2200, sort_order: 2 });
+    expect(
+      monthlyPriceInsight(
+        plan([{ ...archivedMonthly, is_active: true }, duplicateMonthly, annual]),
+        annual,
+      )?.savingsPercent,
+    ).toBeNull();
+  });
+
+  it("does not call equal or higher multi-cycle pricing a saving", () => {
+    const monthly = opt({ id: "monthly", price: 2000 });
+    const samePrice = opt({
+      id: "annual",
+      duration_count: 1,
+      duration_unit: "year",
+      price: 24000,
+      sort_order: 1,
+    });
+    const higherPrice = { ...samePrice, id: "higher", price: 25000 };
+
+    expect(monthlyPriceInsight(plan([monthly, samePrice]), samePrice)?.savingsPercent).toBeNull();
+    expect(monthlyPriceInsight(plan([monthly, higherPrice]), higherPrice)?.savingsPercent).toBeNull();
+  });
+
+  it("excludes non-equivalent durations and session-pack validity windows", () => {
+    const weekly = opt({ duration_count: 12, duration_unit: "week", price: 6000 });
+    expect(monthlyPriceInsight(plan([weekly]), weekly)).toBeNull();
+
+    const annual = opt({ duration_count: 1, duration_unit: "year", price: 12000 });
+    expect(
+      monthlyPriceInsight({ ...plan([annual]), plan_type: "session_pack" }, annual),
+    ).toBeNull();
+  });
+});
+
+describe("pricingCadenceLabel", () => {
+  it("uses natural recurring billing cadence labels", () => {
+    const recurring = plan([]);
+    expect(pricingCadenceLabel(recurring, opt({}))).toBe("Billed monthly");
+    expect(
+      pricingCadenceLabel(recurring, opt({ duration_count: 3, duration_unit: "month" })),
+    ).toBe("Billed quarterly");
+    expect(
+      pricingCadenceLabel(recurring, opt({ duration_count: 1, duration_unit: "year" })),
+    ).toBe("Billed annually");
+    expect(
+      pricingCadenceLabel(recurring, opt({ duration_count: 6, duration_unit: "month" })),
+    ).toBe("Billed every 6 months");
+  });
+
+  it("does not describe fixed terms or session validity as recurring billing", () => {
+    expect(
+      pricingCadenceLabel(
+        { plan_type: "non_recurring" },
+        opt({ duration_count: 3, duration_unit: "month" }),
+      ),
+    ).toBe("3-month term");
+    expect(
+      pricingCadenceLabel(
+        { plan_type: "session_pack" },
+        opt({ duration_count: 8, duration_unit: "week" }),
+      ),
+    ).toBe("Valid for 8 weeks");
   });
 });
 

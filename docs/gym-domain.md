@@ -32,7 +32,7 @@ One row per **billing option** a plan sells: `duration_count × duration_unit ('
 
 ### Pure helpers (never inline this math)
 
-- `src/lib/memberships/pricing.ts` — `activeOptions` / `defaultOption` (first active by sort = the no-picker/CSV rule), `optionEndDate`, `firstCycleFee`, `renewalFee`, `durationLabel`.
+- `src/lib/memberships/pricing.ts` — `activeOptions` / `defaultOption` (first active by sort = the no-picker/CSV rule), `optionEndDate`, `firstCycleFee`, `renewalFee`, `durationLabel`, `pricingCadenceLabel`, and `monthlyPriceInsight`. Cadence copy preserves recurring/fixed-term/session-validity semantics. The monthly insight accepts only exact month/year terms, excludes session-pack validity windows, and shows savings only against exactly one active 1-month option on the same plan.
 - **`isRenewalChaseable(plan)`** (`pricing.ts`, tested) is the named predicate for "chased for renewal?" — recurring, or a legacy-NULL plan. Used by the cron, the Renewals lists, `canSetupAutoPay`, and the mandate route. **Never inline-compare `plan_type` for this.**
 - `src/lib/memberships/attendance-limits.ts` — `membershipUsageWindowStart`, `attendanceUsage`, `sessionsRemaining`, `checkInWarning`, `usageSummary` (the shared usage line both check-in surfaces render).
 - `src/lib/memberships/check-in.ts` — Supabase orchestration: `fetchCheckInUsage` (fresh count + warning), `fetchUsageCounts` (batched per-window counts via the `063` `attendance_usage_counts` RPC). **Never inline the count query in a component.**
