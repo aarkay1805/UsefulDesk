@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Bar,
   CartesianGrid,
@@ -13,14 +14,22 @@ import {
 import { Activity } from 'lucide-react';
 import type { LocaleFormatters } from '@/lib/locale/format';
 import type { OwnerReport } from '@/lib/reports/types';
+import { weeklyActivityTrend } from '@/lib/reports/activity-trend';
 import {
   Card,
+  CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Toolbar,
+  ToolbarToggleGroup,
+  ToolbarToggleItem,
+} from '@/components/ui/toolbar';
 import { EmptyState } from '@/components/dashboard/empty-state';
+
+type Grouping = 'daily' | 'weekly';
 
 const tooltipStyle = {
   backgroundColor: 'var(--popover)',
@@ -43,6 +52,8 @@ export function ActivityTrendCard({
   data: OwnerReport['trend'];
   fmt: LocaleFormatters;
 }) {
+  const [grouping, setGrouping] = useState<Grouping>('daily');
+  const chartData = grouping === 'daily' ? data : weeklyActivityTrend(data);
   const hasData = data.some(
     (point) => point.visits > 0 || point.newMembers > 0
   );
@@ -51,14 +62,24 @@ export function ActivityTrendCard({
     <Card>
       <CardHeader>
         <CardTitle>Member activity</CardTitle>
-        <CardDescription>Daily visits and new member joins</CardDescription>
+        <CardAction>
+          <Toolbar aria-label="Member activity grouping">
+            <ToolbarToggleGroup<Grouping>
+              value={[grouping]}
+              onValueChange={(values) => values[0] && setGrouping(values[0])}
+            >
+              <ToolbarToggleItem value="daily">Daily</ToolbarToggleItem>
+              <ToolbarToggleItem value="weekly">Weekly</ToolbarToggleItem>
+            </ToolbarToggleGroup>
+          </Toolbar>
+        </CardAction>
       </CardHeader>
       <CardContent>
         {hasData ? (
           <div
             className="h-72 w-full"
             role="group"
-            aria-label="Daily attendance and joins chart"
+            aria-label={`${grouping === 'daily' ? 'Daily' : 'Weekly'} attendance and joins chart`}
           >
             <ResponsiveContainer
               width="100%"
@@ -68,7 +89,7 @@ export function ActivityTrendCard({
             >
               <ComposedChart
                 accessibilityLayer
-                data={data}
+                data={chartData}
                 margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
               >
                 <CartesianGrid
@@ -80,9 +101,11 @@ export function ActivityTrendCard({
                   dataKey="date"
                   axisLine={false}
                   tickLine={false}
-                  minTickGap={28}
+                  minTickGap={18}
                   tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
-                  tickFormatter={(value) => fmt.dateShort(String(value))}
+                  tickFormatter={(value) =>
+                    String(Number(String(value).slice(-2)))
+                  }
                 />
                 <YAxis
                   yAxisId="visits"
@@ -103,7 +126,11 @@ export function ActivityTrendCard({
                 />
                 <Tooltip
                   contentStyle={tooltipStyle}
-                  labelFormatter={(value) => fmt.date(String(value))}
+                  labelFormatter={(value) =>
+                    grouping === 'daily'
+                      ? fmt.date(String(value))
+                      : `Week of ${fmt.date(String(value))}`
+                  }
                   formatter={(value, name) => [
                     fmt.number(Number(value)),
                     name === 'visits' ? 'Visits' : 'New members',

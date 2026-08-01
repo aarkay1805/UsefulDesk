@@ -10,7 +10,10 @@ import { financeMonthRange } from '@/lib/finance/overview';
 import { formatCurrency } from '@/lib/currency';
 import { useLocale } from '@/hooks/use-locale';
 import { BusinessMonthNavigator } from '@/components/finance/finance-month-actions';
-import { PageHeaderActions } from '@/components/layout/page-header-actions';
+import {
+  PageHeaderActions,
+  PageHeaderLeading,
+} from '@/components/layout/page-header-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -124,12 +127,14 @@ export function OrganizationReportsView({
 
   return (
     <div className="space-y-5">
-      <PageHeaderActions>
+      <PageHeaderLeading>
         <BusinessMonthNavigator
           month={month}
           onMonthChange={onMonthChange}
           accountCreatedAt={accountCreatedAt}
         />
+      </PageHeaderLeading>
+      <PageHeaderActions>
         <Select
           value="organization"
           onValueChange={(value) => {

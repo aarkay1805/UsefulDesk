@@ -6,6 +6,9 @@ import { createPortal } from 'react-dom';
 /** DOM id of the app bar's trailing action slot (rendered by Header). */
 export const PAGE_HEADER_SLOT_ID = 'page-header-actions';
 
+/** DOM id of the app bar's leading control slot, beside the route title. */
+export const PAGE_HEADER_LEADING_SLOT_ID = 'page-header-leading';
+
 /** DOM id of the app bar's tab-row slot, below the title row. Empty for
  *  pages without sub-navigation (the slot is `empty:hidden`). */
 export const PAGE_HEADER_TABS_SLOT_ID = 'page-header-tabs';
@@ -42,6 +45,11 @@ function HeaderSlot({
  *  trailing slot (e.g. Import / Export / Add member). */
 export function PageHeaderActions({ children }: { children: React.ReactNode }) {
   return <HeaderSlot slotId={PAGE_HEADER_SLOT_ID}>{children}</HeaderSlot>;
+}
+
+/** Portals stable page-level context controls beside the route title. */
+export function PageHeaderLeading({ children }: { children: React.ReactNode }) {
+  return <HeaderSlot slotId={PAGE_HEADER_LEADING_SLOT_ID}>{children}</HeaderSlot>;
 }
 
 /** Portals a page's sub-navigation tab bar into the app bar's tab row,

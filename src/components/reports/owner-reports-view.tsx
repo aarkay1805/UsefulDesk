@@ -19,7 +19,10 @@ import {
   relativeChange,
 } from '@/lib/reports/reporting';
 import type { OwnerReport, ReportMetric } from '@/lib/reports/types';
-import { PageHeaderActions } from '@/components/layout/page-header-actions';
+import {
+  PageHeaderActions,
+  PageHeaderLeading,
+} from '@/components/layout/page-header-actions';
 import { SourceIcon } from '@/components/leads/source-icon';
 import { useAccountStaff } from '@/components/members/use-account-staff';
 import { MetricCard } from '@/components/dashboard/metric-card';
@@ -201,12 +204,14 @@ export function OwnerReportsView({
 
   return (
     <div className="space-y-5">
-      <PageHeaderActions>
+      <PageHeaderLeading>
         <BusinessMonthNavigator
           month={month}
           onMonthChange={handleMonthChange}
           accountCreatedAt={account?.created_at}
         />
+      </PageHeaderLeading>
+      <PageHeaderActions>
         {isOrganizationOwner ? (
           <Select
             value={reportScope}

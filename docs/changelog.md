@@ -6,6 +6,18 @@
 
 ---
 
+## Member activity chart grouping
+
+Business → Performance now gives the title-only Member activity card a Daily/Weekly shared segmented toolbar. Daily points roll into seven-day totals in Weekly mode, x-axis ticks use compact day-of-month labels because the Business header already owns Month Year context, and tooltips retain the full localized date. Key code: `src/components/reports/report-trend-card.tsx` and `src/lib/reports/activity-trend.ts`.
+
+---
+
+## Business month control title anchoring
+
+The shared Business month navigator now sits in the app bar's leading group, exactly 24px after the **Business** title on Overview, Performance, Invoices, Payments, and Expenses. Export, staff/scope selectors, and tab-specific actions remain trailing, so their number and width no longer move the month control horizontally. Key code: `src/components/layout/header.tsx`, `src/components/layout/page-header-actions.tsx`, `src/components/finance/finance-month-actions.tsx`, and `src/components/reports/`.
+
+---
+
 ## Business page consolidation
 
 Business is now the single top-level destination for financial and business analysis, with URL-backed Overview, Performance, Invoices, Payments, and Expenses tabs. Performance absorbs the former Reports page while removing its duplicate Revenue collected KPI and Collections over time chart; it uses the exact Today / previous / next / Month Year navigator shared by the other tabs, and the selected calendar month scopes staff, organization, ad-performance, and CSV data. Ad performance sits beside lead-source analysis for All staff. The former Finance and Reports sidebar labels collapse into Business, while the stable `/finance` route and old `/reports` redirect preserve bookmarks and branch context. Key code: `src/components/finance/finance-month-actions.tsx`, `src/components/finance/finance-master-view.tsx`, `src/components/reports/owner-reports-view.tsx`, and `src/app/(dashboard)/reports/page.tsx`.

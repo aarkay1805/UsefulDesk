@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import {
+  PAGE_HEADER_LEADING_SLOT_ID,
   PAGE_HEADER_SLOT_ID,
   PAGE_HEADER_TABS_SLOT_ID,
 } from '@/components/layout/page-header-actions';
@@ -50,19 +51,23 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     <header className="border-border bg-background flex shrink-0 flex-col border-b">
       {/* Title row */}
       <div className="flex h-14 shrink-0 items-center justify-between gap-3 px-4 lg:px-6">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center">
           {/* Hamburger — mobile only. 44×44 hit target per Apple HIG. */}
           <button
             type="button"
             onClick={onOpenSidebar}
             aria-label="Open menu"
-            className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 w-10 items-center justify-center rounded-md transition-colors lg:hidden"
+            className="text-muted-foreground hover:bg-muted hover:text-foreground mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-colors lg:hidden"
           >
             <Menu className="h-5 w-5" />
           </button>
-          <h1 className="text-foreground truncate text-base font-semibold sm:text-lg">
+          <h1 className="text-foreground shrink-0 truncate text-base font-semibold sm:text-lg">
             {title}
           </h1>
+          <div
+            id={PAGE_HEADER_LEADING_SLOT_ID}
+            className="ml-6 flex min-w-0 items-center empty:hidden"
+          />
         </div>
 
         {/* Trailing slot — pages portal their primary/secondary buttons

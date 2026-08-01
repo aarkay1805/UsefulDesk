@@ -3,7 +3,10 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react';
 
-import { PageHeaderActions } from '@/components/layout/page-header-actions';
+import {
+  PageHeaderActions,
+  PageHeaderLeading,
+} from '@/components/layout/page-header-actions';
 import { Button } from '@/components/ui/button';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useAuth } from '@/hooks/use-auth';
@@ -30,30 +33,34 @@ export function FinanceMonthActions({
   const mayExport = accountRole ? canExportFinance(accountRole) : false;
 
   return (
-    <PageHeaderActions>
-      <BusinessMonthNavigator
-        month={month}
-        onMonthChange={onMonthChange}
-        accountCreatedAt={account?.created_at}
-      />
-      <GatedButton
-        type="button"
-        variant="ghost"
-        canAct={mayExport}
-        gateReason="export financial data"
-        aria-label={
-          exporting ? 'Exporting finance data' : 'Export finance data'
-        }
-        onClick={onExport}
-        disabled={exportDisabled || exporting}
-      >
-        {exporting ? <Loader2 className="animate-spin" /> : <Download />}
-        <span className="hidden sm:inline">
-          {exporting ? 'Exporting…' : 'Export'}
-        </span>
-      </GatedButton>
-      {primaryAction}
-    </PageHeaderActions>
+    <>
+      <PageHeaderLeading>
+        <BusinessMonthNavigator
+          month={month}
+          onMonthChange={onMonthChange}
+          accountCreatedAt={account?.created_at}
+        />
+      </PageHeaderLeading>
+      <PageHeaderActions>
+        <GatedButton
+          type="button"
+          variant="ghost"
+          canAct={mayExport}
+          gateReason="export financial data"
+          aria-label={
+            exporting ? 'Exporting finance data' : 'Export finance data'
+          }
+          onClick={onExport}
+          disabled={exportDisabled || exporting}
+        >
+          {exporting ? <Loader2 className="animate-spin" /> : <Download />}
+          <span className="hidden sm:inline">
+            {exporting ? 'Exporting…' : 'Export'}
+          </span>
+        </GatedButton>
+        {primaryAction}
+      </PageHeaderActions>
+    </>
   );
 }
 
