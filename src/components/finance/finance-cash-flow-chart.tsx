@@ -279,7 +279,14 @@ export function FinanceCashFlowChart({
     <Card className="h-full">
       <CardHeader>
         <CardTitle>Cash flow · {monthLabel}</CardTitle>
-        <CardAction>
+        <CardAction className="flex items-center gap-3">
+          <label className="text-foreground flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={comparePrevious}
+              onCheckedChange={setComparePrevious}
+            />
+            <span>Compare previous month</span>
+          </label>
           <Toolbar aria-label="Cash flow grouping">
             <ToolbarToggleGroup<Grouping>
               value={[grouping]}
@@ -292,30 +299,6 @@ export function FinanceCashFlowChart({
         </CardAction>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap items-center gap-4 text-xs">
-          <LegendItem
-            label={comparePrevious ? 'Selected income' : 'Income'}
-            tone="income"
-          />
-          <LegendItem
-            label={comparePrevious ? 'Selected expenses' : 'Expenses'}
-            tone="expenses"
-          />
-          {comparePrevious ? (
-            <>
-              <LegendItem label="Previous income" tone="income" previous />
-              <LegendItem label="Previous expenses" tone="expenses" previous />
-            </>
-          ) : null}
-          <label className="text-foreground ml-auto flex cursor-pointer items-center gap-2 text-sm">
-            <Checkbox
-              checked={comparePrevious}
-              onCheckedChange={setComparePrevious}
-            />
-            <span>Compare previous month</span>
-          </label>
-        </div>
-
         {hasData ? (
           <div
             className="h-72 w-full"
@@ -439,6 +422,23 @@ export function FinanceCashFlowChart({
             hint="Recorded income and expenses will appear here by day for comparison."
           />
         )}
+
+        <div className="flex flex-wrap items-center gap-4 text-xs">
+          <LegendItem
+            label={comparePrevious ? 'Selected income' : 'Income'}
+            tone="income"
+          />
+          <LegendItem
+            label={comparePrevious ? 'Selected expenses' : 'Expenses'}
+            tone="expenses"
+          />
+          {comparePrevious ? (
+            <>
+              <LegendItem label="Previous income" tone="income" previous />
+              <LegendItem label="Previous expenses" tone="expenses" previous />
+            </>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );

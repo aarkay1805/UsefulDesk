@@ -8,7 +8,7 @@
 
 ## Finance cash-flow previous-month comparison
 
-Business → Overview can now compare the selected month with the previous month inside the existing Daily/Weekly cash-flow chart. The optional four-series grouped view aligns calendar days and ordinal seven-day buckets, limits a current-month comparison to the same elapsed account-local day, handles unequal month lengths, keeps previous income/expense hues at reduced opacity, and exports the aligned daily comparison in the existing Overview CSV. Both months still come from the single Overview load, and the chart is empty only when neither month has movement. Key code: `src/lib/finance/overview.ts`, `src/components/finance/finance-cash-flow-chart.tsx`, and `src/lib/finance/overview.test.ts`.
+Business → Overview can now compare the selected month with the previous month inside the existing Daily/Weekly cash-flow chart. The optional four-series grouped view aligns calendar days and ordinal seven-day buckets, limits a current-month comparison to the same elapsed account-local day, handles unequal month lengths, keeps previous income/expense hues at reduced opacity, and exports the aligned daily comparison in the existing Overview CSV. The comparison checkbox sits beside the grouping control, while the series legend stays below the plot. Both months still come from the single Overview load, and the chart is empty only when neither month has movement. Key code: `src/lib/finance/overview.ts`, `src/components/finance/finance-cash-flow-chart.tsx`, and `src/lib/finance/overview.test.ts`.
 
 ---
 
