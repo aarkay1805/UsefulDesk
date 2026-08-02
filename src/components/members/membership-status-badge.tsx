@@ -7,6 +7,7 @@ import type {
   Payment,
   PaymentStatus,
   PlanType,
+  MemberServiceStatus,
 } from '@/types';
 
 /**
@@ -95,6 +96,25 @@ const INVOICE_PAYMENT_VARIANT: Record<
 
 export function InvoicePaymentBadge({ state }: { state: InvoicePaymentState }) {
   const s = INVOICE_PAYMENT_VARIANT[state];
+  return <Badge variant={s.variant}>{s.label}</Badge>;
+}
+
+const MEMBER_SERVICE_VARIANT: Record<
+  MemberServiceStatus,
+  { label: string; variant: 'success' | 'danger' | 'info' | 'neutral' }
+> = {
+  upcoming: { label: 'Upcoming', variant: 'info' },
+  active: { label: 'Active', variant: 'success' },
+  expired: { label: 'Expired', variant: 'neutral' },
+  cancelled: { label: 'Cancelled', variant: 'danger' },
+};
+
+export function MemberServiceStatusBadge({
+  status,
+}: {
+  status: MemberServiceStatus;
+}) {
+  const s = MEMBER_SERVICE_VARIANT[status];
   return <Badge variant={s.variant}>{s.label}</Badge>;
 }
 

@@ -6,6 +6,12 @@
 
 ---
 
+## Member product summaries and unified billing
+
+Member profiles now present services and merchandise as newest-first Membership-style summaries with the same four-column hierarchy: item-name eyebrow over trainer/type, then Billing, Started/Purchased, and Expires/Quantity. Service status sits with the trainer value, while Renew/Reassign/Cancel remain single-line actions in the overflow menu. Billing is the financial history: its compact table includes membership periods plus personal-training and merchandise invoice-line charges with paid, balance, payment, and status columns. Key code: `src/components/members/member-detail-view.tsx` and `src/components/members/membership-status-badge.tsx`.
+
+---
+
 ## Renewal queue source control
 
 Members → Renewals now keeps the Memberships / Services source segment inside the bordered queue toolbar as its leftmost control, immediately before Expiring / Expired, on both source views. Key code: `src/components/members/renewal-action-lists.tsx` and `src/components/members/service-renewal-action-lists.tsx`.

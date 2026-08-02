@@ -29,7 +29,6 @@ import {
   Repeat,
   ArrowLeftRight,
   Hash,
-  ShoppingBag,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
@@ -119,6 +118,7 @@ import {
   TrialBadge,
   PlanTypeBadge,
   InvoicePaymentBadge,
+  MemberServiceStatusBadge,
 } from './membership-status-badge';
 import { AttendanceOverrideDialog } from './attendance-override-dialog';
 import { InvoiceDetailDialog } from './invoice-detail-dialog';
@@ -698,6 +698,42 @@ export function MemberDetailView({
   const relativeTerm =
     days < 0 ? `${-days}d ago` : days === 0 ? 'today' : `in ${days}d`;
 
+  // Services and merchandise share one newest-first product summary. The
+  // source records stay distinct because services retain lifecycle actions.
+  const purchases = [
+    ...services.map((service) => ({
+      kind: 'service' as const,
+      sortDate: service.start_date,
+      service,
+    })),
+    ...merchandise.map((line) => ({
+      kind: 'merchandise' as const,
+      sortDate: line.created_at,
+      line,
+    })),
+  ].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
+
+  // Billing is the unified financial history. Membership periods come from
+  // the compatibility view; product/service charges come from their generic
+  // invoice-line read models, so each balance remains line-accurate.
+  const billingEntries = [
+    ...invoices.map((invoice) => ({
+      kind: 'membership' as const,
+      sortDate: invoice.period_start,
+      invoice,
+    })),
+    ...services.map((service) => ({
+      kind: 'service' as const,
+      sortDate: service.start_date,
+      service,
+    })),
+    ...merchandise.map((line) => ({
+      kind: 'merchandise' as const,
+      sortDate: line.created_at,
+      line,
+    })),
+  ].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
+
   const activeInvoice = activeInvoiceId
     ? (invoices.find((inv) => inv.id === activeInvoiceId) ?? null)
     : null;
@@ -1193,110 +1229,79 @@ export function MemberDetailView({
                             </CardAction>
                           ) : null}
                         </CardHeader>
-                        <CardContent className="space-y-5">
-                          <div className="space-y-2">
-                            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                              Services
+                        <CardContent>
+                          {purchases.length === 0 ? (
+                            <p className="text-muted-foreground text-sm">
+                              No products or services purchased yet.
                             </p>
-                            {services.length === 0 ? (
-                              <p className="text-muted-foreground text-sm">
-                                No services purchased yet.
-                              </p>
-                            ) : (
-                              <div className="divide-y rounded-lg border">
-                                {services.map((service) => (
+                          ) : (
+                            <div className="space-y-4">
+                              {purchases.map((purchase, index) => {
+                                const isService = purchase.kind === 'service';
+                                const service = isService
+                                  ? purchase.service
+                                  : null;
+                                const line = isService ? null : purchase.line;
+
+                                return (
                                   <div
-                                    key={service.id}
-                                    className="flex flex-wrap items-center gap-3 px-3 py-3"
+                                    key={`${purchase.kind}-${
+                                      service?.id ?? line?.id
+                                    }`}
+                                    className={
+                                      index === 0
+                                        ? 'relative'
+                                        : 'border-border relative border-t pt-4'
+                                    }
                                   >
-                                    <div className="min-w-48 flex-1">
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <p className="font-medium">
-                                          {service.item_name_snapshot}
-                                        </p>
-                                        <Badge
-                                          variant={
-                                            service.derived_status === 'active'
-                                              ? 'success'
-                                              : service.derived_status ===
-                                                  'upcoming'
-                                                ? 'info'
-                                                : service.derived_status ===
-                                                    'cancelled'
-                                                  ? 'danger'
-                                                  : 'neutral'
-                                          }
-                                        >
-                                          {service.derived_status
-                                            .charAt(0)
-                                            .toUpperCase() +
-                                            service.derived_status.slice(1)}
-                                        </Badge>
-                                      </div>
-                                      <p className="text-muted-foreground mt-1 text-xs">
-                                        {fmt.date(service.start_date)}–
-                                        {fmt.date(service.end_date)}
-                                        {service.trainer_name
-                                          ? ` · ${service.trainer_name}`
-                                          : ''}
-                                        {service.trainer_title
-                                          ? `, ${service.trainer_title}`
-                                          : ''}
-                                      </p>
-                                      <p className="text-muted-foreground mt-1 text-xs">
-                                        Sold {fmt.money(service.sold_amount)}
-                                        {Number(service.balance) > 0
-                                          ? ` · ${fmt.money(service.balance)} due`
-                                          : ' · Settled'}
-                                      </p>
-                                    </div>
-                                    {(canSell ||
+                                    {service &&
+                                    (canSell ||
                                       (canReassign &&
                                         service.requires_trainer)) &&
                                     service.status !== 'cancelled' ? (
-                                      <div className="flex gap-1">
-                                        {canSell ? (
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() =>
-                                              renewService(service)
+                                      <div className="absolute top-0 right-0">
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger
+                                            render={
+                                              <Button
+                                                size="icon-sm"
+                                                variant="ghost"
+                                                aria-label={`Manage ${service.item_name_snapshot}`}
+                                              />
                                             }
                                           >
-                                            <RefreshCw className="size-4" />{' '}
-                                            Renew
-                                          </Button>
-                                        ) : null}
-                                        {canSell ||
-                                        (canReassign &&
-                                          service.requires_trainer) ? (
-                                          <DropdownMenu>
-                                            <DropdownMenuTrigger
-                                              render={
-                                                <Button
-                                                  size="icon-sm"
-                                                  variant="ghost"
-                                                  aria-label={`Manage ${service.item_name_snapshot}`}
-                                                />
-                                              }
-                                            >
-                                              <MoreHorizontal className="size-4" />
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                              {canReassign &&
-                                              service.requires_trainer ? (
-                                                <DropdownMenuItem
-                                                  onClick={() =>
-                                                    setReassignServiceTarget(
-                                                      service
-                                                    )
-                                                  }
-                                                >
-                                                  <ArrowLeftRight className="size-4" />{' '}
-                                                  Reassign trainer
-                                                </DropdownMenuItem>
-                                              ) : null}
-                                              {canSell ? (
+                                            <MoreHorizontal className="size-4" />
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent
+                                            align="end"
+                                            className="min-w-44"
+                                          >
+                                            {canSell ? (
+                                              <DropdownMenuItem
+                                                onClick={() =>
+                                                  renewService(service)
+                                                }
+                                              >
+                                                <RefreshCw className="size-4" />{' '}
+                                                Renew
+                                              </DropdownMenuItem>
+                                            ) : null}
+                                            {canReassign &&
+                                            service.requires_trainer ? (
+                                              <DropdownMenuItem
+                                                onClick={() =>
+                                                  setReassignServiceTarget(
+                                                    service
+                                                  )
+                                                }
+                                              >
+                                                <ArrowLeftRight className="size-4" />{' '}
+                                                Reassign trainer
+                                              </DropdownMenuItem>
+                                            ) : null}
+                                            {canSell ? (
+                                              <>
+                                                <DropdownMenuSeparator />
                                                 <DropdownMenuItem
                                                   variant="destructive"
                                                   onClick={() =>
@@ -1308,60 +1313,77 @@ export function MemberDetailView({
                                                   <Ban className="size-4" />{' '}
                                                   Cancel service
                                                 </DropdownMenuItem>
-                                              ) : null}
-                                            </DropdownMenuContent>
-                                          </DropdownMenu>
-                                        ) : null}
+                                              </>
+                                            ) : null}
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
                                       </div>
                                     ) : null}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
 
-                          <div className="space-y-2">
-                            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                              Merchandise history
-                            </p>
-                            {merchandise.length === 0 ? (
-                              <p className="text-muted-foreground text-sm">
-                                No merchandise purchased yet.
-                              </p>
-                            ) : (
-                              <div className="divide-y rounded-lg border">
-                                {merchandise.map((line) => (
-                                  <div
-                                    key={line.id}
-                                    className="flex items-center gap-3 px-3 py-2.5"
-                                  >
-                                    <ShoppingBag className="text-muted-foreground size-4" />
-                                    <div className="min-w-0 flex-1">
-                                      <p className="truncate text-sm font-medium">
-                                        {line.description}
-                                        {line.quantity > 1
-                                          ? ` × ${line.quantity}`
-                                          : ''}
-                                      </p>
-                                      <p className="text-muted-foreground text-xs">
-                                        {fmt.date(line.created_at)}
-                                      </p>
-                                    </div>
-                                    <div className="text-right text-sm">
-                                      <p className="tabular-nums">
-                                        {fmt.money(line.line_amount)}
-                                      </p>
-                                      {Number(line.balance) > 0 ? (
-                                        <p className="text-amber-foreground text-xs">
-                                          {fmt.money(line.balance)} due
-                                        </p>
-                                      ) : null}
-                                    </div>
+                                    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                      <Stat
+                                        label={
+                                          service
+                                            ? service.item_name_snapshot
+                                            : line?.description || 'Merchandise'
+                                        }
+                                      >
+                                        {service ? (
+                                          <span className="flex flex-wrap items-center gap-2">
+                                            <span>
+                                              {service.trainer_name || '—'}
+                                            </span>
+                                            <MemberServiceStatusBadge
+                                              status={service.derived_status}
+                                            />
+                                          </span>
+                                        ) : (
+                                          'Merchandise'
+                                        )}
+                                      </Stat>
+                                      <Stat label="Billing">
+                                        <span className="tabular-nums">
+                                          {fmt.money(
+                                            service?.sold_amount ??
+                                              line?.line_amount ??
+                                              0
+                                          )}
+                                          {service ? (
+                                            <span className="text-muted-foreground font-normal">
+                                              {' '}
+                                              /{' '}
+                                              {durationLabel(
+                                                service.option_duration_count,
+                                                service.option_duration_unit
+                                              )}
+                                            </span>
+                                          ) : null}
+                                        </span>
+                                      </Stat>
+                                      <Stat
+                                        label={
+                                          service ? 'Started' : 'Purchased'
+                                        }
+                                      >
+                                        {fmt.date(
+                                          service?.start_date ??
+                                            line?.created_at ??
+                                            ''
+                                        )}
+                                      </Stat>
+                                      <Stat
+                                        label={service ? 'Expires' : 'Quantity'}
+                                      >
+                                        {service
+                                          ? fmt.date(service.end_date)
+                                          : line?.quantity}
+                                      </Stat>
+                                    </dl>
                                   </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     </Section>
@@ -1452,9 +1474,9 @@ export function MemberDetailView({
                               )}
 
                               <div className="space-y-2">
-                                {invoices.length === 0 ? (
+                                {billingEntries.length === 0 ? (
                                   <p className="text-muted-foreground text-sm">
-                                    No billing periods yet.
+                                    No billing history yet.
                                   </p>
                                 ) : (
                                   <div className="border-border overflow-hidden rounded-lg border">
@@ -1465,6 +1487,9 @@ export function MemberDetailView({
                                               7 columns can't read at 390px, and the
                                               row opens InvoiceDetailDialog, which
                                               carries every one of them. */}
+                                          <TableHead className="text-xs">
+                                            Item
+                                          </TableHead>
                                           <TableHead className="text-xs">
                                             Period
                                           </TableHead>
@@ -1481,7 +1506,7 @@ export function MemberDetailView({
                                             Payment
                                           </TableHead>
                                           <TableHead className="hidden text-xs sm:table-cell">
-                                            Cycle
+                                            Status
                                           </TableHead>
                                           <TableHead className="w-8">
                                             <span className="sr-only">
@@ -1491,75 +1516,134 @@ export function MemberDetailView({
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
-                                        {invoices.map((inv) => {
-                                          const invBalance = Number(
-                                            inv.balance
+                                        {billingEntries.map((entry) => {
+                                          const inv =
+                                            entry.kind === 'membership'
+                                              ? entry.invoice
+                                              : null;
+                                          const service =
+                                            entry.kind === 'service'
+                                              ? entry.service
+                                              : null;
+                                          const line =
+                                            entry.kind === 'merchandise'
+                                              ? entry.line
+                                              : null;
+                                          const periodStart =
+                                            inv?.period_start ??
+                                            service?.start_date ??
+                                            line?.created_at ??
+                                            '';
+                                          const periodEnd =
+                                            inv?.period_end ??
+                                            service?.end_date ??
+                                            null;
+                                          const feeAmount = Number(
+                                            inv?.fee_amount ??
+                                              service?.sold_amount ??
+                                              line?.line_amount ??
+                                              0
                                           );
-                                          // Payment axis is epsilon-aware: a
-                                          // pro-rated stub (₹0.32) renders ₹0,
-                                          // so it must not read "Due".
-                                          const payState =
-                                            invoicePaymentState(inv);
-                                          const lifecycle =
-                                            inv.state === 'void'
+                                          const cashPaid = Number(
+                                            inv?.amount_paid ??
+                                              service?.amount_paid ??
+                                              line?.amount_paid ??
+                                              0
+                                          );
+                                          const coveredAmount =
+                                            cashPaid +
+                                            Number(
+                                              inv?.credit_applied ??
+                                                service?.credit_applied ??
+                                                line?.credit_applied ??
+                                                0
+                                            );
+                                          const rowBalance = Number(
+                                            inv?.balance ??
+                                              service?.balance ??
+                                              line?.balance ??
+                                              0
+                                          );
+                                          const payState = invoicePaymentState({
+                                            fee_amount: feeAmount,
+                                            amount_paid: coveredAmount,
+                                            balance: rowBalance,
+                                          });
+                                          const lifecycle = inv
+                                            ? inv.state === 'void'
                                               ? 'Void'
                                               : inv.period_start > today
                                                 ? 'Upcoming'
                                                 : inv.period_end ===
                                                     membership.end_date
                                                   ? 'Current'
-                                                  : 'Past';
+                                                  : 'Past'
+                                            : null;
+
                                           return (
                                             <TableRow
-                                              key={inv.id}
-                                              onClick={() => openInvoice(inv)}
-                                              className="cursor-pointer"
+                                              key={`${entry.kind}-${
+                                                inv?.id ??
+                                                service?.id ??
+                                                line?.id
+                                              }`}
+                                              onClick={
+                                                inv
+                                                  ? () => openInvoice(inv)
+                                                  : undefined
+                                              }
+                                              className={
+                                                inv
+                                                  ? 'cursor-pointer'
+                                                  : undefined
+                                              }
                                             >
                                               <TableCell className="font-medium">
-                                                {/* Stacked numeric range on mobile —
-                                                    a nowrap "19 Jul 2026 – 19 Aug
-                                                    2026" is 196px, over half the
-                                                    table's width at 390px. */}
+                                                {inv
+                                                  ? membership.plan?.name ||
+                                                    'Membership'
+                                                  : service
+                                                    ? service.item_name_snapshot
+                                                    : `${line?.description ?? 'Merchandise'}${
+                                                        line &&
+                                                        line.quantity > 1
+                                                          ? ` × ${line.quantity}`
+                                                          : ''
+                                                      }`}
+                                              </TableCell>
+                                              <TableCell className="font-medium">
                                                 <span className="flex flex-col leading-tight tabular-nums sm:hidden">
                                                   <span>
-                                                    {fmt.dateShort(
-                                                      inv.period_start
-                                                    )}
+                                                    {fmt.dateShort(periodStart)}
                                                   </span>
-                                                  <span className="text-muted-foreground">
-                                                    –{' '}
-                                                    {fmt.dateShort(
-                                                      inv.period_end
-                                                    )}
-                                                  </span>
+                                                  {periodEnd ? (
+                                                    <span className="text-muted-foreground">
+                                                      –{' '}
+                                                      {fmt.dateShort(periodEnd)}
+                                                    </span>
+                                                  ) : null}
                                                 </span>
                                                 <span className="hidden sm:inline">
-                                                  {fmt.date(inv.period_start)} –{' '}
-                                                  {fmt.date(inv.period_end)}
+                                                  {fmt.date(periodStart)}
+                                                  {periodEnd
+                                                    ? ` – ${fmt.date(periodEnd)}`
+                                                    : ''}
                                                 </span>
                                               </TableCell>
                                               <TableCell className="text-right tabular-nums">
-                                                {fmt.money(inv.fee_amount)}
+                                                {fmt.money(feeAmount)}
                                               </TableCell>
                                               <TableCell className="text-emerald-foreground hidden text-right tabular-nums sm:table-cell">
-                                                {fmt.money(inv.amount_paid)}
+                                                {fmt.money(cashPaid)}
                                               </TableCell>
-                                              {/* An outstanding balance is the
-                                                  only number here that asks for
-                                                  an action, so it carries the
-                                                  amber the Membership card used
-                                                  to duplicate. Epsilon-aware
-                                                  like the Payment badge — a
-                                                  ₹0.32 pro-rated stub isn't a
-                                                  debt. */}
                                               <TableCell
                                                 className={`hidden text-right tabular-nums sm:table-cell ${
-                                                  isChargeableAmount(invBalance)
+                                                  isChargeableAmount(rowBalance)
                                                     ? 'text-amber-foreground'
                                                     : ''
                                                 }`}
                                               >
-                                                {fmt.money(invBalance)}
+                                                {fmt.money(rowBalance)}
                                               </TableCell>
                                               <TableCell>
                                                 <InvoicePaymentBadge
@@ -1567,37 +1651,49 @@ export function MemberDetailView({
                                                 />
                                               </TableCell>
                                               <TableCell className="hidden sm:table-cell">
-                                                <Badge
-                                                  variant={
-                                                    lifecycle === 'Void'
-                                                      ? 'neutral'
-                                                      : lifecycle === 'Upcoming'
-                                                        ? 'info'
-                                                        : 'secondary'
-                                                  }
-                                                >
-                                                  {lifecycle}
-                                                </Badge>
+                                                {lifecycle ? (
+                                                  <Badge
+                                                    variant={
+                                                      lifecycle === 'Void'
+                                                        ? 'neutral'
+                                                        : lifecycle ===
+                                                            'Upcoming'
+                                                          ? 'info'
+                                                          : 'secondary'
+                                                    }
+                                                  >
+                                                    {lifecycle}
+                                                  </Badge>
+                                                ) : service ? (
+                                                  <MemberServiceStatusBadge
+                                                    status={
+                                                      service.derived_status
+                                                    }
+                                                  />
+                                                ) : (
+                                                  <Badge variant="neutral">
+                                                    Purchased
+                                                  </Badge>
+                                                )}
                                               </TableCell>
                                               <TableCell>
-                                                {/* Whole row opens the invoice; this button is
-                                                    the keyboard/AT path (stopPropagation so a
-                                                    click doesn't fire the row handler too). */}
-                                                <Button
-                                                  type="button"
-                                                  variant="ghost"
-                                                  size="icon-sm"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openInvoice(inv);
-                                                  }}
-                                                  aria-label={`View billing period starting ${fmt.date(inv.period_start)}`}
-                                                >
-                                                  <ChevronRight
-                                                    className="size-4"
-                                                    aria-hidden="true"
-                                                  />
-                                                </Button>
+                                                {inv ? (
+                                                  <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon-sm"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      openInvoice(inv);
+                                                    }}
+                                                    aria-label={`View billing period starting ${fmt.date(inv.period_start)}`}
+                                                  >
+                                                    <ChevronRight
+                                                      className="size-4"
+                                                      aria-hidden="true"
+                                                    />
+                                                  </Button>
+                                                ) : null}
                                               </TableCell>
                                             </TableRow>
                                           );
