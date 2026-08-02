@@ -29,6 +29,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+export type GenericInvoiceDetail = Pick<
+  FinanceInvoiceRow,
+  | 'id'
+  | 'reference'
+  | 'source'
+  | 'created_at'
+  | 'fee_amount'
+  | 'amount_paid'
+  | 'credit_applied'
+  | 'balance'
+  | 'state'
+>;
+
 export function GenericInvoiceDetailDialog({
   invoice,
   open,
@@ -36,7 +49,7 @@ export function GenericInvoiceDetailDialog({
   canRecord,
   onRecord,
 }: {
-  invoice: FinanceInvoiceRow | null;
+  invoice: GenericInvoiceDetail | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   canRecord: boolean;
@@ -198,7 +211,7 @@ export function GenericRecordPaymentDialog({
   onOpenChange,
   onSaved,
 }: {
-  invoice: FinanceInvoiceRow | null;
+  invoice: GenericInvoiceDetail | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;

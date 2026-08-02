@@ -37,6 +37,7 @@ import {
   canCorrectPayments,
   canDeleteMember,
   canManageMandates,
+  canRecordPayments,
   canReassignTrainer,
   canSellProductsServices,
 } from '@/lib/auth/roles';
@@ -59,6 +60,7 @@ import type {
   PaymentMandate,
   MemberService,
   InvoiceLine,
+  Invoice,
   CheckoutSelection,
 } from '@/types';
 import {
@@ -140,6 +142,14 @@ import { MemberDangerZone } from './member-danger-zone';
 import { VoidPaymentDialog } from './void-payment-dialog';
 import { ProductServiceSaleDialog } from './product-service-sale-dialog';
 import { ReassignTrainerDialog } from './reassign-trainer-dialog';
+import {
+  GenericInvoiceDetailDialog,
+  GenericRecordPaymentDialog,
+  type GenericInvoiceDetail,
+} from '@/components/finance/generic-invoice-dialogs';
+import { financeInvoiceReference } from '@/lib/finance/invoices';
+
+type MemberInvoiceBalance = Invoice & { created_at: string };
 
 /** Jump-nav sections, in scroll order. Ids double as `#sec-<id>`. */
 const SECTIONS = [
@@ -231,6 +241,9 @@ export function MemberDetailView({
   const { locale, fmt } = useLocale();
   const upi = useUpiConfig();
   const canSell = accountRole ? canSellProductsServices(accountRole) : false;
+  const canRecordGenericPayment = accountRole
+    ? canRecordPayments(accountRole)
+    : false;
   const canReassign = accountRole ? canReassignTrainer(accountRole) : false;
 
   const [membership, setMembership] = useState<Membership | null>(null);
@@ -239,6 +252,9 @@ export function MemberDetailView({
   const [invoices, setInvoices] = useState<MembershipPeriodInvoice[]>([]);
   const [services, setServices] = useState<MemberService[]>([]);
   const [merchandise, setMerchandise] = useState<InvoiceLine[]>([]);
+  const [genericInvoices, setGenericInvoices] = useState<
+    GenericInvoiceDetail[]
+  >([]);
   /** Visits inside the plan's usage window (062) — null = untracked. */
   const [usageCount, setUsageCount] = useState<number | null>(null);
   const [overrideWarning, setOverrideWarning] = useState<CheckInWarning | null>(
@@ -258,6 +274,10 @@ export function MemberDetailView({
   // fetch, so a mutation inside the modal (void) shows fresh numbers
   // after refreshAll instead of a stale snapshot.
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
+  const [genericInvoiceTarget, setGenericInvoiceTarget] =
+    useState<GenericInvoiceDetail | null>(null);
+  const [genericPaymentTarget, setGenericPaymentTarget] =
+    useState<GenericInvoiceDetail | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [autoPayOpen, setAutoPayOpen] = useState(false);
   const [mandate, setMandate] = useState<PaymentMandate | null>(null);
@@ -312,7 +332,7 @@ export function MemberDetailView({
         invoicesResult,
         mandateResult,
         servicesResult,
-        merchandiseResult,
+        genericBillingResult,
       ] = await Promise.all([
         supabase
           .from('payments')
@@ -348,18 +368,30 @@ export function MemberDetailView({
           .order('start_date', { ascending: false }),
         (async () => {
           const { data: genericInvoices, error: genericError } = await supabase
-            .from('invoices')
-            .select('id')
+            .from('invoice_balances')
+            .select('*')
             .eq('membership_id', membershipId);
           if (genericError) return { data: null, error: genericError };
           const ids = (genericInvoices ?? []).map((invoice) => invoice.id);
-          if (ids.length === 0) return { data: [], error: null };
-          return supabase
+          if (ids.length === 0) {
+            return {
+              data: { invoices: [], merchandise: [] },
+              error: null,
+            };
+          }
+          const merchandiseResult = await supabase
             .from('invoice_line_balances')
             .select('*')
             .in('invoice_id', ids)
             .eq('kind', 'merchandise')
             .order('created_at', { ascending: false });
+          return {
+            data: {
+              invoices: genericInvoices,
+              merchandise: merchandiseResult.data ?? [],
+            },
+            error: merchandiseResult.error,
+          };
         })(),
       ]);
       if (cancelled) return;
@@ -368,7 +400,7 @@ export function MemberDetailView({
         attendanceResult.error ??
         invoicesResult.error ??
         servicesResult.error ??
-        merchandiseResult.error;
+        genericBillingResult.error;
       if (childError) {
         setLoadError(childError.message);
         return;
@@ -378,7 +410,24 @@ export function MemberDetailView({
       setVisits((attendanceResult.data as Attendance[]) ?? []);
       setInvoices((invoicesResult.data as MembershipPeriodInvoice[]) ?? []);
       setServices((servicesResult.data as MemberService[]) ?? []);
-      setMerchandise((merchandiseResult.data as InvoiceLine[]) ?? []);
+      setMerchandise(
+        (genericBillingResult.data?.merchandise as InvoiceLine[]) ?? []
+      );
+      setGenericInvoices(
+        (
+          (genericBillingResult.data?.invoices as MemberInvoiceBalance[]) ?? []
+        ).map((invoice) => ({
+          id: invoice.id,
+          reference: financeInvoiceReference(invoice.id),
+          source: invoice.source,
+          created_at: invoice.created_at,
+          fee_amount: Number(invoice.total),
+          amount_paid: Number(invoice.amount_paid),
+          credit_applied: Number(invoice.credit_applied),
+          balance: Number(invoice.balance),
+          state: invoice.state,
+        }))
+      );
       setMandate((mandateResult.data as PaymentMandate | null) ?? null);
 
       // Usage vs the plan's limit / pack size (062) — count visits in
@@ -1570,6 +1619,32 @@ export function MemberDetailView({
                                                   ? 'Current'
                                                   : 'Past'
                                             : null;
+                                          const genericInvoiceId =
+                                            service?.invoice_id ??
+                                            line?.invoice_id ??
+                                            null;
+                                          const genericInvoice =
+                                            genericInvoiceId
+                                              ? (genericInvoices.find(
+                                                  (invoice) =>
+                                                    invoice.id ===
+                                                    genericInvoiceId
+                                                ) ?? null)
+                                              : null;
+                                          const canOpenInvoice =
+                                            !!inv || !!genericInvoice;
+                                          const openEntryInvoice = () => {
+                                            if (inv) openInvoice(inv);
+                                            else if (genericInvoice)
+                                              setGenericInvoiceTarget(
+                                                genericInvoice
+                                              );
+                                          };
+                                          const invoiceLabel = inv
+                                            ? `View billing period starting ${fmt.date(inv.period_start)}`
+                                            : genericInvoice
+                                              ? `View ${genericInvoice.reference} for ${service?.item_name_snapshot ?? line?.description ?? 'purchase'}`
+                                              : undefined;
 
                                           return (
                                             <TableRow
@@ -1579,34 +1654,34 @@ export function MemberDetailView({
                                                 line?.id
                                               }`}
                                               onClick={
-                                                inv
-                                                  ? () => openInvoice(inv)
+                                                canOpenInvoice
+                                                  ? openEntryInvoice
                                                   : undefined
                                               }
                                               onKeyDown={
-                                                inv
+                                                canOpenInvoice
                                                   ? (event) => {
                                                       if (
                                                         event.key === 'Enter' ||
                                                         event.key === ' '
                                                       ) {
                                                         event.preventDefault();
-                                                        openInvoice(inv);
+                                                        openEntryInvoice();
                                                       }
                                                     }
                                                   : undefined
                                               }
-                                              tabIndex={inv ? 0 : undefined}
-                                              aria-haspopup={
-                                                inv ? 'dialog' : undefined
+                                              tabIndex={
+                                                canOpenInvoice ? 0 : undefined
                                               }
-                                              aria-label={
-                                                inv
-                                                  ? `View billing period starting ${fmt.date(inv.period_start)}`
+                                              aria-haspopup={
+                                                canOpenInvoice
+                                                  ? 'dialog'
                                                   : undefined
                                               }
+                                              aria-label={invoiceLabel}
                                               className={
-                                                inv
+                                                canOpenInvoice
                                                   ? 'cursor-pointer'
                                                   : undefined
                                               }
@@ -1900,6 +1975,32 @@ export function MemberDetailView({
               onRecord={recordForPeriod}
               onRenew={() => setRenewOpen(true)}
             />
+            <GenericInvoiceDetailDialog
+              open={!!genericInvoiceTarget}
+              onOpenChange={(next) => {
+                if (!next) setGenericInvoiceTarget(null);
+              }}
+              invoice={genericInvoiceTarget}
+              canRecord={canRecordGenericPayment}
+              onRecord={() => {
+                if (!genericInvoiceTarget) return;
+                setGenericPaymentTarget(genericInvoiceTarget);
+                setGenericInvoiceTarget(null);
+              }}
+            />
+            {genericPaymentTarget ? (
+              <GenericRecordPaymentDialog
+                invoice={genericPaymentTarget}
+                open
+                onOpenChange={(next) => {
+                  if (!next) setGenericPaymentTarget(null);
+                }}
+                onSaved={() => {
+                  setGenericPaymentTarget(null);
+                  refreshAll();
+                }}
+              />
+            ) : null}
             <Dialog
               open={!!pendingLifecycle}
               onOpenChange={(next) => {
