@@ -8,7 +8,7 @@
 
 ## Member product summaries and unified billing
 
-Member profiles now present services and merchandise as newest-first Membership-style summaries with the same four-column hierarchy: item-name eyebrow over trainer/type, then Billing, Started/Purchased, and Expires/Quantity. Service status sits with the trainer value, while Renew/Reassign/Cancel remain single-line actions in the overflow menu. Billing is the financial history: its compact table includes membership periods plus personal-training and merchandise invoice-line charges with paid, balance, payment, and status columns. Key code: `src/components/members/member-detail-view.tsx` and `src/components/members/membership-status-badge.tsx`.
+Member profiles now present services and merchandise as newest-first Membership-style summaries with the same four-column hierarchy: item-name eyebrow over trainer/type, then Billing, Started/Purchased, and Expires/Quantity. Membership and service lifecycle badges sit beside their final renewal/expiry date instead of showing relative-day copy or attaching service status to the trainer. Renew/Reassign/Cancel remain single-line actions in the overflow menu. Billing is the financial history: its compact table includes membership periods plus personal-training and merchandise invoice-line charges with paid, balance, payment, and status columns. Key code: `src/components/members/member-detail-view.tsx` and `src/components/members/membership-status-badge.tsx`.
 
 ---
 

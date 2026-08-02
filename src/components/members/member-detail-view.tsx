@@ -694,9 +694,6 @@ export function MemberDetailView({
       : isRecurringMembership
         ? 'Renews'
         : 'Expires';
-  const showRelativeTerm = eff === 'active' || eff === 'expired';
-  const relativeTerm =
-    days < 0 ? `${-days}d ago` : days === 0 ? 'today' : `in ${days}d`;
 
   // Services and merchandise share one newest-first product summary. The
   // source records stay distinct because services retain lifecycle actions.
@@ -1140,14 +1137,14 @@ export function MemberDetailView({
                               {fmt.date(membership.start_date)}
                             </Stat>
                             <Stat label={termLabel}>
-                              <span className="tabular-nums">
-                                {fmt.date(membership.end_date)}
-                              </span>
-                              {showRelativeTerm && (
-                                <span className="text-muted-foreground ml-1 text-xs font-normal">
-                                  ({relativeTerm})
+                              <span className="flex flex-wrap items-center gap-2">
+                                <span className="tabular-nums">
+                                  {fmt.date(membership.end_date)}
                                 </span>
-                              )}
+                                {eff ? (
+                                  <MembershipStatusBadge status={eff} />
+                                ) : null}
+                              </span>
                             </Stat>
                           </dl>
                           {isRecurringMembership &&
@@ -1328,18 +1325,9 @@ export function MemberDetailView({
                                             : line?.description || 'Merchandise'
                                         }
                                       >
-                                        {service ? (
-                                          <span className="flex flex-wrap items-center gap-2">
-                                            <span>
-                                              {service.trainer_name || '—'}
-                                            </span>
-                                            <MemberServiceStatusBadge
-                                              status={service.derived_status}
-                                            />
-                                          </span>
-                                        ) : (
-                                          'Merchandise'
-                                        )}
+                                        {service
+                                          ? service.trainer_name || '—'
+                                          : 'Merchandise'}
                                       </Stat>
                                       <Stat label="Billing">
                                         <span className="tabular-nums">
@@ -1374,9 +1362,18 @@ export function MemberDetailView({
                                       <Stat
                                         label={service ? 'Expires' : 'Quantity'}
                                       >
-                                        {service
-                                          ? fmt.date(service.end_date)
-                                          : line?.quantity}
+                                        {service ? (
+                                          <span className="flex flex-wrap items-center gap-2">
+                                            <span className="tabular-nums">
+                                              {fmt.date(service.end_date)}
+                                            </span>
+                                            <MemberServiceStatusBadge
+                                              status={service.derived_status}
+                                            />
+                                          </span>
+                                        ) : (
+                                          line?.quantity
+                                        )}
                                       </Stat>
                                     </dl>
                                   </div>
