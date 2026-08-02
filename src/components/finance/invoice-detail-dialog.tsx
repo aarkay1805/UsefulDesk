@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Repeat, RotateCcw, Wallet } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -24,6 +24,7 @@ import {
   isChargeableAmount,
 } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
 import type {
   InvoiceLine,
   MembershipPeriodInvoice,
@@ -61,30 +62,6 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
   bank: 'Bank transfer',
   other: 'Other',
 };
-
-function Summary({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="mt-0.5 font-medium tabular-nums">{children}</dd>
-    </div>
-  );
-}
-
-function PaymentRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-3 py-2">
-      <dt className="text-muted-foreground text-sm">{label}</dt>
-      <dd className="text-right text-sm font-medium">{children}</dd>
-    </div>
-  );
-}
 
 function InvoiceDetailBody({
   invoice,
@@ -157,6 +134,9 @@ function InvoiceDetailBody({
     () => new Map(periods.map((period) => [period.id, period])),
     [periods]
   );
+  const showCredit = isChargeableAmount(invoice.credit_applied ?? 0);
+  const hasBalance = isChargeableAmount(invoice.balance);
+  const showAmountPaid = hasBalance && isChargeableAmount(invoice.amount_paid);
 
   if (loading) {
     return (
@@ -177,226 +157,233 @@ function InvoiceDetailBody({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="border-border divide-border divide-y rounded-lg border">
-        {lines.length === 0 ? (
-          <p className="text-muted-foreground px-3 py-4 text-sm">
-            No invoice lines are available.
-          </p>
-        ) : (
-          lines.map((line) => {
-            const period = line.membership_period_id
-              ? periodById.get(line.membership_period_id)
-              : null;
-            const discountAmount = Number(period?.discount_amount ?? 0);
-            const bonusMonths = Number(period?.bonus_months ?? 0);
-            const discountLabel =
-              period?.discount_type === 'percentage' &&
-              period.discount_value != null
-                ? `Discount (${Number(period.discount_value)}%)`
-                : 'Discount';
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <p className="font-medium">Items</p>
+        <div className="border-border divide-border divide-y rounded-lg border">
+          {lines.length === 0 ? (
+            <p className="text-muted-foreground px-3 py-4 text-sm">
+              No invoice lines are available.
+            </p>
+          ) : (
+            lines.map((line) => {
+              const period = line.membership_period_id
+                ? periodById.get(line.membership_period_id)
+                : null;
+              const discountAmount = Number(period?.discount_amount ?? 0);
+              const bonusMonths = Number(period?.bonus_months ?? 0);
+              const discountLabel =
+                period?.discount_type === 'percentage' &&
+                period.discount_value != null
+                  ? `Discount (${Number(period.discount_value)}%)`
+                  : 'Discount';
 
-            return (
-              <div
-                key={line.id}
-                className={
-                  line.state === 'void' ? 'px-3 py-3 opacity-65' : 'px-3 py-3'
-                }
-              >
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">
-                        {line.description}
-                        {line.quantity > 1 ? ` × ${line.quantity}` : ''}
-                      </p>
-                      <Badge variant="neutral">
-                        {line.kind.replaceAll('_', ' ')}
-                      </Badge>
-                      {line.state === 'void' ? (
-                        <Badge variant="neutral">Void</Badge>
+              return (
+                <div
+                  key={line.id}
+                  className={
+                    line.state === 'void' ? 'px-3 py-3 opacity-65' : 'px-3 py-3'
+                  }
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">
+                          {line.description}
+                          {line.quantity > 1 ? ` × ${line.quantity}` : ''}
+                        </p>
+                        {line.state === 'void' ? (
+                          <Badge variant="neutral">Void</Badge>
+                        ) : null}
+                      </div>
+                      {line.service_start && line.service_end ? (
+                        <p className="text-muted-foreground mt-0.5 text-xs tabular-nums">
+                          {fmt.date(line.service_start)} –{' '}
+                          {fmt.date(line.service_end)}
+                        </p>
+                      ) : null}
+                      {bonusMonths > 0 && period?.standard_period_end ? (
+                        <p className="text-muted-foreground mt-0.5 text-xs">
+                          Regular expiry {fmt.date(period.standard_period_end)}{' '}
+                          · +{bonusMonths}{' '}
+                          {bonusMonths === 1 ? 'month' : 'months'}
+                        </p>
+                      ) : null}
+                      {line.override_reason ? (
+                        <p className="text-muted-foreground mt-0.5 text-xs">
+                          Price override: {line.override_reason}
+                        </p>
                       ) : null}
                     </div>
-                    {line.service_start && line.service_end ? (
-                      <p className="text-muted-foreground mt-0.5 text-xs tabular-nums">
-                        {fmt.date(line.service_start)} –{' '}
-                        {fmt.date(line.service_end)}
+                    <div className="shrink-0 text-right text-sm">
+                      {isChargeableAmount(discountAmount) &&
+                      line.list_amount != null ? (
+                        <p className="text-muted-foreground text-xs tabular-nums line-through">
+                          {fmt.money(line.list_amount)}
+                        </p>
+                      ) : null}
+                      <p className="font-medium tabular-nums">
+                        {fmt.money(line.line_amount)}
                       </p>
-                    ) : null}
-                    {bonusMonths > 0 && period?.standard_period_end ? (
-                      <p className="text-muted-foreground mt-0.5 text-xs">
-                        Regular expiry {fmt.date(period.standard_period_end)} ·
-                        +{bonusMonths} {bonusMonths === 1 ? 'month' : 'months'}
-                      </p>
-                    ) : null}
-                    {line.override_reason ? (
-                      <p className="text-muted-foreground mt-0.5 text-xs">
-                        Price override: {line.override_reason}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="shrink-0 text-right text-sm">
-                    {isChargeableAmount(discountAmount) &&
-                    line.list_amount != null ? (
-                      <p className="text-muted-foreground text-xs tabular-nums line-through">
-                        {fmt.money(line.list_amount)}
-                      </p>
-                    ) : null}
-                    <p className="font-medium tabular-nums">
-                      {fmt.money(line.line_amount)}
-                    </p>
-                    {isChargeableAmount(discountAmount) ? (
-                      <p className="text-muted-foreground text-xs tabular-nums">
-                        {discountLabel} −{fmt.money(discountAmount)}
-                      </p>
-                    ) : null}
+                      {isChargeableAmount(discountAmount) ? (
+                        <p className="text-muted-foreground text-xs tabular-nums">
+                          {discountLabel} −{fmt.money(discountAmount)}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-                <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                  <Summary label="Cash paid">
-                    {fmt.money(line.amount_paid)}
-                  </Summary>
-                  <Summary label="Credit">
-                    {fmt.money(line.credit_applied)}
-                  </Summary>
-                  <Summary label="Balance">
-                    <span
-                      className={
-                        isChargeableAmount(line.balance)
-                          ? 'text-amber-foreground'
-                          : undefined
-                      }
-                    >
-                      {fmt.money(line.balance)}
-                    </span>
-                  </Summary>
-                </dl>
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </div>
       </div>
 
-      <dl className="border-border grid grid-cols-2 gap-3 rounded-lg border p-3 text-sm sm:grid-cols-5">
-        <Summary label="Total">{fmt.money(invoice.fee_amount)}</Summary>
-        <Summary label="Cash paid">{fmt.money(invoice.amount_paid)}</Summary>
-        <Summary label="Credit">
-          {fmt.money(invoice.credit_applied ?? 0)}
-        </Summary>
-        <Summary label="Balance">
-          <span
-            className={
-              isChargeableAmount(invoice.balance)
-                ? 'text-amber-foreground'
-                : undefined
-            }
-          >
-            {fmt.money(invoice.balance)}
-          </span>
-        </Summary>
-        <Summary label="Payment">
-          {invoice.state === 'void' ? (
-            <Badge variant="neutral">Void</Badge>
-          ) : (
-            <InvoicePaymentBadge state={invoicePaymentState(invoice)} />
-          )}
-        </Summary>
+      <dl className="border-border flex flex-wrap items-end justify-between gap-x-8 gap-y-3 border-y py-3 text-sm">
+        <div>
+          <dt className="text-muted-foreground text-xs">Invoice total</dt>
+          <dd className="mt-0.5 text-lg font-semibold tabular-nums">
+            {fmt.money(invoice.fee_amount)}
+          </dd>
+        </div>
+        {showAmountPaid || showCredit || hasBalance ? (
+          <div className="flex flex-wrap items-end gap-x-8 gap-y-3 sm:ml-auto">
+            {showAmountPaid ? (
+              <div>
+                <dt className="text-muted-foreground text-xs">Paid</dt>
+                <dd className="mt-0.5 font-medium tabular-nums">
+                  {fmt.money(invoice.amount_paid)}
+                </dd>
+              </div>
+            ) : null}
+            {showCredit ? (
+              <div>
+                <dt className="text-muted-foreground text-xs">
+                  Credit applied
+                </dt>
+                <dd className="mt-0.5 font-medium tabular-nums">
+                  {fmt.money(invoice.credit_applied ?? 0)}
+                </dd>
+              </div>
+            ) : null}
+            {hasBalance ? (
+              <div>
+                <dt className="text-muted-foreground text-xs">Balance due</dt>
+                <dd className="text-amber-foreground mt-0.5 font-medium tabular-nums">
+                  {fmt.money(invoice.balance)}
+                </dd>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </dl>
 
-      <div>
-        <p className="text-muted-foreground mb-2 text-xs font-medium uppercase">
-          Collections
+      <div className="space-y-2">
+        <p className="font-medium">
+          {payments.length === 1 ? 'Payment' : 'Payments'}
         </p>
         {payments.length === 0 ? (
           <p className="text-muted-foreground text-sm">
             No payments recorded for this invoice.
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="border-border divide-border divide-y rounded-lg border">
             {payments.map((payment) => (
               <div
                 key={payment.id}
-                className={payment.status === 'void' ? 'opacity-65' : undefined}
+                className={cn(
+                  'flex items-start gap-3 p-3',
+                  payment.status === 'void' && 'opacity-65'
+                )}
               >
-                <div className="mb-1.5 flex items-center gap-2">
-                  {payment.status === 'void' ? (
-                    <VoidedPaymentBadge
-                      payment={payment}
-                      voidedOn={
-                        payment.voided_at ? fmt.date(payment.voided_at) : null
-                      }
-                    />
-                  ) : (
-                    <Badge variant="success">Paid</Badge>
-                  )}
-                  {payment.source === 'auto' ? (
-                    <Badge variant="info">
-                      <Repeat className="size-3" /> Auto
-                    </Badge>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">
+                      {METHOD_LABEL[payment.method]}
+                    </p>
+                    {payment.status === 'void' ? (
+                      <VoidedPaymentBadge
+                        payment={payment}
+                        voidedOn={
+                          payment.voided_at ? fmt.date(payment.voided_at) : null
+                        }
+                      />
+                    ) : null}
+                    {payment.source === 'auto' ? (
+                      <Badge variant="info">
+                        <Repeat className="size-3" /> Auto
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs">
+                    <span className="tabular-nums">
+                      {fmt.dateTime(payment.paid_at)}
+                    </span>
+                    {payment.user_id ? (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        {staffNameById.has(payment.user_id) ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span>Recorded by</span>
+                            <UserAvatar
+                              name={staffNameById.get(payment.user_id) ?? '?'}
+                              src={staffAvatarById.get(payment.user_id)}
+                              className="size-5"
+                              fallbackClassName="text-[9px]"
+                            />
+                            <span>{staffNameById.get(payment.user_id)}</span>
+                          </span>
+                        ) : (
+                          <span>Recorded by Former teammate</span>
+                        )}
+                      </>
+                    ) : payment.source === 'auto' ? null : (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span>Recorder unavailable</span>
+                      </>
+                    )}
+                  </div>
+                  {payment.note ? (
+                    <p className="text-muted-foreground mt-2 text-xs">
+                      Note: {payment.note}
+                    </p>
                   ) : null}
+                  {payment.screenshot_url ||
+                  payment.screenshot_path ||
+                  (payment.status === 'void' && payment.void_reason) ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                      {payment.screenshot_url || payment.screenshot_path ? (
+                        <PaymentProofLink payment={payment} />
+                      ) : null}
+                      {payment.status === 'void' && payment.void_reason ? (
+                        <span className="text-muted-foreground">
+                          Void reason: {payment.void_reason}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <p
+                    className={cn(
+                      'font-medium tabular-nums',
+                      payment.status === 'void' && 'line-through'
+                    )}
+                  >
+                    {fmt.money(payment.amount)}
+                  </p>
                   {payment.status === 'paid' && canVoid && onVoidPayment ? (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="ml-auto"
                       onClick={() => onVoidPayment(payment)}
                     >
                       <RotateCcw className="size-3.5" /> Void
                     </Button>
                   ) : null}
                 </div>
-                <dl className="border-border divide-border divide-y rounded-lg border">
-                  <PaymentRow label="Paid on">
-                    {fmt.dateTime(payment.paid_at)}
-                  </PaymentRow>
-                  <PaymentRow label="Method">
-                    {METHOD_LABEL[payment.method]}
-                  </PaymentRow>
-                  <PaymentRow label="Amount">
-                    <span
-                      className={
-                        payment.status === 'void'
-                          ? 'tabular-nums line-through'
-                          : 'tabular-nums'
-                      }
-                    >
-                      {fmt.money(payment.amount)}
-                    </span>
-                  </PaymentRow>
-                  <PaymentRow label="Recorded by">
-                    {!payment.user_id ? (
-                      'Auto-pay'
-                    ) : staffNameById.has(payment.user_id) ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <UserAvatar
-                          name={staffNameById.get(payment.user_id) ?? '?'}
-                          src={staffAvatarById.get(payment.user_id)}
-                          className="size-5"
-                          fallbackClassName="text-[9px]"
-                        />
-                        {staffNameById.get(payment.user_id)}
-                      </span>
-                    ) : (
-                      'Former teammate'
-                    )}
-                  </PaymentRow>
-                  {payment.note ? (
-                    <PaymentRow label="Note">{payment.note}</PaymentRow>
-                  ) : null}
-                  {payment.screenshot_url || payment.screenshot_path ? (
-                    <PaymentRow label="Receipt">
-                      <PaymentProofLink payment={payment} />
-                    </PaymentRow>
-                  ) : null}
-                  {payment.status === 'void' && payment.void_reason ? (
-                    <PaymentRow label="Void reason">
-                      <span className="text-muted-foreground">
-                        {payment.void_reason}
-                      </span>
-                    </PaymentRow>
-                  ) : null}
-                </dl>
               </div>
             ))}
           </div>
@@ -435,7 +422,16 @@ export function InvoiceDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{invoice?.reference ?? 'Invoice'}</DialogTitle>
+          <DialogTitle className="flex flex-wrap items-center gap-2">
+            <span>{invoice ? `Invoice ${invoice.reference}` : 'Invoice'}</span>
+            {invoice ? (
+              invoice.state === 'void' ? (
+                <Badge variant="neutral">Void</Badge>
+              ) : (
+                <InvoicePaymentBadge state={invoicePaymentState(invoice)} />
+              )
+            ) : null}
+          </DialogTitle>
           <DialogDescription>
             {invoice?.source ? invoiceSourceLabel(invoice.source) : 'Invoice'} ·
             issued {invoice ? fmt.date(invoice.created_at) : '—'}
