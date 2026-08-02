@@ -1206,11 +1206,20 @@ export interface InvoiceLine {
   line_amount: number;
   service_start: string | null;
   service_end: string | null;
+  list_amount: number | null;
+  override_amount: number | null;
+  override_reason: string | null;
+  overridden_by: string | null;
   state: 'active' | 'void';
+  sort_order: number;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
   amount_paid: number;
   credit_applied: number;
   balance: number;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Invoice {
@@ -1230,6 +1239,11 @@ export interface Invoice {
   customer_name_snapshot: string | null;
   member_number_snapshot: number | null;
   currency: string;
+  created_by: string | null;
+  created_at: string;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
   total: number;
   amount_paid: number;
   credit_applied: number;

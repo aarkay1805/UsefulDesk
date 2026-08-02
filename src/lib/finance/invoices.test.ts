@@ -8,6 +8,9 @@ import {
   financeInvoiceReference,
   financeInvoicesCsv,
   financeInvoiceSummary,
+  groupInvoiceLines,
+  invoiceItemsLabel,
+  invoiceSourceLabel,
   normalizeFinanceInvoiceRows,
 } from './invoices';
 
@@ -95,6 +98,40 @@ describe('finance invoice identity and lifecycle', () => {
     expect(financeInvoiceLifecycle(invoice(), '2026-08-31', TODAY)).toBe(
       'past'
     );
+  });
+});
+
+describe('invoice-first member billing helpers', () => {
+  it('uses owner-facing source labels', () => {
+    expect(invoiceSourceLabel('joining')).toBe('Joining');
+    expect(invoiceSourceLabel('membership_renewal')).toBe('Membership renewal');
+    expect(invoiceSourceLabel('service_adjustment')).toBe('Service adjustment');
+  });
+
+  it('summarizes every line in one combined invoice label', () => {
+    expect(
+      invoiceItemsLabel([
+        { description: 'Competition', quantity: 1 },
+        { description: 'Personal training', quantity: 1 },
+        { description: 'Protein shake', quantity: 2 },
+      ])
+    ).toBe('Competition + Personal training + Protein shake × 2');
+  });
+
+  it('groups membership and service lines under one invoice record', () => {
+    const grouped = groupInvoiceLines([
+      { invoice_id: 'combined', description: 'Membership' },
+      { invoice_id: 'combined', description: 'Personal training' },
+      { invoice_id: 'sale', description: 'Gloves' },
+    ]);
+
+    expect(grouped.get('combined')?.map((line) => line.description)).toEqual([
+      'Membership',
+      'Personal training',
+    ]);
+    expect(grouped.get('sale')?.map((line) => line.description)).toEqual([
+      'Gloves',
+    ]);
   });
 });
 

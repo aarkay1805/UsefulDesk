@@ -18,10 +18,9 @@ import { FinanceInvoiceFilters } from '@/components/finance/finance-invoice-filt
 import { FinanceMonthActions } from '@/components/finance/finance-month-actions';
 import { LeadsSort, type SortState } from '@/components/leads/leads-sort';
 import { MemberIdentity } from '@/components/members/member-identity';
-import {
-  GenericInvoiceDetailDialog,
-  GenericRecordPaymentDialog,
-} from '@/components/finance/generic-invoice-dialogs';
+import { InvoiceDetailDialog } from '@/components/finance/invoice-detail-dialog';
+import { RecordInvoicePaymentDialog } from '@/components/finance/record-invoice-payment-dialog';
+import { VoidInvoicePaymentDialog } from '@/components/finance/void-invoice-payment-dialog';
 import { ColumnHeader } from '@/components/table/column-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -40,7 +39,7 @@ import {
 } from '@/components/ui/table';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
-import { canRecordPayments } from '@/lib/auth/roles';
+import { canCorrectPayments, canRecordPayments } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
 import {
   EMPTY_FINANCE_INVOICE_FILTERS,
@@ -55,6 +54,7 @@ import {
 } from '@/lib/finance/invoices';
 import { isChargeableAmount } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
+import type { Payment } from '@/types';
 
 const PAGE_SIZE = 25;
 
@@ -89,6 +89,9 @@ export function FinanceInvoices({
   const mayRecordPayments = accountRole
     ? canRecordPayments(accountRole)
     : false;
+  const mayCorrectPayments = accountRole
+    ? canCorrectPayments(accountRole)
+    : false;
   const [rows, setRows] = useState<FinanceInvoiceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +112,7 @@ export function FinanceInvoices({
   );
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [paymentTargetId, setPaymentTargetId] = useState<string | null>(null);
+  const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -569,18 +573,21 @@ export function FinanceInvoices({
         </>
       )}
 
-      <GenericInvoiceDetailDialog
+      <InvoiceDetailDialog
         open={invoiceOpen}
         onOpenChange={setInvoiceOpen}
         invoice={selectedInvoice}
         canRecord={mayRecordPayments}
+        canVoid={mayCorrectPayments}
+        onVoidPayment={setPaymentToVoid}
         onRecord={() => {
           if (selectedInvoice) recordInvoice(selectedInvoice);
         }}
       />
 
       {paymentTarget ? (
-        <GenericRecordPaymentDialog
+        <RecordInvoicePaymentDialog
+          key={paymentTarget.id}
           invoice={paymentTarget}
           open
           onOpenChange={(open) => {
@@ -592,6 +599,19 @@ export function FinanceInvoices({
           }}
         />
       ) : null}
+
+      <VoidInvoicePaymentDialog
+        key={paymentToVoid?.id ?? 'no-payment'}
+        payment={paymentToVoid}
+        open={!!paymentToVoid}
+        onOpenChange={(open) => {
+          if (!open) setPaymentToVoid(null);
+        }}
+        onVoided={() => {
+          setPaymentToVoid(null);
+          setLocalReloadKey((key) => key + 1);
+        }}
+      />
     </div>
   );
 }

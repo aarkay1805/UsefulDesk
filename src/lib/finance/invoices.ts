@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { InvoiceLineKind } from '@/types';
+import type { Invoice, InvoiceLine, InvoiceLineKind } from '@/types';
 
 import { dayStartInTz, todayInTz } from '@/lib/locale/format';
 import {
@@ -106,6 +106,42 @@ async function fetchAll<T>(
 
 export function financeInvoiceReference(id: string): string {
   return `#${id.replaceAll('-', '').slice(0, 8).toUpperCase()}`;
+}
+
+const INVOICE_SOURCE_LABEL: Record<Invoice['source'], string> = {
+  joining: 'Joining',
+  membership_renewal: 'Membership renewal',
+  sale: 'Sale',
+  service_renewal: 'Service renewal',
+  service_adjustment: 'Service adjustment',
+};
+
+export function invoiceSourceLabel(source: Invoice['source']): string {
+  return INVOICE_SOURCE_LABEL[source];
+}
+
+export function invoiceItemLabel(
+  line: Pick<InvoiceLine, 'description' | 'quantity'>
+): string {
+  return `${line.description}${line.quantity > 1 ? ` × ${line.quantity}` : ''}`;
+}
+
+export function invoiceItemsLabel(
+  lines: Array<Pick<InvoiceLine, 'description' | 'quantity'>>
+): string {
+  return lines.length > 0 ? lines.map(invoiceItemLabel).join(' + ') : 'Invoice';
+}
+
+export function groupInvoiceLines<T extends Pick<InvoiceLine, 'invoice_id'>>(
+  lines: T[]
+): Map<string, T[]> {
+  const grouped = new Map<string, T[]>();
+  for (const line of lines) {
+    const invoiceLines = grouped.get(line.invoice_id) ?? [];
+    invoiceLines.push(line);
+    grouped.set(line.invoice_id, invoiceLines);
+  }
+  return grouped;
 }
 
 export function financeInvoiceLifecycle(

@@ -109,7 +109,6 @@ import {
 import {
   setMembershipCancellation,
   unfreezeMembership,
-  isCollectiblePeriod,
   invoicePaymentState,
   isChargeableAmount,
 } from '@/lib/memberships/periods';
@@ -122,11 +121,9 @@ import {
   MemberServiceStatusBadge,
 } from './membership-status-badge';
 import { AttendanceOverrideDialog } from './attendance-override-dialog';
-import { InvoiceDetailDialog } from './invoice-detail-dialog';
 import { RenewMembershipDialog } from './renew-membership-dialog';
 import { ChangePlanDialog } from './change-plan-dialog';
 import { AvatarEditorDialog } from './avatar-editor-dialog';
-import { RecordPaymentDialog } from './record-payment-dialog';
 import { SetUpAutoPayDialog } from './set-up-autopay-dialog';
 import { ContactNotesThread } from '@/components/contacts/contact-notes-thread';
 import { CopyUpiLinkButton, useUpiConfig } from './copy-upi-link-button';
@@ -139,17 +136,22 @@ import { ChurnRiskCard } from './churn-risk-card';
 import { MemberPersonalInfo } from './member-personal-info';
 import { MemberCommunication } from './member-communication';
 import { MemberDangerZone } from './member-danger-zone';
-import { VoidPaymentDialog } from './void-payment-dialog';
 import { ProductServiceSaleDialog } from './product-service-sale-dialog';
 import { ReassignTrainerDialog } from './reassign-trainer-dialog';
 import {
-  GenericInvoiceDetailDialog,
-  GenericRecordPaymentDialog,
-  type GenericInvoiceDetail,
-} from '@/components/finance/generic-invoice-dialogs';
-import { financeInvoiceReference } from '@/lib/finance/invoices';
+  InvoiceDetailDialog,
+  type InvoiceDetail,
+} from '@/components/finance/invoice-detail-dialog';
+import { RecordInvoicePaymentDialog } from '@/components/finance/record-invoice-payment-dialog';
+import { VoidInvoicePaymentDialog } from '@/components/finance/void-invoice-payment-dialog';
+import {
+  financeInvoiceReference,
+  groupInvoiceLines,
+  invoiceItemsLabel,
+  invoiceSourceLabel,
+} from '@/lib/finance/invoices';
 
-type MemberInvoiceBalance = Invoice & { created_at: string };
+type MemberInvoiceBalance = Invoice;
 
 /** Jump-nav sections, in scroll order. Ids double as `#sec-<id>`. */
 const SECTIONS = [
@@ -247,14 +249,12 @@ export function MemberDetailView({
   const canReassign = accountRole ? canReassignTrainer(accountRole) : false;
 
   const [membership, setMembership] = useState<Membership | null>(null);
-  const [payments, setPayments] = useState<Payment[]>([]);
   const [visits, setVisits] = useState<Attendance[]>([]);
   const [invoices, setInvoices] = useState<MembershipPeriodInvoice[]>([]);
   const [services, setServices] = useState<MemberService[]>([]);
   const [merchandise, setMerchandise] = useState<InvoiceLine[]>([]);
-  const [genericInvoices, setGenericInvoices] = useState<
-    GenericInvoiceDetail[]
-  >([]);
+  const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>([]);
+  const [genericInvoices, setGenericInvoices] = useState<InvoiceDetail[]>([]);
   /** Visits inside the plan's usage window (062) — null = untracked. */
   const [usageCount, setUsageCount] = useState<number | null>(null);
   const [overrideWarning, setOverrideWarning] = useState<CheckInWarning | null>(
@@ -264,20 +264,9 @@ export function MemberDetailView({
   const [renewOpen, setRenewOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [changePlanOpen, setChangePlanOpen] = useState(false);
-  const [payOpen, setPayOpen] = useState(false);
-  // The period to record against (arrears); null = current period.
-  const [payPeriod, setPayPeriod] = useState<MembershipPeriodInvoice | null>(
-    null
-  );
+  const [invoiceTargetId, setInvoiceTargetId] = useState<string | null>(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
-  // Track the open invoice by ID and derive the object from the latest
-  // fetch, so a mutation inside the modal (void) shows fresh numbers
-  // after refreshAll instead of a stale snapshot.
-  const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
-  const [genericInvoiceTarget, setGenericInvoiceTarget] =
-    useState<GenericInvoiceDetail | null>(null);
-  const [genericPaymentTarget, setGenericPaymentTarget] =
-    useState<GenericInvoiceDetail | null>(null);
+  const [paymentTargetId, setPaymentTargetId] = useState<string | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [autoPayOpen, setAutoPayOpen] = useState(false);
   const [mandate, setMandate] = useState<PaymentMandate | null>(null);
@@ -327,18 +316,12 @@ export function MemberDetailView({
       }
 
       const [
-        paymentsResult,
         attendanceResult,
         invoicesResult,
         mandateResult,
         servicesResult,
         genericBillingResult,
       ] = await Promise.all([
-        supabase
-          .from('payments')
-          .select('*')
-          .eq('membership_id', membershipId)
-          .order('paid_at', { ascending: false }),
         supabase
           .from('attendance')
           .select('*')
@@ -375,28 +358,26 @@ export function MemberDetailView({
           const ids = (genericInvoices ?? []).map((invoice) => invoice.id);
           if (ids.length === 0) {
             return {
-              data: { invoices: [], merchandise: [] },
+              data: { invoices: [], lines: [] },
               error: null,
             };
           }
-          const merchandiseResult = await supabase
+          const lineResult = await supabase
             .from('invoice_line_balances')
             .select('*')
             .in('invoice_id', ids)
-            .eq('kind', 'merchandise')
-            .order('created_at', { ascending: false });
+            .order('sort_order');
           return {
             data: {
               invoices: genericInvoices,
-              merchandise: merchandiseResult.data ?? [],
+              lines: lineResult.data ?? [],
             },
-            error: merchandiseResult.error,
+            error: lineResult.error,
           };
         })(),
       ]);
       if (cancelled) return;
       const childError =
-        paymentsResult.error ??
         attendanceResult.error ??
         invoicesResult.error ??
         servicesResult.error ??
@@ -406,12 +387,18 @@ export function MemberDetailView({
         return;
       }
       setMembership(m as Membership);
-      setPayments((paymentsResult.data as Payment[]) ?? []);
       setVisits((attendanceResult.data as Attendance[]) ?? []);
       setInvoices((invoicesResult.data as MembershipPeriodInvoice[]) ?? []);
       setServices((servicesResult.data as MemberService[]) ?? []);
+      const loadedInvoiceLines =
+        (genericBillingResult.data?.lines as InvoiceLine[]) ?? [];
+      setInvoiceLines(loadedInvoiceLines);
       setMerchandise(
-        (genericBillingResult.data?.merchandise as InvoiceLine[]) ?? []
+        loadedInvoiceLines
+          .filter((line) => line.kind === 'merchandise')
+          .sort((left, right) =>
+            right.created_at.localeCompare(left.created_at)
+          )
       );
       setGenericInvoices(
         (
@@ -420,7 +407,7 @@ export function MemberDetailView({
           id: invoice.id,
           reference: financeInvoiceReference(invoice.id),
           source: invoice.source,
-          created_at: invoice.created_at,
+          created_at: invoice.issued_at,
           fee_amount: Number(invoice.total),
           amount_paid: Number(invoice.amount_paid),
           credit_applied: Number(invoice.credit_applied),
@@ -668,29 +655,9 @@ export function MemberDetailView({
   const eff = membership ? effectiveStatus(membership, today) : null;
   const days = membership ? daysUntil(membership.end_date, today) : 0;
 
-  // Current-cycle money comes from the invoice read model. The local
-  // ledger fallback only covers pre-057 data that has no period row.
-  const collectedCurrent = membership
-    ? payments
-        .filter(
-          (p) => p.status === 'paid' && p.period_end === membership.end_date
-        )
-        .reduce((s, p) => s + (Number(p.amount) || 0), 0)
-    : 0;
   const currentInvoice = membership
     ? (invoices.find((inv) => inv.period_end === membership.end_date) ?? null)
     : null;
-  const currentFee = Number(
-    currentInvoice?.fee_amount ?? membership?.fee_amount ?? 0
-  );
-  const currentPaid = Number(currentInvoice?.amount_paid ?? collectedCurrent);
-  const balance =
-    membership?.status === 'cancelled' || currentInvoice?.state === 'void'
-      ? 0
-      : Math.max(
-          Number(currentInvoice?.balance ?? currentFee - currentPaid),
-          0
-        );
   const outstandingBalance = invoices.reduce((total, invoice) => {
     const invoiceBalance = Number(invoice.balance);
     return invoice.state !== 'void' && isChargeableAmount(invoiceBalance)
@@ -698,11 +665,16 @@ export function MemberDetailView({
       : total;
   }, 0);
 
-  // Invoice timeline: persisted periods (past + current, real arrears),
-  // newest first so Upcoming reads at the top, history descends below.
-  const canCollectCurrent = membership
-    ? isCollectiblePeriod(currentInvoice, membership.status)
-    : false;
+  const currentGenericInvoice = currentInvoice?.invoice_id
+    ? (genericInvoices.find(
+        (invoice) => invoice.id === currentInvoice.invoice_id
+      ) ?? null)
+    : null;
+  const canCollectCurrent =
+    !!currentGenericInvoice &&
+    currentGenericInvoice.state === 'open' &&
+    isChargeableAmount(currentGenericInvoice.balance) &&
+    canRecordGenericPayment;
   // Auto-pay setup is a BILLING action (lives in the Billing section):
   // offered for an active, non-trial member on a RECURRING plan (only
   // recurring plans auto-renew, 062) who has no live mandate yet.
@@ -758,43 +730,21 @@ export function MemberDetailView({
     })),
   ].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
 
-  // Billing is the unified financial history. Membership periods come from
-  // the compatibility view; product/service charges come from their generic
-  // invoice-line read models, so each balance remains line-accurate.
-  const billingEntries = [
-    ...invoices.map((invoice) => ({
-      kind: 'membership' as const,
-      sortDate: invoice.period_start,
-      invoice,
-    })),
-    ...services.map((service) => ({
-      kind: 'service' as const,
-      sortDate: service.start_date,
-      service,
-    })),
-    ...merchandise.map((line) => ({
-      kind: 'merchandise' as const,
-      sortDate: line.created_at,
-      line,
-    })),
-  ].sort((a, b) => b.sortDate.localeCompare(a.sortDate));
-
-  const activeInvoice = activeInvoiceId
-    ? (invoices.find((inv) => inv.id === activeInvoiceId) ?? null)
+  // Billing follows the immutable invoice ledger: one checkout = one row,
+  // even when the invoice contains membership, service, and merchandise
+  // lines with different service dates.
+  const invoiceLinesByInvoice = groupInvoiceLines(invoiceLines);
+  const billingInvoices = [...genericInvoices].sort((left, right) =>
+    right.created_at.localeCompare(left.created_at)
+  );
+  const invoiceTarget = invoiceTargetId
+    ? (genericInvoices.find((invoice) => invoice.id === invoiceTargetId) ??
+      null)
     : null;
-
-  function openInvoice(inv: MembershipPeriodInvoice) {
-    setActiveInvoiceId(inv.id);
-    setInvoiceOpen(true);
-  }
-  function recordForPeriod(inv: MembershipPeriodInvoice) {
-    // A payment against the current cycle uses the plain flow (null);
-    // an older cycle is passed so it reconciles to the right invoice.
-    setPayPeriod(inv.period_end === membership?.end_date ? null : inv);
-    setInvoiceOpen(false);
-    setReturnToInvoiceAfterPay(true);
-    setPayOpen(true);
-  }
+  const paymentTarget = paymentTargetId
+    ? (genericInvoices.find((invoice) => invoice.id === paymentTargetId) ??
+      null)
+    : null;
 
   function openSale() {
     setSaleMode('sale');
@@ -1450,24 +1400,25 @@ export function MemberDetailView({
                                   <>
                                     <CopyUpiLinkButton
                                       upi={upi}
-                                      amount={balance}
-                                      note={`${membership.plan?.name ?? 'Membership'} fee`}
+                                      amount={Number(
+                                        currentGenericInvoice!.balance
+                                      )}
+                                      note={`Invoice ${currentGenericInvoice!.reference}`}
                                       size="sm"
                                     />
-                                    {canSendMessages && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => {
-                                          setPayPeriod(null);
-                                          setReturnToInvoiceAfterPay(false);
-                                          setPayOpen(true);
-                                        }}
-                                      >
-                                        <Wallet className="size-4" /> Record
-                                        payment
-                                      </Button>
-                                    )}
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setReturnToInvoiceAfterPay(false);
+                                        setPaymentTargetId(
+                                          currentGenericInvoice!.id
+                                        );
+                                      }}
+                                    >
+                                      <Wallet className="size-4" /> Record
+                                      payment
+                                    </Button>
                                   </>
                                 )}
                                 {canSetupAutoPay && (
@@ -1519,7 +1470,7 @@ export function MemberDetailView({
                               )}
 
                               <div className="space-y-2">
-                                {billingEntries.length === 0 ? (
+                                {billingInvoices.length === 0 ? (
                                   <p className="text-muted-foreground text-sm">
                                     No billing history yet.
                                   </p>
@@ -1528,18 +1479,17 @@ export function MemberDetailView({
                                     <Table>
                                       <TableHeader>
                                         <TableRow className="hover:bg-transparent">
-                                          {/* Paid / Balance / Cycle drop below sm —
-                                              7 columns can't read at 390px, and the
-                                              row opens InvoiceDetailDialog, which
-                                              carries every one of them. */}
                                           <TableHead className="text-xs">
-                                            Item
+                                            Invoice
                                           </TableHead>
                                           <TableHead className="text-xs">
-                                            Period
+                                            Items
+                                          </TableHead>
+                                          <TableHead className="hidden text-xs sm:table-cell">
+                                            Issued
                                           </TableHead>
                                           <TableHead className="text-right text-xs">
-                                            Invoice
+                                            Total
                                           </TableHead>
                                           <TableHead className="hidden text-right text-xs sm:table-cell">
                                             Paid
@@ -1550,218 +1500,101 @@ export function MemberDetailView({
                                           <TableHead className="text-xs">
                                             Payment
                                           </TableHead>
-                                          <TableHead className="hidden text-xs sm:table-cell">
-                                            Status
-                                          </TableHead>
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
-                                        {billingEntries.map((entry) => {
-                                          const inv =
-                                            entry.kind === 'membership'
-                                              ? entry.invoice
-                                              : null;
-                                          const service =
-                                            entry.kind === 'service'
-                                              ? entry.service
-                                              : null;
-                                          const line =
-                                            entry.kind === 'merchandise'
-                                              ? entry.line
-                                              : null;
-                                          const periodStart =
-                                            inv?.period_start ??
-                                            service?.start_date ??
-                                            line?.created_at ??
-                                            '';
-                                          const periodEnd =
-                                            inv?.period_end ??
-                                            service?.end_date ??
-                                            null;
-                                          const feeAmount = Number(
-                                            inv?.fee_amount ??
-                                              service?.sold_amount ??
-                                              line?.line_amount ??
-                                              0
-                                          );
-                                          const cashPaid = Number(
-                                            inv?.amount_paid ??
-                                              service?.amount_paid ??
-                                              line?.amount_paid ??
-                                              0
-                                          );
-                                          const coveredAmount =
-                                            cashPaid +
-                                            Number(
-                                              inv?.credit_applied ??
-                                                service?.credit_applied ??
-                                                line?.credit_applied ??
-                                                0
-                                            );
-                                          const rowBalance = Number(
-                                            inv?.balance ??
-                                              service?.balance ??
-                                              line?.balance ??
-                                              0
-                                          );
+                                        {billingInvoices.map((invoice) => {
+                                          const lines =
+                                            invoiceLinesByInvoice.get(
+                                              invoice.id
+                                            ) ?? [];
+                                          const items =
+                                            invoiceItemsLabel(lines);
                                           const payState = invoicePaymentState({
-                                            fee_amount: feeAmount,
-                                            amount_paid: coveredAmount,
-                                            balance: rowBalance,
+                                            fee_amount: Number(
+                                              invoice.fee_amount
+                                            ),
+                                            amount_paid:
+                                              Number(invoice.amount_paid) +
+                                              Number(
+                                                invoice.credit_applied ?? 0
+                                              ),
+                                            balance: Number(invoice.balance),
                                           });
-                                          const lifecycle = inv
-                                            ? inv.state === 'void'
-                                              ? 'Void'
-                                              : inv.period_start > today
-                                                ? 'Upcoming'
-                                                : inv.period_end ===
-                                                    membership.end_date
-                                                  ? 'Current'
-                                                  : 'Past'
-                                            : null;
-                                          const genericInvoiceId =
-                                            service?.invoice_id ??
-                                            line?.invoice_id ??
-                                            null;
-                                          const genericInvoice =
-                                            genericInvoiceId
-                                              ? (genericInvoices.find(
-                                                  (invoice) =>
-                                                    invoice.id ===
-                                                    genericInvoiceId
-                                                ) ?? null)
-                                              : null;
-                                          const canOpenInvoice =
-                                            !!inv || !!genericInvoice;
-                                          const openEntryInvoice = () => {
-                                            if (inv) openInvoice(inv);
-                                            else if (genericInvoice)
-                                              setGenericInvoiceTarget(
-                                                genericInvoice
-                                              );
-                                          };
-                                          const invoiceLabel = inv
-                                            ? `View billing period starting ${fmt.date(inv.period_start)}`
-                                            : genericInvoice
-                                              ? `View ${genericInvoice.reference} for ${service?.item_name_snapshot ?? line?.description ?? 'purchase'}`
-                                              : undefined;
 
                                           return (
                                             <TableRow
-                                              key={`${entry.kind}-${
-                                                inv?.id ??
-                                                service?.id ??
-                                                line?.id
-                                              }`}
-                                              onClick={
-                                                canOpenInvoice
-                                                  ? openEntryInvoice
-                                                  : undefined
-                                              }
-                                              onKeyDown={
-                                                canOpenInvoice
-                                                  ? (event) => {
-                                                      if (
-                                                        event.key === 'Enter' ||
-                                                        event.key === ' '
-                                                      ) {
-                                                        event.preventDefault();
-                                                        openEntryInvoice();
-                                                      }
-                                                    }
-                                                  : undefined
-                                              }
-                                              tabIndex={
-                                                canOpenInvoice ? 0 : undefined
-                                              }
-                                              aria-haspopup={
-                                                canOpenInvoice
-                                                  ? 'dialog'
-                                                  : undefined
-                                              }
-                                              aria-label={invoiceLabel}
-                                              className={
-                                                canOpenInvoice
-                                                  ? 'cursor-pointer'
-                                                  : undefined
-                                              }
+                                              key={invoice.id}
+                                              onClick={() => {
+                                                setInvoiceTargetId(invoice.id);
+                                                setInvoiceOpen(true);
+                                              }}
+                                              onKeyDown={(event) => {
+                                                if (
+                                                  event.key === 'Enter' ||
+                                                  event.key === ' '
+                                                ) {
+                                                  event.preventDefault();
+                                                  setInvoiceTargetId(
+                                                    invoice.id
+                                                  );
+                                                  setInvoiceOpen(true);
+                                                }
+                                              }}
+                                              tabIndex={0}
+                                              aria-haspopup="dialog"
+                                              aria-label={`View ${invoice.reference} for ${items}`}
+                                              className="cursor-pointer"
                                             >
-                                              <TableCell className="font-medium">
-                                                {inv
-                                                  ? membership.plan?.name ||
-                                                    'Membership'
-                                                  : service
-                                                    ? service.item_name_snapshot
-                                                    : `${line?.description ?? 'Merchandise'}${
-                                                        line &&
-                                                        line.quantity > 1
-                                                          ? ` × ${line.quantity}`
-                                                          : ''
-                                                      }`}
+                                              <TableCell>
+                                                <p className="text-muted-foreground text-xs font-medium tabular-nums">
+                                                  {invoice.reference}
+                                                </p>
+                                                <p className="text-muted-foreground text-xs">
+                                                  {invoice.source
+                                                    ? invoiceSourceLabel(
+                                                        invoice.source
+                                                      )
+                                                    : 'Invoice'}
+                                                </p>
                                               </TableCell>
                                               <TableCell className="font-medium">
-                                                <span className="flex flex-col leading-tight tabular-nums sm:hidden">
-                                                  <span>
-                                                    {fmt.dateShort(periodStart)}
-                                                  </span>
-                                                  {periodEnd ? (
-                                                    <span className="text-muted-foreground">
-                                                      –{' '}
-                                                      {fmt.dateShort(periodEnd)}
-                                                    </span>
-                                                  ) : null}
-                                                </span>
-                                                <span className="hidden sm:inline">
-                                                  {fmt.date(periodStart)}
-                                                  {periodEnd
-                                                    ? ` – ${fmt.date(periodEnd)}`
-                                                    : ''}
-                                                </span>
+                                                <p
+                                                  className="max-w-48 truncate"
+                                                  title={items}
+                                                >
+                                                  {items}
+                                                </p>
+                                              </TableCell>
+                                              <TableCell className="text-muted-foreground hidden text-xs tabular-nums sm:table-cell">
+                                                {fmt.date(invoice.created_at)}
                                               </TableCell>
                                               <TableCell className="text-right tabular-nums">
-                                                {fmt.money(feeAmount)}
+                                                {fmt.money(invoice.fee_amount)}
                                               </TableCell>
                                               <TableCell className="text-emerald-foreground hidden text-right tabular-nums sm:table-cell">
-                                                {fmt.money(cashPaid)}
+                                                {fmt.money(invoice.amount_paid)}
                                               </TableCell>
                                               <TableCell
                                                 className={`hidden text-right tabular-nums sm:table-cell ${
-                                                  isChargeableAmount(rowBalance)
+                                                  isChargeableAmount(
+                                                    invoice.balance
+                                                  )
                                                     ? 'text-amber-foreground'
                                                     : ''
                                                 }`}
                                               >
-                                                {fmt.money(rowBalance)}
+                                                {fmt.money(invoice.balance)}
                                               </TableCell>
                                               <TableCell>
-                                                <InvoicePaymentBadge
-                                                  state={payState}
-                                                />
-                                              </TableCell>
-                                              <TableCell className="hidden sm:table-cell">
-                                                {lifecycle ? (
-                                                  <Badge
-                                                    variant={
-                                                      lifecycle === 'Void'
-                                                        ? 'neutral'
-                                                        : lifecycle ===
-                                                            'Upcoming'
-                                                          ? 'info'
-                                                          : 'secondary'
-                                                    }
-                                                  >
-                                                    {lifecycle}
-                                                  </Badge>
-                                                ) : service ? (
-                                                  <MemberServiceStatusBadge
-                                                    status={
-                                                      service.derived_status
-                                                    }
-                                                  />
-                                                ) : (
+                                                {invoice.state === 'void' ? (
                                                   <Badge variant="neutral">
-                                                    Purchased
+                                                    Void
                                                   </Badge>
+                                                ) : (
+                                                  <InvoicePaymentBadge
+                                                    state={payState}
+                                                  />
                                                 )}
                                               </TableCell>
                                             </TableRow>
@@ -1931,33 +1764,6 @@ export function MemberDetailView({
               currentInvoice={currentInvoice}
               onSaved={refreshAll}
             />
-            <RecordPaymentDialog
-              open={payOpen}
-              onOpenChange={(o) => {
-                setPayOpen(o);
-                if (!o) setPayPeriod(null);
-              }}
-              membership={membership}
-              period={
-                payPeriod
-                  ? {
-                      period_start: payPeriod.period_start,
-                      period_end: payPeriod.period_end,
-                      fee_amount: payPeriod.fee_amount,
-                      balance: payPeriod.balance,
-                    }
-                  : undefined
-              }
-              onSaved={() => {
-                setReturnToInvoiceAfterPay(false);
-                refreshAll();
-              }}
-              onCancelled={() => {
-                if (returnToInvoiceAfterPay && activeInvoice)
-                  setInvoiceOpen(true);
-                setReturnToInvoiceAfterPay(false);
-              }}
-            />
             <SetUpAutoPayDialog
               open={autoPayOpen}
               onOpenChange={setAutoPayOpen}
@@ -1967,37 +1773,35 @@ export function MemberDetailView({
             <InvoiceDetailDialog
               open={invoiceOpen}
               onOpenChange={setInvoiceOpen}
-              invoice={activeInvoice}
-              canAct={canSendMessages}
-              membershipEndDate={membership.end_date}
+              invoice={invoiceTarget}
+              canRecord={canRecordGenericPayment}
               canVoid={accountRole ? canCorrectPayments(accountRole) : false}
               onVoidPayment={setPaymentToVoid}
-              onRecord={recordForPeriod}
-              onRenew={() => setRenewOpen(true)}
-            />
-            <GenericInvoiceDetailDialog
-              open={!!genericInvoiceTarget}
-              onOpenChange={(next) => {
-                if (!next) setGenericInvoiceTarget(null);
-              }}
-              invoice={genericInvoiceTarget}
-              canRecord={canRecordGenericPayment}
               onRecord={() => {
-                if (!genericInvoiceTarget) return;
-                setGenericPaymentTarget(genericInvoiceTarget);
-                setGenericInvoiceTarget(null);
+                if (!invoiceTarget) return;
+                setReturnToInvoiceAfterPay(true);
+                setPaymentTargetId(invoiceTarget.id);
+                setInvoiceOpen(false);
               }}
             />
-            {genericPaymentTarget ? (
-              <GenericRecordPaymentDialog
-                invoice={genericPaymentTarget}
+            {paymentTarget ? (
+              <RecordInvoicePaymentDialog
+                key={paymentTarget.id}
+                invoice={paymentTarget}
                 open
                 onOpenChange={(next) => {
-                  if (!next) setGenericPaymentTarget(null);
+                  if (!next) setPaymentTargetId(null);
                 }}
                 onSaved={() => {
-                  setGenericPaymentTarget(null);
+                  setReturnToInvoiceAfterPay(false);
                   refreshAll();
+                }}
+                onCancelled={() => {
+                  if (returnToInvoiceAfterPay) {
+                    setInvoiceTargetId(paymentTarget.id);
+                    setInvoiceOpen(true);
+                  }
+                  setReturnToInvoiceAfterPay(false);
                 }}
               />
             ) : null}
@@ -2037,7 +1841,7 @@ export function MemberDetailView({
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <VoidPaymentDialog
+            <VoidInvoicePaymentDialog
               key={paymentToVoid?.id ?? 'no-payment'}
               payment={paymentToVoid}
               open={!!paymentToVoid}
