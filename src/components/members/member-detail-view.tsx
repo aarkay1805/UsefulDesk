@@ -25,7 +25,6 @@ import {
   Camera,
   Ban,
   RotateCcw,
-  ChevronRight,
   Repeat,
   ArrowLeftRight,
   Hash,
@@ -1505,11 +1504,6 @@ export function MemberDetailView({
                                           <TableHead className="hidden text-xs sm:table-cell">
                                             Status
                                           </TableHead>
-                                          <TableHead className="w-8">
-                                            <span className="sr-only">
-                                              Details
-                                            </span>
-                                          </TableHead>
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
@@ -1587,6 +1581,28 @@ export function MemberDetailView({
                                               onClick={
                                                 inv
                                                   ? () => openInvoice(inv)
+                                                  : undefined
+                                              }
+                                              onKeyDown={
+                                                inv
+                                                  ? (event) => {
+                                                      if (
+                                                        event.key === 'Enter' ||
+                                                        event.key === ' '
+                                                      ) {
+                                                        event.preventDefault();
+                                                        openInvoice(inv);
+                                                      }
+                                                    }
+                                                  : undefined
+                                              }
+                                              tabIndex={inv ? 0 : undefined}
+                                              aria-haspopup={
+                                                inv ? 'dialog' : undefined
+                                              }
+                                              aria-label={
+                                                inv
+                                                  ? `View billing period starting ${fmt.date(inv.period_start)}`
                                                   : undefined
                                               }
                                               className={
@@ -1672,25 +1688,6 @@ export function MemberDetailView({
                                                     Purchased
                                                   </Badge>
                                                 )}
-                                              </TableCell>
-                                              <TableCell>
-                                                {inv ? (
-                                                  <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon-sm"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      openInvoice(inv);
-                                                    }}
-                                                    aria-label={`View billing period starting ${fmt.date(inv.period_start)}`}
-                                                  >
-                                                    <ChevronRight
-                                                      className="size-4"
-                                                      aria-hidden="true"
-                                                    />
-                                                  </Button>
-                                                ) : null}
                                               </TableCell>
                                             </TableRow>
                                           );
