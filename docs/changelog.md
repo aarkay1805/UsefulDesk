@@ -8,7 +8,7 @@
 
 ## Invoice detail simplification
 
-Member profiles and Business → Invoices now share a calmer invoice drill-down with one header-level payment state, purchase items without redundant type pills or repeated allocations, one prominent invoice total, and compact grouped payment rows. Paid invoices omit the repeated paid amount and zero balance; partial invoices retain paid, credit, and balance-due context only when meaningful. AutoPay provenance, recorder identity, notes, receipts, and void audit details remain visible. Key code: `src/components/finance/invoice-detail-dialog.tsx`.
+Member profiles and Business → Invoices now share a calmer invoice drill-down with one header-level payment state, purchase items without redundant type pills or repeated allocations, a compact two-column financial table, and grouped payment rows. Paid invoices omit the repeated paid amount and zero balance; partial invoices retain paid, credit, and balance-due rows only when meaningful. AutoPay provenance, recorder identity, notes, receipts, and void audit details remain visible. Key code: `src/components/finance/invoice-detail-dialog.tsx`.
 
 ---
 

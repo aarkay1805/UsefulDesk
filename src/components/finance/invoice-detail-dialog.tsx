@@ -14,6 +14,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+} from '@/components/ui/table';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { useLocale } from '@/hooks/use-locale';
 import { getErrorMessage } from '@/lib/errors';
@@ -239,44 +246,50 @@ function InvoiceDetailBody({
         </div>
       </div>
 
-      <dl className="border-border flex flex-wrap items-end justify-between gap-x-8 gap-y-3 border-y py-3 text-sm">
-        <div>
-          <dt className="text-muted-foreground text-xs">Invoice total</dt>
-          <dd className="mt-0.5 text-lg font-semibold tabular-nums">
-            {fmt.money(invoice.fee_amount)}
-          </dd>
-        </div>
-        {showAmountPaid || showCredit || hasBalance ? (
-          <div className="flex flex-wrap items-end gap-x-8 gap-y-3 sm:ml-auto">
+      <div className="border-border overflow-hidden rounded-lg border">
+        <Table>
+          <TableBody>
+            <TableRow>
+              <TableHead scope="row" className="pl-3">
+                Invoice total
+              </TableHead>
+              <TableCell className="pr-3 text-right font-semibold tabular-nums">
+                {fmt.money(invoice.fee_amount)}
+              </TableCell>
+            </TableRow>
             {showAmountPaid ? (
-              <div>
-                <dt className="text-muted-foreground text-xs">Paid</dt>
-                <dd className="mt-0.5 font-medium tabular-nums">
+              <TableRow>
+                <TableHead scope="row" className="pl-3">
+                  Paid
+                </TableHead>
+                <TableCell className="pr-3 text-right font-medium tabular-nums">
                   {fmt.money(invoice.amount_paid)}
-                </dd>
-              </div>
+                </TableCell>
+              </TableRow>
             ) : null}
             {showCredit ? (
-              <div>
-                <dt className="text-muted-foreground text-xs">
+              <TableRow>
+                <TableHead scope="row" className="pl-3">
                   Credit applied
-                </dt>
-                <dd className="mt-0.5 font-medium tabular-nums">
+                </TableHead>
+                <TableCell className="pr-3 text-right font-medium tabular-nums">
                   {fmt.money(invoice.credit_applied ?? 0)}
-                </dd>
-              </div>
+                </TableCell>
+              </TableRow>
             ) : null}
             {hasBalance ? (
-              <div>
-                <dt className="text-muted-foreground text-xs">Balance due</dt>
-                <dd className="text-amber-foreground mt-0.5 font-medium tabular-nums">
+              <TableRow>
+                <TableHead scope="row" className="pl-3">
+                  Balance due
+                </TableHead>
+                <TableCell className="text-amber-foreground pr-3 text-right font-semibold tabular-nums">
                   {fmt.money(invoice.balance)}
-                </dd>
-              </div>
+                </TableCell>
+              </TableRow>
             ) : null}
-          </div>
-        ) : null}
-      </dl>
+          </TableBody>
+        </Table>
+      </div>
 
       <div className="space-y-2">
         <p className="font-medium">
