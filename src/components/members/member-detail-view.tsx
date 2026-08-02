@@ -146,8 +146,6 @@ import { RecordInvoicePaymentDialog } from '@/components/finance/record-invoice-
 import { VoidInvoicePaymentDialog } from '@/components/finance/void-invoice-payment-dialog';
 import {
   financeInvoiceReference,
-  groupInvoiceLines,
-  invoiceItemsLabel,
   invoiceSourceLabel,
 } from '@/lib/finance/invoices';
 
@@ -253,7 +251,6 @@ export function MemberDetailView({
   const [invoices, setInvoices] = useState<MembershipPeriodInvoice[]>([]);
   const [services, setServices] = useState<MemberService[]>([]);
   const [merchandise, setMerchandise] = useState<InvoiceLine[]>([]);
-  const [invoiceLines, setInvoiceLines] = useState<InvoiceLine[]>([]);
   const [genericInvoices, setGenericInvoices] = useState<InvoiceDetail[]>([]);
   /** Visits inside the plan's usage window (062) — null = untracked. */
   const [usageCount, setUsageCount] = useState<number | null>(null);
@@ -392,7 +389,6 @@ export function MemberDetailView({
       setServices((servicesResult.data as MemberService[]) ?? []);
       const loadedInvoiceLines =
         (genericBillingResult.data?.lines as InvoiceLine[]) ?? [];
-      setInvoiceLines(loadedInvoiceLines);
       setMerchandise(
         loadedInvoiceLines
           .filter((line) => line.kind === 'merchandise')
@@ -733,7 +729,6 @@ export function MemberDetailView({
   // Billing follows the immutable invoice ledger: one checkout = one row,
   // even when the invoice contains membership, service, and merchandise
   // lines with different service dates.
-  const invoiceLinesByInvoice = groupInvoiceLines(invoiceLines);
   const billingInvoices = [...genericInvoices].sort((left, right) =>
     right.created_at.localeCompare(left.created_at)
   );
@@ -1482,9 +1477,6 @@ export function MemberDetailView({
                                           <TableHead className="text-xs">
                                             Invoice
                                           </TableHead>
-                                          <TableHead className="text-xs">
-                                            Items
-                                          </TableHead>
                                           <TableHead className="hidden text-xs sm:table-cell">
                                             Issued
                                           </TableHead>
@@ -1504,12 +1496,6 @@ export function MemberDetailView({
                                       </TableHeader>
                                       <TableBody>
                                         {billingInvoices.map((invoice) => {
-                                          const lines =
-                                            invoiceLinesByInvoice.get(
-                                              invoice.id
-                                            ) ?? [];
-                                          const items =
-                                            invoiceItemsLabel(lines);
                                           const payState = invoicePaymentState({
                                             fee_amount: Number(
                                               invoice.fee_amount
@@ -1543,7 +1529,7 @@ export function MemberDetailView({
                                               }}
                                               tabIndex={0}
                                               aria-haspopup="dialog"
-                                              aria-label={`View ${invoice.reference} for ${items}`}
+                                              aria-label={`View ${invoice.reference}`}
                                               className="cursor-pointer"
                                             >
                                               <TableCell>
@@ -1556,14 +1542,6 @@ export function MemberDetailView({
                                                         invoice.source
                                                       )
                                                     : 'Invoice'}
-                                                </p>
-                                              </TableCell>
-                                              <TableCell className="font-medium">
-                                                <p
-                                                  className="max-w-48 truncate"
-                                                  title={items}
-                                                >
-                                                  {items}
                                                 </p>
                                               </TableCell>
                                               <TableCell className="text-muted-foreground hidden text-xs tabular-nums sm:table-cell">

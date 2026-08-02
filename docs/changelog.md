@@ -6,6 +6,12 @@
 
 ---
 
+## Member billing history simplification
+
+Member profiles now omit the redundant Items column from Billing history, keeping the scan focused on invoice reference/source, issued date, total, paid amount, balance, and payment state. Invoice drill-downs still show the complete line-item allocation and payment detail. Key code: `src/components/members/member-detail-view.tsx`.
+
+---
+
 ## Member product summaries and unified billing
 
 Member profiles now present services and merchandise as newest-first Membership-style summaries with the same four-column hierarchy: item-name eyebrow over trainer/type, then Billing, Started/Purchased, and Expires/Quantity. Membership and service lifecycle badges stay beside their final renewal/expiry date, while Billing is invoice-first financial history: one checkout renders once with its internal reference, complete item summary, issued date, reconciled total, paid amount, balance, and payment state. Member profiles and Business → Invoices share one detail, collection, and correction flow showing every line allocation, membership offer snapshot, recorder, AutoPay source, note, receipt, and void history. Membership dues and AutoPay remain membership-line scoped even when the displayed invoice also contains services or merchandise. Key code: `src/components/members/member-detail-view.tsx`, `src/components/finance/invoice-detail-dialog.tsx`, and `src/components/finance/record-invoice-payment-dialog.tsx`.
