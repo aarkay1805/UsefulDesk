@@ -8,7 +8,7 @@
 
 ## Member billing history simplification
 
-Member profiles now omit the redundant Items column from Billing history, keeping the scan focused on invoice reference/source, issued date, total, paid amount, balance, and payment state. Invoice drill-downs still show the complete line-item allocation and payment detail. Key code: `src/components/members/member-detail-view.tsx`.
+Member profiles now omit the redundant Items, source, and Payment columns from Billing history. The payment-state badge sits directly after the foreground invoice reference, followed by issued date, total, paid amount, and balance in one compact line. Headers use the shared table treatment plus the canonical **Issued on** label. Invoice drill-downs still show the source, complete line-item allocation, and payment detail. Key code: `src/components/members/member-detail-view.tsx`.
 
 ---
 

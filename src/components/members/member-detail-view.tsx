@@ -144,10 +144,7 @@ import {
 } from '@/components/finance/invoice-detail-dialog';
 import { RecordInvoicePaymentDialog } from '@/components/finance/record-invoice-payment-dialog';
 import { VoidInvoicePaymentDialog } from '@/components/finance/void-invoice-payment-dialog';
-import {
-  financeInvoiceReference,
-  invoiceSourceLabel,
-} from '@/lib/finance/invoices';
+import { financeInvoiceReference } from '@/lib/finance/invoices';
 
 type MemberInvoiceBalance = Invoice;
 
@@ -1474,23 +1471,18 @@ export function MemberDetailView({
                                     <Table>
                                       <TableHeader>
                                         <TableRow className="hover:bg-transparent">
-                                          <TableHead className="text-xs">
-                                            Invoice
+                                          <TableHead>Invoice</TableHead>
+                                          <TableHead className="hidden sm:table-cell">
+                                            Issued on
                                           </TableHead>
-                                          <TableHead className="hidden text-xs sm:table-cell">
-                                            Issued
-                                          </TableHead>
-                                          <TableHead className="text-right text-xs">
+                                          <TableHead className="text-right">
                                             Total
                                           </TableHead>
-                                          <TableHead className="hidden text-right text-xs sm:table-cell">
+                                          <TableHead className="hidden text-right sm:table-cell">
                                             Paid
                                           </TableHead>
-                                          <TableHead className="hidden text-right text-xs sm:table-cell">
+                                          <TableHead className="hidden text-right sm:table-cell">
                                             Balance
-                                          </TableHead>
-                                          <TableHead className="text-xs">
-                                            Payment
                                           </TableHead>
                                         </TableRow>
                                       </TableHeader>
@@ -1533,16 +1525,20 @@ export function MemberDetailView({
                                               className="cursor-pointer"
                                             >
                                               <TableCell>
-                                                <p className="text-muted-foreground text-xs font-medium tabular-nums">
-                                                  {invoice.reference}
-                                                </p>
-                                                <p className="text-muted-foreground text-xs">
-                                                  {invoice.source
-                                                    ? invoiceSourceLabel(
-                                                        invoice.source
-                                                      )
-                                                    : 'Invoice'}
-                                                </p>
+                                                <span className="inline-flex items-center gap-2">
+                                                  <span className="text-xs font-medium tabular-nums">
+                                                    {invoice.reference}
+                                                  </span>
+                                                  {invoice.state === 'void' ? (
+                                                    <Badge variant="neutral">
+                                                      Void
+                                                    </Badge>
+                                                  ) : (
+                                                    <InvoicePaymentBadge
+                                                      state={payState}
+                                                    />
+                                                  )}
+                                                </span>
                                               </TableCell>
                                               <TableCell className="text-muted-foreground hidden text-xs tabular-nums sm:table-cell">
                                                 {fmt.date(invoice.created_at)}
@@ -1563,17 +1559,6 @@ export function MemberDetailView({
                                                 }`}
                                               >
                                                 {fmt.money(invoice.balance)}
-                                              </TableCell>
-                                              <TableCell>
-                                                {invoice.state === 'void' ? (
-                                                  <Badge variant="neutral">
-                                                    Void
-                                                  </Badge>
-                                                ) : (
-                                                  <InvoicePaymentBadge
-                                                    state={payState}
-                                                  />
-                                                )}
                                               </TableCell>
                                             </TableRow>
                                           );
