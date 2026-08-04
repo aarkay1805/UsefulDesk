@@ -19,7 +19,13 @@ export async function GET() {
   try {
     const ctx = await requireSettingsAccess();
     const admin = supabaseAdmin();
-    const [connection, failedEvents, missingLedger] = await Promise.all([
+    const [
+      connection,
+      failedEvents,
+      missingLedger,
+      unappliedCharges,
+      setupExceptions,
+    ] = await Promise.all([
       getRazorpayConnectionStatus(admin, ctx.accountId),
       admin
         .from('webhook_events')
@@ -36,6 +42,24 @@ export async function GET() {
         .eq('account_id', ctx.accountId)
         .order('created_at', { ascending: false })
         .limit(20),
+      admin
+        .from('gateway_charge_exceptions')
+        .select(
+          'id, gateway_payment_id, gateway_subscription_id, provider_paid_count, amount, currency, reason_code, reason_message, first_seen_at, last_seen_at, attempt_count',
+          { count: 'exact' }
+        )
+        .eq('account_id', ctx.accountId)
+        .eq('gateway', 'razorpay')
+        .eq('status', 'open')
+        .order('first_seen_at', { ascending: false })
+        .limit(20),
+      admin
+        .from('payment_mandates')
+        .select('id', { count: 'exact', head: true })
+        .eq('account_id', ctx.accountId)
+        .or(
+          'status.in.(creating,orphaned),and(setup_error.not.is.null,gateway_subscription_id.not.is.null)'
+        ),
     ]);
 
     if (failedEvents.error) {
@@ -48,6 +72,16 @@ export async function GET() {
         `load missing-ledger events: ${missingLedger.error.message}`
       );
     }
+    if (unappliedCharges.error) {
+      throw new Error(
+        `load unapplied Razorpay charges: ${unappliedCharges.error.message}`
+      );
+    }
+    if (setupExceptions.error) {
+      throw new Error(
+        `load Razorpay setup exceptions: ${setupExceptions.error.message}`
+      );
+    }
 
     return NextResponse.json({
       connection,
@@ -55,6 +89,9 @@ export async function GET() {
         failedEventCount: failedEvents.count ?? 0,
         missingLedgerCount: missingLedger.count ?? 0,
         missingLedgerEvents: missingLedger.data ?? [],
+        unappliedChargeCount: unappliedCharges.count ?? 0,
+        unappliedCharges: unappliedCharges.data ?? [],
+        setupExceptionCount: setupExceptions.count ?? 0,
       },
     });
   } catch (error) {

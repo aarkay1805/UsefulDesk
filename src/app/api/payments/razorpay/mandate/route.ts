@@ -5,10 +5,11 @@
 // the gym's OWN Razorpay account). Agent+ only.
 //
 // Flow: load the membership + plan (RLS-scoped) → read the gym's Razorpay
-// credentials (service role) → create a Razorpay plan for the cadence and
-// a subscription carrying our membership_id in `notes` → park a
-// `payment_mandates` row (status 'pending') → return the subscription's
-// `short_url` so the UI can show the member the UPI-mandate QR/link.
+// credentials (service role) → reserve the mandate identity locally → create
+// a Razorpay plan and subscription carrying that identity in `notes` → move
+// the reservation to `pending` → return the hosted approval link. Reserving
+// first makes concurrent setup idempotent; a post-create persistence failure
+// is compensated by cancelling the remote subscription or parked `orphaned`.
 //
 // The mandate only goes 'active' (and the membership flips to
 // collection_mode='auto') when Razorpay fires `subscription.authenticated`
@@ -22,6 +23,7 @@ import { canManageMandates } from '@/lib/auth/roles';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { getRazorpayConnection } from '@/lib/payments/credentials';
 import {
+  cancelSubscription,
   createPlan,
   createSubscription,
   RazorpayError,
@@ -81,6 +83,7 @@ interface MembershipRow {
   id: string;
   account_id: string;
   contact_id: string;
+  end_date: string;
   fee_amount: number;
   status: string;
   is_trial: boolean;
@@ -90,6 +93,7 @@ interface MembershipRow {
     plan_type: string | null;
   } | null;
   pricing_option: {
+    id: string;
     duration_count: number;
     duration_unit: string;
     price: number;
@@ -117,7 +121,7 @@ export async function POST(request: Request) {
     const { data, error } = await ctx.supabase
       .from('memberships')
       .select(
-        'id, account_id, contact_id, fee_amount, status, is_trial, plan:membership_plans(name, duration_days, plan_type), pricing_option:plan_pricing_options(duration_count, duration_unit, price), contact:contacts(name, phone)'
+        'id, account_id, contact_id, end_date, fee_amount, status, is_trial, plan:membership_plans(name, duration_days, plan_type), pricing_option:plan_pricing_options(id, duration_count, duration_unit, price), contact:contacts(name, phone)'
       )
       .eq('id', membershipId)
       .maybeSingle();
@@ -188,21 +192,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // One live mandate per membership — the partial unique index enforces
-    // it in the DB too, but fail early with a clean message.
-    const { data: existing } = await ctx.supabase
-      .from('payment_mandates')
-      .select('id')
-      .eq('membership_id', membershipId)
-      .eq('status', 'active')
-      .maybeSingle();
-    if (existing) {
-      return NextResponse.json(
-        { error: 'This member already has an active auto-pay mandate' },
-        { status: 409 }
-      );
-    }
-
     // Gym's own Razorpay keys (service role — the creds row is admin-only
     // under RLS, and the caller may be an agent).
     const admin = supabaseAdmin();
@@ -217,58 +206,247 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create the cadence plan, then a subscription the member authorises.
-    // total_count bounds the mandate; we authorise a long horizon (the
-    // gym can cancel any time) — 120 monthly / 40 quarterly ≈ 10 years.
-    const plan = await createPlan(connection.authentication, {
-      amountRupees: fee,
-      currency,
-      name: `${membership.plan?.name ?? 'Membership'} (${cadence.frequency})`,
-      period: cadence.period,
-      interval: cadence.interval,
-    });
-    const totalCount = cadence.frequency === 'monthly' ? 120 : 40;
-    const subscription = await createSubscription(connection.authentication, {
-      planId: plan.id,
-      totalCount,
-      // Echoed back on every webhook so we can map a charge to our record
-      // without trusting anything else in the payload.
-      notes: {
-        account_id: ctx.accountId,
-        membership_id: membership.id,
-        contact_id: membership.contact_id,
-      },
-    });
-
-    // Park the mandate (pending until the webhook confirms authentication).
-    const { data: mandate, error: insErr } = await ctx.supabase
+    // Migration-time duplicate pending rows are terminal locally but may
+    // still reference a live remote subscription. Do not create another one
+    // until an operator clears that explicit setup exception.
+    const { data: historicalException } = await admin
       .from('payment_mandates')
-      .insert({
-        account_id: ctx.accountId,
-        membership_id: membership.id,
-        contact_id: membership.contact_id,
-        gateway: 'razorpay',
-        gateway_subscription_id: subscription.id,
-        method: 'upi',
-        max_amount: fee,
-        frequency: cadence.frequency,
-        status: 'pending',
-      })
+      .select('id')
+      .eq('account_id', ctx.accountId)
+      .eq('membership_id', membership.id)
+      .eq('status', 'failed')
+      .not('gateway_subscription_id', 'is', null)
+      .not('setup_error', 'is', null)
+      .limit(1)
+      .maybeSingle();
+    if (historicalException) {
+      return NextResponse.json(
+        {
+          error:
+            'A previous auto-pay setup needs payment reconciliation review before retrying.',
+        },
+        { status: 409 }
+      );
+    }
+
+    // Reserve before the first remote mutation. The partial unique index on
+    // blocking states is the concurrency boundary; duplicate POSTs either
+    // reuse the stored pending URL or return a review/in-progress response.
+    const reservationInput = {
+      account_id: ctx.accountId,
+      membership_id: membership.id,
+      contact_id: membership.contact_id,
+      gateway: 'razorpay',
+      method: 'upi',
+      max_amount: fee,
+      frequency: cadence.frequency,
+      status: 'creating',
+      pricing_option_id: membership.pricing_option?.id ?? null,
+      cycle_duration_count:
+        membership.pricing_option?.duration_count ??
+        membership.plan?.duration_days ??
+        null,
+      cycle_duration_unit:
+        membership.pricing_option?.duration_unit ??
+        (membership.plan?.duration_days ? 'day' : null),
+      recurring_amount: fee,
+      currency,
+      initial_period_end: membership.end_date,
+    };
+    const { data: reservation, error: reservationError } = await admin
+      .from('payment_mandates')
+      .insert(reservationInput)
       .select('id')
       .single();
 
-    if (insErr || !mandate) {
-      // The Razorpay subscription exists but we couldn't record it — leave
-      // it; a retry find-or-creates, and an unauthorised subscription
-      // simply expires. Surface the failure.
+    if (reservationError || !reservation) {
+      if (reservationError?.code !== '23505') {
+        return NextResponse.json(
+          { error: 'Could not reserve the auto-pay setup. Please try again.' },
+          { status: 500 }
+        );
+      }
+
+      const { data: existing, error: existingError } = await admin
+        .from('payment_mandates')
+        .select(
+          'id, status, gateway_subscription_id, gateway_short_url, setup_error'
+        )
+        .eq('account_id', ctx.accountId)
+        .eq('membership_id', membership.id)
+        .in('status', ['creating', 'pending', 'active', 'paused', 'orphaned'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingError || !existing) {
+        return NextResponse.json(
+          { error: 'Auto-pay setup is already reserved. Please refresh.' },
+          { status: 409 }
+        );
+      }
+      if (
+        existing.status === 'pending' &&
+        existing.gateway_subscription_id &&
+        existing.gateway_short_url
+      ) {
+        return NextResponse.json({
+          mandate_id: existing.id,
+          subscription_id: existing.gateway_subscription_id,
+          short_url: existing.gateway_short_url,
+          status: 'pending',
+          deduped: true,
+        });
+      }
+
+      const message =
+        existing.status === 'active'
+          ? 'This member already has an active auto-pay mandate'
+          : existing.status === 'orphaned'
+            ? 'Auto-pay setup needs payment reconciliation review before it can be retried'
+            : existing.status === 'paused'
+              ? 'This member has a paused auto-pay mandate; resolve it before starting another'
+              : 'Auto-pay setup is already in progress. Please refresh shortly.';
+      return NextResponse.json({ error: message }, { status: 409 });
+    }
+
+    const mandateId = reservation.id as string;
+
+    // Create the cadence plan, then a subscription the member authorises.
+    // total_count bounds the mandate; we authorise a long horizon (the
+    // gym can cancel any time) — 120 monthly / 40 quarterly ≈ 10 years.
+    let plan: RazorpayPlan;
+    try {
+      plan = await createPlan(connection.authentication, {
+        amountRupees: fee,
+        currency,
+        name: `${membership.plan?.name ?? 'Membership'} (${cadence.frequency})`,
+        period: cadence.period,
+        interval: cadence.interval,
+      });
+    } catch (error) {
+      await admin
+        .from('payment_mandates')
+        .update({
+          status: 'failed',
+          setup_error: `Razorpay plan creation failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+        })
+        .eq('id', mandateId)
+        .eq('status', 'creating');
+      throw error;
+    }
+
+    const { data: planSaved, error: planSaveError } = await admin
+      .from('payment_mandates')
+      .update({ gateway_plan_id: plan.id })
+      .eq('id', mandateId)
+      .eq('status', 'creating')
+      .select('id')
+      .maybeSingle();
+    if (planSaveError || !planSaved) {
+      await admin
+        .from('payment_mandates')
+        .update({
+          status: 'failed',
+          setup_error:
+            'Razorpay plan was created, but its local reference could not be saved. No subscription was created.',
+        })
+        .eq('id', mandateId)
+        .eq('status', 'creating');
       return NextResponse.json(
-        { error: 'Could not save the mandate. Please try again.' },
+        { error: 'Could not save the auto-pay plan. Please try again.' },
+        { status: 500 }
+      );
+    }
+
+    const totalCount = cadence.frequency === 'monthly' ? 120 : 40;
+    let subscription: Awaited<ReturnType<typeof createSubscription>>;
+    try {
+      subscription = await createSubscription(connection.authentication, {
+        planId: plan.id,
+        totalCount,
+        notes: {
+          account_id: ctx.accountId,
+          membership_id: membership.id,
+          contact_id: membership.contact_id,
+          mandate_id: mandateId,
+          pricing_option_id: membership.pricing_option?.id ?? '',
+        },
+      });
+    } catch (error) {
+      // A gateway 4xx is a known rejection. A transport failure or 5xx is
+      // ambiguous: Razorpay may have created the subscription even though no
+      // response reached us, so keep the reservation blocking for review.
+      const knownRejection =
+        error instanceof RazorpayError &&
+        error.status >= 400 &&
+        error.status < 500;
+      await admin
+        .from('payment_mandates')
+        .update({
+          status: knownRejection ? 'failed' : 'orphaned',
+          setup_error: `Razorpay subscription creation ${knownRejection ? 'failed' : 'had an uncertain outcome'}: ${error instanceof Error ? error.message : 'unknown error'}`,
+        })
+        .eq('id', mandateId)
+        .eq('status', 'creating');
+      throw error;
+    }
+
+    const { data: mandate, error: persistError } = await admin
+      .from('payment_mandates')
+      .update({
+        gateway_subscription_id: subscription.id,
+        gateway_short_url: subscription.short_url ?? null,
+        status: 'pending',
+        setup_error: null,
+      })
+      .eq('id', mandateId)
+      .eq('status', 'creating')
+      .select('id')
+      .maybeSingle();
+
+    if (persistError || !mandate) {
+      let cancelled = false;
+      let cancellationError = '';
+      try {
+        await cancelSubscription(
+          connection.authentication,
+          subscription.id,
+          false
+        );
+        cancelled = true;
+      } catch (error) {
+        cancellationError =
+          error instanceof Error ? error.message : 'unknown cancellation error';
+      }
+
+      await admin
+        .from('payment_mandates')
+        .update({
+          gateway_subscription_id: cancelled ? null : subscription.id,
+          gateway_short_url: cancelled
+            ? null
+            : (subscription.short_url ?? null),
+          status: cancelled ? 'failed' : 'orphaned',
+          setup_error: cancelled
+            ? `Remote subscription ${subscription.id} was cancelled after local persistence failed; setup can be retried.`
+            : `Remote subscription ${subscription.id} may be live after local persistence failed, and cancellation failed: ${cancellationError}`,
+        })
+        .eq('id', mandateId)
+        .eq('status', 'creating');
+
+      return NextResponse.json(
+        {
+          error: cancelled
+            ? 'Auto-pay setup could not be saved; the remote subscription was cancelled. Please retry.'
+            : 'Auto-pay setup needs payment reconciliation review before retrying.',
+        },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
-      mandate_id: mandate.id,
+      mandate_id: mandateId,
       subscription_id: subscription.id,
       short_url: subscription.short_url,
       status: 'pending',

@@ -77,4 +77,33 @@ describe('Razorpay webhook processing', () => {
     expect(handler).toHaveBeenCalledTimes(1);
     expect(event.snapshot().attempts).toBe(1);
   });
+
+  it('completes a durable unapplied-charge outcome and never records it twice', async () => {
+    const event = retryableStore();
+    const exceptions = new Map<string, { reason: string }>();
+    const handler = vi.fn(async () => {
+      exceptions.set('pay_confirmed_1', {
+        reason: 'target_balance_mismatch',
+      });
+      // A durable exception is a successful accounting outcome. The route
+      // deliberately returns instead of throwing so this event completes.
+    });
+
+    await expect(processWebhookDelivery(event.store, handler)).resolves.toEqual(
+      { outcome: 'processed' }
+    );
+    await expect(processWebhookDelivery(event.store, handler)).resolves.toEqual(
+      { outcome: 'duplicate' }
+    );
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(exceptions).toEqual(
+      new Map([['pay_confirmed_1', { reason: 'target_balance_mismatch' }]])
+    );
+    expect(event.snapshot()).toEqual({
+      status: 'processed',
+      attempts: 1,
+      lastError: null,
+    });
+  });
 });

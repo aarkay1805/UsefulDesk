@@ -6,6 +6,12 @@
 
 ---
 
+## Razorpay recurring payment safety
+
+UPI AutoPay now reserves one blocking local mandate before any remote subscription is created, reuses pending setup links, and cancels a newly created remote subscription when its local reference cannot be persisted; uncertain outcomes stay operator-visible and block retries. Recurring charges use Razorpay `paid_count` plus a frozen initial-period/cadence snapshot instead of inferring the next cycle from ledger balance, and confirmed charges that mismatch identity, sequence, amount, currency, period, or remaining membership-line balance persist in `gateway_charge_exceptions` without advancing another cycle. Auto allocations are membership-line-only while manual partial/proportional and 60/40 flows are unchanged. Key code: `supabase/migrations/20260804233201_harden_razorpay_recurring_charges.sql` and `src/app/api/payments/razorpay/`; gotcha: deploy the route code first and apply the migration immediately afterward (new setup then fails before remote mutation and charged webhooks retry during the short mismatch); the legacy RPC shim safely parks old-payload charges during rollback, and exception resolution/replay remains intentionally manual.
+
+---
+
 ## Invoice detail simplification
 
 Member profiles and Business → Invoices now share a calmer invoice drill-down with one header-level payment state, purchase items without redundant type pills or repeated allocations, a compact two-column financial table, and grouped payment rows. Paid invoices omit the repeated paid amount and zero balance; partial invoices retain paid, credit, and balance-due rows only when meaningful. AutoPay provenance, recorder identity, notes, receipts, and void audit details remain visible. Key code: `src/components/finance/invoice-detail-dialog.tsx`.

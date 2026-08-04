@@ -187,6 +187,9 @@ function RazorpayCard() {
   const [health, setHealth] = useState<{
     failedEventCount: number;
     missingLedgerCount: number;
+    unappliedChargeCount: number;
+    setupExceptionCount: number;
+    latestUnappliedReason: string | null;
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -212,6 +215,10 @@ function RazorpayCard() {
         setHealth({
           failedEventCount: body.health.failedEventCount,
           missingLedgerCount: body.health.missingLedgerCount,
+          unappliedChargeCount: body.health.unappliedChargeCount,
+          setupExceptionCount: body.health.setupExceptionCount,
+          latestUnappliedReason:
+            body.health.unappliedCharges?.[0]?.reason_message ?? null,
         });
         setKeyId(body.connection.keyId);
       } catch (error) {
@@ -308,7 +315,10 @@ function RazorpayCard() {
         ) : (
           <>
             {health &&
-            (health.failedEventCount > 0 || health.missingLedgerCount > 0) ? (
+            (health.failedEventCount > 0 ||
+              health.missingLedgerCount > 0 ||
+              health.unappliedChargeCount > 0 ||
+              health.setupExceptionCount > 0) ? (
               <Alert variant="destructive">
                 <TriangleAlert />
                 <AlertTitle>Payment reconciliation needs review</AlertTitle>
@@ -316,8 +326,17 @@ function RazorpayCard() {
                   {health.missingLedgerCount} charged event
                   {health.missingLedgerCount === 1 ? '' : 's'} have no matching
                   payment-ledger record, and {health.failedEventCount} webhook
-                  attempt{health.failedEventCount === 1 ? '' : 's'} are failed.
-                  Nothing has been replayed or changed automatically.
+                  attempt{health.failedEventCount === 1 ? '' : 's'} are failed.{' '}
+                  {health.unappliedChargeCount} provider-confirmed charge
+                  {health.unappliedChargeCount === 1 ? '' : 's'} could not be
+                  safely applied, and {health.setupExceptionCount} mandate setup
+                  {health.setupExceptionCount === 1 ? '' : 's'}{' '}
+                  {health.setupExceptionCount === 1 ? 'needs' : 'need'} review.
+                  Nothing has been replayed or moved to another billing cycle
+                  automatically.
+                  {health.latestUnappliedReason
+                    ? ` Latest unapplied charge: ${health.latestUnappliedReason}`
+                    : ''}
                 </AlertDescription>
               </Alert>
             ) : null}

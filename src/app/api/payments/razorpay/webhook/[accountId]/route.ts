@@ -44,12 +44,24 @@ interface RazorpaySubEntity {
   id: string;
   status: string;
   token_id?: string;
-  notes?: { account_id?: string; membership_id?: string; contact_id?: string };
+  paid_count?: number;
+  current_start?: number;
+  current_end?: number;
+  notes?: {
+    account_id?: string;
+    membership_id?: string;
+    contact_id?: string;
+    mandate_id?: string;
+    pricing_option_id?: string;
+  };
 }
 interface RazorpayPaymentEntity {
   id: string;
   amount: number;
   method?: string;
+  status?: string;
+  currency?: string;
+  invoice_id?: string;
 }
 
 export async function POST(
@@ -90,7 +102,7 @@ export async function POST(
   let result;
   try {
     result = await processWebhookDelivery(store, () =>
-      handleEvent(admin, accountId, event)
+      handleEvent(admin, accountId, dedupeId, event)
     );
   } catch (err) {
     console.error('[razorpay webhook] event state persistence failed:', err);
@@ -181,6 +193,7 @@ function razorpayEventStore(
 async function handleEvent(
   admin: Admin,
   accountId: string,
+  webhookEventId: string,
   event: RazorpayEvent
 ) {
   const sub = event.payload.subscription?.entity;
@@ -220,27 +233,37 @@ async function handleEvent(
 
     case 'subscription.charged': {
       if (!sub || !payment) return;
-      const membershipId = sub.notes?.membership_id;
-      if (!membershipId)
-        throw new Error('charge missing membership_id in notes');
-      const mandateId = await mandateIdForSubscription(
-        admin,
-        accountId,
-        sub.id
-      );
-      // record_gateway_charge settles the current cycle on the first
-      // charge and auto-renews (opens the next period + rolls the
-      // membership forward) on every subsequent one — one transaction,
-      // idempotent on the gateway payment id (migration 060).
-      const { error } = await admin.rpc('record_gateway_charge', {
+      const membershipId = sub.notes?.membership_id ?? null;
+      const mandateId =
+        (await mandateIdForSubscription(admin, accountId, sub.id)) ??
+        sub.notes?.mandate_id ??
+        null;
+      // paid_count is Razorpay's monotonic subscription charge sequence.
+      // The RPC combines it with the mandate's frozen initial period; it
+      // never infers "next cycle" from whichever local period is paid.
+      const { data, error } = await admin.rpc('record_gateway_charge', {
         p_account_id: accountId,
         p_membership_id: membershipId,
-        p_gateway_payment_id: payment.id,
-        p_amount: toRupees(payment.amount),
-        p_method: payment.method === 'card' ? 'card' : 'upi',
         p_mandate_id: mandateId,
+        p_webhook_event_id: webhookEventId,
+        p_gateway_subscription_id: sub.id,
+        p_gateway_payment_id: payment.id,
+        p_gateway_invoice_id: payment.invoice_id ?? null,
+        p_provider_paid_count: sub.paid_count ?? null,
+        p_amount: toRupees(payment.amount),
+        p_currency: payment.currency ?? null,
+        p_method: payment.method === 'card' ? 'card' : 'upi',
+        p_payment_status: payment.status ?? null,
+        p_gateway_current_start: epochSecondsToIso(sub.current_start),
+        p_gateway_current_end: epochSecondsToIso(sub.current_end),
       });
       if (error) throw new Error(`record_gateway_charge: ${error.message}`);
+      const result = Array.isArray(data) ? data[0] : data;
+      if (result?.outcome === 'exception') {
+        console.warn(
+          `[razorpay webhook] charge ${payment.id} preserved as exception ${result.exception_id}`
+        );
+      }
       return;
     }
 
@@ -296,11 +319,19 @@ async function mandateIdForSubscription(
   accountId: string,
   subscriptionId: string
 ): Promise<string | null> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from('payment_mandates')
     .select('id')
     .eq('account_id', accountId)
     .eq('gateway_subscription_id', subscriptionId)
     .maybeSingle();
+  if (error) {
+    throw new Error(`load mandate for subscription: ${error.message}`);
+  }
   return (data?.id as string | undefined) ?? null;
+}
+
+function epochSecondsToIso(value: number | undefined): string | null {
+  if (!Number.isFinite(value) || !value || value <= 0) return null;
+  return new Date(value * 1000).toISOString();
 }

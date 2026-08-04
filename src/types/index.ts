@@ -990,11 +990,18 @@ export type MembershipCollectionMode = 'manual' | 'auto';
 export type PaymentSource = 'manual' | 'auto';
 
 export type MandateStatus =
-  'pending' | 'active' | 'paused' | 'revoked' | 'expired' | 'failed';
+  | 'creating'
+  | 'pending'
+  | 'active'
+  | 'paused'
+  | 'revoked'
+  | 'expired'
+  | 'failed'
+  | 'orphaned';
 
 /**
- * A saved recurring auto-debit mandate (migration 059) — one live mandate
- * (`status='active'`) per membership. The gateway (Razorpay) owns the RBI
+ * A saved recurring auto-debit mandate (migrations 059 + 20260804233201) —
+ * one blocking setup/live mandate per membership. The gateway (Razorpay) owns the RBI
  * eMandate + 24h pre-debit notice; we store the reusable token to charge
  * against and the display VPA. Webhook events flip `status` and, through
  * activate/revoke, the membership's `collection_mode`.
@@ -1008,12 +1015,23 @@ export interface PaymentMandate {
   gateway_customer_id?: string | null;
   gateway_token_id?: string | null;
   gateway_subscription_id?: string | null;
+  gateway_plan_id?: string | null;
+  gateway_short_url?: string | null;
   /** Masked payer VPA, display only. */
   vpa?: string | null;
   method: 'upi' | 'card' | 'emandate';
   /** Mandate ceiling; RBI ≤ ₹15,000 for per-charge no-AFA. */
   max_amount?: number | null;
   frequency?: 'monthly' | 'quarterly' | null;
+  pricing_option_id?: string | null;
+  cycle_duration_count?: number | null;
+  cycle_duration_unit?: 'day' | 'week' | 'month' | 'year' | null;
+  recurring_amount?: number | null;
+  currency?: string | null;
+  initial_period_end?: string | null;
+  last_applied_paid_count?: number;
+  last_applied_period_end?: string | null;
+  setup_error?: string | null;
   status: MandateStatus;
   authed_at?: string | null;
   next_charge_at?: string | null;

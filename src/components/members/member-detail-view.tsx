@@ -334,7 +334,7 @@ export function MemberDetailView({
           .from('payment_mandates')
           .select('*')
           .eq('membership_id', membershipId)
-          .in('status', ['pending', 'active'])
+          .in('status', ['creating', 'pending', 'active', 'paused', 'orphaned'])
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -1452,6 +1452,15 @@ export function MemberDetailView({
                                         : ' · UPI AutoPay'}
                                       {' — renewals collect automatically.'}
                                     </>
+                                  ) : mandate.status === 'orphaned' ? (
+                                    <>
+                                      Auto-pay setup needs payment
+                                      reconciliation review before retrying.
+                                    </>
+                                  ) : mandate.status === 'creating' ? (
+                                    <>Auto-pay setup is in progress.</>
+                                  ) : mandate.status === 'paused' ? (
+                                    <>Auto-pay is paused and needs review.</>
                                   ) : (
                                     <>
                                       Auto-pay mandate pending the member&apos;s
