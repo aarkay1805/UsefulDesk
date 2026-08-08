@@ -1,0 +1,831 @@
+# Razorpay OAuth, Payment Links, and Refunds
+
+## Implementation plan for UsefulDesk
+
+**Status:** Staged implementation plan — OAuth and Payment Links are implementable after the provider-acceptance gate; refund accounting requires the separate full-refund stage below.  
+**Initial release scope:** Razorpay Technology Partner OAuth, application-level webhooks, INR generic-invoice Payment Links, WhatsApp delivery, and exactly-once settlement.  
+**Later release scope:** Full gateway refunds with an explicit accounting disposition. Partial refunds remain deferred until invoice-line targeting is designed.  
+**Rollout:** Provider acceptance spike first, development client next, production client only after sandbox acceptance. No immediate fleet-wide cutover.
+
+## 1. Outcome
+
+UsefulDesk gym owners connect their own Razorpay account without pasting API keys. Staff can send or copy a full-balance Razorpay Payment Link for any chargeable INR UsefulDesk invoice, and a verified captured payment settles the correct invoice exactly once. In the later refund release, admins can issue a full refund with an explicit accounting disposition.
+
+Money always settles directly between the member and the gym's Razorpay account. UsefulDesk never holds funds.
+
+### Real-world problems this release solves
+
+- Gym owners connect Razorpay without copying long-lived API secrets into UsefulDesk.
+- Staff can turn an existing due invoice into a tracked payment request and send it in the same WhatsApp-first workflow used for renewals.
+- A member payment settles the addressed invoice without staff checking Razorpay and recording it manually.
+- Provider-confirmed money that does not fit the local invoice is surfaced for action instead of being lost or silently misapplied.
+- The later full-refund stage prevents a refunded member from being incorrectly chased, while still supporting the valid case where the charge remains due.
+
+## 2. Locked product decisions
+
+1. **One Razorpay application, two clients.** Razorpay creates separate development and production clients under one application. Each client has its own client ID and client secret.
+2. **OAuth is the default connection path.** Existing manual credentials remain an explicit, server-controlled rollback path during rollout; there is no silent fallback from revoked or blocked OAuth to manual keys.
+3. **One Razorpay merchant per UsefulDesk account and mode.** Enforce uniqueness on `(mode, razorpay_account_id)`. Sharing one Razorpay merchant across multiple UsefulDesk branches is out of scope for this release.
+4. **Payment Links cover generic INR invoices.** Membership, service, merchandise, and service-adjustment lines are eligible when `isChargeableAmount(collectible_balance)` is true. INR-only keeps the current paise conversion correct; broader currency support requires a canonical currency-minor-unit layer first.
+5. **Payment Links are full-balance and non-partial.** Set `accept_partial=false` and expire links after 7 days. Manual partial collection remains available.
+6. **`payment_link.paid` is the canonical settlement event.** Do not also settle from `payment.captured`; different webhook events can describe the same payment.
+7. **Provider-confirmed money is never discarded.** A captured payment that cannot safely enter the ledger becomes a durable operator-visible exception, following the existing recurring-charge safety pattern.
+8. **Refund and invoice adjustment are separate facts.** A processed refund reverses collected cash. The selected disposition determines whether the invoice becomes due again.
+9. **Original payment rows remain immutable.** Refund and invoice-adjustment identities and amounts are immutable financial facts. Refund workflow status and classification may change only through the explicit transition RPCs below; rows are never deleted or repurposed.
+10. **Only provider-processed refunds affect financial totals.** `creating`, `pending`, and `failed` refunds do not. A processed external refund awaiting classification reduces net cash and places the invoice on review hold before it can re-enter dues.
+11. **The later full-refund release covers both Payment Link and AutoPay payments.** The original Razorpay payment must already exist in UsefulDesk with valid invoice-line allocations. Partial refunds remain deferred.
+12. **Payment Link is a distinct payment source.** Extend `payments.source` to `manual | auto | payment_link`. `auto` continues to mean only a recurring mandate debit and keeps its membership-line-only allocation rule. `payment_link` has no human recorder but allocates across the addressed generic invoice using the normal deterministic largest-remainder algorithm.
+13. **Refund review is non-collectible.** A processed external refund with no disposition reduces net cash immediately, but its invoice has `collectible_balance = 0`. An admin can classify a supported full refund; an external partial refund stays blocked for the deferred line-targeting workflow. Neither may enter dues, reminders, payment-link creation, or cached `fee_status='due'` while under review.
+14. **Refund capacity and classification are database transactions.** Service-role-only RPCs lock the payment/refund rows, reserve paise-exact allocations for supported full refunds, enforce idempotency and state transitions, and create a separate immutable invoice adjustment in the same transaction when required. Routes must not emulate these invariants with separate Supabase calls.
+15. **Link eligibility changes are durably convergent.** Every balance/eligibility mutation requests cancellation transactionally; paid/cancelled/expired handlers are monotonic; and the 15-minute recovery worker owns remote cancellation plus creating/orphaned intent reconciliation.
+16. **Provider acceptance is a release gate, not an implementation assumption.** Before schema work, confirm Technology Partner access, development and production clients, OAuth access to Customers, Plans, Subscriptions, Payment Links, Payments, and Refunds, the exact application-webhook event list, test/live product activation, and the approved `gym_payment_link` Meta Utility template.
+17. **One trusted provider mode per deployed database.** `RAZORPAY_MODE` is the authoritative `test | live` mode for OAuth, credentials, API calls, webhook secrets, and account resolution. A test deployment must use an isolated test database and test application webhook; production uses the production database and live webhook. The mode is never inferred from a webhook payload or browser input, and a stored connection whose mode differs from the deployment is unusable.
+18. **Shadow webhook delivery is observational only.** During dual-ingress rollout, both the legacy per-account endpoint and the application endpoint record separate delivery observations, but only the currently active ingress may claim or complete the canonical `webhook_events` financial event. A shadow delivery can compare routing, type, payload hash, and timing; it can never suppress or execute money handling.
+19. **Webhook delivery is the latency path, not the completeness boundary.** The recovery worker also verifies stale active Payment Links against Razorpay and incrementally scans provider refunds with a durable per-merchant cursor. Correctly signed webhooks normally settle first; provider reconciliation recovers events that were never delivered before Razorpay's retry window ended.
+20. **An unallocated processed refund blocks further allocation.** Once any processed refund for a payment lacks complete line allocations, no later local or imported refund may fabricate “remaining” line allocations and no refund on that payment may be classified. Further provider refunds remain immutable header-only facts under the same review hold until the deferred line-targeting workflow resolves the complete refund chain.
+
+### Deliberate simplifications
+
+- **INR only instead of generic multi-currency.** The current ledger has paise-specific conversion; adding a minor-unit framework before another currency is needed would be speculative.
+- **Full remaining-payment refunds instead of partial refunds.** A proportional split across mixed invoice lines can produce the wrong business result. Partial refunds wait for explicit line selection.
+- **One WhatsApp action plus Copy fallback instead of a delivery subsystem.** Existing conversation messages prove WhatsApp sends; copying a URL is not a delivery event.
+- **Reuse `webhook_events` instead of a second unknown-account event store.** Preserve the existing Meta event contract and allow service-only Razorpay application events with no mapped account.
+- **A delivery-observation ledger is not a second event processor.** The small service-only Razorpay delivery table exists only to compare legacy/application ingress safely during cutover. Canonical idempotency, payload ownership, processing state, and financial completion remain in `webhook_events`.
+- **Revision history instead of a `superseded` Payment Link state.** Cancelled/expired terminal revisions already explain replacement.
+- **One owner-facing attention count instead of a diagnostics dashboard.** Queue ages, leases, and raw provider errors remain operator concerns.
+- **Two/ten-caller concurrency acceptance instead of a fifty-caller core test.** Larger load testing stays outside the release-critical suite.
+
+## 3. Refund dispositions
+
+Every refund request requires an admin/owner to choose one of these explicit outcomes:
+
+### A. Refund and keep balance due
+
+Use when the underlying charge remains valid: wrong payment method, wrong payer, or another payment that must be collected again. Chargebacks, disputes, and provider reversals are separate gateway lifecycles and are not represented as ordinary refunds in this release.
+
+Example:
+
+```text
+Invoice total                    10,000
+Payment                         -10,000
+Balance                               0
+Processed refund                +10,000
+New balance                      10,000
+```
+
+The invoice returns to the normal dues and reminder workflows.
+
+### B. Refund and reduce charge
+
+Use for a cancellation, agreed discount, undelivered service, or service deficiency. The processed refund also creates an equal internal invoice adjustment, so the member is not chased again.
+
+```text
+Invoice total                    10,000
+Payment                         -10,000
+Processed refund                +10,000
+Invoice adjustment              -10,000
+New balance                           0
+```
+
+Call this an **invoice adjustment** in the product. Do not call it a GST credit note until UsefulDesk implements legally compliant GST documents and numbering.
+
+The first refund release supports **full remaining-payment refunds only**. This avoids incorrectly spreading a partial refund across unrelated membership, service, and merchandise lines. A later partial-refund design must require the admin to select the affected invoice line or lines, cap each line at the original payment's remaining allocation, and make the selected allocations sum exactly to the refund. Never infer the commercial target of a partial refund using proportional allocation.
+
+## 4. Razorpay dashboard setup
+
+### Provider-acceptance gate
+
+Complete a thin development-client spike before migrations or UI work:
+
+- Confirm UsefulDesk has Technology Partner Dashboard access and can create both development and production clients.
+- Authorize one test merchant and call Customers, Plans, Subscriptions, Payment Links, Payments, and Refunds with its Bearer token.
+- Record the exact application-webhook events Razorpay exposes for this import/OAuth flow. Do not assume onboarding-status events are available until they appear for the application.
+- Confirm Payment Links and Subscriptions/Recurring are activated in test mode. Repeat the capability check in live mode before production connection.
+- Confirm the Meta Utility template `gym_payment_link` is approved with the four parameters in section 10.2. Copy link remains the fallback when WhatsApp is unavailable.
+- Razorpay test mode allows only 30 created Payment Links per business by default. Use a dedicated test merchant, keep the acceptance matrix within that limit, or obtain a higher limit from Razorpay before exhaustive integration testing.
+
+Create one application under **Partners → Applications**:
+
+- **Application name:** UsefulDesk
+- **Website:** `https://usefulmade.com`
+- **Logo:** approved square UsefulDesk Razorpay icon
+- **OAuth scope:** `read_write`
+
+Configure the generated clients separately:
+
+### Development client
+
+- Client mode: `test`
+- Redirect URI: `http://localhost:3000/api/payments/razorpay/oauth/callback`
+- Add a deployed HTTPS test/preview callback when testing outside localhost.
+- Webhook URL must be publicly reachable HTTPS, for example `https://<test-deployment>/api/payments/razorpay/webhook`.
+
+### Production client
+
+- Client mode: `live`
+- Redirect URI: `https://desk.usefulmade.com/api/payments/razorpay/oauth/callback`
+- Webhook URL: `https://desk.usefulmade.com/api/payments/razorpay/webhook`
+
+Configure only the minimum events actually consumed. Select account-status events only if Razorpay exposes them for this application's import/OAuth flow; otherwise the account fetch/readiness probes below are authoritative:
+
+- `account.app.authorization_revoked`
+- `account.activated`
+- `account.under_review`
+- `account.needs_clarification`
+- `account.suspended`
+- `account.rejected`
+- `subscription.authenticated`
+- `subscription.activated`
+- `subscription.charged`
+- `subscription.pending`
+- `subscription.halted`
+- `subscription.cancelled`
+- `subscription.completed`
+- `subscription.expired`
+- `payment_link.paid`
+- `payment_link.cancelled`
+- `payment_link.expired`
+- `payment_link.partially_paid` as a safety alert; it should be impossible for links created by UsefulDesk
+- `refund.processed`
+- `refund.failed`
+
+Do not add `payment.captured` as a second Payment Link settlement trigger.
+
+Confirm Payment Links and Subscriptions/Recurring are activated in test mode before development acceptance and in live mode before production connection.
+
+Razorpay does not prefill the hosted checkout with supplied phone or email details under its current security policy. Acceptance testing must include the real member flow and the UI/help copy must not promise a one-tap, prefilled checkout.
+
+## 5. Environment configuration
+
+Use the same variable names in each deployment environment, with development or production values supplied by Vercel:
+
+- `RAZORPAY_OAUTH_CLIENT_ID`
+- `RAZORPAY_OAUTH_CLIENT_SECRET`
+- `RAZORPAY_MODE` = `test` or `live`; authoritative for the whole deployed database, not only OAuth
+- `RAZORPAY_OAUTH_REDIRECT_URI`
+- `RAZORPAY_WEBHOOK_SECRET_CURRENT`
+- `RAZORPAY_WEBHOOK_SECRET_PREVIOUS` during secret rotation only
+- `RAZORPAY_OAUTH_ENABLED`
+- `RAZORPAY_MANUAL_ROLLBACK_ENABLED`
+
+None may use the `NEXT_PUBLIC_` prefix. Application client secrets and application webhook secrets never enter Postgres. Merchant access and refresh tokens are encrypted with the existing AES-256-GCM secret utility before database storage and decrypted only inside server-only payment modules. During rollback, migrate stored manual key and webhook secrets to the same encrypted-at-rest contract instead of leaving them as plaintext columns.
+
+Fail closed at startup and at every server connection boundary when `RAZORPAY_MODE` is absent, invalid, or differs from the stored `provider_mode`. Development/test webhook URLs must terminate in a deployment backed by an isolated test database; never point a development-client webhook at the production deployment merely because the route path is the same. The application webhook resolves `(RAZORPAY_MODE, top-level account_id)` and never searches across both modes.
+
+During webhook-secret rotation, verify against the current secret first and the previous secret second. Remove the previous secret only after Razorpay's retry window for old deliveries has passed.
+
+### Operational constants
+
+Keep these values in one server-only payments constants module and test their boundary behavior:
+
+- readiness-probe freshness: 24 hours
+- OAuth refresh and outbound-refund lease: 2 minutes
+- Razorpay HTTP deadline: 30 seconds for every individual provider request; it must remain comfortably shorter than any owning lease
+- webhook/recovery item processing lease: 5 minutes
+- recovery schedule: every 15 minutes, at most 100 claimed items per invocation
+- retry delays: 1 minute, 5 minutes, 15 minutes, 1 hour, then 6 hours maximum; financial/provider-confirmed items are never abandoned solely because of attempt count
+- Payment Link reuse requires at least 24 hours before expiry; newly created links expire after 7 days
+- active Payment Link verification: first check after 15 minutes, then progressively back off to at most 6 hours while remote status remains `created`; always verify when locally past expiry
+- provider refund reconciliation: each ready merchant becomes due at least hourly; scan a 48-hour overlap behind the completed cursor and advance the cursor only after every page in the fixed window succeeds
+- browser-safe stored error text: 2,000 characters maximum
+
+## 6. Authorization model
+
+Add named predicates in `src/lib/auth/roles.ts` and mirror them in route authorization and RLS/service-only boundaries:
+
+- `canConfigurePaymentGateway` — existing admin/owner capability; connect, reconnect, disconnect, and connection diagnostics.
+- `canManagePaymentLinks` — agent and above; create, reuse, copy, and send invoice links.
+- `canRefundGatewayPayments` — admin/owner; request full refunds and select the disposition.
+
+Add or extend tests in `roles.test.ts`. Do not use inline role comparisons at route or component call sites.
+
+All OAuth-state, token, webhook, payment-link mutation, refund, and exception writes run through authenticated server routes or service-role-only RPCs. Browser clients never receive raw secrets or tokens.
+
+## 7. Database design
+
+Create migrations using the current repository migration workflow and filenames that sort after the latest migration. Every new `public` table must have explicit grants and RLS, even when it is service-role-only.
+
+### 7.1 `razorpay_oauth_states`
+
+Service-role-only, short-lived OAuth initiation records:
+
+- `id uuid primary key`
+- `state_hash text unique not null`; store SHA-256 of the state, never the raw value
+- `account_id uuid not null`
+- `initiated_by uuid not null`
+- `client_id_fingerprint text not null`; non-secret stable identifier/fingerprint
+- `mode text check (mode in ('test','live'))`
+- `redirect_uri text not null`
+- `expires_at timestamptz not null`
+- `consumed_at timestamptz`
+- `created_at timestamptz not null`
+
+Use a 10-minute TTL. Consume with one conditional update requiring matching hash, account, user, mode, redirect URI, `consumed_at is null`, and `expires_at > now()`; require a returned row or fail the callback.
+
+### 7.2 Extend `account_payment_credentials`
+
+Retain this as the single account-scoped gateway connection surface. Add:
+
+- `authentication_mode`: `manual | oauth`
+- `razorpay_account_id`
+- `provider_mode`: `test | live`; required for manual and OAuth authentication and required to equal the deployment's `RAZORPAY_MODE`
+- encrypted `oauth_access_token`
+- encrypted `oauth_refresh_token`
+- `oauth_access_expires_at`
+- `oauth_refresh_expires_at`
+- `oauth_scope`
+- `connection_status`: `connecting | ready | blocked | reconnect_required | disconnecting | disconnected`
+- `merchant_status`: `unknown | activated | under_review | needs_clarification | suspended | rejected`
+- `canonical_webhook_ingress`: `legacy_account | application`, default `legacy_account`; exactly one endpoint is allowed to claim canonical Razorpay events for the account
+- `refresh_generation integer not null default 0`
+- `refresh_lease_owner uuid`
+- `refresh_lease_until timestamptz`
+- `connected_at`, `disconnected_at`, `activation_verified_at`, `last_verified_at`, `last_error`
+
+Add a unique index on `(provider_mode, razorpay_account_id)` where the external account ID is not null. The table remains one row per UsefulDesk account because one deployed database owns exactly one provider mode. Keep all raw credential columns revoked from `anon` and `authenticated`; the existing connection route returns browser-safe status only.
+
+### 7.3 Extend payment provenance and ledger guards
+
+Extend `payments.source` to `manual | auto | payment_link` without changing the meaning of existing values:
+
+- `auto` is reserved for mandate/subscription debits, has no human recorder, and may allocate only to its trusted membership invoice line.
+- `payment_link` has no human recorder, requires a gateway payment ID, must not reference a mandate, and may allocate across the addressed generic invoice with the normal deterministic largest-remainder algorithm.
+- `manual` retains the existing recorder and generic-invoice behavior.
+
+Keep the global gateway-payment uniqueness guard. Update the allocation validator so it selects the rule from the payment source rather than treating all automated rows alike. Reject attempts to pass a Payment Link settlement through the AutoPay-only RPC.
+
+Gateway-originated payments are reversed only by refunds. Harden `void_membership_payment` and every payment-void route to reject a payment with `gateway_payment_id is not null` or `source in ('auto', 'payment_link')`; retain Void only for eligible manual payments. Map provider methods centrally: UPI to `upi`, card to `card`, netbanking/bank transfer to `bank`, and unsupported provider methods to `other` while preserving the raw method in gateway metadata.
+
+### 7.4 `razorpay_payment_links`
+
+One local intent/revision per remote link:
+
+- `id uuid primary key`
+- `account_id`, `invoice_id`
+- `revision integer`
+- stable `reference_id` no longer than Razorpay's 40-character limit
+- `gateway_link_id`
+- `expected_amount numeric(12,2)` and integer `expected_amount_subunits`
+- `currency`
+- `short_url`
+- `expires_at`
+- `status`: `creating | created | cancel_requested | paid | cancelled | expired | failed | orphaned`
+- `created_by`
+- `cancel_reason`, `setup_error`, `remote_status`, `last_verified_at`, `last_reconciled_at`, timestamps
+- `next_reconcile_at`; set on creation and after every non-terminal provider verification so a remotely paid/expired link cannot remain locally active forever
+
+Constraints:
+
+- unique `(account_id, invoice_id, revision)`
+- unique `(account_id, gateway_link_id)` when present
+- unique `(account_id, reference_id)`
+- at most one blocking link per invoice across `creating | created | cancel_requested | orphaned`
+
+Reserve the local row before calling Razorpay. Use the stable reference ID to recover a remote link when Razorpay succeeded but the local finalize write failed. Mark unrecoverable remote/local divergence as `orphaned` and block another link until reviewed.
+
+Allowed link transitions are monotonic: `creating -> created | failed | orphaned`; `created -> cancel_requested | paid | cancelled | expired`; `cancel_requested -> paid | cancelled | expired`; and recovery may move `orphaned` only to a provider-verified `created | paid | cancelled | expired | failed` state. `paid`, `cancelled`, `expired`, and `failed` are terminal. A paid provider fact wins over a concurrent cancellation result. A cancelled older revision needs no separate `superseded` state; the revision history already explains its replacement.
+
+### 7.5 Delivery correlation
+
+Do not add a separate `payment_link_deliveries` table in the first release. Copying a URL is not proof of delivery, and successful WhatsApp sends already exist in the conversation/message ledger. Store optional `last_whatsapp_message_id`, `last_sent_at`, and bounded `last_delivery_error` on the Payment Link row only if direct correlation is needed. A WhatsApp failure never invalidates the link; always return the short URL so staff can copy it immediately.
+
+### 7.6 Gateway exception surfaces
+
+Service-role-only durable records for provider-confirmed Payment Link money that cannot safely enter the ledger:
+
+- account, invoice, link, webhook event, gateway payment ID
+- amount, currency, method, provider status
+- reason code/message, raw provider identifiers
+- attempt count, first/last seen timestamps, resolution metadata
+
+Unique `(account_id, gateway_payment_id)`. This follows `gateway_charge_exceptions`; do not silently drop, partially apply, or repeatedly retry an unsafe captured payment.
+
+Do not add a separate unknown-account exception table. Extend the existing service-role-only `webhook_events` contract so an application event may retain `account_id = NULL` together with mode, top-level external account ID, immutable payload/hash, processing status, and alert/resolution metadata. The permanent event identity prevents alert/retry amplification. Preserve the existing Meta lead-capture use of `webhook_events`, including its `gateway='meta'` identity and delete-on-handler-failure retry semantics.
+
+Add a service-role-only `razorpay_webhook_deliveries` observation ledger for safe dual-ingress rollout:
+
+- provider event ID, `provider_mode`, ingress `legacy_account | application`, external account ID, resolved UsefulDesk account when known
+- payload hash, event type, signature-secret generation, received timestamp, and whether the delivery was shadow-only
+- unique `(provider_mode, provider_event_id, ingress)`
+
+This table never owns processing status and never authorizes a financial handler. In shadow mode the application endpoint writes only this observation and returns 2xx; it does not insert, claim, update, or complete the canonical `webhook_events` row. After cutover, the application endpoint records the observation and then uses `webhook_events` as the sole canonical event processor. Retain the observations through the rollout audit window so routing and payload parity can be proven before retiring the legacy endpoint.
+
+Add a service-role-only `razorpay_reconciliation_state` row per connected account for provider-source recovery:
+
+- `account_id`, `provider_mode`, `next_refund_reconcile_at`, `refund_completed_through`
+- fixed in-progress window `refund_window_from`, `refund_window_to`, and `refund_skip`; request 25 refunds per page so parent verification stays inside the five-minute lease, while the offset can resume through arbitrarily many provider pages
+- lease owner/until, last success/error, and timestamps
+
+For the first Stage 4 scan, initialize the window from 48 hours before the earliest local Razorpay gateway payment for the account, not from feature-enable time, so pre-existing Dashboard refunds on AutoPay payments are not skipped. Begin each later window 48 hours before `refund_completed_through`, deduplicate by gateway refund ID, and freeze its end timestamp before the first provider call. Advance `refund_completed_through` only after every page in that fixed window has been imported, verified, or explicitly identified as unrelated to a UsefulDesk gateway payment. A crash resumes the same window and offset; it never jumps past unseen provider refunds.
+
+### 7.7 Refunds, adjustments, and transactional RPCs
+
+`payment_refunds` is append-preserving but stateful:
+
+- `id`, `account_id`, `payment_id`, `invoice_id`
+- `gateway_refund_id`
+- `amount`, `currency`
+- source `usefuldesk | razorpay_dashboard`
+- disposition `reopen_balance | reduce_charge`; nullable only for an externally initiated processed refund awaiting classification
+- reason; required for UsefulDesk requests and nullable only for a newly imported Dashboard refund awaiting classification
+- provider status `creating | pending | processed | failed | orphaned`
+- client idempotency key and Razorpay refund idempotency key/receipt
+- requested/processed/failed timestamps and actor
+- outbound request lease owner/until
+- provider error/status metadata
+
+Constraints:
+
+- unique `(account_id, idempotency_key)`
+- unique `(account_id, gateway_refund_id)` when present
+- refund capacity includes `creating`, `pending`, `processed`, and `orphaned`; only `failed` releases capacity
+- capacity is enforced under a payment-row lock in the reservation/import RPC, not by a cross-row `CHECK`
+- `has_unallocated_processed_refund(payment_id)` is true when any processed refund header for the payment lacks a complete paise-equal allocation set; while true, all further allocation, UsefulDesk refund reservation, and classification paths for that payment fail closed
+
+Core identity, payment, amount, currency, and source are immutable after insert. Provider identifiers may be populated once and never replaced. Only the explicit workflow RPCs may update provider status/error fields, timestamps, and disposition/classification fields. Allowed transitions are:
+
+- `creating -> pending | processed | failed | orphaned`
+- `pending -> processed | failed | orphaned`
+- `orphaned -> pending | processed | failed` after provider fetch/reconciliation
+- `processed` and `failed` are terminal
+
+`processed` reduces net cash. `creating`, `pending`, `orphaned`, and `failed` do not affect financial views. `status='processed' AND disposition IS NULL` derives `requires_refund_review=true`; classification fills the disposition without changing provider status. This keeps provider state and accounting classification as separate axes.
+
+`payment_refund_allocations` maps each supported full refund to the original payment's invoice-line allocations. Allocation amounts are positive and immutable. The disposition determines balance behavior. An externally initiated partial refund deliberately has no line allocations in this release; its exception and invoice-wide review hold make that missing commercial attribution explicit instead of inventing one.
+
+A processed refund first discovered from a Razorpay Dashboard webhook or provider reconciliation scan is inserted with `source='razorpay_dashboard'`, `status='processed'`, and no disposition. It immediately reduces net cash reporting, places the affected invoice under refund review, and suppresses automated due reminders. A full remaining-payment refund waits for an admin to choose `reopen_balance` or `reduce_charge`; a partial refund waits for the deferred line-targeting workflow.
+
+Create separate append-only `invoice_adjustments` and `invoice_adjustment_allocations` facts. An adjustment has account/invoice identity, `source='refund'`, a unique `source_refund_id`, positive amount, reason, creator/timestamp, and immutable positive line allocations. A processed `reduce_charge` refund creates exactly one equal adjustment and allocations in the same database transaction. `reopen_balance` creates none. An imported full refund creates none until classified; an imported partial refund cannot create one in this release.
+
+Implement the invariants in service-role-only `SECURITY DEFINER` RPCs with fixed `search_path`, explicit argument validation, and execute revoked from `PUBLIC`, `anon`, and `authenticated`:
+
+- `reserve_gateway_refund(...)`: lock the payment, verify tenant/provider/currency/age and identical-body idempotency, reject when any processed refund for the payment lacks complete allocations, require the amount to equal the payment's full remaining refundable amount, copy the remaining original payment allocations exactly, reserve the refund with a two-minute outbound lease, and return the existing reservation on an identical replay.
+- `finalize_gateway_refund(...)`: lock the refund/payment, validate fetched provider facts and allowed transition, finalize once, and create the invoice adjustment atomically when disposition is `reduce_charge`.
+- `import_gateway_refund(...)`: lock the payment, deduplicate the gateway refund, and require all active outbound leases for that payment to be finalized/reconciled. If an earlier processed refund on the payment lacks complete allocations, insert this provider-confirmed refund as an immutable header-only `processed` fact, create/update the unique `partial_refund_line_target_required` exception, and retain the invoice-wide review hold regardless of this refund's amount. Otherwise, for a full remaining-payment refund, copy the remaining original allocations and insert it as `processed` with a null disposition. For an externally initiated partial refund, insert the immutable processed refund header without line allocations, create/update the same exception in the transaction, and place the invoice on review hold. Header-only branches are detection and containment only; they cannot be classified in this release.
+- `classify_gateway_refund(...)`: require actor, reason, and disposition; lock a processed full refund whose disposition is null; verify it has complete copied allocations and that no processed refund anywhere on the payment lacks allocations; fill the disposition once; and create the adjustment atomically when required. It does not rewrite provider status.
+
+Application routes perform capability checks, provider calls, and provider fetch verification; these RPCs own all database concurrency and financial mutations. A sequence of separate Supabase client calls is not an acceptable substitute for the locked transaction.
+
+If an external processed-refund event races an active UsefulDesk refund request for the same payment, leave the durable webhook pending rather than violating capacity. After the two-minute outbound lease expires, recovery fetches the parent payment's complete paginated provider refund list, matches UsefulDesk `receipt` and notes first, finalizes those reservations, and only then imports unmatched processed refunds. The provider never returns the request's idempotency header as durable refund metadata, so matching must not depend on that header. Razorpay's provider state is authoritative; no confirmed refund is dropped because of a stale local reservation.
+
+### 7.8 Reconciled views and collection hold
+
+Extend invoice and invoice-line balance views with explicit gross and net facts. At invoice/payment level, processed-refund totals come from immutable refund headers so externally initiated partial refunds reduce net cash immediately. At line level, the equivalent refund totals come only from `payment_refund_allocations`:
+
+- `gross_amount_paid`
+- `processed_refund_amount` from `status='processed'` refund headers at invoice/payment level, or processed refund allocations at line level
+- `net_amount_paid = gross_amount_paid - processed_refund_amount`
+- `invoice_adjustment_amount` from the separate adjustment allocations
+- `net_total = gross_total - invoice_adjustment_amount`
+- `accounting_balance = max(gross_total - member_credit - invoice_adjustment_amount - net_amount_paid, 0)`
+- `requires_refund_review` when `status='processed' AND disposition IS NULL`
+- `collectible_balance = 0` while `requires_refund_review` or the invoice is void, otherwise `accounting_balance`
+- existing operational `balance` becomes an alias of `collectible_balance` during migration so an overlooked consumer fails closed instead of chasing a member under review
+
+For an externally initiated partial refund without line allocations, do not fabricate line balances. Show the provider-confirmed amount in payment/invoice cash reporting, keep line-level balances unchanged, set `requires_refund_review=true`, and expose `collectible_balance=0` for the whole invoice until the later line-targeted workflow resolves it.
+
+If `amount_paid` currently drives product behavior, migrate it deliberately to the net collected meaning and add `gross_amount_paid` for audit/reporting. Propagate `collectible_balance` and `requires_refund_review` through `membership_period_invoices`, `membership_dues`, and cached membership `fee_status`; review-held invoices remain non-due until classification.
+
+Audit and update every collection consumer together: installment/reminder cron, Members dues/action lists, dashboard counts, follow-up creation, manual payment, Payment Link creation/invalidation, invoice detail, Finance summaries, and CSV exports. Operational collection surfaces use `collectible_balance`; Finance and the refund-review UI may show `accounting_balance`, gross/net cash, and adjustments explicitly. The installment cron must filter out `requires_refund_review` even if an upstream view regresses.
+
+### 7.9 RLS and visibility matrix
+
+- OAuth states, raw credentials, raw webhook events including unmapped-account events, financial mutation RPCs, leases, and provider exception payloads are service-role-only with no browser grants.
+- Account members may read browser-safe Payment Link status and reconciled invoice/payment/refund facts through tenant-scoped views; viewers remain read-only.
+- Payment Link creation/delivery routes require `canManagePaymentLinks`; refund and classification routes require `canRefundGatewayPayments`; connection routes require `canConfigurePaymentGateway`.
+- No browser role may insert/update/delete payment, refund, refund-allocation, adjustment, adjustment-allocation, exception, or webhook rows directly. Routes return fixed browser-safe shapes and bounded error text, not raw provider payloads.
+- Add positive cross-tenant denial tests for every table, view, and RPC in addition to grant/advisor checks.
+
+## 8. OAuth implementation
+
+### 8.1 Connect
+
+`POST /api/payments/razorpay/oauth/connect`
+
+1. Require `canConfigurePaymentGateway`.
+2. Generate at least 32 random bytes for state; store only its hash.
+3. Bind state to authenticated user, account, client/mode, and exact redirect URI.
+4. Persist before redirecting.
+5. Build the Razorpay authorization URL with `response_type=code`, `scope=read_write`, and raw state.
+
+### 8.2 Callback
+
+`GET /api/payments/razorpay/oauth/callback`
+
+1. Require a valid UsefulDesk session and re-run `canConfigurePaymentGateway`.
+2. Atomically consume the bound, unexpired state before token exchange.
+3. Handle denial/rejection responses without creating a connection.
+4. Decode the authorization code and exchange it server-side using the bound redirect URI and configured mode.
+5. Validate response shape, granted scope, and `razorpay_account_id`.
+6. Require the bound OAuth-state mode and token-exchange mode to equal server-only `RAZORPAY_MODE`; reject a merchant already bound to another UsefulDesk account in that mode.
+7. Encrypt access/refresh tokens and persist expiry from `expires_in`; record the 180-day refresh deadline.
+8. Fetch `/v2/accounts/:razorpay_account_id` when the application's partner permissions allow it and persist `status` plus the live-payments flag. For imported accounts where that endpoint is unavailable, use only provider-confirmed non-mutating readiness checks identified in the acceptance spike; do not create live plans, subscriptions, links, or refunds merely as a probe. Set `ready` only after OAuth and capability readiness are verified, and retain explicit product errors.
+9. Redirect to Settings with a browser-safe success/failure code, never token data.
+
+### 8.3 Token loading and refresh
+
+Put OAuth selection behind `getRazorpayConnection`; callers continue consuming the existing API-key/OAuth authentication union.
+
+- Refresh proactively when the access token has seven days or less remaining.
+- Run the daily due-token refresh scan from the shared 15-minute recovery worker using the existing cron-auth helper and a once-per-day database lease.
+- Acquire the two-minute database lease and record `refresh_generation` before the network call.
+- Abort the provider request after 30 seconds. No refresh, link, refund, cancellation, fetch, or reconciliation call may outlive its owning lease.
+- After Razorpay returns a new pair, update tokens only if lease ownership and generation still match.
+- Waiting callers reload after the active refresher completes instead of refreshing concurrently.
+- On provider `401` attributable to token expiry, refresh and retry the original request once only.
+- On any refresh failure or timeout, reload the connection row first. If another owner advanced `refresh_generation` and committed a valid pair, use that pair and do not change connection status. If generation is unchanged and the provider may have accepted the refresh without returning the new pair, mark `reconnect_required`; never retry an outcome-unknown refresh with the old token because a successful refresh invalidates it. This cross-system crash window cannot be made fully atomic.
+- Never fall back to manual credentials when OAuth is revoked, blocked, suspended, rejected, or reconnect-required.
+
+### 8.4 Disconnect and revocation
+
+- User disconnect: set `disconnecting` first so new operations stop immediately, revoke both refresh and access tokens as applicable, then clear encrypted OAuth tokens and mark `disconnected`.
+- If Razorpay is unavailable, retain encrypted tokens only for a retry worker while the local connection remains blocked.
+- `account.app.authorization_revoked`: mark blocked/disconnected immediately, clear or quarantine tokens, disable new links/refunds/mandates, and surface Reconnect.
+- Account status events update `merchant_status`. Explicit `under_review`, `needs_clarification`, `suspended`, and `rejected` states always block new mutations. `unknown` is allowed only when `activation_verified_at` came from a recent successful readiness probe; it must not remain an unverified bypass.
+
+## 9. Application webhook architecture
+
+Replace the per-account webhook route with:
+
+`POST /api/payments/razorpay/webhook`
+
+Processing order is load-bearing:
+
+1. Read the raw body once.
+2. Verify `x-razorpay-signature` against the current or previous application webhook secret before parsing or writing anything.
+3. Parse the signed payload and require top-level `account_id` plus a stable event ID; use a signature-derived fallback only when Razorpay omits the event ID.
+4. Bind the delivery to server-only `RAZORPAY_MODE`, then resolve the UsefulDesk account through unique `(provider_mode, razorpay_account_id)`. Never infer mode from the payload or search both modes.
+5. Insert the immutable `razorpay_webhook_deliveries` observation for the application ingress.
+6. While the application ingress is in shadow mode, stop here and return 2xx. Do not insert, claim, mutate, or complete `webhook_events`, do not call a financial handler, and do not use `after()` for event processing.
+7. While the application ingress is active, persist/claim the immutable canonical raw event as `pending` before external verification or financial work. If canonical persistence fails, return non-2xx so Razorpay retries.
+8. Once durable, return 2xx within Razorpay's five-second window.
+9. Start best-effort post-response processing with Next.js `after()` and retain a cron worker as the durable recovery path for pending/failed/stale events. `after()` is a latency optimization, not the source of durability.
+
+When the application ingress is active, unknown but correctly signed external account IDs remain in `webhook_events` with `account_id = NULL`, return 2xx to avoid futile retries, and alert operators. During shadow mode they remain only in `razorpay_webhook_deliveries`, where they still raise the routing-parity alert but cannot create canonical state.
+
+Preserve the existing claim/lease/complete/fail semantics. Update them for the active application route without weakening permanent event idempotency or the final `(account_id, gateway_payment_id)` money guard. During dual ingress, update the legacy route to write its own delivery observation before consulting the account's `canonical_webhook_ingress` and using its unchanged canonical claim. The stored account field selects exactly one canonical ingress at a time; enabling application processing and disabling legacy processing for an account is one database transition, not two unrelated configuration changes.
+
+Handlers consume only the configured canonical events:
+
+- `payment_link.paid` and `payment_link.partially_paid` use the settlement/exception paths below.
+- `payment_link.cancelled` and `payment_link.expired` resolve by signed merchant plus gateway link ID, fetch the link with that merchant's token, cross-check account/reference, and record the matching terminal state. A terminal event never regresses a local `paid` link.
+- `refund.processed` and `refund.failed` use the verified refund finalization/import path below.
+- authorization and merchant-status events update connection state; subscription events keep the existing AutoPay handler and source semantics.
+
+### 9.1 Durable recovery worker
+
+Add `GET /api/payments/razorpay/recovery/cron`, protected by the existing cron authorization helper. Run it every 15 minutes by adding the endpoint to the repository's existing `ops-crons.yml` workflow during rollout; do not add a second scheduler for the same endpoint. Each invocation claims at most 100 local items or one 25-refund provider page with five-minute database leases and uses the retry schedule defined above.
+
+The worker recovers pending/failed/stale webhook events, `cancel_requested` links, stale `creating`/`orphaned` links, due `created` links selected by `next_reconcile_at`, `pending`/`orphaned` refunds, disconnect-revocation retries, and due per-merchant refund-reconciliation windows. It also performs the daily due-token refresh scan behind a database timestamp/lease so the 15-minute schedule does not refresh repeatedly. A failure in one item cannot abort the batch. Emit counts and oldest-age metrics for every queue. Next.js `after()` may invoke the same item processor after acknowledgement, but only the claimed database state, provider cursors, and this worker provide durability.
+
+For a due `created` link, fetch it by stored gateway ID. If Razorpay reports `paid`, run the same fetched-payment verification and settlement/exception path as `payment_link.paid`; if `cancelled` or `expired`, record the matching monotonic terminal state; if still `created`, update `last_verified_at` and progressively move `next_reconcile_at` out to at most six hours. A locally expired link is always verified rather than being marked expired from local time alone.
+
+For a due merchant refund window, fetch `/v1/refunds` with the frozen `from`, `to`, `count=25`, and stored `skip`. For each refund, first require a local payment with the same account and gateway payment ID. Refunds for unrelated merchant transactions are counted as out-of-scope scan observations and produce no UsefulDesk financial row or owner alert. For a matching local payment, fetch and verify the parent provider payment with bounded concurrency of at most five, finalize matching UsefulDesk reservations by `receipt`/notes, and import every other provider refund through `import_gateway_refund(...)`. Commit the next `skip` only after the entire page succeeds; after a short final page, complete the window and advance the overlap cursor. Webhooks and scans deduplicate on gateway refund ID and share the same finalization/import RPCs.
+
+## 10. Payment Link lifecycle
+
+### 10.1 Create or reuse
+
+`POST /api/payments/razorpay/payment-links`
+
+Input: `invoiceId` and optional delivery intent. The account comes only from authenticated server context.
+
+1. Require `canManagePaymentLinks` and a ready OAuth connection whose merchant state is activated or readiness-verified within the last 24 hours, and is not explicitly blocked.
+2. Load the tenant-scoped invoice, `collectible_balance`, and refund-review state.
+3. Reject review-held, void, settled/no-charge, non-INR, missing-member, or non-chargeable invoices. Missing WhatsApp contact details disable Send on WhatsApp but do not block creating or copying a link.
+4. If a `created` link has the same collectible balance/currency and at least 24 hours of validity remaining, reuse it.
+5. If the collectible balance changed, mark the old created link `cancel_requested`; the recovery worker cancels it remotely, and a new revision is allowed only after terminal confirmation.
+6. Paid, cancelled, or expired links are terminal. If a later refund reopens the invoice, create a new revision; never attempt to cancel the paid link.
+7. Reserve the local `creating` row and stable reference before the remote call.
+8. Create a Standard Payment Link for the exact collectible balance in paise, `accept_partial=false`, 7-day expiry, `notify.sms=false`, `notify.email=false`, and `reminder_enable=false` to avoid duplicate messaging.
+9. Store invoice/account/link identifiers in bounded notes for cross-checking, never as the sole authorization source.
+10. Finalize the local row with gateway ID, complete short URL, and `next_reconcile_at = now() + 15 minutes` so remote payment remains recoverable without a webhook.
+
+Create a transactional `request_invoice_link_cancellation(invoice_id, reason)` database function. It recomputes invoice eligibility and collectible balance, and changes an incompatible `created` link to `cancel_requested` with a reason; it performs no network call. Invoke it from idempotent statement/row triggers covering all balance or eligibility mutations: payments/void state, payment allocations, member-credit allocations, refund status/classification/allocations, invoice adjustments/allocations, invoice-line amount/state/voiding, and invoice void/state changes. The recovery worker performs remote cancellation and records `cancelled`; webhook cancellation/expiry is the independent terminal confirmation.
+
+Late events are monotonic and idempotent: `paid` never becomes cancelled/expired, and a confirmed paid event still enters settlement even if the link was `cancel_requested`. A race where a member pays before cancellation is handled as an exception when it cannot fit the locked collectible balance, never as an overpayment or missing ledger entry. Entering refund review is an eligibility change and immediately requests cancellation of every created link for that invoice.
+
+For stale `creating` or `orphaned` rows, recovery calls Razorpay's Standard Payment Link list endpoint with the exact provider-unique `reference_id`, then cross-checks amount, currency, and UsefulDesk notes. One exact match is adopted and receives the normal active-link `next_reconcile_at`; a confirmed zero-result lookup marks `failed`; any provider-contract violation or mismatched result remains `orphaned` for operator review. An orphan blocks another revision until the remote state is verified terminal. Operator actions retry the exact-reference lookup or cancel a verified link; they never bypass the blocking invariant.
+
+### 10.2 WhatsApp delivery
+
+Use `sendMessageToConversation` through `POST /api/whatsapp/send` with `contact_id` and approved Utility template `gym_payment_link`:
+
+1. Member name
+2. Outstanding amount formatted through the account locale
+3. Invoice reference
+4. Complete Razorpay short URL
+
+The primary UI action creates or reuses the link and sends it in one step. On success, optionally correlate the Meta message ID and send time on the link row; on failure, retain a bounded error and return the short URL. Always keep **Copy link** available. Do not record Copy as a delivery event.
+
+### 10.3 Settlement
+
+On `payment_link.paid`:
+
+1. Resolve the stored link by gateway link ID and signed top-level merchant account.
+2. Fetch both the Payment Link and payment using that merchant's OAuth token.
+3. Require captured payment status and match merchant, payment ID, link ID, reference, invoice, INR amount in paise, and UsefulDesk notes.
+4. Call a service-role-only `record_gateway_invoice_payment` RPC.
+5. Inside one transaction, lock invoice, open lines, and link; re-read collectible balance; enforce gateway-payment idempotency; create one immutable `payments` row with `source='payment_link'`, `user_id=null`, no mandate, and trusted purpose `due`; then allocate across eligible open invoice lines using the generic deterministic largest-remainder rules.
+6. If any validation or balance invariant prevents safe application, preserve `gateway_payment_exceptions`, mark the link paid, complete the webhook, and alert an operator. Provider-confirmed money must not remain in endless webhook retries.
+
+`payment_link.partially_paid` is always preserved as an exception because UsefulDesk-created links disallow partial payments.
+
+## 11. Refund lifecycle
+
+### 11.1 Request
+
+`POST /api/payments/razorpay/refunds`
+
+Input: UsefulDesk payment ID, disposition, reason, and client idempotency key. The server derives the full remaining refundable amount; the browser does not choose an amount in this release.
+
+1. Require `canRefundGatewayPayments` and a ready OAuth connection whose merchant state is activated or readiness-verified within the last 24 hours, and is not explicitly blocked.
+2. Require an original captured Razorpay payment with a gateway payment ID.
+3. Call `reserve_gateway_refund(...)`; its transaction locks the payment and refund allocations, rejects any processed refund on the payment without complete line allocations, derives and requires the full remaining refundable amount, rejects zero/currency mismatch/void/provider mismatch or payments older than Razorpay's six-month refund window, and returns an existing row only for an identical idempotent request.
+4. Use the returned `creating` refund and copied remaining original allocations as the durable intent before the external call.
+5. Send Razorpay `X-Refund-Idempotency` with the stable UUID-shaped internal refund ID. In the same request body, set `receipt` to that exact ID and bounded notes containing the UsefulDesk refund ID, payment ID, and invoice ID. Enforce Razorpay's minimum 10-character and `[A-Za-z0-9_-]` format, and retry ambiguous network failures only with the identical header and byte-equivalent semantic body. Provider reconciliation matches `receipt` first and notes second; it never expects the idempotency header to appear in a fetched refund.
+6. Fetch/verify the returned refund as needed and call `finalize_gateway_refund(...)` to persist the gateway ID and `pending | processed | failed` result through an allowed transition.
+7. If the response is already processed, use the same verified finalization RPC as the webhook; do not update refund and adjustment rows in separate calls.
+
+### 11.2 Finalization
+
+For `refund.processed` and `refund.failed`:
+
+1. Resolve the local refund by gateway refund ID or stable receipt/idempotency metadata.
+2. Fetch the refund and parent payment from Razorpay using the mapped merchant token.
+3. Match account, parent payment, amount, currency, and internal reference.
+4. `processed`: call `finalize_gateway_refund(...)`; it atomically marks processed, exposes allocations to reconciled views, and creates the equal adjustment when the disposition is `reduce_charge`.
+5. `failed`: mark failed with provider reason; balances remain unchanged. A later fresh attempt uses a new idempotency key.
+6. Duplicate response/webhook/fetch reconciliation stays a no-op by gateway refund ID.
+7. If no local intent exists for a provider-processed **full remaining** refund, call `import_gateway_refund(...)` to import it once as `status='processed'` with a null disposition, copy the remaining original allocations, apply the non-collectible review hold, request active-link cancellation, and require an admin to classify it. Never guess that an external refund cancelled the charge.
+8. If Razorpay reports an externally initiated **partial** refund, persist the provider-confirmed refund header and a durable `partial_refund_line_target_required` exception, reduce payment-level net cash reporting, place the whole invoice on non-collectible review hold, and do not fabricate line allocations. The first release cannot classify or clear this exception; it remains an operator-visible blocked item until the later line-targeted partial-refund workflow ships. An unmatched failed refund creates/updates a reconciliation exception only and has no financial effect.
+
+Refunds are irreversible once accepted by Razorpay, so the UI must confirm the derived full amount, member, invoice, original payment, reason, and disposition before submission. Explain that a Razorpay `processed` refund may still take several working days to reach the original payment method and that Razorpay's original transaction fee may not be returned; do not present provider processing as confirmed customer receipt or exact bank-settlement profit.
+
+### 11.3 External refund classification
+
+`POST /api/payments/razorpay/refunds/:refundId/classify` requires `canRefundGatewayPayments`, a processed full Dashboard refund with a null disposition, reason, and disposition. After tenant/provider verification, call `classify_gateway_refund(...)`. `reopen_balance` removes the review hold and exposes the accounting balance to dues/reminders; `reduce_charge` creates an equal immutable adjustment first and then removes the hold. Re-run membership fee-status reconciliation in the same transaction. Duplicate identical classification is a no-op; conflicting reclassification is rejected and requires a separately designed corrective accounting workflow. Externally initiated partial refunds remain blocked until the deferred line-targeted workflow exists.
+
+## 12. UI changes
+
+Follow `docs/ui-patterns.md` and reuse existing master components.
+
+### Settings → Payments & currency
+
+- Replace manual key fields with **Connect Razorpay**.
+- Connected state shows merchant account ID suffix, test/live mode, OAuth/merchant readiness, last verified time, and one consolidated **Payments need attention · N** action when review items exist.
+- Actions: **Reconnect** and destructive **Disconnect** for admin/owner.
+- During rollout only, manual credential fallback stays behind `RAZORPAY_MANUAL_ROLLBACK_ENABLED`; it is never the normal UI.
+- Keep raw pending-webhook, token-refresh, queue-age, and lease metrics in operator monitoring rather than exposing a diagnostic wall to gym owners.
+
+### Invoice detail
+
+- Agent+: primary **Send payment link** creates or reuses and sends in one step; secondary **Copy link** creates or reuses without requiring WhatsApp delivery.
+- Reuse compatible active links and show expiry/status.
+- Disable with an explicit reason when connection, account status, invoice state, non-INR currency, refund review, or `isChargeableAmount(collectible_balance)` is ineligible. Missing WhatsApp contact details disable only Send, not Copy.
+- Admin/owner payment rows expose **Refund** only for refundable Razorpay payments. They never expose **Void** for a gateway payment; Void remains available only for eligible manual payments.
+- Disable **Refund** for every payment that has any processed refund without complete line allocations; explain that line targeting is required before another refund can be safely allocated.
+- Payment history shows gross payment, refunded amount, net collected, refund status, reason, disposition, and actor without mutating the original payment.
+- An unclassified external full refund shows a prominent **Refund review** state with provider amount/date, accounting impact, and an admin-only **Classify refund** action. An external partial refund shows the same hold plus **Line targeting required**, but no classification action in this release. Record payment, Send/Copy payment link, reminder, and due-follow-up actions remain disabled while either hold exists; the UI must not label the held accounting balance as currently due.
+
+### Finance reporting
+
+- Keep gross invoice value, invoice adjustments, gross collections, processed refunds, and net collections distinct.
+- A `reopen_balance` refund increases receivables and returns the member to dues.
+- A `reduce_charge` refund lowers net invoice value and does not create a due balance.
+- An externally initiated unclassified refund lowers net cash immediately but places the invoice under review and suppresses automated chasing until disposition is chosen.
+- CSV exports include gateway payment/refund IDs and disposition.
+- Payment Link collections report as `payment_link`, never as AutoPay; recurring mandate collections alone report as `auto`.
+
+## 13. Verification
+
+### OAuth and authorization
+
+- State entropy, hash-only storage, 10-minute expiry, replay rejection, wrong user/account/client/mode/redirect rejection.
+- User removed or downgraded between connect and callback.
+- Duplicate merchant connection across tenants.
+- Tokens encrypted at rest and never returned by API responses/logs.
+- Manual fallback cannot bypass revoked/blocked OAuth.
+- Missing/invalid `RAZORPAY_MODE`, stored-mode mismatch, a test webhook reaching the live deployment, and any attempt to search both modes fail closed.
+- The development OAuth/webhook deployment is backed by an isolated test database and cannot resolve production connections.
+- Viewer/agent/admin/owner route and UI capability coverage.
+
+### Token refresh
+
+- Proactive refresh, on-demand refresh, one retry on authenticated 401.
+- Two and ten concurrent callers produce one provider refresh; run higher-volume load testing outside the core acceptance suite.
+- Stale lease recovery.
+- Crash before provider response, after provider response/before DB commit, and after DB commit.
+- Provider calls abort before the two-minute lease; a timed-out or crashed refresh cannot overlap a second provider refresh under an expired lease.
+- After a refresh timeout/failure, a newly committed higher generation wins; unchanged outcome-unknown generation becomes Reconnect without retrying the possibly consumed old token.
+- Old refresh token invalidation transitions unrecoverable cases to Reconnect.
+
+### Application webhook
+
+- Current and previous secret verification over raw body.
+- Invalid signature causes no DB write.
+- Unknown external account handling.
+- Event replay, concurrent delivery, stale lease, handler failure, and recovery cron.
+- Durable acknowledgement within five seconds.
+- Same gateway payment described by multiple events still creates one ledger row.
+- With application ingress active, signed unknown-account events deduplicate in service-only `webhook_events` rows with `account_id = NULL` and alert once; in shadow mode they deduplicate only as delivery observations and cannot create canonical state.
+- Existing Meta leadgen claims retain `gateway='meta'`, cannot collide with Razorpay event IDs, and preserve their delete-on-handler-failure retry behavior.
+- Legacy and application delivery observations coexist for the same provider event without colliding with or completing each other's canonical financial claim.
+- In application-shadow mode, a valid event writes only an observation: no `webhook_events` mutation, handler call, `after()` processing, payment, mandate, refund, or exception write.
+- The per-account canonical-ingress transition is atomic: before it, only legacy may claim; after it, only application may claim. Reordered dual deliveries still produce one canonical handler run.
+- Cancelled/expired terminal handlers fetch and cross-check the remote link and never regress `paid`.
+- Fifteen-minute recovery claims bounded batches, isolates item failures, honors leases/backoff, and publishes oldest-age metrics.
+
+### Payment Links
+
+- Generic membership-only and mixed membership/service/merchandise invoices.
+- INR-only exact chargeable balance, paise conversion, and 7-day expiry.
+- Sub-₹0.50/display-zero residue is rejected through `isChargeableAmount`.
+- Concurrent create calls produce one remote link intent.
+- Remote success/local failure recovery by stable reference.
+- Compatible active-link reuse.
+- Balance change cancellation and replacement.
+- Paid link plus processed refund creates a new revision, not cancellation.
+- Manual-payment/cancellation race parks provider-confirmed overpayment as an exception.
+- WhatsApp success, failure, retry, and Copy-link fallback.
+- `payment_link.paid` fetch verification and exactly one payment/allocation set.
+- Settlement writes `source='payment_link'`, never `auto`, and a mixed invoice uses generic paise-exact allocation while AutoPay remains membership-line-only.
+- Unexpected `payment_link.partially_paid` exception path.
+- Every payment, allocation, credit, refund/classification, adjustment, line edit/void, and invoice-void path requests cancellation when amount or eligibility changes.
+- Cancellation/expiry webhooks and recovery converge `cancel_requested`, while late paid events remain monotonic and settle-or-except exactly once.
+- Exact-reference orphan lookup adopts one matching remote link, fails on confirmed absence, and blocks on mismatch until verified terminal.
+- A paid event omitted for longer than Razorpay's webhook retry window is recovered by the due-`created` link sweep and produces exactly the same payment or exception as the webhook path.
+- Active-link verification backs off from 15 minutes to at most six hours, verifies locally expired links remotely, and never marks a link terminal from local time alone.
+- Importing an external refund immediately places the invoice on hold and requests cancellation of its active link.
+
+### Refunds
+
+- Full remaining-payment refund, already-refunded, and zero-remaining cases.
+- Razorpay idempotency header and identical-body retry.
+- Idempotency keys satisfy Razorpay's length and character constraints.
+- Concurrent refund requests cannot exceed unrefunded captured amount.
+- Capacity and allocation checks execute inside the locked reservation/import RPC; separate client calls cannot race them.
+- Pending does not affect balances; processed does; failed does not.
+- `reopen_balance` returns the correct invoice lines to due state and reminder queues.
+- `reduce_charge` creates equal adjustment and leaves no artificial due.
+- Full refund allocations exactly copy every original payment allocation's remaining amount.
+- The outbound request persists the same stable UUID in `X-Refund-Idempotency`, body `receipt`, and bounded identifying notes; a lost response is recovered from provider data without relying on the request header being returned.
+- Duplicate response/webhook/reconciliation finalizes once.
+- Refund initiated directly in the Razorpay Dashboard is imported once, suppresses reminders, and requires classification.
+- An externally initiated partial refund is never proportionally fabricated: it reduces payment-level net cash, holds the invoice, and remains an explicit `partial_refund_line_target_required` exception.
+- After any header-only processed refund, later local refund requests and classification fail closed; later external refunds remain header-only and the provider-level total still reconciles without inventing line attribution.
+- The hourly provider refund cursor scans a 48-hour overlap, paginates past 100 results, resumes a crashed fixed window/offset, deduplicates webhook discoveries, and never advances past a failed page.
+- The initial cursor drains history from the earliest local gateway payment before refund features enable; provider refunds for unrelated merchant payments advance the scan safely without creating UsefulDesk financial rows or owner alerts.
+- Dashboard refund reason may be absent only while unclassified; classification requires actor, reason, and disposition and cannot be changed in place later.
+- Review hold propagates through invoice views, membership dues/fee status, action lists, manual collection, Payment Links, installment cron, Finance, and exports; no member chase occurs before classification.
+- `reduce_charge` creates one separate immutable invoice adjustment in the same finalization/classification transaction; `reopen_balance` creates none.
+- Original payment remains immutable.
+
+### Regression
+
+- Existing AutoPay mandate setup and hardened `subscription.charged` flow continue through OAuth Bearer auth.
+- Meta lead-capture claim, retry, and dedupe behavior remains unchanged while sharing `webhook_events`.
+- AutoPay remains `source='auto'` and membership-line-only; Payment Links are not counted or labelled as AutoPay.
+- Database and route guards reject Void for gateway/automatic payments while eligible manual-payment voiding remains unchanged.
+- Manual payment, checkout, member credit, invoice views, fee status, finance summaries, and exports remain correct.
+- RLS/grants/advisors verify all new tables, views, and functions.
+
+## 14. Rollout
+
+### Stage 0 — provider acceptance
+
+- Complete the development-client Bearer-auth spike across every required Razorpay API.
+- Record the exact application event list and verify the five-second webhook contract.
+- Confirm test/live Payment Links and Subscriptions activation, the production client path, the 30-link test limit, and `gym_payment_link` Meta approval.
+- Provision and verify an isolated test deployment/database for the development client. Confirm its webhook secret and `RAZORPAY_MODE=test` cannot resolve or mutate live connections; production is separately fixed to `RAZORPAY_MODE=live`.
+- Stop here and revise the plan if any required product or event is unavailable.
+
+### Stage 1 — schema and OAuth behind flags
+
+- Apply migrations through the approved Supabase migration tool; do not use `supabase db push`.
+- Verify schema, explicit grants, RLS, function execution grants, and advisors.
+- Enable the development client for one internal test account.
+- Keep current webhook and manual-key flow operational.
+
+### Stage 2 — application webhook and AutoPay parity
+
+- Update the legacy route to record `legacy_account` delivery observations while remaining the only canonical claimant.
+- Run the application webhook in observation-only shadow mode; it records `application` delivery observations and can perform no canonical or financial mutation.
+- Confirm account routing, event type, payload-hash, timing, and event coverage parity against the existing per-account webhook.
+- Move test AutoPay to OAuth Bearer authentication while legacy remains canonical.
+- Atomically switch the allowlisted account's `canonical_webhook_ingress` from `legacy_account` to `application`; the legacy endpoint then observes but cannot claim, while the application endpoint becomes canonical.
+- Cut over additional accounts only after reordered dual-delivery, replay, missing-event recovery, and exception monitoring are clean. Do not remove the legacy endpoint until the observation audit window has passed.
+
+### Stage 3 — Payment Links
+
+- Enable for an allowlisted test account.
+- Create, send, pay, replay, and reconcile multiple invoice shapes.
+- Monitor link orphans, payment exceptions, webhook age, and missing ledger entries.
+
+### Stage 4 — refunds
+
+- Enable admin-only after Payment Link settlement is stable.
+- Before exposing refund totals or actions for an allowlisted account, initialize and completely drain its historical provider-refund window from 48 hours before the earliest local Razorpay gateway payment. Verify every matching historical refund was imported/finalized and unrelated merchant transactions were skipped without local financial writes.
+- Support full remaining-payment refunds only and test both dispositions.
+- Detect externally initiated partial refunds, hold the invoice, and expose the blocked exception without fabricating line allocations.
+- Validate Finance, invoice, dues, WhatsApp reminder, and CSV behavior.
+
+### Stage 5 — production client
+
+- Configure the production client credentials and HTTPS redirect/webhook on the same Razorpay application.
+- Configure Vercel production secrets with `RAZORPAY_MODE=live`; verify the production deployment/database cannot load test-mode connection rows.
+- Connect one selected production branch.
+- Run one low-value live Payment Link, captured payment, and full refund.
+- Observe webhook, token, link, ledger, refund, and exception monitoring before expanding the allowlist.
+
+### Stage 6 — manual-key retirement
+
+- Keep rollback available for 14 days after production acceptance, controlled only by server environment and admin action.
+- Never auto-fallback.
+- After the window, erase stored manual key secrets for migrated accounts and remove the fallback UI/code in a separate reviewed change.
+
+## 15. Operational monitoring
+
+Alert on:
+
+- OAuth connections expiring within seven days without successful refresh
+- `reconnect_required`, revoked, suspended, rejected, clarification, or review status
+- refresh lease older than its allowed window
+- webhook pending/processing age and failed attempts
+- unknown signed merchant account events
+- mode mismatches or any test delivery reaching the live deployment
+- shadow application deliveries that attempted a canonical mutation; expected count is always zero
+- legacy/application delivery parity gaps before cutover and legacy canonical-claim attempts after cutover
+- orphaned Payment Links or refunds
+- overdue `created` Payment Link verification and remotely paid links missing local settlement
+- captured Payment Link payment exceptions
+- processed refund missing local finalization
+- overdue merchant refund cursors, failed/stuck provider pages, and refunds for locally known gateway payments that remain absent locally
+- payments blocked by unallocated processed refunds
+- active link amount different from collectible invoice balance
+- WhatsApp template/setup failures
+
+Provide account-scoped diagnostics to admins without exposing raw payload secrets or tokens. Reconciliation remains read-only unless an operator explicitly approves an event-level corrective action.
+
+## 16. Documentation and completion
+
+The feature is complete only when the implementation also updates:
+
+- `docs/gym-domain.md`
+- `PRDs/upi_autopay.md`
+- `docs/automations-and-cron.md`
+- payment/refund operational documentation
+- privacy/subprocessor text if the transmitted data set changes
+- `docs/changelog.md`
+- `PRDs/roadmap.md`
+
+Record the exact Razorpay dashboard event selection and test/live capability activation in the operational runbook.
+
+## 17. Deferred
+
+- Embedded/co-branded Razorpay KYC onboarding
+- Sharing one Razorpay merchant across multiple UsefulDesk branches
+- Legal GST invoice/credit-note generation and numbering
+- Automatic resolution of captured-payment exceptions
+- Partial Payment Links
+- UsefulDesk-initiated partial refunds and classification of external partial refunds; the later design must target explicit invoice lines
+- Chargeback, dispute, and provider-reversal accounting
+- Non-Razorpay gateways
+
+## 18. Acceptance criteria
+
+The release is accepted when:
+
+1. An admin connects a test merchant without entering API keys.
+2. AutoPay works through OAuth Bearer authentication.
+3. An agent creates and sends one full-balance generic-invoice link.
+4. A captured Payment Link payment produces exactly one immutable payment and correct invoice-line allocations.
+5. That payment is recorded as `payment_link`, supports mixed-invoice allocation, and cannot enter the AutoPay-only or payment-void paths.
+6. Replayed and concurrent events cannot double-credit.
+7. Unsafe provider-confirmed money is visible as an exception rather than lost or blindly applied.
+8. Full remaining-payment refunds reserve/finalize exactly once through database-locked RPCs and cannot exceed refundable capacity under concurrency.
+9. `reopen_balance` and `reduce_charge` produce different, correct invoice and reminder behavior, with the latter creating a separate equal invoice adjustment.
+10. An unclassified external full refund reduces net cash but is non-collectible everywhere until an admin records its reason and disposition; an external partial refund remains a visible blocked exception and is never proportionally allocated.
+11. Every balance/eligibility mutation invalidates incompatible active links, and terminal webhooks plus the recovery worker converge cancellation/orphan states without regressing paid links.
+12. Revoked or blocked merchants cannot perform new Razorpay operations.
+13. Token refresh races are single-flight and unrecoverable rotation failures visibly require reconnect.
+14. Shadow application deliveries cannot touch canonical event state or money, and the atomic ingress switch leaves exactly one endpoint able to claim each account's event.
+15. A missed Payment Link webhook is recovered from the provider, and a missed external refund is discovered through the resumable paginated cursor without double-applying either fact.
+16. A header-only external partial refund blocks all later allocation/classification on that payment while preserving every later provider refund as a visible header fact.
+17. Test and live deployments derive mode only from server configuration and isolated databases; cross-mode connections and events fail closed.
+18. All tenant, role, RLS, grant, security-advisor, and regression tests pass.
+19. One low-value production payment and refund reconcile end to end before broad rollout.
+
+## Official references
+
+- Razorpay OAuth build integration: https://razorpay.com/docs/partners/technology-partners/onboard-businesses/integrate-oauth/integration-steps/
+- Razorpay application webhooks: https://razorpay.com/docs/partners/technology-partners/onboard-businesses/integrate-oauth/subscribe-to-webhooks/
+- Razorpay webhook retries and event identity: https://razorpay.com/docs/webhooks/faqs/
+- Razorpay account status events: https://razorpay.com/docs/partners/technology-partners/onboard-businesses/status/
+- Razorpay Payment Links API: https://razorpay.com/docs/api/payments/payment-links/
+- Razorpay fetch-all Payment Links filters: https://razorpay.com/docs/api/payments/payment-links/fetch-all-standard/
+- Razorpay Payment Link webhooks: https://razorpay.com/docs/webhooks/payment-links/
+- Razorpay refund idempotency: https://razorpay.com/docs/api/refunds/normal-refunds-idempotent/
+- Razorpay refund entity and recoverable receipt: https://razorpay.com/docs/api/refunds/entity/
+- Razorpay paginated refund listing: https://razorpay.com/docs/api/refunds/fetch-all/
+- Supabase Data API explicit grants change: https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically
