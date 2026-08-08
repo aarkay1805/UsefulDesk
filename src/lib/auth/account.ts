@@ -36,6 +36,7 @@ import {
   isBranchAccountId,
 } from './branch-context';
 import {
+  canConfigurePaymentGateway,
   canEditSettings,
   canSendMessages,
   hasMinRole,
@@ -158,7 +159,9 @@ async function requestedBranchFromRequest(): Promise<RequestedBranch> {
  * Use `requireRole(min)` instead when the route also needs a
  * minimum-role check — it's a thin wrapper over this.
  */
-export async function getCurrentAccount(): Promise<AccountContext> {
+export async function getCurrentAccount(
+  explicitAccountId?: string
+): Promise<AccountContext> {
   const sessionClient = await createClient();
 
   const {
@@ -185,7 +188,16 @@ export async function getCurrentAccount(): Promise<AccountContext> {
     // no way to scope their queries — treat as forbidden.
     throw new ForbiddenError('Profile is not linked to an account');
   }
-  const requested = await requestedBranchFromRequest();
+  const requested =
+    explicitAccountId === undefined
+      ? await requestedBranchFromRequest()
+      : {
+          accountId: isBranchAccountId(explicitAccountId)
+            ? explicitAccountId
+            : null,
+          explicit: true,
+          invalid: !isBranchAccountId(explicitAccountId),
+        };
   if (requested.invalid) {
     throw new ForbiddenError('Invalid branch context');
   }
@@ -297,6 +309,19 @@ export async function requireSettingsAccess(): Promise<AccountContext> {
   const ctx = await getCurrentAccount();
   if (!canEditSettings(ctx.role)) {
     throw new ForbiddenError('This action requires settings access');
+  }
+  return ctx;
+}
+
+/** Require the named admin/owner capability for Razorpay connection changes. */
+export async function requirePaymentGatewayAccess(
+  accountId?: string
+): Promise<AccountContext> {
+  const ctx = await getCurrentAccount(accountId);
+  if (!canConfigurePaymentGateway(ctx.role)) {
+    throw new ForbiddenError(
+      'This action requires payment gateway configuration access'
+    );
   }
   return ctx;
 }

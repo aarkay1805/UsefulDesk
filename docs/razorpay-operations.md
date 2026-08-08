@@ -84,6 +84,85 @@ for the isolated test environment. Rotate the OAuth client secret, webhook
 secret, isolated Supabase service-role key, and any other exposed acceptance
 credential before the first live merchant authorisation or production rollout.
 
+## Stage 1 OAuth rollout
+
+Stage 1 code landed on 2026-08-09 with both runtime switches still disabled:
+
+```sh
+RAZORPAY_OAUTH_ENABLED=false
+RAZORPAY_MANUAL_ROLLBACK_ENABLED=false
+```
+
+The schema migrations are
+`supabase/migrations/20260809000000_razorpay_oauth_connections.sql` and the
+foreign-key index follow-up
+`supabase/migrations/20260809001000_index_razorpay_oauth_state_foreign_keys.sql`.
+Apply them only through the approved Supabase migration mechanism, first against
+the isolated test project. Never use `supabase db push`. After applying, verify:
+
+- `razorpay_oauth_states` and `account_payment_credentials` have RLS enabled;
+- `PUBLIC`, `anon`, and `authenticated` have no table access, while only
+  `service_role` has the required table grants;
+- the three refresh lease/commit/reconnect RPCs are executable only by
+  `service_role`;
+- the `(provider_mode, razorpay_account_id)` uniqueness constraint exists; and
+- Supabase security/performance advisors introduce no new release-blocking
+  findings.
+
+Both migrations were applied to **UsefulDesk Razorpay Test** through the
+approved connector on 2026-08-09. Verification found all 20 connection fields,
+RLS enabled on both credential/state tables, no `anon`/`authenticated` table or
+RPC access, service-role-only invoker RPCs, both foreign-key indexes, and no
+advisor errors. The no-policy notices are intentional for service-only tables;
+new indexes report unused until a state attempt exists. Aggregate inventory was
+zero configured manual rows, zero configured version-0 rows, and zero OAuth
+rows, so no credential data was read or rewritten.
+
+### Manual-secret inventory and backfill
+
+Deploy the dual-reader/encrypted-writer code before touching stored manual
+secrets. Build a reviewed JSON inventory that maps each configured account id to
+exactly `test` or `live`; do not infer mode from key prefixes, payloads, or the
+browser. Keep the inventory outside version control. Dry-run first:
+
+```sh
+RAZORPAY_MODE=test \
+NEXT_PUBLIC_SUPABASE_URL='<isolated project URL>' \
+SUPABASE_SERVICE_ROLE_KEY='<temporary isolated service-role key>' \
+ENCRYPTION_KEY='<64 hex characters>' \
+npm run backfill:razorpay-secrets -- --inventory '<reviewed inventory.json>'
+```
+
+Only after confirming the exact target project and inventory, repeat with
+`RAZORPAY_SECRET_BACKFILL_CONFIRM=reviewed` and `--apply`. The command prints
+counts only. An apply is incomplete if any configured row lacks inventory or
+required secrets, has a mode mismatch/decrypt failure, or any version-0 row was
+not conditionally updated. Independently query the target afterward and require zero configured
+`secret_storage_version=0` rows before OAuth or rollback is enabled.
+
+### Internal connection acceptance
+
+Before temporarily setting `RAZORPAY_OAUTH_ENABLED=true` for the isolated
+internal account, configure the development client id/secret, exact test HTTPS
+callback, `RAZORPAY_MODE=test`, and the same encryption key used for stored
+tokens. Reconfirm with Razorpay that the client accepts `code_challenge_method`
+`S256` and `code_verifier`; the public integration guide documents state but
+does not make that PKCE contract explicit, so a rejection keeps OAuth disabled.
+
+Connect only the approved internal test merchant. Confirm the callback is
+single-use and bound to the initiating signed-in admin, selected branch, client
+fingerprint, mode, and redirect. Confirm the settings card shows the expected
+merchant suffix/readiness and that two and ten concurrent refresh callers cause
+one provider refresh-token submission. Revoke/disconnect and confirm new
+operations fail closed without using stored manual keys. Re-disable both flags
+after the test unless a separately reviewed allowlist rollout is approved.
+
+The recurring mandate path may use OAuth Bearer credentials in Stage 1, but the
+legacy per-account webhook remains canonical. The application/legacy delivery
+ledger, parity exercise, and canonical-ingress switch are Stage 2. A scheduled
+due-connection sweep should join that shared recovery worker; the Stage 1
+resolver and admin refresh route already perform lease-protected rotation.
+
 ## Read-only Bearer capability check
 
 Obtain a development OAuth access token for the activated test merchant, then

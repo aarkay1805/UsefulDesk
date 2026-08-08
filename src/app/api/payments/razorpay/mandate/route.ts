@@ -21,7 +21,10 @@ import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { canManageMandates } from '@/lib/auth/roles';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { getRazorpayConnection } from '@/lib/payments/credentials';
+import {
+  getRazorpayConnection,
+  runRazorpayOperation,
+} from '@/lib/payments/credentials';
 import {
   cancelSubscription,
   createPlan,
@@ -317,13 +320,15 @@ export async function POST(request: Request) {
     // gym can cancel any time) — 120 monthly / 40 quarterly ≈ 10 years.
     let plan: RazorpayPlan;
     try {
-      plan = await createPlan(connection.authentication, {
-        amountRupees: fee,
-        currency,
-        name: `${membership.plan?.name ?? 'Membership'} (${cadence.frequency})`,
-        period: cadence.period,
-        interval: cadence.interval,
-      });
+      plan = await runRazorpayOperation(admin, connection, (authentication) =>
+        createPlan(authentication, {
+          amountRupees: fee,
+          currency,
+          name: `${membership.plan?.name ?? 'Membership'} (${cadence.frequency})`,
+          period: cadence.period,
+          interval: cadence.interval,
+        })
+      );
     } catch (error) {
       await admin
         .from('payment_mandates')
@@ -362,17 +367,22 @@ export async function POST(request: Request) {
     const totalCount = cadence.frequency === 'monthly' ? 120 : 40;
     let subscription: Awaited<ReturnType<typeof createSubscription>>;
     try {
-      subscription = await createSubscription(connection.authentication, {
-        planId: plan.id,
-        totalCount,
-        notes: {
-          account_id: ctx.accountId,
-          membership_id: membership.id,
-          contact_id: membership.contact_id,
-          mandate_id: mandateId,
-          pricing_option_id: membership.pricing_option?.id ?? '',
-        },
-      });
+      subscription = await runRazorpayOperation(
+        admin,
+        connection,
+        (authentication) =>
+          createSubscription(authentication, {
+            planId: plan.id,
+            totalCount,
+            notes: {
+              account_id: ctx.accountId,
+              membership_id: membership.id,
+              contact_id: membership.contact_id,
+              mandate_id: mandateId,
+              pricing_option_id: membership.pricing_option?.id ?? '',
+            },
+          })
+      );
     } catch (error) {
       // A gateway 4xx is a known rejection. A transport failure or 5xx is
       // ambiguous: Razorpay may have created the subscription even though no
@@ -409,10 +419,8 @@ export async function POST(request: Request) {
       let cancelled = false;
       let cancellationError = '';
       try {
-        await cancelSubscription(
-          connection.authentication,
-          subscription.id,
-          false
+        await runRazorpayOperation(admin, connection, (authentication) =>
+          cancelSubscription(authentication, subscription.id, false)
         );
         cancelled = true;
       } catch (error) {

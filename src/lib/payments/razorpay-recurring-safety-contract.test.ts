@@ -19,8 +19,10 @@ const connectionRoute = read(
 describe('Razorpay recurring payment hardening contract', () => {
   it('reserves one blocking local setup before creating remote resources', () => {
     const reservation = mandateRoute.indexOf("status: 'creating'");
-    const plan = mandateRoute.indexOf('await createPlan');
-    const subscription = mandateRoute.indexOf('await createSubscription');
+    const plan = mandateRoute.indexOf('createPlan(authentication');
+    const subscription = mandateRoute.indexOf(
+      'createSubscription(authentication'
+    );
 
     expect(reservation).toBeGreaterThan(0);
     expect(plan).toBeGreaterThan(reservation);
@@ -36,7 +38,7 @@ describe('Razorpay recurring payment hardening contract', () => {
 
   it('compensates a remote subscription when local persistence fails', () => {
     expect(mandateRoute).toMatch(
-      /persistError[\s\S]*await cancelSubscription\([\s\S]*status: cancelled \? 'failed' : 'orphaned'/
+      /persistError[\s\S]*runRazorpayOperation\([\s\S]*cancelSubscription\(authentication[\s\S]*status: cancelled \? 'failed' : 'orphaned'/
     );
     expect(mandateRoute).toMatch(
       /transport failure or 5xx[\s\S]*status: knownRejection \? 'failed' : 'orphaned'/

@@ -2,7 +2,7 @@
 
 ## Implementation plan for UsefulDesk
 
-**Status:** Razorpay Technology Partner account active and partner onboarding completed on 2026-08-08. The isolated development OAuth/API/product and signed application-webhook acceptance passed the same day; dual-ingress delivery parity remains before application-webhook cutover. Refund accounting requires the separate full-refund stage below.
+**Status:** Razorpay Technology Partner account active and partner onboarding completed on 2026-08-08. The isolated development OAuth/API/product and signed application-webhook acceptance passed the same day. Stage 1 code and both schema migrations landed behind disabled flags on 2026-08-09; the migrations, RLS/grants/indexes, and advisors were verified in the isolated Razorpay test project. The reviewed real-account manual-secret backfill, provider PKCE confirmation, and one internal development-client connection remain before enablement. Dual-ingress delivery parity belongs to Stage 2 and remains before application-webhook cutover. Refund accounting requires the separate full-refund stage below.
 **Initial release scope:** Razorpay Technology Partner OAuth, application-level webhooks, INR generic-invoice Payment Links, WhatsApp delivery, and exactly-once settlement.  
 **Later release scope:** Full gateway refunds with an explicit accounting disposition. Partial refunds remain deferred until invoice-line targeting is designed.  
 **Rollout:** Development-client sandbox acceptance passed. Build Stage 1 behind disabled flags, then run legacy/application duplicate-delivery parity in Stage 2. Use the production client only after the live gate, including credential rotation. No immediate fleet-wide cutover.
@@ -733,11 +733,13 @@ Follow `docs/ui-patterns.md` and reuse existing master components.
 
 ### Stage 1 — schema and OAuth behind flags
 
-- Apply migrations through the approved Supabase migration tool; do not use `supabase db push`.
-- Verify schema, explicit grants, RLS, function execution grants, and advisors.
-- Deploy the version-aware manual-secret reader and encrypted-write path before the server-side credential backfill. Verify zero remaining plaintext/version-0 rows and the legacy API/webhook checks before enabling OAuth by default.
+- **Implemented in code (2026-08-09):** idempotent mode-scoped schema, encrypted OAuth/manual secret storage, bound state + S256 PKCE, account/user/client/mode/redirect validation, merchant readiness, server-only connect/callback/refresh/revoke routes, database-leased refresh rotation, fail-closed OAuth Bearer resolution, explicit manual rollback, and the owner/admin settings flow.
+- **Complete in the isolated test project (2026-08-09):** applied both migrations through the approved Supabase migration tool and verified schema, explicit grants, RLS, function execution grants, foreign-key indexes, and advisors. The test project contained zero configured manual/version-0/OAuth rows; no credential or merchant data was touched.
+- Deploy the version-aware manual-secret reader and encrypted-write path before running `npm run backfill:razorpay-secrets -- --inventory <reviewed-account-mode.json>`. Dry-run first; `--apply` additionally requires `RAZORPAY_SECRET_BACKFILL_CONFIRM=reviewed`. Provider mode is operator-reviewed and never inferred. Verify zero remaining plaintext/version-0 rows and the legacy API/webhook checks before enabling OAuth by default.
+- Reconfirm that the configured Razorpay client accepts S256 PKCE parameters before allowing the first connection; OAuth stays disabled if the provider contract does not.
 - Enable the development client for one internal test account.
 - Keep current webhook and manual-key flow operational.
+- Keep `RAZORPAY_OAUTH_ENABLED=false` and `RAZORPAY_MANUAL_ROLLBACK_ENABLED=false` by default. Enabling OAuth does not enable manual rollback, and revoked/blocked OAuth never silently uses stored manual credentials.
 
 ### Stage 2 — application webhook and AutoPay parity
 

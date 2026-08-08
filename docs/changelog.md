@@ -6,6 +6,12 @@
 
 ---
 
+## Razorpay OAuth connection foundation
+
+Stage 1 now adds mode-scoped, encrypted Razorpay OAuth connections; merchant/readiness state; rotating-token expiry and database-leased single-flight refresh; state/PKCE/CSRF-bound connect, callback, refresh, and revoke routes; OAuth Bearer mandate calls with one attributable-401 refresh retry; and an owner/admin Connect Razorpay settings flow. Manual credentials are versioned AES-GCM ciphertext and remain available only when the server-controlled rollback flag is explicitly enabled—revoked, blocked, or mode-mismatched OAuth never falls back. Key code: the `20260809000000`/`20260809001000` Razorpay OAuth migrations, `src/lib/payments/razorpay-oauth.ts`, `src/lib/payments/razorpay-refresh.ts`, `src/lib/payments/credentials.ts`, and `src/components/settings/razorpay-settings-card.tsx`; gotcha: both rollout flags remain false, the reviewed secret backfill and internal development-client connection still gate enablement, provider PKCE support must be reconfirmed, and all acceptance credentials must rotate before a live merchant authorises.
+
+---
+
 ## Razorpay provider acceptance sandbox
 
 Razorpay development OAuth, five read-only Bearer capabilities, a ₹1 Payment Link lifecycle, a disposable plan/Subscription lifecycle, and real signed application-webhook delivery now pass in an isolated Supabase/Vercel test stack; the temporary access token was revoked after acceptance. The new root application webhook is test-only, flag-locked, signature-verifying, observation-only, payload-size bounded, and logs provider identity plus a raw-body hash without member data or financial writes. The rerunnable probe handles Razorpay's distinct Payment Links collection shape, and the root TypeScript project excludes the nested `usefuldesk-promo` package so remote Next.js builds respect the workspace boundary. Key code: `src/app/api/payments/razorpay/webhook/route.ts`, `src/lib/payments/razorpay-webhook-observation.ts`, and `scripts/razorpay-provider-acceptance.mjs`; gotchas: legacy/application duplicate-delivery parity still gates Stage 2 cutover, and credentials exposed during acceptance must rotate before any live merchant authorisation.

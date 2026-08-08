@@ -19,6 +19,7 @@
 import 'server-only';
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { RAZORPAY_REQUEST_TIMEOUT_MS } from './razorpay-config';
 
 const RAZORPAY_API_BASE = 'https://api.razorpay.com/v1';
 
@@ -35,9 +36,8 @@ export interface RazorpayOAuthAuthentication {
 
 /**
  * The authenticated server-to-server boundary consumed by every Razorpay
- * operation. Manual pilot credentials use Basic auth today; partner OAuth can
- * add token loading/refreshing behind the connection loader without changing
- * mandate or webhook processing.
+ * operation. The explicit manual rollback path uses Basic auth; the default
+ * OAuth connection resolver supplies and rotates Bearer credentials.
  */
 export type RazorpayAuthentication =
   RazorpayApiKeyAuthentication | RazorpayOAuthAuthentication;
@@ -90,10 +90,16 @@ export async function razorpayFetch<T = unknown>(
     body: init?.body ? JSON.stringify(init.body) : undefined,
     // Never cache authenticated gateway responses.
     cache: 'no-store',
+    signal: AbortSignal.timeout(RAZORPAY_REQUEST_TIMEOUT_MS),
   });
 
   const text = await res.text();
-  const json = text ? (JSON.parse(text) as unknown) : null;
+  let json: unknown = null;
+  try {
+    json = text ? (JSON.parse(text) as unknown) : null;
+  } catch {
+    json = text;
+  }
 
   if (!res.ok) {
     const description =

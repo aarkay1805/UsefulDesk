@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { requireSettingsAccess, toErrorResponse } from '@/lib/auth/account';
+import {
+  requirePaymentGatewayAccess,
+  toErrorResponse,
+} from '@/lib/auth/account';
+import { requireSameOriginRequest } from '@/lib/auth/csrf';
 import {
   getRazorpayConnectionStatus,
   saveManualRazorpayCredentials,
@@ -17,7 +21,7 @@ interface ManualCredentialRequest {
 
 export async function GET() {
   try {
-    const ctx = await requireSettingsAccess();
+    const ctx = await requirePaymentGatewayAccess();
     const admin = supabaseAdmin();
     const [
       connection,
@@ -101,7 +105,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const ctx = await requireSettingsAccess();
+    requireSameOriginRequest(request);
+    const ctx = await requirePaymentGatewayAccess();
     const body = (await request.json()) as ManualCredentialRequest;
     const keyId =
       typeof body.keyId === 'string' ? body.keyId.trim() || null : null;

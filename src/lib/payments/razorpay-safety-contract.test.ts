@@ -11,6 +11,9 @@ const migration = read(
 const credentials = read('src/lib/payments/credentials.ts');
 const razorpay = read('src/lib/payments/razorpay.ts');
 const settings = read('src/components/settings/deals-settings.tsx');
+const razorpaySettings = read(
+  'src/components/settings/razorpay-settings-card.tsx'
+);
 const onboarding = read('src/hooks/use-onboarding-status.tsx');
 
 describe('Razorpay payment-safety contract', () => {
@@ -18,7 +21,7 @@ describe('Razorpay payment-safety contract', () => {
     expect(credentials).toMatch(/^import ['"]server-only['"];/m);
     expect(razorpay).toMatch(/^import ['"]server-only['"];/m);
     expect(credentials).toMatch(
-      /accountId,\s*gateway: ['"]razorpay['"],\s*authentication:/
+      /accountId: string;[\s\S]*gateway: 'razorpay';[\s\S]*authentication: RazorpayAuthentication/
     );
     expect(razorpay).toMatch(
       /type RazorpayAuthentication =[\s\S]*RazorpayApiKeyAuthentication[\s\S]*RazorpayOAuthAuthentication/
@@ -27,8 +30,12 @@ describe('Razorpay payment-safety contract', () => {
       /REVOKE ALL ON public\.account_payment_credentials FROM anon, authenticated;/
     );
     expect(settings).not.toMatch(/account_payment_credentials/);
+    expect(razorpaySettings).not.toMatch(/account_payment_credentials/);
     expect(onboarding).not.toMatch(/account_payment_credentials/);
     expect(settings).not.toMatch(/razorpay_key_secret|razorpay_webhook_secret/);
+    expect(razorpaySettings).not.toMatch(
+      /razorpay_key_secret|razorpay_webhook_secret/
+    );
     expect(onboarding).not.toMatch(
       /razorpay_key_secret|razorpay_webhook_secret/
     );

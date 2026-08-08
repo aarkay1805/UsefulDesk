@@ -103,11 +103,19 @@ manual → renewal cron + WhatsApp remind (today's flow); auto → gateway colle
 ### `account_payment_credentials` gateway credentials
 
 - `razorpay_key_id text`
-- `razorpay_key_secret text`
-- `razorpay_webhook_secret text`
+- versioned AES-GCM ciphertext for `razorpay_key_secret` and
+  `razorpay_webhook_secret`; version 0 is a transition-only dual-reader state
+- `authentication_mode`, deployment-trusted `provider_mode`, OAuth merchant id,
+  encrypted access/refresh tokens, scope and expiry/rotation timestamps
+- connection/readiness state, bounded provider errors, refresh lease/generation,
+  and the future canonical-ingress selector
 - RLS stays enabled with no browser policies and all `anon` / `authenticated`
   privileges revoked. Only authenticated server routes may use the service role
   to read/write an account derived from the caller’s session.
+
+OAuth is the default integration shape but remains disabled during rollout.
+Encrypted manual credentials are an independently flag-gated rollback path,
+never a silent fallback from revoked, blocked, incomplete, or wrong-mode OAuth.
 
 (If multi-gateway later, promote to a `gateway_accounts` table. Hardcode
 Razorpay for v1.)
@@ -135,11 +143,14 @@ webhook's authenticated/halted confirmations.
   Razorpay customer + subscription/mandate order, inserts `payment_mandates`
   (`status='pending'`), returns the auth link / QR to show the member. Gated
   `canManageMandates` (agent+). INR-only (`upiAvailableFor`).
-- **`GET|POST .../connection`** — admin-only, account-scoped status and manual
-  credential updates. Stored secrets are presence booleans on GET and are never
-  returned to browser JavaScript. The server connection loader returns an
-  API-key/OAuth authentication union, so partner OAuth token loading can be
-  added later without changing mandate or webhook logic.
+- **`GET|POST .../connection`** — admin-only, account-scoped browser-safe status
+  and explicit flag-gated manual rollback updates. Stored secrets are presence
+  booleans on GET and are never returned to browser JavaScript.
+- **`POST .../oauth/connect`, `GET .../oauth/callback`,
+  `POST .../oauth/refresh`, `POST .../oauth/disconnect`** — server-only OAuth
+  lifecycle bound to account, initiating user, client fingerprint, mode, exact
+  redirect, one-use state, and S256 PKCE. Tokens are encrypted at rest; refresh
+  uses a database lease/generation CAS to submit each rotating token once.
 - **`POST .../webhook`** — the money path (service-role Supabase client):
   1. Read raw body, **verify HMAC** against `razorpay_webhook_secret`
      (constant-time). Bad sig → 400, no DB touch.
@@ -220,17 +231,21 @@ webhook's authenticated/halted confirmations.
 
 Still deferred: richer failed-payment dunning and mandate/subscription lifecycle.
 
-## Next: one-click "Connect Razorpay" (OAuth onboarding)
+## One-click "Connect Razorpay" (OAuth onboarding)
 
-**Status (2026-08-08):** UsefulDesk's Razorpay Technology Partner account is
-active and partner onboarding is complete. The remaining gate is a thin
-development-client API/webhook capability spike; implementation details and
+**Status (2026-08-09):** UsefulDesk's Razorpay Technology Partner account is
+active, provider acceptance is complete apart from Stage 2 dual-ingress parity,
+and Stage 1 OAuth/schema/settings code is implemented behind disabled rollout
+flags. Both migrations plus RLS/grants/indexes/advisors are verified in the
+isolated test project. The reviewed real-account zero-version-0 manual-secret
+backfill, provider PKCE confirmation, and one internal development-client
+connection gate enablement. Implementation details and
 acceptance criteria live in
 [`docs/razorpay-oauth-payment-links-and-refunds.md`](../docs/razorpay-oauth-payment-links-and-refunds.md).
 
-The current settings UI asks a gym owner to paste `key_id` / `key_secret` /
-`webhook_secret` — fine for self-onboarded pilots, but a typical gym owner won't
-do it. Razorpay offers the Stripe-Connect / Meta-embedded-signup equivalent:
+The default settings UI now offers **Connect Razorpay**. The old write-only
+`key_id` / `key_secret` / `webhook_secret` form appears only when the explicit
+manual rollback flag is enabled.
 
 - **Razorpay OAuth (Technology Partner program)** — a "Connect Razorpay" button
   → owner authorises on Razorpay → we receive an **access token** (Bearer,
@@ -243,30 +258,30 @@ do it. Razorpay offers the Stripe-Connect / Meta-embedded-signup equivalent:
 Still **Model 1**: each gym stays its own sub-merchant, money settles to their
 bank, UsefulDesk never holds funds — OAuth only grants delegated API access.
 
-**Remaining adoption work:** register/configure the OAuth application clients
-(`client_id`/`client_secret`) · verify the required development Bearer APIs,
-application webhook identity, and test product activation · build a
-Connect button + callback route (code → token exchange) + per-account token
-storage & **refresh logic** (90-day expiry) · teach the server connection loader
-to select/refresh the OAuth token. `razorpay.ts` already accepts Bearer auth
-alongside the existing Basic-auth key path.
+**Remaining adoption work:** run the reviewed encrypted-secret backfill against
+any real configured account deployment and prove zero version-0 rows · reconfirm
+the development client accepts the required S256 PKCE contract · connect one
+internal test account · complete Stage 2 application-webhook
+parity before ingress cutover. OAuth refresh is proactive within seven days,
+single-flight across server instances, and retried once after an attributable
+401; a revoked or blocked connection fails closed.
 
-**Clean swap — the current build already abstracts this.** `RazorpayCredentials`
+**Clean swap.** `RazorpayCredentials`
 
 - `account_payment_credentials` are the only creds surface; OAuth is additive:
-  add encrypted `oauth_access_token` / `oauth_refresh_token` and expiry columns,
-  the connect + callback routes, and a Bearer mode in `razorpay.ts`. Existing
-  mandate/payment code keeps using the account-scoped credential loader, while
-  the application webhook and connection UI follow the staged migration plan.
-  Keep the encrypted key-paste path as a server-controlled rollback during the
-  adoption window.
+  encrypted access/refresh tokens, expiry/rotation fields, connect/callback/
+  refresh/revoke routes, and Bearer mode live behind the OAuth flag. Existing
+  mandate code keeps using the account-scoped resolver. Keep the separately
+  flag-gated encrypted key-paste path only as a server-controlled rollback
+  during the adoption window.
 
 **Sequencing:** (1) pilot with key-paste — complete → (2) Technology Partner
-activation and onboarding — complete → (3) run the development capability spike
-and migrate existing manual secrets to encrypted versioned storage → (4) build
-OAuth "Connect Razorpay" → (5) keep both paths during the explicit rollback
-window, with OAuth default and encrypted manual keys advanced. Runs parallel to
-the account-KYC / recurring-clearance track, which gates going live either way.
+activation/onboarding and development capability acceptance — complete → (3)
+Stage 1 code — complete behind flags → (4) isolated migration, reviewed secret
+backfill, PKCE confirmation, and internal connection → (5) Stage 2 ingress
+parity/cutover → (6) keep both paths during the explicit rollback window, with
+OAuth default and encrypted manual keys advanced. Credential rotation remains
+a hard gate before the first live merchant authorisation.
 
 Docs: [Razorpay OAuth](https://razorpay.com/docs/partners/technology-partners/onboard-businesses/integrate-oauth/) ·
 [Embedded onboarding](https://razorpay.com/docs/partners/technology-partners/onboard-businesses/) ·
