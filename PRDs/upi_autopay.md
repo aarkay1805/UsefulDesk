@@ -220,7 +220,13 @@ webhook's authenticated/halted confirmations.
 
 Still deferred: richer failed-payment dunning and mandate/subscription lifecycle.
 
-## Future: one-click "Connect Razorpay" (OAuth onboarding)
+## Next: one-click "Connect Razorpay" (OAuth onboarding)
+
+**Status (2026-08-08):** UsefulDesk's Razorpay Technology Partner account is
+active and partner onboarding is complete. The remaining gate is a thin
+development-client API/webhook capability spike; implementation details and
+acceptance criteria live in
+[`docs/razorpay-oauth-payment-links-and-refunds.md`](../docs/razorpay-oauth-payment-links-and-refunds.md).
 
 The current settings UI asks a gym owner to paste `key_id` / `key_secret` /
 `webhook_secret` — fine for self-onboarded pilots, but a typical gym owner won't
@@ -237,8 +243,9 @@ do it. Razorpay offers the Stripe-Connect / Meta-embedded-signup equivalent:
 Still **Model 1**: each gym stays its own sub-merchant, money settles to their
 bank, UsefulDesk never holds funds — OAuth only grants delegated API access.
 
-**Adoption cost:** become a Razorpay Technology Partner (application + approval,
-days–weeks) · register an OAuth app (`client_id`/`client_secret`) · build a
+**Remaining adoption work:** register/configure the OAuth application clients
+(`client_id`/`client_secret`) · verify the required development Bearer APIs,
+application webhook identity, and test product activation · build a
 Connect button + callback route (code → token exchange) + per-account token
 storage & **refresh logic** (90-day expiry) · teach the server connection loader
 to select/refresh the OAuth token. `razorpay.ts` already accepts Bearer auth
@@ -247,15 +254,19 @@ alongside the existing Basic-auth key path.
 **Clean swap — the current build already abstracts this.** `RazorpayCredentials`
 
 - `account_payment_credentials` are the only creds surface; OAuth is additive:
-  add `access_token` / `refresh_token` / `token_expires_at` columns, the connect +
-  callback routes, and a Bearer mode in `razorpay.ts`. Everything downstream
-  (mandate route, webhook, RPCs, UI) is unchanged. Keep the key-paste path as a
-  power-user fallback.
+  add encrypted `oauth_access_token` / `oauth_refresh_token` and expiry columns,
+  the connect + callback routes, and a Bearer mode in `razorpay.ts`. Existing
+  mandate/payment code keeps using the account-scoped credential loader, while
+  the application webhook and connection UI follow the staged migration plan.
+  Keep the encrypted key-paste path as a server-controlled rollback during the
+  adoption window.
 
-**Sequencing:** (1) pilot with key-paste (current) → (2) apply for Technology
-Partner → (3) build OAuth "Connect Razorpay" once approved → (4) keep both
-paths (OAuth default, keys advanced). Runs parallel to the account-KYC /
-recurring-clearance track, which gates going live either way.
+**Sequencing:** (1) pilot with key-paste — complete → (2) Technology Partner
+activation and onboarding — complete → (3) run the development capability spike
+and migrate existing manual secrets to encrypted versioned storage → (4) build
+OAuth "Connect Razorpay" → (5) keep both paths during the explicit rollback
+window, with OAuth default and encrypted manual keys advanced. Runs parallel to
+the account-KYC / recurring-clearance track, which gates going live either way.
 
 Docs: [Razorpay OAuth](https://razorpay.com/docs/partners/technology-partners/onboard-businesses/integrate-oauth/) ·
 [Embedded onboarding](https://razorpay.com/docs/partners/technology-partners/onboard-businesses/) ·

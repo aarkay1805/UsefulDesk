@@ -38,6 +38,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "accept:razorpay": "node scripts/razorpay-provider-acceptance.mjs",
     "migrate:payment-receipts": "node --env-file=.env.local scripts/migrate-payment-receipts.mjs"
   },
   "dependencies": {
