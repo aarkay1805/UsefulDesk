@@ -5,7 +5,11 @@ const capabilityChecks = [
   { name: 'customers', path: '/v1/customers?count=1' },
   { name: 'plans', path: '/v1/plans?count=1' },
   { name: 'subscriptions', path: '/v1/subscriptions?count=1' },
-  { name: 'payment_links', path: '/v1/payment_links?count=1' },
+  {
+    name: 'payment_links',
+    path: '/v1/payment_links?count=1',
+    collectionKey: 'payment_links',
+  },
   { name: 'payments', path: '/v1/payments?count=1' },
 ];
 
@@ -88,11 +92,10 @@ const results = [];
 for (const check of capabilityChecks) {
   try {
     const { body, elapsedMs, status } = await request(check.path);
-    if (
-      body?.entity !== 'collection' ||
-      !Array.isArray(body?.items) ||
-      typeof body?.count !== 'number'
-    ) {
+    const collection = check.collectionKey
+      ? body?.[check.collectionKey]
+      : body?.items;
+    if (!Array.isArray(collection)) {
       throw new Error('unexpected collection response shape');
     }
     results.push({
@@ -100,7 +103,7 @@ for (const check of capabilityChecks) {
       ok: true,
       status,
       elapsed_ms: elapsedMs,
-      returned_count: body.count,
+      returned_count: collection.length,
     });
   } catch (error) {
     results.push({

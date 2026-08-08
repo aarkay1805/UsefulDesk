@@ -6,19 +6,55 @@ merchant tokens, webhook secrets, member data, or raw provider payloads here.
 
 ## Stage 0A provider acceptance
 
-Dashboard verification on 2026-08-08 confirmed:
+Provider and sandbox verification on 2026-08-08 confirmed:
 
 - the **UsefulDesk** Technology Partner application is active;
 - separate development and production OAuth clients exist;
-- the development redirect URI is
-  `http://localhost:3000/api/payments/razorpay/oauth/callback`;
+- the development redirect URIs include localhost and
+  `https://usefuldesk-razorpay-test.vercel.app/api/payments/razorpay/oauth/callback`;
 - the production redirect URI is
   `https://desk.usefulmade.com/api/payments/razorpay/oauth/callback`;
-- one test merchant has accepted the application and is activated; and
-- no test or live application webhook has been created yet.
+- one activated test merchant accepted the development client with
+  `scope=read_write` and a `mode=test` token exchange;
+- all five development Bearer list checks returned HTTP 200: Customers, Plans,
+  Subscriptions, Payment Links, and Payments;
+- a ₹1 test Payment Link was created, fetched, and cancelled successfully;
+- a ₹1 weekly test plan and two-cycle Subscription were created and fetched,
+  and the Subscription was cancelled before authorisation; and
+- the real `payment_link.cancelled` and `subscription.cancelled` application
+  webhooks were signature-verified and acknowledged with HTTP 200.
 
-The test application webhook selector currently exposes these events consumed
-by the planned integration:
+The acceptance objects are test-only. The Payment Link and Subscription are
+cancelled; Razorpay does not expose plan deletion, so the disposable acceptance
+plan remains in the test merchant. The temporary development access token was
+revoked after the checks and was never persisted. No real payment or member data
+was used.
+
+### Isolated acceptance environment
+
+- Supabase project: **UsefulDesk Razorpay Test** (`hkuqzmgnhhgecqcbwupb`),
+  region `ap-southeast-1`, with all repository migrations applied and no
+  production rows copied into it.
+- Vercel project: **usefuldesk-provider-sandbox**
+  (`prj_L6hmOdVTLdYwV0dqD8PM6ns2T3H3`). The public production domain is
+  `https://usefuldesk-razorpay-test.vercel.app`; raw deployment and preview
+  URLs retain Vercel protection.
+- Runtime safety flags: `RAZORPAY_MODE=test`,
+  `RAZORPAY_PROVIDER_ACCEPTANCE_ONLY=true`, `RAZORPAY_OAUTH_ENABLED=false`,
+  and `RAZORPAY_MANUAL_ROLLBACK_ENABLED=false`.
+- The application webhook points only at the isolated observation endpoint,
+  uses a test-only secret, and cannot perform database or financial writes.
+
+Fresh-database bootstrap exposed one historical ordering dependency:
+`20260711173414_harden_membership_payments.sql` must be applied before
+`058_payment_hardening_followups.sql`, which reads the receipt columns introduced
+by the timestamped migration. The isolated project was bootstrapped in that
+order. Supabase advisors reported no error-severity findings; the remaining
+security and performance warnings are the repository baseline and must still be
+reviewed with any schema change.
+
+The configured test application webhook selects these 16 events consumed by the
+planned integration:
 
 - account: `account.app.authorization_revoked`,
   `account.instantly_activated`, and `account.activated_kyc_pending`;
@@ -36,17 +72,17 @@ and keep account readiness probes as the fallback described in the
 implementation plan. Re-check the live selector before Stage 5 because provider
 event availability may change.
 
-Stage 0A remains incomplete until all five development Bearer capability checks
-pass, Payment Links and Subscriptions are confirmed active in test mode, a test
-application webhook is configured on an isolated test deployment/database, and
-legacy/application delivery identity is compared using a real test event.
+The environment, OAuth, API, product-activation, signed-webhook, and five-second
+acknowledgement portions of Stage 0A are complete. The remaining acceptance item
+is duplicate-delivery identity parity between the legacy per-account ingress and
+the application ingress. Run that comparison when Stage 2 introduces the
+delivery-observation ledger; until then the application endpoint stays
+observation-only and the production client stays disabled.
 
-The repository audit on 2026-08-08 found no local Vercel project configuration,
-and `.env.local` targets the same hosted Supabase project linked by the
-repository. Treat that database as non-isolated. Do not point the development
-application webhook at it or run provider acceptance mutations against it. A
-separate test deployment and Supabase project must be provisioned and explicitly
-verified before webhook or end-to-end mutation acceptance.
+Secret rotation was explicitly deferred on 2026-08-08. This is acceptable only
+for the isolated test environment. Rotate the OAuth client secret, webhook
+secret, isolated Supabase service-role key, and any other exposed acceptance
+credential before the first live merchant authorisation or production rollout.
 
 ## Read-only Bearer capability check
 
@@ -62,22 +98,26 @@ npm run accept:razorpay
 ```
 
 The command makes read-only `count=1` list requests to Customers, Plans,
-Subscriptions, Payment Links, and Payments. It prints only status, latency, and
-collection count. It does not print resource bodies. The Accounts API readiness
-probe is reported separately and is non-blocking because imported OAuth accounts
-may not grant that partner endpoint.
+Subscriptions, Payment Links, and Payments. It handles Razorpay's
+`payment_links` array response separately from the other APIs' `items` arrays,
+and prints only status, latency, and returned array length. It does not print
+resource bodies. The Accounts API readiness probe is reported separately and is
+non-blocking because imported OAuth accounts may not grant that partner
+endpoint.
 
 Archive the redacted JSON output with the deployment acceptance evidence. A
 successful read-only check confirms Bearer access but not creation capability;
 create/fetch one low-value test Payment Link and one disposable test
-plan/subscription during the isolated end-to-end acceptance matrix before Stage 3. Stay within Razorpay's default 30-link test limit.
+plan/subscription during the isolated end-to-end acceptance matrix before Stage 3. The 2026-08-08 acceptance run completed both and cancelled the mutable test
+objects. Stay within Razorpay's default 30-link and 30-subscription-link test
+limits.
 
 ## Application webhook configuration
 
-Do not create the test webhook until its HTTPS endpoint targets an isolated test
-database with `RAZORPAY_MODE=test`. Select only the consumed events listed above
-and use a test-only secret. Production must use its own HTTPS endpoint,
-`RAZORPAY_MODE=live`, isolated production database, and live webhook secret.
+The test webhook targets the isolated HTTPS endpoint above with
+`RAZORPAY_MODE=test`, the 16 consumed events, and a test-only secret. Production
+must use its own HTTPS endpoint, `RAZORPAY_MODE=live`, isolated production
+database, and live webhook secret.
 
 During dual delivery, preserve the same test event from both the existing
 per-account ingress and the application ingress. Compare the top-level

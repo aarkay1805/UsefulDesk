@@ -6,6 +6,12 @@
 
 ---
 
+## Razorpay provider acceptance sandbox
+
+Razorpay development OAuth, five read-only Bearer capabilities, a ₹1 Payment Link lifecycle, a disposable plan/Subscription lifecycle, and real signed application-webhook delivery now pass in an isolated Supabase/Vercel test stack; the temporary access token was revoked after acceptance. The new root application webhook is test-only, flag-locked, signature-verifying, observation-only, payload-size bounded, and logs provider identity plus a raw-body hash without member data or financial writes. The rerunnable probe handles Razorpay's distinct Payment Links collection shape, and the root TypeScript project excludes the nested `usefuldesk-promo` package so remote Next.js builds respect the workspace boundary. Key code: `src/app/api/payments/razorpay/webhook/route.ts`, `src/lib/payments/razorpay-webhook-observation.ts`, and `scripts/razorpay-provider-acceptance.mjs`; gotchas: legacy/application duplicate-delivery parity still gates Stage 2 cutover, and credentials exposed during acceptance must rotate before any live merchant authorisation.
+
+---
+
 ## Razorpay recurring payment safety
 
 UPI AutoPay now reserves one blocking local mandate before any remote subscription is created, reuses pending setup links, and cancels a newly created remote subscription when its local reference cannot be persisted; uncertain outcomes stay operator-visible and block retries. Recurring charges use Razorpay `paid_count` plus a frozen initial-period/cadence snapshot instead of inferring the next cycle from ledger balance, and confirmed charges that mismatch identity, sequence, amount, currency, period, or remaining membership-line balance persist in `gateway_charge_exceptions` without advancing another cycle. Auto allocations are membership-line-only while manual partial/proportional and 60/40 flows are unchanged. Key code: `supabase/migrations/20260804233201_harden_razorpay_recurring_charges.sql` and `src/app/api/payments/razorpay/`; gotcha: deploy the route code first and apply the migration immediately afterward (new setup then fails before remote mutation and charged webhooks retry during the short mismatch); the legacy RPC shim safely parks old-payload charges during rollback, and exception resolution/replay remains intentionally manual.

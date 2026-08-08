@@ -2,10 +2,10 @@
 
 ## Implementation plan for UsefulDesk
 
-**Status:** Razorpay Technology Partner account active and partner onboarding completed on 2026-08-08. OAuth and Payment Links are implementable after the remaining development-client capability acceptance; refund accounting requires the separate full-refund stage below.
+**Status:** Razorpay Technology Partner account active and partner onboarding completed on 2026-08-08. The isolated development OAuth/API/product and signed application-webhook acceptance passed the same day; dual-ingress delivery parity remains before application-webhook cutover. Refund accounting requires the separate full-refund stage below.
 **Initial release scope:** Razorpay Technology Partner OAuth, application-level webhooks, INR generic-invoice Payment Links, WhatsApp delivery, and exactly-once settlement.  
 **Later release scope:** Full gateway refunds with an explicit accounting disposition. Partial refunds remain deferred until invoice-line targeting is designed.  
-**Rollout:** Partner activation is complete. Run the development-client API/webhook spike next, then use the production client only after sandbox acceptance. No immediate fleet-wide cutover.
+**Rollout:** Development-client sandbox acceptance passed. Build Stage 1 behind disabled flags, then run legacy/application duplicate-delivery parity in Stage 2. Use the production client only after the live gate, including credential rotation. No immediate fleet-wide cutover.
 
 ## 1. Outcome
 
@@ -718,10 +718,12 @@ Follow `docs/ui-patterns.md` and reuse existing master components.
 ### Stage 0A — initial provider acceptance
 
 - **Complete (2026-08-08):** Technology Partner account activation and partner onboarding.
-- Complete the development-client Bearer-auth spike across Customers, Plans, Subscriptions, Payment Links, and Payments.
-- Record the exact application event list, compare header/payload identity across legacy and application delivery, and verify the five-second webhook contract.
-- Confirm test-mode Payment Links and Subscriptions activation, the production-client configuration path, and the 30-link test limit. Repeat product activation checks in live mode before Stage 5.
-- Provision and verify an isolated test deployment/database for the development client. Confirm its webhook secret and `RAZORPAY_MODE=test` cannot resolve or mutate live connections; production is separately fixed to `RAZORPAY_MODE=live`.
+- **Complete (2026-08-08):** isolated Supabase/Vercel acceptance environment, disabled rollout flags, test-only webhook secret, and `RAZORPAY_MODE=test` fail-closed observation endpoint.
+- **Complete (2026-08-08):** development OAuth `read_write` grant and test-mode token exchange; HTTP 200 Bearer access across Customers, Plans, Subscriptions, Payment Links, and Payments.
+- **Complete (2026-08-08):** ₹1 Payment Link create/fetch/cancel and ₹1 weekly plan plus two-cycle Subscription create/fetch/cancel. Real signed cancellation events were acknowledged inside five seconds with no database or financial write.
+- **Complete (2026-08-08):** exact 16-event application selector and the production-client configuration path recorded in `docs/razorpay-operations.md`; the documented test limits are 30 Payment Links and 30 Subscription Links per business.
+- **Remaining before Stage 2 cutover:** compare the same real event's event id, account id, type, raw-body hash, and timing across legacy per-account and application delivery using the delivery-observation ledger.
+- Repeat product activation checks in live mode before Stage 5. Rotate all credentials exposed during acceptance before the first live merchant authorisation; rotation was deliberately deferred for the isolated test environment only.
 - Stop initial-release schema work and revise the plan only if an initial-release API, application event, identity contract, or required test-mode product is unavailable.
 
 ### Parallel delivery dependency — WhatsApp template

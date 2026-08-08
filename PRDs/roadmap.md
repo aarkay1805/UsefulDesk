@@ -61,7 +61,7 @@ Branded member app · class marketplace · payroll · workout/nutrition tracking
 ## Optional / open
 
 - Richer Razorpay `payment.failed` handling — an immediate "auto-pay failed, pay manually" nudge instead of waiting for `subscription.halted` → manual.
-- One-click "Connect Razorpay" via OAuth: **Technology Partner account active and onboarding complete (2026-08-08); development-client API/webhook capability acceptance is next**, followed by the staged OAuth, Payment Link, and later full-refund rollout in `docs/razorpay-oauth-payment-links-and-refunds.md`. The encrypted manual-key path remains an explicit rollback during adoption.
+- One-click "Connect Razorpay" via OAuth: **Technology Partner onboarding plus isolated development OAuth/API/product and signed application-webhook acceptance passed on 2026-08-08**. Stage 1 schema/OAuth remains behind disabled flags; legacy/application duplicate-delivery parity gates the Stage 2 webhook cutover, followed by Payment Links and the later full-refund rollout in `docs/razorpay-oauth-payment-links-and-refunds.md`. The encrypted manual-key path remains an explicit rollback during adoption, and acceptance credentials must rotate before live merchant authorisation.
 - Auto-generating / charging _future_ invoices (a billing cron — overlaps AutoPay) · persisting the Upcoming projection.
 - Account-wide pending-transfers console · lead-transfer auto-expiry cron.
 - Leads board **group-by** (pivot on source / assignee instead of status) — has a real drag-semantics decision (dragging would set the grouped dimension: a direct source-write vs the approval-gated `requestLeadAssignment`), so it's a feature, not a pref.
