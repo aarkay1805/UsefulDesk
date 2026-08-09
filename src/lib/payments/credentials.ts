@@ -374,6 +374,39 @@ export async function getRazorpayLegacyWebhookBinding(
   };
 }
 
+/**
+ * Acceptance-only operator path for binding a legacy webhook secret without
+ * changing OAuth/manual authentication state. The route that calls this is
+ * responsible for enforcing test mode, provider-acceptance scope, CSRF, and
+ * payment-gateway admin access.
+ */
+export async function saveRazorpayLegacyWebhookSecret(
+  admin: SupabaseClient,
+  accountId: string,
+  webhookSecret: string
+): Promise<void> {
+  const mode = getRazorpayProviderMode();
+  const current = await loadCredentialRow(admin, accountId);
+  if (!current || current.gateway !== 'razorpay') {
+    throw new Error('Razorpay connection row is missing');
+  }
+  assertRazorpayProviderMode(current.provider_mode, mode);
+  const { data, error } = await admin
+    .from('account_payment_credentials')
+    .update({
+      razorpay_webhook_secret: encryptPaymentSecret(webhookSecret),
+      secret_storage_version: 1,
+    })
+    .eq('account_id', accountId)
+    .eq('gateway', 'razorpay')
+    .select('account_id');
+  if (error || !data?.length) {
+    throw new Error(
+      `save Razorpay legacy webhook secret: ${error?.message ?? 'connection row was not updated'}`
+    );
+  }
+}
+
 export async function saveManualRazorpayCredentials(
   admin: SupabaseClient,
   accountId: string,

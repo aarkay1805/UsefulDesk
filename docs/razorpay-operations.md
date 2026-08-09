@@ -74,12 +74,13 @@ and keep account readiness probes as the fallback described in the
 implementation plan. Re-check the live selector before Stage 5 because provider
 event availability may change.
 
-The environment, OAuth, API, product-activation, signed-webhook, and five-second
-acknowledgement portions of Stage 0A are complete. The remaining acceptance item
-is duplicate-delivery identity parity between the legacy per-account ingress and
-the application ingress. Stage 2 now has the delivery-observation ledger, but no
-real paired delivery yet; the application endpoint therefore stays shadow-only
-and the production client stays disabled.
+The environment, OAuth, API, product-activation, signed-webhook, five-second
+acknowledgement, and duplicate-delivery identity portions of the isolated
+acceptance are complete. On 2026-08-09, one OAuth-created Test Subscription
+produced matching `subscription.authenticated`, `subscription.activated`, and
+`subscription.charged` deliveries at both ingresses. The application endpoint
+remains shadow-only until the canonical processor and guarded cutover ship; the
+production client stays disabled.
 
 Secret rotation was explicitly deferred on 2026-08-08. This is acceptable only
 for the isolated test environment. Rotate the OAuth client secret, webhook
@@ -251,24 +252,22 @@ The application route returns 503 if `canonical_webhook_ingress=application`
 is selected before the canonical processor ships, so an early database switch
 cannot silently acknowledge money events.
 
-The shadow code is READY on isolated deployment
-`dpl_9eqaEeW4F8saCnwdgvXs9r9BS7n2` with both rollout flags false. A synthetic
-application-only probe signed from the CLI-pulled Vercel production environment
-returned HTTP 400 `Invalid signature`; the ledger remained at zero rows and
-zero shadow-mutation attempts. Treat this as a signing-secret source mismatch:
-do not print, guess, or replace either value. An authenticated operator must
-compare/rotate the Razorpay application-webhook secret and the Vercel runtime
-secret together, then use a real provider-signed test delivery to verify the
-durable observation path.
+On 2026-08-09 an authenticated operator rotated the isolated application
+webhook secret in Razorpay and Vercel together, verified a signed application
+observation, and configured the Test merchant's per-account webhook for the
+seven supported Subscription events. The test-only
+`POST /api/payments/razorpay/webhook/legacy-secret` operator route encrypted the
+account secret without changing OAuth authentication mode; it is hidden unless
+both Test mode and provider-acceptance mode are active.
 
-The next operator action requires authenticated Razorpay/Vercel access to close
-that application-secret mismatch and configure the isolated merchant's legacy
-per-account webhook URL plus a test-only secret that UsefulDesk can verify.
-Reconnect the isolated OAuth merchant, keep
-`canonical_webhook_ingress=legacy_account`, create one attributable test
-AutoPay event, then query `razorpay_webhook_delivery_parity`. Do not accept
-parity unless both ingresses have the same provider event id, external/resolved
-account, event type, and payload hash, the timing gap is reviewed, and
-`shadow_mutation_attempted=false`. Until that evidence exists, do not enable
-the application canonical processor or run a cutover. OAuth Bearer AutoPay
-mutation validation and the recovery/due-token scan remain open Stage 2 gates.
+The isolated merchant was reconnected with the OAuth flag enabled only for the
+exercise. OAuth Bearer calls created a ₹1 monthly Test plan and Subscription,
+and Razorpay's simulated card authorisation produced three paired events. In
+`razorpay_webhook_delivery_parity`, every pair had one delivery per ingress,
+the same resolved account, event type, and payload hash, 0.379–1.016 seconds
+arrival skew, and no shadow mutation attempt. The legacy ingress remained
+canonical throughout. `RAZORPAY_OAUTH_ENABLED` was restored to `false`
+immediately afterward; manual rollback stayed false. The remaining Stage 2
+gates are the shared recovery/due-token scan, application canonical processor,
+guarded selector switch, post-cutover replay/observation checks, and synthetic
+Test-object cleanup.
