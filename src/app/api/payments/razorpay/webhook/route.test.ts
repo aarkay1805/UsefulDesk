@@ -1,41 +1,65 @@
 import { createHmac } from 'node:crypto';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const deliveryMocks = vi.hoisted(() => ({
+  record: vi.fn(),
+  resolve: vi.fn(),
+}));
+
+vi.mock('server-only', () => ({}));
+vi.mock('@/lib/automations/admin-client', () => ({
+  supabaseAdmin: () => ({ serviceRole: true }),
+}));
+vi.mock('@/lib/payments/razorpay-webhook-delivery', async (importActual) => {
+  const actual =
+    await importActual<
+      typeof import('@/lib/payments/razorpay-webhook-delivery')
+    >();
+  return {
+    ...actual,
+    recordRazorpayWebhookDelivery: deliveryMocks.record,
+    resolveRazorpayApplicationAccount: deliveryMocks.resolve,
+  };
+});
 
 import { POST } from './route';
 
-vi.mock('server-only', () => ({}));
-
 const secret = 'acceptance-test-secret';
 
-describe('Razorpay application webhook acceptance route', () => {
+describe('Razorpay application webhook shadow route', () => {
+  beforeEach(() => {
+    configureEnvironment();
+    deliveryMocks.record.mockResolvedValue(undefined);
+    deliveryMocks.resolve.mockResolvedValue({
+      accountId: 'account-id',
+      canonicalIngress: 'legacy_account',
+    });
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
+    vi.clearAllMocks();
   });
 
-  it('is hidden unless the test-only acceptance flags are exact', async () => {
-    configureAcceptanceEnvironment('live');
+  it('rejects a payload with an invalid signature without a database write', async () => {
+    const response = await POST(buildRequest('{}', 'invalid'));
+
+    expect(response.status).toBe(400);
+    expect(deliveryMocks.record).not.toHaveBeenCalled();
+  });
+
+  it('stays hidden outside the isolated provider-acceptance deployment', async () => {
+    vi.stubEnv('RAZORPAY_PROVIDER_ACCEPTANCE_ONLY', 'false');
 
     const response = await POST(buildRequest('{}', 'invalid'));
 
     expect(response.status).toBe(404);
+    expect(deliveryMocks.record).not.toHaveBeenCalled();
   });
 
-  it('rejects a payload with an invalid signature', async () => {
-    configureAcceptanceEnvironment();
-
-    const response = await POST(buildRequest('{}', 'invalid'));
-
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Invalid signature',
-    });
-  });
-
-  it('logs only a redacted observation for a signed payload', async () => {
-    configureAcceptanceEnvironment();
-    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+  it('durably records a redacted shadow observation and performs no canonical mutation', async () => {
     const rawBody = JSON.stringify({
       event: 'payment_link.cancelled',
       account_id: 'acc_test',
@@ -51,16 +75,61 @@ describe('Razorpay application webhook acceptance route', () => {
       ok: true,
       observed: true,
     });
-    expect(info).toHaveBeenCalledOnce();
-    const logged = String(info.mock.calls[0]?.[0]);
-    expect(logged).toContain('razorpay_application_webhook_observation');
-    expect(logged).toContain('payment_link.cancelled');
-    expect(logged).not.toContain('9999999999');
+    expect(deliveryMocks.record).toHaveBeenCalledWith(
+      { serviceRole: true },
+      expect.objectContaining({
+        ingress: 'application',
+        accountId: 'account-id',
+        externalAccountId: 'acc_test',
+        shadowOnly: true,
+        signatureSecretGeneration: 'current',
+      })
+    );
+    expect(JSON.stringify(deliveryMocks.record.mock.calls)).not.toContain(
+      '9999999999'
+    );
+  });
+
+  it('fails closed if canonical application ingress is selected prematurely', async () => {
+    deliveryMocks.resolve.mockResolvedValue({
+      accountId: 'account-id',
+      canonicalIngress: 'application',
+    });
+    const rawBody = JSON.stringify({
+      event: 'subscription.charged',
+      account_id: 'acc_test',
+    });
+
+    const response = await POST(
+      buildRequest(rawBody, createSignature(rawBody), 'evt_test')
+    );
+
+    expect(response.status).toBe(503);
+    expect(deliveryMocks.record).not.toHaveBeenCalled();
+  });
+
+  it('accepts the previous secret during a bounded rotation window', async () => {
+    vi.stubEnv('RAZORPAY_WEBHOOK_SECRET_PREVIOUS', 'previous-secret');
+    const rawBody = JSON.stringify({
+      event: 'subscription.pending',
+      account_id: 'acc_test',
+    });
+    const signature = createHmac('sha256', 'previous-secret')
+      .update(rawBody)
+      .digest('hex');
+
+    const response = await POST(buildRequest(rawBody, signature, 'evt_test'));
+
+    expect(response.status).toBe(200);
+    expect(deliveryMocks.record).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ signatureSecretGeneration: 'previous' })
+    );
   });
 });
 
-function configureAcceptanceEnvironment(mode = 'test') {
-  vi.stubEnv('RAZORPAY_MODE', mode);
+function configureEnvironment() {
+  vi.stubEnv('RAZORPAY_MODE', 'test');
   vi.stubEnv('RAZORPAY_PROVIDER_ACCEPTANCE_ONLY', 'true');
   vi.stubEnv('RAZORPAY_WEBHOOK_SECRET_CURRENT', secret);
 }

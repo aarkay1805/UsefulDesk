@@ -437,7 +437,12 @@ export async function verifyRazorpayOAuthReadiness(input: {
     };
   }
 
-  if (![401, 403, 404].includes(account.response.status)) {
+  // Imported Technology Partner accounts can reject the v2 account lookup with
+  // 400 even when the OAuth grant is valid. Fall back only for provider
+  // responses that indicate the account-read capability is unavailable; the
+  // five probes below are read-only and verify the capabilities UsefulDesk
+  // actually relies on.
+  if (![400, 401, 403, 404].includes(account.response.status)) {
     return {
       ready: false,
       merchantStatus: 'unknown',

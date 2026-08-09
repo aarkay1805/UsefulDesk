@@ -6,6 +6,7 @@ import {
   createRazorpayOAuthAttempt,
   parseRazorpayOAuthTokenResponse,
   validateConsumedOAuthState,
+  verifyRazorpayOAuthReadiness,
   type RazorpayOAuthStateRow,
 } from './razorpay-oauth';
 
@@ -157,5 +158,51 @@ describe('Razorpay OAuth token response', () => {
         'read_write'
       )
     ).toMatchObject({ accountId: 'acc_123', scope: 'read_write' });
+  });
+});
+
+describe('Razorpay OAuth readiness', () => {
+  it('falls back to read-only capability probes when an imported account rejects the account lookup', async () => {
+    const paths: string[] = [];
+    const readiness = await verifyRazorpayOAuthReadiness({
+      accessToken: 'access',
+      accountId: 'acc_imported',
+      now: new Date('2026-08-09T00:00:00Z'),
+      fetchImpl: async (input) => {
+        const url = String(input);
+        paths.push(new URL(url).pathname);
+        return new Response(JSON.stringify({ items: [] }), {
+          status: url.includes('/v2/accounts/') ? 400 : 200,
+        });
+      },
+    });
+
+    expect(readiness).toEqual({
+      ready: true,
+      merchantStatus: 'unknown',
+      activationVerifiedAt: '2026-08-09T00:00:00.000Z',
+      lastError: null,
+    });
+    expect(paths).toEqual([
+      '/v2/accounts/acc_imported',
+      '/v1/customers',
+      '/v1/plans',
+      '/v1/subscriptions',
+      '/v1/payment_links',
+      '/v1/payments',
+    ]);
+  });
+
+  it('does not mask an unexpected account lookup failure', async () => {
+    const readiness = await verifyRazorpayOAuthReadiness({
+      accessToken: 'access',
+      accountId: 'acc_imported',
+      fetchImpl: async () => new Response(null, { status: 500 }),
+    });
+
+    expect(readiness).toMatchObject({
+      ready: false,
+      lastError: 'Razorpay readiness check failed (500)',
+    });
   });
 });

@@ -23,8 +23,13 @@
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { getWebhookSecret } from '@/lib/payments/credentials';
+import { getRazorpayLegacyWebhookBinding } from '@/lib/payments/credentials';
 import { toRupees, verifyWebhookSignature } from '@/lib/payments/razorpay';
+import { getRazorpayProviderMode } from '@/lib/payments/razorpay-config';
+import {
+  buildRazorpayWebhookDeliveryIdentity,
+  recordRazorpayWebhookDelivery,
+} from '@/lib/payments/razorpay-webhook-delivery';
 import {
   processWebhookDelivery,
   type WebhookClaimResult,
@@ -35,6 +40,7 @@ export const runtime = 'nodejs';
 
 interface RazorpayEvent {
   event: string;
+  account_id?: string;
   payload: {
     subscription?: { entity: RazorpaySubEntity };
     payment?: { entity: RazorpayPaymentEntity };
@@ -77,14 +83,14 @@ export async function POST(
   const eventId = request.headers.get('x-razorpay-event-id');
 
   // 2. Verify against THIS gym's secret.
-  const secret = await getWebhookSecret(admin, accountId);
-  if (!secret) {
+  const binding = await getRazorpayLegacyWebhookBinding(admin, accountId);
+  if (!binding) {
     return NextResponse.json(
       { error: 'Webhook not configured for this account' },
       { status: 400 }
     );
   }
-  if (!verifyWebhookSignature(raw, signature, secret)) {
+  if (!verifyWebhookSignature(raw, signature, binding.secret)) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
@@ -95,9 +101,45 @@ export async function POST(
     return NextResponse.json({ error: 'Malformed payload' }, { status: 400 });
   }
 
+  if (event.account_id && event.account_id !== binding.externalAccountId) {
+    return NextResponse.json(
+      { error: 'Webhook account does not match this endpoint' },
+      { status: 400 }
+    );
+  }
+
+  const identity = buildRazorpayWebhookDeliveryIdentity({
+    rawBody: raw,
+    headerEventId: eventId,
+    providerMode: getRazorpayProviderMode(),
+    externalAccountId: binding.externalAccountId,
+  });
+  try {
+    await recordRazorpayWebhookDelivery(admin, {
+      providerMode: getRazorpayProviderMode(),
+      identity,
+      ingress: 'legacy_account',
+      externalAccountId: binding.externalAccountId,
+      accountId,
+      signatureSecretGeneration: 'account',
+      shadowOnly: binding.canonicalIngress !== 'legacy_account',
+    });
+  } catch (error) {
+    console.error('[razorpay webhook] delivery observation failed:', error);
+    return NextResponse.json(
+      { error: 'Could not persist delivery observation' },
+      { status: 500 }
+    );
+  }
+
+  if (binding.canonicalIngress !== 'legacy_account') {
+    return NextResponse.json({ ok: true, observed: true });
+  }
+
   // 3. Idempotency + recovery. Fall back to a stable synthetic key if the
-  // event-id header is absent; signature verification has already succeeded.
-  const dedupeId = eventId ?? `${accountId}:${signature}`;
+  // event-id header is absent; both ingresses share the same payload-derived
+  // identity, independent of their different webhook signing secrets.
+  const dedupeId = identity.providerEventId;
   const store = razorpayEventStore(admin, accountId, dedupeId, event);
   let result;
   try {

@@ -42,8 +42,10 @@ was used.
 - Runtime safety flags: `RAZORPAY_MODE=test`,
   `RAZORPAY_PROVIDER_ACCEPTANCE_ONLY=true`, `RAZORPAY_OAUTH_ENABLED=false`,
   and `RAZORPAY_MANUAL_ROLLBACK_ENABLED=false`.
-- The application webhook points only at the isolated observation endpoint,
-  uses a test-only secret, and cannot perform database or financial writes.
+- The application webhook points only at the isolated observation endpoint and
+  uses a test-only secret. Since the Stage 2 shadow deployment it may insert
+  only the service-role delivery observation described below; it cannot touch
+  canonical webhook or financial state.
 
 Fresh-database bootstrap exposed one historical ordering dependency:
 `20260711173414_harden_membership_payments.sql` must be applied before
@@ -75,9 +77,9 @@ event availability may change.
 The environment, OAuth, API, product-activation, signed-webhook, and five-second
 acknowledgement portions of Stage 0A are complete. The remaining acceptance item
 is duplicate-delivery identity parity between the legacy per-account ingress and
-the application ingress. Run that comparison when Stage 2 introduces the
-delivery-observation ledger; until then the application endpoint stays
-observation-only and the production client stays disabled.
+the application ingress. Stage 2 now has the delivery-observation ledger, but no
+real paired delivery yet; the application endpoint therefore stays shadow-only
+and the production client stays disabled.
 
 Secret rotation was explicitly deferred on 2026-08-08. This is acceptable only
 for the isolated test environment. Rotate the OAuth client secret, webhook
@@ -116,7 +118,8 @@ RPC access, service-role-only invoker RPCs, both foreign-key indexes, and no
 advisor errors. The no-policy notices are intentional for service-only tables;
 new indexes report unused until a state attempt exists. Aggregate inventory was
 zero configured manual rows, zero configured version-0 rows, and zero OAuth
-rows, so no credential data was read or rewritten.
+rows, so no credential data was read or rewritten during schema acceptance. The
+later internal acceptance account was synthetic and test-only.
 
 ### Manual-secret inventory and backfill
 
@@ -152,10 +155,32 @@ does not make that PKCE contract explicit, so a rejection keeps OAuth disabled.
 Connect only the approved internal test merchant. Confirm the callback is
 single-use and bound to the initiating signed-in admin, selected branch, client
 fingerprint, mode, and redirect. Confirm the settings card shows the expected
-merchant suffix/readiness and that two and ten concurrent refresh callers cause
-one provider refresh-token submission. Revoke/disconnect and confirm new
+merchant suffix/readiness and force one refresh through the authenticated route;
+the database-leased concurrency cases remain covered by automated tests. Revoke/disconnect and confirm new
 operations fail closed without using stored manual keys. Re-disable both flags
 after the test unless a separately reviewed allowlist rollout is approved.
+
+The isolated exercise completed on 2026-08-09:
+
+- the authorization request reached the real Razorpay Test consent screen with
+  a high-entropy state, S256 code challenge, and `read_write` scope;
+- Razorpay accepted the authorization and callback code exchange, which proves
+  the development client accepted the matching PKCE verifier;
+- the imported merchant's Accounts lookup returned HTTP 400, so readiness used
+  the planned five read-only Bearer probes; all passed and the connection became
+  `ready` in test mode;
+- an authenticated forced refresh returned HTTP 200, advanced
+  `refresh_generation` from 0 to 1, and left both token deadlines current;
+- disconnect completed with no provider/local error and database verification
+  showed access token, refresh token, and merchant id scrubbed; and
+- `RAZORPAY_OAUTH_ENABLED` was restored to `false`, manual rollback remained
+  `false`, and deployment `dpl_CVUuVk1hHcZ2Gzu2czZ4W2mkE3YQ` became READY on
+  the public test alias.
+
+No member record, live merchant, production project, or money was used. The
+allowed Supabase project's manual/version-0 inventory was zero; reviewing or
+backfilling any configured merchant in another environment remains a separate
+pre-live operation and was not inferred from this result.
 
 The recurring mandate path may use OAuth Bearer credentials in Stage 1, but the
 legacy per-account webhook remains canonical. The application/legacy delivery
@@ -203,3 +228,47 @@ per-account ingress and the application ingress. Compare the top-level
 `account_id`, event type, `x-razorpay-event-id`, raw-body hash, and arrival time.
 Do not switch canonical processing until those observations match and shadow
 application delivery has performed zero financial mutations.
+
+### Stage 2 shadow ledger status
+
+Migration
+`supabase/migrations/20260809100000_razorpay_webhook_delivery_observations.sql`
+was applied to **UsefulDesk Razorpay Test** through the approved Supabase
+migration connector on 2026-08-09. Verification showed:
+
+- RLS enabled on `razorpay_webhook_deliveries` with no browser-client policy;
+- no `anon` or `authenticated` table access;
+- service role limited to observation `SELECT, INSERT`;
+- uniqueness on `(provider_mode, provider_event_id, ingress)`;
+- a database check that rejects a shadow row marked as attempting canonical
+  mutation; and
+- zero rows and zero shadow-mutation attempts immediately after migration, with
+  no new advisor error.
+
+The deployed route code records redacted application shadow observations and
+legacy observations using the same header-or-mode/merchant/payload identity.
+The application route returns 503 if `canonical_webhook_ingress=application`
+is selected before the canonical processor ships, so an early database switch
+cannot silently acknowledge money events.
+
+The shadow code is READY on isolated deployment
+`dpl_9eqaEeW4F8saCnwdgvXs9r9BS7n2` with both rollout flags false. A synthetic
+application-only probe signed from the CLI-pulled Vercel production environment
+returned HTTP 400 `Invalid signature`; the ledger remained at zero rows and
+zero shadow-mutation attempts. Treat this as a signing-secret source mismatch:
+do not print, guess, or replace either value. An authenticated operator must
+compare/rotate the Razorpay application-webhook secret and the Vercel runtime
+secret together, then use a real provider-signed test delivery to verify the
+durable observation path.
+
+The next operator action requires authenticated Razorpay/Vercel access to close
+that application-secret mismatch and configure the isolated merchant's legacy
+per-account webhook URL plus a test-only secret that UsefulDesk can verify.
+Reconnect the isolated OAuth merchant, keep
+`canonical_webhook_ingress=legacy_account`, create one attributable test
+AutoPay event, then query `razorpay_webhook_delivery_parity`. Do not accept
+parity unless both ingresses have the same provider event id, external/resolved
+account, event type, and payload hash, the timing gap is reviewed, and
+`shadow_mutation_attempted=false`. Until that evidence exists, do not enable
+the application canonical processor or run a cutover. OAuth Bearer AutoPay
+mutation validation and the recovery/due-token scan remain open Stage 2 gates.

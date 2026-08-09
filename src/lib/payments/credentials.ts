@@ -338,24 +338,40 @@ export async function getRazorpayConnection(
   };
 }
 
-/** The legacy account-webhook signing secret, or null. */
-export async function getWebhookSecret(
+/**
+ * Legacy webhook verification remains available during OAuth dual-ingress
+ * rollout even while manual API authentication is disabled. The route must
+ * consult canonicalIngress separately before claiming a financial event.
+ */
+export async function getRazorpayLegacyWebhookBinding(
   admin: SupabaseClient,
   accountId: string
-): Promise<string | null> {
-  if (!isRazorpayManualRollbackEnabled()) return null;
+): Promise<{
+  secret: string;
+  externalAccountId: string;
+  canonicalIngress: 'legacy_account' | 'application';
+} | null> {
   const mode = getRazorpayProviderMode();
   const row = await loadCredentialRow(admin, accountId);
-  if (!row?.razorpay_webhook_secret) return null;
+  if (!row?.razorpay_webhook_secret || row.gateway !== 'razorpay') {
+    return null;
+  }
   assertRazorpayProviderMode(row.provider_mode, mode);
-  if (row.canonical_webhook_ingress !== 'legacy_account') return null;
-  const plaintext = decryptPaymentSecret(
+  const secret = decryptPaymentSecret(
     row.razorpay_webhook_secret,
     row.secret_storage_version,
     { allowVersionZero: true }
   );
   await upgradeManualSecrets(admin, row);
-  return plaintext;
+  return {
+    secret,
+    // Reviewed OAuth/backfill rows use the provider merchant id so fallback
+    // identities match the application ingress. A pre-backfill legacy row
+    // stays operational with its UsefulDesk account id, but cannot qualify
+    // for cutover parity until the merchant binding is reviewed.
+    externalAccountId: row.razorpay_account_id ?? accountId,
+    canonicalIngress: row.canonical_webhook_ingress,
+  };
 }
 
 export async function saveManualRazorpayCredentials(
