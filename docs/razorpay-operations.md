@@ -42,10 +42,10 @@ was used.
 - Runtime safety flags: `RAZORPAY_MODE=test`,
   `RAZORPAY_PROVIDER_ACCEPTANCE_ONLY=true`, `RAZORPAY_OAUTH_ENABLED=false`,
   and `RAZORPAY_MANUAL_ROLLBACK_ENABLED=false`.
-- The application webhook points only at the isolated observation endpoint and
-  uses a test-only secret. Since the Stage 2 shadow deployment it may insert
-  only the service-role delivery observation described below; it cannot touch
-  canonical webhook or financial state.
+- The application webhook points only at the isolated Test endpoint and uses a
+  test-only secret. The account selector now chooses which signed ingress may
+  enter the shared canonical processor; the unselected ingress records only
+  the service-role delivery observation described below.
 
 Fresh-database bootstrap exposed one historical ordering dependency:
 `20260711173414_harden_membership_payments.sql` must be applied before
@@ -78,9 +78,9 @@ The environment, OAuth, API, product-activation, signed-webhook, five-second
 acknowledgement, and duplicate-delivery identity portions of the isolated
 acceptance are complete. On 2026-08-09, one OAuth-created Test Subscription
 produced matching `subscription.authenticated`, `subscription.activated`, and
-`subscription.charged` deliveries at both ingresses. The application endpoint
-remains shadow-only until the canonical processor and guarded cutover ship; the
-production client stays disabled.
+`subscription.charged` deliveries at both ingresses. The shared processor and
+guarded selector cutover subsequently shipped in the isolated stack; the
+production client stays disabled and Stage 2 still awaits provider replay.
 
 Secret rotation was explicitly deferred on 2026-08-08. This is acceptable only
 for the isolated test environment. Rotate the OAuth client secret, webhook
@@ -246,11 +246,11 @@ migration connector on 2026-08-09. Verification showed:
 - zero rows and zero shadow-mutation attempts immediately after migration, with
   no new advisor error.
 
-The deployed route code records redacted application shadow observations and
-legacy observations using the same header-or-mode/merchant/payload identity.
-The application route returns 503 if `canonical_webhook_ingress=application`
-is selected before the canonical processor ships, so an early database switch
-cannot silently acknowledge money events.
+The deployed route code records redacted application and legacy observations
+using the same header-or-mode/merchant/payload identity. Both routes share one
+canonical processor. Only an exactly resolved account whose selector matches
+the ingress may claim; unknown application merchants and the unselected ingress
+return after observation.
 
 On 2026-08-09 an authenticated operator rotated the isolated application
 webhook secret in Razorpay and Vercel together, verified a signed application
@@ -266,10 +266,8 @@ and Razorpay's simulated card authorisation produced three paired events. In
 `razorpay_webhook_delivery_parity`, every pair had one delivery per ingress,
 the same resolved account, event type, and payload hash, 0.379–1.016 seconds
 arrival skew, and no shadow mutation attempt. The legacy ingress remained
-canonical throughout. `RAZORPAY_OAUTH_ENABLED` was restored to `false`
-immediately afterward; manual rollback stayed false. The remaining Stage 2
-gates are the application canonical processor, guarded selector switch,
-post-cutover replay/observation checks, and synthetic Test-object cleanup.
+canonical throughout that parity run. `RAZORPAY_OAUTH_ENABLED` was restored to
+`false` immediately afterward; manual rollback stayed false.
 
 ### Stage 2 recovery and token-scan status
 
@@ -294,3 +292,44 @@ existing accepted AutoPay payment, zero charge exceptions, and legacy canonical
 ingress. `RAZORPAY_OAUTH_ENABLED=false` and
 `RAZORPAY_MANUAL_ROLLBACK_ENABLED=false` were restored on READY deployment
 `dpl_HAFtXdLJY22nLt2PojMFP9ACputY`.
+
+### Stage 2 canonical cutover status
+
+Migration `20260809120000_razorpay_application_webhook_cutover.sql` was applied
+to **UsefulDesk Razorpay Test** through the approved connector on 2026-08-09.
+The audit table has RLS and no browser-role grants. The cutover RPC is
+`SECURITY INVOKER`, service-role-only, Test-only, and locks the credential row
+while revalidating recent exact three-event parity, OAuth/scan/lease readiness,
+canonical processing, charged-ledger evidence, and a zero-unresolved queue.
+The same transaction updates the selector and inserts one immutable audit row.
+
+Deployment `dpl_iS9HGYNi5B9dK8J2SBHNPBXMkDzn` became READY on the public Test
+alias with `RAZORPAY_OAUTH_ENABLED=false`,
+`RAZORPAY_MANUAL_ROLLBACK_ENABLED=false`, `RAZORPAY_MODE=test`, and provider
+acceptance mode true. A signed-in owner invoked the same-origin cutover route;
+it qualified the three saved events, returned HTTP 200, switched the one
+allowlisted selector to `application`, and wrote one audit row. No code deploy
+or flag alone can switch another merchant.
+
+The synthetic accepted Subscription was then cancelled immediately in Razorpay
+Test. Its real `subscription.cancelled` event reached both ingresses with one
+delivery each, the same account and payload hash, 0.180-second skew, application
+canonical/legacy shadow roles, and no observation mutation. The shared handler
+completed once (`attempt_count=1`), revoked the mandate, left the accepted
+AutoPay payment unchanged, and left zero unresolved events or charge exceptions.
+
+Do **not** mark Stage 2 accepted yet. Razorpay's documented replay flow for a
+successful event requires **Help → Have a query? → Technical Support → Issue
+regarding Webhooks/API**; the dashboard has no immediate successful-event replay
+button. Request replay of the accepted Test cancellation without changing its
+secret, then require the same event to remain processed at one attempt with no
+second mandate/payment mutation and both ingress observations intact. Do not
+reserialize stored JSON or manufacture a signature: replay verification requires
+Razorpay's original raw body. Until that evidence exists, do not cut over another
+account or retire the legacy endpoint.
+
+Client-secret fields were visible during this acceptance session. Rotate both
+OAuth client secrets, the application and merchant webhook secrets, the isolated
+service-role key, and every other acceptance credential before the first live
+merchant authorisation. Do not rotate or touch a live credential as part of the
+isolated Test exercise without separate authority.
