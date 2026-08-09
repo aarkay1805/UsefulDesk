@@ -3,7 +3,8 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { toRupees } from './razorpay';
+import { toRupees, type RazorpayRefund } from './razorpay';
+import { finalizeOrImportVerifiedRefund } from './razorpay-refunds';
 import {
   settleVerifiedPaymentLink,
   verifyPaymentLinkTerminal,
@@ -28,6 +29,7 @@ export interface RazorpayEvent {
     subscription?: { entity: RazorpaySubEntity };
     payment?: { entity: RazorpayPaymentEntity };
     payment_link?: { entity: RazorpayPaymentLinkEntity };
+    refund?: { entity: RazorpayRefund };
   };
 }
 
@@ -237,6 +239,7 @@ async function handleRazorpayEvent(
   const sub = event.payload.subscription?.entity;
   const payment = event.payload.payment?.entity;
   const paymentLink = event.payload.payment_link?.entity;
+  const refund = event.payload.refund?.entity;
   const notesAccount = sub?.notes?.account_id;
   if (notesAccount && notesAccount !== accountId) {
     throw new Error(
@@ -245,6 +248,19 @@ async function handleRazorpayEvent(
   }
 
   switch (event.event) {
+    case 'refund.processed':
+    case 'refund.failed': {
+      if (!refund?.id || !refund.payment_id) {
+        throw new Error('Refund event is missing refund or payment identity');
+      }
+      await finalizeOrImportVerifiedRefund({
+        admin,
+        accountId,
+        remoteRefund: refund,
+      });
+      return;
+    }
+
     case 'payment_link.paid':
     case 'payment_link.partially_paid': {
       if (!paymentLink?.id || !payment?.id) {

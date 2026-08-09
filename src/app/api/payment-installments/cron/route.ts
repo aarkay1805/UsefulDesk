@@ -33,6 +33,7 @@ interface InvoiceBalance {
   id: string;
   balance: number;
   state: string;
+  requires_refund_review: boolean;
 }
 
 /**
@@ -162,10 +163,11 @@ export async function GET(request: Request) {
       const { data: invoiceRows, error: invoiceError } = invoiceIds.length
         ? await admin
             .from('invoice_balances')
-            .select('id, membership_id, balance, state')
+            .select('id, membership_id, balance, state, requires_refund_review')
             .eq('account_id', accountId)
             .in('id', invoiceIds)
             .eq('state', 'open')
+            .eq('requires_refund_review', false)
             .gt('balance', 0)
         : { data: [], error: null };
 

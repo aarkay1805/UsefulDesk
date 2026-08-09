@@ -56,6 +56,7 @@ export function FinanceRecentTransactionsCard({
             <TableBody>
               {transactions.map((transaction) => {
                 const income = transaction.kind === 'membership';
+                const refund = transaction.kind === 'refund';
                 return (
                   <TableRow key={`${transaction.kind}:${transaction.id}`}>
                     <TableCell className="pl-4 whitespace-nowrap">
@@ -68,7 +69,9 @@ export function FinanceRecentTransactionsCard({
                       <Badge variant={income ? 'info' : 'danger'}>
                         {income
                           ? PURPOSE_LABEL[transaction.paymentPurpose ?? 'other']
-                          : 'Expense'}
+                          : refund
+                            ? 'Refund'
+                            : 'Expense'}
                       </Badge>
                     </TableCell>
                     <TableCell>

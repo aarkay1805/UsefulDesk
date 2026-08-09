@@ -443,3 +443,90 @@ with `RAZORPAY_OAUTH_ENABLED=false`,
 `RAZORPAY_MANUAL_ROLLBACK_ENABLED=false`, and `RAZORPAY_MODE=test`. This
 acceptance authorizes no other account, production/Live Mode, real money,
 legacy-endpoint retirement, credential rotation, or Stage 4 refund work.
+
+## Stage 4 full-refund implementation and Test evidence
+
+Stage 4 was implemented and exercised on 2026-08-09/10 only in **UsefulDesk
+Razorpay Test** (`hkuqzmgnhhgecqcbwupb`), the isolated Vercel Test project, and
+Razorpay Test Mode. It is not accepted under the task's strict final gate; see
+the blockers below. Migrations `20260809165718`, `20260809171336`,
+`20260809171510`, and `20260809172816` were applied only through the approved
+Supabase connector. Never substitute `supabase db push`.
+
+The release permits only a payment's full remaining refundable amount. The
+admin-only route reserves immutable canonical request bytes/hash and a provider
+idempotency key, copies the payment's remaining original line allocations, and
+owns `creating | pending | processed | failed | orphaned`. A definitive provider
+failure is terminal. An ambiguous create searches `/v1/refunds` by the local
+UUID receipt/notes and adopts only an exact amount/payment/identity match.
+Signed events and the hourly provider scan fetch both refund and parent payment
+before using the same service-only finalization/import functions.
+
+### Provider and historical-window evidence
+
+- Before schema or UI work, the OAuth Test merchant successfully created,
+  fetched, listed, and refunded payment `pay_TNi3WGJgRRCase`. Refund
+  `rfnd_TNkCeNk0w0Fj41` produced signed application event
+  `TNkDHhl9ggNXmp`, proving the required API/event capability.
+- The initial scan started at `2026-08-07T05:09:39.873369Z`, exactly 48 hours
+  before the earliest local gateway payment. Its first page failed closed when
+  a provider receipt was incorrectly sent to a UUID lookup. The corrected
+  worker honored the stored 15-minute backoff, resumed the same frozen window,
+  completed at `2026-08-09T18:01:27.567423Z`, cleared its cursor/lease/error,
+  and imported the matching historical full refund. No unrelated merchant
+  transaction produced a local financial row.
+
+### Genuine accounting lifecycle
+
+- The imported full ₹1.00 refund was classified in the product as
+  `reopen_balance`: its copied allocation is ₹1.00, it has no adjustment, and
+  the invoice exposes ₹1.00 collectible balance again.
+- A fresh exact ₹1.01 Payment Link `plink_TNlWej827ue5lB` was paid in Razorpay
+  Test through the wallet simulator as `pay_TNljNUc8Iw6RJu`. Signed
+  `payment_link.paid` event `TNljakxZuhT8Cv` settled one ₹1.01 allocation.
+- UsefulDesk then requested full `reduce_charge` refund
+  `rfnd_TNlm2Bm865srX2`. The Test-only ambiguity flag deliberately discarded
+  the successful create response. Provider receipt recovery adopted the same
+  refund, and signed application event `TNlmf523ukqmWy` finalized it once. The
+  refund owns one ₹1.01 immutable allocation and exactly one ₹1.01 append-only
+  invoice adjustment/allocation. Gross total/paid are ₹1.01, refund/net paid
+  are ₹1.01/₹0, adjustment/net total are ₹1.01/₹0, and both balances are zero.
+- A separate Dashboard Test refund `rfnd_TNlC69tk2RY9yk` returned ₹1.00 from a
+  ₹1.01 payment. Signed event `TNlCjoMScyDhIs` imported it as header-only,
+  reduced payment-level net cash to ₹0.01, left line accounting balance
+  unchanged, made collectible balance zero, disabled unsafe actions/reminders,
+  and created the visible `partial_refund_line_target_required` exception.
+  This release must not allocate, classify, or clear that partial refund.
+
+Finance Overview, invoice health, invoices, payments, recent transactions, and
+the downloaded August invoice CSV were checked against these rows. The CSV
+contains gross/refund/net cash, adjustments, review state, provider payment and
+refund IDs, and disposition. Authenticated cross-tenant reads returned no
+refund/allocation/adjustment rows, and browser roles cannot update the immutable
+tables or execute the service-only RPCs directly.
+
+### Ingress, recovery, and current gate
+
+The Payment Link paid event had identical application-canonical and
+legacy-shadow observations. Refund events arrived only at the application
+ingress: the application webhook selects both refund events, while the
+unchanged merchant legacy webhook still has the 11 Subscription/Payment-Link
+events from Stage 3 and therefore is not expected to observe refunds. Every
+canonical Razorpay event is processed; no refund is creating, pending, or
+orphaned. Two deliberate provider-400 attempts against the older AutoPay
+payment are terminal `failed` rows with no gateway refund or accounting effect.
+
+Do **not** mark Stage 4 accepted yet. The required external-partial exercise
+must retain one unresolved line-targeting exception by design, which conflicts
+with the task's strict zero-unresolved-exception gate. Razorpay also did not
+redeliver the Stage 4 refund event, so there is no genuine refund-specific
+duplicate/replay observation; the Stage 2 controlled-503 retry proves only the
+shared canonical claim machinery. Keep these as explicit pending evidence—do
+not manufacture a signature or clear the partial exception.
+
+After the exercise, READY deployment `dpl_JB2XKxvf7MBqUJ53u9ajMSaDJisF`
+restored `RAZORPAY_OAUTH_ENABLED=false` and
+`RAZORPAY_REFUND_AMBIGUOUS_CREATE_ACCEPTANCE=false`; manual rollback remains
+false and provider mode remains Test. No account expansion, production/Live
+Mode, real money, Stage 5, legacy retirement, or credential rotation is
+authorized.

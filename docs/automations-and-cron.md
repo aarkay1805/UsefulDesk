@@ -58,6 +58,12 @@ Two workflows ping production (`desk.usefulmade.com`):
   live in different timezones (migration 055); each route sends only
   after 09:00 local, and its sent ledger prevents duplicate messages.
 
+Refund review is a hard reminder hold. Refund-aware balance views expose
+`collectible_balance=0` while a provider-confirmed refund lacks a safe complete
+classification/allocation, and the joining-installment worker also filters
+`requires_refund_review=false`. Do not bypass that hold or infer line targets
+for an external partial refund.
+
 Why not native Vercel Cron: the Hobby plan allows only 2 cron jobs at
 once-per-day granularity — useless for the 15-minute jobs. GitHub
 Actions is free, plan-independent, and can send the custom header.

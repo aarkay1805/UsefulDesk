@@ -228,7 +228,11 @@ describe('finance invoice filtering and totals', () => {
   it('excludes void rows from money totals while preserving their count', () => {
     expect(financeInvoiceSummary(rows)).toEqual({
       count: 3,
+      grossInvoiced: 5_000,
+      adjustments: 0,
       invoiced: 5_000,
+      grossCollected: 3_500,
+      refunds: 0,
       collected: 3_500,
       outstanding: 1_500,
       overdue: 0,
@@ -271,7 +275,12 @@ describe('finance invoice filtering and totals', () => {
     expect(csv).toContain('#12345678,1001,Aarav Shah');
     expect(csv).toContain('Invoice source,Revenue categories');
     expect(csv).toContain('sale,service + merchandise');
-    expect(csv).toContain('Cash paid,Credit applied,Balance');
+    expect(csv).toContain(
+      'Gross collected,Processed refunds,Net collected,Credit applied'
+    );
+    expect(csv).toContain(
+      'Gateway payment IDs,Gateway refund IDs,Refund dispositions'
+    );
     expect(csv).not.toContain('Invoice number');
   });
 });

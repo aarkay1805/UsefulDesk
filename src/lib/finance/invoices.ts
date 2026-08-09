@@ -40,6 +40,9 @@ export interface FinanceInvoiceRow extends MembershipPeriodInvoice {
     | 'service_renewal'
     | 'service_adjustment';
   lineKinds?: InvoiceLineKind[];
+  gatewayPaymentIds?: string[];
+  gatewayRefundIds?: string[];
+  refundDispositions?: string[];
 }
 
 interface GenericInvoiceRow {
@@ -56,6 +59,14 @@ interface GenericInvoiceRow {
   amount_paid: number;
   credit_applied: number;
   balance: number;
+  gross_total: number;
+  gross_amount_paid: number;
+  processed_refund_amount: number;
+  invoice_adjustment_amount: number;
+  net_total: number;
+  accounting_balance: number;
+  collectible_balance: number;
+  requires_refund_review: boolean;
 }
 
 export interface FinanceInvoiceFilterState {
@@ -72,7 +83,11 @@ export const EMPTY_FINANCE_INVOICE_FILTERS: FinanceInvoiceFilterState = {
 
 export interface FinanceInvoiceSummary {
   count: number;
+  grossInvoiced: number;
+  adjustments: number;
   invoiced: number;
+  grossCollected: number;
+  refunds: number;
   collected: number;
   outstanding: number;
   overdue: number;
@@ -285,7 +300,14 @@ export function financeInvoiceSummary(
     (summary, row) => {
       summary.count += 1;
       if (row.state === 'void') return summary;
-      summary.invoiced += Number(row.fee_amount);
+      summary.grossInvoiced += Number(row.fee_amount);
+      summary.adjustments += Number(row.invoice_adjustment_amount ?? 0);
+      summary.invoiced +=
+        Number(row.fee_amount) - Number(row.invoice_adjustment_amount ?? 0);
+      summary.grossCollected += Number(
+        row.gross_amount_paid ?? row.amount_paid
+      );
+      summary.refunds += Number(row.processed_refund_amount ?? 0);
       summary.collected += Number(row.amount_paid);
       if (isChargeableAmount(row.balance)) {
         summary.outstanding += Number(row.balance);
@@ -293,7 +315,17 @@ export function financeInvoiceSummary(
       }
       return summary;
     },
-    { count: 0, invoiced: 0, collected: 0, outstanding: 0, overdue: 0 }
+    {
+      count: 0,
+      grossInvoiced: 0,
+      adjustments: 0,
+      invoiced: 0,
+      grossCollected: 0,
+      refunds: 0,
+      collected: 0,
+      outstanding: 0,
+      overdue: 0,
+    }
   );
 }
 
@@ -354,14 +386,35 @@ export async function loadFinanceInvoices(
     : { data: [], error: null };
   if (periodError) throw periodError;
   const invoiceIds = genericInvoices.map((invoice) => invoice.id);
-  const { data: lineRows, error: lineError } = invoiceIds.length
+  const [lineResult, paymentResult] = invoiceIds.length
+    ? await Promise.all([
+        db
+          .from('invoice_lines')
+          .select('invoice_id, kind')
+          .in('invoice_id', invoiceIds)
+          .eq('state', 'active'),
+        db
+          .from('payments')
+          .select('id, invoice_id, gateway_payment_id')
+          .in('invoice_id', invoiceIds),
+      ])
+    : [
+        { data: [], error: null },
+        { data: [], error: null },
+      ];
+  if (lineResult.error) throw lineResult.error;
+  if (paymentResult.error) throw paymentResult.error;
+  const lineRows = lineResult.data;
+  const paymentRows = paymentResult.data;
+  const paymentIds = (paymentRows ?? []).map((payment) => payment.id);
+  const { data: refundRows, error: refundError } = paymentIds.length
     ? await db
-        .from('invoice_lines')
-        .select('invoice_id, kind')
-        .in('invoice_id', invoiceIds)
-        .eq('state', 'active')
+        .from('payment_refunds')
+        .select('payment_id, gateway_refund_id, disposition, status')
+        .in('payment_id', paymentIds)
+        .eq('status', 'processed')
     : { data: [], error: null };
-  if (lineError) throw lineError;
+  if (refundError) throw refundError;
   const periods = new Map(
     (periodRows ?? []).map((period) => [period.id, period])
   );
@@ -386,6 +439,12 @@ export async function loadFinanceInvoices(
       credit_applied: Number(invoice.credit_applied),
       balance: Number(invoice.balance),
       invoice_id: invoice.id,
+      gross_amount_paid: Number(invoice.gross_amount_paid),
+      processed_refund_amount: Number(invoice.processed_refund_amount),
+      invoice_adjustment_amount: Number(invoice.invoice_adjustment_amount),
+      accounting_balance: Number(invoice.accounting_balance),
+      collectible_balance: Number(invoice.collectible_balance),
+      requires_refund_review: Boolean(invoice.requires_refund_review),
     };
   });
 
@@ -403,11 +462,42 @@ export async function loadFinanceInvoices(
     kinds.add(line.kind as InvoiceLineKind);
     lineKindsByInvoice.set(line.invoice_id, kinds);
   }
+  const invoiceByPayment = new Map(
+    (paymentRows ?? []).map((payment) => [payment.id, payment.invoice_id])
+  );
+  const gatewayPaymentsByInvoice = new Map<string, string[]>();
+  for (const payment of paymentRows ?? []) {
+    if (!payment.invoice_id || !payment.gateway_payment_id) continue;
+    const ids = gatewayPaymentsByInvoice.get(payment.invoice_id) ?? [];
+    ids.push(payment.gateway_payment_id);
+    gatewayPaymentsByInvoice.set(payment.invoice_id, ids);
+  }
+  const gatewayRefundsByInvoice = new Map<
+    string,
+    Array<{ id: string; disposition: string | null }>
+  >();
+  for (const refund of refundRows ?? []) {
+    const invoiceId = invoiceByPayment.get(refund.payment_id);
+    if (!invoiceId || !refund.gateway_refund_id) continue;
+    const rows = gatewayRefundsByInvoice.get(invoiceId) ?? [];
+    rows.push({
+      id: refund.gateway_refund_id,
+      disposition: refund.disposition,
+    });
+    gatewayRefundsByInvoice.set(invoiceId, rows);
+  }
   return normalizeFinanceInvoiceRows(invoices, memberships, today).map(
     (row) => ({
       ...row,
       source: sourceById.get(row.id),
       lineKinds: [...(lineKindsByInvoice.get(row.id) ?? new Set())],
+      gatewayPaymentIds: gatewayPaymentsByInvoice.get(row.id) ?? [],
+      gatewayRefundIds: (gatewayRefundsByInvoice.get(row.id) ?? []).map(
+        (refund) => refund.id
+      ),
+      refundDispositions: (gatewayRefundsByInvoice.get(row.id) ?? [])
+        .map((refund) => refund.disposition)
+        .filter((value): value is string => Boolean(value)),
     })
   );
 }
@@ -433,9 +523,18 @@ export function financeInvoicesCsv(rows: FinanceInvoiceRow[]): string {
       'Lifecycle',
       'Payment status',
       'Invoice total',
-      'Cash paid',
+      'Invoice adjustments',
+      'Net invoice total',
+      'Gross collected',
+      'Processed refunds',
+      'Net collected',
       'Credit applied',
-      'Balance',
+      'Accounting balance',
+      'Collectible balance',
+      'Refund review',
+      'Gateway payment IDs',
+      'Gateway refund IDs',
+      'Refund dispositions',
       'Collection mode',
     ],
     ...rows.map((row) => [
@@ -452,9 +551,18 @@ export function financeInvoicesCsv(rows: FinanceInvoiceRow[]): string {
       row.lifecycle,
       row.paymentState,
       Number(row.fee_amount),
+      Number(row.invoice_adjustment_amount ?? 0),
+      Number(row.fee_amount) - Number(row.invoice_adjustment_amount ?? 0),
+      Number(row.gross_amount_paid ?? row.amount_paid),
+      Number(row.processed_refund_amount ?? 0),
       Number(row.amount_paid),
       Number(row.credit_applied ?? 0),
-      Number(row.balance),
+      Number(row.accounting_balance ?? row.balance),
+      Number(row.collectible_balance ?? row.balance),
+      row.requires_refund_review ? 'Yes' : 'No',
+      (row.gatewayPaymentIds ?? []).join(' + '),
+      (row.gatewayRefundIds ?? []).join(' + '),
+      (row.refundDispositions ?? []).join(' + '),
       row.membership?.collection_mode ?? 'manual',
     ]),
   ];

@@ -19,6 +19,12 @@ import {
   recoverClaimedPaymentLink,
   type LocalPaymentLink,
 } from './razorpay-payment-links';
+import {
+  initializeRefundReconciliation,
+  reconcileClaimedRefundWindow,
+  recoverClaimedGatewayRefund,
+  type LocalGatewayRefund,
+} from './razorpay-refunds';
 
 const RECOVERY_BATCH_LIMIT = 100;
 const RECOVERY_LEASE_SECONDS = 300;
@@ -39,6 +45,7 @@ interface RecoveryDependencies {
   now(): Date;
   owner(): string;
   oauthEnabled(): boolean;
+  refundsEnabled(): boolean;
   processClaimed(input: {
     admin: SupabaseClient;
     accountId: string | null;
@@ -56,6 +63,20 @@ interface RecoveryDependencies {
     link: LocalPaymentLink;
     recoveryOwner: string;
   }): Promise<string>;
+  initializeRefunds(input: {
+    admin: SupabaseClient;
+    providerMode: RazorpayProviderMode;
+  }): Promise<number>;
+  recoverRefund(input: {
+    admin: SupabaseClient;
+    refund: LocalGatewayRefund;
+    recoveryOwner: string;
+  }): Promise<string>;
+  reconcileRefunds(input: {
+    admin: SupabaseClient;
+    providerMode: RazorpayProviderMode;
+    recoveryOwner: string;
+  }): Promise<{ claimed: number; scanned: number; unrelated: number }>;
 }
 
 export interface RazorpayRecoveryResult {
@@ -78,6 +99,21 @@ export interface RazorpayRecoveryResult {
     failed: number;
     oldestAgeSeconds: number | null;
   };
+  refunds: {
+    disabled: boolean;
+    claimed: number;
+    reconciled: number;
+    failed: number;
+    oldestAgeSeconds: number | null;
+  };
+  refundReconciliation: {
+    disabled: boolean;
+    initializedAccounts: number;
+    claimed: number;
+    scanned: number;
+    unrelated: number;
+    failed: number;
+  };
   notes: string[];
 }
 
@@ -90,9 +126,13 @@ export async function runRazorpayRecovery(input: {
     now: () => new Date(),
     owner: () => randomUUID(),
     oauthEnabled: () => isRazorpayOAuthEnabled(),
+    refundsEnabled: () => isRazorpayOAuthEnabled(),
     processClaimed: processClaimedRazorpayWebhook,
     refreshConnection: refreshStoredRazorpayOAuthConnection,
     recoverPaymentLink: recoverClaimedPaymentLink,
+    initializeRefunds: initializeRefundReconciliation,
+    recoverRefund: recoverClaimedGatewayRefund,
+    reconcileRefunds: reconcileClaimedRefundWindow,
     ...input.dependencies,
   };
   const result: RazorpayRecoveryResult = {
@@ -109,6 +149,21 @@ export async function runRazorpayRecovery(input: {
       reconciled: 0,
       failed: 0,
       oldestAgeSeconds: null,
+    },
+    refunds: {
+      disabled: !dependencies.refundsEnabled(),
+      claimed: 0,
+      reconciled: 0,
+      failed: 0,
+      oldestAgeSeconds: null,
+    },
+    refundReconciliation: {
+      disabled: !dependencies.refundsEnabled(),
+      initializedAccounts: 0,
+      claimed: 0,
+      scanned: 0,
+      unrelated: 0,
+      failed: 0,
     },
     notes: [],
   };
@@ -214,6 +269,77 @@ export async function runRazorpayRecovery(input: {
       result.notes.push(
         `payment-link:${link.id}:${boundedRazorpayError(error)}`
       );
+    }
+  }
+
+  if (!result.refunds.disabled) {
+    try {
+      result.refundReconciliation.initializedAccounts =
+        await dependencies.initializeRefunds({
+          admin: input.admin,
+          providerMode: input.providerMode,
+        });
+    } catch (error) {
+      result.refundReconciliation.failed += 1;
+      result.notes.push(
+        `refund-reconciliation:initialize:${boundedRazorpayError(error)}`
+      );
+    }
+
+    const refundOwner = dependencies.owner();
+    const { data: refundRows, error: refundError } = await input.admin.rpc(
+      'claim_gateway_refund_recovery_batch',
+      {
+        p_provider_mode: input.providerMode,
+        p_recovery_owner: refundOwner,
+        p_limit: RECOVERY_BATCH_LIMIT,
+        p_lease_seconds: RECOVERY_LEASE_SECONDS,
+      }
+    );
+    if (refundError) {
+      throw new Error(`claim gateway refund recovery: ${refundError.message}`);
+    }
+    const refunds = (
+      Array.isArray(refundRows) ? refundRows : []
+    ) as LocalGatewayRefund[];
+    result.refunds.claimed = refunds.length;
+    if (refunds.length) {
+      const oldest = Math.min(
+        ...refunds.map((refund) =>
+          new Date(refund.next_reconcile_at ?? refund.created_at).getTime()
+        )
+      );
+      result.refunds.oldestAgeSeconds = Math.max(
+        0,
+        Math.floor((dependencies.now().getTime() - oldest) / 1000)
+      );
+    }
+    for (const refund of refunds) {
+      try {
+        await dependencies.recoverRefund({
+          admin: input.admin,
+          refund,
+          recoveryOwner: refundOwner,
+        });
+        result.refunds.reconciled += 1;
+      } catch (error) {
+        result.refunds.failed += 1;
+        result.notes.push(`refund:${refund.id}:${boundedRazorpayError(error)}`);
+      }
+    }
+
+    try {
+      const window = await dependencies.reconcileRefunds({
+        admin: input.admin,
+        providerMode: input.providerMode,
+        recoveryOwner: dependencies.owner(),
+      });
+      result.refundReconciliation.claimed = window.claimed;
+      result.refundReconciliation.scanned = window.scanned;
+      result.refundReconciliation.unrelated = window.unrelated;
+    } catch (error) {
+      result.refundReconciliation.failed += 1;
+      result.notes.push(`refund-reconciliation:${boundedRazorpayError(error)}`);
     }
   }
 

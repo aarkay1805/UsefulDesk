@@ -103,10 +103,12 @@ describe('finance payment identity and export', () => {
       () => '23 Jul 2026, 11:30'
     );
 
-    expect(csv).toContain('Payment,Gateway reference,Member ID,Name');
+    expect(csv).toContain(
+      'Payment,Gateway payment ID,Gateway refund IDs,Refund dispositions,Member ID,Name'
+    );
     expect(csv).toContain('Source,Payment purpose,Status');
     expect(csv).toContain(
-      '#12345678,pay_123,1001,Aarav Shah,9876543210,Strength'
+      '#12345678,pay_123,,,1001,Aarav Shah,9876543210,Strength'
     );
     expect(csv).toContain('"July renewal, paid"');
     expect(csv).not.toContain('screenshot_path');

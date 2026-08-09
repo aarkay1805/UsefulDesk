@@ -313,12 +313,10 @@ export function FinancePayments({
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              title="Collected"
+              title="Net collected"
               value={fmt.money(result.summary.collected)}
               icon={CircleCheck}
-              subtitle={`${fmt.number(result.summary.collectedCount)} settled ${
-                result.summary.collectedCount === 1 ? 'payment' : 'payments'
-              }`}
+              subtitle={`${fmt.money(result.summary.grossCollected)} gross − ${fmt.money(result.summary.processedRefunds)} refunds`}
             />
             <MetricCard
               title="Payments"
@@ -514,10 +512,17 @@ export function FinancePayments({
                           <TableCell>
                             <Badge
                               variant={
-                                row.source === 'auto' ? 'info' : 'neutral'
+                                row.source === 'auto' ||
+                                row.source === 'payment_link'
+                                  ? 'info'
+                                  : 'neutral'
                               }
                             >
-                              {row.source === 'auto' ? 'Auto-pay' : 'Manual'}
+                              {row.source === 'auto'
+                                ? 'Auto-pay'
+                                : row.source === 'payment_link'
+                                  ? 'Payment link'
+                                  : 'Manual'}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right font-semibold tabular-nums">
@@ -528,8 +533,16 @@ export function FinancePayments({
                                   : undefined
                               }
                             >
-                              {fmt.money(row.amount)}
+                              {fmt.money(row.net_amount ?? row.amount)}
                             </span>
+                            {(row.processed_refund_amount ?? 0) > 0 ? (
+                              <span className="text-muted-foreground block text-xs font-normal">
+                                {fmt.money(row.gross_amount ?? row.amount)}{' '}
+                                gross −{' '}
+                                {fmt.money(row.processed_refund_amount ?? 0)}{' '}
+                                refunded
+                              </span>
+                            ) : null}
                           </TableCell>
                           <TableCell>
                             <PaymentStatusBadge

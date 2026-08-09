@@ -23,6 +23,7 @@ import { RecordInvoicePaymentDialog } from '@/components/finance/record-invoice-
 import { VoidInvoicePaymentDialog } from '@/components/finance/void-invoice-payment-dialog';
 import { ColumnHeader } from '@/components/table/column-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { GatedButton } from '@/components/ui/gated-button';
@@ -284,16 +285,16 @@ export function FinanceInvoices({
               subtitle="Issued records in this view"
             />
             <MetricCard
-              title="Invoiced"
+              title="Net invoiced"
               value={fmt.money(summary.invoiced)}
               icon={ReceiptText}
-              subtitle="Void invoices excluded"
+              subtitle={`${fmt.money(summary.grossInvoiced)} gross − ${fmt.money(summary.adjustments)} adjustments`}
             />
             <MetricCard
-              title="Collected"
+              title="Net collected"
               value={fmt.money(summary.collected)}
               icon={CircleCheck}
-              subtitle="Reconciled payment total"
+              subtitle={`${fmt.money(summary.grossCollected)} gross − ${fmt.money(summary.refunds)} refunds`}
             />
             <MetricCard
               title="Outstanding"
@@ -444,6 +445,7 @@ export function FinanceInvoices({
                       const collectible =
                         row.membership &&
                         row.state === 'open' &&
+                        !row.requires_refund_review &&
                         isChargeableAmount(row.balance);
                       return (
                         <TableRow
@@ -459,6 +461,9 @@ export function FinanceInvoices({
                               >
                                 {row.reference}
                               </span>
+                              {row.requires_refund_review ? (
+                                <Badge variant="warning">Refund review</Badge>
+                              ) : null}
                             </div>
                           </TableCell>
                           <TableCell>

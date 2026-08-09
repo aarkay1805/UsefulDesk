@@ -28,6 +28,12 @@ const STATUS_ROWS = [
     dot: 'bg-red-500',
   },
   {
+    key: 'refundReview',
+    label: 'Refund review',
+    color: 'var(--color-blue-500)',
+    dot: 'bg-blue-500',
+  },
+  {
     key: 'open',
     label: 'Open',
     color: 'var(--muted-foreground)',
@@ -44,7 +50,7 @@ export function FinanceInvoiceHealthCard({
 }) {
   const chartData = STATUS_ROWS.map((row) => ({
     ...row,
-    value: health[row.key],
+    value: health[row.key] ?? 0,
   })).filter((row) => row.value > 0);
   const invoiceCount = chartData.reduce((sum, row) => sum + row.value, 0);
 
@@ -109,7 +115,7 @@ export function FinanceInvoiceHealthCard({
                     {row.label}
                   </span>
                   <span className="font-medium tabular-nums">
-                    {fmt.number(health[row.key])}
+                    {fmt.number(health[row.key] ?? 0)}
                   </span>
                 </div>
               ))}

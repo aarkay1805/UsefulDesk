@@ -9,6 +9,7 @@ import {
   canDeleteLead,
   canDeleteMember,
   canCorrectPayments,
+  canRefundGatewayPayments,
   canExportFinance,
   canManageExpenseCategories,
   canRecordExpenses,
@@ -138,6 +139,13 @@ describe('capability predicates', () => {
     expect(canCorrectPayments('admin')).toBe(true);
     expect(canCorrectPayments('agent')).toBe(false);
     expect(canCorrectPayments('viewer')).toBe(false);
+  });
+
+  it('canRefundGatewayPayments: admin+ only', () => {
+    expect(canRefundGatewayPayments('owner')).toBe(true);
+    expect(canRefundGatewayPayments('admin')).toBe(true);
+    expect(canRefundGatewayPayments('agent')).toBe(false);
+    expect(canRefundGatewayPayments('viewer')).toBe(false);
   });
 
   it('canRecordPayments: agent+ only', () => {

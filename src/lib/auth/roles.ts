@@ -197,6 +197,11 @@ export function canCorrectPayments(role: AccountRole): boolean {
   return hasMinRole(role, 'admin');
 }
 
+/** Owner / admin: issue and classify irreversible gateway refunds. */
+export function canRefundGatewayPayments(role: AccountRole): boolean {
+  return hasMinRole(role, 'admin');
+}
+
 /**
  * Owner / admin / agent: record a payment against an open membership
  * period. Mirrors the agent-level payments INSERT policy and the

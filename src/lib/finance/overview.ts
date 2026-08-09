@@ -52,6 +52,7 @@ export interface FinanceInvoiceHealth {
   overdue: number;
   open: number;
   outstanding: number;
+  refundReview?: number;
 }
 
 export interface FinanceCollectionMethod {
@@ -64,7 +65,7 @@ export interface FinanceRecentTransaction {
   id: string;
   occurredAt: string;
   description: string;
-  kind: 'membership' | 'expense';
+  kind: 'membership' | 'refund' | 'expense';
   method: string;
   amount: number;
   paymentPurpose?: PaymentPurpose;
@@ -120,7 +121,14 @@ export interface FinanceAdPerformance {
 
 export interface FinanceOverviewData {
   period: FinanceMonthRange;
-  revenue: { current: number; previous: number };
+  revenue: {
+    current: number;
+    previous: number;
+    grossCurrent?: number;
+    grossPrevious?: number;
+    refundsCurrent?: number;
+    refundsPrevious?: number;
+  };
   expenses: { current: number; previous: number };
   profit: { current: number; previous: number };
   projection: { amount: number; renewals: number };
@@ -140,6 +148,13 @@ type PaymentRow = Payment & {
   membership?: Pick<Membership, 'member_number' | 'start_date'> | null;
 };
 
+interface FinanceRefundCashRow {
+  id: string;
+  amount: number;
+  processed_at: string;
+  payment: Pick<Payment, 'method' | 'source' | 'payment_purpose'> | null;
+}
+
 interface GenericFinanceInvoice {
   id: string;
   state: 'open' | 'void';
@@ -148,6 +163,7 @@ interface GenericFinanceInvoice {
   amount_paid: number;
   credit_applied: number;
   balance: number;
+  requires_refund_review: boolean;
 }
 
 export type FinanceOverviewExpenseRow = Pick<
@@ -461,7 +477,8 @@ export function summarizeFinanceCashFlow(
   payments: FinanceCashFlowPaymentRow[],
   expenses: FinanceOverviewExpenseRow[],
   period: FinanceMonthRange,
-  timeZone: string
+  timeZone: string,
+  refunds: Array<Pick<FinanceRefundCashRow, 'amount' | 'processed_at'>> = []
 ): { current: FinanceTrendPoint[]; previous: FinanceTrendPoint[] } {
   const current = emptyFinanceTrend(period.start, period.end);
   const previous = emptyFinanceTrend(period.previousStart, period.previousEnd);
@@ -473,6 +490,12 @@ export function summarizeFinanceCashFlow(
     const date = todayInTz(timeZone, new Date(payment.paid_at));
     const point = currentByDate.get(date) ?? previousByDate.get(date);
     if (point) point.income += number(payment.amount);
+  }
+
+  for (const refund of refunds) {
+    const date = todayInTz(timeZone, new Date(refund.processed_at));
+    const point = currentByDate.get(date) ?? previousByDate.get(date);
+    if (point) point.income -= number(refund.amount);
   }
 
   for (const expense of expenses) {
@@ -619,7 +642,7 @@ export async function loadFinanceOverview(
   const projectionStart = period.nextStart;
   const projectionEnd = `${shiftFinanceMonth(month, 2)}-01`;
 
-  const [payments, invoices, projectionMemberships, expenseRows] =
+  const [payments, refunds, invoices, projectionMemberships, expenseRows] =
     await Promise.all([
       fetchAll<PaymentRow>((from, to) =>
         db
@@ -633,11 +656,23 @@ export async function loadFinanceOverview(
           .order('paid_at', { ascending: false })
           .range(from, to)
       ),
+      fetchAll<FinanceRefundCashRow>((from, to) =>
+        db
+          .from('payment_refunds')
+          .select(
+            'id, amount, processed_at, payment:payments!payment_refunds_payment_id_fkey(method, source, payment_purpose)'
+          )
+          .eq('status', 'processed')
+          .gte('processed_at', bounds.previousStart)
+          .lt('processed_at', bounds.nextStart)
+          .order('processed_at', { ascending: false })
+          .range(from, to)
+      ),
       fetchAll<GenericFinanceInvoice>((from, to) =>
         db
           .from('invoice_balances')
           .select(
-            'id, state, issued_at, total, amount_paid, credit_applied, balance'
+            'id, state, issued_at, total, amount_paid, credit_applied, balance, requires_refund_review'
           )
           .gte('issued_at', bounds.currentStart)
           .lt('issued_at', bounds.nextStart)
@@ -682,25 +717,58 @@ export async function loadFinanceOverview(
       payment.paid_at >= bounds.previousStart &&
       payment.paid_at < bounds.currentStart
   );
+  const currentRefunds = refunds.filter(
+    (refund) =>
+      refund.processed_at >= bounds.currentStart &&
+      refund.processed_at < bounds.nextStart
+  );
+  const previousRefunds = refunds.filter(
+    (refund) =>
+      refund.processed_at >= bounds.previousStart &&
+      refund.processed_at < bounds.currentStart
+  );
+  const currentGross = currentPayments.reduce(
+    (sum, payment) => sum + number(payment.amount),
+    0
+  );
+  const previousGross = previousPayments.reduce(
+    (sum, payment) => sum + number(payment.amount),
+    0
+  );
+  const currentRefundAmount = currentRefunds.reduce(
+    (sum, refund) => sum + number(refund.amount),
+    0
+  );
+  const previousRefundAmount = previousRefunds.reduce(
+    (sum, refund) => sum + number(refund.amount),
+    0
+  );
 
   const revenue = {
-    current: currentPayments.reduce(
-      (sum, payment) => sum + number(payment.amount),
-      0
-    ),
-    previous: previousPayments.reduce(
-      (sum, payment) => sum + number(payment.amount),
-      0
-    ),
+    current: currentGross - currentRefundAmount,
+    previous: previousGross - previousRefundAmount,
+    grossCurrent: currentGross,
+    grossPrevious: previousGross,
+    refundsCurrent: currentRefundAmount,
+    refundsPrevious: previousRefundAmount,
   };
   const revenueBreakdown = summarizeFinanceRevenue(currentPayments);
   const revenueStreams = summarizeFinanceRevenueStreams(currentPayments);
+  for (const refund of currentRefunds) {
+    const purpose = refund.payment?.payment_purpose ?? 'other';
+    revenueBreakdown[purpose] -= number(refund.amount);
+    const stream = revenueStreams.find(
+      (candidate) => candidate.purpose === purpose
+    );
+    if (stream) stream.amount -= number(refund.amount);
+  }
   const expenseSnapshot = summarizeFinanceExpenses(expenseRows, period);
   const cashFlow = summarizeFinanceCashFlow(
     payments,
     expenseRows,
     period,
-    timeZone
+    timeZone,
+    refunds
   );
   const expenses = {
     current: expenseSnapshot.current,
@@ -717,10 +785,15 @@ export async function loadFinanceOverview(
     overdue: 0,
     open: 0,
     outstanding: 0,
+    refundReview: 0,
   };
   const healthDay = period.end < today ? period.end : today;
   for (const invoice of invoices) {
     if (invoice.state === 'void') continue;
+    if (invoice.requires_refund_review) {
+      invoiceHealth.refundReview = (invoiceHealth.refundReview ?? 0) + 1;
+      continue;
+    }
     const paymentState = invoicePaymentState({
       fee_amount: invoice.total,
       amount_paid: Number(invoice.amount_paid) + Number(invoice.credit_applied),
@@ -755,6 +828,16 @@ export async function loadFinanceOverview(
     };
     stat.payments += 1;
     stat.amount += number(payment.amount);
+    methodStats.set(method, stat);
+  }
+  for (const refund of currentRefunds) {
+    const method = paymentMethod(refund.payment?.method ?? 'other');
+    const stat = methodStats.get(method) ?? {
+      method,
+      payments: 0,
+      amount: 0,
+    };
+    stat.amount -= number(refund.amount);
     methodStats.set(method, stat);
   }
   const collectionMethods = Array.from(methodStats.values()).sort(
@@ -796,6 +879,15 @@ export async function loadFinanceOverview(
         amount: number(payment.amount),
         paymentPurpose: payment.payment_purpose ?? 'other',
       })),
+      ...currentRefunds.map((refund) => ({
+        id: refund.id,
+        occurredAt: refund.processed_at,
+        description: 'Razorpay refund',
+        kind: 'refund' as const,
+        method: paymentMethod(refund.payment?.method ?? 'other'),
+        amount: number(refund.amount),
+        paymentPurpose: refund.payment?.payment_purpose ?? 'other',
+      })),
       ...expenseSnapshot.transactions,
     ]
       .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
@@ -820,6 +912,16 @@ export function financeOverviewCsv(data: FinanceOverviewData): string {
     [],
     ['Summary', 'Current month', 'Previous month'],
     ['Revenue', data.revenue.current, data.revenue.previous],
+    [
+      'Gross collections',
+      data.revenue.grossCurrent ?? data.revenue.current,
+      data.revenue.grossPrevious ?? data.revenue.previous,
+    ],
+    [
+      'Processed refunds',
+      data.revenue.refundsCurrent ?? 0,
+      data.revenue.refundsPrevious ?? 0,
+    ],
     ['Expenses', data.expenses.current, data.expenses.previous],
     ['Profit', data.profit.current, data.profit.previous],
     ['Next month projected', data.projection.amount, ''],

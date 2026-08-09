@@ -55,6 +55,11 @@ export type FinancePaymentRow = Payment & {
   contact_avatar_url: string | null;
   plan_name: string | null;
   recorded_by_name: string | null;
+  gross_amount?: number;
+  processed_refund_amount?: number;
+  net_amount?: number;
+  gateway_refund_ids?: string[];
+  refund_dispositions?: string[];
 };
 
 export interface FinancePaymentMethodSummary {
@@ -67,6 +72,9 @@ export interface FinancePaymentSummary {
   count: number;
   collectedCount: number;
   collected: number;
+  grossCollected: number;
+  processedRefunds: number;
+  refundCount: number;
   voidedCount: number;
   voidedAmount: number;
   autopay: number;
@@ -96,6 +104,9 @@ const EMPTY_SUMMARY: FinancePaymentSummary = {
   count: 0,
   collectedCount: 0,
   collected: 0,
+  grossCollected: 0,
+  processedRefunds: 0,
+  refundCount: 0,
   voidedCount: 0,
   voidedAmount: 0,
   autopay: 0,
@@ -136,7 +147,8 @@ function normalizeMethodMix(value: unknown): FinancePaymentMethodSummary[] {
 }
 
 export function normalizeFinancePaymentPage(
-  value: unknown
+  value: unknown,
+  refundValue: unknown = null
 ): FinancePaymentPage {
   const result =
     value && typeof value === 'object'
@@ -150,6 +162,26 @@ export function normalizeFinancePaymentPage(
     result.facets && typeof result.facets === 'object'
       ? (result.facets as Record<string, unknown>)
       : {};
+  const refundSummary =
+    refundValue && typeof refundValue === 'object'
+      ? (refundValue as Record<string, unknown>)
+      : {};
+  const processedRefunds = number(refundSummary.processedRefunds);
+  const methodRefunds = new Map(
+    Array.isArray(refundSummary.methodRefunds)
+      ? refundSummary.methodRefunds.map((row) => {
+          const item = row as Record<string, unknown>;
+          return [String(item.method), number(item.amount)] as const;
+        })
+      : []
+  );
+  const normalizedMethodMix = normalizeMethodMix(summary.methodMix).map(
+    (row) => ({
+      ...row,
+      amount: Math.max(0, row.amount - (methodRefunds.get(row.method) ?? 0)),
+    })
+  );
+  const grossCollected = number(summary.collected);
 
   return {
     rows: Array.isArray(result.rows)
@@ -158,11 +190,17 @@ export function normalizeFinancePaymentPage(
     summary: {
       count: number(summary.count),
       collectedCount: number(summary.collectedCount),
-      collected: number(summary.collected),
+      collected: Math.max(0, grossCollected - processedRefunds),
+      grossCollected,
+      processedRefunds,
+      refundCount: number(refundSummary.refundCount),
       voidedCount: number(summary.voidedCount),
       voidedAmount: number(summary.voidedAmount),
-      autopay: number(summary.autopay),
-      methodMix: normalizeMethodMix(summary.methodMix),
+      autopay: Math.max(
+        0,
+        number(summary.autopay) - number(refundSummary.autopayRefunds)
+      ),
+      methodMix: normalizedMethodMix,
     },
     facets: {
       all: number(facets.all),
@@ -192,7 +230,7 @@ export async function loadFinancePayments(
   query: FinancePaymentQuery
 ): Promise<FinancePaymentPage> {
   const bounds = paymentBounds(query);
-  const { data, error } = await db.rpc('finance_payment_ledger', {
+  const params = {
     p_start: bounds.start,
     p_end: bounds.end,
     p_search: query.search.trim() || null,
@@ -209,9 +247,74 @@ export async function loadFinancePayments(
     p_direction: query.sort.dir,
     p_offset: Math.max(0, (query.page - 1) * query.pageSize),
     p_limit: query.pageSize,
-  });
+  };
+  const [{ data, error }, { data: refundSummary, error: refundSummaryError }] =
+    await Promise.all([
+      db.rpc('finance_payment_ledger', params),
+      db.rpc('finance_payment_refund_summary', {
+        p_start: bounds.start,
+        p_end: bounds.end,
+        p_search: params.p_search,
+        p_methods: params.p_methods,
+        p_statuses: params.p_statuses,
+        p_sources: params.p_sources,
+        p_purposes: params.p_purposes,
+        p_plan_ids: params.p_plan_ids,
+        p_recorded_by: params.p_recorded_by,
+        p_view: params.p_view,
+      }),
+    ]);
   if (error) throw error;
-  return normalizeFinancePaymentPage(data);
+  if (refundSummaryError) throw refundSummaryError;
+  const page = normalizeFinancePaymentPage(data, refundSummary);
+  const ids = page.rows.map((row) => row.id);
+  const { data: refundRows, error: refundError } = ids.length
+    ? await db
+        .from('payment_refunds')
+        .select('payment_id, gateway_refund_id, amount, disposition, status')
+        .in('payment_id', ids)
+    : { data: [], error: null };
+  if (refundError) throw refundError;
+  const refundsByPayment = new Map<
+    string,
+    Array<{
+      gateway_refund_id: string | null;
+      amount: number;
+      disposition: string | null;
+      status: string;
+    }>
+  >();
+  for (const refund of refundRows ?? []) {
+    const rows = refundsByPayment.get(refund.payment_id) ?? [];
+    rows.push({
+      gateway_refund_id: refund.gateway_refund_id,
+      amount: Number(refund.amount),
+      disposition: refund.disposition,
+      status: refund.status,
+    });
+    refundsByPayment.set(refund.payment_id, rows);
+  }
+  page.rows = page.rows.map((row) => {
+    const refunds = refundsByPayment.get(row.id) ?? [];
+    const processed = refunds.filter((refund) => refund.status === 'processed');
+    const processedAmount = processed.reduce(
+      (total, refund) => total + refund.amount,
+      0
+    );
+    return {
+      ...row,
+      gross_amount: number(row.amount),
+      processed_refund_amount: processedAmount,
+      net_amount: Math.max(0, number(row.amount) - processedAmount),
+      gateway_refund_ids: processed
+        .map((refund) => refund.gateway_refund_id)
+        .filter((id): id is string => Boolean(id)),
+      refund_dispositions: processed
+        .map((refund) => refund.disposition)
+        .filter((value): value is string => Boolean(value)),
+    };
+  });
+  return page;
 }
 
 export async function loadAllFinancePayments(
@@ -237,7 +340,14 @@ export function financePaymentReference(id: string): string {
 
 export function financePaymentRecordedBy(row: FinancePaymentRow): string {
   if (row.source === 'auto') return 'Auto-pay';
+  if (row.source === 'payment_link') return 'Razorpay payment link';
   return row.recorded_by_name?.trim() || 'Staff';
+}
+
+function paymentSourceLabel(row: FinancePaymentRow): string {
+  if (row.source === 'auto') return 'Auto-pay';
+  if (row.source === 'payment_link') return 'Payment link';
+  return 'Manual';
 }
 
 function csvCell(value: string | number | null | undefined): string {
@@ -252,7 +362,9 @@ export function financePaymentsCsv(
   const lines: Array<Array<string | number>> = [
     [
       'Payment',
-      'Gateway reference',
+      'Gateway payment ID',
+      'Gateway refund IDs',
+      'Refund dispositions',
       'Member ID',
       'Name',
       'Phone',
@@ -262,23 +374,29 @@ export function financePaymentsCsv(
       'Source',
       'Payment purpose',
       'Status',
-      'Amount',
+      'Gross amount',
+      'Processed refunds',
+      'Net amount',
       'Recorded by',
       'Note',
     ],
     ...rows.map((row) => [
       row.reference || financePaymentReference(row.id),
       row.gateway_payment_id ?? '',
+      (row.gateway_refund_ids ?? []).join(' + '),
+      (row.refund_dispositions ?? []).join(' + '),
       row.member_number ?? '',
       row.contact_name ?? 'Deleted member',
       row.contact_phone ?? '',
       row.plan_name ?? '',
       formatDateTime(row.paid_at),
       row.method,
-      row.source === 'auto' ? 'Auto-pay' : 'Manual',
+      paymentSourceLabel(row),
       row.payment_purpose,
       row.status === 'void' ? 'Voided' : row.status === 'due' ? 'Due' : 'Paid',
-      number(row.amount),
+      number(row.gross_amount ?? row.amount),
+      number(row.processed_refund_amount),
+      number(row.net_amount ?? row.amount),
       financePaymentRecordedBy(row),
       row.note ?? '',
     ]),

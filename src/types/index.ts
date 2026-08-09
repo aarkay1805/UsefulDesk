@@ -952,6 +952,30 @@ export interface Payment {
   created_at: string;
 }
 
+export type PaymentRefundDisposition = 'reopen_balance' | 'reduce_charge';
+export type PaymentRefundStatus =
+  'creating' | 'pending' | 'processed' | 'failed' | 'orphaned';
+
+export interface PaymentRefund {
+  id: string;
+  payment_id: string;
+  invoice_id: string;
+  gateway_refund_id: string | null;
+  amount: number;
+  currency: string;
+  source: 'usefuldesk' | 'razorpay_dashboard';
+  disposition: PaymentRefundDisposition | null;
+  reason: string | null;
+  status: PaymentRefundStatus;
+  requested_by: string | null;
+  requested_at: string;
+  processed_at: string | null;
+  failed_at: string | null;
+  provider_created_at: string | null;
+  created_at: string;
+  allocation_complete: boolean;
+}
+
 export interface ExpenseCategory {
   id: string;
   account_id: string;
@@ -1069,6 +1093,8 @@ export interface MembershipDue {
   fee_amount: number;
   collected_current: number;
   balance: number;
+  accounting_balance?: number;
+  requires_refund_review?: boolean;
 }
 
 /** Cycle lifecycle state stored on a period (migration 057). */
@@ -1143,6 +1169,12 @@ export interface MembershipPeriodInvoice {
   credit_applied?: number;
   invoice_id?: string | null;
   invoice_line_id?: string | null;
+  gross_amount_paid?: number;
+  processed_refund_amount?: number;
+  invoice_adjustment_amount?: number;
+  accounting_balance?: number;
+  collectible_balance?: number;
+  requires_refund_review?: boolean;
 }
 
 // ============================================================
@@ -1236,6 +1268,14 @@ export interface InvoiceLine {
   amount_paid: number;
   credit_applied: number;
   balance: number;
+  gross_amount_paid?: number;
+  processed_refund_amount?: number;
+  net_amount_paid?: number;
+  invoice_adjustment_amount?: number;
+  net_total?: number;
+  accounting_balance?: number;
+  collectible_balance?: number;
+  requires_refund_review?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -1266,6 +1306,15 @@ export interface Invoice {
   amount_paid: number;
   credit_applied: number;
   balance: number;
+  gross_total?: number;
+  gross_amount_paid?: number;
+  processed_refund_amount?: number;
+  net_amount_paid?: number;
+  invoice_adjustment_amount?: number;
+  net_total?: number;
+  accounting_balance?: number;
+  collectible_balance?: number;
+  requires_refund_review?: boolean;
 }
 
 export interface MemberService {

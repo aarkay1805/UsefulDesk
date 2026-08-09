@@ -79,15 +79,26 @@ function authHeader(auth: RazorpayAuthentication): string {
 export async function razorpayFetch<T = unknown>(
   creds: RazorpayAuthentication,
   path: string,
-  init?: { method?: string; body?: unknown }
+  init?: {
+    method?: string;
+    body?: unknown;
+    bodyText?: string;
+    headers?: Record<string, string>;
+  }
 ): Promise<T> {
+  if (init?.body !== undefined && init.bodyText !== undefined) {
+    throw new Error('Razorpay request cannot provide body and bodyText');
+  }
   const res = await fetch(`${RAZORPAY_API_BASE}${path}`, {
     method: init?.method ?? 'GET',
     headers: {
       Authorization: authHeader(creds),
       'Content-Type': 'application/json',
+      ...init?.headers,
     },
-    body: init?.body ? JSON.stringify(init.body) : undefined,
+    body:
+      init?.bodyText ??
+      (init?.body !== undefined ? JSON.stringify(init.body) : undefined),
     // Never cache authenticated gateway responses.
     cache: 'no-store',
     signal: AbortSignal.timeout(RAZORPAY_REQUEST_TIMEOUT_MS),
@@ -180,6 +191,23 @@ export interface RazorpayPayment {
   captured?: boolean;
   payment_link_id?: string;
   notes?: Record<string, string>;
+  created_at?: number;
+  amount_refunded?: number;
+  refund_status?: 'null' | 'partial' | 'full' | null;
+}
+
+export interface RazorpayRefund {
+  id: string;
+  entity: 'refund';
+  amount: number;
+  currency: string;
+  payment_id: string;
+  receipt?: string | null;
+  notes?: Record<string, string>;
+  status: 'pending' | 'processed' | 'failed';
+  created_at: number;
+  speed_requested?: string;
+  speed_processed?: string;
 }
 
 // ---- higher-level flows -------------------------------------------
@@ -349,6 +377,93 @@ export async function fetchPayment(
     creds,
     `/payments/${encodeURIComponent(paymentId)}`
   );
+}
+
+export async function listPayments(input: {
+  creds: RazorpayAuthentication;
+  from: number;
+  to?: number;
+  count: number;
+  skip: number;
+}): Promise<RazorpayPayment[]> {
+  const query = new URLSearchParams({
+    from: String(input.from),
+    count: String(input.count),
+    skip: String(input.skip),
+  });
+  if (input.to !== undefined) query.set('to', String(input.to));
+  const result = await razorpayFetch<{ items?: RazorpayPayment[] }>(
+    input.creds,
+    `/payments?${query.toString()}`
+  );
+  return Array.isArray(result.items) ? result.items : [];
+}
+
+export async function createRefund(input: {
+  creds: RazorpayAuthentication;
+  paymentId: string;
+  idempotencyKey: string;
+  canonicalBody: string;
+}): Promise<RazorpayRefund> {
+  if (!/^[A-Za-z0-9_-]{10,}$/.test(input.idempotencyKey)) {
+    throw new Error('Razorpay refund idempotency key is invalid');
+  }
+  return razorpayFetch<RazorpayRefund>(
+    input.creds,
+    `/payments/${encodeURIComponent(input.paymentId)}/refund`,
+    {
+      method: 'POST',
+      bodyText: input.canonicalBody,
+      headers: { 'X-Refund-Idempotency': input.idempotencyKey },
+    }
+  );
+}
+
+export async function fetchRefund(
+  creds: RazorpayAuthentication,
+  refundId: string
+): Promise<RazorpayRefund> {
+  return razorpayFetch<RazorpayRefund>(
+    creds,
+    `/refunds/${encodeURIComponent(refundId)}`
+  );
+}
+
+export async function listRefunds(input: {
+  creds: RazorpayAuthentication;
+  from: number;
+  to?: number;
+  count: number;
+  skip: number;
+}): Promise<RazorpayRefund[]> {
+  const query = new URLSearchParams({
+    from: String(input.from),
+    count: String(input.count),
+    skip: String(input.skip),
+  });
+  if (input.to !== undefined) query.set('to', String(input.to));
+  const result = await razorpayFetch<{ items?: RazorpayRefund[] }>(
+    input.creds,
+    `/refunds?${query.toString()}`
+  );
+  return Array.isArray(result.items) ? result.items : [];
+}
+
+export async function listPaymentRefunds(input: {
+  creds: RazorpayAuthentication;
+  paymentId: string;
+  count: number;
+  skip: number;
+}): Promise<RazorpayRefund[]> {
+  const query = new URLSearchParams({
+    count: String(input.count),
+    skip: String(input.skip),
+  });
+  const result = await razorpayFetch<{ items?: RazorpayRefund[] }>(
+    input.creds,
+    `/payments/${encodeURIComponent(input.paymentId)}/refunds?${query.toString()}`
+  );
+  return Array.isArray(result.items) ? result.items : [];
 }
 
 // ---- webhook signature verification -------------------------------

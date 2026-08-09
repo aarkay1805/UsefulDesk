@@ -183,11 +183,11 @@ function FinanceMetricGrid({
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard
-        title="Revenue"
+        title="Net collections"
         value={fmt.money(data.revenue.current)}
         icon={Banknote}
         {...(revenueChange === null
-          ? { subtitle: 'No prior-month baseline' }
+          ? {}
           : {
               delta: {
                 sign: revenueChange,
@@ -199,6 +199,7 @@ function FinanceMetricGrid({
                       )}% vs previous month`,
               },
             })}
+        subtitle={`${fmt.money(data.revenue.grossCurrent ?? data.revenue.current)} gross − ${fmt.money(data.revenue.refundsCurrent ?? 0)} refunds`}
       />
       <MetricCard
         title="Expenses"

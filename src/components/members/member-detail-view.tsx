@@ -405,6 +405,15 @@ export function MemberDetailView({
           amount_paid: Number(invoice.amount_paid),
           credit_applied: Number(invoice.credit_applied),
           balance: Number(invoice.balance),
+          gross_total: Number(invoice.gross_total),
+          gross_amount_paid: Number(invoice.gross_amount_paid),
+          processed_refund_amount: Number(invoice.processed_refund_amount),
+          net_amount_paid: Number(invoice.net_amount_paid),
+          invoice_adjustment_amount: Number(invoice.invoice_adjustment_amount),
+          net_total: Number(invoice.net_total),
+          accounting_balance: Number(invoice.accounting_balance),
+          collectible_balance: Number(invoice.collectible_balance),
+          requires_refund_review: Boolean(invoice.requires_refund_review),
           state: invoice.state,
         }))
       );

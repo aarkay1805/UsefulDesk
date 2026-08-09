@@ -169,7 +169,7 @@ const baseMembership: Pick<
 
 describe("projectNextInvoice", () => {
   it("starts the next cycle when the current ends, one option-duration long", () => {
-    const next = projectNextInvoice(baseMembership)!;
+    const next = projectNextInvoice(baseMembership, TODAY)!;
     expect(next.period_start).toBe("2026-08-10");
     expect(next.period_end).toBe("2026-09-10"); // calendar month, not +30d
     expect(next.fee_amount).toBe(3999);
@@ -180,7 +180,7 @@ describe("projectNextInvoice", () => {
   it("uses the option price (no setup fee), not the current fee", () => {
     // fee_amount 4499 = first cycle price + setup fee; the projection
     // must bill the recurring price alone.
-    const next = projectNextInvoice({ ...baseMembership, fee_amount: 4499 })!;
+    const next = projectNextInvoice({ ...baseMembership, fee_amount: 4499 }, TODAY)!;
     expect(next.fee_amount).toBe(3999);
   });
 
