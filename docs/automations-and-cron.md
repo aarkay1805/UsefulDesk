@@ -1,19 +1,20 @@
 # Cron endpoints — operator runbook
 
-Five scheduled jobs keep the time-based features alive. None of them
+Six scheduled jobs keep the time-based features alive. None of them
 run by themselves: each is a plain GET route that something external
 must ping on a schedule. This page is the map.
 
-| Endpoint                         | Does                                                                                                                                                      | Needed by                    | Schedule                                                              |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------- |
-| `/api/follow-ups/cron`           | Sends in-app bell notifications for follow-up tasks whose `remind_at` slot has arrived; an active dashboard rings while those notifications remain unread | Follow-up reminders (Leads)  | every 15 min                                                          |
-| `/api/automations/cron`          | Resumes automation runs parked on a **Wait** step                                                                                                         | Automations with delays      | every 15 min                                                          |
-| `/api/flows/cron`                | Times out flow runs abandoned mid-conversation (frees the one-active-run-per-contact lock)                                                                | WhatsApp flows               | every 15 min                                                          |
-| `/api/renewals/cron`             | Sends separately configured membership and service renewal templates at each configured offset; service sends require a current sellable rate             | Auto renewal reminders       | hourly at :30 (sends after 09:00 in each account's timezone)          |
-| `/api/payment-installments/cron` | Sends `gym_installment_reminder` while the second 40% of a joining checkout's full combined invoice remains due                                           | Joining payment installments | hourly at :30 (7, 3, 1, and 0 days before the account-local deadline) |
+| Endpoint                               | Does                                                                                                                                                      | Needed by                         | Schedule                                                              |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | --------------------------------------------------------------------- |
+| `/api/follow-ups/cron`                 | Sends in-app bell notifications for follow-up tasks whose `remind_at` slot has arrived; an active dashboard rings while those notifications remain unread | Follow-up reminders (Leads)       | every 15 min                                                          |
+| `/api/automations/cron`                | Resumes automation runs parked on a **Wait** step                                                                                                         | Automations with delays           | every 15 min                                                          |
+| `/api/flows/cron`                      | Times out flow runs abandoned mid-conversation (frees the one-active-run-per-contact lock)                                                                | WhatsApp flows                    | every 15 min                                                          |
+| `/api/renewals/cron`                   | Sends separately configured membership and service renewal templates at each configured offset; service sends require a current sellable rate             | Auto renewal reminders            | hourly at :30 (sends after 09:00 in each account's timezone)          |
+| `/api/payment-installments/cron`       | Sends `gym_installment_reminder` while the second 40% of a joining checkout's full combined invoice remains due                                           | Joining payment installments      | hourly at :30 (7, 3, 1, and 0 days before the account-local deadline) |
+| `/api/payments/razorpay/recovery/cron` | Recovers owner-leased pending/failed/stale Razorpay events in bounded batches and performs the once-daily OAuth token-due scan                            | Razorpay webhook/OAuth durability | every 15 min                                                          |
 
-All five are idempotent and dedupe claim-first — an overlapping or
-doubled run never double-sends. Deep dives:
+All six are idempotent and claim-first — an overlapping or doubled run never
+double-sends or double-processes money. Deep dives:
 [renewal reminders](renewal-reminders.md) and
 [payment installments](payment-installments.md).
 
@@ -49,7 +50,7 @@ secret configured → routes answer `503 cron not configured`.
 Two workflows ping production (`desk.usefulmade.com`):
 
 - [`.github/workflows/ops-crons.yml`](../.github/workflows/ops-crons.yml)
-  — follow-ups + automations + flows, every 15 min (best-effort; GitHub
+  — follow-ups + automations + flows + Razorpay recovery, every 15 min (best-effort; GitHub
   may stretch this to ~25 min under load, which is fine — reminder
   slots are hourly).
 - [`.github/workflows/renewals-cron.yml`](../.github/workflows/renewals-cron.yml)
@@ -81,6 +82,7 @@ curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/automation
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/flows/cron
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/renewals/cron
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/payment-installments/cron
+curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/payments/razorpay/recovery/cron
 ```
 
 `401` → secret mismatch (Vercel env vs repo secret). `503` → env var

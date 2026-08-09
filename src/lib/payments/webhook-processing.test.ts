@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  processClaimedWebhookDelivery,
   processWebhookDelivery,
   type WebhookClaimResult,
   type WebhookEventStore,
@@ -76,6 +77,22 @@ describe('Razorpay webhook processing', () => {
 
     expect(handler).toHaveBeenCalledTimes(1);
     expect(event.snapshot().attempts).toBe(1);
+  });
+
+  it('finishes an event already leased by the recovery worker without claiming again', async () => {
+    const event = retryableStore();
+    const handle = vi.fn(async () => undefined);
+
+    await expect(
+      processClaimedWebhookDelivery(event.store, handle)
+    ).resolves.toEqual({ outcome: 'processed' });
+
+    expect(handle).toHaveBeenCalledOnce();
+    expect(event.snapshot()).toEqual({
+      status: 'processed',
+      attempts: 0,
+      lastError: null,
+    });
   });
 
   it('completes a durable unapplied-charge outcome and never records it twice', async () => {

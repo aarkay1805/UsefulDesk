@@ -268,6 +268,29 @@ the same resolved account, event type, and payload hash, 0.379–1.016 seconds
 arrival skew, and no shadow mutation attempt. The legacy ingress remained
 canonical throughout. `RAZORPAY_OAUTH_ENABLED` was restored to `false`
 immediately afterward; manual rollback stayed false. The remaining Stage 2
-gates are the shared recovery/due-token scan, application canonical processor,
-guarded selector switch, post-cutover replay/observation checks, and synthetic
-Test-object cleanup.
+gates are the application canonical processor, guarded selector switch,
+post-cutover replay/observation checks, and synthetic Test-object cleanup.
+
+### Stage 2 recovery and token-scan status
+
+Migrations `20260809110000_razorpay_webhook_recovery_and_token_scan.sql` and
+`20260809111000_index_webhook_events_account_id.sql` were applied to
+**UsefulDesk Razorpay Test** through the approved Supabase migration connector
+on 2026-08-09. Verification found all six new recovery/scan RPCs use
+`SECURITY INVOKER`, are not executable by `PUBLIC`, `anon`, or `authenticated`,
+and are executable by service role only. The account FK follow-up removed the
+only new advisor notice; security and performance advisors reported zero
+errors, with the documented service-only/no-policy and unused-new-index notices
+remaining informational.
+
+The Test-only recovery route was deployed behind the existing cron
+authorization. With OAuth disabled it returned zero webhook claims and marked
+the token scan disabled. During one explicitly scoped OAuth-enabled exercise it
+claimed the ready Test connection once, correctly skipped refresh because the
+access token expires outside the seven-day window, advanced its next scan by
+one day, and returned zero failures. Database verification retained refresh
+generation 1, no scan or refresh lease, zero unresolved Razorpay events, the
+existing accepted AutoPay payment, zero charge exceptions, and legacy canonical
+ingress. `RAZORPAY_OAUTH_ENABLED=false` and
+`RAZORPAY_MANUAL_ROLLBACK_ENABLED=false` were restored on READY deployment
+`dpl_HAFtXdLJY22nLt2PojMFP9ACputY`.

@@ -3,7 +3,8 @@ import { timingSafeEqual } from 'node:crypto';
 /**
  * Shared auth for the cron endpoints (`/api/renewals/cron`,
  * `/api/payment-installments/cron`, `/api/follow-ups/cron`,
- * `/api/automations/cron`, `/api/flows/cron`).
+ * `/api/automations/cron`, `/api/flows/cron`,
+ * `/api/payments/razorpay/recovery/cron`).
  *
  * Two delivery mechanisms are accepted, so any scheduler works:
  *

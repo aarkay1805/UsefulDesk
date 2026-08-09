@@ -6,6 +6,10 @@
 
 ---
 
+## Razorpay durable recovery and OAuth token-due scan
+
+Razorpay canonical events now preserve their first signed payload/identity, use owner-bound five-minute processing leases, and recover up to 100 pending, failed, or stale events every 15 minutes with 1m/5m/15m/1h/6h backoff and per-item failure isolation. The same worker leases each ready OAuth connection once daily and invokes the existing two-minute generation/CAS refresh only inside the seven-day token window. Key code: migrations `20260809110000`/`20260809111000`, `src/lib/payments/razorpay-recovery.ts`, `src/lib/payments/razorpay-webhook-processor.ts`, and `/api/payments/razorpay/recovery/cron`. Gotcha: the isolated Test scan correctly skipped its November-expiry token, advanced the next scan one day, and left generation 1; legacy remains canonical while the application route and guarded cutover are still gated.
+
 ## Razorpay OAuth Stage 1 acceptance and Stage 2 dual-ingress parity
 
 The isolated Razorpay Test stack now has real development-client S256 authorization/code exchange evidence, five-capability imported-account readiness fallback, one successful lease-protected refresh rotation, verified disconnect scrubbing, and OAuth Bearer AutoPay mutation acceptance. Stage 2 adds the service-only delivery ledger/parity view and a Test-acceptance-only operator route that encrypts the legacy webhook secret without changing OAuth mode. After rotating the isolated application secret pair and configuring the merchant webhook, one simulated ₹1 Subscription produced matching authenticated, activated, and charged events at both ingresses with equal account/type/hash, sub-1.1-second skew, and zero application mutation. Key code: migration `20260809100000`, `src/lib/payments/razorpay-webhook-delivery.ts`, `src/lib/payments/credentials.ts`, and the Razorpay webhook routes. Gotcha: legacy is still canonical and the application route still fails closed if selected; recovery/due-token scanning and the canonical processor must ship before guarded cutover. Both rollout flags were restored false.

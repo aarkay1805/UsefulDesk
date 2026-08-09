@@ -26,6 +26,14 @@ export async function processWebhookDelivery(
   if (claim === 'busy') return { outcome: 'busy' };
   if (claim === 'conflict') return { outcome: 'conflict' };
 
+  return processClaimedWebhookDelivery(store, handle);
+}
+
+/** Finish a delivery already leased by the durable recovery batch. */
+export async function processClaimedWebhookDelivery(
+  store: WebhookEventStore,
+  handle: () => Promise<void>
+): Promise<WebhookProcessingResult> {
   try {
     await handle();
     await store.complete();

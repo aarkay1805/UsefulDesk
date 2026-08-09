@@ -1,11 +1,12 @@
 name: ops-crons
 
-# Pings the three high-frequency cron endpoints (the daily renewals job
+# Pings the four high-frequency cron endpoints (the daily renewals job
 # lives in renewals-cron.yml):
 #
 #   /api/follow-ups/cron   — deliver due follow-up reminder notifications
 #   /api/automations/cron  — resume automations parked on a Wait step
 #   /api/flows/cron        — time out abandoned flow runs
+#   /api/payments/razorpay/recovery/cron — recover webhooks + scan OAuth tokens
 #
 # All three are idempotent and claim-first, so overlapping or doubled
 # runs are harmless. Native Vercel Cron on the Hobby plan only allows
@@ -18,7 +19,7 @@ name: ops-crons
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: '*/15 * * * *'
   # Lets you trigger a run by hand from the Actions tab (for testing).
   workflow_dispatch:
 
@@ -52,3 +53,10 @@ jobs:
           curl --fail --silent --show-error \
             -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
             https://desk.usefulmade.com/api/flows/cron
+
+      - name: Recover Razorpay events and scan OAuth tokens
+        if: always()
+        run: |
+          curl --fail --silent --show-error \
+            -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
+            https://desk.usefulmade.com/api/payments/razorpay/recovery/cron

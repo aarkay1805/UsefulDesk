@@ -9,9 +9,7 @@ const migration = read(
   'supabase/migrations/20260804233201_harden_razorpay_recurring_charges.sql'
 );
 const mandateRoute = read('src/app/api/payments/razorpay/mandate/route.ts');
-const webhookRoute = read(
-  'src/app/api/payments/razorpay/webhook/[accountId]/route.ts'
-);
+const webhookProcessor = read('src/lib/payments/razorpay-webhook-processor.ts');
 const connectionRoute = read(
   'src/app/api/payments/razorpay/connection/route.ts'
 );
@@ -49,10 +47,10 @@ describe('Razorpay recurring payment hardening contract', () => {
   });
 
   it('addresses charges by provider sequence and a frozen membership period', () => {
-    expect(webhookRoute).toMatch(
+    expect(webhookProcessor).toMatch(
       /p_provider_paid_count: sub\.paid_count \?\? null/
     );
-    expect(webhookRoute).toMatch(
+    expect(webhookProcessor).toMatch(
       /p_gateway_subscription_id: sub\.id[\s\S]*p_gateway_invoice_id:/
     );
     expect(migration).toMatch(
@@ -80,7 +78,7 @@ describe('Razorpay recurring payment hardening contract', () => {
     expect(migration).toMatch(
       /'target_balance_mismatch'[\s\S]*RETURN QUERY SELECT 'exception'/
     );
-    expect(webhookRoute).toMatch(
+    expect(webhookProcessor).toMatch(
       /result\?\.outcome === 'exception'[\s\S]*console\.warn/
     );
     expect(connectionRoute).toMatch(
