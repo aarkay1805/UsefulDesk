@@ -80,7 +80,9 @@ acceptance are complete. On 2026-08-09, one OAuth-created Test Subscription
 produced matching `subscription.authenticated`, `subscription.activated`, and
 `subscription.charged` deliveries at both ingresses. The shared processor and
 guarded selector cutover subsequently shipped in the isolated stack; the
-production client stays disabled and Stage 2 still awaits provider replay.
+production client stays disabled. A later controlled-503 exercise produced a
+genuine Razorpay retry with identical event ID/raw hash and completed Stage 2
+acceptance for this isolated Test account only.
 
 Secret rotation was explicitly deferred on 2026-08-08. This is acceptable only
 for the isolated test environment. Rotate the OAuth client secret, webhook
@@ -318,15 +320,43 @@ canonical/legacy shadow roles, and no observation mutation. The shared handler
 completed once (`attempt_count=1`), revoked the mandate, left the accepted
 AutoPay payment unchanged, and left zero unresolved events or charge exceptions.
 
-Do **not** mark Stage 2 accepted yet. Razorpay's documented replay flow for a
-successful event requires **Help → Have a query? → Technical Support → Issue
-regarding Webhooks/API**; the dashboard has no immediate successful-event replay
-button. Request replay of the accepted Test cancellation without changing its
-secret, then require the same event to remain processed at one attempt with no
-second mandate/payment mutation and both ingress observations intact. Do not
-reserialize stored JSON or manufacture a signature: replay verification requires
-Razorpay's original raw body. Until that evidence exists, do not cut over another
-account or retire the legacy endpoint.
+### Stage 2 genuine provider-retry status
+
+Migrations `20260809130000_razorpay_provider_retry_acceptance.sql`,
+`20260809131000_restrict_razorpay_retry_acceptance_grants.sql`, and
+`20260809132000_audit_razorpay_retry_provider_trigger.sql` were applied through
+the approved connector. They provide a service-only, Test-only, ten-minute,
+one-subscription audit gate. The authenticated same-origin admin/owner route
+arms or cancels the gate and audits the exact provider cancellation trigger.
+Normal events and every non-Test deployment pass through unchanged; invalid,
+expired, cross-account, non-header-identified, or mismatched retry input fails
+closed. The first exact signed application delivery is observed and answered
+503 before canonical persistence. Only a subsequent delivery with the same
+`x-razorpay-event-id` and raw-body SHA-256 can enter the usual claim/processor.
+
+On 2026-08-09, temporary OAuth-enabled READY deployment
+`dpl_A5rS1nFHFVKdFFNUhMe2Cfur83wv` created and cancelled a fresh ₹1 Test
+Subscription. Event `TNfmPtAekGkLfO` first arrived at 12:34:29.581 UTC, with
+raw hash `524452d60dbed7f061f5c4f933980f7bf4e091d5b525194851994aa4179512e8`,
+and received 503. Razorpay itself retried at 12:34:31.136 UTC with the identical
+event ID, raw hash, and current-secret signature generation. The retry was
+acknowledged 200, claimed once, and completed with one canonical row and
+`attempt_count=1`. The mandate changed to revoked/manual once, no payment was
+created for that mandate, the legacy observation remained shadow-only with no
+mutation attempt, and both unresolved-event and open charge-exception counts
+were zero.
+
+READY deployment `dpl_SWV4baDBnuRUeZAMERLMMiDn4RKB` then restored the public
+Test alias with `RAZORPAY_OAUTH_ENABLED=false`; direct connection-status
+verification reported OAuth false, manual rollback false, Test mode, and the
+unchanged application selector. Manual rollback was never enabled.
+
+Stage 2 is therefore accepted for the single isolated Test account. Support
+ticket `20297340` remains pending as optional additional evidence, not a gate.
+Do not reserialize stored JSON or manufacture a signature. This acceptance does
+not authorize another account cutover, legacy endpoint retirement, Stage 3, or
+any production/Live action. Keep both rollout flags false outside a separately
+scoped isolated Test exercise.
 
 Client-secret fields were visible during this acceptance session. Rotate both
 OAuth client secrets, the application and merchant webhook secrets, the isolated
