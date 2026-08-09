@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS public.razorpay_webhook_retry_acceptances (
 
 ALTER TABLE public.razorpay_webhook_retry_acceptances ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.razorpay_webhook_retry_acceptances
-  FROM PUBLIC, anon, authenticated;
+  FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE ON public.razorpay_webhook_retry_acceptances
   TO service_role;
 

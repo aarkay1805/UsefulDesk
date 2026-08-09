@@ -22,7 +22,7 @@ describe('Razorpay provider retry acceptance schema contract', () => {
       'ALTER TABLE public.razorpay_webhook_retry_acceptances ENABLE ROW LEVEL SECURITY'
     );
     expect(migration).toMatch(
-      /REVOKE ALL ON public\.razorpay_webhook_retry_acceptances\s+FROM PUBLIC, anon, authenticated/
+      /REVOKE ALL ON public\.razorpay_webhook_retry_acceptances\s+FROM PUBLIC, anon, authenticated, service_role/
     );
     expect(migration).toMatch(
       /CREATE UNIQUE INDEX[^;]+one_open_idx[\s\S]+WHERE status IN/
