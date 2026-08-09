@@ -141,4 +141,48 @@ describe('Razorpay recovery worker', () => {
       expect.objectContaining({ p_account_id: 'due', p_error: 'timed out' })
     );
   });
+
+  it('isolates Payment Link reconciliation failures inside the leased batch', async () => {
+    const admin = adminWithRpc({
+      claim_razorpay_webhook_recovery_batch: [],
+      claim_razorpay_payment_link_recovery_batch: [
+        {
+          id: 'link_ok',
+          account_id: 'account',
+          next_reconcile_at: '2026-08-09T09:59:00.000Z',
+        },
+        {
+          id: 'link_fail',
+          account_id: 'account',
+          next_reconcile_at: '2026-08-09T09:58:00.000Z',
+        },
+      ],
+    });
+    const recoverPaymentLink = vi
+      .fn()
+      .mockResolvedValueOnce('verified')
+      .mockRejectedValueOnce(new Error('provider unavailable'));
+
+    const result = await runRazorpayRecovery({
+      admin: admin as never,
+      providerMode: 'test',
+      dependencies: {
+        now: () => new Date('2026-08-09T10:00:00.000Z'),
+        owner: () => '00000000-0000-4000-8000-000000000004',
+        oauthEnabled: () => false,
+        recoverPaymentLink,
+      },
+    });
+
+    expect(result.paymentLinks).toEqual({
+      claimed: 2,
+      reconciled: 1,
+      failed: 1,
+      oldestAgeSeconds: 120,
+    });
+    expect(recoverPaymentLink).toHaveBeenCalledTimes(2);
+    expect(result.notes).toContain(
+      'payment-link:link_fail:provider unavailable'
+    );
+  });
 });

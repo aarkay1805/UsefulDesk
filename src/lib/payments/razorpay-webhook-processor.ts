@@ -4,6 +4,10 @@ import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { toRupees } from './razorpay';
+import {
+  settleVerifiedPaymentLink,
+  verifyPaymentLinkTerminal,
+} from './razorpay-payment-links';
 import type {
   RazorpayWebhookDeliveryIdentity,
   RazorpayWebhookIngress,
@@ -23,7 +27,14 @@ export interface RazorpayEvent {
   payload: {
     subscription?: { entity: RazorpaySubEntity };
     payment?: { entity: RazorpayPaymentEntity };
+    payment_link?: { entity: RazorpayPaymentLinkEntity };
   };
+}
+
+interface RazorpayPaymentLinkEntity {
+  id: string;
+  status: string;
+  reference_id?: string;
 }
 
 interface RazorpaySubEntity {
@@ -225,6 +236,7 @@ async function handleRazorpayEvent(
 
   const sub = event.payload.subscription?.entity;
   const payment = event.payload.payment?.entity;
+  const paymentLink = event.payload.payment_link?.entity;
   const notesAccount = sub?.notes?.account_id;
   if (notesAccount && notesAccount !== accountId) {
     throw new Error(
@@ -233,6 +245,44 @@ async function handleRazorpayEvent(
   }
 
   switch (event.event) {
+    case 'payment_link.paid':
+    case 'payment_link.partially_paid': {
+      if (!paymentLink?.id || !payment?.id) {
+        throw new Error(
+          'Payment Link event is missing link or payment identity'
+        );
+      }
+      const result = await settleVerifiedPaymentLink({
+        admin,
+        accountId,
+        gatewayLinkId: paymentLink.id,
+        gatewayPaymentId: payment.id,
+        webhookEventId,
+        partial: event.event === 'payment_link.partially_paid',
+      });
+      if (result.outcome === 'exception') {
+        console.warn(
+          `[razorpay webhook] Payment Link payment ${payment.id} preserved as an exception`
+        );
+      }
+      return;
+    }
+
+    case 'payment_link.cancelled':
+    case 'payment_link.expired': {
+      if (!paymentLink?.id) {
+        throw new Error('Payment Link terminal event is missing link identity');
+      }
+      await verifyPaymentLinkTerminal({
+        admin,
+        accountId,
+        gatewayLinkId: paymentLink.id,
+        expectedStatus:
+          event.event === 'payment_link.cancelled' ? 'cancelled' : 'expired',
+      });
+      return;
+    }
+
     case 'subscription.authenticated':
     case 'subscription.activated': {
       if (!sub) return;

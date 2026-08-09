@@ -29,6 +29,8 @@ export async function GET() {
       missingLedger,
       unappliedCharges,
       setupExceptions,
+      paymentLinkExceptions,
+      paymentLinkSetupExceptions,
     ] = await Promise.all([
       getRazorpayConnectionStatus(admin, ctx.accountId),
       admin
@@ -64,6 +66,18 @@ export async function GET() {
         .or(
           'status.in.(creating,orphaned),and(setup_error.not.is.null,gateway_subscription_id.not.is.null)'
         ),
+      admin
+        .from('gateway_payment_exceptions')
+        .select('id, reason_message', { count: 'exact' })
+        .eq('account_id', ctx.accountId)
+        .eq('status', 'open')
+        .order('first_seen_at', { ascending: false })
+        .limit(20),
+      admin
+        .from('razorpay_payment_links')
+        .select('id', { count: 'exact', head: true })
+        .eq('account_id', ctx.accountId)
+        .in('status', ['orphaned']),
     ]);
 
     if (failedEvents.error) {
@@ -86,6 +100,16 @@ export async function GET() {
         `load Razorpay setup exceptions: ${setupExceptions.error.message}`
       );
     }
+    if (paymentLinkExceptions.error) {
+      throw new Error(
+        `load Razorpay Payment Link exceptions: ${paymentLinkExceptions.error.message}`
+      );
+    }
+    if (paymentLinkSetupExceptions.error) {
+      throw new Error(
+        `load Razorpay Payment Link setup exceptions: ${paymentLinkSetupExceptions.error.message}`
+      );
+    }
 
     return NextResponse.json({
       connection,
@@ -96,6 +120,10 @@ export async function GET() {
         unappliedChargeCount: unappliedCharges.count ?? 0,
         unappliedCharges: unappliedCharges.data ?? [],
         setupExceptionCount: setupExceptions.count ?? 0,
+        paymentLinkExceptionCount: paymentLinkExceptions.count ?? 0,
+        paymentLinkSetupExceptionCount: paymentLinkSetupExceptions.count ?? 0,
+        latestPaymentLinkReason:
+          paymentLinkExceptions.data?.[0]?.reason_message ?? null,
       },
     });
   } catch (error) {

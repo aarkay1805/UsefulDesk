@@ -150,6 +150,38 @@ export interface RazorpaySubscription {
   current_end?: number;
 }
 
+export interface RazorpayPaymentLink {
+  id: string;
+  entity: 'payment_link';
+  amount: number;
+  amount_paid: number;
+  currency: string;
+  accept_partial: boolean;
+  reference_id: string;
+  short_url: string;
+  status: 'created' | 'partially_paid' | 'paid' | 'cancelled' | 'expired';
+  expire_by: number;
+  notes?: Record<string, string>;
+  payments?: Array<{
+    payment_id: string;
+    amount: number;
+    status: string;
+    method?: string;
+  }> | null;
+}
+
+export interface RazorpayPayment {
+  id: string;
+  entity: 'payment';
+  amount: number;
+  currency: string;
+  status: string;
+  method?: string;
+  captured?: boolean;
+  payment_link_id?: string;
+  notes?: Record<string, string>;
+}
+
 // ---- higher-level flows -------------------------------------------
 
 export async function createCustomer(
@@ -245,6 +277,77 @@ export async function cancelSubscription(
     creds,
     `/subscriptions/${subscriptionId}/cancel`,
     { method: 'POST', body: { cancel_at_cycle_end: cancelAtCycleEnd ? 1 : 0 } }
+  );
+}
+
+export async function createPaymentLink(
+  creds: RazorpayAuthentication,
+  input: {
+    amountSubunits: number;
+    currency: 'INR';
+    expireBy: number;
+    referenceId: string;
+    description: string;
+    customer?: { name?: string; contact?: string; email?: string };
+    notes: Record<string, string>;
+  }
+): Promise<RazorpayPaymentLink> {
+  return razorpayFetch<RazorpayPaymentLink>(creds, '/payment_links', {
+    method: 'POST',
+    body: {
+      amount: input.amountSubunits,
+      currency: input.currency,
+      accept_partial: false,
+      expire_by: input.expireBy,
+      reference_id: input.referenceId,
+      description: input.description,
+      customer: input.customer,
+      notify: { sms: false, email: false },
+      reminder_enable: false,
+      notes: input.notes,
+    },
+  });
+}
+
+export async function fetchPaymentLink(
+  creds: RazorpayAuthentication,
+  paymentLinkId: string
+): Promise<RazorpayPaymentLink> {
+  return razorpayFetch<RazorpayPaymentLink>(
+    creds,
+    `/payment_links/${encodeURIComponent(paymentLinkId)}`
+  );
+}
+
+export async function listPaymentLinksByReference(
+  creds: RazorpayAuthentication,
+  referenceId: string
+): Promise<RazorpayPaymentLink[]> {
+  const result = await razorpayFetch<{ payment_links?: RazorpayPaymentLink[] }>(
+    creds,
+    `/payment_links?reference_id=${encodeURIComponent(referenceId)}&count=10`
+  );
+  return Array.isArray(result.payment_links) ? result.payment_links : [];
+}
+
+export async function cancelPaymentLink(
+  creds: RazorpayAuthentication,
+  paymentLinkId: string
+): Promise<RazorpayPaymentLink> {
+  return razorpayFetch<RazorpayPaymentLink>(
+    creds,
+    `/payment_links/${encodeURIComponent(paymentLinkId)}/cancel`,
+    { method: 'POST' }
+  );
+}
+
+export async function fetchPayment(
+  creds: RazorpayAuthentication,
+  paymentId: string
+): Promise<RazorpayPayment> {
+  return razorpayFetch<RazorpayPayment>(
+    creds,
+    `/payments/${encodeURIComponent(paymentId)}`
   );
 }
 

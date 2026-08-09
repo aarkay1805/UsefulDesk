@@ -987,7 +987,7 @@ export interface Expense {
 export type MembershipCollectionMode = 'manual' | 'auto';
 
 /** Provenance of a ledger row (migration 059). */
-export type PaymentSource = 'manual' | 'auto';
+export type PaymentSource = 'manual' | 'auto' | 'payment_link';
 
 export type MandateStatus =
   | 'creating'

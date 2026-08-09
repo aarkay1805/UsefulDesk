@@ -81,6 +81,8 @@ interface ConnectionHealth {
   missingLedgerCount: number;
   unappliedChargeCount: number;
   setupExceptionCount: number;
+  paymentLinkExceptionCount: number;
+  paymentLinkSetupExceptionCount: number;
   latestUnappliedReason: string | null;
 }
 
@@ -156,8 +158,13 @@ export function RazorpaySettingsCard() {
           missingLedgerCount: body.health.missingLedgerCount,
           unappliedChargeCount: body.health.unappliedChargeCount,
           setupExceptionCount: body.health.setupExceptionCount,
+          paymentLinkExceptionCount: body.health.paymentLinkExceptionCount,
+          paymentLinkSetupExceptionCount:
+            body.health.paymentLinkSetupExceptionCount,
           latestUnappliedReason:
-            body.health.unappliedCharges?.[0]?.reason_message ?? null,
+            body.health.latestPaymentLinkReason ??
+            body.health.unappliedCharges?.[0]?.reason_message ??
+            null,
         });
       } catch (error) {
         if (!cancelled) {
@@ -194,7 +201,9 @@ export function RazorpaySettingsCard() {
     ? health.failedEventCount +
       health.missingLedgerCount +
       health.unappliedChargeCount +
-      health.setupExceptionCount
+      health.setupExceptionCount +
+      health.paymentLinkExceptionCount +
+      health.paymentLinkSetupExceptionCount
     : 0;
   const oauthConnection = connection?.authenticationMode === 'oauth';
   const webhookUrl =

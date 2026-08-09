@@ -260,6 +260,11 @@ export function canManageMandates(role: AccountRole): boolean {
   return hasMinRole(role, 'agent');
 }
 
+/** Owner / admin / agent: create, copy, and send full-balance invoice links. */
+export function canManagePaymentLinks(role: AccountRole): boolean {
+  return hasMinRole(role, 'agent');
+}
+
 /**
  * Owner / admin: cancel a live auto-debit mandate (destructive — stops
  * the recurring collection) and edit the account's payment-gateway

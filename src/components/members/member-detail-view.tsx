@@ -1746,6 +1746,7 @@ export function MemberDetailView({
               open={invoiceOpen}
               onOpenChange={setInvoiceOpen}
               invoice={invoiceTarget}
+              member={membership}
               canRecord={canRecordGenericPayment}
               canVoid={accountRole ? canCorrectPayments(accountRole) : false}
               onVoidPayment={setPaymentToVoid}

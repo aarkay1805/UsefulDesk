@@ -20,6 +20,7 @@ import {
   canOverrideSalePrice,
   canVoidExpenses,
   canManageMandates,
+  canManagePaymentLinks,
   canConfigurePaymentGateway,
   canEditSettings,
   canManageMembers,
@@ -190,6 +191,13 @@ describe('capability predicates', () => {
     expect(canManageMandates('admin')).toBe(true);
     expect(canManageMandates('agent')).toBe(true);
     expect(canManageMandates('viewer')).toBe(false);
+  });
+
+  it('canManagePaymentLinks: agent+ (create / copy / send)', () => {
+    expect(canManagePaymentLinks('owner')).toBe(true);
+    expect(canManagePaymentLinks('admin')).toBe(true);
+    expect(canManagePaymentLinks('agent')).toBe(true);
+    expect(canManagePaymentLinks('viewer')).toBe(false);
   });
 
   it('canConfigurePaymentGateway: admin+ (creds / cancel mandate)', () => {

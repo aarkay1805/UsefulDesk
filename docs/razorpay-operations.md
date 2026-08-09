@@ -363,3 +363,83 @@ OAuth client secrets, the application and merchant webhook secrets, the isolated
 service-role key, and every other acceptance credential before the first live
 merchant authorisation. Do not rotate or touch a live credential as part of the
 isolated Test exercise without separate authority.
+
+## Stage 3 Payment Link acceptance
+
+Stage 3 was implemented and accepted on 2026-08-09 only in **UsefulDesk
+Razorpay Test** (`hkuqzmgnhhgecqcbwupb`), the isolated Vercel Test project, and
+Razorpay Test Mode merchant `acc_TCJwBqanN9LTrK`. Migrations
+`20260809140612_razorpay_payment_links.sql`,
+`20260809150500_payment_link_settlement_invalidation.sql`, and
+`20260809153500_index_payment_link_foreign_keys.sql` were applied through the
+approved Supabase connector; the recorded remote versions are `20260809142909`,
+`20260809151529`, and `20260809153444`. No `supabase db push` was used.
+
+The durable link state is `creating | created | cancel_requested | paid |
+cancelled | expired | orphaned | failed`. Reservation locks one active revision
+per invoice. Provider creation is INR, exact paise full balance,
+`accept_partial=false`, seven-day expiry, and one unique `udpl_<uuid>` reference
+with account/invoice/link notes. Creation failure searches by that reference and
+adopts only an exact contract match; recovery uses five-minute owner leases to
+adopt creating/orphaned links, verify stale active links, cancel invalidated
+links, and settle remotely paid links. Only `payment_link.paid` settles;
+`payment.captured` remains non-financial. Unsafe captured or partial facts are
+contained in `gateway_payment_exceptions`, and gateway-originated payments are
+blocked from the manual void path.
+
+### Real Test lifecycle evidence
+
+- The signed-in Test owner created mixed-invoice link
+  `plink_TNhvWMuBAVA4aF` for exactly ₹1.00. A second Copy reused that same
+  provider/local identity. Razorpay Test card payment
+  `pay_TNi3WGJgRRCase` produced signed application event `TNi4boArXVByWA`
+  with raw SHA-256
+  `9dbf8dcfc16298a547c62ce8b294443831439318ed12ab53befc461840d1a914`.
+  The canonical handler completed once and created payment
+  `875d2f32-a00a-4824-a119-c937fc47595a`, `source='payment_link'`, with
+  ₹0.40 service and ₹0.60 merchandise allocations. The invoice balance became
+  zero. A controlled settlement replay returned `outcome='duplicate'` and the
+  same payment ID; it created no second payment or allocation.
+- The isolated merchant webhook was expanded in Razorpay Test from the seven
+  Subscription events to those seven plus `payment_link.paid`,
+  `payment_link.partially_paid`, `payment_link.expired`, and
+  `payment_link.cancelled`. The unrelated Test webhook row was not touched.
+- Revision exercise link `plink_TNiXkOTfl6BsBO` reserved ₹1.00. Changing its
+  synthetic service-adjustment line to ₹1.01 transactionally requested
+  cancellation. Razorpay cancellation emitted event `TNiizRkBY0dLpo`, raw hash
+  `381520292de4064fd651d9b6fd1b79d33e0a58ea04a9a8195d41df135b6b5f1c`.
+  Application arrived first and processed once; legacy arrived 1.038 seconds
+  later as shadow-only, with the identical event ID/hash and no mutation.
+- Revision 2 created unique exact-₹1.01 link `plink_TNijewByCEsiUw`; a second
+  Copy reused it. Razorpay Test payment `pay_TNiktFgXrBvGZP` emitted signed
+  `payment_link.paid` event `TNilK8pGmgYG0W`, raw hash
+  `f54789c32a684b4028b88ef824bdb6b7e6060264d968970b2508c1685d82c804`.
+  Application processed once and legacy arrived 0.432 seconds later as an
+  identical shadow observation. One immutable ₹1.01 payment and one exact
+  service-adjustment allocation settled the invoice. The paid link retained no
+  cancellation reason, proving settlement's own ledger triggers do not
+  invalidate it.
+- An authenticated Test-owner call to the existing void RPC against the first
+  gateway payment was rejected with the provider-refund-workflow guard; the
+  payment remained `paid` with no void timestamp or reason.
+- The final Test database has three terminal Stage 3 links (two paid, one
+  cancelled), two Payment Link payments, zero active/failed links, zero active
+  recovery leases, zero unresolved Razorpay events, zero open payment or charge
+  exceptions, and no canonical `payment.captured` event from the exercise.
+  Security/performance advisors report no errors; the service-only exception
+  table's RLS-without-browser-policy notice is intentional, and the five new FK
+  indexes are expected to remain unused until operator/exception lookups occur.
+
+The Meta Utility template `gym_payment_link` is not approved in the Test
+account. The UI therefore disabled **Send payment link** with setup guidance,
+while **Copy link**, creation, verified settlement, cancellation, revision, and
+reconciliation remained available and passed. No WhatsApp Send acceptance is
+claimed.
+
+The temporary OAuth window used deployment
+`dpl_3TCVLunnfZefJzGLEVhPS4h2i4y3`; manual rollback remained false. READY
+deployment `dpl_AKMLBbZUXfRcMKbfuZ7eoK8VpxPs` restored the public Test alias
+with `RAZORPAY_OAUTH_ENABLED=false`,
+`RAZORPAY_MANUAL_ROLLBACK_ENABLED=false`, and `RAZORPAY_MODE=test`. This
+acceptance authorizes no other account, production/Live Mode, real money,
+legacy-endpoint retirement, credential rotation, or Stage 4 refund work.

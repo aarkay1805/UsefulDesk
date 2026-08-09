@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Repeat, RotateCcw, Wallet } from 'lucide-react';
+import { Link2, Loader2, Repeat, RotateCcw, Wallet } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +37,7 @@ import type {
   MembershipPeriodInvoice,
   Payment,
   PaymentMethod,
+  Membership,
 } from '@/types';
 import {
   CopyUpiLinkButton,
@@ -48,6 +49,7 @@ import {
 } from '../members/membership-status-badge';
 import { PaymentProofLink } from '../members/payment-proof-link';
 import { useAccountStaff } from '../members/use-account-staff';
+import { PaymentLinkActions } from './payment-link-actions';
 
 export type InvoiceDetail = Pick<
   FinanceInvoiceRow,
@@ -60,7 +62,7 @@ export type InvoiceDetail = Pick<
   | 'credit_applied'
   | 'balance'
   | 'state'
->;
+> & { membership?: Membership | null };
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: 'Cash',
@@ -326,6 +328,10 @@ function InvoiceDetailBody({
                       <Badge variant="info">
                         <Repeat className="size-3" /> Auto
                       </Badge>
+                    ) : payment.source === 'payment_link' ? (
+                      <Badge variant="info">
+                        <Link2 className="size-3" /> Payment link
+                      </Badge>
                     ) : null}
                   </div>
                   <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs">
@@ -350,7 +356,13 @@ function InvoiceDetailBody({
                           <span>Recorded by Former teammate</span>
                         )}
                       </>
-                    ) : payment.source === 'auto' ? null : (
+                    ) : payment.source === 'auto' ? null : payment.source ===
+                      'payment_link' ? (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span>Collected by Razorpay</span>
+                      </>
+                    ) : (
                       <>
                         <span aria-hidden="true">·</span>
                         <span>Recorder unavailable</span>
@@ -386,7 +398,12 @@ function InvoiceDetailBody({
                   >
                     {fmt.money(payment.amount)}
                   </p>
-                  {payment.status === 'paid' && canVoid && onVoidPayment ? (
+                  {payment.status === 'paid' &&
+                  payment.source !== 'auto' &&
+                  payment.source !== 'payment_link' &&
+                  !payment.gateway_payment_id &&
+                  canVoid &&
+                  onVoidPayment ? (
                     <Button
                       type="button"
                       variant="ghost"
@@ -412,6 +429,7 @@ export function InvoiceDetailDialog({
   onOpenChange,
   canRecord,
   canVoid = false,
+  member,
   onRecord,
   onVoidPayment,
 }: {
@@ -420,6 +438,7 @@ export function InvoiceDetailDialog({
   onOpenChange: (open: boolean) => void;
   canRecord: boolean;
   canVoid?: boolean;
+  member?: Membership | null;
   onRecord: () => void;
   onVoidPayment?: (payment: Payment) => void;
 }) {
@@ -463,6 +482,11 @@ export function InvoiceDetailDialog({
         <DialogFooter showCloseButton>
           {collectible ? (
             <>
+              <PaymentLinkActions
+                key={invoice!.id}
+                invoice={invoice!}
+                member={member ?? invoice!.membership ?? null}
+              />
               <CopyUpiLinkButton
                 upi={upi}
                 amount={Number(invoice!.balance)}

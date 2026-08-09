@@ -15,6 +15,10 @@ import {
   processClaimedRazorpayWebhook,
   type RazorpayEvent,
 } from './razorpay-webhook-processor';
+import {
+  recoverClaimedPaymentLink,
+  type LocalPaymentLink,
+} from './razorpay-payment-links';
 
 const RECOVERY_BATCH_LIMIT = 100;
 const RECOVERY_LEASE_SECONDS = 300;
@@ -47,6 +51,11 @@ interface RecoveryDependencies {
     admin: SupabaseClient;
     accountId: string;
   }): Promise<unknown>;
+  recoverPaymentLink(input: {
+    admin: SupabaseClient;
+    link: LocalPaymentLink;
+    recoveryOwner: string;
+  }): Promise<string>;
 }
 
 export interface RazorpayRecoveryResult {
@@ -63,6 +72,12 @@ export interface RazorpayRecoveryResult {
     skippedNotDue: number;
     failed: number;
   };
+  paymentLinks: {
+    claimed: number;
+    reconciled: number;
+    failed: number;
+    oldestAgeSeconds: number | null;
+  };
   notes: string[];
 }
 
@@ -77,6 +92,7 @@ export async function runRazorpayRecovery(input: {
     oauthEnabled: () => isRazorpayOAuthEnabled(),
     processClaimed: processClaimedRazorpayWebhook,
     refreshConnection: refreshStoredRazorpayOAuthConnection,
+    recoverPaymentLink: recoverClaimedPaymentLink,
     ...input.dependencies,
   };
   const result: RazorpayRecoveryResult = {
@@ -87,6 +103,12 @@ export async function runRazorpayRecovery(input: {
       refreshed: 0,
       skippedNotDue: 0,
       failed: 0,
+    },
+    paymentLinks: {
+      claimed: 0,
+      reconciled: 0,
+      failed: 0,
+      oldestAgeSeconds: null,
     },
     notes: [],
   };
@@ -148,6 +170,50 @@ export async function runRazorpayRecovery(input: {
       if (failError) {
         result.notes.push(`webhook:${row.event_id}:fail:${failError.message}`);
       }
+    }
+  }
+
+  const linkOwner = dependencies.owner();
+  const { data: linkRows, error: linkError } = await input.admin.rpc(
+    'claim_razorpay_payment_link_recovery_batch',
+    {
+      p_provider_mode: input.providerMode,
+      p_recovery_owner: linkOwner,
+      p_limit: RECOVERY_BATCH_LIMIT,
+      p_lease_seconds: RECOVERY_LEASE_SECONDS,
+    }
+  );
+  if (linkError) {
+    throw new Error(
+      `claim Razorpay Payment Link recovery: ${linkError.message}`
+    );
+  }
+  const links = (Array.isArray(linkRows) ? linkRows : []) as LocalPaymentLink[];
+  result.paymentLinks.claimed = links.length;
+  if (links.length) {
+    const oldest = Math.min(
+      ...links.map((link) =>
+        new Date(link.next_reconcile_at ?? new Date()).getTime()
+      )
+    );
+    result.paymentLinks.oldestAgeSeconds = Math.max(
+      0,
+      Math.floor((dependencies.now().getTime() - oldest) / 1000)
+    );
+  }
+  for (const link of links) {
+    try {
+      await dependencies.recoverPaymentLink({
+        admin: input.admin,
+        link,
+        recoveryOwner: linkOwner,
+      });
+      result.paymentLinks.reconciled += 1;
+    } catch (error) {
+      result.paymentLinks.failed += 1;
+      result.notes.push(
+        `payment-link:${link.id}:${boundedRazorpayError(error)}`
+      );
     }
   }
 
