@@ -103,6 +103,57 @@ export function shouldSimulateAmbiguousRefundCreate(
   );
 }
 
+export function shouldArmRefundWebhookRetryAcceptance(): boolean {
+  return (
+    getRazorpayProviderMode() === 'test' &&
+    process.env.RAZORPAY_PROVIDER_ACCEPTANCE_ONLY === 'true' &&
+    process.env.RAZORPAY_REFUND_WEBHOOK_RETRY_ACCEPTANCE === 'true'
+  );
+}
+
+function assertRefundRetryAcceptanceConfiguration(): void {
+  if (
+    process.env.RAZORPAY_REFUND_WEBHOOK_RETRY_ACCEPTANCE === 'true' &&
+    !shouldArmRefundWebhookRetryAcceptance()
+  ) {
+    throw new RefundConflictError(
+      'Refund retry acceptance is available only in the isolated Razorpay Test acceptance deployment.'
+    );
+  }
+  if (
+    process.env.RAZORPAY_REFUND_WEBHOOK_RETRY_ACCEPTANCE === 'true' &&
+    process.env.RAZORPAY_REFUND_AMBIGUOUS_CREATE_ACCEPTANCE === 'true'
+  ) {
+    throw new RefundConflictError(
+      'Refund retry and ambiguous-create acceptance cannot run together.'
+    );
+  }
+}
+
+async function armRefundWebhookRetryAcceptance(input: {
+  admin: SupabaseClient;
+  accountId: string;
+  userId: string;
+  refundId: string;
+}): Promise<void> {
+  if (!shouldArmRefundWebhookRetryAcceptance()) return;
+  const { data, error } = await input.admin.rpc(
+    'arm_razorpay_refund_retry_acceptance',
+    {
+      p_account_id: input.accountId,
+      p_provider_mode: 'test',
+      p_expected_refund_id: input.refundId,
+      p_armed_by: input.userId,
+      p_ttl_seconds: 600,
+    }
+  );
+  if (error || !data) {
+    throw new Error(
+      `arm Razorpay refund retry acceptance: ${error?.message ?? 'no acceptance row returned'}`
+    );
+  }
+}
+
 export function canonicalRefundRequest(refund: LocalGatewayRefund): {
   body: string;
   sha256: string;
@@ -544,6 +595,7 @@ export async function requestFullGatewayRefund(input: {
   reason: string;
   idempotencyKey: string;
 }) {
+  assertRefundRetryAcceptanceConfiguration();
   await requireInitialRefundScan(input.admin, input.accountId);
   const connection = await getRazorpayConnection(input.admin, input.accountId);
   if (!connection) throw new RefundConflictError('Razorpay is not connected');
@@ -585,6 +637,22 @@ export async function requestFullGatewayRefund(input: {
       paymentError ?? new Error('Gateway payment identity is missing')
     );
     throw new Error('Gateway payment identity is missing');
+  }
+  try {
+    await armRefundWebhookRetryAcceptance({
+      admin: input.admin,
+      accountId: input.accountId,
+      userId: input.userId,
+      refundId: reservation.refund.id,
+    });
+  } catch (acceptanceError) {
+    await definitiveFailure(
+      input.admin,
+      reservation.refund,
+      owner,
+      acceptanceError
+    );
+    throw acceptanceError;
   }
   await sendAndFinalize({
     admin: input.admin,

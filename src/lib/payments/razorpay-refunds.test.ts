@@ -11,6 +11,7 @@ import {
 } from './razorpay';
 import {
   isUsefulDeskRefundId,
+  shouldArmRefundWebhookRetryAcceptance,
   shouldSimulateAmbiguousRefundCreate,
 } from './razorpay-refunds';
 
@@ -48,6 +49,19 @@ describe('Razorpay refund REST contract', () => {
     expect(
       shouldSimulateAmbiguousRefundCreate({ reconcile_attempt_count: 0 })
     ).toBe(false);
+  });
+
+  it('arms refund webhook retry only in the isolated Test acceptance deployment', () => {
+    vi.stubEnv('RAZORPAY_MODE', 'test');
+    vi.stubEnv('RAZORPAY_PROVIDER_ACCEPTANCE_ONLY', 'true');
+    vi.stubEnv('RAZORPAY_REFUND_WEBHOOK_RETRY_ACCEPTANCE', 'true');
+    expect(shouldArmRefundWebhookRetryAcceptance()).toBe(true);
+
+    vi.stubEnv('RAZORPAY_PROVIDER_ACCEPTANCE_ONLY', 'false');
+    expect(shouldArmRefundWebhookRetryAcceptance()).toBe(false);
+    vi.stubEnv('RAZORPAY_PROVIDER_ACCEPTANCE_ONLY', 'true');
+    vi.stubEnv('RAZORPAY_MODE', 'live');
+    expect(shouldArmRefundWebhookRetryAcceptance()).toBe(false);
   });
 
   it('reuses exact canonical bytes and the stable provider idempotency key', async () => {

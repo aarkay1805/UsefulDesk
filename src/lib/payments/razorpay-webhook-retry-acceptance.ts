@@ -22,21 +22,28 @@ export async function consumeRazorpayRetryAcceptance(input: {
   event: RazorpayEvent;
 }): Promise<RazorpayRetryAcceptanceDecision> {
   const subscriptionId = input.event.payload.subscription?.entity.id;
-  if (!subscriptionId) return { action: 'pass', acceptanceId: null };
+  const refundId =
+    input.event.payload.refund?.entity.notes?.usefuldesk_refund_id ?? null;
+  if (!subscriptionId && !isUsefulDeskRefundIdentity(refundId)) {
+    return { action: 'pass', acceptanceId: null };
+  }
 
-  const { data, error } = await input.admin.rpc(
-    'consume_razorpay_webhook_retry_acceptance',
-    {
-      p_account_id: input.accountId,
-      p_provider_mode: 'test',
-      p_event_type: input.event.event,
-      p_subscription_id: subscriptionId,
-      p_provider_event_id: input.providerEventId,
-      p_event_identity_source: input.eventIdentitySource,
-      p_payload_sha256: input.payloadSha256,
-      p_signature_generation: input.signatureGeneration,
-    }
-  );
+  const rpc = subscriptionId
+    ? 'consume_razorpay_webhook_retry_acceptance'
+    : 'consume_razorpay_refund_retry_acceptance';
+  const target = subscriptionId
+    ? { p_subscription_id: subscriptionId }
+    : { p_refund_id: refundId };
+  const { data, error } = await input.admin.rpc(rpc, {
+    p_account_id: input.accountId,
+    p_provider_mode: 'test',
+    p_event_type: input.event.event,
+    p_provider_event_id: input.providerEventId,
+    p_event_identity_source: input.eventIdentitySource,
+    p_payload_sha256: input.payloadSha256,
+    p_signature_generation: input.signatureGeneration,
+    ...target,
+  });
   if (error) {
     throw new Error(`consume Razorpay retry acceptance: ${error.message}`);
   }
@@ -55,6 +62,15 @@ export async function consumeRazorpayRetryAcceptance(input: {
     acceptanceId:
       typeof row.acceptance_id === 'string' ? row.acceptance_id : null,
   };
+}
+
+function isUsefulDeskRefundIdentity(value: string | null): value is string {
+  return Boolean(
+    value &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value
+    )
+  );
 }
 
 export async function acknowledgeRazorpayRetryAcceptance(input: {

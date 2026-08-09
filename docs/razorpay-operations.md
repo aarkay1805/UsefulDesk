@@ -450,8 +450,9 @@ Stage 4 was implemented and exercised on 2026-08-09/10 only in **UsefulDesk
 Razorpay Test** (`hkuqzmgnhhgecqcbwupb`), the isolated Vercel Test project, and
 Razorpay Test Mode. It is not accepted under the task's strict final gate; see
 the blockers below. Migrations `20260809165718`, `20260809171336`,
-`20260809171510`, and `20260809172816` were applied only through the approved
-Supabase connector. Never substitute `supabase db push`.
+`20260809171510`, `20260809172816`, and the additive Test-acceptance migration
+`20260809185043` were applied only through the approved Supabase connector.
+Never substitute `supabase db push`.
 
 The release permits only a payment's full remaining refundable amount. The
 admin-only route reserves immutable canonical request bytes/hash and a provider
@@ -497,6 +498,15 @@ before using the same service-only finalization/import functions.
   unchanged, made collectible balance zero, disabled unsafe actions/reminders,
   and created the visible `partial_refund_line_target_required` exception.
   This release must not allocate, classify, or clear that partial refund.
+- A fresh ₹1.03 Payment Link `plink_TNmLBcB5CH4NR9` settled as
+  `pay_TNmNAOYec3Z8Jy`, after which UsefulDesk requested full `reopen_balance`
+  refund `rfnd_TNmPln6l55dKxs`. The Test-only refund-retry acceptance returned
+  503 to the first valid signed application delivery of event
+  `TNmQOT5sYfpjpn`. Razorpay redelivered the identical event ID and raw-body
+  SHA-256 `894688dc045148c1539f40e7f0ad0e91b20b8ab6ad8facf6e5fef7940884084d`
+  1.257 seconds later; the retry received 200 and one canonical attempt
+  finalized exactly one ₹1.03 immutable refund allocation with no adjustment.
+  Net paid is ₹0, collectible balance is ₹1.03, and no review hold exists.
 
 Finance Overview, invoice health, invoices, payments, recent transactions, and
 the downloaded August invoice CSV were checked against these rows. The CSV
@@ -516,17 +526,24 @@ canonical Razorpay event is processed; no refund is creating, pending, or
 orphaned. Two deliberate provider-400 attempts against the older AutoPay
 payment are terminal `failed` rows with no gateway refund or accounting effect.
 
-Do **not** mark Stage 4 accepted yet. The required external-partial exercise
-must retain one unresolved line-targeting exception by design, which conflicts
-with the task's strict zero-unresolved-exception gate. Razorpay also did not
-redeliver the Stage 4 refund event, so there is no genuine refund-specific
-duplicate/replay observation; the Stage 2 controlled-503 retry proves only the
-shared canonical claim machinery. Keep these as explicit pending evidence—do
-not manufacture a signature or clear the partial exception.
+Migration `20260809185043` extends the service-only, Test-only retry acceptance
+to one exact fresh local refund UUID read from signed provider notes. It is
+mutually exclusive with ambiguity acceptance, returns 503 only after signature,
+routing, and first-delivery identity/hash persistence, and permits only the
+identical provider redelivery to enter the canonical claim path. This is an
+acceptance harness, not production behavior.
 
-After the exercise, READY deployment `dpl_JB2XKxvf7MBqUJ53u9ajMSaDJisF`
-restored `RAZORPAY_OAUTH_ENABLED=false` and
-`RAZORPAY_REFUND_AMBIGUOUS_CREATE_ACCEPTANCE=false`; manual rollback remains
-false and provider mode remains Test. No account expansion, production/Live
-Mode, real money, Stage 5, legacy retirement, or credential rotation is
-authorized.
+Do **not** mark Stage 4 accepted yet. The genuine refund-specific duplicate and
+retry evidence is complete, every canonical event is processed, and there are
+zero unresolved charge exceptions. The required external-partial exercise must
+retain one unresolved line-targeting exception by design, which conflicts with
+the task's strict zero-unresolved-exception gate. Keep that exact pending
+evidence—do not clear it, manufacture line allocations, or redefine the gate.
+
+After the exercise, READY deployment `dpl_7s1VtoUyXyUb3V2JiPqTCyovxsRj`
+restored `RAZORPAY_OAUTH_ENABLED=false`,
+`RAZORPAY_MANUAL_ROLLBACK_ENABLED=false`,
+`RAZORPAY_REFUND_AMBIGUOUS_CREATE_ACCEPTANCE=false`, and
+`RAZORPAY_REFUND_WEBHOOK_RETRY_ACCEPTANCE=false`; provider mode remains Test.
+No account expansion, production/Live Mode, real money, Stage 5, legacy
+retirement, or credential rotation is authorized.

@@ -17,6 +17,13 @@ const triggerMigration = fs.readFileSync(
   ),
   'utf8'
 );
+const refundMigration = fs.readFileSync(
+  path.join(
+    process.cwd(),
+    'supabase/migrations/20260809185043_extend_retry_acceptance_to_refunds.sql'
+  ),
+  'utf8'
+);
 
 describe('Razorpay provider retry acceptance schema contract', () => {
   it('is structurally Test-only, service-only, one-shot, and time-bounded', () => {
@@ -82,9 +89,7 @@ describe('Razorpay provider retry acceptance schema contract', () => {
     expect(triggerMigration).toContain(
       'v_acceptance.provider_triggered_at IS NOT NULL'
     );
-    expect(triggerMigration).toContain(
-      "v_credentials.provider_mode <> 'test'"
-    );
+    expect(triggerMigration).toContain("v_credentials.provider_mode <> 'test'");
     expect(triggerMigration).toContain(
       "v_credentials.canonical_webhook_ingress <> 'application'"
     );
@@ -97,5 +102,35 @@ describe('Razorpay provider retry acceptance schema contract', () => {
     expect(triggerMigration).toMatch(
       /GRANT EXECUTE ON FUNCTION public\.trigger_razorpay_webhook_retry_acceptance\([\s\S]+TO service_role/
     );
+  });
+
+  it('extends the one-shot audit only to an exact fresh UsefulDesk refund', () => {
+    expect(refundMigration).toContain("'refund.processed'");
+    expect(refundMigration).toContain('expected_refund_id UUID');
+    expect(refundMigration).toContain("v_refund.source <> 'usefuldesk'");
+    expect(refundMigration).toContain("v_refund.status <> 'creating'");
+    expect(refundMigration).toContain(
+      "event.payload #>> '{payload,refund,entity,notes,usefuldesk_refund_id}'"
+    );
+    expect(refundMigration).toContain('first_response_status = 503');
+    expect(refundMigration).toContain("'action', 'redelivery'");
+  });
+
+  it('keeps refund acceptance RPCs service-role-only', () => {
+    for (const name of [
+      'arm_razorpay_refund_retry_acceptance',
+      'consume_razorpay_refund_retry_acceptance',
+    ]) {
+      expect(refundMigration).toMatch(
+        new RegExp(
+          `REVOKE ALL ON FUNCTION public\\.${name}\\([\\s\\S]+FROM PUBLIC, anon, authenticated`
+        )
+      );
+      expect(refundMigration).toMatch(
+        new RegExp(
+          `GRANT EXECUTE ON FUNCTION public\\.${name}\\([\\s\\S]+TO service_role`
+        )
+      );
+    }
   });
 });
