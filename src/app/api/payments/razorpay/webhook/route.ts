@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { verifyWebhookSignature } from '@/lib/payments/razorpay';
@@ -10,13 +10,20 @@ import {
   type RazorpayWebhookSignatureGeneration,
 } from '@/lib/payments/razorpay-webhook-delivery';
 import { RazorpayWebhookObservationError } from '@/lib/payments/razorpay-webhook-observation';
+import {
+  createRazorpayWebhookEventStore,
+  parseRazorpayEvent,
+  processClaimedRazorpayWebhook,
+} from '@/lib/payments/razorpay-webhook-processor';
 
 export const runtime = 'nodejs';
 
 /**
- * Durable observation-only application webhook. Stage 2 deliberately stops
- * before canonical processing until real legacy/application parity has been
- * proven and the account-scoped ingress selector is cut over.
+ * Razorpay application webhook for the isolated Stage 2 rollout. Every signed
+ * delivery is observed. A resolved account may claim canonical state only
+ * after its atomic selector has moved to `application`; legacy-selected rows
+ * remain observation-only. Durable claim precedes the fast acknowledgement,
+ * while `after()` and the recovery cron share the same owner-leased processor.
  */
 export async function POST(request: Request) {
   let providerMode;
@@ -60,6 +67,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    const event = parseRazorpayEvent(rawBody);
     const preliminary = buildRazorpayWebhookDeliveryIdentity({
       rawBody,
       headerEventId: request.headers.get('x-razorpay-event-id'),
@@ -67,7 +75,7 @@ export async function POST(request: Request) {
       externalAccountId: '',
     });
     const externalAccountId = preliminary.observation.accountId;
-    if (!externalAccountId) {
+    if (!externalAccountId || event.account_id !== externalAccountId) {
       return NextResponse.json(
         { error: 'missing_account_id' },
         { status: 400 }
@@ -85,19 +93,7 @@ export async function POST(request: Request) {
       providerMode,
       externalAccountId
     );
-
-    // A canonical application event must never be acknowledged by an
-    // observation-only build. This fail-closed branch also protects against
-    // an operator flipping the database selector before parity acceptance.
-    if (resolved?.canonicalIngress === 'application') {
-      console.error(
-        '[razorpay application webhook] canonical ingress selected before the processor is enabled'
-      );
-      return NextResponse.json(
-        { error: 'Canonical application ingress is not enabled' },
-        { status: 503 }
-      );
-    }
+    const canonical = resolved?.canonicalIngress === 'application';
 
     await recordRazorpayWebhookDelivery(admin, {
       providerMode,
@@ -106,20 +102,70 @@ export async function POST(request: Request) {
       externalAccountId,
       accountId: resolved?.accountId ?? null,
       signatureSecretGeneration: signatureGeneration,
-      shadowOnly: true,
+      shadowOnly: !canonical,
     });
-    return NextResponse.json({ ok: true, observed: true });
+
+    if (!canonical) {
+      return NextResponse.json({ ok: true, observed: true });
+    }
+
+    const { store, processingOwner } = createRazorpayWebhookEventStore({
+      admin,
+      accountId: resolved?.accountId ?? null,
+      externalAccountId,
+      providerMode,
+      identity,
+      event,
+    });
+    const claim = await store.claim();
+    if (claim === 'conflict') {
+      return NextResponse.json(
+        { error: 'Event id conflicts with another canonical event' },
+        { status: 409 }
+      );
+    }
+    if (claim === 'processed') {
+      return NextResponse.json({ ok: true, deduped: true });
+    }
+    if (claim === 'busy') {
+      return NextResponse.json({ ok: true, processing: true });
+    }
+
+    after(async () => {
+      try {
+        const result = await processClaimedRazorpayWebhook({
+          admin,
+          accountId: resolved?.accountId ?? null,
+          eventId: identity.providerEventId,
+          processingOwner,
+          event,
+          ingress: 'application',
+        });
+        if (result.outcome === 'failed') {
+          console.error(
+            '[razorpay application webhook] canonical handler failed:',
+            result.error
+          );
+        }
+      } catch (error) {
+        console.error(
+          '[razorpay application webhook] post-response processing failed:',
+          error
+        );
+      }
+    });
+    return NextResponse.json({ ok: true, accepted: true });
   } catch (error) {
     if (error instanceof RazorpayWebhookObservationError) {
       const status = error.code === 'payload_too_large' ? 413 : 400;
       return NextResponse.json({ error: error.code }, { status });
     }
-    console.error(
-      '[razorpay application webhook] delivery observation failed:',
-      error
-    );
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: 'malformed_payload' }, { status: 400 });
+    }
+    console.error('[razorpay application webhook] delivery failed:', error);
     return NextResponse.json(
-      { error: 'Could not persist delivery observation' },
+      { error: 'Could not persist webhook delivery' },
       { status: 500 }
     );
   }
