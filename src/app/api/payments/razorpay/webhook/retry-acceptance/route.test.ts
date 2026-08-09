@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   requireAccess: vi.fn(),
   rpc: vi.fn(),
+  getConnection: vi.fn(),
+  runOperation: vi.fn(),
+  cancelSubscription: vi.fn(),
 }));
 
 vi.mock('server-only', () => ({}));
@@ -12,6 +15,13 @@ vi.mock('@/lib/auth/account', async (importActual) => {
 });
 vi.mock('@/lib/automations/admin-client', () => ({
   supabaseAdmin: () => ({ rpc: mocks.rpc }),
+}));
+vi.mock('@/lib/payments/credentials', () => ({
+  getRazorpayConnection: mocks.getConnection,
+  runRazorpayOperation: mocks.runOperation,
+}));
+vi.mock('@/lib/payments/razorpay', () => ({
+  cancelSubscription: mocks.cancelSubscription,
 }));
 
 import { POST } from './route';
@@ -31,6 +41,16 @@ describe('Razorpay provider retry acceptance route', () => {
       },
       error: null,
     });
+    mocks.getConnection.mockResolvedValue({
+      accountId: 'account-id',
+      authenticationMode: 'oauth',
+      authentication: { mode: 'oauth', accessToken: 'test-token' },
+    });
+    mocks.runOperation.mockImplementation(
+      async (_admin, connection, operation) =>
+        operation(connection.authentication)
+    );
+    mocks.cancelSubscription.mockResolvedValue({ id: 'sub_test123' });
   });
 
   afterEach(() => {
@@ -74,6 +94,36 @@ describe('Razorpay provider retry acceptance route', () => {
         p_account_id: 'account-id',
         p_cancelled_by: 'user-id',
       }
+    );
+  });
+
+  it('audits and triggers provider cancellation for the exact armed subscription', async () => {
+    const acceptanceId = '13bd1e30-9a5a-4b59-9491-f8f740d32dc1';
+    mocks.rpc.mockResolvedValue({
+      data: {
+        acceptance_id: acceptanceId,
+        subscription_id: 'sub_test123',
+      },
+      error: null,
+    });
+
+    const response = await POST(
+      buildRequest({ action: 'trigger', acceptanceId })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'trigger_razorpay_webhook_retry_acceptance',
+      {
+        p_acceptance_id: acceptanceId,
+        p_account_id: 'account-id',
+        p_triggered_by: 'user-id',
+      }
+    );
+    expect(mocks.cancelSubscription).toHaveBeenCalledWith(
+      { mode: 'oauth', accessToken: 'test-token' },
+      'sub_test123',
+      false
     );
   });
 

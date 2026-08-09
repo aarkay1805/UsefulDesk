@@ -10,6 +10,13 @@ const migration = fs.readFileSync(
   ),
   'utf8'
 );
+const triggerMigration = fs.readFileSync(
+  path.join(
+    process.cwd(),
+    'supabase/migrations/20260809132000_audit_razorpay_retry_provider_trigger.sql'
+  ),
+  'utf8'
+);
 
 describe('Razorpay provider retry acceptance schema contract', () => {
   it('is structurally Test-only, service-only, one-shot, and time-bounded', () => {
@@ -68,5 +75,27 @@ describe('Razorpay provider retry acceptance schema contract', () => {
         )
       );
     }
+  });
+
+  it('audits a one-shot provider cancellation only while the exact Test acceptance is armed', () => {
+    expect(triggerMigration).toContain("v_acceptance.status <> 'armed'");
+    expect(triggerMigration).toContain(
+      'v_acceptance.provider_triggered_at IS NOT NULL'
+    );
+    expect(triggerMigration).toContain(
+      "v_credentials.provider_mode <> 'test'"
+    );
+    expect(triggerMigration).toContain(
+      "v_credentials.canonical_webhook_ingress <> 'application'"
+    );
+    expect(triggerMigration).toContain(
+      'provider_triggered_by = p_triggered_by'
+    );
+    expect(triggerMigration).toMatch(
+      /REVOKE ALL ON FUNCTION public\.trigger_razorpay_webhook_retry_acceptance\([\s\S]+FROM PUBLIC, anon, authenticated/
+    );
+    expect(triggerMigration).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.trigger_razorpay_webhook_retry_acceptance\([\s\S]+TO service_role/
+    );
   });
 });

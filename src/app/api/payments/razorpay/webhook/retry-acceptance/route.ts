@@ -7,6 +7,11 @@ import {
 } from '@/lib/auth/account';
 import { requireSameOriginRequest } from '@/lib/auth/csrf';
 import { getRazorpayProviderMode } from '@/lib/payments/razorpay-config';
+import {
+  getRazorpayConnection,
+  runRazorpayOperation,
+} from '@/lib/payments/credentials';
+import { cancelSubscription } from '@/lib/payments/razorpay';
 
 export const runtime = 'nodejs';
 
@@ -52,9 +57,53 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, cancelled: true });
     }
 
+    if (body.action === 'trigger') {
+      const acceptanceId =
+        typeof body.acceptanceId === 'string' ? body.acceptanceId.trim() : '';
+      if (!isUuid(acceptanceId)) {
+        return NextResponse.json(
+          { error: 'A valid acceptance id is required' },
+          { status: 400 }
+        );
+      }
+      const admin = supabaseAdmin();
+      const { data, error } = await admin.rpc(
+        'trigger_razorpay_webhook_retry_acceptance',
+        {
+          p_acceptance_id: acceptanceId,
+          p_account_id: ctx.accountId,
+          p_triggered_by: ctx.userId,
+        }
+      );
+      const trigger = data as {
+        acceptance_id?: unknown;
+        subscription_id?: unknown;
+      } | null;
+      if (
+        error ||
+        trigger?.acceptance_id !== acceptanceId ||
+        typeof trigger.subscription_id !== 'string'
+      ) {
+        console.error('[razorpay retry acceptance] trigger rejected:', error);
+        return NextResponse.json(
+          { error: 'Razorpay retry acceptance trigger preconditions did not pass' },
+          { status: 409 }
+        );
+      }
+
+      const connection = await getRazorpayConnection(admin, ctx.accountId);
+      if (!connection || connection.authenticationMode !== 'oauth') {
+        throw new Error('Razorpay Test OAuth connection is unavailable');
+      }
+      await runRazorpayOperation(admin, connection, (authentication) =>
+        cancelSubscription(authentication, trigger.subscription_id as string, false)
+      );
+      return NextResponse.json({ ok: true, triggered: true, acceptanceId });
+    }
+
     if (body.action !== 'arm') {
       return NextResponse.json(
-        { error: 'Action must be arm or cancel' },
+        { error: 'Action must be arm, trigger, or cancel' },
         { status: 400 }
       );
     }
