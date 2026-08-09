@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   createStore: vi.fn(),
   claim: vi.fn(),
   processClaimed: vi.fn(),
+  consumeRetryAcceptance: vi.fn(),
+  acknowledgeRetryAcceptance: vi.fn(),
 }));
 
 vi.mock('server-only', () => ({}));
@@ -41,6 +43,10 @@ vi.mock('@/lib/payments/razorpay-webhook-processor', async (importActual) => {
     processClaimedRazorpayWebhook: mocks.processClaimed,
   };
 });
+vi.mock('@/lib/payments/razorpay-webhook-retry-acceptance', () => ({
+  consumeRazorpayRetryAcceptance: mocks.consumeRetryAcceptance,
+  acknowledgeRazorpayRetryAcceptance: mocks.acknowledgeRetryAcceptance,
+}));
 
 import { POST } from './route';
 
@@ -60,6 +66,11 @@ describe('Razorpay application webhook route', () => {
       processingOwner: 'owner-id',
     });
     mocks.processClaimed.mockResolvedValue({ outcome: 'processed' });
+    mocks.consumeRetryAcceptance.mockResolvedValue({
+      action: 'pass',
+      acceptanceId: null,
+    });
+    mocks.acknowledgeRetryAcceptance.mockResolvedValue(undefined);
     mocks.after.mockImplementation((callback: () => unknown) => callback());
   });
 
@@ -142,6 +153,12 @@ describe('Razorpay application webhook route', () => {
         providerMode: 'test',
       })
     );
+    expect(mocks.consumeRetryAcceptance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'account-id',
+        providerEventId: 'evt_charged',
+      })
+    );
     expect(mocks.claim).toHaveBeenCalledOnce();
     expect(mocks.after).toHaveBeenCalledOnce();
     expect(mocks.processClaimed).toHaveBeenCalledWith({
@@ -152,6 +169,76 @@ describe('Razorpay application webhook route', () => {
       event: JSON.parse(rawBody),
       ingress: 'application',
     });
+  });
+
+  it('requests exactly one provider retry before creating canonical state', async () => {
+    mocks.resolve.mockResolvedValue({
+      accountId: 'account-id',
+      canonicalIngress: 'application',
+    });
+    mocks.consumeRetryAcceptance.mockResolvedValue({
+      action: 'retry',
+      acceptanceId: 'acceptance-id',
+    });
+    const rawBody = eventBody('subscription.cancelled', 'acc_test', 'sub_new');
+
+    const response = await POST(
+      buildRequest(rawBody, createSignature(rawBody), 'evt_cancelled')
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('60');
+    expect(mocks.record).toHaveBeenCalledOnce();
+    expect(mocks.createStore).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+
+  it('claims and acknowledges an identical provider redelivery', async () => {
+    mocks.resolve.mockResolvedValue({
+      accountId: 'account-id',
+      canonicalIngress: 'application',
+    });
+    mocks.consumeRetryAcceptance.mockResolvedValue({
+      action: 'redelivery',
+      acceptanceId: 'acceptance-id',
+    });
+    const rawBody = eventBody('subscription.cancelled', 'acc_test', 'sub_new');
+
+    const response = await POST(
+      buildRequest(rawBody, createSignature(rawBody), 'evt_cancelled')
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.claim).toHaveBeenCalledOnce();
+    expect(mocks.acknowledgeRetryAcceptance).toHaveBeenCalledWith({
+      admin: { serviceRole: true },
+      acceptanceId: 'acceptance-id',
+      accountId: 'account-id',
+      providerEventId: 'evt_cancelled',
+      payloadSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+      claimResult: 'claimed',
+    });
+    expect(mocks.after).toHaveBeenCalledOnce();
+  });
+
+  it('fails closed when a matching acceptance identity conflicts', async () => {
+    mocks.resolve.mockResolvedValue({
+      accountId: 'account-id',
+      canonicalIngress: 'application',
+    });
+    mocks.consumeRetryAcceptance.mockResolvedValue({
+      action: 'conflict',
+      acceptanceId: 'acceptance-id',
+    });
+    const rawBody = eventBody('subscription.cancelled', 'acc_test', 'sub_new');
+
+    const response = await POST(
+      buildRequest(rawBody, createSignature(rawBody), 'evt_conflict')
+    );
+
+    expect(response.status).toBe(409);
+    expect(mocks.createStore).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
   });
 
   it('acknowledges a processed replay without another mutation', async () => {
@@ -229,8 +316,20 @@ function configureEnvironment() {
   vi.stubEnv('RAZORPAY_WEBHOOK_SECRET_CURRENT', secret);
 }
 
-function eventBody(event: string, accountId = 'acc_test') {
-  return JSON.stringify({ event, account_id: accountId, payload: {} });
+function eventBody(
+  event: string,
+  accountId = 'acc_test',
+  subscriptionId?: string
+) {
+  return JSON.stringify({
+    event,
+    account_id: accountId,
+    payload: subscriptionId
+      ? {
+          subscription: { entity: { id: subscriptionId, status: 'cancelled' } },
+        }
+      : {},
+  });
 }
 
 function createSignature(rawBody: string) {

@@ -15,6 +15,10 @@ import {
   parseRazorpayEvent,
   processClaimedRazorpayWebhook,
 } from '@/lib/payments/razorpay-webhook-processor';
+import {
+  acknowledgeRazorpayRetryAcceptance,
+  consumeRazorpayRetryAcceptance,
+} from '@/lib/payments/razorpay-webhook-retry-acceptance';
 
 export const runtime = 'nodejs';
 
@@ -109,6 +113,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, observed: true });
     }
 
+    const retryAcceptance = await consumeRazorpayRetryAcceptance({
+      admin,
+      accountId: resolved.accountId,
+      providerEventId: identity.providerEventId,
+      eventIdentitySource: identity.eventIdentitySource,
+      payloadSha256: identity.observation.payloadSha256,
+      signatureGeneration,
+      event,
+    });
+    if (retryAcceptance.action === 'conflict') {
+      return NextResponse.json(
+        { error: 'Retry acceptance identity conflict' },
+        { status: 409 }
+      );
+    }
+    if (retryAcceptance.action === 'retry') {
+      return NextResponse.json(
+        { error: 'Retry requested' },
+        { status: 503, headers: { 'retry-after': '60' } }
+      );
+    }
+
     const { store, processingOwner } = createRazorpayWebhookEventStore({
       admin,
       accountId: resolved?.accountId ?? null,
@@ -123,6 +149,19 @@ export async function POST(request: Request) {
         { error: 'Event id conflicts with another canonical event' },
         { status: 409 }
       );
+    }
+    if (
+      retryAcceptance.action === 'redelivery' &&
+      retryAcceptance.acceptanceId
+    ) {
+      await acknowledgeRazorpayRetryAcceptance({
+        admin,
+        acceptanceId: retryAcceptance.acceptanceId,
+        accountId: resolved.accountId,
+        providerEventId: identity.providerEventId,
+        payloadSha256: identity.observation.payloadSha256,
+        claimResult: claim,
+      });
     }
     if (claim === 'processed') {
       return NextResponse.json({ ok: true, deduped: true });
