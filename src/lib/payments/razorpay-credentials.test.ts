@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { encryptPaymentSecret } from './payment-secrets';
 import {
   assertRazorpayOAuthStorageReady,
+  beginRazorpayOAuthConnection,
   getRazorpayConnection,
   getRazorpayDiagnosticScope,
 } from './credentials';
@@ -86,6 +87,35 @@ function baseRow(patch: Record<string, unknown> = {}) {
 afterEach(() => vi.unstubAllEnvs());
 
 describe('Razorpay credential resolver', () => {
+  it('does not let co-branded enrollment replace a bound merchant', async () => {
+    vi.stubEnv('RAZORPAY_MODE', 'live');
+    await expect(
+      beginRazorpayOAuthConnection(
+        credentialDb(
+          baseRow({
+            authentication_mode: 'oauth',
+            provider_mode: 'live',
+            razorpay_account_id: 'acc_already_bound',
+            razorpay_key_id: null,
+            razorpay_key_secret: null,
+            razorpay_webhook_secret: null,
+          })
+        ),
+        'account',
+        {
+          accessToken: 'access',
+          refreshToken: 'refresh',
+          accessExpiresAt: new Date(Date.now() + 86_400_000),
+          refreshExpiresAt: new Date(Date.now() + 30 * 86_400_000),
+          accountId: 'acc_new',
+          scope: 'read_write',
+          mode: 'live',
+        },
+        { requireUnboundMerchant: true }
+      )
+    ).rejects.toThrow(/only before the first merchant binding/);
+  });
+
   it('blocks OAuth before an unresolved version-0 manual row can be relabelled', async () => {
     await expect(
       assertRazorpayOAuthStorageReady(

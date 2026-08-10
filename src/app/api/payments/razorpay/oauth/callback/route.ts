@@ -13,8 +13,9 @@ import {
 import {
   assertRazorpayApplicationWebhookConfigured,
   assertRazorpayLivePilotAccount,
-  assertRazorpayLivePilotMerchant,
+  authorizeRazorpayLivePilotMerchant,
   getRazorpayOAuthConfig,
+  type RazorpayLivePilotMerchantAuthorization,
 } from '@/lib/payments/razorpay-config';
 import {
   boundedRazorpayError,
@@ -91,9 +92,14 @@ export async function GET(request: Request) {
       code,
       encryptedCodeVerifier: consumed.pkce_code_verifier,
     });
+    let merchantAuthorization: RazorpayLivePilotMerchantAuthorization;
     try {
-      assertRazorpayLivePilotMerchant(tokens.accountId);
-      await beginRazorpayOAuthConnection(admin, accountId, tokens);
+      merchantAuthorization = authorizeRazorpayLivePilotMerchant(
+        tokens.accountId
+      );
+      await beginRazorpayOAuthConnection(admin, accountId, tokens, {
+        requireUnboundMerchant: merchantAuthorization === 'enrollment',
+      });
     } catch (error) {
       // A grant that could not be bound locally must not remain usable. This is
       // best-effort because the original persistence error stays authoritative.
@@ -114,6 +120,7 @@ export async function GET(request: Request) {
     const readiness = await verifyRazorpayOAuthReadiness({
       accessToken: tokens.accessToken,
       accountId: tokens.accountId,
+      allowCapabilityFallback: merchantAuthorization !== 'enrollment',
     }).catch((error) => ({
       ready: false as const,
       merchantStatus: 'unknown' as const,

@@ -493,12 +493,18 @@ export async function saveManualRazorpayCredentials(
 export async function beginRazorpayOAuthConnection(
   admin: SupabaseClient,
   accountId: string,
-  tokens: RazorpayOAuthTokenSet
+  tokens: RazorpayOAuthTokenSet,
+  options: { requireUnboundMerchant?: boolean } = {}
 ): Promise<void> {
   const mode = getRazorpayProviderMode();
   assertRazorpayProviderMode(tokens.mode, mode);
   const current = await loadCredentialRow(admin, accountId);
   assertNoUnreviewedLegacySecrets(current);
+  if (options.requireUnboundMerchant && current?.razorpay_account_id) {
+    throw new Error(
+      'Razorpay co-branded enrollment is available only before the first merchant binding'
+    );
+  }
   if (
     current?.authentication_mode === 'oauth' &&
     current.razorpay_account_id &&

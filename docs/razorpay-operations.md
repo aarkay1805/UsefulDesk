@@ -843,3 +843,55 @@ still shows the ready Live merchant but disables reconnect, and the local
 Vercel link is restored to the isolated provider sandbox. Stage 5 is accepted
 only for this account/merchant; do not infer authority for Stage 6, another
 merchant/account, a manual Live key, legacy-ingress removal, or WhatsApp Send.
+
+### Co-branded VBF pilot staged
+
+The Stage 5 money path above is owner-controlled acceptance evidence, not a
+real gym-owner rollout. The first real-gym pilot is production account
+`9c50dcd9-ed4a-427c-a2fc-07d452f0aec7` (`VBF`), whose authoritative
+`account_memberships` row makes Aakash Mishra the owner. A read-only production
+query found no `account_payment_credentials` row for VBF; do not migrate or
+reuse Rajat's merchant, connection, manual material, or immutable payment facts.
+
+The existing UsefulDesk application exposes Razorpay's **Onboarding UI
+Configurator**, including the provider-hosted **Create your account to get
+started** journey. This is the standard co-branded flow in which a new merchant
+signs up, submits its own KYC to Razorpay, authorizes UsefulDesk, and returns to
+the existing OAuth callback. Do not collect bank, PAN, KYC-document, password,
+or OTP values in UsefulDesk support/chat, and do not create another application.
+
+READY deployment `dpl_4LtRKnJ87qypvh549sGGs1e4oWLV` adds a first-bind-only
+callback path. Its safe resting configuration is:
+
+```text
+RAZORPAY_MODE=live
+RAZORPAY_OAUTH_ENABLED=false
+RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED=false
+RAZORPAY_MANUAL_ROLLBACK_ENABLED=false
+RAZORPAY_PROVIDER_ACCEPTANCE_ONLY=false
+RAZORPAY_REFUND_AMBIGUOUS_CREATE_ACCEPTANCE=false
+RAZORPAY_REFUND_WEBHOOK_RETRY_ACCEPTANCE=false
+RAZORPAY_LIVE_PILOT_ACCOUNT_ID=9c50dcd9-ed4a-427c-a2fc-07d452f0aec7
+```
+
+For the shortest enrollment exercise, set OAuth and the enrollment flag true
+only after Aakash is signed into the exact VBF UsefulDesk workspace. The bound
+state still covers tenant, initiating owner/admin, OAuth client fingerprint,
+provider mode, redirect, PKCE verifier, expiry, and one-use consumption. The
+returned `acc_…` may be adopted only when VBF has no prior merchant binding; a
+rejected or second binding has both returned tokens revoked. First-bind
+readiness must come from Razorpay's authoritative account status and cannot use
+the imported-account five-list fallback. Immediately after the callback:
+
+1. restore the enrollment and OAuth flags false;
+2. read only the stored non-secret `razorpay_account_id` and readiness metadata;
+3. set `RAZORPAY_LIVE_PILOT_MERCHANT_ID` to that exact returned identity;
+4. redeploy with enrollment false before any reconnect or product operation;
+5. if KYC is still pending, leave the connection blocked and reconnect only
+   after provider activation is visible; do not manufacture readiness; and
+6. obtain separate payer, merchant, low-value amount, and refund-disposition
+   approval before any real-money exercise.
+
+No Aakash OAuth state, Razorpay merchant, KYC submission, authorization,
+selector mutation, Payment Link, payment, or refund is recorded at this
+checkpoint. The local `.vercel` link remains on `usefuldesk-provider-sandbox`.

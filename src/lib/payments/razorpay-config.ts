@@ -22,6 +22,7 @@ interface RazorpayEnv {
   RAZORPAY_OAUTH_REDIRECT_URI?: string;
   RAZORPAY_LIVE_PILOT_ACCOUNT_ID?: string;
   RAZORPAY_LIVE_PILOT_MERCHANT_ID?: string;
+  RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED?: string;
   RAZORPAY_WEBHOOK_SECRET_CURRENT?: string;
 }
 
@@ -95,14 +96,34 @@ export function assertRazorpayLivePilotMerchant(
   externalAccountId: string,
   env: RazorpayEnv = process.env
 ): void {
-  if (getRazorpayProviderMode(env) !== 'live') return;
+  authorizeRazorpayLivePilotMerchant(externalAccountId, env);
+}
+
+export type RazorpayLivePilotMerchantAuthorization = 'pinned' | 'enrollment';
+
+/**
+ * Live imports must match the operator-pinned merchant. During one explicitly
+ * scoped co-branded signup window, the exact allowlisted tenant may instead
+ * bind its first provider-issued merchant identity. The credential writer
+ * separately requires that tenant to be unbound before accepting that result.
+ */
+export function authorizeRazorpayLivePilotMerchant(
+  externalAccountId: string,
+  env: RazorpayEnv = process.env
+): RazorpayLivePilotMerchantAuthorization {
+  if (!/^acc_[A-Za-z0-9]+$/.test(externalAccountId)) {
+    throw new Error('Razorpay Live merchant identity is invalid');
+  }
+  if (getRazorpayProviderMode(env) !== 'live') return 'pinned';
   const merchantId = env.RAZORPAY_LIVE_PILOT_MERCHANT_ID?.trim();
   if (!merchantId || !/^acc_[A-Za-z0-9]+$/.test(merchantId)) {
     throw new Error('RAZORPAY_LIVE_PILOT_MERCHANT_ID must be configured');
   }
-  if (externalAccountId !== merchantId) {
-    throw new Error('Razorpay Live merchant is not enabled for this pilot');
+  if (externalAccountId === merchantId) return 'pinned';
+  if (env.RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED === 'true') {
+    return 'enrollment';
   }
+  throw new Error('Razorpay Live merchant is not enabled for this pilot');
 }
 
 export function getRazorpayOAuthConfig(

@@ -205,4 +205,25 @@ describe('Razorpay OAuth readiness', () => {
       lastError: 'Razorpay readiness check failed (500)',
     });
   });
+
+  it('does not infer activation for a first co-branded merchant', async () => {
+    const paths: string[] = [];
+    const readiness = await verifyRazorpayOAuthReadiness({
+      accessToken: 'access',
+      accountId: 'acc_new',
+      allowCapabilityFallback: false,
+      fetchImpl: async (input) => {
+        paths.push(new URL(String(input)).pathname);
+        return new Response(JSON.stringify({ items: [] }), { status: 400 });
+      },
+    });
+
+    expect(readiness).toEqual({
+      ready: false,
+      merchantStatus: 'unknown',
+      activationVerifiedAt: null,
+      lastError: 'Razorpay merchant activation is not yet verified',
+    });
+    expect(paths).toEqual(['/v2/accounts/acc_new']);
+  });
 });

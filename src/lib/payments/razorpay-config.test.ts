@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  authorizeRazorpayLivePilotMerchant,
   assertRazorpayApplicationWebhookConfigured,
   assertRazorpayLivePilotAccount,
   assertRazorpayLivePilotMerchant,
@@ -138,6 +139,36 @@ describe('Razorpay rollout configuration', () => {
       assertRazorpayLivePilotMerchant('any-test-merchant', {
         RAZORPAY_MODE: 'test',
       })
+    ).toThrow(/identity is invalid/);
+    expect(() =>
+      assertRazorpayLivePilotMerchant('acc_anytestmerchant', {
+        RAZORPAY_MODE: 'test',
+      })
     ).not.toThrow();
+  });
+
+  it('allows only an explicit Live first-bind enrollment window', () => {
+    const base = {
+      RAZORPAY_MODE: 'live',
+      RAZORPAY_LIVE_PILOT_MERCHANT_ID: 'acc_existingacceptance',
+    };
+    expect(
+      authorizeRazorpayLivePilotMerchant('acc_newmerchant', {
+        ...base,
+        RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED: 'true',
+      })
+    ).toBe('enrollment');
+    expect(() =>
+      authorizeRazorpayLivePilotMerchant('acc_newmerchant', {
+        ...base,
+        RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED: 'false',
+      })
+    ).toThrow(/not enabled/);
+    expect(
+      authorizeRazorpayLivePilotMerchant('acc_existingacceptance', {
+        ...base,
+        RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED: 'true',
+      })
+    ).toBe('pinned');
   });
 });

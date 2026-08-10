@@ -413,6 +413,7 @@ async function bearerGet(
 export async function verifyRazorpayOAuthReadiness(input: {
   accessToken: string;
   accountId: string;
+  allowCapabilityFallback?: boolean;
   fetchImpl?: FetchLike;
   now?: Date;
 }): Promise<RazorpayReadiness> {
@@ -448,6 +449,18 @@ export async function verifyRazorpayOAuthReadiness(input: {
       merchantStatus: 'unknown',
       activationVerifiedAt: null,
       lastError: `Razorpay readiness check failed (${account.response.status})`,
+    };
+  }
+
+  // A newly co-branded merchant has not yet established an activation fact.
+  // Do not let generic list access promote that first binding to ready; the
+  // authoritative Accounts response (or a later pinned reconnect) must do so.
+  if (input.allowCapabilityFallback === false) {
+    return {
+      ready: false,
+      merchantStatus: 'unknown',
+      activationVerifiedAt: null,
+      lastError: 'Razorpay merchant activation is not yet verified',
     };
   }
 
