@@ -2,7 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { encryptPaymentSecret } from './payment-secrets';
-import { getRazorpayConnection } from './credentials';
+import {
+  assertRazorpayOAuthStorageReady,
+  getRazorpayConnection,
+} from './credentials';
 
 function credentialDb(row: Record<string, unknown>): SupabaseClient {
   const query = {
@@ -82,6 +85,39 @@ function baseRow(patch: Record<string, unknown> = {}) {
 afterEach(() => vi.unstubAllEnvs());
 
 describe('Razorpay credential resolver', () => {
+  it('blocks OAuth before an unresolved version-0 manual row can be relabelled', async () => {
+    await expect(
+      assertRazorpayOAuthStorageReady(
+        credentialDb(
+          baseRow({
+            provider_mode: null,
+            secret_storage_version: 0,
+            razorpay_key_secret: 'legacy-api-secret',
+            razorpay_webhook_secret: 'legacy-webhook-secret',
+          })
+        ),
+        'account'
+      )
+    ).rejects.toThrow(/operator review/);
+  });
+
+  it('allows OAuth when a version-0 placeholder contains no manual material', async () => {
+    await expect(
+      assertRazorpayOAuthStorageReady(
+        credentialDb(
+          baseRow({
+            provider_mode: null,
+            secret_storage_version: 0,
+            razorpay_key_id: null,
+            razorpay_key_secret: null,
+            razorpay_webhook_secret: null,
+          })
+        ),
+        'account'
+      )
+    ).resolves.toBeUndefined();
+  });
+
   it('preserves encrypted manual credentials only behind the rollback flag', async () => {
     vi.stubEnv('RAZORPAY_MODE', 'test');
     vi.stubEnv('RAZORPAY_MANUAL_ROLLBACK_ENABLED', 'true');

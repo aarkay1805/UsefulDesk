@@ -6,7 +6,11 @@ import {
   toErrorResponse,
 } from '@/lib/auth/account';
 import { requireSameOriginRequest } from '@/lib/auth/csrf';
-import { getRazorpayOAuthConfig } from '@/lib/payments/razorpay-config';
+import { assertRazorpayOAuthStorageReady } from '@/lib/payments/credentials';
+import {
+  assertRazorpayLivePilotAccount,
+  getRazorpayOAuthConfig,
+} from '@/lib/payments/razorpay-config';
 import {
   buildRazorpayAuthorizationUrl,
   createRazorpayOAuthAttempt,
@@ -19,12 +23,15 @@ export async function POST(request: Request) {
     requireSameOriginRequest(request);
     const ctx = await requirePaymentGatewayAccess();
     const config = getRazorpayOAuthConfig();
+    assertRazorpayLivePilotAccount(ctx.accountId);
+    const admin = supabaseAdmin();
+    await assertRazorpayOAuthStorageReady(admin, ctx.accountId);
     const attempt = createRazorpayOAuthAttempt({
       accountId: ctx.accountId,
       initiatedBy: ctx.userId,
       config,
     });
-    const { error } = await supabaseAdmin()
+    const { error } = await admin
       .from('razorpay_oauth_states')
       .insert(attempt.row);
     if (error) throw new Error(`create Razorpay OAuth state: ${error.message}`);

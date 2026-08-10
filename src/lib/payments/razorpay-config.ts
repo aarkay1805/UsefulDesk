@@ -20,6 +20,8 @@ interface RazorpayEnv {
   RAZORPAY_OAUTH_CLIENT_ID?: string;
   RAZORPAY_OAUTH_CLIENT_SECRET?: string;
   RAZORPAY_OAUTH_REDIRECT_URI?: string;
+  RAZORPAY_LIVE_PILOT_ACCOUNT_ID?: string;
+  RAZORPAY_WEBHOOK_SECRET_CURRENT?: string;
 }
 
 export interface RazorpayOAuthConfig {
@@ -58,6 +60,33 @@ export function assertRazorpayProviderMode(
 ): asserts storedMode is RazorpayProviderMode {
   if (storedMode !== expectedMode) {
     throw new Error('Razorpay credential mode does not match this deployment');
+  }
+}
+
+export function assertRazorpayLivePilotAccount(
+  accountId: string,
+  env: RazorpayEnv = process.env
+): void {
+  if (getRazorpayProviderMode(env) !== 'live') return;
+  const pilotAccountId = env.RAZORPAY_LIVE_PILOT_ACCOUNT_ID?.trim();
+  if (
+    !pilotAccountId ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      pilotAccountId
+    )
+  ) {
+    throw new Error('RAZORPAY_LIVE_PILOT_ACCOUNT_ID must be configured');
+  }
+  if (accountId !== pilotAccountId) {
+    throw new Error('Razorpay Live OAuth is not enabled for this account');
+  }
+}
+
+export function assertRazorpayApplicationWebhookConfigured(
+  env: RazorpayEnv = process.env
+): void {
+  if (!env.RAZORPAY_WEBHOOK_SECRET_CURRENT?.trim()) {
+    throw new Error('Razorpay application webhook is not configured');
   }
 }
 

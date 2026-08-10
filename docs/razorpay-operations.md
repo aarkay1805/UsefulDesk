@@ -609,7 +609,11 @@ there is no current evidence for a live merchant authorization, live event
 selector, Payment Links, Subscriptions/Recurring, Payments/refunds, signed
 application delivery, account routing, or live readiness probes.
 
-### Gate before any continuation
+### Historical gate at the read-only preflight
+
+The list below records the stop condition at that checkpoint. The later owner
+risk decision and production-foundation section supersede its rotation and
+no-mutation instructions; the real-money inputs remain required.
 
 Require these explicit inputs, in order:
 
@@ -651,34 +655,88 @@ The Live merchant's API-key settings offer **Generate Key** and show no
 existing key. This provider-labeled Live evidence proves that the old manual
 credential stored on the production UsefulDesk account is not a Live key; no
 prefix inference is involved. Never backfill that row as `live`, use it for
-rollback, or copy it into a Live deployment. Keep it blocked pending explicit
-cleanup. A new Live rollback credential may be generated only after the OAuth
-client-secret rotation gate and then stored through the encrypted version-1
-path.
+rollback, or copy it into a Live deployment. Its later removal is recorded
+below. A new Live rollback credential is outside this pilot and requires
+separate owner authority; if ever approved, it must use the encrypted
+version-1 path.
 
-### Current provider-controlled stop gate
+### Owner-approved temporary credential risk
 
-Both development and production OAuth client secrets were exposed during Test
-acceptance and must rotate before the first Live OAuth authorization. In the
-Razorpay application settings, each client secret is a disabled reveal-only
-field; the only adjacent action reveals/hides it. There is no self-service
-rotate/regenerate action, and the published OAuth integration steps document
-using the secret but no rotation endpoint.
+The owner explicitly accepted the low-but-nonzero temporary risk of continuing
+the single Live pilot with the existing Development and Production OAuth
+client secrets. They were disclosed only in a private Codex browser-tool
+transcript and were not committed, published, written to a local environment
+file, sent to support, or deployed. They are **not rotated**. Ticket `20303463`
+is no longer required; the support reply requested cancellation of the
+callback, closure with no action, and no rotation/regeneration or application
+change. Do not create another Razorpay application.
 
-Do not delete and recreate the UsefulDesk application, reuse either exposed
-secret, or authorize the Live merchant around this limitation. Razorpay
-support ticket `20303463`, created on 2026-08-10, requests rotation of both the
-Development and Production OAuth client secrets while preserving the
-application, client IDs, redirect URIs, and webhook configuration. The ticket
-contains no current secret, token, webhook secret, credential value, or member
-data. Razorpay states a 4–8 business-hour update window; the ticket is pending
-evidence and is not rotation acceptance. After Razorpay makes
-that rotation available, update the isolated Test Vercel secret and configure
-the production client secret without printing either value, then continue the
-remaining acceptance-exposed webhook/service-role rotations. Only after the
-entire set is rotated may the operator create the live webhook, configure
-production `RAZORPAY_*` variables, run Live OAuth/API/refund probes, apply the
-production migrations, contain the non-Live legacy row, connect the pilot, or
-move money. Apart from creation of the support ticket, no provider
-configuration, credential, local/deployment/database, flag, webhook, merchant
-authorization, or financial state changed; the dashboard remains in Test view.
+This exception removes only the rotation prerequisite. Never reveal, retrieve,
+print, log, snapshot, commit, or paste either secret. At the production
+credential gate, Rajat enters the value directly into a hidden field while the
+agent remains secret-blind. The single pilot, strict Test/Live separation,
+disabled manual fallback, exact event selector, readiness probes, signed
+delivery, reconciliation, and real-money authorization gates are unchanged.
+
+### Stage 5 production foundation applied
+
+Production deployment `dpl_2A4Jf1hf9ZTxZNhex6M17pa1nKkU` is READY on
+`desk.usefulmade.com`. Its deployed non-secret Razorpay configuration is:
+
+```text
+RAZORPAY_MODE=live
+RAZORPAY_OAUTH_ENABLED=false
+RAZORPAY_MANUAL_ROLLBACK_ENABLED=false
+RAZORPAY_PROVIDER_ACCEPTANCE_ONLY=false
+RAZORPAY_REFUND_AMBIGUOUS_CREATE_ACCEPTANCE=false
+RAZORPAY_REFUND_WEBHOOK_RETRY_ACCEPTANCE=false
+RAZORPAY_OAUTH_REDIRECT_URI=https://desk.usefulmade.com/api/payments/razorpay/oauth/callback
+RAZORPAY_LIVE_PILOT_ACCOUNT_ID=50a9e8f9-d7e5-44d2-ba04-c367509b981e
+```
+
+No production OAuth client id/secret or application-webhook secret is deployed.
+The application webhook therefore returns 503 rather than accepting unsigned
+or ambiguously scoped traffic. The local `.vercel` link was restored to the
+isolated provider sandbox immediately after deployment.
+
+Production Supabase `fwqthstqrkrwtaehefks` received the Stage 1–4 OAuth,
+delivery, recovery, application-cutover, Payment Link, and refund migrations,
+plus `20260810160000_razorpay_live_application_ingress.sql`, through the
+approved migration connector; `supabase db push` was not used. RLS is enabled
+on every Stage 5 table, browser roles have no write access to service-only
+surfaces, and `activate_razorpay_live_application_webhook` is executable only
+by `service_role`. The only relevant advisor results are expected INFO notices
+for RLS-on/no-policy service tables and unused fresh indexes.
+
+The provider-confirmed non-Live legacy key id, key secret, and webhook secret
+were removed from the exact pilot row without reading their values. The row
+remains `manual`, mode-null, storage version 0, disconnected, and selected for
+`legacy_account`, with no external account id or OAuth tokens. This deletion is
+intentional and not recoverable from UsefulDesk. No manual Live key was created.
+
+Code now fails closed before OAuth state creation if any unreviewed legacy
+secret remains, permits Live OAuth only for the configured pilot id, rejects a
+Test acceptance flag in Live application ingress, and atomically switches the
+selector only after the exact Live OAuth merchant is ready, read-write scoped,
+lease-free, and free of all manual credential material. Activation writes an
+immutable service-only audit row and an exact retry is idempotent.
+
+### Current continuation gate
+
+The authenticated Razorpay browser session expired before the Live application
+webhook could be saved. No live webhook, OAuth credential deployment, merchant
+authorization, connection row, Live capability probe, signed delivery,
+reconciliation, or financial mutation has occurred. Continue only after Rajat:
+
+1. signs in to the existing Razorpay application without creating another one;
+2. enters the existing Production OAuth secret directly through the hidden,
+   secret-blind Vercel credential flow; and
+3. allows the exact 16-event Live application webhook to be saved with a new
+   secret that is copied in memory directly to Vercel and never printed.
+
+Keep every rollout/acceptance flag false until the shortest OAuth exercise and
+restore it immediately afterward. Before any payment, separately obtain the
+explicit payer, reconfirm pilot merchant `acc_TCJwBqanN9LTrK`, choose the
+low-value amount, and choose `reopen_balance` or `reduce_charge`. The missing
+`gym_payment_link` template means Copy may be tested later but WhatsApp Send
+must not be claimed. Stage 5 is not accepted.

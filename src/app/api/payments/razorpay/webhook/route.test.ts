@@ -87,8 +87,27 @@ describe('Razorpay application webhook route', () => {
     expect(mocks.record).not.toHaveBeenCalled();
   });
 
-  it('stays hidden outside the isolated provider-acceptance deployment', async () => {
+  it('keeps Test hidden outside the isolated provider-acceptance deployment', async () => {
     vi.stubEnv('RAZORPAY_PROVIDER_ACCEPTANCE_ONLY', 'false');
+
+    const response = await POST(buildRequest('{}', 'invalid'));
+
+    expect(response.status).toBe(404);
+    expect(mocks.record).not.toHaveBeenCalled();
+  });
+
+  it('enables Live only when the Test acceptance flag is disabled', async () => {
+    vi.stubEnv('RAZORPAY_MODE', 'live');
+    vi.stubEnv('RAZORPAY_PROVIDER_ACCEPTANCE_ONLY', 'false');
+
+    const response = await POST(buildRequest('{}', 'invalid'));
+
+    expect(response.status).toBe(400);
+    expect(mocks.record).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the Test acceptance flag reaches Live', async () => {
+    vi.stubEnv('RAZORPAY_MODE', 'live');
 
     const response = await POST(buildRequest('{}', 'invalid'));
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  assertRazorpayApplicationWebhookConfigured,
+  assertRazorpayLivePilotAccount,
   assertRazorpayProviderMode,
   getRazorpayOAuthConfig,
   getRazorpayProviderMode,
@@ -71,5 +73,45 @@ describe('Razorpay rollout configuration', () => {
         RAZORPAY_OAUTH_REDIRECT_URI: 'http://example.com/callback',
       })
     ).toThrow(/HTTPS/);
+  });
+
+  it('requires and enforces the single Live pilot account', () => {
+    const pilot = '50a9e8f9-d7e5-44d2-ba04-c367509b981e';
+    expect(() =>
+      assertRazorpayLivePilotAccount(pilot, { RAZORPAY_MODE: 'live' })
+    ).toThrow(/must be configured/);
+    expect(() =>
+      assertRazorpayLivePilotAccount('11111111-1111-4111-8111-111111111111', {
+        RAZORPAY_MODE: 'live',
+        RAZORPAY_LIVE_PILOT_ACCOUNT_ID: pilot,
+      })
+    ).toThrow(/not enabled/);
+    expect(() =>
+      assertRazorpayLivePilotAccount(pilot, {
+        RAZORPAY_MODE: 'live',
+        RAZORPAY_LIVE_PILOT_ACCOUNT_ID: pilot,
+      })
+    ).not.toThrow();
+    expect(() =>
+      assertRazorpayLivePilotAccount('any-test-account', {
+        RAZORPAY_MODE: 'test',
+      })
+    ).not.toThrow();
+  });
+
+  it('requires a current application webhook secret before selector activation', () => {
+    expect(() => assertRazorpayApplicationWebhookConfigured({})).toThrow(
+      /not configured/
+    );
+    expect(() =>
+      assertRazorpayApplicationWebhookConfigured({
+        RAZORPAY_WEBHOOK_SECRET_CURRENT: '   ',
+      })
+    ).toThrow(/not configured/);
+    expect(() =>
+      assertRazorpayApplicationWebhookConfigured({
+        RAZORPAY_WEBHOOK_SECRET_CURRENT: 'configured-secret',
+      })
+    ).not.toThrow();
   });
 });

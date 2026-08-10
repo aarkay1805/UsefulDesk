@@ -10,6 +10,7 @@ import {
   getRazorpayProviderMode,
   isRazorpayManualRollbackEnabled,
   isRazorpayOAuthEnabled,
+  RAZORPAY_BROWSER_ERROR_MAX_LENGTH,
   RAZORPAY_OAUTH_REFRESH_WINDOW_MS,
   RAZORPAY_READINESS_FRESHNESS_MS,
   type RazorpayProviderMode,
@@ -107,6 +108,27 @@ async function loadCredentialRow(
     .maybeSingle();
   if (error) throw new Error(`load Razorpay credentials: ${error.message}`);
   return (data as CredentialRow | null) ?? null;
+}
+
+function assertNoUnreviewedLegacySecrets(row: CredentialRow | null): void {
+  if (
+    row?.secret_storage_version === 0 &&
+    (row.razorpay_key_id ||
+      row.razorpay_key_secret ||
+      row.razorpay_webhook_secret)
+  ) {
+    throw new Error(
+      'Legacy Razorpay credentials require operator review before OAuth connection'
+    );
+  }
+}
+
+/** Fail before provider authorization when a legacy manual row is unresolved. */
+export async function assertRazorpayOAuthStorageReady(
+  admin: SupabaseClient,
+  accountId: string
+): Promise<void> {
+  assertNoUnreviewedLegacySecrets(await loadCredentialRow(admin, accountId));
 }
 
 function readinessIsUsable(row: CredentialRow, now = new Date()): boolean {
@@ -457,6 +479,7 @@ export async function beginRazorpayOAuthConnection(
   const mode = getRazorpayProviderMode();
   assertRazorpayProviderMode(tokens.mode, mode);
   const current = await loadCredentialRow(admin, accountId);
+  assertNoUnreviewedLegacySecrets(current);
   if (
     current?.authentication_mode === 'oauth' &&
     current.razorpay_account_id &&
@@ -520,6 +543,51 @@ export async function finalizeRazorpayOAuthConnection(
   if (error)
     throw new Error(`verify Razorpay OAuth connection: ${error.message}`);
   if (!data?.length) throw new Error('Razorpay OAuth connection was not found');
+}
+
+export async function activateRazorpayLiveApplicationWebhook(
+  admin: SupabaseClient,
+  input: {
+    accountId: string;
+    externalAccountId: string;
+    activatedBy: string;
+  }
+): Promise<void> {
+  const { data, error } = await admin.rpc(
+    'activate_razorpay_live_application_webhook',
+    {
+      p_account_id: input.accountId,
+      p_external_account_id: input.externalAccountId,
+      p_activated_by: input.activatedBy,
+    }
+  );
+  if (error || !data) {
+    throw new Error(
+      `activate Razorpay Live webhook: ${error?.message ?? 'no result'}`
+    );
+  }
+}
+
+export async function markRazorpayOAuthConnectionBlocked(
+  admin: SupabaseClient,
+  accountId: string,
+  message: string
+): Promise<void> {
+  const { data, error } = await admin
+    .from('account_payment_credentials')
+    .update({
+      connection_status: 'blocked',
+      last_error: message.slice(0, RAZORPAY_BROWSER_ERROR_MAX_LENGTH),
+    })
+    .eq('account_id', accountId)
+    .eq('gateway', 'razorpay')
+    .eq('authentication_mode', 'oauth')
+    .select('account_id');
+  if (error || !data?.length) {
+    throw new Error(
+      `block Razorpay OAuth connection: ${error?.message ?? 'not found'}`
+    );
+  }
 }
 
 export async function disconnectRazorpayOAuthConnection(

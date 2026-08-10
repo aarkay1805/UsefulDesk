@@ -23,11 +23,13 @@ import {
 export const runtime = 'nodejs';
 
 /**
- * Razorpay application webhook for the isolated Stage 2 rollout. Every signed
- * delivery is observed. A resolved account may claim canonical state only
- * after its atomic selector has moved to `application`; legacy-selected rows
- * remain observation-only. Durable claim precedes the fast acknowledgement,
- * while `after()` and the recovery cron share the same owner-leased processor.
+ * Razorpay application webhook. Test delivery is confined to the isolated
+ * provider-acceptance deployment; Live delivery rejects that acceptance flag.
+ * Every signed delivery is observed. A resolved account may claim canonical
+ * state only after its atomic selector has moved to `application`;
+ * legacy-selected rows remain observation-only. Durable claim precedes the
+ * fast acknowledgement, while `after()` and the recovery cron share the same
+ * owner-leased processor.
  */
 export async function POST(request: Request) {
   let providerMode;
@@ -39,9 +41,11 @@ export async function POST(request: Request) {
       { status: 503 }
     );
   }
+  const providerAcceptanceOnly =
+    process.env.RAZORPAY_PROVIDER_ACCEPTANCE_ONLY === 'true';
   if (
-    providerMode !== 'test' ||
-    process.env.RAZORPAY_PROVIDER_ACCEPTANCE_ONLY !== 'true'
+    (providerMode === 'test' && !providerAcceptanceOnly) ||
+    (providerMode === 'live' && providerAcceptanceOnly)
   ) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
