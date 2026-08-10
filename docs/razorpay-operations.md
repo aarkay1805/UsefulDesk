@@ -680,7 +680,7 @@ delivery, reconciliation, and real-money authorization gates are unchanged.
 
 ### Stage 5 production foundation applied
 
-Production deployment `dpl_2A4Jf1hf9ZTxZNhex6M17pa1nKkU` is READY on
+Production deployment `dpl_CJuMiLV5EW5VhYpCogGcK6YS248v` is READY on
 `desk.usefulmade.com`. Its deployed non-secret Razorpay configuration is:
 
 ```text
@@ -694,10 +694,20 @@ RAZORPAY_OAUTH_REDIRECT_URI=https://desk.usefulmade.com/api/payments/razorpay/oa
 RAZORPAY_LIVE_PILOT_ACCOUNT_ID=50a9e8f9-d7e5-44d2-ba04-c367509b981e
 ```
 
-No production OAuth client id/secret or application-webhook secret is deployed.
-The application webhook therefore returns 503 rather than accepting unsigned
-or ambiguously scoped traffic. The local `.vercel` link was restored to the
-isolated provider sandbox immediately after deployment.
+The Production OAuth client id and existing unrotated client secret are now
+deployed only to Vercel Production; the secret is sensitive and neither value
+is enabled for Preview. A new application-webhook secret is also sensitive and
+Production-only. Invalid-signature traffic now reaches the Live application
+ingress and returns 400, proving the secret is loaded without disclosing it.
+The local `.vercel` link was restored to the isolated provider sandbox after
+each deployment.
+
+The Razorpay application now has one Live webhook at
+`https://desk.usefulmade.com/api/payments/razorpay/webhook`. Re-opening its
+editor confirmed exactly 16 selected events and no extras: the three account,
+seven Subscription, four Payment Link, and two refund events enumerated above.
+The configured secret was generated in memory, transferred directly to both
+systems, and then cleared from the browser-control session.
 
 Production Supabase `fwqthstqrkrwtaehefks` received the Stage 1–4 OAuth,
 delivery, recovery, application-cutover, Payment Link, and refund migrations,
@@ -723,20 +733,24 @@ immutable service-only audit row and an exact retry is idempotent.
 
 ### Current continuation gate
 
-The authenticated Razorpay browser session expired before the Live application
-webhook could be saved. No live webhook, OAuth credential deployment, merchant
-authorization, connection row, Live capability probe, signed delivery,
-reconciliation, or financial mutation has occurred. Continue only after Rajat:
+The production credentials and exact Live webhook are complete. A shortest
+OAuth exercise temporarily deployed `RAZORPAY_OAUTH_ENABLED=true` on READY
+deployment `dpl_CTFvW7oSpUuMkM4XVZ3qyMnskb3s`, but the browser's active
+UsefulDesk session resolved to workspace **Aakash Mishra**, not the allowlisted
+Rajat Kashyap pilot. The explicit branch URL correctly rendered **Branch
+unavailable**. No Connect action was clicked, no OAuth state or provider grant
+was created, and no selector or financial state changed.
 
-1. signs in to the existing Razorpay application without creating another one;
-2. enters the existing Production OAuth secret directly through the hidden,
-   secret-blind Vercel credential flow; and
-3. allows the exact 16-event Live application webhook to be saved with a new
-   secret that is copied in memory directly to Vercel and never printed.
+The flag was immediately restored to `false` on READY deployment
+`dpl_CJuMiLV5EW5VhYpCogGcK6YS248v`; manual rollback and both refund acceptance
+flags remained false throughout. Continue only after the browser is signed in
+to the UsefulDesk workspace whose exact account id is
+`50a9e8f9-d7e5-44d2-ba04-c367509b981e` (**Rajat Kashyap**). Then repeat the
+shortest OAuth exercise, authorize only merchant `acc_TCJwBqanN9LTrK`, verify
+the five Live capabilities, selector activation, signed delivery,
+reconciliation, and zero queues, and restore the flag immediately.
 
-Keep every rollout/acceptance flag false until the shortest OAuth exercise and
-restore it immediately afterward. Before any payment, separately obtain the
-explicit payer, reconfirm pilot merchant `acc_TCJwBqanN9LTrK`, choose the
-low-value amount, and choose `reopen_balance` or `reduce_charge`. The missing
-`gym_payment_link` template means Copy may be tested later but WhatsApp Send
-must not be claimed. Stage 5 is not accepted.
+Before any payment, separately obtain the explicit payer, reconfirm the pilot
+merchant, choose the low-value amount, and choose `reopen_balance` or
+`reduce_charge`. The missing `gym_payment_link` template means Copy may be
+tested later but WhatsApp Send must not be claimed. Stage 5 is not accepted.
