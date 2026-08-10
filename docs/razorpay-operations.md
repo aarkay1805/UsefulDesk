@@ -558,3 +558,74 @@ restored `RAZORPAY_OAUTH_ENABLED=false`,
 `RAZORPAY_REFUND_WEBHOOK_RETRY_ACCEPTANCE=false`; provider mode remains Test.
 No account expansion, production/Live Mode, real money, Stage 5, legacy
 retirement, or credential rotation is authorized.
+
+## Stage 5 production-readiness preflight
+
+Read-only preflight on 2026-08-10 stopped before any provider, deployment,
+database, credential, webhook, flag, merchant, or financial mutation.
+
+### Isolated production surfaces
+
+- Vercel production project **useful-desk**
+  (`prj_kn3FOeuAZkeAyCeA5lbBhsHHECne`) owns `desk.usefulmade.com`. Deployment
+  `dpl_DQ89zFgKbfJmC66ENPJtxwBL94na` is READY and remains the current alias
+  target.
+- Its production environment has zero variables whose names begin
+  `RAZORPAY_`. In particular, no authoritative `RAZORPAY_MODE`, production
+  OAuth client pair, redirect, application webhook secret, or rollout flags
+  are configured. Do not deploy the Stage 1–4 code expecting implicit mode;
+  the new connection boundary must fail closed.
+- Supabase production project **UsefulDesk** (`fwqthstqrkrwtaehefks`) is
+  distinct from **UsefulDesk Razorpay Test**. Its migration history currently
+  ends at `20260804183451_harden_razorpay_recurring_charges`; none of the
+  OAuth, delivery-observation, recovery, application-cutover, Payment Link,
+  or refund migrations from Stages 1–4 are present.
+
+### Redacted manual-account inventory
+
+Production contains ten active account rows. Exactly one has a configured
+`gateway='razorpay'` credential row:
+
+- account `50a9e8f9-d7e5-44d2-ba04-c367509b981e`, branch name
+  **Rajat Kashyap**, currency INR;
+- key id, key secret, and per-account webhook secret are all present; and
+- the legacy schema has no secret storage version, provider mode,
+  authentication mode, external Razorpay account id, connection status, or
+  canonical-ingress selector.
+
+No credential value or full identifier was read into this runbook. The row is
+not evidence of Live Mode and does not select the pilot. Build the reviewed
+inventory outside version control, confirm the exact merchant/mode pairing,
+and dry-run the existing backfill only after the branch is explicitly chosen.
+
+### Provider application inventory
+
+The UsefulDesk Razorpay application has a production OAuth client and the
+expected HTTPS redirect
+`https://desk.usefulmade.com/api/payments/razorpay/oauth/callback`. It currently
+reports **No live webhook created**. The inspected dashboard remained in Test
+mode and showed only the already accepted isolated Test merchant. Consequently
+there is no current evidence for a live merchant authorization, live event
+selector, Payment Links, Subscriptions/Recurring, Payments/refunds, signed
+application delivery, account routing, or live readiness probes.
+
+### Gate before any continuation
+
+Require these explicit inputs, in order:
+
+1. select the one production branch and Razorpay merchant, and confirm whether
+   the legacy credential row belongs to it;
+2. operator-review that row's Test/Live mode without key-prefix inference;
+3. identify and authorize the exact acceptance-exposed credential rotation
+   set and maintenance window, excluding unrelated credentials;
+4. rotate that set before the first live authorization, then configure the
+   production-only Vercel values and live application webhook/event selector;
+5. prove non-mutating Live product/API readiness before applying migrations,
+   backfilling the selected row, or enabling OAuth; and
+6. before a payment, explicitly name the payer, pilot merchant, low-value
+   amount, and refund disposition.
+
+Keep OAuth and manual rollback disabled except for the later shortest approved
+exercise. Keep the legacy webhook ingress. Do not apply migrations, backfill
+secrets, create a live webhook, rotate credentials, authorize a merchant, or
+move money while any gate above is unresolved. Stage 5 is not accepted.
