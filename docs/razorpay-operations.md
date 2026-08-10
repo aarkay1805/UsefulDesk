@@ -629,3 +629,50 @@ Keep OAuth and manual rollback disabled except for the later shortest approved
 exercise. Keep the legacy webhook ingress. Do not apply migrations, backfill
 secrets, create a live webhook, rotate credentials, authorize a merchant, or
 move money while any gate above is unresolved. Stage 5 is not accepted.
+
+### Pilot selection and Live provider capability continuation
+
+The user selected UsefulDesk production account
+`50a9e8f9-d7e5-44d2-ba04-c367509b981e` (**Rajat Kashyap**) as the only pilot.
+Read-only Razorpay Live checks then established:
+
+- the UsefulDesk application has exactly one accepted Live merchant,
+  `acc_TCJwBqanN9LTrK`, with the selected name and `Activated` status;
+- that merchant is not yet transacted in Live mode;
+- the Live Payment Links surface offers **Create Payment Link**;
+- the Live Subscriptions product exposes its normal Subscriptions, Plans, and
+  Settings surfaces; and
+- the unsaved live application-webhook selector exposes the exact 16 events
+  UsefulDesk consumes: three account, seven Subscription, four Payment Link,
+  and two refund events. Additional payment/order/refund events remain
+  deliberately unselected. The draft was cancelled without saving.
+
+The Live merchant's API-key settings offer **Generate Key** and show no
+existing key. This provider-labeled Live evidence proves that the old manual
+credential stored on the production UsefulDesk account is not a Live key; no
+prefix inference is involved. Never backfill that row as `live`, use it for
+rollback, or copy it into a Live deployment. Keep it blocked pending explicit
+cleanup. A new Live rollback credential may be generated only after the OAuth
+client-secret rotation gate and then stored through the encrypted version-1
+path.
+
+### Current provider-controlled stop gate
+
+Both development and production OAuth client secrets were exposed during Test
+acceptance and must rotate before the first Live OAuth authorization. In the
+Razorpay application settings, each client secret is a disabled reveal-only
+field; the only adjacent action reveals/hides it. There is no self-service
+rotate/regenerate action, and the published OAuth integration steps document
+using the secret but no rotation endpoint.
+
+Do not delete and recreate the UsefulDesk application, reuse either exposed
+secret, or authorize the Live merchant around this limitation. Request a
+Razorpay-supported rotation of both OAuth client secrets. After Razorpay makes
+that rotation available, update the isolated Test Vercel secret and configure
+the production client secret without printing either value, then continue the
+remaining acceptance-exposed webhook/service-role rotations. Only after the
+entire set is rotated may the operator create the live webhook, configure
+production `RAZORPAY_*` variables, run Live OAuth/API/refund probes, apply the
+production migrations, contain the non-Live legacy row, connect the pilot, or
+move money. No external or local state was changed during this continuation;
+the dashboard was restored to Test view afterward.
