@@ -666,13 +666,19 @@ rotate/regenerate action, and the published OAuth integration steps document
 using the secret but no rotation endpoint.
 
 Do not delete and recreate the UsefulDesk application, reuse either exposed
-secret, or authorize the Live merchant around this limitation. Request a
-Razorpay-supported rotation of both OAuth client secrets. After Razorpay makes
+secret, or authorize the Live merchant around this limitation. Razorpay
+support ticket `20303463`, created on 2026-08-10, requests rotation of both the
+Development and Production OAuth client secrets while preserving the
+application, client IDs, redirect URIs, and webhook configuration. The ticket
+contains no current secret, token, webhook secret, credential value, or member
+data. Razorpay states a 4–8 business-hour update window; the ticket is pending
+evidence and is not rotation acceptance. After Razorpay makes
 that rotation available, update the isolated Test Vercel secret and configure
 the production client secret without printing either value, then continue the
 remaining acceptance-exposed webhook/service-role rotations. Only after the
 entire set is rotated may the operator create the live webhook, configure
 production `RAZORPAY_*` variables, run Live OAuth/API/refund probes, apply the
 production migrations, contain the non-Live legacy row, connect the pilot, or
-move money. No external or local state was changed during this continuation;
-the dashboard was restored to Test view afterward.
+move money. Apart from creation of the support ticket, no provider
+configuration, credential, local/deployment/database, flag, webhook, merchant
+authorization, or financial state changed; the dashboard remains in Test view.
