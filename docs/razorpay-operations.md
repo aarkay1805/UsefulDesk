@@ -666,7 +666,10 @@ The owner explicitly accepted the low-but-nonzero temporary risk of continuing
 the single Live pilot with the existing Development and Production OAuth
 client secrets. They were disclosed only in a private Codex browser-tool
 transcript and were not committed, published, written to a local environment
-file, sent to support, or deployed. They are **not rotated**. Ticket `20303463`
+file, or sent to support. Neither was deployed at the decision point; the
+Production secret was later transferred directly into a sensitive
+Production-only Vercel variable without being written locally. They are **not
+rotated**. Ticket `20303463`
 is no longer required; the support reply requested cancellation of the
 callback, closure with no action, and no rotation/regeneration or application
 change. Do not create another Razorpay application.
@@ -692,6 +695,7 @@ RAZORPAY_REFUND_AMBIGUOUS_CREATE_ACCEPTANCE=false
 RAZORPAY_REFUND_WEBHOOK_RETRY_ACCEPTANCE=false
 RAZORPAY_OAUTH_REDIRECT_URI=https://desk.usefulmade.com/api/payments/razorpay/oauth/callback
 RAZORPAY_LIVE_PILOT_ACCOUNT_ID=50a9e8f9-d7e5-44d2-ba04-c367509b981e
+RAZORPAY_LIVE_PILOT_MERCHANT_ID=acc_TCJwBqanN9LTrK
 ```
 
 The Production OAuth client id and existing unrotated client secret are now
@@ -731,26 +735,53 @@ selector only after the exact Live OAuth merchant is ready, read-write scoped,
 lease-free, and free of all manual credential material. Activation writes an
 immutable service-only audit row and an exact retry is idempotent.
 
-### Current continuation gate
+### Live OAuth readiness evidence and current gate
 
-The production credentials and exact Live webhook are complete. A shortest
-OAuth exercise temporarily deployed `RAZORPAY_OAUTH_ENABLED=true` on READY
-deployment `dpl_CTFvW7oSpUuMkM4XVZ3qyMnskb3s`, but the browser's active
-UsefulDesk session resolved to workspace **Aakash Mishra**, not the allowlisted
-Rajat Kashyap pilot. The explicit branch URL correctly rendered **Branch
-unavailable**. No Connect action was clicked, no OAuth state or provider grant
-was created, and no selector or financial state changed.
+After the browser was signed in to exact branch
+`50a9e8f9-d7e5-44d2-ba04-c367509b981e`, the first consent attempt was cancelled
+before **Authorize**: review found that the callback allowlisted the UsefulDesk
+account but did not independently compare the exchanged Razorpay merchant.
+OAuth was restored false and no provider grant or selector change occurred.
+The callback now requires the Production-only, non-secret
+`RAZORPAY_LIVE_PILOT_MERCHANT_ID`, compares the exchanged account exactly, and
+revokes both returned tokens before rejecting a mismatch.
 
-The flag was immediately restored to `false` on READY deployment
-`dpl_CJuMiLV5EW5VhYpCogGcK6YS248v`; manual rollback and both refund acceptance
-flags remained false throughout. Continue only after the browser is signed in
-to the UsefulDesk workspace whose exact account id is
-`50a9e8f9-d7e5-44d2-ba04-c367509b981e` (**Rajat Kashyap**). Then repeat the
-shortest OAuth exercise, authorize only merchant `acc_TCJwBqanN9LTrK`, verify
-the five Live capabilities, selector activation, signed delivery,
-reconciliation, and zero queues, and restore the flag immediately.
+The next shortest hardened window authorized only Live merchant
+`acc_TCJwBqanN9LTrK`. The callback received `read_write`, passed the five
+non-mutating Payments/refunds, Payment Links, plans, and subscriptions probes,
+and persisted one encrypted storage-version-1 OAuth connection. Database
+verification shows `provider_mode='live'`, `connection_status='ready'`, current
+access/refresh expiries, no manual key id/secret/webhook secret, no refresh
+lease, and no last error. The imported-account readiness fallback left
+`merchant_status='unknown'` with a fresh activation verification. The audited
+selector transaction changed `legacy_account` to `application` exactly once
+for the exact merchant; both created OAuth states are consumed and none is
+active. The product UI independently renders **Connected**, **Readiness
+verified**, **Live mode**, and merchant suffix `N9LTrK`.
 
-Before any payment, separately obtain the explicit payer, reconfirm the pilot
-merchant, choose the low-value amount, and choose `reopen_balance` or
-`reduce_charge`. The missing `gym_payment_link` template means Copy may be
-tested later but WhatsApp Send must not be claimed. Stage 5 is not accepted.
+The first post-connect health read exposed four failed and five missing-ledger
+alerts. Inspection proved they belonged to 16 preserved pre-OAuth legacy
+events from July/August: every row has null provider mode and null external
+merchant identity, so none can be attributed to the Live pilot. Do not delete,
+rewrite, or relabel those provider/payment facts. Migration
+`20260810162750_scope_razorpay_health_to_provider_identity.sql` was applied
+through the approved Supabase connector. It appends provider mode and merchant
+identity to the read-only missing-ledger view and makes both health queries
+require the exact stored scope. The exact Live scope now contains zero events,
+failed webhooks, missing-ledger entries, open payment/charge exceptions,
+orphaned links, Payment Links, or refunds; the UI has no attention alert.
+
+Final READY deployment `dpl_8ur1o5njFRfm66Qu8X88cY6svL6U` serves
+`desk.usefulmade.com`. OAuth, manual rollback, provider acceptance, refund
+ambiguity acceptance, and refund-retry acceptance are false. Invalid-signature
+application traffic returns 400, and the local Vercel link is restored to the
+isolated sandbox. No signed Live provider event or financial mutation exists
+yet.
+
+Before any payment, separately obtain the explicit payer, reconfirm merchant
+`acc_TCJwBqanN9LTrK`, choose the low-value amount, and choose `reopen_balance`
+or `reduce_charge`. Then run exactly one Payment Link, capture, full
+remaining-payment refund, genuine duplicate/replay where available,
+reconciliation, Finance/invoice/dues/reminder/CSV verification, and a final
+zero-queue check. The missing `gym_payment_link` template means Copy may be
+tested but WhatsApp Send must not be claimed. Stage 5 is not accepted.

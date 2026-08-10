@@ -21,6 +21,7 @@ interface RazorpayEnv {
   RAZORPAY_OAUTH_CLIENT_SECRET?: string;
   RAZORPAY_OAUTH_REDIRECT_URI?: string;
   RAZORPAY_LIVE_PILOT_ACCOUNT_ID?: string;
+  RAZORPAY_LIVE_PILOT_MERCHANT_ID?: string;
   RAZORPAY_WEBHOOK_SECRET_CURRENT?: string;
 }
 
@@ -87,6 +88,20 @@ export function assertRazorpayApplicationWebhookConfigured(
 ): void {
   if (!env.RAZORPAY_WEBHOOK_SECRET_CURRENT?.trim()) {
     throw new Error('Razorpay application webhook is not configured');
+  }
+}
+
+export function assertRazorpayLivePilotMerchant(
+  externalAccountId: string,
+  env: RazorpayEnv = process.env
+): void {
+  if (getRazorpayProviderMode(env) !== 'live') return;
+  const merchantId = env.RAZORPAY_LIVE_PILOT_MERCHANT_ID?.trim();
+  if (!merchantId || !/^acc_[A-Za-z0-9]+$/.test(merchantId)) {
+    throw new Error('RAZORPAY_LIVE_PILOT_MERCHANT_ID must be configured');
+  }
+  if (externalAccountId !== merchantId) {
+    throw new Error('Razorpay Live merchant is not enabled for this pilot');
   }
 }
 

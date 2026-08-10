@@ -13,6 +13,7 @@ import {
 import {
   assertRazorpayApplicationWebhookConfigured,
   assertRazorpayLivePilotAccount,
+  assertRazorpayLivePilotMerchant,
   getRazorpayOAuthConfig,
 } from '@/lib/payments/razorpay-config';
 import {
@@ -91,6 +92,7 @@ export async function GET(request: Request) {
       encryptedCodeVerifier: consumed.pkce_code_verifier,
     });
     try {
+      assertRazorpayLivePilotMerchant(tokens.accountId);
       await beginRazorpayOAuthConnection(admin, accountId, tokens);
     } catch (error) {
       // A grant that could not be bound locally must not remain usable. This is

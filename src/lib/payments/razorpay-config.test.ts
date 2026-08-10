@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assertRazorpayApplicationWebhookConfigured,
   assertRazorpayLivePilotAccount,
+  assertRazorpayLivePilotMerchant,
   assertRazorpayProviderMode,
   getRazorpayOAuthConfig,
   getRazorpayProviderMode,
@@ -111,6 +112,31 @@ describe('Razorpay rollout configuration', () => {
     expect(() =>
       assertRazorpayApplicationWebhookConfigured({
         RAZORPAY_WEBHOOK_SECRET_CURRENT: 'configured-secret',
+      })
+    ).not.toThrow();
+  });
+
+  it('requires and enforces the single Live pilot merchant', () => {
+    expect(() =>
+      assertRazorpayLivePilotMerchant('acc_expected', {
+        RAZORPAY_MODE: 'live',
+      })
+    ).toThrow(/must be configured/);
+    expect(() =>
+      assertRazorpayLivePilotMerchant('acc_other', {
+        RAZORPAY_MODE: 'live',
+        RAZORPAY_LIVE_PILOT_MERCHANT_ID: 'acc_expected',
+      })
+    ).toThrow(/not enabled/);
+    expect(() =>
+      assertRazorpayLivePilotMerchant('acc_expected', {
+        RAZORPAY_MODE: 'live',
+        RAZORPAY_LIVE_PILOT_MERCHANT_ID: 'acc_expected',
+      })
+    ).not.toThrow();
+    expect(() =>
+      assertRazorpayLivePilotMerchant('any-test-merchant', {
+        RAZORPAY_MODE: 'test',
       })
     ).not.toThrow();
   });

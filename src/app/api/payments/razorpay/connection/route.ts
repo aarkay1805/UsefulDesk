@@ -7,6 +7,7 @@ import {
 } from '@/lib/auth/account';
 import { requireSameOriginRequest } from '@/lib/auth/csrf';
 import {
+  getRazorpayDiagnosticScope,
   getRazorpayConnectionStatus,
   saveManualRazorpayCredentials,
 } from '@/lib/payments/credentials';
@@ -23,8 +24,14 @@ export async function GET() {
   try {
     const ctx = await requirePaymentGatewayAccess();
     const admin = supabaseAdmin();
+    const [connection, diagnosticScope] = await Promise.all([
+      getRazorpayConnectionStatus(admin, ctx.accountId),
+      getRazorpayDiagnosticScope(admin, ctx.accountId),
+    ]);
+    const diagnosticMode = diagnosticScope?.providerMode ?? '__unscoped__';
+    const diagnosticMerchant =
+      diagnosticScope?.externalAccountId ?? '__unscoped__';
     const [
-      connection,
       failedEvents,
       missingLedger,
       unappliedCharges,
@@ -32,12 +39,13 @@ export async function GET() {
       paymentLinkExceptions,
       paymentLinkSetupExceptions,
     ] = await Promise.all([
-      getRazorpayConnectionStatus(admin, ctx.accountId),
       admin
         .from('webhook_events')
         .select('id', { count: 'exact', head: true })
         .eq('account_id', ctx.accountId)
         .eq('gateway', 'razorpay')
+        .eq('provider_mode', diagnosticMode)
+        .eq('external_account_id', diagnosticMerchant)
         .eq('processing_status', 'failed'),
       admin
         .from('razorpay_missing_payment_ledger')
@@ -46,6 +54,8 @@ export async function GET() {
           { count: 'exact' }
         )
         .eq('account_id', ctx.accountId)
+        .eq('provider_mode', diagnosticMode)
+        .eq('external_account_id', diagnosticMerchant)
         .order('created_at', { ascending: false })
         .limit(20),
       admin

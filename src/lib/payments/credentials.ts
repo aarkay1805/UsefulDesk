@@ -62,6 +62,11 @@ export interface RazorpayConnection {
   oauthAccessExpiresAt?: Date;
 }
 
+export interface RazorpayDiagnosticScope {
+  providerMode: RazorpayProviderMode;
+  externalAccountId: string;
+}
+
 export interface RazorpayCredentialPatch {
   keyId: string | null;
   keySecret?: string;
@@ -268,6 +273,20 @@ export async function getRazorpayConnectionStatus(
     oauthEnabled,
     manualRollbackEnabled,
     canonicalWebhookIngress: row.canonical_webhook_ingress,
+  };
+}
+
+/** Server-only identity used to keep health diagnostics out of other modes. */
+export async function getRazorpayDiagnosticScope(
+  admin: SupabaseClient,
+  accountId: string
+): Promise<RazorpayDiagnosticScope | null> {
+  const row = await loadCredentialRow(admin, accountId);
+  if (!row?.provider_mode || !row.razorpay_account_id) return null;
+  assertRazorpayProviderMode(row.provider_mode, getRazorpayProviderMode());
+  return {
+    providerMode: row.provider_mode,
+    externalAccountId: row.razorpay_account_id,
   };
 }
 

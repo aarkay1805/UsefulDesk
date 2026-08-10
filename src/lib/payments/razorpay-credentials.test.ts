@@ -5,6 +5,7 @@ import { encryptPaymentSecret } from './payment-secrets';
 import {
   assertRazorpayOAuthStorageReady,
   getRazorpayConnection,
+  getRazorpayDiagnosticScope,
 } from './credentials';
 
 function credentialDb(row: Record<string, unknown>): SupabaseClient {
@@ -166,6 +167,39 @@ describe('Razorpay credential resolver', () => {
     vi.stubEnv('RAZORPAY_MANUAL_ROLLBACK_ENABLED', 'true');
     await expect(
       getRazorpayConnection(credentialDb(baseRow()), 'account')
+    ).rejects.toThrow(/does not match/);
+  });
+
+  it('returns an exact mode-and-merchant diagnostic scope', async () => {
+    vi.stubEnv('RAZORPAY_MODE', 'live');
+    await expect(
+      getRazorpayDiagnosticScope(
+        credentialDb(
+          baseRow({
+            provider_mode: 'live',
+            razorpay_account_id: 'acc_live_pilot',
+          })
+        ),
+        'account'
+      )
+    ).resolves.toEqual({
+      providerMode: 'live',
+      externalAccountId: 'acc_live_pilot',
+    });
+  });
+
+  it('fails diagnostic access closed across provider modes', async () => {
+    vi.stubEnv('RAZORPAY_MODE', 'live');
+    await expect(
+      getRazorpayDiagnosticScope(
+        credentialDb(
+          baseRow({
+            provider_mode: 'test',
+            razorpay_account_id: 'acc_test_isolated',
+          })
+        ),
+        'account'
+      )
     ).rejects.toThrow(/does not match/);
   });
 
