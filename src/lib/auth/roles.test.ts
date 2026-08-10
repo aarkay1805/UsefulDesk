@@ -141,7 +141,7 @@ describe('capability predicates', () => {
     expect(canCorrectPayments('viewer')).toBe(false);
   });
 
-  it('canRefundGatewayPayments: admin+ only', () => {
+  it('canRefundGatewayPayments: issue, line-target, and classify at admin+ only', () => {
     expect(canRefundGatewayPayments('owner')).toBe(true);
     expect(canRefundGatewayPayments('admin')).toBe(true);
     expect(canRefundGatewayPayments('agent')).toBe(false);

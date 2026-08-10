@@ -20,6 +20,7 @@ import {
   getRazorpayProviderMode,
   type RazorpayProviderMode,
 } from './razorpay-config';
+import type { RefundLineAllocationInput } from './refund-allocation-input';
 import { boundedRazorpayError } from './razorpay-oauth';
 
 const REFUND_PAGE_SIZE = 25;
@@ -677,15 +678,28 @@ export async function classifyImportedGatewayRefund(input: {
   refundId: string;
   disposition: RefundDisposition;
   reason: string;
+  allocations?: RefundLineAllocationInput[];
 }) {
   await requireInitialRefundScan(input.admin, input.accountId);
-  const { data, error } = await input.admin.rpc('classify_gateway_refund', {
-    p_account_id: input.accountId,
-    p_refund_id: input.refundId,
-    p_actor: input.userId,
-    p_disposition: input.disposition,
-    p_reason: input.reason,
-  });
+  const partial = Boolean(input.allocations?.length);
+  const { data, error } = await input.admin.rpc(
+    partial ? 'resolve_gateway_partial_refund' : 'classify_gateway_refund',
+    {
+      p_account_id: input.accountId,
+      p_refund_id: input.refundId,
+      p_actor: input.userId,
+      p_disposition: input.disposition,
+      p_reason: input.reason,
+      ...(partial
+        ? {
+            p_allocations: input.allocations!.map((allocation) => ({
+              invoice_line_id: allocation.invoiceLineId,
+              amount: allocation.amount,
+            })),
+          }
+        : {}),
+    }
+  );
   if (error) throw new RefundConflictError(error.message);
   return data;
 }

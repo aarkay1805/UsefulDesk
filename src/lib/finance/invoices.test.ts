@@ -283,4 +283,26 @@ describe('finance invoice filtering and totals', () => {
     );
     expect(csv).not.toContain('Invoice number');
   });
+
+  it('exports paise-exact net totals after a partial refund adjustment', () => {
+    const csv = financeInvoicesCsv([
+      {
+        ...rows[0],
+        fee_amount: 1.01,
+        invoice_adjustment_amount: 1,
+        gross_amount_paid: 1.01,
+        processed_refund_amount: 1,
+        amount_paid: 0.01,
+        accounting_balance: 0,
+        collectible_balance: 0,
+        requires_refund_review: false,
+        gatewayPaymentIds: ['pay_test'],
+        gatewayRefundIds: ['rfnd_test'],
+        refundDispositions: ['reduce_charge'],
+      },
+    ]);
+
+    expect(csv).toContain(',1.01,1,0.01,1.01,1,0.01,0,0,0,No,');
+    expect(csv).not.toContain('0.010000000000000009');
+  });
 });

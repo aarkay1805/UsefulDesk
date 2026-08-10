@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import {
   Dialog,
   DialogContent,
@@ -24,7 +25,12 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useLocale } from '@/hooks/use-locale';
+import { currencySymbol } from '@/lib/currency';
 import { getErrorMessage } from '@/lib/errors';
+import {
+  normalizeRefundLineAllocations,
+  refundAllocationTotalPaise,
+} from '@/lib/payments/refund-allocation-input';
 import type { Payment, PaymentRefund, PaymentRefundDisposition } from '@/types';
 
 export function GatewayRefundDialog({
@@ -46,19 +52,62 @@ export function GatewayRefundDialog({
   onOpenChange: (open: boolean) => void;
   onCompleted: () => void;
 }) {
-  const { fmt } = useLocale();
+  const { fmt, locale } = useLocale();
   const classifying = Boolean(refund);
+  const targetingLines = Boolean(refund && !refund.allocation_complete);
+  const allocationOptions = refund?.allocation_options ?? [];
   const [disposition, setDisposition] =
     useState<PaymentRefundDisposition>('reopen_balance');
   const [reason, setReason] = useState('');
+  const [lineAmounts, setLineAmounts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
     crypto.randomUUID()
   );
+  const allocationDraft = allocationOptions
+    .map((option) => ({
+      invoiceLineId: option.invoice_line_id,
+      amount: lineAmounts[option.invoice_line_id]?.trim() ?? '',
+    }))
+    .filter((allocation) => allocation.amount.length > 0);
+  const normalizedAllocations = targetingLines
+    ? normalizeRefundLineAllocations(allocationDraft)
+    : [];
+  const allocatedPaise = normalizedAllocations
+    ? refundAllocationTotalPaise(normalizedAllocations)
+    : 0;
+  const targetPaise = Math.round(amount * 100);
+  const exceedsLineCapacity = Boolean(
+    normalizedAllocations?.some((allocation) => {
+      const option = allocationOptions.find(
+        (candidate) => candidate.invoice_line_id === allocation.invoiceLineId
+      );
+      return (
+        !option ||
+        Math.round(Number(allocation.amount) * 100) >
+          Math.round(option.available_amount * 100)
+      );
+    })
+  );
+  const allocationError = !targetingLines
+    ? null
+    : allocationOptions.length === 0
+      ? 'No eligible original payment lines are available.'
+      : normalizedAllocations === null
+        ? 'Enter a positive amount with no more than two decimal places.'
+        : exceedsLineCapacity
+          ? 'A line amount exceeds the payment originally assigned to it.'
+          : allocatedPaise !== targetPaise
+            ? `Assigned ${fmt.money(allocatedPaise / 100)} of ${fmt.money(amount)}.`
+            : null;
 
   async function submit() {
     if (reason.trim().length < 3) {
       toast.error('Enter a clear refund reason');
+      return;
+    }
+    if (allocationError || !normalizedAllocations) {
+      toast.error(allocationError ?? 'Choose exact invoice-line allocations');
       return;
     }
     setSaving(true);
@@ -72,7 +121,13 @@ export function GatewayRefundDialog({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(
             classifying
-              ? { disposition, reason: reason.trim() }
+              ? {
+                  disposition,
+                  reason: reason.trim(),
+                  ...(targetingLines
+                    ? { allocations: normalizedAllocations }
+                    : {}),
+                }
               : {
                   paymentId: payment.id,
                   disposition,
@@ -87,9 +142,11 @@ export function GatewayRefundDialog({
         throw new Error(body.error ?? 'Refund request failed');
       }
       toast.success(
-        classifying
-          ? 'Refund classified and invoice balances recalculated'
-          : 'Full refund submitted to Razorpay'
+        targetingLines
+          ? 'Refund lines assigned and review cleared'
+          : classifying
+            ? 'Refund classified and invoice balances recalculated'
+            : 'Full refund submitted to Razorpay'
       );
       setReason('');
       setIdempotencyKey(crypto.randomUUID());
@@ -107,12 +164,18 @@ export function GatewayRefundDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {classifying ? 'Classify refund' : 'Issue full refund?'}
+            {targetingLines
+              ? 'Resolve refund review'
+              : classifying
+                ? 'Classify refund'
+                : 'Issue full refund?'}
           </DialogTitle>
           <DialogDescription>
-            {classifying
-              ? 'Choose how this provider-processed refund changes the invoice.'
-              : 'This sends an irreversible full remaining-payment refund to Razorpay.'}
+            {targetingLines
+              ? 'Assign every refunded paise to its original invoice line, then choose the accounting outcome.'
+              : classifying
+                ? 'Choose how this provider-processed refund changes the invoice.'
+                : 'This sends an irreversible full remaining-payment refund to Razorpay.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -125,6 +188,69 @@ export function GatewayRefundDialog({
           />
           <RefundFact label="Refund amount" value={fmt.money(amount)} strong />
         </div>
+
+        {targetingLines ? (
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium">Invoice line targeting</p>
+              <p className="text-muted-foreground mt-1 text-xs">
+                These allocations are append-only. Enter zero by leaving an
+                unrelated line blank.
+              </p>
+            </div>
+            {allocationOptions.length === 0 ? (
+              <Alert variant="destructive">
+                <AlertTitle>Line targeting unavailable</AlertTitle>
+                <AlertDescription>
+                  Reload the invoice. If this persists, keep the refund under
+                  review for reconciliation.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="space-y-3">
+                {allocationOptions.map((option) => {
+                  const inputId = `gateway-refund-line-${option.invoice_line_id}`;
+                  return (
+                    <div key={option.invoice_line_id} className="space-y-1.5">
+                      <div className="flex items-end justify-between gap-3">
+                        <Label htmlFor={inputId}>{option.description}</Label>
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          Up to {fmt.money(option.available_amount)}
+                        </span>
+                      </div>
+                      <CurrencyInput
+                        id={inputId}
+                        symbol={currencySymbol(
+                          refund?.currency ?? locale.currency
+                        )}
+                        groupLocale={locale.locale}
+                        value={lineAmounts[option.invoice_line_id] ?? ''}
+                        onValueChange={(value) =>
+                          setLineAmounts((current) => ({
+                            ...current,
+                            [option.invoice_line_id]: value,
+                          }))
+                        }
+                        aria-invalid={Boolean(allocationError)}
+                      />
+                    </div>
+                  );
+                })}
+                <p
+                  className={
+                    allocationError
+                      ? 'text-destructive text-xs'
+                      : 'text-muted-foreground text-xs'
+                  }
+                  role={allocationError ? 'alert' : undefined}
+                >
+                  {allocationError ??
+                    `Assigned ${fmt.money(amount)} of ${fmt.money(amount)}.`}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : null}
 
         <div className="space-y-1.5">
           <Label htmlFor="gateway-refund-disposition">Invoice outcome</Label>
@@ -185,14 +311,20 @@ export function GatewayRefundDialog({
             type="button"
             variant={classifying ? 'default' : 'destructive'}
             onClick={() => void submit()}
-            disabled={saving || reason.trim().length < 3}
+            disabled={
+              saving || reason.trim().length < 3 || Boolean(allocationError)
+            }
           >
             {saving ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <RotateCcw className="size-4" />
             )}
-            {classifying ? 'Apply classification' : 'Issue full refund'}
+            {targetingLines
+              ? 'Resolve refund review'
+              : classifying
+                ? 'Apply classification'
+                : 'Issue full refund'}
           </Button>
         </DialogFooter>
       </DialogContent>

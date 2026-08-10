@@ -93,6 +93,18 @@ export interface FinanceInvoiceSummary {
   overdue: number;
 }
 
+function moneyPaise(value: number): number {
+  return Math.round(Number(value) * 100);
+}
+
+function moneyDifference(left: number, right: number): number {
+  return (moneyPaise(left) - moneyPaise(right)) / 100;
+}
+
+function addMoney(total: number, value: number): number {
+  return (moneyPaise(total) + moneyPaise(value)) / 100;
+}
+
 type SortState = {
   key: FinanceInvoiceSortKey;
   dir: 'asc' | 'desc';
@@ -300,17 +312,35 @@ export function financeInvoiceSummary(
     (summary, row) => {
       summary.count += 1;
       if (row.state === 'void') return summary;
-      summary.grossInvoiced += Number(row.fee_amount);
-      summary.adjustments += Number(row.invoice_adjustment_amount ?? 0);
-      summary.invoiced +=
-        Number(row.fee_amount) - Number(row.invoice_adjustment_amount ?? 0);
-      summary.grossCollected += Number(
-        row.gross_amount_paid ?? row.amount_paid
+      summary.grossInvoiced = addMoney(
+        summary.grossInvoiced,
+        Number(row.fee_amount)
       );
-      summary.refunds += Number(row.processed_refund_amount ?? 0);
-      summary.collected += Number(row.amount_paid);
+      summary.adjustments = addMoney(
+        summary.adjustments,
+        Number(row.invoice_adjustment_amount ?? 0)
+      );
+      summary.invoiced = addMoney(
+        summary.invoiced,
+        moneyDifference(
+          Number(row.fee_amount),
+          Number(row.invoice_adjustment_amount ?? 0)
+        )
+      );
+      summary.grossCollected = addMoney(
+        summary.grossCollected,
+        Number(row.gross_amount_paid ?? row.amount_paid)
+      );
+      summary.refunds = addMoney(
+        summary.refunds,
+        Number(row.processed_refund_amount ?? 0)
+      );
+      summary.collected = addMoney(summary.collected, Number(row.amount_paid));
       if (isChargeableAmount(row.balance)) {
-        summary.outstanding += Number(row.balance);
+        summary.outstanding = addMoney(
+          summary.outstanding,
+          Number(row.balance)
+        );
         if (row.overdue) summary.overdue += 1;
       }
       return summary;
@@ -552,7 +582,10 @@ export function financeInvoicesCsv(rows: FinanceInvoiceRow[]): string {
       row.paymentState,
       Number(row.fee_amount),
       Number(row.invoice_adjustment_amount ?? 0),
-      Number(row.fee_amount) - Number(row.invoice_adjustment_amount ?? 0),
+      moneyDifference(
+        Number(row.fee_amount),
+        Number(row.invoice_adjustment_amount ?? 0)
+      ),
       Number(row.gross_amount_paid ?? row.amount_paid),
       Number(row.processed_refund_amount ?? 0),
       Number(row.amount_paid),

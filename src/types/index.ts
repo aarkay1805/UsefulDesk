@@ -956,6 +956,13 @@ export type PaymentRefundDisposition = 'reopen_balance' | 'reduce_charge';
 export type PaymentRefundStatus =
   'creating' | 'pending' | 'processed' | 'failed' | 'orphaned';
 
+export interface PaymentRefundAllocationOption {
+  invoice_line_id: string;
+  description: string;
+  original_payment_amount: number;
+  available_amount: number;
+}
+
 export interface PaymentRefund {
   id: string;
   payment_id: string;
@@ -974,6 +981,7 @@ export interface PaymentRefund {
   provider_created_at: string | null;
   created_at: string;
   allocation_complete: boolean;
+  allocation_options?: PaymentRefundAllocationOption[];
 }
 
 export interface ExpenseCategory {

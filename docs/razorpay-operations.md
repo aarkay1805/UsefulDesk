@@ -446,13 +446,13 @@ legacy-endpoint retirement, credential rotation, or Stage 4 refund work.
 
 ## Stage 4 full-refund implementation and Test evidence
 
-Stage 4 was implemented and exercised on 2026-08-09/10 only in **UsefulDesk
-Razorpay Test** (`hkuqzmgnhhgecqcbwupb`), the isolated Vercel Test project, and
-Razorpay Test Mode. It is not accepted under the task's strict final gate; see
-the blockers below. Migrations `20260809165718`, `20260809171336`,
-`20260809171510`, `20260809172816`, and the additive Test-acceptance migration
-`20260809185043` were applied only through the approved Supabase connector.
-Never substitute `supabase db push`.
+Stage 4 was implemented, exercised, and accepted on 2026-08-09/10 only in
+**UsefulDesk Razorpay Test** (`hkuqzmgnhhgecqcbwupb`), the isolated Vercel Test
+project, and Razorpay Test Mode. Migrations `20260809165718`, `20260809171336`,
+`20260809171510`, `20260809172816`, the additive Test retry migration
+`20260809185043`, and the external-partial resolver `20260810034213` were
+applied only through the approved Supabase connector. Never substitute
+`supabase db push`.
 
 The release permits only a payment's full remaining refundable amount. The
 admin-only route reserves immutable canonical request bytes/hash and a provider
@@ -492,12 +492,18 @@ before using the same service-only finalization/import functions.
   refund owns one ₹1.01 immutable allocation and exactly one ₹1.01 append-only
   invoice adjustment/allocation. Gross total/paid are ₹1.01, refund/net paid
   are ₹1.01/₹0, adjustment/net total are ₹1.01/₹0, and both balances are zero.
-- A separate Dashboard Test refund `rfnd_TNlC69tk2RY9yk` returned ₹1.00 from a
-  ₹1.01 payment. Signed event `TNlCjoMScyDhIs` imported it as header-only,
-  reduced payment-level net cash to ₹0.01, left line accounting balance
-  unchanged, made collectible balance zero, disabled unsafe actions/reminders,
-  and created the visible `partial_refund_line_target_required` exception.
-  This release must not allocate, classify, or clear that partial refund.
+- A separate Dashboard Test refund `rfnd_TNlC69tk2RY9yk` returned ₹1.00 from
+  ₹1.01 payment `pay_TNiktFgXrBvGZP`. Signed event `TNlCjoMScyDhIs` first
+  imported it as header-only, reduced payment-level net cash to ₹0.01, left
+  line accounting unchanged, made collectible balance zero, disabled unsafe
+  actions/reminders, and created `partial_refund_line_target_required` without
+  inventing a target. The owner then used **Resolve refund review** to assign
+  all ₹1.00 explicitly to original line
+  `64db2ce5-9b92-4c70-8dd4-c9c8fd373eb2` and choose `reduce_charge`. The
+  service-only transaction inserted one immutable refund allocation, created
+  equal adjustment `47cff14c-3532-4c84-bb6a-aace324090d8` and allocation,
+  resolved exception `73e6a8b2-70aa-4f56-8827-d732e8e3ec76`, and preserved
+  provider/payment identity. Exact replay returned `duplicate` with no write.
 - A fresh ₹1.03 Payment Link `plink_TNmLBcB5CH4NR9` settled as
   `pay_TNmNAOYec3Z8Jy`, after which UsefulDesk requested full `reopen_balance`
   refund `rfnd_TNmPln6l55dKxs`. The Test-only refund-retry acceptance returned
@@ -508,12 +514,15 @@ before using the same service-only finalization/import functions.
   finalized exactly one ₹1.03 immutable refund allocation with no adjustment.
   Net paid is ₹0, collectible balance is ₹1.03, and no review hold exists.
 
-Finance Overview, invoice health, invoices, payments, recent transactions, and
-the downloaded August invoice CSV were checked against these rows. The CSV
+Finance Overview, invoice health, invoices, payments, recent transactions, dues,
+and the downloaded August invoice CSV were checked against these rows. Target
+invoice `e9d17389-92e0-4eb7-87e6-41b7267f2a9d` has gross total/paid ₹1.01,
+refund/adjustment ₹1.00, net total/net cash ₹0.01, zero accounting/collectible
+balance, no review, no due/reminder target, and no active Payment Link. The CSV
 contains gross/refund/net cash, adjustments, review state, provider payment and
-refund IDs, and disposition. Authenticated cross-tenant reads returned no
-refund/allocation/adjustment rows, and browser roles cannot update the immutable
-tables or execute the service-only RPCs directly.
+refund IDs, disposition, and the exact decimal `0.01`. Authenticated
+cross-tenant reads returned no refund/allocation/adjustment rows, and browser
+roles cannot update immutable tables or execute the service-only RPCs directly.
 
 ### Ingress, recovery, and current gate
 
@@ -533,14 +542,16 @@ routing, and first-delivery identity/hash persistence, and permits only the
 identical provider redelivery to enter the canonical claim path. This is an
 acceptance harness, not production behavior.
 
-Do **not** mark Stage 4 accepted yet. The genuine refund-specific duplicate and
-retry evidence is complete, every canonical event is processed, and there are
-zero unresolved charge exceptions. The required external-partial exercise must
-retain one unresolved line-targeting exception by design, which conflicts with
-the task's strict zero-unresolved-exception gate. Keep that exact pending
-evidence—do not clear it, manufacture line allocations, or redefine the gate.
+Stage 4 is accepted for the single isolated Test account. The genuine
+refund-specific duplicate/retry evidence is complete, every canonical event is
+processed, no refund is `creating`, `pending`, or `orphaned`, and unresolved
+charge, payment, and refund exception counts are zero. The external-partial
+exception was not deleted or redefined: it was resolved through explicit
+admin-selected line targeting, exact original-payment capacity checks, atomic
+classification/adjustment, and an audited resolution note. Supabase security
+and performance advisories contain no finding for the new resolver.
 
-After the exercise, READY deployment `dpl_7s1VtoUyXyUb3V2JiPqTCyovxsRj`
+After the exercise, READY deployment `dpl_4V52iQ6Rjm1MGxCByNDjp5p3pzso`
 restored `RAZORPAY_OAUTH_ENABLED=false`,
 `RAZORPAY_MANUAL_ROLLBACK_ENABLED=false`,
 `RAZORPAY_REFUND_AMBIGUOUS_CREATE_ACCEPTANCE=false`, and

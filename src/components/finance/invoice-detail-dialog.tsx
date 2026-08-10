@@ -289,7 +289,8 @@ function InvoiceDetailBody({
           <AlertDescription>
             Razorpay has processed a refund that is not fully classified. The
             invoice is not collectible, and payment links, reminders, and due
-            follow-ups stay blocked until a supported full refund is classified.
+            follow-ups stay blocked until an admin assigns any missing invoice
+            lines and classifies the accounting outcome.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -621,8 +622,7 @@ function InvoiceDetailBody({
                             {canRefund &&
                             refund.source === 'razorpay_dashboard' &&
                             refund.status === 'processed' &&
-                            !refund.disposition &&
-                            refund.allocation_complete ? (
+                            !refund.disposition ? (
                               <Button
                                 type="button"
                                 variant="outline"
@@ -632,7 +632,9 @@ function InvoiceDetailBody({
                                   setClassification({ payment, refund })
                                 }
                               >
-                                Classify refund
+                                {refund.allocation_complete
+                                  ? 'Classify refund'
+                                  : 'Resolve refund review'}
                               </Button>
                             ) : null}
                           </div>

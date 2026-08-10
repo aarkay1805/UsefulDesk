@@ -9,6 +9,7 @@ import {
   RefundConflictError,
   type RefundDisposition,
 } from '@/lib/payments/razorpay-refunds';
+import { normalizeRefundLineAllocations } from '@/lib/payments/refund-allocation-input';
 
 export const runtime = 'nodejs';
 
@@ -26,14 +27,19 @@ export async function POST(
     const body = (await request.json()) as Record<string, unknown>;
     const disposition = body.disposition as RefundDisposition | undefined;
     const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+    const allocations = normalizeRefundLineAllocations(body.allocations);
     if (
       !refundId ||
       (disposition !== 'reopen_balance' && disposition !== 'reduce_charge') ||
       reason.length < 3 ||
-      reason.length > 500
+      reason.length > 500 ||
+      allocations === null
     ) {
       return NextResponse.json(
-        { error: 'Valid disposition and reason are required' },
+        {
+          error:
+            'Valid disposition, reason, and explicit refund line allocations are required',
+        },
         { status: 400 }
       );
     }
@@ -52,6 +58,7 @@ export async function POST(
       refundId,
       disposition,
       reason,
+      allocations,
     });
     return NextResponse.json({ result });
   } catch (error) {

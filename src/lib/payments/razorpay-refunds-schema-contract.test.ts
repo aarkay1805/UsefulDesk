@@ -11,8 +11,12 @@ const migration = read(
 const recoveryMigration = read(
   'supabase/migrations/20260809171510_complete_razorpay_refund_recovery_contract.sql'
 );
+const partialResolutionMigration = read(
+  'supabase/migrations/20260810034213_resolve_external_partial_refunds.sql'
+);
 const orchestration = read('src/lib/payments/razorpay-refunds.ts');
 const processor = read('src/lib/payments/razorpay-webhook-processor.ts');
+const refundRoute = read('src/app/api/payments/razorpay/refunds/route.ts');
 
 describe('Razorpay full-refund safety contract', () => {
   it('keeps provider refund state separate from immutable accounting disposition', () => {
@@ -94,5 +98,39 @@ describe('Razorpay full-refund safety contract', () => {
     expect(processor).toContain("case 'refund.processed':");
     expect(processor).toContain("case 'refund.failed':");
     expect(processor).toContain('finalizeOrImportVerifiedRefund');
+  });
+
+  it('resolves an external partial only through explicit atomic line targeting', () => {
+    expect(partialResolutionMigration).toContain(
+      'private.user_has_account_membership'
+    );
+    expect(partialResolutionMigration).toContain(
+      "'admin'::public.account_role_enum"
+    );
+    expect(partialResolutionMigration).toContain(
+      'v_allocation_total <> v_refund.amount'
+    );
+    expect(partialResolutionMigration).toMatch(
+      /requested\.amount > original\.amount - COALESCE/
+    );
+    expect(partialResolutionMigration).toMatch(
+      /INSERT INTO public\.payment_refund_allocations[\s\S]*UPDATE public\.payment_refunds[\s\S]*create_refund_adjustment[\s\S]*UPDATE public\.gateway_refund_exceptions/
+    );
+    expect(partialResolutionMigration).toContain(
+      "reason_code = 'partial_refund_line_target_required'"
+    );
+    expect(partialResolutionMigration).toContain("'outcome', 'duplicate'");
+    expect(refundRoute).toContain('allocation_options');
+    expect(refundRoute).toContain('original_payment_amount');
+    expect(refundRoute).toContain('available_amount');
+  });
+
+  it('keeps partial resolution service-role-only', () => {
+    expect(partialResolutionMigration).toMatch(
+      /REVOKE ALL ON FUNCTION public\.resolve_gateway_partial_refund\([\s\S]+FROM PUBLIC, anon, authenticated/
+    );
+    expect(partialResolutionMigration).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.resolve_gateway_partial_refund\([\s\S]+TO service_role/
+    );
   });
 });

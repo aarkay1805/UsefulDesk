@@ -31,34 +31,107 @@ export async function GET(request: Request) {
     if (!payment) {
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
     }
-    const [{ data: refunds, error: refundError }, { data: reconciliation }] =
-      await Promise.all([
-        ctx.supabase
-          .from('payment_refunds')
-          .select(
-            'id, payment_id, invoice_id, gateway_refund_id, amount, currency, source, disposition, reason, status, requested_by, requested_at, processed_at, failed_at, provider_created_at, created_at, payment_refund_allocations(amount)'
-          )
-          .eq('payment_id', paymentId)
-          .order('created_at', { ascending: false }),
-        supabaseAdmin()
-          .from('razorpay_reconciliation_state')
-          .select('initial_scan_completed_at')
-          .eq('account_id', ctx.accountId)
-          .maybeSingle(),
-      ]);
+    const [
+      { data: refunds, error: refundError },
+      { data: reconciliation },
+      { data: originalAllocations, error: originalAllocationError },
+    ] = await Promise.all([
+      ctx.supabase
+        .from('payment_refunds')
+        .select(
+          'id, payment_id, invoice_id, gateway_refund_id, amount, currency, source, disposition, reason, status, requested_by, requested_at, processed_at, failed_at, provider_created_at, created_at, payment_refund_allocations(invoice_line_id, amount)'
+        )
+        .eq('payment_id', paymentId)
+        .order('created_at', { ascending: false }),
+      supabaseAdmin()
+        .from('razorpay_reconciliation_state')
+        .select('initial_scan_completed_at')
+        .eq('account_id', ctx.accountId)
+        .maybeSingle(),
+      ctx.supabase
+        .from('payment_allocations')
+        .select('invoice_line_id, amount')
+        .eq('payment_id', paymentId),
+    ]);
     if (refundError) throw new Error(`load refunds: ${refundError.message}`);
+    if (originalAllocationError) {
+      throw new Error(
+        `load original payment allocations: ${originalAllocationError.message}`
+      );
+    }
+    const lineIds = (originalAllocations ?? []).map(
+      (allocation) => allocation.invoice_line_id
+    );
+    let invoiceLines: Array<{
+      id: string;
+      description: string;
+      sort_order: number;
+    }> = [];
+    if (lineIds.length > 0) {
+      const { data, error } = await ctx.supabase
+        .from('invoice_lines')
+        .select('id, description, sort_order')
+        .in('id', lineIds)
+        .order('sort_order');
+      if (error) throw new Error(`load invoice lines: ${error.message}`);
+      invoiceLines = data ?? [];
+    }
+    const lineById = new Map(invoiceLines.map((line) => [line.id, line]));
+    const consumedByLine = new Map<string, number>();
+    for (const refund of refunds ?? []) {
+      if (refund.status === 'failed') continue;
+      for (const allocation of refund.payment_refund_allocations ?? []) {
+        consumedByLine.set(
+          allocation.invoice_line_id,
+          (consumedByLine.get(allocation.invoice_line_id) ?? 0) +
+            Number(allocation.amount)
+        );
+      }
+    }
     return NextResponse.json({
-      refunds: (refunds ?? []).map((refund) => ({
-        ...refund,
-        allocation_complete:
-          Math.round(
-            (refund.payment_refund_allocations ?? []).reduce(
-              (total, allocation) => total + Number(allocation.amount),
-              0
-            ) * 100
-          ) === Math.round(Number(refund.amount) * 100),
-        payment_refund_allocations: undefined,
-      })),
+      refunds: (refunds ?? []).map((refund) => {
+        const allocated = (refund.payment_refund_allocations ?? []).reduce(
+          (total, allocation) => total + Number(allocation.amount),
+          0
+        );
+        const allocationComplete =
+          Math.round(allocated * 100) ===
+          Math.round(Number(refund.amount) * 100);
+        const needsLineTargeting =
+          refund.source === 'razorpay_dashboard' &&
+          refund.status === 'processed' &&
+          !refund.disposition &&
+          !allocationComplete;
+        return {
+          ...refund,
+          allocation_complete: allocationComplete,
+          allocation_options: needsLineTargeting
+            ? [...(originalAllocations ?? [])]
+                .sort(
+                  (left, right) =>
+                    (lineById.get(left.invoice_line_id)?.sort_order ??
+                      Number.MAX_SAFE_INTEGER) -
+                    (lineById.get(right.invoice_line_id)?.sort_order ??
+                      Number.MAX_SAFE_INTEGER)
+                )
+                .map((allocation) => {
+                  const line = lineById.get(allocation.invoice_line_id);
+                  return {
+                    invoice_line_id: allocation.invoice_line_id,
+                    description: line?.description ?? 'Invoice item',
+                    original_payment_amount: Number(allocation.amount),
+                    available_amount: Math.max(
+                      0,
+                      Number(allocation.amount) -
+                        (consumedByLine.get(allocation.invoice_line_id) ?? 0)
+                    ),
+                  };
+                })
+                .filter((allocation) => allocation.available_amount > 0)
+            : undefined,
+          payment_refund_allocations: undefined,
+        };
+      }),
       availability: {
         initialScanComplete: Boolean(reconciliation?.initial_scan_completed_at),
         canRefund: canRefundGatewayPayments(ctx.role),
