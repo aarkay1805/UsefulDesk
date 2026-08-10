@@ -806,7 +806,7 @@ BEGIN
   -- AutoPay renewal invoices never call it and retain their fixed mandate fee.
   PERFORM public.apply_oldest_member_credit(v_invoice_id);
 
-  SELECT balance INTO v_result FROM public.invoice_balances balance WHERE id = v_invoice_id;
+  SELECT balance.* INTO v_result FROM public.invoice_balances balance WHERE id = v_invoice_id;
   IF v_collect < 0 OR v_collect > v_result.balance THEN
     RAISE EXCEPTION 'Collected amount must be between zero and the invoice balance';
   END IF;

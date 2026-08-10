@@ -282,11 +282,19 @@ AS $$
   WITH candidates AS (
     SELECT event.id
     FROM public.webhook_events AS event
-    LEFT JOIN public.account_payment_credentials AS credentials
-      ON credentials.account_id = event.account_id
-     AND credentials.gateway = 'razorpay'
     WHERE event.gateway = 'razorpay'
-      AND COALESCE(event.provider_mode, credentials.provider_mode) = p_provider_mode
+      AND event.provider_mode = p_provider_mode
+      AND event.external_account_id IS NOT NULL
+      AND event.event_identity_source IS NOT NULL
+      AND event.payload_sha256 IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM public.account_payment_credentials AS credentials
+        WHERE credentials.account_id = event.account_id
+          AND credentials.gateway = 'razorpay'
+          AND credentials.provider_mode = event.provider_mode
+          AND credentials.razorpay_account_id = event.external_account_id
+      )
       AND event.processed_at IS NULL
       AND (
         (
@@ -302,8 +310,7 @@ AS $$
     FOR UPDATE OF event SKIP LOCKED
   ), claimed AS (
     UPDATE public.webhook_events AS event
-    SET provider_mode = COALESCE(event.provider_mode, p_provider_mode),
-        processing_status = 'processing',
+    SET processing_status = 'processing',
         attempt_count = event.attempt_count + 1,
         last_attempt_at = clock_timestamp(),
         processing_started_at = clock_timestamp(),

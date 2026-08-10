@@ -37,6 +37,16 @@ describe('Razorpay recovery schema contract', () => {
     );
     expect(migration).toContain('LIMIT LEAST(GREATEST(p_limit, 1), 100)');
     expect(migration).toContain('FOR UPDATE OF event SKIP LOCKED');
+    expect(migration).toContain('event.provider_mode = p_provider_mode');
+    expect(migration).toContain(
+      'credentials.razorpay_account_id = event.external_account_id'
+    );
+    expect(migration).not.toContain(
+      'COALESCE(event.provider_mode, credentials.provider_mode) = p_provider_mode'
+    );
+    expect(migration).not.toContain(
+      'SET provider_mode = COALESCE(event.provider_mode, p_provider_mode)'
+    );
     for (const delay of [
       "INTERVAL '1 minute'",
       "INTERVAL '5 minutes'",

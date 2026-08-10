@@ -735,7 +735,7 @@ selector only after the exact Live OAuth merchant is ready, read-write scoped,
 lease-free, and free of all manual credential material. Activation writes an
 immutable service-only audit row and an exact retry is idempotent.
 
-### Live OAuth readiness evidence and current gate
+### Live OAuth readiness and pilot acceptance evidence
 
 After the browser was signed in to exact branch
 `50a9e8f9-d7e5-44d2-ba04-c367509b981e`, the first consent attempt was cancelled
@@ -771,17 +771,75 @@ require the exact stored scope. The exact Live scope now contains zero events,
 failed webhooks, missing-ledger entries, open payment/charge exceptions,
 orphaned links, Payment Links, or refunds; the UI has no attention alert.
 
-Final READY deployment `dpl_8ur1o5njFRfm66Qu8X88cY6svL6U` serves
-`desk.usefulmade.com`. OAuth, manual rollback, provider acceptance, refund
-ambiguity acceptance, and refund-retry acceptance are false. Invalid-signature
-application traffic returns 400, and the local Vercel link is restored to the
-isolated sandbox. No signed Live provider event or financial mutation exists
-yet.
+Rajat then explicitly named himself as payer, reconfirmed merchant
+`acc_TCJwBqanN9LTrK`, chose ₹1, and selected `reopen_balance`. A separate
+single-use sale invoice was created for Mohit so the existing ₹2,700 joining
+invoice would remain untouched. The first checkout attempt exposed a PostgreSQL
+composite-row assignment bug in `perform_member_checkout`: `SELECT balance`
+resolved the view's numeric `balance` column instead of its row. Connector-
+applied migration `20260810165912` did not replace the already-correct second
+occurrence because of its early-return guard; follow-up migration
+`20260810170205` replaced every remaining ambiguous assignment with
+`SELECT balance.*`. The ₹1 invoice is
+`2f8411b6-8fdf-4d5c-81c6-a9fdcad958a7`; the original joining invoice
+`696007a4-3ff1-45a8-a4c8-19ffc9bc06d9` remained ₹2,700 throughout.
 
-Before any payment, separately obtain the explicit payer, reconfirm merchant
-`acc_TCJwBqanN9LTrK`, choose the low-value amount, and choose `reopen_balance`
-or `reduce_charge`. Then run exactly one Payment Link, capture, full
-remaining-payment refund, genuine duplicate/replay where available,
-reconciliation, Finance/invoice/dues/reminder/CSV verification, and a final
-zero-queue check. The missing `gym_payment_link` template means Copy may be
-tested but WhatsApp Send must not be claimed. Stage 5 is not accepted.
+Live Payment Link `plink_TO8x9EEvAaFTvD` used reference
+`udpl_f4c235d7df494e23ab01b298e7bd0f31`, exact expected amount 100 subunits,
+and `accept_partial=false`. Rajat paid by UPI. Signed application event
+`TO8zmuGUYRsb5p` used header identity, current-secret generation, and raw-body
+SHA-256 `3ab40cd109aea866670580a6d4bb4df0d3402e2146cde79a799e09f7958a633d`.
+It processed once at `attempt_count=1`, created immutable payment
+`eb7f0aa2-4374-4609-9445-e8efcbd1b1d3` / provider payment
+`pay_TO8zjE5Mshx3y6`, and allocated exactly ₹1 to the sale line. The link is
+terminal `paid` locally and remotely with no recovery lease or exception.
+
+The refund dialog remained disabled until historical provider reconciliation
+completed. Manual dispatch of the existing `ops-crons` workflow (run
+`31413801147`) initialized the exact Live account's fixed refund window,
+scanned zero refunds and zero unrelated rows, advanced
+`refund_completed_through` to 2026-08-10 17:24:00 UTC, set
+`initial_scan_completed_at`, and released the lease with no error. That same
+run exposed an older isolation defect: the recovery RPC inferred mode from the
+account's current credential and temporarily claimed four identity-less
+pre-OAuth events. Connector-applied migration
+`20260810172657_scope_razorpay_recovery_to_provider_identity.sql` now requires
+the event's stored provider mode, non-null canonical identity, and exact match
+between its external merchant and the account credential. It never fills mode
+from current credentials and restored those four rows to unknown mode without
+deleting, marking processed, or inventing provider facts.
+
+UsefulDesk requested exactly one full ₹1 refund with frozen request SHA-256
+`7bf5c2bc543839c29e44f3c600fcd9a5a4af92d905ec859ba201a984136b3428`.
+Provider refund `rfnd_TO9JVjXVBBVKQT` first returned `pending`, then signed
+application event `TO9Lk5YahoU3O9` completed it. The event used header identity,
+current-secret generation, SHA-256
+`c3a07cf30084c3bf42b174d897761173fbabed0d4e52506d79696d7de49fbc8a`,
+and processed once at `attempt_count=1`. Final state is one processed refund,
+one exact ₹1 refund allocation, no adjustment/allocation, no provider error or
+lease, and the immutable original payment remains `paid` and unvoided. Both
+Live financial events had one genuine application delivery and no legacy
+delivery; Razorpay offered no duplicate/retry, so none was manufactured.
+
+Invoice `#2F8411B6` now shows ₹1 gross collected, −₹1 processed refunds, ₹0 net
+collected, and ₹1 reopened collectible/accounting balance with no review hold.
+Business shows ₹0 net collections, one open invoice, ₹1 outstanding, and paired
++₹1 payment/−₹1 refund transactions. The downloaded August invoice CSV contains
+the exact payment/refund ids, `reopen_balance`, gross/refund/net `1/1/0`, no
+review, and collectible balance `1`. Mohit's membership due/reminder surface
+remains exactly ₹2,700; the sale invoice does not enter membership dues or its
+reminder queue. The unapproved `gym_payment_link` template remains a hard
+WhatsApp Send exclusion, and no Send evidence is claimed. The single-use
+`Stage 5 live pilot` catalog item is archived while invoice history remains.
+
+Exact Live unresolved canonical events, missing-ledger rows, open payment or
+refund exceptions, unfinished links/refunds, and recovery leases are zero.
+Post-lockdown workflow run `31415235489` claimed zero webhooks/links, reported
+zero failures or notes, and showed token/refund work disabled with OAuth false.
+READY deployment `dpl_KoiCtsfbL3SAefMxpUKuUYj7QUyJ` serves
+`desk.usefulmade.com` with OAuth, manual rollback, provider acceptance, refund
+ambiguity acceptance, and refund-retry acceptance false. The Settings card
+still shows the ready Live merchant but disables reconnect, and the local
+Vercel link is restored to the isolated provider sandbox. Stage 5 is accepted
+only for this account/merchant; do not infer authority for Stage 6, another
+merchant/account, a manual Live key, legacy-ingress removal, or WhatsApp Send.
