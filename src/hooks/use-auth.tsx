@@ -36,6 +36,13 @@ import {
   branchIdFromUrl,
   isBranchAccountId,
 } from '@/lib/auth/branch-context';
+import {
+  resolveAccountStatus,
+  retryProfileLookup,
+  type AccountStatus,
+} from '@/lib/auth/account-recovery';
+
+export type { AccountStatus } from '@/lib/auth/account-recovery';
 
 interface Profile {
   id: string;
@@ -102,6 +109,17 @@ export interface BranchAccount {
   is_organization_owner: boolean;
 }
 
+interface ProfileRow {
+  id: string;
+  full_name: string | null;
+  email: string;
+  avatar_url: string | null;
+  role: string | null;
+  beta_features: string[] | null;
+  account_id: string | null;
+  account_role: string | null;
+}
+
 interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
@@ -135,6 +153,10 @@ interface AuthContextValue {
   // NOT NULL on `profiles`.
   // ----------------------------------------------------------
 
+  /** Outcome of resolving the signed-in user's branch and role. */
+  accountStatus: AccountStatus;
+  /** Underlying reason when account access is unresolved. */
+  accountStatusDetail: string | null;
   /** Account id the current user belongs to. Null while loading. */
   accountId: string | null;
   /** Role within that account. Null while loading. */
@@ -192,6 +214,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [branchAccessError, setBranchAccessError] = useState<string | null>(
     null
   );
+  const [accountStatusDetail, setAccountStatusDetail] = useState<string | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   // Tracked separately from `loading`. The session settles fast (one
   // local cookie read); the profile fetch crosses the network and
@@ -210,24 +235,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = useCallback(async (userId: string) => {
     const supabase = createClient();
     setProfileLoading(true);
+    setAccountStatusDetail(null);
     lastFetchedUserIdRef.current = userId;
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(
-          'id, full_name, email, avatar_url, role, beta_features, account_id, account_role'
-        )
-        .eq('user_id', userId)
-        .maybeSingle();
+      const { data, error } = await retryProfileLookup<ProfileRow, Error>(
+        async () => {
+          const result = await supabase
+            .from('profiles')
+            .select(
+              'id, full_name, email, avatar_url, role, beta_features, account_id, account_role'
+            )
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          return {
+            data: result.data as ProfileRow | null,
+            error: result.error,
+          };
+        },
+        {
+          onError: (lookupError) => {
+            console.error('[AuthProvider] fetchProfile error:', {
+              message: lookupError.message,
+              details: 'details' in lookupError ? lookupError.details : null,
+              hint: 'hint' in lookupError ? lookupError.hint : null,
+              code: 'code' in lookupError ? lookupError.code : null,
+            });
+          },
+        }
+      );
 
       if (error) {
-        console.error('[AuthProvider] fetchProfile error:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
         lastFetchedUserIdRef.current = null;
+        setAccountStatusDetail(error.message);
         return;
       }
 
@@ -237,6 +277,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (branchesError) {
           console.error('[AuthProvider] fetchBranches error:', branchesError);
           lastFetchedUserIdRef.current = null;
+          setAccountStatusDetail(branchesError.message);
           setBranchAccessError('Could not load your branch access.');
           return;
         }
@@ -263,6 +304,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (hasExplicitBranch && (!requestedBranch || !selectedBranch)) {
           setAccount(null);
+          setAccountStatusDetail(
+            requestedBranch
+              ? "the requested branch is not in this login's memberships"
+              : 'the branch link does not contain a valid branch id'
+          );
           setBranchAccessError(
             requestedBranch
               ? 'You do not have access to this branch.'
@@ -285,6 +331,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (selectedBranch?.branch_status === 'archived') {
           setAccount(null);
+          setAccountStatusDetail('the selected branch is archived');
           setBranchAccessError(
             'This branch is archived. Its retained history is available in organization reporting.'
           );
@@ -293,6 +340,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (!selectedBranch) {
           setAccount(null);
+          setAccountStatusDetail(
+            'no available branch membership for the signed-in user'
+          );
           setBranchAccessError(
             'Your login is not linked to an available branch.'
           );
@@ -406,10 +456,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccount(accountRow);
       } else {
         lastFetchedUserIdRef.current = null;
+        setAccountStatusDetail('no profiles row for the signed-in user');
       }
     } catch (err) {
       console.error('[AuthProvider] fetchProfile threw:', err);
       lastFetchedUserIdRef.current = null;
+      setAccountStatusDetail(
+        err instanceof Error ? err.message : 'profile fetch failed'
+      );
     } finally {
       setProfileLoading(false);
     }
@@ -480,6 +534,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccount(null);
         setBranches([]);
         setBranchAccessError(null);
+        setAccountStatusDetail(null);
         setProfileLoading(false);
       }
 
@@ -501,6 +556,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccount(null);
     setBranches([]);
     setBranchAccessError(null);
+    setAccountStatusDetail(null);
     // Tear down every authenticated client component after sign-out.
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = '/login';
@@ -561,6 +617,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { locale: cfg, fmt: buildFormatters(cfg) };
   }, [account]);
 
+  const accountStatus = resolveAccountStatus({
+    signedIn: Boolean(user),
+    profileLoading,
+    hasProfile: Boolean(profile),
+    accountId: derived.accountId,
+    accountRole: derived.accountRole,
+  });
+
   return (
     <AuthContext.Provider
       value={{
@@ -571,6 +635,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         refreshProfile,
         account,
+        accountStatus,
+        accountStatusDetail,
         branches,
         organizationId: account?.organization_id ?? null,
         isOrganizationOwner:
@@ -611,6 +677,8 @@ export function useAuth(): AuthContextValue {
       },
       refreshProfile: async () => {},
       account: null,
+      accountStatus: 'loading',
+      accountStatusDetail: null,
       branches: [],
       organizationId: null,
       isOrganizationOwner: false,

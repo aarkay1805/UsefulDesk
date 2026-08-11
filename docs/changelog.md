@@ -6,6 +6,10 @@
 
 ---
 
+## Account-access recovery
+
+Signed-in sessions now retry one failed profile lookup, distinguish a valid viewer from an unresolved account/branch role, and explain the resulting read-only state instead of silently disabling every action. Dashboard and branch-access errors provide an in-place Retry path and retain fail-closed capability/RLS behavior. Key code: `src/lib/auth/account-recovery.ts`, `src/hooks/use-auth.tsx`, and `src/components/layout/account-access-alert.tsx`. No schema change.
+
 ## Automation webhook SSRF hardening
 
 Automation `send_webhook` steps now reuse the public-address SSRF guard before fetch, refuse redirects, and time out after ten seconds while retaining the existing success and failed-step log semantics. Key code: `src/lib/automations/engine.ts` and its focused regression tests. Gotcha: every new server-side automation fetch must apply the guard immediately before the request and must not follow redirects.

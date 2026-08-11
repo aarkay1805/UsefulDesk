@@ -7,6 +7,7 @@ import { OnboardingProvider } from '@/hooks/use-onboarding-status';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { AccountAppearanceSync } from '@/components/layout/account-appearance-sync';
+import { AccountAccessAlert } from '@/components/layout/account-access-alert';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
 import { useNotificationAudio } from '@/hooks/use-notification-audio';
 import { useFollowUpReminderRingtone } from '@/hooks/use-follow-up-reminder-ringtone';
@@ -21,10 +22,10 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const {
     user,
     loading,
-    profileLoading,
     branchAccessError,
     branches,
     switchBranch,
+    refreshProfile,
   } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -39,7 +40,17 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   // Sidebar drawer state — only used on mobile. On lg+ the sidebar is
   // always visible and this stays at `false` (ignored by the component).
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [retryingBranchAccess, setRetryingBranchAccess] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+  const retryBranchAccess = async () => {
+    setRetryingBranchAccess(true);
+    try {
+      await refreshProfile();
+    } finally {
+      setRetryingBranchAccess(false);
+    }
+  };
 
   // Browser audio is armed only after interaction. The reminder listener is
   // dashboard-wide so it survives navigation and stops on realtime read_at.
@@ -65,7 +76,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 
   if (!user) return null;
 
-  if (!profileLoading && branchAccessError) {
+  // Keep the fail-closed screen mounted while an in-place retry is loading.
+  // Otherwise profileLoading would briefly reveal the dashboard underneath.
+  if (branchAccessError) {
     const fallbackBranch = branches.find(
       (branch) => branch.branch_status !== 'archived'
     );
@@ -81,13 +94,22 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
               {branchAccessError}
             </p>
           </div>
-          {fallbackBranch ? (
+          <div className="flex flex-wrap justify-center gap-2">
+            {fallbackBranch ? (
+              <Button
+                onClick={() => void switchBranch(fallbackBranch.account_id)}
+              >
+                Open {fallbackBranch.account_name}
+              </Button>
+            ) : null}
             <Button
-              onClick={() => void switchBranch(fallbackBranch.account_id)}
+              variant={fallbackBranch ? 'outline' : 'default'}
+              onClick={() => void retryBranchAccess()}
+              disabled={retryingBranchAccess}
             >
-              Open {fallbackBranch.account_name}
+              {retryingBranchAccess ? 'Retrying...' : 'Retry'}
             </Button>
-          ) : null}
+          </div>
         </div>
       </div>
     );
@@ -113,6 +135,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             contentPaddingTop
           )}
         >
+          <AccountAccessAlert />
           {children}
         </main>
       </div>
