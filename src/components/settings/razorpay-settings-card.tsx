@@ -127,6 +127,7 @@ export function RazorpaySettingsCard() {
   const [health, setHealth] = useState<ConnectionHealth | null>(null);
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
   const [keyId, setKeyId] = useState('');
@@ -252,6 +253,43 @@ export function RazorpaySettingsCard() {
       toast.error(getErrorMessage(error, 'Could not disconnect Razorpay'));
     } finally {
       setDisconnecting(false);
+    }
+  }
+
+  async function recoverDisconnectingConnection() {
+    setRecovering(true);
+    try {
+      const response = await fetch('/api/payments/razorpay/oauth/recover', {
+        method: 'POST',
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not verify Razorpay connection');
+      }
+      setConnection(body.connection as BrowserSafeConnection);
+      if (body.readiness === 'ready') {
+        toast.success('Razorpay connection verified');
+      } else {
+        toast.warning('Razorpay connection needs attention');
+      }
+    } catch (error) {
+      try {
+        const statusResponse = await fetch(
+          '/api/payments/razorpay/connection',
+          { cache: 'no-store' }
+        );
+        const statusBody = await statusResponse.json();
+        if (statusResponse.ok) {
+          setConnection(statusBody.connection as BrowserSafeConnection);
+        }
+      } catch {
+        // Best-effort refresh: preserve the original provider error below.
+      }
+      toast.error(
+        getErrorMessage(error, 'Could not verify Razorpay connection')
+      );
+    } finally {
+      setRecovering(false);
     }
   }
 
@@ -402,24 +440,47 @@ export function RazorpaySettingsCard() {
                 ) : null}
 
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={beginConnect}
-                    disabled={connecting || !connection.oauthEnabled}
-                  >
-                    {connecting ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="size-4" />
-                    )}
-                    Reconnect
-                  </Button>
+                  {connection.connectionStatus === 'disconnecting' ? (
+                    <Button
+                      variant="outline"
+                      onClick={recoverDisconnectingConnection}
+                      disabled={recovering}
+                    >
+                      {recovering ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="size-4" />
+                      )}
+                      Recheck connection
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={beginConnect}
+                      disabled={connecting || !connection.oauthEnabled}
+                    >
+                      {connecting ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="size-4" />
+                      )}
+                      Reconnect
+                    </Button>
+                  )}
                   <Button
                     variant="destructive"
                     onClick={() => setDisconnectOpen(true)}
-                    disabled={disconnecting}
+                    disabled={
+                      disconnecting ||
+                      recovering ||
+                      connection.connectionStatus === 'disconnecting'
+                    }
                   >
-                    <Unplug className="size-4" />
+                    {disconnecting ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Unplug className="size-4" />
+                    )}
                     Disconnect
                   </Button>
                 </div>

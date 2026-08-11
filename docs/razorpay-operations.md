@@ -874,16 +874,48 @@ RAZORPAY_LIVE_PILOT_ACCOUNT_ID=50a9e8f9-d7e5-44d2-ba04-c367509b981e
 RAZORPAY_LIVE_PILOT_MERCHANT_ID=acc_TCJwBqanN9LTrK
 ```
 
-The exact Rajat Live scope has zero unresolved events, missing-ledger rows,
+The exact Rajat Live scope had zero unresolved events, missing-ledger rows,
 open charge/payment/refund exceptions, unfinished Payment Links/refunds, or
 recovery leases/errors. The accepted ₹1 Payment Link/payment/refund exercise
-was not repeated. The immutable OAuth merchant binding and application
-selector remain present, but a read-only credential check found the mutable
-connection status left as `disconnecting` after an earlier provider-side token
-revocation error. Current encrypted token fields and future expiries remain in
-the row; because a partial provider revocation cannot be excluded without a
-fresh provider check, do not rewrite the status to `ready`, initiate money, or
-claim current operational readiness. Resolving that status requires a separate
-secret-blind provider reconciliation decision; it does not invalidate the
-already completed Stage 5 evidence. The local `.vercel` link remains on
+was not repeated. A later provider-grounded recovery closed the mutable
+`disconnecting` caveat as recorded below. The local `.vercel` link remains on
 `usefuldesk-provider-sandbox`.
+
+### Failed-disconnect recovery and current readiness
+
+On 2026-08-11, migration
+`20260811172006_reconcile_razorpay_failed_disconnect.sql` was applied through
+the approved Supabase connector. Its three service-role-only, `SECURITY
+INVOKER` RPCs lease and generation-guard only the exact stored OAuth/Live/
+merchant tuple. They cannot admit a first binding and cannot commit `ready`
+without rotated future-dated encrypted grants plus provider readiness verified
+within five minutes. The authenticated same-origin recovery route and Settings
+**Recheck connection** action expose that contract through the existing
+`canConfigurePaymentGateway` capability.
+
+The first secret-blind recovery call asked Razorpay to refresh the stored grant.
+Razorpay returned `Token is already revoked`, so UsefulDesk released the lease
+and moved the row to `reconnect_required`; it did not rewrite readiness. Rajat
+then completed the shortest OAuth consent while Production remained pinned to
+account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` and merchant
+`acc_TCJwBqanN9LTrK`, with first-bind enrollment still false. The callback
+returned that exact merchant and `read_write`, stored only current encrypted
+access/refresh grants, and freshly passed the existing read-only
+Payments/refunds, Payment Links, plans, and subscriptions probes.
+
+Current database state is OAuth/Live/storage-v1/ready, merchant status
+`unknown` with fresh activation verification, selector `application` with its
+single immutable Live activation audit, and no manual key/secret, legacy
+webhook secret, refresh lease, disconnect timestamp, or last error. Active
+OAuth states, exact Live unresolved events, missing ledger, open
+charge/payment/refund exceptions, unfinished mandates/Payment Links/refunds,
+provider-work leases, and reconciliation attention are zero. This is current connection-readiness
+evidence, separate from the historical ₹1 acceptance; no money, VBF action, or
+WhatsApp Send was repeated.
+
+READY deployment `dpl_5GkfJc9Nj21pH5Liy8obPbfXpSuN` serves
+`desk.usefulmade.com` with the safe resting configuration shown above: OAuth,
+first-bind enrollment, manual rollback, provider acceptance, refund ambiguity
+acceptance, and refund-retry acceptance are all false. Existing OAuth secrets
+remain unrotated under the explicit owner risk acceptance. Do not start Stage 6
+or reopen VBF from this state.

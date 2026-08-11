@@ -99,6 +99,21 @@ export function assertRazorpayLivePilotMerchant(
   authorizeRazorpayLivePilotMerchant(externalAccountId, env);
 }
 
+/** Require the already-pinned Live merchant; never admit first-bind enrollment. */
+export function assertRazorpayPinnedLivePilotMerchant(
+  externalAccountId: string,
+  env: RazorpayEnv = process.env
+): void {
+  if (getRazorpayProviderMode(env) !== 'live') return;
+  const merchantId = env.RAZORPAY_LIVE_PILOT_MERCHANT_ID?.trim();
+  if (!merchantId || !/^acc_[A-Za-z0-9]+$/.test(merchantId)) {
+    throw new Error('RAZORPAY_LIVE_PILOT_MERCHANT_ID must be configured');
+  }
+  if (externalAccountId !== merchantId) {
+    throw new Error('Razorpay Live merchant does not match the pinned pilot');
+  }
+}
+
 export type RazorpayLivePilotMerchantAuthorization = 'pinned' | 'enrollment';
 
 /**

@@ -5,6 +5,7 @@ import {
   assertRazorpayApplicationWebhookConfigured,
   assertRazorpayLivePilotAccount,
   assertRazorpayLivePilotMerchant,
+  assertRazorpayPinnedLivePilotMerchant,
   assertRazorpayProviderMode,
   getRazorpayOAuthConfig,
   getRazorpayProviderMode,
@@ -170,5 +171,19 @@ describe('Razorpay rollout configuration', () => {
         RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED: 'true',
       })
     ).toBe('pinned');
+  });
+
+  it('never admits first-bind enrollment at the pinned recovery boundary', () => {
+    const env = {
+      RAZORPAY_MODE: 'live',
+      RAZORPAY_LIVE_PILOT_MERCHANT_ID: 'acc_existingacceptance',
+      RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED: 'true',
+    };
+    expect(() =>
+      assertRazorpayPinnedLivePilotMerchant('acc_existingacceptance', env)
+    ).not.toThrow();
+    expect(() =>
+      assertRazorpayPinnedLivePilotMerchant('acc_newmerchant', env)
+    ).toThrow(/pinned pilot/);
   });
 });
