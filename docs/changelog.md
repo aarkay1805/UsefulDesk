@@ -6,9 +6,9 @@
 
 ---
 
-## Razorpay post-Stage-6 pilot gate
+## Razorpay template submission and post-Stage-6 pilot gate
 
-Authenticated **Sync from Meta** succeeded for the current Production WABA and returned zero provider templates, confirming `gym_payment_link` is absent and WhatsApp Send remains unavailable; exact language/body owner approval must precede submission. `docs/razorpay-operations.md` now records the smallest next real-gym pilot as separately authorized connection-readiness only: exact account/Live merchant selection, secret-blind preflight, a shortest merchant-pinned OAuth window, and immediate return to false-at-rest flags. VBF stays excluded; enrollment/acceptance flags, money, refunds, and WhatsApp Send are not authorized.
+An initial authenticated **Sync from Meta** returned zero provider templates. The owner approved the exact `en_US` Utility wording, UsefulDesk submitted `gym_payment_link` with dummy review samples, and an authenticated follow-up sync confirms **Pending**; WhatsApp Send remains unavailable until Meta reports Approved. `docs/razorpay-operations.md` also records the smallest next real-gym pilot as separately authorized connection-readiness only: exact account/Live merchant selection, secret-blind preflight, a shortest merchant-pinned OAuth window, and immediate return to false-at-rest flags. VBF stays excluded; enrollment/acceptance flags, money, refunds, and WhatsApp Send are not authorized.
 
 ## Razorpay Stage 6 OAuth-only retirement
 

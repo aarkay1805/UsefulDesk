@@ -994,23 +994,23 @@ Final Production evidence remains exact-account scoped:
 
 On 2026-08-12, the authenticated Production workspace for Rajat Kashyap ran
 the existing **Sync from Meta** operation against its configured WhatsApp
-Business Account. The Meta Graph request succeeded and returned `total=0`,
-with zero inserts and zero updates. The local template list contains no
-`gym_payment_link` row. Therefore the template is not approved, pending,
-rejected, or otherwise present on this WABA; **Send payment link** remains
-unavailable and no Send is claimed.
+Business Account. The initial Meta Graph request succeeded and returned
+`total=0`, with zero inserts and zero updates, confirming that
+`gym_payment_link` was absent from the WABA.
 
-Do not submit a template until the owner approves the exact language and body
-wording. The product contract already fixes the category as **Utility**, the
-name as `gym_payment_link`, and the four body parameters as member name,
-outstanding amount, invoice reference, and complete Razorpay URL. A minimal
-candidate for owner review is language `en_US` with body:
+The owner then approved language `en_US` and the exact body below. UsefulDesk
+submitted it as the locked **Utility** template `gym_payment_link`, with dummy
+review samples only (`Rahul`, `₹3,999`, `INV-1001`, and a non-customer
+`rzp.io` URL):
 
 > Hi {{1}}, your payment of {{2}} for invoice {{3}} is due. Pay securely using
 > this link: {{4}}
 
-Submission, review, and any later WhatsApp Send are separate external actions.
-Copy remains available without this template.
+Meta acknowledged the submission and the authenticated follow-up sync
+confirmed status **Pending** for `en_US`. The provider has not approved it, so
+**Send payment link** remains unavailable and no Send is claimed. Do not claim
+Send or exercise it until a later sync reports **Approved**. Copy remains
+available independently.
 
 ### Next real gym-owner OAuth pilot — authorization plan only
 
