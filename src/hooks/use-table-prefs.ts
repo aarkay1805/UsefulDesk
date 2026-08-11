@@ -78,26 +78,29 @@ export function useTablePrefs<T extends object>(
   // ---- Load: cache first (instant), then DB (authoritative) --------------
   useEffect(() => {
     dirtyRef.current = false;
-
-    // Paint the cached layout immediately (same device / return visit).
-    if (cacheKey) {
-      try {
-        const raw = window.localStorage.getItem(cacheKey);
-        setValue(
-          raw !== null
-            ? { ...initialRef.current, ...(JSON.parse(raw) as object) }
-            : initialRef.current
-        );
-      } catch {
-        setValue(initialRef.current);
-      }
-    }
-
-    // Not signed in / no account yet — stay on cache/defaults, no DB read.
-    if (!accountId || !userId) return;
-
     let cancelled = false;
-    (async () => {
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+
+      // Paint the cached layout first (same device / return visit).
+      if (cacheKey) {
+        try {
+          const raw = window.localStorage.getItem(cacheKey);
+          setValue(
+            raw !== null
+              ? { ...initialRef.current, ...(JSON.parse(raw) as object) }
+              : initialRef.current
+          );
+        } catch {
+          setValue(initialRef.current);
+        }
+      }
+
+      // Not signed in / no account yet — stay on cache/defaults, no DB read.
+      if (!accountId || !userId) return;
+
       const { data } = await supabaseRef
         .current!.from('table_preferences')
         .select('prefs')
