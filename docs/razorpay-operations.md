@@ -836,32 +836,31 @@ Exact Live unresolved canonical events, missing-ledger rows, open payment or
 refund exceptions, unfinished links/refunds, and recovery leases are zero.
 Post-lockdown workflow run `31415235489` claimed zero webhooks/links, reported
 zero failures or notes, and showed token/refund work disabled with OAuth false.
-READY deployment `dpl_KoiCtsfbL3SAefMxpUKuUYj7QUyJ` serves
+Historical READY deployment `dpl_KoiCtsfbL3SAefMxpUKuUYj7QUyJ` served
 `desk.usefulmade.com` with OAuth, manual rollback, provider acceptance, refund
-ambiguity acceptance, and refund-retry acceptance false. The Settings card
-still shows the ready Live merchant but disables reconnect, and the local
-Vercel link is restored to the isolated provider sandbox. Stage 5 is accepted
-only for this account/merchant; do not infer authority for Stage 6, another
-merchant/account, a manual Live key, legacy-ingress removal, or WhatsApp Send.
+ambiguity acceptance, and refund-retry acceptance false at acceptance closure.
+The local Vercel link was restored to the isolated provider sandbox. Stage 5
+is accepted only for this account/merchant; do not infer authority for Stage 6,
+another merchant/account, a manual Live key, legacy-ingress removal, or
+WhatsApp Send. The later mutable connection-status caveat is recorded below.
 
-### Co-branded VBF pilot staged
+### Co-branded VBF continuation closed
 
-The Stage 5 money path above is owner-controlled acceptance evidence, not a
-real gym-owner rollout. The first real-gym pilot is production account
-`9c50dcd9-ed4a-427c-a2fc-07d452f0aec7` (`VBF`), whose authoritative
-`account_memberships` row makes Aakash Mishra the owner. A read-only production
-query found no `account_payment_credentials` row for VBF; do not migrate or
-reuse Rajat's merchant, connection, manual material, or immutable payment facts.
+The Stage 5 money path above remains owner-controlled acceptance evidence, not
+a real gym-owner rollout. The earlier VBF/Aakash continuation is superseded and
+must not be resumed without a new explicit pilot decision. The provider-hosted
+account-creation flow and first-bind implementation remain available in code,
+but the gate is disabled and dormant.
 
-The existing UsefulDesk application exposes Razorpay's **Onboarding UI
-Configurator**, including the provider-hosted **Create your account to get
-started** journey. This is the standard co-branded flow in which a new merchant
-signs up, submits its own KYC to Razorpay, authorizes UsefulDesk, and returns to
-the existing OAuth callback. Do not collect bank, PAN, KYC-document, password,
-or OTP values in UsefulDesk support/chat, and do not create another application.
+Read-only Production verification on 2026-08-11 found four OAuth state
+reservations for VBF account `9c50dcd9-ed4a-427c-a2fc-07d452f0aec7`; all four
+expired unconsumed and none is active. VBF has zero Razorpay credential rows,
+Live selector activations, Payment Links, gateway payments, or refunds. No
+provider merchant, KYC completion, authorization, webhook cutover, or money
+movement is claimed.
 
-READY deployment `dpl_4LtRKnJ87qypvh549sGGs1e4oWLV` adds a first-bind-only
-callback path. Its safe resting configuration is:
+READY deployment `dpl_J9UvqQCnTapi33A3zpGaEqCyP7Qx` serves
+`desk.usefulmade.com` with the safe resting configuration:
 
 ```text
 RAZORPAY_MODE=live
@@ -871,38 +870,20 @@ RAZORPAY_MANUAL_ROLLBACK_ENABLED=false
 RAZORPAY_PROVIDER_ACCEPTANCE_ONLY=false
 RAZORPAY_REFUND_AMBIGUOUS_CREATE_ACCEPTANCE=false
 RAZORPAY_REFUND_WEBHOOK_RETRY_ACCEPTANCE=false
-RAZORPAY_LIVE_PILOT_ACCOUNT_ID=9c50dcd9-ed4a-427c-a2fc-07d452f0aec7
+RAZORPAY_LIVE_PILOT_ACCOUNT_ID=50a9e8f9-d7e5-44d2-ba04-c367509b981e
+RAZORPAY_LIVE_PILOT_MERCHANT_ID=acc_TCJwBqanN9LTrK
 ```
 
-For the shortest enrollment exercise, set OAuth and the enrollment flag true
-only after Aakash is signed into the exact VBF UsefulDesk workspace. The bound
-state still covers tenant, initiating owner/admin, OAuth client fingerprint,
-provider mode, redirect, PKCE verifier, expiry, and one-use consumption. The
-returned `acc_…` may be adopted only when VBF has no prior merchant binding; a
-rejected or second binding has both returned tokens revoked. First-bind
-readiness must come from Razorpay's authoritative account status and cannot use
-the imported-account five-list fallback. Immediately after the callback:
-
-1. restore the enrollment and OAuth flags false;
-2. read only the stored non-secret `razorpay_account_id` and readiness metadata;
-3. set `RAZORPAY_LIVE_PILOT_MERCHANT_ID` to that exact returned identity;
-4. redeploy with enrollment false before any reconnect or product operation;
-5. if KYC is still pending, leave the connection blocked and reconnect only
-   after provider activation is visible; do not manufacture readiness; and
-6. obtain separate payer, merchant, low-value amount, and refund-disposition
-   approval before any real-money exercise.
-
-No Aakash OAuth state, Razorpay merchant, KYC submission, authorization,
-selector mutation, Payment Link, payment, or refund is recorded at this
-checkpoint. The local `.vercel` link remains on `usefuldesk-provider-sandbox`.
-
-On 2026-08-11, after Aakash was signed into the exact VBF workspace, the
-shortest enrollment window was opened. Production deployment
-`dpl_2cUJiNwwMQ26fNEjH4k79PwU7AcG` is READY and serves
-`desk.usefulmade.com` with `RAZORPAY_OAUTH_ENABLED=true` and
-`RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED=true`; the VBF account allowlist is
-unchanged and every rollback/provider/refund acceptance flag remains false.
-This records configuration only: Aakash must still retry Connect Razorpay, and
-no OAuth state, provider merchant, KYC submission, authorization, selector
-mutation, or money movement is claimed until separately verified. Close and
-repin the window immediately after the callback using the steps above.
+The exact Rajat Live scope has zero unresolved events, missing-ledger rows,
+open charge/payment/refund exceptions, unfinished Payment Links/refunds, or
+recovery leases/errors. The accepted ₹1 Payment Link/payment/refund exercise
+was not repeated. The immutable OAuth merchant binding and application
+selector remain present, but a read-only credential check found the mutable
+connection status left as `disconnecting` after an earlier provider-side token
+revocation error. Current encrypted token fields and future expiries remain in
+the row; because a partial provider revocation cannot be excluded without a
+fresh provider check, do not rewrite the status to `ready`, initiate money, or
+claim current operational readiness. Resolving that status requires a separate
+secret-blind provider reconciliation decision; it does not invalidate the
+already completed Stage 5 evidence. The local `.vercel` link remains on
+`usefuldesk-provider-sandbox`.
