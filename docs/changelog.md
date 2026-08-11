@@ -6,6 +6,10 @@
 
 ---
 
+## Razorpay post-Stage-6 pilot gate
+
+Authenticated **Sync from Meta** succeeded for the current Production WABA and returned zero provider templates, confirming `gym_payment_link` is absent and WhatsApp Send remains unavailable; exact language/body owner approval must precede submission. `docs/razorpay-operations.md` now records the smallest next real-gym pilot as separately authorized connection-readiness only: exact account/Live merchant selection, secret-blind preflight, a shortest merchant-pinned OAuth window, and immediate return to false-at-rest flags. VBF stays excluded; enrollment/acceptance flags, money, refunds, and WhatsApp Send are not authorized.
+
 ## Razorpay Stage 6 OAuth-only retirement
 
 Manual Razorpay setup is retired under the owner's explicit waiver of the remaining policy-only 14-day rollback hold. Connector-applied migration `20260811181302_retire_razorpay_manual_keys.sql` verified both databases had zero manual-mode/version-0 rows, erased Test's one dormant legacy webhook secret, and DB-locks credentials to OAuth/v1/application ingress with manual columns null; immutable cutover/delivery audits remain. The Settings key form, connection POST, Basic-auth/version-0 fallback and backfill, per-account/legacy-secret/cutover routes, rollback config, and retired selector RPCs are gone. OAuth recovery, named capability gates, strict Test/Live isolation, exact merchant binding, and application webhook processing remain fail-closed. READY deployments `dpl_9ZTDDvDN88gNm6CZ4qswhW47Ata1` (Production) and `dpl_AAJxU93wfh5dva7nhR4wRdimHymQ` (isolated Test) serve their canonical aliases with rollout/acceptance flags false and no manual rollback variable; the exact Rajat Live connection remains OAuth/ready and every operational queue remains zero. No real-money exercise, VBF action, or WhatsApp Send occurred; `gym_payment_link` remains unapproved and the unrotated OAuth client secrets remain under the recorded owner risk acceptance.

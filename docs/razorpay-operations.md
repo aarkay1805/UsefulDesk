@@ -989,3 +989,66 @@ Final Production evidence remains exact-account scoped:
 - no repeated payment/refund exercise and no WhatsApp Send. The
   `gym_payment_link` template remains unapproved, and existing OAuth client
   secrets remain unrotated under the explicit owner risk acceptance.
+
+### Post-Stage-6 Meta template verification
+
+On 2026-08-12, the authenticated Production workspace for Rajat Kashyap ran
+the existing **Sync from Meta** operation against its configured WhatsApp
+Business Account. The Meta Graph request succeeded and returned `total=0`,
+with zero inserts and zero updates. The local template list contains no
+`gym_payment_link` row. Therefore the template is not approved, pending,
+rejected, or otherwise present on this WABA; **Send payment link** remains
+unavailable and no Send is claimed.
+
+Do not submit a template until the owner approves the exact language and body
+wording. The product contract already fixes the category as **Utility**, the
+name as `gym_payment_link`, and the four body parameters as member name,
+outstanding amount, invoice reference, and complete Razorpay URL. A minimal
+candidate for owner review is language `en_US` with body:
+
+> Hi {{1}}, your payment of {{2}} for invoice {{3}} is due. Pay securely using
+> this link: {{4}}
+
+Submission, review, and any later WhatsApp Send are separate external actions.
+Copy remains available without this template.
+
+### Next real gym-owner OAuth pilot — authorization plan only
+
+No pilot is selected by this plan. VBF/Aakash is permanently excluded from
+this continuation, and the Rajat acceptance account is historical
+owner-controlled evidence rather than the real gym-owner pilot.
+
+1. **Selection authority:** the owner must name one exact active UsefulDesk
+   account UUID and branch name, the legal gym owner/admin who will consent,
+   and one exact activated Razorpay Live merchant ID and dashboard name. The
+   authorization must explicitly cover read-only eligibility checks only.
+2. **Secret-blind preflight:** verify the account is INR, has no conflicting
+   Razorpay binding or active OAuth state, and is eligible under the named
+   capability/RLS boundary. Verify the exact merchant belongs to the gym,
+   uses the UsefulDesk Production application, is activated for the required
+   products, and is not already bound elsewhere. Keep Production/Test
+   databases, clients, webhooks, and modes isolated. No flag or provider state
+   changes in this step.
+3. **OAuth-window authority:** only after a second explicit approval for that
+   exact account/merchant tuple, temporarily pin
+   `RAZORPAY_LIVE_PILOT_ACCOUNT_ID` and
+   `RAZORPAY_LIVE_PILOT_MERCHANT_ID` to it and enable only
+   `RAZORPAY_OAUTH_ENABLED` for the shortest deployment window. Keep
+   `RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED` and every provider/refund
+   acceptance flag false. The gym owner initiates and approves the exact
+   merchant consent; a mismatch must revoke the returned grant and fail.
+4. **Readiness closeout:** require `read_write`, encrypted storage version 1,
+   Live mode, application-canonical ingress, fresh provider readiness, no
+   manual material, active state, lease, or error, and zero exact-merchant
+   operational queues. Immediately redeploy with OAuth false and restore the
+   resting pilot pins. Record the exact evidence without tokens or secrets.
+5. **Stop after OAuth:** connection readiness alone completes this smallest
+   pilot. Do not create a Payment Link, authorize a payer, send WhatsApp, or
+   move/refund money. Any one-invoice money-path exercise must later name the
+   exact member/payer, invoice, merchant, amount, delivery intent, and refund
+   disposition under a separate approval; WhatsApp Send additionally requires
+   an actually approved `gym_payment_link` template.
+
+All rollout and acceptance flags remain false at rest. The existing OAuth
+client-secret rotation remains deferred under the recorded owner risk
+acceptance and is not part of this pilot plan.
