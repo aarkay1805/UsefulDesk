@@ -210,10 +210,12 @@ export function PaymentLinkActions({
         ? `Connect WhatsApp and approve the ${PAYMENT_LINK_TEMPLATE_NAME} template`
         : null;
   const active = link?.status === 'created' && link.shortUrl;
+  const showStatus =
+    link && !['paid', 'cancelled', 'expired', 'failed'].includes(link.status);
 
   return (
     <>
-      {link ? (
+      {showStatus ? (
         <span className="mr-auto inline-flex items-center gap-2 text-xs">
           <PaymentLinkStatusBadge status={link.status} />
           {active && link.expiresAt ? (
@@ -245,6 +247,7 @@ export function PaymentLinkActions({
       </GatedButton>
       <GatedButton
         type="button"
+        variant="outline"
         canAct={canManage}
         gateReason="send payment links"
         disabled={readinessLoading || creatingFor !== null || !sendReady}

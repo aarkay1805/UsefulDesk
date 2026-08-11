@@ -281,7 +281,7 @@ function InvoiceDetailBody({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 space-y-5">
       {currentInvoice.requires_refund_review ? (
         <Alert>
           <ShieldAlert />
@@ -296,7 +296,7 @@ function InvoiceDetailBody({
       ) : null}
 
       <div className="space-y-2">
-        <p className="font-medium">Items</p>
+        <h3 className="font-medium">Items</h3>
         <div className="border-border divide-border divide-y rounded-lg border">
           {lines.length === 0 ? (
             <p className="text-muted-foreground px-3 py-4 text-sm">
@@ -403,7 +403,7 @@ function InvoiceDetailBody({
             ) ? (
               <TableRow>
                 <TableHead scope="row" className="pl-3">
-                  Gross collected
+                  Collected
                 </TableHead>
                 <TableCell className="pr-3 text-right font-medium tabular-nums">
                   {fmt.money(currentInvoice.gross_amount_paid ?? 0)}
@@ -413,7 +413,7 @@ function InvoiceDetailBody({
             {isChargeableAmount(processedRefundAmount) ? (
               <TableRow>
                 <TableHead scope="row" className="pl-3">
-                  Processed refunds
+                  Refunded
                 </TableHead>
                 <TableCell className="pr-3 text-right font-medium tabular-nums">
                   −{fmt.money(processedRefundAmount)}
@@ -457,9 +457,9 @@ function InvoiceDetailBody({
       </div>
 
       <div className="space-y-2">
-        <p className="font-medium">
+        <h3 className="font-medium">
           {payments.length === 1 ? 'Payment' : 'Payments'}
-        </p>
+        </h3>
         {payments.length === 0 ? (
           <p className="text-muted-foreground text-sm">
             No payments recorded for this invoice.
@@ -494,7 +494,7 @@ function InvoiceDetailBody({
                 <div
                   key={payment.id}
                   className={cn(
-                    'flex items-start gap-3 p-3',
+                    'flex min-w-0 items-start gap-3 p-3',
                     payment.status === 'void' && 'opacity-65'
                   )}
                 >
@@ -591,7 +591,11 @@ function InvoiceDetailBody({
                                       : 'warning'
                                 }
                               >
-                                Refund · {refund.status}
+                                {refund.status === 'processed'
+                                  ? 'Refunded'
+                                  : refund.status === 'failed'
+                                    ? 'Refund failed'
+                                    : 'Refund pending'}
                               </Badge>
                               <span className="font-medium tabular-nums">
                                 −{fmt.money(refund.amount)}
@@ -608,17 +612,29 @@ function InvoiceDetailBody({
                               {refund.reason
                                 ? `Reason: ${refund.reason}`
                                 : refund.allocation_complete
-                                  ? 'Refund review · classification required'
-                                  : 'Refund review · line targeting required'}
-                              {refund.gateway_refund_id
-                                ? ` · ${refund.gateway_refund_id}`
-                                : ''}
-                              {refund.source === 'razorpay_dashboard'
-                                ? ' · Razorpay Dashboard'
-                                : refund.requested_by
-                                  ? ` · ${staffNameById.get(refund.requested_by) ?? 'Former teammate'}`
-                                  : ''}
+                                  ? 'Classification required'
+                                  : 'Line targeting required'}
                             </p>
+                            {refund.gateway_refund_id ||
+                            refund.source === 'razorpay_dashboard' ||
+                            refund.requested_by ? (
+                              <p className="text-muted-foreground mt-1 flex flex-wrap gap-x-1.5 gap-y-1">
+                                {refund.gateway_refund_id ? (
+                                  <span className="break-all">
+                                    Razorpay refund {refund.gateway_refund_id}
+                                  </span>
+                                ) : null}
+                                {refund.source === 'razorpay_dashboard' ? (
+                                  <span>Razorpay Dashboard</span>
+                                ) : refund.requested_by ? (
+                                  <span>
+                                    Requested by{' '}
+                                    {staffNameById.get(refund.requested_by) ??
+                                      'Former teammate'}
+                                  </span>
+                                ) : null}
+                              </p>
+                            ) : null}
                             {canRefund &&
                             refund.source === 'razorpay_dashboard' &&
                             refund.status === 'processed' &&
@@ -774,8 +790,8 @@ export function InvoiceDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
+      <DialogContent className="min-w-0 sm:max-w-2xl">
+        <DialogHeader className="min-w-0">
           <DialogTitle className="flex flex-wrap items-center gap-2">
             <span>{invoice ? `Invoice ${invoice.reference}` : 'Invoice'}</span>
             {activeInvoice ? (
@@ -807,7 +823,7 @@ export function InvoiceDetailDialog({
           />
         ) : null}
 
-        <DialogFooter showCloseButton>
+        <DialogFooter className="min-w-0 sm:flex-wrap" showCloseButton>
           {collectible ? (
             <>
               <PaymentLinkActions

@@ -895,3 +895,14 @@ the imported-account five-list fallback. Immediately after the callback:
 No Aakash OAuth state, Razorpay merchant, KYC submission, authorization,
 selector mutation, Payment Link, payment, or refund is recorded at this
 checkpoint. The local `.vercel` link remains on `usefuldesk-provider-sandbox`.
+
+On 2026-08-11, after Aakash was signed into the exact VBF workspace, the
+shortest enrollment window was opened. Production deployment
+`dpl_2cUJiNwwMQ26fNEjH4k79PwU7AcG` is READY and serves
+`desk.usefulmade.com` with `RAZORPAY_OAUTH_ENABLED=true` and
+`RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED=true`; the VBF account allowlist is
+unchanged and every rollback/provider/refund acceptance flag remains false.
+This records configuration only: Aakash must still retry Connect Razorpay, and
+no OAuth state, provider merchant, KYC submission, authorization, selector
+mutation, or money movement is claimed until separately verified. Close and
+repin the window immediately after the callback using the steps above.
