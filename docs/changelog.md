@@ -6,6 +6,10 @@
 
 ---
 
+## Reliable tag-trigger automation dispatch
+
+`tag_added` automations now dispatch only after the database creates a new tenant-owned contact/tag join, match the configured tag exactly, and stop chained tag automations at depth three. Dashboard contact edits use an authenticated operational route; Flow `set_tag`, Automation `add_tag`, API v1 contact writes, public lead forms, and Meta lead capture share the same idempotent server writer. CSV/member imports remain intentionally silent to avoid accidental mass sends, and send steps record a clear failed run when the tagged contact has no conversation. Key code: `src/lib/contacts/tag-write.ts`, `src/lib/contacts/tag-events.ts`, `/api/contacts/[id]/tags`, and the automation/flow engines. No schema change: the existing `(contact_id, tag_id)` unique constraint and account-scoped RLS are the concurrency and tenancy boundaries.
+
 ## Whole-word automation keyword matching
 
 Keyword Match triggers now offer an explicit Whole word mode that uses Unicode-aware boundaries, treats punctuation and regex-significant keyword characters literally, and respects case sensitivity. Contains remains the raw-substring default and Exact still requires the whole message, so existing automations keep their behavior. Key code: `src/lib/automations/engine.ts`, `src/components/automations/automation-builder.tsx`, and focused engine/activation tests. No schema change.

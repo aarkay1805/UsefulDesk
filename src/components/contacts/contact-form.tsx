@@ -8,6 +8,8 @@ import type { Contact, LeadStatus, Tag, ContactTag, CustomField } from '@/types'
 import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
 import { customFieldInputType } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
+import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
+import { getErrorMessage } from '@/lib/errors';
 import {
   findExistingContact,
   isExactMatch,
@@ -248,20 +250,20 @@ export function ContactForm({
 
       // Sync tags
       if (contactId) {
-        await supabase
-          .from('contact_tags')
-          .delete()
-          .eq('contact_id', contactId);
+        const existingTagIds = new Set(contactTags.map((tag) => tag.tag_id));
+        const desiredTagIds = new Set(selectedTagIds);
+        const toRemove = [...existingTagIds].filter(
+          (id) => !desiredTagIds.has(id)
+        );
+        const toAdd = [...desiredTagIds].filter(
+          (id) => !existingTagIds.has(id)
+        );
 
-        if (selectedTagIds.length > 0) {
-          const tagRows = selectedTagIds.map((tag_id) => ({
-            contact_id: contactId!,
-            tag_id,
-          }));
-          const { error: tagError } = await supabase
-            .from('contact_tags')
-            .insert(tagRows);
-          if (tagError) throw tagError;
+        for (const tagId of toRemove) {
+          await deleteContactTag(contactId, tagId);
+        }
+        for (const tagId of toAdd) {
+          await addContactTag(contactId, tagId);
         }
       }
 
@@ -308,8 +310,7 @@ export function ContactForm({
         }
         return;
       }
-      const message = err instanceof Error ? err.message : 'Failed to save contact';
-      toast.error(message);
+      toast.error(getErrorMessage(err, 'Failed to save contact'));
     } finally {
       setSaving(false);
     }

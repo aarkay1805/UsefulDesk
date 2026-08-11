@@ -62,6 +62,8 @@ import { Badge } from '@/components/ui/badge';
 import { SourceIcon } from '@/components/leads/source-icon';
 import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
 import { autoReceivedLabel } from '@/lib/leads/attributes';
+import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
+import { getErrorMessage } from '@/lib/errors';
 import {
   columnToStatus,
   leadColumnKey,
@@ -555,26 +557,20 @@ export function ContactDetailContent({
 
     const isSelected = contactTagIds.includes(tagId);
 
-    if (isSelected) {
-      const { error } = await supabase
-        .from('contact_tags')
-        .delete()
-        .eq('contact_id', contactId)
-        .eq('tag_id', tagId);
-      if (!error) {
+    try {
+      if (isSelected) {
+        await deleteContactTag(contactId, tagId);
         setContactTagIds((prev) => prev.filter((id) => id !== tagId));
-        onUpdated();
-      }
-    } else {
-      const { error } = await supabase
-        .from('contact_tags')
-        .insert({ contact_id: contactId, tag_id: tagId });
-      if (!error) {
+      } else {
+        await addContactTag(contactId, tagId);
         setContactTagIds((prev) => [...prev, tagId]);
-        onUpdated();
       }
+      onUpdated();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to update tags'));
+    } finally {
+      setSavingTags(false);
     }
-    setSavingTags(false);
   }
 
   async function handleSendTemplate(

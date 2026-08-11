@@ -46,6 +46,8 @@ import {
   type LeadColumnKey,
 } from '@/lib/leads/status';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
+import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
+import { getErrorMessage } from '@/lib/errors';
 import {
   sourceLabel,
   genderLabel,
@@ -2568,21 +2570,18 @@ export default function LeadsPage() {
             }
           : c;
       setContacts((prev) => prev.map(apply(!had)));
-      const { error } = had
-        ? await supabase
-            .from('contact_tags')
-            .delete()
-            .eq('contact_id', contact.id)
-            .eq('tag_id', tagId)
-        : await supabase
-            .from('contact_tags')
-            .insert({ contact_id: contact.id, tag_id: tagId });
-      if (error) {
-        toast.error('Failed to update tags');
+      try {
+        if (had) {
+          await deleteContactTag(contact.id, tagId);
+        } else {
+          await addContactTag(contact.id, tagId);
+        }
+      } catch (error) {
+        toast.error(getErrorMessage(error, 'Failed to update tags'));
         setContacts((prev) => prev.map(apply(had)));
       }
     },
-    [supabase, tagsMap]
+    [tagsMap]
   );
 
   function openAddForm() {

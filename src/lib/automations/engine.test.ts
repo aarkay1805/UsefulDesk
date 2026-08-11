@@ -302,6 +302,35 @@ describe('triggerMatches — keyword_match', () => {
   });
 });
 
+describe('triggerMatches — tag_added', () => {
+  function automation(tagId?: string): Automation {
+    return {
+      id: 'a1',
+      account_id: ACCOUNT,
+      user_id: 'u1',
+      name: 'tag follow-up',
+      trigger_type: 'tag_added',
+      trigger_config: tagId ? { tag_id: tagId } : {},
+      is_active: true,
+    } as unknown as Automation;
+  }
+
+  it('matches only the exact tag id', () => {
+    expect(triggerMatches(automation('tag-a'), { tag_id: 'tag-a' })).toBe(
+      true
+    );
+    expect(triggerMatches(automation('tag-a'), { tag_id: 'tag-ab' })).toBe(
+      false
+    );
+  });
+
+  it('fails closed when the config or event tag is missing', () => {
+    expect(triggerMatches(automation(), { tag_id: 'tag-a' })).toBe(false);
+    expect(triggerMatches(automation('tag-a'), {})).toBe(false);
+    expect(triggerMatches(automation('tag-a'), undefined)).toBe(false);
+  });
+});
+
 describe('runAutomationsForTrigger — tenant isolation', () => {
   it('refuses to dispatch when the contact is not in the account (GHSA-63cv-2c49-m5v3)', async () => {
     // Ownership lookup returns nothing — the contact belongs to another tenant.
@@ -375,6 +404,48 @@ describe('automation log completion state', () => {
       steps_executed: [],
     });
     expect(h.state.logUpdates.at(-1)).toMatchObject({ status: 'success' });
+  });
+});
+
+describe('tag_added — conversation policy', () => {
+  it('records a clear failed step when the contact has no conversation', async () => {
+    h.state.owned = { id: 'c1' };
+    h.state.automations = [
+      {
+        id: 'a1',
+        account_id: ACCOUNT,
+        user_id: 'u1',
+        name: 'tag outreach',
+        trigger_type: 'tag_added',
+        trigger_config: { tag_id: 'tag-a' },
+        is_active: true,
+      },
+    ];
+    h.state.steps = [
+      {
+        id: 's1',
+        automation_id: 'a1',
+        step_type: 'send_message',
+        position: 0,
+        parent_step_id: null,
+        step_config: { text: 'Hello' },
+      },
+    ];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: 'tag_added',
+      contactId: 'c1',
+      context: { tag_id: 'tag-a' },
+    });
+
+    expect(h.state.logUpdates).toContainEqual(
+      expect.objectContaining({
+        status: 'failed',
+        error_message:
+          'tag_added automation cannot send: contact has no existing conversation',
+      })
+    );
   });
 });
 

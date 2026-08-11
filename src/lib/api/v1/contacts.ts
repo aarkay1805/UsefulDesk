@@ -10,10 +10,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
-import {
-  assignImportedContactTags,
-  resolveImportTagIds,
-} from '@/lib/contacts/resolve-import-tags';
+import { resolveImportTagIds } from '@/lib/contacts/resolve-import-tags';
+import { addContactTagAndDispatch } from '@/lib/contacts/tag-events';
 import { sanitizePhoneForMeta, isValidE164 } from '@/lib/whatsapp/phone-utils';
 import type { ReceivedVia } from '@/types';
 
@@ -182,8 +180,8 @@ export async function findOrCreateContact(
  * The sibling `setContactTags` REPLACES the tag set, which is wrong for
  * an inbound capture: a lead that already carries "Trial expired" must
  * not lose it because a form submission tagged them "Weight loss". The
- * upsert ignores duplicates, so a repeat enquiry with the same goal is
- * a no-op rather than an error.
+ * The idempotent tag writer ignores duplicates, so a repeat enquiry with
+ * the same goal is a no-op and does not emit another tag_added event.
  */
 export async function addContactTags(
   db: SupabaseClient,
@@ -199,11 +197,24 @@ export async function addContactTags(
     tagNames,
     canCreateTags: true,
   });
-  await assignImportedContactTags(
-    db,
-    [{ contactId, tagNames }],
-    tagIdByKey
+  const tagIds = new Set(
+    tagNames
+      .map((name) => tagIdByKey.get(name.trim().toLowerCase()))
+      .filter((tagId): tagId is string => Boolean(tagId))
   );
+  for (const tagId of tagIds) {
+    try {
+      await addContactTagAndDispatch({
+        db,
+        accountId,
+        contactId,
+        tagId,
+      });
+    } catch (error) {
+      console.error('[api/v1/contacts] tag add failed:', error);
+      throw new ContactError('Failed to update contact tags', 500);
+    }
+  }
 }
 
 /**
@@ -225,7 +236,11 @@ export async function setContactTags(
     tagNames,
     canCreateTags: true,
   });
-  const desired = new Set(tagIdByKey.values());
+  const desired = new Set(
+    tagNames
+      .map((name) => tagIdByKey.get(name.trim().toLowerCase()))
+      .filter((tagId): tagId is string => Boolean(tagId))
+  );
 
   // Diff against the current joins rather than delete-all-then-insert:
   // a diff only touches tags that actually change, so a mid-operation
@@ -255,10 +270,19 @@ export async function setContactTags(
     if (error) throw new ContactError('Failed to update contact tags', 500);
   }
   if (toAdd.length > 0) {
-    const { error } = await db
-      .from('contact_tags')
-      .insert(toAdd.map((tag_id) => ({ contact_id: contactId, tag_id })));
-    if (error) throw new ContactError('Failed to update contact tags', 500);
+    for (const tagId of toAdd) {
+      try {
+        await addContactTagAndDispatch({
+          db,
+          accountId,
+          contactId,
+          tagId,
+        });
+      } catch (error) {
+        console.error('[api/v1/contacts] tag add failed:', error);
+        throw new ContactError('Failed to update contact tags', 500);
+      }
+    }
   }
 }
 

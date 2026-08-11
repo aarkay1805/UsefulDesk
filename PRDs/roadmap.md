@@ -42,7 +42,9 @@ Engineering maintenance: **automation steps inside Condition Yes/No branches now
 
 Engineering maintenance: **automation Keyword Match triggers now add an explicit Unicode-aware Whole word mode with literal punctuation/regex-character handling and case-sensitive support, while the existing Contains substring default and Exact behavior remain unchanged; no schema change**.
 
-Deliberately deferred from the referenced upstream batches: **i18n, AI dashboards, MCP server, Docker, media viewer, the full interactive-message suite, tag-trigger automation, and tunnel-origin config**. Existing UsefulDesk cron timing-safe comparison, RBAC/security-route fixes, and Suspense/build fixes supersede their upstream counterparts.
+Engineering maintenance: **Tag Added automations now dispatch exactly once for every genuinely new tenant-owned contact/tag join from dashboard contact edits, Flows, Automation add-tag steps, API v1, public lead forms, and Meta lead capture; exact tag matching fails closed, chained tag automations stop at depth three, contacts without conversations log an explicit send failure, and CSV/member imports remain intentionally non-dispatching to avoid accidental mass sends; no schema change**.
+
+Deliberately deferred from the referenced upstream batches: **i18n, AI dashboards, MCP server, Docker, media viewer, the full interactive-message suite, and tunnel-origin config**. Existing UsefulDesk cron timing-safe comparison, RBAC/security-route fixes, and Suspense/build fixes supersede their upstream counterparts.
 
 Shipped addition: **automatic Click-to-WhatsApp referral attribution that preserves every inbound ad/post touch on its message, labels Instagram/Facebook only when a trusted Meta source URL proves the platform, keeps WhatsApp as the immutable intake channel, fills an absent contact acquisition source without overwriting prior attribution, and surfaces both message-level context and contact-level source in the Inbox**.
 

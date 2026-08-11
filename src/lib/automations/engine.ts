@@ -5,6 +5,7 @@ import type {
   AutomationTriggerType,
   ConditionStepConfig,
   KeywordMatchTriggerConfig,
+  TagTriggerConfig,
   SendMessageStepConfig,
   SendTemplateStepConfig,
   SendWebhookStepConfig,
@@ -21,6 +22,8 @@ import { istAddDays } from '@/lib/memberships/expiry';
 import { todayInTz } from '@/lib/locale/format';
 import { DEFAULT_FIELD_OPTIONS } from '@/lib/leads/field-options';
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
+import { addContactTagIfAbsent } from '@/lib/contacts/tag-write';
+import { MAX_TAG_CHAIN_DEPTH, getTagChainDepth } from '@/lib/contacts/tag-chain';
 import { supabaseAdmin } from './admin-client';
 import { engineSendText, engineSendTemplate } from './meta-send';
 
@@ -421,19 +424,41 @@ async function runStep(
     }
 
     case 'add_tag': {
-      // contact_tags has no account_id column; cross-tenant protection for
-      // the attacker-supplied contactId comes from the ownership guard in
-      // runAutomationsForTrigger.
       const cfg = step.step_config as TagStepConfig;
       if (!args.contactId || !cfg.tag_id)
         throw new Error('add_tag needs contact + tag_id');
-      await db
-        .from('contact_tags')
-        .upsert(
-          { contact_id: args.contactId, tag_id: cfg.tag_id },
-          { onConflict: 'contact_id,tag_id', ignoreDuplicates: true }
-        );
-      return `tag ${cfg.tag_id} added`;
+      const added = await addContactTagIfAbsent(db, {
+        accountId: args.automation.account_id,
+        contactId: args.contactId,
+        tagId: cfg.tag_id,
+      });
+      if (!added) return `tag ${cfg.tag_id} already present`;
+
+      const depth = getTagChainDepth(args.context);
+      if (depth >= MAX_TAG_CHAIN_DEPTH) {
+        console.warn('[automations] tag_added chain depth limit reached', {
+          automationId: args.automation.id,
+          contactId: args.contactId,
+          tagId: cfg.tag_id,
+          depth,
+        });
+        return `tag ${cfg.tag_id} added; tag_added dispatch skipped at depth ${depth}`;
+      }
+
+      await runAutomationsForTrigger({
+        accountId: args.automation.account_id,
+        triggerType: 'tag_added',
+        contactId: args.contactId,
+        context: {
+          ...args.context,
+          tag_id: cfg.tag_id,
+          vars: {
+            ...(args.context.vars ?? {}),
+            _tag_chain_depth: depth + 1,
+          },
+        },
+      });
+      return `tag ${cfg.tag_id} added and tag_added dispatched`;
     }
 
     case 'remove_tag': {
@@ -785,7 +810,13 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
     .eq('contact_id', args.contactId)
     .maybeSingle();
   if (error) throw new Error(`conversation lookup failed: ${error.message}`);
-  if (!data?.id) throw new Error('no conversation for contact');
+  if (!data?.id) {
+    const prefix =
+      args.triggerEvent === 'tag_added'
+        ? 'tag_added automation cannot send'
+        : 'cannot send';
+    throw new Error(`${prefix}: contact has no existing conversation`);
+  }
   return data.id as string;
 }
 
@@ -815,21 +846,32 @@ export function triggerMatches(
   automation: Automation,
   ctx: AutomationContext | undefined
 ): boolean {
-  if (automation.trigger_type !== 'keyword_match') return true;
-  const cfg = automation.trigger_config as KeywordMatchTriggerConfig;
-  if (!cfg?.keywords || cfg.keywords.length === 0) return false;
-  const text = (ctx?.message_text ?? '').toString();
-  if (!text) return false;
-  if (cfg.match_type === 'word') {
-    return cfg.keywords.some((raw) =>
-      matchesWholeWord(text, raw, cfg.case_sensitive)
-    );
+  if (automation.trigger_type === 'keyword_match') {
+    const cfg = automation.trigger_config as KeywordMatchTriggerConfig;
+    if (!cfg?.keywords || cfg.keywords.length === 0) return false;
+    const text = (ctx?.message_text ?? '').toString();
+    if (!text) return false;
+    if (cfg.match_type === 'word') {
+      return cfg.keywords.some((raw) =>
+        matchesWholeWord(text, raw, cfg.case_sensitive)
+      );
+    }
+    const haystack = cfg.case_sensitive ? text : text.toLowerCase();
+    return cfg.keywords.some((raw) => {
+      const k = cfg.case_sensitive ? raw : raw.toLowerCase();
+      return cfg.match_type === 'exact'
+        ? haystack === k
+        : haystack.includes(k);
+    });
   }
-  const haystack = cfg.case_sensitive ? text : text.toLowerCase();
-  return cfg.keywords.some((raw) => {
-    const k = cfg.case_sensitive ? raw : raw.toLowerCase();
-    return cfg.match_type === 'exact' ? haystack === k : haystack.includes(k);
-  });
+
+  if (automation.trigger_type === 'tag_added') {
+    const cfg = automation.trigger_config as TagTriggerConfig;
+    const tagId = ctx?.tag_id;
+    return Boolean(tagId && cfg?.tag_id && cfg.tag_id === tagId);
+  }
+
+  return true;
 }
 
 async function evaluateCondition(
