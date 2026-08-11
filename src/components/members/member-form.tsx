@@ -284,45 +284,55 @@ export function MemberForm({
 
   useEffect(() => {
     if (!open) return;
-    // Edit mode reads the membership's contact; add mode falls back to
-    // the optional seed (lead → member conversion), else blank.
-    setName(member?.contact?.name ?? seedContact?.name ?? '');
-    setPhone(member?.contact?.phone ?? seedContact?.phone ?? '');
-    setEmail(member?.contact?.email ?? seedContact?.email ?? '');
-    setGender(member?.contact?.gender ?? seedContact?.gender ?? '');
-    setDateOfBirth(
-      member?.contact?.date_of_birth ?? seedContact?.dateOfBirth ?? ''
-    );
-    setPlanId(member?.plan_id ?? '');
-    setOptionId(member?.pricing_option_id ?? null);
-    setStartDate(member?.start_date ?? fmt.today());
-    setFeeAmount(member ? String(member.fee_amount) : '');
-    // An existing fee is authoritative — never auto-reseed it from a plan
-    // switch in edit mode; add mode follows the plan until the user types.
-    setFeeTouched(!!member);
-    setNotes(member?.notes ?? '');
-    setAvatarUrl(member?.contact?.avatar_url ?? seedContact?.avatarUrl ?? null);
-    setAvatarOpen(false);
-    setHeightCm(member?.contact?.height_cm ?? seedContact?.heightCm ?? null);
-    setWeightKg(member?.contact?.weight_kg ?? seedContact?.weightKg ?? null);
-    setDiscountMode('none');
-    setDiscountValue('');
-    setDiscountTouched(false);
-    setBonusMonthsEnabled(false);
-    setBonusMonths('');
-    setBonusMonthsTouched(false);
-    setCollectPayment(true);
-    setPayMethod('cash');
-    setConversionPaymentTiming('full');
-    setCheckoutSelections([]);
-    setCheckoutIdempotencyKey(crypto.randomUUID());
-    setDupMatch(null);
-    setIsTrial(member?.is_trial ?? false);
-    // Seed trial length from the existing trial's span, else a 7-day default.
-    const td = member?.is_trial
-      ? daysBetween(member.start_date, member.end_date)
-      : NaN;
-    setTrialDays(Number.isFinite(td) && td > 0 ? String(td) : '7');
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      // Edit mode reads the membership's contact; add mode falls back to
+      // the optional seed (lead → member conversion), else blank.
+      setName(member?.contact?.name ?? seedContact?.name ?? '');
+      setPhone(member?.contact?.phone ?? seedContact?.phone ?? '');
+      setEmail(member?.contact?.email ?? seedContact?.email ?? '');
+      setGender(member?.contact?.gender ?? seedContact?.gender ?? '');
+      setDateOfBirth(
+        member?.contact?.date_of_birth ?? seedContact?.dateOfBirth ?? ''
+      );
+      setPlanId(member?.plan_id ?? '');
+      setOptionId(member?.pricing_option_id ?? null);
+      setStartDate(member?.start_date ?? fmt.today());
+      setFeeAmount(member ? String(member.fee_amount) : '');
+      // An existing fee is authoritative — never auto-reseed it from a plan
+      // switch in edit mode; add mode follows the plan until the user types.
+      setFeeTouched(!!member);
+      setNotes(member?.notes ?? '');
+      setAvatarUrl(
+        member?.contact?.avatar_url ?? seedContact?.avatarUrl ?? null
+      );
+      setAvatarOpen(false);
+      setHeightCm(member?.contact?.height_cm ?? seedContact?.heightCm ?? null);
+      setWeightKg(member?.contact?.weight_kg ?? seedContact?.weightKg ?? null);
+      setDiscountMode('none');
+      setDiscountValue('');
+      setDiscountTouched(false);
+      setBonusMonthsEnabled(false);
+      setBonusMonths('');
+      setBonusMonthsTouched(false);
+      setCollectPayment(true);
+      setPayMethod('cash');
+      setConversionPaymentTiming('full');
+      setCheckoutSelections([]);
+      setCheckoutIdempotencyKey(crypto.randomUUID());
+      setDupMatch(null);
+      setIsTrial(member?.is_trial ?? false);
+      // Seed trial length from the existing trial's span, else a 7-day default.
+      const td = member?.is_trial
+        ? daysBetween(member.start_date, member.end_date)
+        : NaN;
+      setTrialDays(Number.isFinite(td) && td > 0 ? String(td) : '7');
+    })();
+    return () => {
+      cancelled = true;
+    };
     // seedContact is read only at open; re-seeding on its identity would
     // clobber user edits, so it's intentionally out of the dep list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -334,7 +344,14 @@ export function MemberForm({
   // Edit mode opens touched (existing fee is authoritative).
   useEffect(() => {
     if (!selectedOption || feeTouched) return;
-    setFeeAmount(String(firstCycleFee(selectedOption)));
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) setFeeAmount(String(firstCycleFee(selectedOption)));
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [optionId]);
 

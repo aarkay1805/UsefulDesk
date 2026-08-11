@@ -181,14 +181,22 @@ export function WhatsAppConfig() {
     // for the first render window and bail without ever retrying
     // once the profile arrives.
     if (authLoading || profileLoading) return;
-    if (!userId || !accountId) {
-      loadedAccountIdRef.current = null;
-      setLoading(false);
-      return;
-    }
-    if (loadedAccountIdRef.current === accountId) return;
-    loadedAccountIdRef.current = accountId;
-    fetchConfig(accountId);
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      if (!userId || !accountId) {
+        loadedAccountIdRef.current = null;
+        setLoading(false);
+        return;
+      }
+      if (loadedAccountIdRef.current === accountId) return;
+      loadedAccountIdRef.current = accountId;
+      await fetchConfig(accountId);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [authLoading, profileLoading, userId, accountId, fetchConfig]);
 
   async function handleSave() {

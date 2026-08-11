@@ -41,15 +41,15 @@ key's next request. Revoked keys stay in the list as an audit trail.
 A key can do only what its scopes allow — independent of who created
 it. Grant the minimum.
 
-| Scope                | Allows                                   |
-| -------------------- | ---------------------------------------- |
-| `messages:send`      | Send WhatsApp messages                   |
-| `messages:read`      | Read messages and delivery status        |
-| `contacts:read`      | List and read contacts                   |
-| `contacts:write`     | Create and update contacts               |
-| `conversations:read` | List and read conversations              |
-| `broadcasts:send`    | Launch broadcast campaigns               |
-| `webhooks:manage`    | Register and manage outbound webhooks    |
+| Scope                | Allows                                |
+| -------------------- | ------------------------------------- |
+| `messages:send`      | Send WhatsApp messages                |
+| `messages:read`      | Read messages and delivery status     |
+| `contacts:read`      | List and read contacts                |
+| `contacts:write`     | Create and update contacts            |
+| `conversations:read` | List and read conversations           |
+| `broadcasts:send`    | Launch broadcast campaigns            |
+| `webhooks:manage`    | Register and manage outbound webhooks |
 
 A key with **no scopes** still authenticates and can call
 `GET /api/v1/me` — useful for verifying a key works.
@@ -69,14 +69,14 @@ Every response uses one of two shapes:
 Branch on `error.code` (stable); `error.message` is for humans and
 may be reworded.
 
-| Status | `code`         | Meaning                                          |
-| ------ | -------------- | ------------------------------------------------ |
+| Status | `code`         | Meaning                                               |
+| ------ | -------------- | ----------------------------------------------------- |
 | 401    | `unauthorized` | Missing / malformed / unknown / revoked / expired key |
-| 403    | `forbidden`    | Valid key, but missing the required scope        |
-| 429    | `rate_limited` | Per-key rate limit exceeded                      |
-| 400    | `bad_request`  | Malformed input                                  |
-| 404    | `not_found`    | No such resource                                 |
-| 500    | `internal`     | Server error                                     |
+| 403    | `forbidden`    | Valid key, but missing the required scope             |
+| 429    | `rate_limited` | Per-key rate limit exceeded                           |
+| 400    | `bad_request`  | Malformed input                                       |
+| 404    | `not_found`    | No such resource                                      |
+| 500    | `internal`     | Server error                                          |
 
 ## Rate limits
 
@@ -120,6 +120,8 @@ curl https://your-crm.example.com/api/v1/me \
 Send a WhatsApp message to a phone number. Scope: `messages:send`. You
 pass an **E.164 number**, not an internal id — the endpoint
 finds-or-creates the contact + conversation, then sends.
+Concurrent API/webhook creates converge on the oldest canonical conversation;
+the database enforces one conversation per account/contact pair.
 
 ```bash
 curl -X POST https://your-crm.example.com/api/v1/messages \
@@ -140,9 +142,9 @@ curl -X POST https://your-crm.example.com/api/v1/messages \
   "template": {
     "name": "order_update",
     "language": "en_US",
-    "params": ["A123"]        // positional body vars, or a structured object
+    "params": ["A123"], // positional body vars, or a structured object
   },
-  "reply_to_message_id": "<uuid>"   // optional; must be in the same conversation
+  "reply_to_message_id": "<uuid>", // optional; must be in the same conversation
 }
 ```
 
@@ -174,10 +176,15 @@ or phone) and `?tag=<tagId>`.
 {
   "data": [
     {
-      "id": "…", "phone": "+14155550123", "name": "Jane Doe",
-      "email": null, "company": "Acme", "avatar_url": null,
+      "id": "…",
+      "phone": "+14155550123",
+      "name": "Jane Doe",
+      "email": null,
+      "company": "Acme",
+      "avatar_url": null,
       "tags": [{ "id": "…", "name": "vip", "color": "#3b82f6" }],
-      "created_at": "…", "updated_at": "…"
+      "created_at": "…",
+      "updated_at": "…"
     }
   ],
   "meta": { "next_cursor": "…" }
@@ -289,11 +296,11 @@ things happen in your account. **Migration required:** apply
 
 ### Events
 
-| Event                    | Fires when                                        |
-| ------------------------ | ------------------------------------------------- |
-| `message.received`       | An inbound message arrives from a contact         |
-| `message.status_updated` | A message you sent changed delivery status        |
-| `conversation.created`   | A new conversation is opened for a contact        |
+| Event                    | Fires when                                 |
+| ------------------------ | ------------------------------------------ |
+| `message.received`       | An inbound message arrives from a contact  |
+| `message.status_updated` | A message you sent changed delivery status |
+| `conversation.created`   | A new conversation is opened for a contact |
 
 ### Managing endpoints
 
@@ -324,7 +331,7 @@ delivery uuid you can dedupe on, and `data` varies by `event`:
   "event": "message.received",
   "occurred_at": "2026-07-01T12:00:00.000Z",
   "account_id": "…",
-  "data": { /* per-event, see below */ }
+  "data": {/* per-event, see below */}
 }
 ```
 
@@ -350,8 +357,10 @@ a few minutes old (replay protection).
 
 ```js
 const [, t, v1] = header.match(/t=(\d+),v1=([0-9a-f]+)/);
-const expected = crypto.createHmac('sha256', secret)
-  .update(`${t}.${rawBody}`).digest('hex');
+const expected = crypto
+  .createHmac('sha256', secret)
+  .update(`${t}.${rawBody}`)
+  .digest('hex');
 const ok = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
 ```
 
@@ -368,6 +377,12 @@ auto-disabled (`is_active: false`) — re-enable it with `PATCH` (which
 resets the counter). Durable retry-with-backoff (a delivery queue) is a
 future enhancement; today, treat missed deliveries as possible and
 reconcile with the read endpoints when it matters.
+
+Inbound Meta delivery retries are idempotent per conversation/message id. A
+replay stops before unread increments and before `message.received` or any
+other message-derived downstream dispatch, so one stored inbound message
+produces at most one public event attempt. `conversation.created` follows the
+separate one-conversation-per-account/contact creation boundary.
 
 **Target restrictions (SSRF).** The `url` must be `https://` and must
 resolve to a public address — requests to `localhost`, private/RFC1918

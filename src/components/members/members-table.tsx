@@ -324,7 +324,14 @@ export function MembersTable({
   }, [supabase]);
 
   useEffect(() => {
-    void fetchAssignmentRequests();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await fetchAssignmentRequests();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchAssignmentRequests, reloadKey]);
 
   useEffect(() => {

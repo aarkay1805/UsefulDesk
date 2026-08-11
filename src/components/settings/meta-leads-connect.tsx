@@ -56,12 +56,14 @@ export function MetaLeadsConnect() {
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
-    if (!accountId || !LEADS_CONFIG_ID) {
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
-    (async () => {
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      if (!accountId || !LEADS_CONFIG_ID) {
+        setLoading(false);
+        return;
+      }
       const { data, error } = await supabase
         .from('meta_page_config')
         .select('id, page_id, page_name, status, last_error, last_lead_at, skipped_no_phone')

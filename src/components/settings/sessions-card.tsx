@@ -38,6 +38,8 @@ export function SessionsCard() {
         toast.error(`Sign-out failed: ${error.message}`);
         return;
       }
+      // A global sign-out must rebuild the app without authenticated state.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = '/login';
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';

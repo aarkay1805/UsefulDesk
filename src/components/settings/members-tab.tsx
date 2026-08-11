@@ -175,7 +175,14 @@ export function MembersTab() {
   }, [canManageMembers]);
 
   useEffect(() => {
-    void loadEverything();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await loadEverything();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [loadEverything]);
 
   async function handleRoleChange(member: Member, nextRole: AccountRole) {

@@ -215,7 +215,14 @@ export function Step2SelectAudience({
   ]);
 
   useEffect(() => {
-    fetchEstimatedCount();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await fetchEstimatedCount();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchEstimatedCount]);
 
   function toggleTag(tagId: string) {

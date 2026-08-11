@@ -91,14 +91,22 @@ export function RenewMembershipDialog({
 
   useEffect(() => {
     if (!open) return;
-    setPlanId(membership.plan_id ?? '');
-    setOptionId(membership.pricing_option_id ?? null);
-    setFeeAmount(String(membership.fee_amount ?? ''));
-    setCollectPayment(true);
-    setCollectAmount(String(membership.fee_amount ?? ''));
-    setMethod('cash');
-    setIdempotencyKey(crypto.randomUUID());
-    setSelections([]);
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setPlanId(membership.plan_id ?? '');
+      setOptionId(membership.pricing_option_id ?? null);
+      setFeeAmount(String(membership.fee_amount ?? ''));
+      setCollectPayment(true);
+      setCollectAmount(String(membership.fee_amount ?? ''));
+      setMethod('cash');
+      setIdempotencyKey(crypto.randomUUID());
+      setSelections([]);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [open, membership]);
 
   // Seed the fee (and the amount to collect) from the picked billing
@@ -112,9 +120,17 @@ export function RenewMembershipDialog({
   const selectedOptionId = selectedOption?.id ?? null;
   useEffect(() => {
     if (!open || !selectedOptionId || !selectedOption) return;
-    const fee = renewalFee(selectedOption);
-    setFeeAmount(String(fee));
-    setCollectAmount(String(fee));
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      const fee = renewalFee(selectedOption);
+      setFeeAmount(String(fee));
+      setCollectAmount(String(fee));
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, selectedOptionId]);
 

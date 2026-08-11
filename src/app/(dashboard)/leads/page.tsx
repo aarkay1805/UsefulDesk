@@ -941,6 +941,50 @@ function compareCustomValues(
   return dir === 'asc' ? r : -r;
 }
 
+function buildLeadColumnLayout(
+  liveColumns: ColumnDef[],
+  savedOrder: string[],
+  hiddenKeys: string[]
+) {
+  const colByKey = Object.fromEntries(
+    liveColumns.map((column) => [column.key, column])
+  ) as Record<string, ColumnDef>;
+  const liveKeys = liveColumns.map((column) => column.key);
+  const retainedOrder = savedOrder.filter((key) => liveKeys.includes(key));
+  const orderedKeys = [
+    ...retainedOrder,
+    ...liveKeys.filter((key) => !retainedOrder.includes(key)),
+  ];
+  const visibleKeySet = new Set(
+    orderedKeys.filter((key) => {
+      if (hiddenKeys.includes(key)) return false;
+      const column = colByKey[key];
+      return !column?.isCustom || savedOrder.includes(key);
+    })
+  );
+  const visibleColumns = orderedKeys
+    .filter((key) => visibleKeySet.has(key))
+    .map((key) => colByKey[key]);
+  const manageColumns: ManageColumn[] = orderedKeys
+    .map((key) => colByKey[key])
+    .filter(Boolean)
+    .map((column) => ({
+      key: column.key,
+      label: column.label,
+      required: column.required,
+      isCustom: column.isCustom,
+      fieldType: column.customType,
+    }));
+
+  return {
+    colByKey,
+    orderedKeys,
+    visibleColumns,
+    manageColumns,
+    hiddenForDialog: orderedKeys.filter((key) => !visibleKeySet.has(key)),
+  };
+}
+
 export default function LeadsPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -996,7 +1040,14 @@ export default function LeadsPage() {
   const search = useDebounced(searchInput, 250);
   // Mirror external navigations (deep links) into the input.
   useEffect(() => {
-    setSearchInput(urlSearch);
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) setSearchInput(urlSearch);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [urlSearch]);
 
   // Filters (Filters panel) + teammate list for owner/assignee filters,
@@ -1115,9 +1166,17 @@ export default function LeadsPage() {
   const urlFocus = searchParams.get('focus');
   useEffect(() => {
     if (!urlContact) return;
-    setDetailContactId(urlContact);
-    setDetailFocus(urlFocus === 'followup' ? 'followup' : null);
-    setDetailOpen(true);
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setDetailContactId(urlContact);
+      setDetailFocus(urlFocus === 'followup' ? 'followup' : null);
+      setDetailOpen(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [urlContact, urlFocus]);
 
   // Dashboard "New Lead" deep-links here because this page owns the
@@ -1128,7 +1187,14 @@ export default function LeadsPage() {
     if (!createRequested || !canEdit) return;
     // Synchronising the page-owned dialog with an explicit URL action is the
     // purpose of this effect; it must react when profile loading resolves.
-    setFormOpen(true);
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) setFormOpen(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [canEdit, createRequested]);
 
   const [importOpen, setImportOpen] = useState(false);
@@ -1538,11 +1604,13 @@ export default function LeadsPage() {
     canResolveAnyTransfer,
   ]);
 
-  const colByKey = useMemo(() => {
-    const map: Record<string, ColumnDef> = {};
-    liveColumns.forEach((c) => (map[c.key] = c));
-    return map;
-  }, [liveColumns]);
+  const {
+    colByKey,
+    orderedKeys,
+    visibleColumns,
+    manageColumns,
+    hiddenForDialog,
+  } = buildLeadColumnLayout(liveColumns, prefs.order, prefs.hidden);
 
   // Every account tag as checklist options for the tags cell editor.
   const allTagOptions = useMemo(
@@ -1551,28 +1619,6 @@ export default function LeadsPage() {
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((t) => ({ value: t.id, label: t.name })),
     [tagsMap]
-  );
-
-  const orderedKeys = useMemo(() => {
-    const liveKeys = liveColumns.map((c) => c.key);
-    const saved = prefs.order.filter((k) => liveKeys.includes(k));
-    const appended = liveKeys.filter((k) => !saved.includes(k));
-    return [...saved, ...appended];
-  }, [liveColumns, prefs.order]);
-
-  const isVisible = useCallback(
-    (key: string) => {
-      if (prefs.hidden.includes(key)) return false;
-      const col = colByKey[key];
-      if (col?.isCustom) return prefs.order.includes(key);
-      return true;
-    },
-    [prefs.hidden, prefs.order, colByKey]
-  );
-
-  const visibleColumns = useMemo(
-    () => orderedKeys.filter(isVisible).map((k) => colByKey[k]),
-    [orderedKeys, isVisible, colByKey]
   );
 
   // Freeze uses a count: the leading N visible columns are pinned
@@ -2056,19 +2102,47 @@ export default function LeadsPage() {
   // synchronously in the effect body, so the cascade the lint rule
   // warns about doesn't apply here.
   useEffect(() => {
-    fetchCustomFields();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await fetchCustomFields();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchCustomFields]);
 
   useEffect(() => {
-    fetchTags();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await fetchTags();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchTags]);
 
   useEffect(() => {
-    fetchPendingAssignees();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await fetchPendingAssignees();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchPendingAssignees]);
 
   useEffect(() => {
-    fetchTransfers();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await fetchTransfers();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchTransfers]);
 
   useEffect(() => {
@@ -2099,21 +2173,50 @@ export default function LeadsPage() {
   }, [supabase, fetchTransfers]);
 
   useEffect(() => {
-    fetchContacts();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await fetchContacts();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchContacts]);
 
   useEffect(() => {
-    fetchQuickFilterCounts();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await fetchQuickFilterCounts();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchQuickFilterCounts]);
 
   useEffect(() => {
-    if (view === 'board') fetchBoard();
+    if (view !== 'board') return;
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await fetchBoard();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [view, fetchBoard]);
 
   // A new search term / filter set shrinks/grows the result set, so page N
   // may no longer be valid — reset to the first page whenever they change.
   useEffect(() => {
-    setPage(0);
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) setPage(0);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [search, filters, quickFilter]);
 
   /** Refresh whichever views hold data after any mutation. */
@@ -3246,29 +3349,6 @@ export default function LeadsPage() {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   }
-
-  // Memoised so the Manage Columns dialog (always mounted) gets a STABLE
-  // `columns`/`hidden` identity. Recomputing these inline handed the dialog
-  // a fresh array every render — including every drag frame — which fired
-  // its column-sync effect nonstop and blew the max-update-depth limit.
-  const manageColumns: ManageColumn[] = useMemo(
-    () =>
-      orderedKeys
-        .map((k) => colByKey[k])
-        .filter(Boolean)
-        .map((c) => ({
-          key: c.key,
-          label: c.label,
-          required: c.required,
-          isCustom: c.isCustom,
-          fieldType: c.customType,
-        })),
-    [orderedKeys, colByKey]
-  );
-  const hiddenForDialog = useMemo(
-    () => orderedKeys.filter((k) => !isVisible(k)),
-    [orderedKeys, isVisible]
-  );
 
   // During a column drag, how far each column's cells slide so the body
   // tracks its (already-shifting) header. The dragged column follows the

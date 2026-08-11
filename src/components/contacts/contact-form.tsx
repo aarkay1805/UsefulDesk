@@ -93,18 +93,22 @@ export function ContactForm({
   useEffect(() => {
     if (!open) return;
 
-    setName(contact?.name ?? '');
-    setPhone(contact?.phone ?? '');
-    setEmail(contact?.email ?? '');
-    setCompany(contact?.company ?? '');
-    setLeadStatus(contact?.lead_status ?? '');
-    setSource(contact?.source ?? '');
-    setGender(contact?.gender ?? '');
-    setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
-    setDupMatch(null);
-
     let cancelled = false;
     const contactId = contact?.id;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setName(contact?.name ?? '');
+      setPhone(contact?.phone ?? '');
+      setEmail(contact?.email ?? '');
+      setCompany(contact?.company ?? '');
+      setLeadStatus(contact?.lead_status ?? '');
+      setSource(contact?.source ?? '');
+      setGender(contact?.gender ?? '');
+      setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
+      setDupMatch(null);
+    })();
 
     (async () => {
       setLoadingTags(true);

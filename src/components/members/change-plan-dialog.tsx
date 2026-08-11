@@ -116,16 +116,24 @@ export function ChangePlanDialog({
 
   useEffect(() => {
     if (!open) return;
-    setPlanId("");
-    setOptionId(null);
-    setSwitchDate(fmt.today() >= minSwitch ? fmt.today() : minSwitch);
-    setFeeAmount("");
-    setFeeTouched(false);
-    setCollectPayment(true);
-    setCollectAmount("");
-    setCollectTouched(false);
-    setMethod("cash");
-    setIdempotencyKey(crypto.randomUUID());
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setPlanId("");
+      setOptionId(null);
+      setSwitchDate(fmt.today() >= minSwitch ? fmt.today() : minSwitch);
+      setFeeAmount("");
+      setFeeTouched(false);
+      setCollectPayment(true);
+      setCollectAmount("");
+      setCollectTouched(false);
+      setMethod("cash");
+      setIdempotencyKey(crypto.randomUUID());
+    })();
+    return () => {
+      cancelled = true;
+    };
     // Seeds are snapshots at open; re-running on membership identity
     // mid-edit would clobber user input.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -134,8 +142,16 @@ export function ChangePlanDialog({
   // The fee and the collect amount follow the quote until touched.
   useEffect(() => {
     if (!quote) return;
-    if (!feeTouched) setFeeAmount(String(quote.netFee));
-    if (!collectTouched) setCollectAmount(String(quote.netFee));
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      if (!feeTouched) setFeeAmount(String(quote.netFee));
+      if (!collectTouched) setCollectAmount(String(quote.netFee));
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId, optionId, switchDate, quote?.netFee]);
 

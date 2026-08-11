@@ -182,9 +182,16 @@ const ScrollButton = ({ icon, onClick, disabled }: ScrollButtonProps) => {
   }, [isPressed, onClick])
 
   React.useEffect(() => {
-    if (disabled) {
+    if (!disabled) return
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
       clearInterval(intervalRef.current as NodeJS.Timeout)
       setIsPressed(false)
+    })()
+    return () => {
+      cancelled = true
     }
   }, [disabled])
 

@@ -68,6 +68,7 @@ export function OrganizationDangerZone() {
       }
 
       if (payload.nextAccountId) {
+        // Tenant deletion changes server-visible auth context; force a reload.
         window.location.href = branchHref('/dashboard', payload.nextAccountId);
         return;
       }
@@ -75,6 +76,8 @@ export function OrganizationDangerZone() {
       await createClient()
         .auth.signOut({ scope: 'local' })
         .catch(() => {});
+      // Clear the authenticated tree after destructive organization removal.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = '/login';
     } catch (error) {
       console.error('[OrganizationDangerZone] delete failed:', error);

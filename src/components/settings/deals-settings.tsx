@@ -53,13 +53,15 @@ export function DealsSettings() {
   } = useAuth();
 
   const [selected, setSelected] = useState(defaultCurrency);
+  const [syncedDefault, setSyncedDefault] = useState(defaultCurrency);
   const [saving, setSaving] = useState(false);
 
   // Keep the select in sync once the profile (and its account default)
   // resolves, and after a save round-trips through refreshProfile.
-  useEffect(() => {
+  if (syncedDefault !== defaultCurrency) {
+    setSyncedDefault(defaultCurrency);
     setSelected(defaultCurrency);
-  }, [defaultCurrency]);
+  }
 
   const dirty = selected !== defaultCurrency;
 

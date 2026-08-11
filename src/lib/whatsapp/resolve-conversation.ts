@@ -142,16 +142,44 @@ export async function resolveConversationByPhone(
 
   // ---- conversation -------------------------------------------
   // One conversation per (account, contact) — same convention as the
-  // webhook.
-  const { data: conv } = await db
+  // webhook. Resolve oldest-first so pre-migration duplicates converge on
+  // the same canonical row, then recover a concurrent-insert 23505 by
+  // resolving the winning row.
+  const conversationId = await findOrCreateConversationRow(
+    db,
+    accountId,
+    contactId,
+    ownerUserId
+  );
+
+  return { conversationId, contactId, contactCreated };
+}
+
+async function findOrCreateConversationRow(
+  db: SupabaseClient,
+  accountId: string,
+  contactId: string,
+  ownerUserId: string
+): Promise<string> {
+  const { data: existing, error: findErr } = await db
     .from('conversations')
     .select('id')
     .eq('account_id', accountId)
     .eq('contact_id', contactId)
-    .maybeSingle();
+    .order('created_at', { ascending: true })
+    .limit(1);
 
-  if (conv?.id) {
-    return { conversationId: conv.id, contactId, contactCreated };
+  if (findErr) {
+    console.error('[resolve-conversation] conversation lookup error:', findErr);
+    throw new SendMessageError(
+      'db_error',
+      'Failed to resolve conversation',
+      500
+    );
+  }
+
+  if (existing && existing.length > 0) {
+    return existing[0].id;
   }
 
   const { data: newConv, error: convErr } = await db
@@ -165,6 +193,16 @@ export async function resolveConversationByPhone(
     .single();
 
   if (convErr || !newConv) {
+    if (isUniqueViolation(convErr)) {
+      const { data: raced } = await db
+        .from('conversations')
+        .select('id')
+        .eq('account_id', accountId)
+        .eq('contact_id', contactId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+      if (raced && raced.length > 0) return raced[0].id;
+    }
     console.error('[resolve-conversation] conversation create error:', convErr);
     throw new SendMessageError(
       'db_error',
@@ -173,5 +211,5 @@ export async function resolveConversationByPhone(
     );
   }
 
-  return { conversationId: newConv.id, contactId, contactCreated };
+  return newConv.id;
 }

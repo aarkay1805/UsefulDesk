@@ -103,23 +103,25 @@ export function RecordPaymentDialog({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setMethod("cash");
-    setPaidOn(fmt.today());
-    setNote("");
-    setShot(null);
-    setDues(null);
-    setLoadError(null);
-    setIdempotencyKey(crypto.randomUUID());
-    // A specific period carries its own balance (from the invoice view) —
-    // no dues lookup needed. The current period reads the dues view so
-    // partials show against the live balance.
-    if (period) {
-      const balance = Number(period.balance);
-      setDues({ balance, collected: targetFee - balance });
-      setAmount(isChargeableAmount(balance) ? String(balance) : "");
-      return;
-    }
-    (async () => {
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setMethod("cash");
+      setPaidOn(fmt.today());
+      setNote("");
+      setShot(null);
+      setDues(null);
+      setLoadError(null);
+      setIdempotencyKey(crypto.randomUUID());
+      // A specific period carries its own balance (from the invoice view) —
+      // no dues lookup needed. The current period reads the dues view so
+      // partials show against the live balance.
+      if (period) {
+        const balance = Number(period.balance);
+        setDues({ balance, collected: targetFee - balance });
+        setAmount(isChargeableAmount(balance) ? String(balance) : "");
+        return;
+      }
       const { data, error } = await supabase
         .from("membership_dues")
         .select("balance, collected_current")

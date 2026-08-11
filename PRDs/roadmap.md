@@ -28,7 +28,15 @@ Engineering maintenance: **the shared member/Business invoice drill-down now pre
 
 Engineering maintenance: **shared table headers now inherit one canonical muted neutral label colour from `TableHead`, including nested Finance revenue-source payment tables, with page-level styling limited to layout**.
 
-Engineering maintenance: **the Next.js 16 / React 19 tree is ESLint-clean with no rule overrides; auth-driven effects use stable scalar dependencies, asynchronous contact-form loaders are cancellation-guarded, and authenticated Inbox images retain their existing proxy/blob delivery through `next/image`**.
+Engineering maintenance: **the Next.js 16.3 / React 19 tree is ESLint-clean with zero warnings and no rule overrides; mount/refetch and prop/URL synchronization effects use cancellable async boundaries, compiler dependencies preserve whole-object identity where required, the Leads table derives related column layouts through one pure helper, auth/tenant transitions retain intentional documented full reloads, and authenticated Inbox images keep their existing proxy/blob delivery through `next/image`**.
+
+Engineering maintenance: **the selective upstream security refresh pins Next.js and its ESLint config at 16.3.0 without changing React, raises compatible npm/pnpm security floors for the affected image/parser/network transitive dependencies, requires Node 20.18.1+, regenerates both lockfiles, and keeps production audits free of high/critical findings**.
+
+Engineering maintenance: **inbound WhatsApp now has database-enforced one-thread-per-account-contact resolution, race recovery, a unique conversation-creation event boundary, full conversation-scoped Meta-message replay idempotency before every message-derived downstream effect, atomic unread increments through a service-role-only invoker RPC, awaited automation completion, pessimistic run logs, template-button normalization into the existing Flow path, and CAS closed-thread reopening. Applied migration: `20260811043230_inbound_webhook_integrity.sql` on UsefulDesk `fwqthstqrkrwtaehefks`**.
+
+Engineering maintenance: **template image-header fetches reject non-public targets and redirects with a ten-second bound; browser broadcast fan-out has a matching 60/min budget plus bounded 429-only retry; successful login and invitation continuation use a full browser navigation so fresh Supabase cookies reach the proxy**.
+
+Deliberately deferred from the referenced upstream batches: **i18n, AI dashboards, MCP server, Docker, media viewer, the full interactive-message suite, tag-trigger automation, nested-condition editing, whole-word keyword UI, and tunnel-origin config**. Existing UsefulDesk cron timing-safe comparison, RBAC/security-route fixes, and Suspense/build fixes supersede their upstream counterparts.
 
 Shipped addition: **automatic Click-to-WhatsApp referral attribution that preserves every inbound ad/post touch on its message, labels Instagram/Facebook only when a trusted Meta source URL proves the platform, keeps WhatsApp as the immutable intake channel, fills an absent contact acquisition source without overwriting prior attribution, and surfaces both message-level context and contact-level source in the Inbox**.
 

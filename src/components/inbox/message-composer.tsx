@@ -386,9 +386,15 @@ export function MessageComposer({
   // Auto-stop at the cap so a forgotten recording can't blow the
   // upload size limit.
   useEffect(() => {
-    if (recording && recordSeconds >= MAX_RECORDING_SECONDS) {
-      stopRecording();
-    }
+    if (!recording || recordSeconds < MAX_RECORDING_SECONDS) return;
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) stopRecording();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [recording, recordSeconds, stopRecording]);
 
   // ---- Draft send / discard -----------------------------------------

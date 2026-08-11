@@ -83,7 +83,6 @@ export function useTablePrefs<T extends object>(
     if (cacheKey) {
       try {
         const raw = window.localStorage.getItem(cacheKey);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setValue(
           raw !== null
             ? { ...initialRef.current, ...(JSON.parse(raw) as object) }

@@ -182,7 +182,14 @@ export function SendReminderButton({
 
   // Reset the "Reminded ✓" flash when the row's membership changes.
   useEffect(() => {
-    setSent(false);
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) setSent(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [membership.id, membership.end_date]);
 
   // A missing phone is a per-member blocker with no settings fix; the

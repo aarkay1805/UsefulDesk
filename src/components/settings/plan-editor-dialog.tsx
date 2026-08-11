@@ -197,38 +197,48 @@ export function PlanEditorDialog({
 
   useEffect(() => {
     if (!open) return;
-    setName(plan?.name ?? "");
-    setDescription(plan?.description ?? "");
-    setPlanType(plan?.plan_type ?? "recurring");
-    setLimitEnabled(!!plan?.attendance_limit_count);
-    setLimitCount(
-      plan?.attendance_limit_count ? String(plan.attendance_limit_count) : "",
-    );
-    setLimitInterval(plan?.attendance_limit_interval ?? "period");
-    setSessionsCount(plan?.sessions_count ? String(plan.sessions_count) : "");
-    setRemovedIds([]);
-    const existing = (plan?.pricing_options ?? [])
-      .slice()
-      .sort((a, b) => a.sort_order - b.sort_order)
-      .map((o) => ({
-        id: o.id,
-        duration_count: String(o.duration_count),
-        duration_unit: o.duration_unit,
-        price: String(o.price),
-        setup_fee: o.setup_fee > 0 ? String(o.setup_fee) : "",
-      }));
-    setOptions(existing.length > 0 ? existing : [{ ...EMPTY_OPTION }]);
-    setTypeLocked(false);
-    if (plan) {
-      // Lock the type once members reference the plan.
-      (async () => {
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setName(plan?.name ?? "");
+      setDescription(plan?.description ?? "");
+      setPlanType(plan?.plan_type ?? "recurring");
+      setLimitEnabled(!!plan?.attendance_limit_count);
+      setLimitCount(
+        plan?.attendance_limit_count
+          ? String(plan.attendance_limit_count)
+          : "",
+      );
+      setLimitInterval(plan?.attendance_limit_interval ?? "period");
+      setSessionsCount(
+        plan?.sessions_count ? String(plan.sessions_count) : "",
+      );
+      setRemovedIds([]);
+      const existing = (plan?.pricing_options ?? [])
+        .slice()
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((o) => ({
+          id: o.id,
+          duration_count: String(o.duration_count),
+          duration_unit: o.duration_unit,
+          price: String(o.price),
+          setup_fee: o.setup_fee > 0 ? String(o.setup_fee) : "",
+        }));
+      setOptions(existing.length > 0 ? existing : [{ ...EMPTY_OPTION }]);
+      setTypeLocked(false);
+      if (plan) {
+        // Lock the type once members reference the plan.
         const { count } = await supabase
           .from("memberships")
           .select("id", { count: "exact", head: true })
           .eq("plan_id", plan.id);
-        if ((count ?? 0) > 0) setTypeLocked(true);
-      })();
-    }
+        if (!cancelled && (count ?? 0) > 0) setTypeLocked(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, plan]);
 

@@ -26,7 +26,14 @@ export function PaymentProofLink({ payment }: { payment: Payment }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setSigned(null);
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) setSigned(null);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [payment.id]);
 
   if (!payment.screenshot_url && !payment.screenshot_path) return null;

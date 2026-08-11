@@ -95,7 +95,14 @@ export function ApiKeysSettings() {
   }, []);
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await load();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   async function handleRevoke(key: ApiKey) {

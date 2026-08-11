@@ -28,7 +28,10 @@ export function AnimatedNumber({
   const reduce = useReducedMotion();
   // Keep the latest formatter without retriggering the animation each render.
   const formatRef = useRef(format);
-  formatRef.current = format;
+
+  useEffect(() => {
+    formatRef.current = format;
+  }, [format]);
 
   useEffect(() => {
     const el = ref.current;

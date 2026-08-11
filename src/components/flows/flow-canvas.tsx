@@ -349,7 +349,14 @@ function FlowCanvasInner() {
   const [rfNodes, setRfNodes] = useState<RfNode<NodeData>[]>(derivedRfNodes);
 
   useEffect(() => {
-    setRfNodes(derivedRfNodes);
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) setRfNodes(derivedRfNodes);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [derivedRfNodes]);
 
   const rfEdges = useMemo(() => {

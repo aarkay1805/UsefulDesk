@@ -1,9 +1,10 @@
 import { NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
-import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api';
+import { getMediaUrl } from '@/lib/whatsapp/meta-api';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
+import { reopenClosedConversation } from '@/lib/conversations/reopen';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
@@ -73,6 +74,8 @@ interface WhatsAppMessage {
     button_reply?: { id: string; title: string };
     list_reply?: { id: string; title: string; description?: string };
   };
+  /** QUICK_REPLY tap on a template message. */
+  button?: { text?: string; payload?: string };
   /** Present when the customer swipe-replies to one of our messages. */
   context?: { id: string };
   /**
@@ -609,12 +612,6 @@ async function processMessage(
   if (!contactOutcome) return;
   const contactRecord = contactOutcome.contact;
 
-  // Acquisition source is a first-touch field, separate from
-  // received_via='whatsapp'. Only a trusted source URL can resolve the
-  // platform, and the compare-and-set below never overwrites a source
-  // that a teammate or an earlier capture already established.
-  await setReferralFirstTouchSource(contactRecord, referral);
-
   // Find or create conversation
   const convResult = await findOrCreateConversation(
     accountId,
@@ -624,10 +621,10 @@ async function processMessage(
   if (!convResult) return;
   const conversation = convResult.conversation;
 
-  // Emit conversation.created as soon as the thread is opened — BEFORE
-  // the reaction short-circuit below — so a conversation first opened by
-  // a reaction still fires the event, and a subscriber always sees the
-  // thread open before its first message.received.
+  // Conversation creation has its own database-enforced idempotency boundary.
+  // Emit here so the creator cannot lose this event if a concurrent delivery
+  // wins the subsequent message upsert. Every message-derived effect remains
+  // behind the scoped message insert below.
   if (convResult.created) {
     await dispatchWebhookEvent(
       supabaseAdmin(),
@@ -651,33 +648,6 @@ async function processMessage(
   // Parse message content based on type
   const { contentText, mediaUrl, mediaType, interactiveReplyId } =
     await parseMessageContent(message, accessToken);
-
-  // A standalone STOP/UNSUBSCRIBE-style inbound command is an
-  // organization-wide proactive-message suppression. Record it before the
-  // message so a database failure makes Meta retry instead of acknowledging an
-  // opt-out that was never enforced. Re-opt-in is never inferred here: it must
-  // be an explicit branch + purpose consent event.
-  if (message.type === 'text' && isWhatsAppOptOut(contentText)) {
-    const { error: consentError } = await supabaseAdmin().rpc(
-      'record_contact_consent',
-      {
-        p_account_id: accountId,
-        p_contact_id: contactRecord.id,
-        p_purpose: 'business_initiated',
-        p_action: 'opt_out',
-        p_source: 'whatsapp_inbound_keyword',
-        p_evidence: {
-          meta_message_id: message.id,
-          keyword: contentText?.trim().toLowerCase(),
-        },
-      }
-    );
-    if (consentError) {
-      throw new Error(
-        `Could not record WhatsApp opt-out: ${consentError.message}`
-      );
-    }
-  }
 
   // Resolve swipe-reply context if present. A missing parent is fine —
   // we just store NULL and the UI renders the message without a quote.
@@ -723,7 +693,9 @@ async function processMessage(
     ? message.type
     : message.type === 'sticker'
       ? 'image' // stickers are images
-      : 'text'; // reaction, unknown → text fallback
+      : message.type === 'button'
+        ? 'interactive' // template QUICK_REPLY tap
+        : 'text'; // reaction, unknown → text fallback
 
   // Determine whether this is the contact's very first inbound message
   // BEFORE we insert, so the count is accurate. Covers the case where
@@ -736,56 +708,83 @@ async function processMessage(
     .eq('sender_type', 'customer');
   const isFirstInboundMessage = (priorCustomerMsgCount ?? 0) === 0;
 
-  const { error: msgError } = await supabaseAdmin()
+  const { data: insertedRows, error: msgError } = await supabaseAdmin()
     .from('messages')
-    .insert({
-      conversation_id: conversation.id,
-      sender_type: 'customer',
-      content_type: contentType,
-      content_text: contentText,
-      media_url: mediaUrl,
-      message_id: message.id,
-      status: 'delivered',
-      created_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
-      reply_to_message_id: replyToInternalId,
-      // Only populated for content_type='interactive'. Migration 010 added
-      // the column; null for every other content_type so existing inserts
-      // behave identically.
-      interactive_reply_id: interactiveReplyId,
-      // The normalized referral lives on this exact message, so repeated
-      // ad/post touches remain independently visible in conversation history.
-      referral,
-    });
+    .upsert(
+      {
+        conversation_id: conversation.id,
+        sender_type: 'customer',
+        content_type: contentType,
+        content_text: contentText,
+        media_url: mediaUrl,
+        message_id: message.id,
+        status: 'delivered',
+        created_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
+        reply_to_message_id: replyToInternalId,
+        interactive_reply_id: interactiveReplyId,
+        // The normalized referral lives on this exact message, so repeated
+        // ad/post touches remain independently visible in conversation history.
+        referral,
+      },
+      {
+        onConflict: 'conversation_id,message_id',
+        ignoreDuplicates: true,
+      }
+    )
+    .select('id');
 
   if (msgError) {
-    // The partial unique index in migration 20260727200000 makes Meta
-    // retries idempotent for referral-bearing messages within a
-    // conversation. The first delivery already persisted the touch.
-    if (referral && isUniqueViolation(msgError)) {
-      console.info(
-        '[webhook] duplicate referral delivery ignored:',
-        message.id
-      );
-      return;
-    }
     console.error('Error inserting message:', msgError);
     return;
   }
 
-  // Update conversation
-  const { error: convError } = await supabaseAdmin()
-    .from('conversations')
-    .update({
-      last_message_text: contentText || `[${message.type}]`,
-      last_message_at: new Date().toISOString(),
-      unread_count: (conversation.unread_count || 0) + 1,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', conversation.id);
+  // The full unique index turns Meta retries into an empty upsert result.
+  // Stop at this boundary before unread state or any external/downstream
+  // dispatch can run twice.
+  if (!insertedRows || insertedRows.length === 0) {
+    console.info('[webhook] duplicate inbound message ignored:', message.id);
+    return;
+  }
+
+  // First-touch acquisition attribution and opt-out recording are also after
+  // the replay boundary so a redelivery cannot repeat either side effect.
+  await setReferralFirstTouchSource(contactRecord, referral);
+
+  if (message.type === 'text' && isWhatsAppOptOut(contentText)) {
+    const { error: consentError } = await supabaseAdmin().rpc(
+      'record_contact_consent',
+      {
+        p_account_id: accountId,
+        p_contact_id: contactRecord.id,
+        p_purpose: 'business_initiated',
+        p_action: 'opt_out',
+        p_source: 'whatsapp_inbound_keyword',
+        p_evidence: {
+          meta_message_id: message.id,
+          keyword: contentText?.trim().toLowerCase(),
+        },
+      }
+    );
+    if (consentError) {
+      throw new Error(
+        `Could not record WhatsApp opt-out: ${consentError.message}`
+      );
+    }
+  }
+
+  const { error: convError } = await supabaseAdmin().rpc(
+    'bump_conversation_on_inbound',
+    {
+      p_conversation_id: conversation.id,
+      p_last_message_text: contentText || `[${message.type}]`,
+    }
+  );
 
   if (convError) {
     console.error('Error updating conversation:', convError);
   }
+
+  await reopenClosedConversation(supabaseAdmin(), conversation);
 
   // If this contact was a recent broadcast recipient, flag the reply
   // so the broadcast's `replied_count` advances (via the aggregate
@@ -835,8 +834,8 @@ async function processMessage(
   // Fire any automations that react to this webhook event. All dispatches
   // run here (not earlier) so the contact, conversation, and inbound
   // message all exist before any step — including send_message — runs.
-  // Fire-and-forget: a slow or failing automation must not block the
-  // webhook's 200 OK response to Meta.
+  // This work is already inside Next's after() callback, so every dispatch
+  // must be awaited for the runtime to keep it alive until completion.
   const inboundText = contentText ?? message.text?.body ?? '';
   const automationTriggers: (
     | 'new_contact_created'
@@ -860,7 +859,7 @@ async function processMessage(
   if (isFirstInboundMessage)
     automationTriggers.unshift('first_inbound_message');
   for (const triggerType of automationTriggers) {
-    runAutomationsForTrigger({
+    await runAutomationsForTrigger({
       accountId,
       triggerType,
       contactId: contactRecord.id,
@@ -1040,6 +1039,19 @@ async function parseMessageContent(
       return { ...empty, contentText: '[Interactive reply]' };
     }
 
+    case 'button': {
+      // Template QUICK_REPLY taps use Meta's legacy `type=button` envelope,
+      // not `interactive.button_reply`. Normalize both shapes into the same
+      // persisted/Flow reply contract.
+      const payload = message.button?.payload || null;
+      const label = message.button?.text || null;
+      return {
+        ...empty,
+        contentText: label || payload,
+        interactiveReplyId: payload || label,
+      };
+    }
+
     default:
       return {
         ...empty,
@@ -1063,8 +1075,7 @@ async function setReferralFirstTouchSource(
   const source = contactSourceFromReferral(referral);
   if (!source) return;
 
-  const observed =
-    typeof contact.source === 'string' ? contact.source : null;
+  const observed = typeof contact.source === 'string' ? contact.source : null;
   if (observed?.trim()) return;
 
   let query = supabaseAdmin()
@@ -1076,9 +1087,7 @@ async function setReferralFirstTouchSource(
     .eq('id', contact.id);
 
   query =
-    observed === null
-      ? query.is('source', null)
-      : query.eq('source', observed);
+    observed === null ? query.is('source', null) : query.eq('source', observed);
 
   const { error } = await query;
   if (error) {
@@ -1168,16 +1177,23 @@ async function findOrCreateConversation(
   configOwnerUserId: string,
   contactId: string
 ) {
-  // Look for existing conversation in this account
-  const { data: existing, error: findError } = await supabaseAdmin()
+  // Resolve oldest-first so any historical duplicate converges on the same
+  // canonical row instead of `.single()` treating multiple rows as "missing".
+  const { data: existingRows, error: findError } = await supabaseAdmin()
     .from('conversations')
     .select('*')
     .eq('account_id', accountId)
     .eq('contact_id', contactId)
-    .single();
+    .order('created_at', { ascending: true })
+    .limit(1);
 
-  if (!findError && existing) {
-    return { conversation: existing, created: false };
+  if (findError) {
+    console.error('Error finding conversation:', findError);
+    return null;
+  }
+
+  if (existingRows && existingRows.length > 0) {
+    return { conversation: existingRows[0], created: false };
   }
 
   // Create new conversation. Same tenancy + audit split as
@@ -1193,6 +1209,18 @@ async function findOrCreateConversation(
     .single();
 
   if (createError) {
+    if (isUniqueViolation(createError)) {
+      const { data: raced } = await supabaseAdmin()
+        .from('conversations')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('contact_id', contactId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+      if (raced && raced.length > 0) {
+        return { conversation: raced[0], created: false };
+      }
+    }
     console.error('Error creating conversation:', createError);
     return null;
   }

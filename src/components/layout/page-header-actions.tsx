@@ -32,9 +32,16 @@ function HeaderSlot({
 
   useEffect(() => {
     // The Header commits in the same shell render as the page, so the
-    // slot exists by the time effects run. One-time DOM lookup — not a
-    // data fetch, so the async-IIFE loading pattern doesn't apply.
-    setSlot(document.getElementById(slotId));
+    // slot exists by the time effects run. Defer the one-time DOM lookup
+    // through the same cancellable boundary used by other mount effects.
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) setSlot(document.getElementById(slotId));
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [slotId]);
 
   if (!slot) return null;

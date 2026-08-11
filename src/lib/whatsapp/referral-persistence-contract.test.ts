@@ -16,6 +16,14 @@ const webhook = readFileSync(
   'utf8'
 );
 
+const integrityMigration = readFileSync(
+  join(
+    process.cwd(),
+    'supabase/migrations/20260811043230_inbound_webhook_integrity.sql'
+  ),
+  'utf8'
+);
+
 describe('WhatsApp referral persistence contract', () => {
   it('stores referral JSON on messages under the existing conversation RLS path', () => {
     expect(migration).toMatch(
@@ -27,12 +35,18 @@ describe('WhatsApp referral persistence contract', () => {
     expect(migration).not.toMatch(/CREATE TABLE/);
   });
 
-  it('deduplicates only referral-bearing deliveries within one conversation', () => {
+  it('supersedes referral-only dedupe with full inbound delivery idempotency', () => {
     expect(migration).toMatch(
       /CREATE UNIQUE INDEX IF NOT EXISTS uniq_messages_referral_delivery[\s\S]*ON public\.messages \(conversation_id, message_id\)[\s\S]*WHERE message_id IS NOT NULL AND referral IS NOT NULL/
     );
+    expect(integrityMigration).toMatch(
+      /CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_conversation_message_id[\s\S]*ON public\.messages \(conversation_id, message_id\)/
+    );
+    expect(integrityMigration).toMatch(
+      /DROP INDEX IF EXISTS public\.uniq_messages_referral_delivery/
+    );
     expect(webhook).toMatch(
-      /if \(referral && isUniqueViolation\(msgError\)\)[\s\S]*duplicate referral delivery ignored/
+      /onConflict: 'conversation_id,message_id'[\s\S]*ignoreDuplicates: true/
     );
   });
 

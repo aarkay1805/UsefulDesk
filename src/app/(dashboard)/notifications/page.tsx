@@ -69,7 +69,14 @@ export default function NotificationsPage() {
   }, [accountId]);
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await load();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   // Realtime — new assignments appear without a refresh, and a

@@ -70,9 +70,9 @@ export async function POST(request: Request) {
   try {
     const { supabase, userId, accountId } = ctx;
 
-    // Per-user broadcast budget. Note: this limits how often a user
-    // can *start* a campaign, not how many messages go out inside
-    // one — the fan-out loop below runs without additional gating.
+    // Per-user broadcast batch budget. The dashboard fans a campaign out as
+    // separate requests of ten recipients, so this gate deliberately carries
+    // that roughly one-request-per-second shape.
     const limit = checkRateLimit(`broadcast:${userId}`, RATE_LIMITS.broadcast);
     if (!limit.success) {
       return rateLimitResponse(limit);

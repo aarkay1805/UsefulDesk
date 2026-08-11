@@ -6,6 +6,28 @@
 
 ---
 
+## Next.js 16.3 React lint baseline
+
+The Next.js 16.3 ESLint preset now passes with zero errors and warnings without weakening React's rules. Effect-driven loads and prop/URL resets use cancellable async boundaries, compiler dependency mismatches use stable whole-object dependencies, the Leads table derives its related column layouts through one pure helper, and intentional auth/tenant full-page reloads carry local explanations instead of changing session behavior. Key code: `src/app/(dashboard)/leads/page.tsx`, `src/components/inbox/message-thread.tsx`, the affected member/settings components, and `src/hooks/use-auth.tsx`. Gotcha: keep `react-hooks/set-state-in-effect` enforced; new mount/refetch effects must use the repository's cancellable async pattern.
+
+## Selective upstream security dependency refresh
+
+Next.js and `eslint-config-next` are pinned together at 16.3.0 without changing React. npm and pnpm now carry compatible security floors for Sharp/libvips, PostCSS, Hono, `@hono/node-server`, `ip-address`, `fast-uri`, `js-yaml`, `brace-expansion`, Undici, Nano ID, and Body Parser; both tracked lockfiles were regenerated. Key files: `package.json`, `package-lock.json`, `pnpm-lock.yaml`, and `pnpm-workspace.yaml`. Gotcha: the safe transitive toolchain requires Node 20.18.1+, and pnpm 11 reads overrides from the workspace file rather than `package.json`.
+
+## Inbound conversation and message integrity
+
+Inbound and public-API conversation resolution now converges oldest-first and recovers concurrent insert races; Meta message storage uses `(conversation_id, message_id)` as its idempotency boundary and stops replays before unread state, consent/referral work, Flows, automations, AI, broadcasts, or message-derived public webhooks. The independently unique conversation-creation boundary emits `conversation.created` before the message insert so a concurrent delivery cannot lose that event. Migration `20260811043230_inbound_webhook_integrity.sql` was applied first through the Supabase connector to UsefulDesk project `fwqthstqrkrwtaehefks`: it transactionally preserves conversation/message children while cleaning duplicates, installs both full unique indexes, removes the narrower referral-only index, and exposes an atomic fully-qualified `SECURITY INVOKER` unread RPC only to `service_role`. Key code: `src/app/api/whatsapp/webhook/route.ts` and `src/lib/whatsapp/resolve-conversation.ts`. Gotcha: keep the migration ahead of webhook deployment; never restore a client-side unread read/modify/write or move message-derived effects ahead of the message insert.
+
+## WhatsApp and operator reliability backports
+
+Template image-header fetches reuse the public-address SSRF guard, refuse redirects, and time out after ten seconds; inbound automation dispatch is awaited inside `after()` and log rows begin failed until terminal completion; Meta `type=button` template replies persist as interactive and enter the existing Flow reply path; customer replies CAS-reopen only closed threads; dashboard broadcasts have a 60/min batch budget and retry only pre-send HTTP 429 responses with bounded `Retry-After`. Key code: `src/lib/whatsapp/template-header-handle.ts`, `src/lib/automations/engine.ts`, `src/lib/conversations/reopen.ts`, `src/lib/broadcast-retry.ts`, and `src/lib/rate-limit.ts`. Deliberately deferred: upstream's full interactive-message/automation suite, tag-trigger automation, and nested-condition editor.
+
+## Post-login session navigation
+
+Successful login now performs a full browser navigation so the new Supabase cookies reach the protected-route proxy; invitation sign-ins retain the encoded `/join/<token>` destination. Key code: `src/app/(auth)/login/page.tsx` and `src/lib/auth/post-login-navigation.ts`. Tunnel-origin/`next.config` changes were intentionally not ported.
+
+This selective backport also intentionally excludes upstream i18n, AI dashboards, MCP server, Docker, media viewer, and the other named broad bundles; existing UsefulDesk cron timing-safe comparison, RBAC/security-route hardening, and Suspense/build fixes remain authoritative.
+
 ## Invoice detail spacing and action hierarchy
 
 The shared invoice drill-down now keeps its intended dialog gutters under dense payment-link actions, wraps the footer safely, widens the desktop reading surface, and uses clearer Collected/Refunded labels plus structured refund metadata. Terminal payment-link states no longer compete with the invoice's current payment state, and Record payment is the sole primary footer action. Key code: `src/components/finance/invoice-detail-dialog.tsx` and `src/components/finance/payment-link-actions.tsx`.

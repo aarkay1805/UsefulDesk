@@ -501,13 +501,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccount(null);
     setBranches([]);
     setBranchAccessError(null);
+    // Tear down every authenticated client component after sign-out.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = '/login';
   }, []);
 
   const refreshProfile = useCallback(async () => {
     if (!user?.id) return;
     await fetchProfile(user.id);
-  }, [user?.id, fetchProfile]);
+  }, [user, fetchProfile]);
 
   const switchBranch = useCallback(async (accountId: string) => {
     if (!isBranchAccountId(accountId)) {
@@ -525,6 +527,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const url = new URL(window.location.href);
     url.searchParams.set(BRANCH_QUERY_PARAM, accountId);
+    // Branch selection changes tenant context used by proxy and server reads.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign(`${url.pathname}${url.search}${url.hash}`);
   }, []);
 
@@ -601,6 +605,8 @@ export function useAuth(): AuthContextValue {
       loading: false,
       profileLoading: false,
       signOut: async () => {
+        // Fallback sign-out still needs to discard the current app tree.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.href = '/login';
       },
       refreshProfile: async () => {},

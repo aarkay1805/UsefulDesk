@@ -189,6 +189,8 @@ export default function JoinPage() {
       if (payload.accountId) {
         destination.searchParams.set('branch', payload.accountId);
       }
+      // A redeemed branch changes server-visible auth context; force a reload.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = `${destination.pathname}${destination.search}`;
     } catch (err) {
       console.error('[join] redeem error:', err);
@@ -368,6 +370,8 @@ export default function JoinPage() {
               </Button>
               <Button
                 onClick={() => {
+                  // The conflict can reflect newer branch access than this tree.
+                  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
                   window.location.href = '/dashboard';
                 }}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"

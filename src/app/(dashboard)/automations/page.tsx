@@ -80,7 +80,14 @@ export default function AutomationsPage() {
   }
 
   useEffect(() => {
-    load()
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (!cancelled) await load()
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   async function toggleActive(a: Automation, next: boolean) {

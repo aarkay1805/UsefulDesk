@@ -46,8 +46,16 @@ export function ProfileForm() {
   // Seed form state once the profile loads.
   useEffect(() => {
     if (!profile) return;
-    setFullName(profile.full_name ?? '');
-    setEmail(profile.email ?? '');
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setFullName(profile.full_name ?? '');
+      setEmail(profile.email ?? '');
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [profile]);
 
   // Cleanup object URLs to avoid leaks.

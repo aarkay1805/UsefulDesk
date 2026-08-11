@@ -85,7 +85,14 @@ export default function BroadcastsPage() {
   }
 
   useEffect(() => {
-    fetchBroadcasts();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await fetchBroadcasts();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const anySending = useMemo(

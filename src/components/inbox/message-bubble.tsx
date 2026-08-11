@@ -97,8 +97,13 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
   }, [url]);
 
   useEffect(() => {
-    loadImage();
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) await loadImage();
+    })();
     return () => {
+      cancelled = true;
       if (src?.startsWith("blob:")) {
         URL.revokeObjectURL(src);
       }

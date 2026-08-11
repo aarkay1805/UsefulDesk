@@ -122,14 +122,26 @@ export function ManageColumnsDialog({
   // Seed the draft each time the dialog opens.
   useEffect(() => {
     if (!open) return;
-    const hiddenSet = new Set(hidden);
-    setVisibleOrder(columns.filter((c) => !hiddenSet.has(c.key)).map((c) => c.key));
-    setHiddenKeys(columns.filter((c) => hiddenSet.has(c.key)).map((c) => c.key));
-    setFrozen(frozenCount);
-    setQuery('');
-    setNewName('');
-    setNewType('text');
-    seen.current = new Set(columns.map((c) => c.key));
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      const hiddenSet = new Set(hidden);
+      setVisibleOrder(
+        columns.filter((c) => !hiddenSet.has(c.key)).map((c) => c.key)
+      );
+      setHiddenKeys(
+        columns.filter((c) => hiddenSet.has(c.key)).map((c) => c.key)
+      );
+      setFrozen(frozenCount);
+      setQuery('');
+      setNewName('');
+      setNewType('text');
+      seen.current = new Set(columns.map((c) => c.key));
+    })();
+    return () => {
+      cancelled = true;
+    };
     // Snapshot at open — props change during editing are merged separately.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -140,26 +152,34 @@ export function ManageColumnsDialog({
     const liveKeys = columns.map((c) => c.key);
     const liveSet = new Set(liveKeys);
     const newKeys = liveKeys.filter((k) => !seen.current.has(k));
-    seen.current = liveSet;
-    if (newKeys.length === 0) {
-      // Still prune any keys that vanished (deleted field). Return the
-      // SAME array when nothing was pruned so React bails out of the
-      // update — otherwise a fresh `columns` prop identity each parent
-      // render would schedule an endless string of no-op state updates
-      // (max-update-depth).
-      const prune = (prev: string[]) => {
-        const next = prev.filter((k) => liveSet.has(k));
-        return next.length === prev.length ? prev : next;
-      };
-      setVisibleOrder(prune);
-      setHiddenKeys(prune);
-      return;
-    }
-    setVisibleOrder((prev) => prev.filter((k) => liveSet.has(k)));
-    setHiddenKeys((prev) => [
-      ...prev.filter((k) => liveSet.has(k)),
-      ...newKeys,
-    ]);
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      seen.current = liveSet;
+      if (newKeys.length === 0) {
+        // Still prune any keys that vanished (deleted field). Return the
+        // SAME array when nothing was pruned so React bails out of the
+        // update — otherwise a fresh `columns` prop identity each parent
+        // render would schedule an endless string of no-op state updates
+        // (max-update-depth).
+        const prune = (prev: string[]) => {
+          const next = prev.filter((k) => liveSet.has(k));
+          return next.length === prev.length ? prev : next;
+        };
+        setVisibleOrder(prune);
+        setHiddenKeys(prune);
+        return;
+      }
+      setVisibleOrder((prev) => prev.filter((k) => liveSet.has(k)));
+      setHiddenKeys((prev) => [
+        ...prev.filter((k) => liveSet.has(k)),
+        ...newKeys,
+      ]);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [columns]);
 
   const sensors = useSensors(useSensor(PointerSensor));
@@ -208,10 +228,7 @@ export function ManageColumnsDialog({
   }
 
   // ---- Custom field CRUD (immediate) -------------------------------------
-  const customLabels = useMemo(
-    () => new Set(customCols.map((c) => c.label.toLowerCase())),
-    [customCols]
-  );
+  const customLabels = new Set(customCols.map((c) => c.label.toLowerCase()));
 
   async function createField() {
     const name = newName.trim();

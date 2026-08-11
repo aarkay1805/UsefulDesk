@@ -276,30 +276,45 @@ export function ContactDetailContent({
   }, [contactId, supabase]);
 
   useEffect(() => {
-    if (active && contactId) {
+    if (!active || !contactId) return;
+    let cancelled = false;
+    let focusTimer: ReturnType<typeof setTimeout> | undefined;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+
       const collapsed = collapsedKey ? collapsedKey.split(',') : [];
       // A `followup` deep link forces Notes open even if the host would
       // otherwise collapse it, so the composer is reachable.
       const openIds = SECTION_IDS.filter(
-        (id) => !collapsed.includes(id) || (initialFocus === 'followup' && id === 'notes'),
+        (id) =>
+          !collapsed.includes(id) ||
+          (initialFocus === 'followup' && id === 'notes'),
       );
       setOpenSections(openIds);
-      fetchContact();
-      fetchConversation();
-      fetchTags();
-      fetchCustomFields();
+      await Promise.all([
+        fetchContact(),
+        fetchConversation(),
+        fetchTags(),
+        fetchCustomFields(),
+      ]);
+      if (cancelled || initialFocus !== 'followup') return;
+
       // Land the user on the follow-up composer once the panel mounts.
-      if (initialFocus === 'followup') {
-        const t = setTimeout(() => {
-          noteInputRef.current?.focus();
-          noteInputRef.current?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          });
-        }, 150);
-        return () => clearTimeout(t);
-      }
-    }
+      focusTimer = setTimeout(() => {
+        noteInputRef.current?.focus();
+        noteInputRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }, 150);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (focusTimer) clearTimeout(focusTimer);
+    };
   }, [
     active,
     contactId,
