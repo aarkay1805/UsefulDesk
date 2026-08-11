@@ -64,6 +64,15 @@ import type {
   Tag as TagRecord,
 } from "@/types"
 import { createClient } from "@/lib/supabase/client"
+import {
+  childPath,
+  insertAt,
+  mapAtPath,
+  moveAt,
+  removeAt,
+  type ParentScope,
+  type StepPath,
+} from "@/lib/automations/builder-tree"
 import { useLeadFieldOptions } from "@/hooks/use-lead-field-options"
 import { cn } from "@/lib/utils"
 
@@ -764,7 +773,8 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
             />
             <StepList
               steps={state.steps}
-              parentPath={[]}
+              basePath={[]}
+              scope={{ kind: "root" }}
               expandedId={expandedId}
               setExpandedId={setExpandedId}
               updateStep={updateStep}
@@ -961,18 +971,12 @@ function KeywordMatchConfig({
 // Step list + card + connectors
 // ------------------------------------------------------------
 
-type ParentScope =
-  | { kind: "root" }
-  | { kind: "branch"; parentCid: string; branch: "yes" | "no" }
-
-type StepPath = (
-  | { kind: "root"; index: number }
-  | { kind: "branch"; parentCid: string; branch: "yes" | "no"; index: number }
-)[]
-
 interface StepListProps {
   steps: BuilderStep[]
-  parentPath: StepPath
+  /** Path of the step that owns this list; empty for the root canvas. */
+  basePath: StepPath
+  /** The root or condition branch bucket this list reads and writes. */
+  scope: ParentScope
   expandedId: string | null
   setExpandedId: (id: string | null) => void
   updateStep: (path: StepPath, updater: (s: BuilderStep) => BuilderStep) => void
@@ -982,27 +986,19 @@ interface StepListProps {
 }
 
 function StepList(props: StepListProps) {
-  const { steps, parentPath, ...rest } = props
-  const parentScope: ParentScope =
-    parentPath.length === 0
-      ? { kind: "root" }
-      : (() => {
-          const last = parentPath[parentPath.length - 1]
-          if (last.kind !== "branch") return { kind: "root" } as const
-          return { kind: "branch", parentCid: last.parentCid, branch: last.branch } as const
-        })()
+  const { steps, basePath, scope, ...rest } = props
 
   return (
-    <div className="flex flex-col items-center">
-      <AddButton onPick={(t) => props.addStepAt(parentScope, 0, t)} />
+    <div className="flex w-full flex-col items-center">
+      <AddButton onPick={(t) => props.addStepAt(scope, 0, t)} />
       {steps.map((step, idx) => (
         <StepRenderer
           key={step.cid}
           step={step}
           index={idx}
           total={steps.length}
-          parentScope={parentScope}
-          parentPath={parentPath}
+          basePath={basePath}
+          scope={scope}
           {...rest}
         />
       ))}
@@ -1014,36 +1010,35 @@ function StepRenderer({
   step,
   index,
   total,
-  parentScope,
-  parentPath,
+  scope,
+  basePath,
   ...props
 }: {
   step: BuilderStep
   index: number
   total: number
-  parentScope: ParentScope
-  parentPath: StepPath
-} & Omit<StepListProps, "steps" | "parentPath">) {
-  const path: StepPath = [
-    ...parentPath,
-    parentScope.kind === "root"
-      ? { kind: "root", index }
-      : { kind: "branch", parentCid: parentScope.parentCid, branch: parentScope.branch, index },
-  ]
+  scope: ParentScope
+  basePath: StepPath
+} & Omit<StepListProps, "steps" | "basePath" | "scope">) {
+  const path = childPath(basePath, scope, index)
   const meta = STEP_META[step.step_type]
   const Icon = meta.icon
   const expanded = props.expandedId === step.cid
   const isCondition = step.step_type === "condition"
+  const nested = basePath.length > 0
   // Card widths on mobile fill the full canvas column (max-w-2xl px-4
-  // still keeps them reasonable). On sm+ the original fixed widths
-  // come back so the flow visual stays recognisable.
-  const width = isCondition
-    ? "w-full max-w-[400px] sm:w-[400px]"
-    : "w-full max-w-[320px] sm:w-80"
+  // still keeps them reasonable). Nested cards remain fluid because a
+  // fixed 320px card cannot fit inside one condition branch. A top-level
+  // condition grows to 600px so its two branch columns stay usable.
+  const width = nested
+    ? "w-full"
+    : isCondition
+      ? "w-full max-w-[600px] sm:w-[600px]"
+      : "w-full max-w-[320px] sm:w-80"
 
   return (
     <>
-      <div className={cn("z-10 flex flex-col", width)}>
+      <div className={cn("z-10 flex min-w-0 flex-col", width)}>
         <div
           className={cn(
             "rounded-lg border border-border border-l-4 bg-card shadow-lg",
@@ -1111,7 +1106,7 @@ function StepRenderer({
         </div>
 
         {isCondition && (
-          <ConditionBranches step={step} parentPath={path} {...props} />
+          <ConditionBranches step={step} path={path} {...props} />
         )}
       </div>
 
@@ -1119,9 +1114,7 @@ function StepRenderer({
           ConditionBranches), so it has no linear "continue" path — adding
           the trailing connector here would produce a spurious third output. */}
       {!isCondition && (
-        <AddButton
-          onPick={(t) => props.addStepAt(parentScope, index + 1, t)}
-        />
+        <AddButton onPick={(t) => props.addStepAt(scope, index + 1, t)} />
       )}
     </>
   )
@@ -1129,36 +1122,37 @@ function StepRenderer({
 
 function ConditionBranches({
   step,
-  parentPath,
+  path,
   ...props
 }: {
   step: BuilderStep
-  parentPath: StepPath
-} & Omit<StepListProps, "steps" | "parentPath">) {
+  /** The condition's own path; its children append one marker each. */
+  path: StepPath
+} & Omit<StepListProps, "steps" | "basePath" | "scope">) {
   const yes = step.branches?.yes ?? []
   const no = step.branches?.no ?? []
-  // Build the child scope by appending a branch marker. The scope the
-  // StepList uses is driven by the LAST element of parentPath, so the
-  // tail's `index` doesn't matter — it's replaced per child during walks.
-  const yesPath: StepPath = [
-    ...parentPath,
-    { kind: "branch", parentCid: step.cid, branch: "yes", index: 0 },
-  ]
-  const noPath: StepPath = [
-    ...parentPath,
-    { kind: "branch", parentCid: step.cid, branch: "no", index: 0 },
-  ]
   return (
-    // Stack Yes/No vertically on mobile — two columns at 375px would
-    // cram each branch to ~170px which is too narrow for the nested
-    // cards. Two-column grid returns on sm+.
-    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <BranchColumn label="Yes" color="text-primary-text">
-        <StepList {...props} steps={yes} parentPath={yesPath} />
-      </BranchColumn>
-      <BranchColumn label="No" color="text-rose-foreground">
-        <StepList {...props} steps={no} parentPath={noPath} />
-      </BranchColumn>
+    // Split only when this condition card is wide enough, rather than
+    // when the viewport is wide. Nested conditions can be much narrower.
+    <div className="@container mt-3 w-full">
+      <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2">
+        <BranchColumn label="Yes" color="text-primary-text">
+          <StepList
+            {...props}
+            steps={yes}
+            basePath={path}
+            scope={{ kind: "branch", parentCid: step.cid, branch: "yes" }}
+          />
+        </BranchColumn>
+        <BranchColumn label="No" color="text-rose-foreground">
+          <StepList
+            {...props}
+            steps={no}
+            basePath={path}
+            scope={{ kind: "branch", parentCid: step.cid, branch: "no" }}
+          />
+        </BranchColumn>
+      </div>
     </div>
   )
 }
@@ -1173,7 +1167,7 @@ function BranchColumn({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex min-w-0 flex-col items-center">
       <div className={cn("mb-2 text-[11px] font-semibold uppercase", color)}>{label}</div>
       {children}
     </div>
@@ -1583,173 +1577,6 @@ function previewFor(step: BuilderStep): string {
     default:
       return ""
   }
-}
-
-// ------------------------------------------------------------
-// Tree mutation helpers
-// ------------------------------------------------------------
-
-function insertAt(
-  steps: BuilderStep[],
-  parent: ParentScope,
-  index: number,
-  node: BuilderStep,
-): BuilderStep[] {
-  if (parent.kind === "root") {
-    const copy = [...steps]
-    copy.splice(index, 0, node)
-    return copy
-  }
-  return steps.map((s) => {
-    if (s.cid !== parent.parentCid || !s.branches) return s
-    const list = [...s.branches[parent.branch]]
-    list.splice(index, 0, node)
-    return { ...s, branches: { ...s.branches, [parent.branch]: list } }
-  })
-}
-
-function mapAtPath(
-  steps: BuilderStep[],
-  path: StepPath,
-  updater: (s: BuilderStep) => BuilderStep,
-): BuilderStep[] {
-  if (path.length === 0) return steps
-  const head = path[0]
-  const rest = path.slice(1)
-
-  if (head.kind === "root") {
-    return steps.map((s, i) => {
-      if (i !== head.index) return s
-      return rest.length === 0
-        ? updater(s)
-        : { ...s, branches: walkBranches(s.branches, rest, updater) }
-    })
-  }
-  return steps.map((s) => {
-    if (s.cid !== head.parentCid || !s.branches) return s
-    const bucket = s.branches[head.branch]
-    const updated = bucket.map((child, i) => {
-      if (i !== head.index) return child
-      return rest.length === 0
-        ? updater(child)
-        : { ...child, branches: walkBranches(child.branches, rest, updater) }
-    })
-    return { ...s, branches: { ...s.branches, [head.branch]: updated } }
-  })
-}
-
-function walkBranches(
-  branches: BuilderStep["branches"],
-  path: StepPath,
-  updater: (s: BuilderStep) => BuilderStep,
-): BuilderStep["branches"] {
-  if (!branches) return branches
-  const head = path[0]
-  if (head.kind !== "branch") return branches
-  const bucket = branches[head.branch]
-  const rest = path.slice(1)
-  const updated = bucket.map((child, i) => {
-    if (i !== head.index) return child
-    return rest.length === 0
-      ? updater(child)
-      : { ...child, branches: walkBranches(child.branches, rest, updater) }
-  })
-  return { ...branches, [head.branch]: updated }
-}
-
-function removeAt(steps: BuilderStep[], path: StepPath): BuilderStep[] {
-  if (path.length === 0) return steps
-  const head = path[0]
-  const rest = path.slice(1)
-  if (head.kind === "root") {
-    if (rest.length === 0) return steps.filter((_, i) => i !== head.index)
-    return steps.map((s, i) =>
-      i !== head.index ? s : { ...s, branches: removeFromBranches(s.branches, rest) },
-    )
-  }
-  return steps.map((s) => {
-    if (s.cid !== head.parentCid || !s.branches) return s
-    const bucket = s.branches[head.branch]
-    const next =
-      rest.length === 0
-        ? bucket.filter((_, i) => i !== head.index)
-        : bucket.map((child, i) =>
-            i !== head.index
-              ? child
-              : { ...child, branches: removeFromBranches(child.branches, rest) },
-          )
-    return { ...s, branches: { ...s.branches, [head.branch]: next } }
-  })
-}
-
-function removeFromBranches(
-  branches: BuilderStep["branches"],
-  path: StepPath,
-): BuilderStep["branches"] {
-  if (!branches) return branches
-  const head = path[0]
-  if (head.kind !== "branch") return branches
-  const rest = path.slice(1)
-  const bucket = branches[head.branch]
-  const next =
-    rest.length === 0
-      ? bucket.filter((_, i) => i !== head.index)
-      : bucket.map((child, i) =>
-          i !== head.index
-            ? child
-            : { ...child, branches: removeFromBranches(child.branches, rest) },
-        )
-  return { ...branches, [head.branch]: next }
-}
-
-function moveAt(
-  steps: BuilderStep[],
-  path: StepPath,
-  direction: -1 | 1,
-): BuilderStep[] {
-  if (path.length === 0) return steps
-  const head = path[0]
-  const rest = path.slice(1)
-  const swap = <T,>(arr: T[], i: number) => {
-    const j = i + direction
-    if (j < 0 || j >= arr.length) return arr
-    const copy = [...arr]
-    ;[copy[i], copy[j]] = [copy[j], copy[i]]
-    return copy
-  }
-  if (head.kind === "root") {
-    if (rest.length === 0) return swap(steps, head.index)
-    return steps.map((s, i) =>
-      i !== head.index ? s : { ...s, branches: moveInBranches(s.branches, rest, direction) },
-    )
-  }
-  return steps.map((s) => {
-    if (s.cid !== head.parentCid || !s.branches) return s
-    const bucket = s.branches[head.branch]
-    const next = rest.length === 0 ? swap(bucket, head.index) : bucket
-    return { ...s, branches: { ...s.branches, [head.branch]: next } }
-  })
-}
-
-function moveInBranches(
-  branches: BuilderStep["branches"],
-  path: StepPath,
-  direction: -1 | 1,
-): BuilderStep["branches"] {
-  if (!branches) return branches
-  const head = path[0]
-  if (head.kind !== "branch") return branches
-  const rest = path.slice(1)
-  const bucket = branches[head.branch]
-  const swap = <T,>(arr: T[], i: number) => {
-    const j = i + direction
-    if (j < 0 || j >= arr.length) return arr
-    const copy = [...arr]
-    ;[copy[i], copy[j]] = [copy[j], copy[i]]
-    return copy
-  }
-  const next = rest.length === 0 ? swap(bucket, head.index) : bucket
-  return { ...branches, [head.branch]: next }
 }
 
 // ------------------------------------------------------------

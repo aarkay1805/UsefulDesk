@@ -38,7 +38,9 @@ Engineering maintenance: **template image-header fetches and automation `send_we
 
 Engineering maintenance: **signed-in account access now retries one transient profile lookup failure, distinguishes a valid viewer from unresolved branch/role context, explains the fail-closed read-only state, and offers an in-place Retry path without changing RLS or requiring a migration**.
 
-Deliberately deferred from the referenced upstream batches: **i18n, AI dashboards, MCP server, Docker, media viewer, the full interactive-message suite, tag-trigger automation, nested-condition editing, whole-word keyword UI, and tunnel-origin config**. Existing UsefulDesk cron timing-safe comparison, RBAC/security-route fixes, and Suspense/build fixes supersede their upstream counterparts.
+Engineering maintenance: **automation steps inside Condition Yes/No branches now support targeted updates, deletion, insertion into deeply nested conditions, and deep reordering through one regression-tested tree-addressing model; responsive condition cards split by available container width and nested cards stay fluid without introducing i18n or interactive-message expansion**.
+
+Deliberately deferred from the referenced upstream batches: **i18n, AI dashboards, MCP server, Docker, media viewer, the full interactive-message suite, tag-trigger automation, whole-word keyword UI, and tunnel-origin config**. Existing UsefulDesk cron timing-safe comparison, RBAC/security-route fixes, and Suspense/build fixes supersede their upstream counterparts.
 
 Shipped addition: **automatic Click-to-WhatsApp referral attribution that preserves every inbound ad/post touch on its message, labels Instagram/Facebook only when a trusted Meta source URL proves the platform, keeps WhatsApp as the immutable intake channel, fills an absent contact acquisition source without overwriting prior attribution, and surfaces both message-level context and contact-level source in the Inbox**.
 

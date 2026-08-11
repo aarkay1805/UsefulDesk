@@ -6,6 +6,10 @@
 
 ---
 
+## Nested automation branch editing
+
+Automation steps under Condition Yes/No branches now use one tested tree-addressing model, so nested updates, deletion, insertion, and deep reordering mutate the intended branch instead of silently doing nothing. Condition cards use container-aware branch columns and fluid nested cards so the controls remain usable in the responsive builder. Key code: `src/lib/automations/builder-tree.ts`, its focused regression tests, and `src/components/automations/automation-builder.tsx`. Gotcha: build every step path with `childPath`; a branch child adds exactly one marker per tree level. No schema change.
+
 ## Account-access recovery
 
 Signed-in sessions now retry one failed profile lookup, distinguish a valid viewer from an unresolved account/branch role, and explain the resulting read-only state instead of silently disabling every action. Dashboard and branch-access errors provide an in-place Retry path and retain fail-closed capability/RLS behavior. Key code: `src/lib/auth/account-recovery.ts`, `src/hooks/use-auth.tsx`, and `src/components/layout/account-access-alert.tsx`. No schema change.
@@ -28,7 +32,7 @@ Inbound and public-API conversation resolution now converges oldest-first and re
 
 ## WhatsApp and operator reliability backports
 
-Template image-header fetches reuse the public-address SSRF guard, refuse redirects, and time out after ten seconds; inbound automation dispatch is awaited inside `after()` and log rows begin failed until terminal completion; Meta `type=button` template replies persist as interactive and enter the existing Flow reply path; customer replies CAS-reopen only closed threads; dashboard broadcasts have a 60/min batch budget and retry only pre-send HTTP 429 responses with bounded `Retry-After`. Key code: `src/lib/whatsapp/template-header-handle.ts`, `src/lib/automations/engine.ts`, `src/lib/conversations/reopen.ts`, `src/lib/broadcast-retry.ts`, and `src/lib/rate-limit.ts`. Deliberately deferred: upstream's full interactive-message/automation suite, tag-trigger automation, and nested-condition editor.
+Template image-header fetches reuse the public-address SSRF guard, refuse redirects, and time out after ten seconds; inbound automation dispatch is awaited inside `after()` and log rows begin failed until terminal completion; Meta `type=button` template replies persist as interactive and enter the existing Flow reply path; customer replies CAS-reopen only closed threads; dashboard broadcasts have a 60/min batch budget and retry only pre-send HTTP 429 responses with bounded `Retry-After`. Key code: `src/lib/whatsapp/template-header-handle.ts`, `src/lib/automations/engine.ts`, `src/lib/conversations/reopen.ts`, `src/lib/broadcast-retry.ts`, and `src/lib/rate-limit.ts`. Deliberately deferred: upstream's full interactive-message/automation suite and tag-trigger automation.
 
 ## Post-login session navigation
 
