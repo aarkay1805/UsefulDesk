@@ -155,7 +155,8 @@ vi.mock('./meta-send', () => ({
   engineSendTemplate: vi.fn(async () => ({ whatsapp_message_id: 'm1' })),
 }));
 
-import { runAutomationsForTrigger } from './engine';
+import { runAutomationsForTrigger, triggerMatches } from './engine';
+import type { Automation, KeywordMatchTriggerConfig } from '@/types';
 
 const ACCOUNT = 'acct-1';
 
@@ -179,6 +180,126 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+describe('triggerMatches — keyword_match', () => {
+  function automation(
+    config: Partial<KeywordMatchTriggerConfig> & { keywords: string[] }
+  ): Automation {
+    return {
+      id: 'a1',
+      account_id: ACCOUNT,
+      user_id: 'u1',
+      name: 'keyword automation',
+      trigger_type: 'keyword_match',
+      trigger_config: { match_type: 'contains', ...config },
+      is_active: true,
+    } as unknown as Automation;
+  }
+
+  const matches = (candidate: Automation, text: string) =>
+    triggerMatches(candidate, { message_text: text });
+
+  it('keeps contains as a case-insensitive raw substring by default', () => {
+    expect(matches(automation({ keywords: ['k'] }), 'thanks')).toBe(true);
+    expect(matches(automation({ keywords: ['cat'] }), 'CATEGORY')).toBe(true);
+    expect(
+      matches(
+        automation({
+          keywords: ['cat'],
+          match_type: 'contains',
+          case_sensitive: true,
+        }),
+        'CATEGORY'
+      )
+    ).toBe(false);
+  });
+
+  it('keeps exact matching scoped to the whole message', () => {
+    const candidate = automation({ keywords: ['hi'], match_type: 'exact' });
+    expect(matches(candidate, 'HI')).toBe(true);
+    expect(matches(candidate, 'hi there')).toBe(false);
+    expect(matches(candidate, ' hi ')).toBe(false);
+  });
+
+  it('matches only standalone words instead of substrings', () => {
+    const candidate = automation({ keywords: ['k'], match_type: 'word' });
+    expect(matches(candidate, 'k')).toBe(true);
+    expect(matches(candidate, 'press k to continue')).toBe(true);
+    expect(matches(candidate, 'thanks')).toBe(false);
+  });
+
+  it('recognizes punctuation, whitespace, and message edges as boundaries', () => {
+    const candidate = automation({ keywords: ['hi'], match_type: 'word' });
+    expect(matches(candidate, 'hi!')).toBe(true);
+    expect(matches(candidate, '(hi)')).toBe(true);
+    expect(matches(candidate, 'say\thi\nagain')).toBe(true);
+    expect(matches(candidate, 'this')).toBe(false);
+    expect(matches(candidate, 'hiya')).toBe(false);
+    expect(matches(candidate, 'hi_there')).toBe(false);
+  });
+
+  it('applies boundaries around a multi-word keyword', () => {
+    const candidate = automation({
+      keywords: ['free trial'],
+      match_type: 'word',
+    });
+    expect(matches(candidate, 'Start a free trial today')).toBe(true);
+    expect(matches(candidate, 'Start a carefree trial today')).toBe(false);
+  });
+
+  it('handles keywords that contain punctuation and regex characters literally', () => {
+    const candidate = automation({
+      keywords: ['c++ (beginner)'],
+      match_type: 'word',
+    });
+    expect(matches(candidate, 'I want the c++ (beginner) course')).toBe(true);
+    expect(matches(candidate, 'I want the cxx beginner course')).toBe(false);
+    expect(() =>
+      matches(automation({ keywords: ['('], match_type: 'word' }), '(')
+    ).not.toThrow();
+  });
+
+  it('is case-insensitive unless case sensitivity is enabled', () => {
+    expect(
+      matches(automation({ keywords: ['Hi'], match_type: 'word' }), 'hi')
+    ).toBe(true);
+    expect(
+      matches(
+        automation({
+          keywords: ['Hi'],
+          match_type: 'word',
+          case_sensitive: true,
+        }),
+        'hi'
+      )
+    ).toBe(false);
+    expect(
+      matches(
+        automation({
+          keywords: ['Hi'],
+          match_type: 'word',
+          case_sensitive: true,
+        }),
+        'Hi'
+      )
+    ).toBe(true);
+  });
+
+  it('uses Unicode-aware word boundaries for non-Latin scripts', () => {
+    const candidate = automation({ keywords: ['안녕'], match_type: 'word' });
+    expect(matches(candidate, '저기 안녕 하세요')).toBe(true);
+    expect(matches(candidate, '안녕하세요')).toBe(false);
+  });
+
+  it('ignores empty keywords and empty messages in word mode', () => {
+    expect(
+      matches(automation({ keywords: [''], match_type: 'word' }), 'anything')
+    ).toBe(false);
+    expect(
+      matches(automation({ keywords: ['hi'], match_type: 'word' }), '')
+    ).toBe(false);
+  });
 });
 
 describe('runAutomationsForTrigger — tenant isolation', () => {

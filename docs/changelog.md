@@ -6,6 +6,10 @@
 
 ---
 
+## Whole-word automation keyword matching
+
+Keyword Match triggers now offer an explicit Whole word mode that uses Unicode-aware boundaries, treats punctuation and regex-significant keyword characters literally, and respects case sensitivity. Contains remains the raw-substring default and Exact still requires the whole message, so existing automations keep their behavior. Key code: `src/lib/automations/engine.ts`, `src/components/automations/automation-builder.tsx`, and focused engine/activation tests. No schema change.
+
 ## Nested automation branch editing
 
 Automation steps under Condition Yes/No branches now use one tested tree-addressing model, so nested updates, deletion, insertion, and deep reordering mutate the intended branch instead of silently doing nothing. Condition cards use container-aware branch columns and fluid nested cards so the controls remain usable in the responsive builder. Key code: `src/lib/automations/builder-tree.ts`, its focused regression tests, and `src/components/automations/automation-builder.tsx`. Gotcha: build every step path with `childPath`; a branch child adds exactly one marker per tree level. No schema change.

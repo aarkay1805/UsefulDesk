@@ -789,7 +789,29 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
   return data.id as string;
 }
 
-function triggerMatches(
+/** Letter, digit, or underscore in any script: the inside-a-word test. */
+const WORD_CHAR = '[\\p{L}\\p{N}_]';
+
+/**
+ * Match an account-supplied keyword only when it is not embedded in a word.
+ * Unicode-aware lookarounds avoid the ASCII-only and punctuation limitations
+ * of `\b`; escaping keeps regular-expression characters literal.
+ */
+export function matchesWholeWord(
+  text: string,
+  keyword: string,
+  caseSensitive = false
+): boolean {
+  if (!keyword) return false;
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(
+    `(?<!${WORD_CHAR})${escaped}(?!${WORD_CHAR})`,
+    caseSensitive ? 'u' : 'iu'
+  );
+  return pattern.test(text);
+}
+
+export function triggerMatches(
   automation: Automation,
   ctx: AutomationContext | undefined
 ): boolean {
@@ -798,6 +820,11 @@ function triggerMatches(
   if (!cfg?.keywords || cfg.keywords.length === 0) return false;
   const text = (ctx?.message_text ?? '').toString();
   if (!text) return false;
+  if (cfg.match_type === 'word') {
+    return cfg.keywords.some((raw) =>
+      matchesWholeWord(text, raw, cfg.case_sensitive)
+    );
+  }
   const haystack = cfg.case_sensitive ? text : text.toLowerCase();
   return cfg.keywords.some((raw) => {
     const k = cfg.case_sensitive ? raw : raw.toLowerCase();

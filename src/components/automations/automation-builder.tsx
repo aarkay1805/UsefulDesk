@@ -951,7 +951,10 @@ function KeywordMatchConfig({
         <Select
           value={config?.match_type ?? "contains"}
           onValueChange={(v) =>
-            onChange({ ...config, match_type: v as "exact" | "contains" })
+            onChange({
+              ...config,
+              match_type: v as "exact" | "contains" | "word",
+            })
           }
         >
           <SelectTrigger className="w-full">
@@ -959,9 +962,17 @@ function KeywordMatchConfig({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="contains">Contains</SelectItem>
+            <SelectItem value="word">Whole word</SelectItem>
             <SelectItem value="exact">Exact</SelectItem>
           </SelectContent>
         </Select>
+        {config?.match_type === "word" && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Matches only a standalone word, so &quot;k&quot; does not match
+            &quot;thanks&quot;. Best for space-separated languages; use Contains
+            for languages written without spaces.
+          </p>
+        )}
       </div>
     </div>
   )

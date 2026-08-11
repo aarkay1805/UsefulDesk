@@ -236,6 +236,15 @@ describe("validateTriggerForActivation", () => {
     ).toEqual([]);
   });
 
+  it("accepts keyword_match with the word match_type", () => {
+    expect(
+      validateTriggerForActivation("keyword_match", {
+        keywords: ["hi"],
+        match_type: "word",
+      }),
+    ).toEqual([]);
+  });
+
   it("requires schedule on time_based triggers", () => {
     expect(validateTriggerForActivation("time_based", {})).toEqual([
       { path: "trigger.schedule", message: "schedule is required" },

@@ -585,7 +585,11 @@ export type AutomationLogStatus = 'success' | 'partial' | 'failed';
 
 export interface KeywordMatchTriggerConfig {
   keywords: string[];
-  match_type: 'exact' | 'contains';
+  /**
+   * `contains` remains the raw-substring default. `word` is the opt-in,
+   * Unicode-aware boundary mode; `exact` requires the entire message.
+   */
+  match_type: 'exact' | 'contains' | 'word';
   case_sensitive?: boolean;
 }
 
