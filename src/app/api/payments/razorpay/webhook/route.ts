@@ -25,9 +25,8 @@ export const runtime = 'nodejs';
 /**
  * Razorpay application webhook. Test delivery is confined to the isolated
  * provider-acceptance deployment; Live delivery rejects that acceptance flag.
- * Every signed delivery is observed. A resolved account may claim canonical
- * state only after its atomic selector has moved to `application`;
- * legacy-selected rows remain observation-only. Durable claim precedes the
+ * Every signed delivery is observed. Only an OAuth/storage-v1/application
+ * connection can resolve to a canonical account. Durable claim precedes the
  * fast acknowledgement, while `after()` and the recovery cron share the same
  * owner-leased processor.
  */
@@ -101,7 +100,6 @@ export async function POST(request: Request) {
       providerMode,
       externalAccountId
     );
-    const canonical = resolved?.canonicalIngress === 'application';
 
     await recordRazorpayWebhookDelivery(admin, {
       providerMode,
@@ -110,10 +108,10 @@ export async function POST(request: Request) {
       externalAccountId,
       accountId: resolved?.accountId ?? null,
       signatureSecretGeneration: signatureGeneration,
-      shadowOnly: !canonical,
+      shadowOnly: !resolved,
     });
 
-    if (!canonical) {
+    if (!resolved) {
       return NextResponse.json({ ok: true, observed: true });
     }
 

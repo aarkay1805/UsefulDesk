@@ -4,13 +4,12 @@ import {
   cancelPaymentLink,
   createPaymentLink,
   listPaymentLinksByReference,
-  type RazorpayApiKeyAuthentication,
+  type RazorpayAuthentication,
 } from './razorpay';
 
-const auth: RazorpayApiKeyAuthentication = {
-  mode: 'api_key',
-  keyId: 'rzp_test_key',
-  keySecret: 'test-secret',
+const auth: RazorpayAuthentication = {
+  mode: 'oauth',
+  accessToken: 'test-access-token',
 };
 
 afterEach(() => {

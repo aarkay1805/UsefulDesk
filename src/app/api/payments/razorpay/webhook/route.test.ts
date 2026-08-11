@@ -58,7 +58,6 @@ describe('Razorpay application webhook route', () => {
     mocks.record.mockResolvedValue(undefined);
     mocks.resolve.mockResolvedValue({
       accountId: 'account-id',
-      canonicalIngress: 'legacy_account',
     });
     mocks.claim.mockResolvedValue('claimed');
     mocks.createStore.mockReturnValue({
@@ -115,7 +114,8 @@ describe('Razorpay application webhook route', () => {
     expect(mocks.record).not.toHaveBeenCalled();
   });
 
-  it('records only a shadow observation while legacy remains canonical', async () => {
+  it('keeps an unresolved signed merchant observation-only', async () => {
+    mocks.resolve.mockResolvedValue(null);
     const rawBody = JSON.stringify({
       event: 'payment_link.cancelled',
       account_id: 'acc_test',
@@ -135,7 +135,7 @@ describe('Razorpay application webhook route', () => {
       { serviceRole: true },
       expect.objectContaining({
         ingress: 'application',
-        accountId: 'account-id',
+        accountId: null,
         externalAccountId: 'acc_test',
         shadowOnly: true,
         signatureSecretGeneration: 'current',

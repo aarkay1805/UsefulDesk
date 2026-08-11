@@ -2,7 +2,7 @@
 
 ## Implementation plan for UsefulDesk
 
-**Status:** Razorpay Technology Partner account active and partner onboarding completed on 2026-08-08. Isolated development OAuth/API/product acceptance and Stages 1–4 passed for the single Test account, including genuine provider retries and zero unresolved events/exceptions. Historical Stage 5 provider/payment acceptance passed on owner-controlled production account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` and exact Live merchant `acc_TCJwBqanN9LTrK`: the hardened `read_write` OAuth connection, exact 16-event application webhook, one ₹1 Live Payment Link/captured UPI payment, provider-backed historical refund scan, full `reopen_balance` refund, signed settlement/refund processing, exact allocations, Finance/invoice/dues/CSV checks, and final zero-queue checks all passed. Current readiness was separately restored on 2026-08-11 through provider-grounded failed-disconnect recovery followed by Rajat's exact merchant-pinned OAuth consent. The connection is now OAuth/Live/ready with fresh encrypted grants and provider verification, application-canonical ingress, no manual material, no active OAuth state, no lease or error, and no exact Live operational queue. READY deployment `dpl_5GkfJc9Nj21pH5Liy8obPbfXpSuN` serves `desk.usefulmade.com` with OAuth, first-bind enrollment, rollback, and every provider/refund acceptance flag false. The VBF/Aakash continuation remains closed with no provider authorization or money movement. This is not evidence of a real gym-owner rollout. The missing `gym_payment_link` template still disables Send, and no WhatsApp Send evidence is claimed. Existing OAuth client secrets remain unrotated under the explicit owner risk acceptance. No real-customer rollout or Stage 6 work is authorized.
+**Status:** Razorpay Technology Partner account active and partner onboarding completed on 2026-08-08. Isolated development OAuth/API/product acceptance and Stages 1–4 passed for the single Test account, and owner-controlled Stage 5 Live provider/payment acceptance passed on production account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` / merchant `acc_TCJwBqanN9LTrK`. Current OAuth readiness was separately restored on 2026-08-11. On 2026-08-12 the owner explicitly waived the remaining policy-only 14-day rollback hold and Stage 6 retired manual keys: connector-applied migration `20260811181302_retire_razorpay_manual_keys.sql` locks Test and Production to OAuth/storage-v1/application ingress, erased Test's one dormant legacy webhook secret, and requires all manual columns null. Manual UI/API/config, Basic-auth and version-0 compatibility, legacy per-account ingress, and cutover RPCs are removed while immutable audit evidence remains. Production deployment `dpl_9ZTDDvDN88gNm6CZ4qswhW47Ata1` is READY on `desk.usefulmade.com`; the exact connection remains OAuth/Live/ready with current encrypted grants, no active state/lease/error/manual material, and zero exact Live queues. OAuth, first-bind enrollment, and every provider/refund acceptance flag remain false; the obsolete manual rollback variable is absent. VBF/Aakash remains closed. This is not a real gym-owner rollout. `gym_payment_link` is still unapproved, so no WhatsApp Send is claimed. Existing OAuth client secrets remain unrotated under the explicit owner risk acceptance.
 **Initial release scope:** Razorpay Technology Partner OAuth, application-level webhooks, INR generic-invoice Payment Links, WhatsApp delivery, and exactly-once settlement.  
 **Later release scope:** Full gateway refunds with an explicit accounting disposition. UsefulDesk-initiated partial refunds remain deferred; imported external partial refunds require explicit admin invoice-line targeting before accounting classification.
 **Rollout:** Development-client sandbox acceptance, the owner-controlled Live gate, and current-readiness recovery passed. Production remains pinned only to Rajat's accepted account/merchant behind disabled enrollment and acceptance flags. The explicit owner risk decision superseded client-secret rotation as a Stage 5 prerequisite; the secrets remain unrotated. No fleet-wide or real-customer cutover is authorized.
@@ -169,13 +169,12 @@ Use the same variable names in each deployment environment, with development or 
 - `RAZORPAY_WEBHOOK_SECRET_CURRENT`
 - `RAZORPAY_WEBHOOK_SECRET_PREVIOUS` during secret rotation only
 - `RAZORPAY_OAUTH_ENABLED`
-- `RAZORPAY_MANUAL_ROLLBACK_ENABLED`
 
-None may use the `NEXT_PUBLIC_` prefix. Application client secrets and application webhook secrets never enter Postgres. Merchant access and refresh tokens are encrypted with the existing AES-256-GCM secret utility before database storage and decrypted only inside server-only payment modules. During rollback, migrate stored manual key and webhook secrets to the same encrypted-at-rest contract instead of leaving them as plaintext columns.
+None may use the `NEXT_PUBLIC_` prefix. Application client secrets and application webhook secrets never enter Postgres. Merchant access and refresh tokens are encrypted with the existing AES-256-GCM secret utility before database storage and decrypted only inside server-only payment modules. `RAZORPAY_MANUAL_ROLLBACK_ENABLED` was deleted from Production during Stage 6 and must not be reintroduced.
 
-### Existing manual-secret migration
+### Historical manual-secret migration (retired by Stage 6)
 
-Current `razorpay_key_secret` and `razorpay_webhook_secret` rows predate encrypted storage. Preserve the live manual AutoPay/webhook path with this ordered rollout:
+The following ordered rollout preserved the pre-OAuth path during Stages 1–5. It is historical evidence, not a supported runtime contract:
 
 1. Add `secret_storage_version smallint not null default 0` with allowed values `0 | 1`, plus nullable `provider_mode`. Version `0` means the two existing manual secret columns are plaintext; version `1` means every populated secret column is AES-256-GCM ciphertext. Never guess the format by counting delimiters in a secret.
 2. Deploy a server-only dual reader before changing any stored value. It may read version `0` only for the explicitly enabled manual rollback path; after a successful read it encrypts every populated secret and conditionally advances the row to version `1`. Version `1` decrypts only and fails closed on malformed ciphertext.
@@ -184,7 +183,7 @@ Current `razorpay_key_secret` and `razorpay_webhook_secret` rows predate encrypt
 5. Verify totals for configured rows, version-0 rows, missing secrets, mode mismatches, and decrypt failures; then exercise one legacy signed webhook and one authenticated API read for every migrated pilot account.
 6. Only after the verified version-0 count is zero, change the database default to version `1` and allow Stage 1 to enable OAuth by default. Keep the dual reader for the rollback window, but never write plaintext again; remove the version-0 branch when manual-key retirement completes.
 
-The migration that adds columns must not attempt encryption in SQL because the application encryption key is not stored in Postgres. Route code lands first, the server-side backfill follows, and stricter database constraints land only after verification.
+Stage 6 verified zero manual-mode and zero version-0 rows in both databases, then removed the dual reader/backfill script and applied the stricter OAuth/v1/application-only database constraints. No application encryption key entered Postgres.
 
 Fail closed at startup and at every server connection boundary when `RAZORPAY_MODE` is absent, invalid, or differs from the stored `provider_mode`. Development/test webhook URLs must terminate in a deployment backed by an isolated test database; never point a development-client webhook at the production deployment merely because the route path is the same. The application webhook resolves `(RAZORPAY_MODE, top-level account_id)` and never searches across both modes.
 
@@ -240,12 +239,12 @@ Use a 10-minute TTL. Consume with one conditional update requiring matching hash
 
 ### 7.2 Extend `account_payment_credentials`
 
-Retain this as the single account-scoped gateway connection surface. Add:
+Retain this as the single account-scoped gateway connection surface. Its Stage 6 current contract is:
 
-- `authentication_mode`: `manual | oauth`
+- `authentication_mode`: `oauth` only
 - `razorpay_account_id`
-- `provider_mode`: `test | live`; required for manual and OAuth authentication and required to equal the deployment's `RAZORPAY_MODE`
-- `secret_storage_version smallint`: `0` for pre-backfill plaintext manual secrets and `1` for AES-256-GCM ciphertext; new writes use `1`, and OAuth cannot be enabled by default until no configured version-0 row remains
+- `provider_mode`: `test | live`; required for OAuth authentication and required to equal the deployment's `RAZORPAY_MODE`
+- `secret_storage_version smallint`: `1` only; version-0 plaintext compatibility is retired
 - encrypted `oauth_access_token`
 - encrypted `oauth_refresh_token`
 - `oauth_access_expires_at`
@@ -253,13 +252,13 @@ Retain this as the single account-scoped gateway connection surface. Add:
 - `oauth_scope`
 - `connection_status`: `connecting | ready | blocked | reconnect_required | disconnecting | disconnected`
 - `merchant_status`: `unknown | activated | under_review | needs_clarification | suspended | rejected`
-- `canonical_webhook_ingress`: `legacy_account | application`, default `legacy_account`; exactly one endpoint is allowed to claim canonical Razorpay events for the account
+- `canonical_webhook_ingress`: `application` only
 - `refresh_generation integer not null default 0`
 - `refresh_lease_owner uuid`
 - `refresh_lease_until timestamptz`
 - `connected_at`, `disconnected_at`, `activation_verified_at`, `last_verified_at`, `last_error`
 
-Add a unique index on `(provider_mode, razorpay_account_id)` where the external account ID is not null. The table remains one row per UsefulDesk account because one deployed database owns exactly one provider mode. Keep all raw credential columns revoked from `anon` and `authenticated`; the existing connection route returns browser-safe status only.
+Keep the unique index on `(provider_mode, razorpay_account_id)` where the external account ID is not null. The table remains one row per UsefulDesk account because one deployed database owns exactly one provider mode. Historical manual columns remain as null-only tombstones under a check constraint; all raw grant columns stay revoked from `anon` and `authenticated`, and the GET-only connection route returns browser-safe status.
 
 ### 7.3 Extend payment provenance and ledger guards
 
@@ -596,7 +595,7 @@ Follow `docs/ui-patterns.md` and reuse existing master components.
 - Replace manual key fields with **Connect Razorpay**.
 - Connected state shows merchant account ID suffix, test/live mode, OAuth/merchant readiness, last verified time, and one consolidated **Payments need attention · N** action when review items exist.
 - Actions: **Reconnect** and destructive **Disconnect** for admin/owner.
-- During rollout only, manual credential fallback stays behind `RAZORPAY_MANUAL_ROLLBACK_ENABLED`; it is never the normal UI.
+- Manual credential fields and legacy per-gym webhook instructions do not exist; Connect/Reconnect OAuth is the only setup path.
 - Keep raw pending-webhook, token-refresh, queue-age, and lease metrics in operator monitoring rather than exposing a diagnostic wall to gym owners.
 
 ### Invoice detail
@@ -813,9 +812,10 @@ Follow `docs/ui-patterns.md` and reuse existing master components.
 
 ### Stage 6 — manual-key retirement
 
-- Keep rollback available for 14 days after production acceptance, controlled only by server environment and admin action.
-- Never auto-fallback.
-- After the window, erase stored manual key secrets for migrated accounts and remove the fallback UI/code in a separate reviewed change.
+- **Complete 2026-08-12 under explicit owner waiver.** The recorded 14-day hold was a rollback policy, not a technical prerequisite: Production already had zero manual material, both accepted databases had zero manual-mode and zero storage-v0 rows, and the ready OAuth resolver failed closed. The owner chose seamless OAuth-only onboarding over retaining dormant expert-only key entry.
+- Before DDL, Production had one OAuth/v1/application-ready row and zero manual key IDs, manual secrets, or legacy webhook secrets; Test had one OAuth/v1/application-ready row and only one dormant legacy webhook secret. Migration `20260811181302_retire_razorpay_manual_keys.sql` erased that Test secret and added OAuth-only, storage-v1-only, application-only, and manual-columns-null checks in both databases. The legacy cutover/activation RPCs were dropped; immutable cutover and delivery evidence was retained.
+- Runtime retirement removed the manual connection POST route/UI, manual rollback environment/config, Basic-auth provider branch, plaintext/version-0 reader and backfill script, legacy-secret and per-account webhook routes, and the Test cutover route. OAuth recovery, named capability gates, application ingress, exact mode/merchant binding, strict Test/Live database isolation, and VBF exclusion remain intact.
+- Production deployment `dpl_9ZTDDvDN88gNm6CZ4qswhW47Ata1` is READY on `desk.usefulmade.com`, and isolated Test deployment `dpl_AAJxU93wfh5dva7nhR4wRdimHymQ` is READY on `usefuldesk-razorpay-test.vercel.app`. Their rollout/acceptance flags are false and the retired manual variable is absent. Production remains exactly one OAuth/Live/ready `read_write` connection on `acc_TCJwBqanN9LTrK`, with zero manual material, active states, leases/errors, unresolved events, missing ledger rows, exceptions, unfinished mandates/links/refunds, or reconciliation attention. Supabase advisor counts were unchanged before/after DDL. No real-money exercise, VBF action, or WhatsApp Send occurred.
 
 ## 15. Operational monitoring
 

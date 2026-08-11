@@ -1,16 +1,14 @@
 /**
- * Razorpay REST client — SERVER-ONLY (reads per-gym secret keys).
+ * Razorpay REST client — SERVER-ONLY (uses per-gym OAuth grants).
  *
  * Model 1 (multi-tenant, migration 059): each gym connects THEIR OWN
  * Razorpay account, so money flows member → gym's Razorpay → gym's bank
- * and UsefulDesk never touches it. Every call is therefore parameterised
- * by the gym's `RazorpayCredentials` (key_id + key_secret) rather than a
- * single platform key — there is no global Razorpay instance on purpose.
+ * and UsefulDesk never touches it. Every call is parameterised by the gym's
+ * rotating OAuth Bearer grant; there is no global Razorpay instance.
  *
  * No SDK dependency: the REST surface we need (customers, plans,
- * subscriptions) is small, and per-request Basic-auth fetch is cleaner
- * than instantiating an SDK object per gym. Webhook signatures verify
- * with node:crypto.
+ * subscriptions) is small, so a typed fetch boundary is cleaner than an SDK
+ * instance per gym. Webhook signatures verify with node:crypto.
  *
  * NEVER import this into a client component — it would bundle the secret
  * key path. It is consumed only by API route handlers.
@@ -23,24 +21,10 @@ import { RAZORPAY_REQUEST_TIMEOUT_MS } from './razorpay-config';
 
 const RAZORPAY_API_BASE = 'https://api.razorpay.com/v1';
 
-export interface RazorpayApiKeyAuthentication {
-  mode: 'api_key';
-  keyId: string;
-  keySecret: string;
-}
-
-export interface RazorpayOAuthAuthentication {
+export interface RazorpayAuthentication {
   mode: 'oauth';
   accessToken: string;
 }
-
-/**
- * The authenticated server-to-server boundary consumed by every Razorpay
- * operation. The explicit manual rollback path uses Basic auth; the default
- * OAuth connection resolver supplies and rotates Bearer credentials.
- */
-export type RazorpayAuthentication =
-  RazorpayApiKeyAuthentication | RazorpayOAuthAuthentication;
 
 export class RazorpayError extends Error {
   constructor(
@@ -64,11 +48,7 @@ export function toRupees(paise: number): number {
 }
 
 function authHeader(auth: RazorpayAuthentication): string {
-  if (auth.mode === 'oauth') return `Bearer ${auth.accessToken}`;
-  const token = Buffer.from(`${auth.keyId}:${auth.keySecret}`).toString(
-    'base64'
-  );
-  return `Basic ${token}`;
+  return `Bearer ${auth.accessToken}`;
 }
 
 /**

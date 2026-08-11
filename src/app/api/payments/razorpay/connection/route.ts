@@ -5,20 +5,12 @@ import {
   requirePaymentGatewayAccess,
   toErrorResponse,
 } from '@/lib/auth/account';
-import { requireSameOriginRequest } from '@/lib/auth/csrf';
 import {
   getRazorpayDiagnosticScope,
   getRazorpayConnectionStatus,
-  saveManualRazorpayCredentials,
 } from '@/lib/payments/credentials';
 
 export const runtime = 'nodejs';
-
-interface ManualCredentialRequest {
-  keyId?: unknown;
-  keySecret?: unknown;
-  webhookSecret?: unknown;
-}
 
 export async function GET() {
   try {
@@ -137,48 +129,6 @@ export async function GET() {
       },
     });
   } catch (error) {
-    return toErrorResponse(error);
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    requireSameOriginRequest(request);
-    const ctx = await requirePaymentGatewayAccess();
-    const body = (await request.json()) as ManualCredentialRequest;
-    const keyId =
-      typeof body.keyId === 'string' ? body.keyId.trim() || null : null;
-    const keySecret =
-      typeof body.keySecret === 'string' ? body.keySecret.trim() : '';
-    const webhookSecret =
-      typeof body.webhookSecret === 'string' ? body.webhookSecret.trim() : '';
-
-    if (
-      (keyId && keyId.length > 200) ||
-      keySecret.length > 500 ||
-      webhookSecret.length > 500
-    ) {
-      return NextResponse.json(
-        { error: 'Razorpay credential value is too long' },
-        { status: 400 }
-      );
-    }
-
-    const connection = await saveManualRazorpayCredentials(
-      supabaseAdmin(),
-      ctx.accountId,
-      {
-        keyId,
-        keySecret: keySecret || undefined,
-        webhookSecret: webhookSecret || undefined,
-      }
-    );
-
-    return NextResponse.json({ connection });
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      return NextResponse.json({ error: 'Malformed request' }, { status: 400 });
-    }
     return toErrorResponse(error);
   }
 }

@@ -315,9 +315,7 @@ export async function exchangeRazorpayAuthorizationCode(input: {
       redirect_uri: input.config.redirectUri,
       code: input.code,
       mode: input.config.mode,
-      code_verifier: decryptPaymentSecret(input.encryptedCodeVerifier, 1, {
-        allowVersionZero: false,
-      }),
+      code_verifier: decryptPaymentSecret(input.encryptedCodeVerifier),
     },
     input.fetchImpl
   );

@@ -40,7 +40,6 @@
     "test:watch": "vitest",
     "accept:razorpay": "node scripts/razorpay-provider-acceptance.mjs",
     "accept:razorpay-refunds": "node scripts/razorpay-refund-provider-preflight.mjs",
-    "backfill:razorpay-secrets": "node --env-file=.env.local scripts/backfill-razorpay-payment-secrets.mjs",
     "migrate:payment-receipts": "node --env-file=.env.local scripts/migrate-payment-receipts.mjs"
   },
   "dependencies": {

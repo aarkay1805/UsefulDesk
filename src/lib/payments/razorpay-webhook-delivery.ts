@@ -11,8 +11,7 @@ import {
 
 export type RazorpayWebhookIngress = 'legacy_account' | 'application';
 export type RazorpayWebhookIdentitySource = 'header' | 'payload_hash_fallback';
-export type RazorpayWebhookSignatureGeneration =
-  'account' | 'current' | 'previous';
+export type RazorpayWebhookSignatureGeneration = 'current' | 'previous';
 
 export interface RazorpayWebhookDeliveryIdentity {
   providerEventId: string;
@@ -98,14 +97,16 @@ export async function resolveRazorpayApplicationAccount(
   externalAccountId: string
 ): Promise<{
   accountId: string;
-  canonicalIngress: RazorpayWebhookIngress;
 } | null> {
   const { data, error } = await admin
     .from('account_payment_credentials')
-    .select('account_id, canonical_webhook_ingress')
+    .select('account_id')
     .eq('gateway', 'razorpay')
     .eq('provider_mode', providerMode)
     .eq('razorpay_account_id', externalAccountId)
+    .eq('authentication_mode', 'oauth')
+    .eq('secret_storage_version', 1)
+    .eq('canonical_webhook_ingress', 'application')
     .maybeSingle();
   if (error) {
     throw new Error(`resolve Razorpay application account: ${error.message}`);
@@ -113,6 +114,5 @@ export async function resolveRazorpayApplicationAccount(
   if (!data) return null;
   return {
     accountId: data.account_id as string,
-    canonicalIngress: data.canonical_webhook_ingress as RazorpayWebhookIngress,
   };
 }

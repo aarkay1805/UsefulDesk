@@ -6,7 +6,6 @@ import {
   toErrorResponse,
 } from '@/lib/auth/account';
 import { requireSameOriginRequest } from '@/lib/auth/csrf';
-import { assertRazorpayOAuthStorageReady } from '@/lib/payments/credentials';
 import {
   assertRazorpayLivePilotAccount,
   getRazorpayOAuthConfig,
@@ -25,7 +24,6 @@ export async function POST(request: Request) {
     const config = getRazorpayOAuthConfig();
     assertRazorpayLivePilotAccount(ctx.accountId);
     const admin = supabaseAdmin();
-    await assertRazorpayOAuthStorageReady(admin, ctx.accountId);
     const attempt = createRazorpayOAuthAttempt({
       accountId: ctx.accountId,
       initiatedBy: ctx.userId,

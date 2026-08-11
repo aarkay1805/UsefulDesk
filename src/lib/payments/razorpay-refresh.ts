@@ -280,12 +280,8 @@ export function createSupabaseOAuthRefreshStore(input: {
         leaseUntil: row.refresh_lease_until
           ? new Date(row.refresh_lease_until)
           : null,
-        accessToken: decryptPaymentSecret(row.oauth_access_token, 1, {
-          allowVersionZero: false,
-        }),
-        refreshToken: decryptPaymentSecret(row.oauth_refresh_token, 1, {
-          allowVersionZero: false,
-        }),
+        accessToken: decryptPaymentSecret(row.oauth_access_token),
+        refreshToken: decryptPaymentSecret(row.oauth_refresh_token),
         accessExpiresAt,
         refreshExpiresAt,
         scope: row.oauth_scope,

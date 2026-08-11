@@ -917,5 +917,75 @@ READY deployment `dpl_5GkfJc9Nj21pH5Liy8obPbfXpSuN` serves
 `desk.usefulmade.com` with the safe resting configuration shown above: OAuth,
 first-bind enrollment, manual rollback, provider acceptance, refund ambiguity
 acceptance, and refund-retry acceptance are all false. Existing OAuth secrets
-remain unrotated under the explicit owner risk acceptance. Do not start Stage 6
-or reopen VBF from this state.
+remain unrotated under the explicit owner risk acceptance. This was the final
+pre-Stage-6 checkpoint; VBF remains closed.
+
+### Stage 6 manual-key retirement
+
+On 2026-08-12, the owner explicitly waived the remainder of the recorded
+14-day rollback hold. The hold retained policy optionality but no longer added
+technical recovery value: Production already had one exact OAuth/Live/ready,
+application-canonical connection with zero manual material, and both accepted
+databases had zero manual-mode and zero storage-version-0 rows. The runtime
+resolver already failed closed on revoked, blocked, mode-mismatched, or
+non-ready OAuth instead of falling back.
+
+Secret-blind preflight found:
+
+- Production: one Razorpay row; zero non-OAuth, non-v1, non-application,
+  manual-key-ID, manual-secret, or legacy-webhook-secret rows.
+- Test: one Razorpay row; zero non-OAuth, non-v1, non-application,
+  manual-key-ID, or manual-secret rows; one dormant legacy webhook secret.
+
+Migration `20260811181302_retire_razorpay_manual_keys.sql` was created with the
+Supabase CLI naming helper and applied only through the approved Supabase
+migration connector, first to isolated Test and then Production. Its
+transactional preflight rejects any non-OAuth/non-v1/non-application row; it
+erased Test's one dormant legacy webhook secret, requires all three historical
+manual columns to remain null, locks authentication/storage/ingress to
+`oauth`/`1`/`application`, and drops the retired cutover and Live activation
+RPCs. Historical `razorpay_webhook_deliveries`, cutover, and activation audits
+remain immutable. Post-DDL Supabase security/performance advisor counts were
+identical to their respective baselines in both projects.
+
+The reviewed runtime change removes manual credential UI and connection POST,
+the Basic-auth provider path, plaintext/version-0 compatibility and its
+backfill script, the manual rollback config/environment variable, legacy
+secret/cutover operator routes, and the per-account webhook route. The sole
+webhook ingress resolves only an exact OAuth/v1/application-canonical
+mode/merchant binding; an unknown signed merchant remains observation-only.
+Named capabilities, OAuth refresh/disconnect/recovery, strict Test/Live
+databases, current/previous application-secret rotation, and provider-backed
+financial verification are unchanged.
+
+Production artifact `dpl_9ZTDDvDN88gNm6CZ4qswhW47Ata1` built successfully,
+was promoted, and is READY on `desk.usefulmade.com`. Secret-blind environment
+verification shows `RAZORPAY_MODE=live`; OAuth, first-bind enrollment, provider
+acceptance, refund ambiguity acceptance, and refund-retry acceptance are all
+false; `RAZORPAY_MANUAL_ROLLBACK_ENABLED` is absent. Public route probes return
+401 for the protected connection GET, 405 for its retired POST, and 404 for
+the per-account, legacy-secret, and cutover routes. The new deployment has no
+runtime error logs in its post-deploy window.
+
+The isolated Test artifact `dpl_AAJxU93wfh5dva7nhR4wRdimHymQ` is likewise
+READY on `usefuldesk-razorpay-test.vercel.app`. Its mode is Test; OAuth,
+provider acceptance, refund ambiguity acceptance, and every other present
+Razorpay rollout/acceptance flag are false; absent optional gates are disabled,
+and the manual rollback variable is absent. The protected connection GET
+returns 401 without a session, retired operator routes return 404, and the
+post-deploy runtime error scan is clean. No provider operation was invoked.
+
+Final Production evidence remains exact-account scoped:
+
+- one OAuth/Live/storage-v1/application/`read_write`/ready row for account
+  `50a9e8f9-d7e5-44d2-ba04-c367509b981e` and merchant
+  `acc_TCJwBqanN9LTrK`;
+- zero manual material, active OAuth states, refresh/scan/link/refund leases,
+  last errors, unresolved Live events, missing-ledger rows, open
+  charge/payment/refund exceptions, unfinished mandates/Payment Links/refunds,
+  or reconciliation attention;
+- zero Razorpay credentials for VBF; the closed VBF/Aakash path was not
+  reopened;
+- no repeated payment/refund exercise and no WhatsApp Send. The
+  `gym_payment_link` template remains unapproved, and existing OAuth client
+  secrets remain unrotated under the explicit owner risk acceptance.

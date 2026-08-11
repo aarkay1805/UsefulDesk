@@ -8,6 +8,9 @@ const read = (path: string) =>
 const migration = read(
   'supabase/migrations/20260726090000_razorpay_payment_safety.sql'
 );
+const retirementMigration = read(
+  'supabase/migrations/20260811181302_retire_razorpay_manual_keys.sql'
+);
 const credentials = read('src/lib/payments/credentials.ts');
 const razorpay = read('src/lib/payments/razorpay.ts');
 const settings = read('src/components/settings/deals-settings.tsx');
@@ -24,7 +27,17 @@ describe('Razorpay payment-safety contract', () => {
       /accountId: string;[\s\S]*gateway: 'razorpay';[\s\S]*authentication: RazorpayAuthentication/
     );
     expect(razorpay).toMatch(
-      /type RazorpayAuthentication =[\s\S]*RazorpayApiKeyAuthentication[\s\S]*RazorpayOAuthAuthentication/
+      /interface RazorpayAuthentication[\s\S]*mode: 'oauth'[\s\S]*accessToken: string/
+    );
+    expect(razorpay).not.toMatch(/Basic |api_key|keySecret/);
+    expect(credentials).not.toMatch(
+      /manualRollback|saveManualRazorpayCredentials|allowVersionZero/
+    );
+    expect(retirementMigration).toMatch(
+      /authentication_mode = 'oauth'[\s\S]*secret_storage_version = 1[\s\S]*canonical_webhook_ingress = 'application'/
+    );
+    expect(retirementMigration).toMatch(
+      /razorpay_key_id IS NULL[\s\S]*razorpay_key_secret IS NULL[\s\S]*razorpay_webhook_secret IS NULL/
     );
     expect(migration).toMatch(
       /REVOKE ALL ON public\.account_payment_credentials FROM anon, authenticated;/

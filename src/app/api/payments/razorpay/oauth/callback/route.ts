@@ -5,10 +5,8 @@ import { requirePaymentGatewayAccess } from '@/lib/auth/account';
 import { BRANCH_QUERY_PARAM } from '@/lib/auth/branch-context';
 import { createClient } from '@/lib/supabase/server';
 import {
-  activateRazorpayLiveApplicationWebhook,
   beginRazorpayOAuthConnection,
   finalizeRazorpayOAuthConnection,
-  markRazorpayOAuthConnectionBlocked,
 } from '@/lib/payments/credentials';
 import {
   assertRazorpayApplicationWebhookConfigured,
@@ -97,6 +95,7 @@ export async function GET(request: Request) {
       merchantAuthorization = authorizeRazorpayLivePilotMerchant(
         tokens.accountId
       );
+      assertRazorpayApplicationWebhookConfigured();
       await beginRazorpayOAuthConnection(admin, accountId, tokens, {
         requireUnboundMerchant: merchantAuthorization === 'enrollment',
       });
@@ -128,23 +127,6 @@ export async function GET(request: Request) {
       lastError: boundedRazorpayError(error),
     }));
     await finalizeRazorpayOAuthConnection(admin, accountId, readiness);
-    if (readiness.ready && config.mode === 'live') {
-      try {
-        assertRazorpayApplicationWebhookConfigured();
-        await activateRazorpayLiveApplicationWebhook(admin, {
-          accountId,
-          externalAccountId: tokens.accountId,
-          activatedBy: user.id,
-        });
-      } catch (error) {
-        await markRazorpayOAuthConnectionBlocked(
-          admin,
-          accountId,
-          boundedRazorpayError(error)
-        );
-        throw error;
-      }
-    }
     return settingsRedirect(
       request,
       readiness.ready ? 'connected' : 'needs_attention',

@@ -9,14 +9,12 @@ import {
   assertRazorpayProviderMode,
   getRazorpayOAuthConfig,
   getRazorpayProviderMode,
-  isRazorpayManualRollbackEnabled,
   isRazorpayOAuthEnabled,
 } from './razorpay-config';
 
 describe('Razorpay rollout configuration', () => {
-  it('keeps both rollout paths disabled unless explicitly true', () => {
+  it('keeps OAuth disabled unless explicitly true', () => {
     expect(isRazorpayOAuthEnabled({})).toBe(false);
-    expect(isRazorpayManualRollbackEnabled({})).toBe(false);
     expect(isRazorpayOAuthEnabled({ RAZORPAY_OAUTH_ENABLED: 'false' })).toBe(
       false
     );
@@ -102,7 +100,7 @@ describe('Razorpay rollout configuration', () => {
     ).not.toThrow();
   });
 
-  it('requires a current application webhook secret before selector activation', () => {
+  it('requires a current application webhook secret before OAuth binding', () => {
     expect(() => assertRazorpayApplicationWebhookConfigured({})).toThrow(
       /not configured/
     );

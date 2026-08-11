@@ -16,7 +16,6 @@ interface RazorpayEnv {
   [key: string]: string | undefined;
   RAZORPAY_MODE?: string;
   RAZORPAY_OAUTH_ENABLED?: string;
-  RAZORPAY_MANUAL_ROLLBACK_ENABLED?: string;
   RAZORPAY_OAUTH_CLIENT_ID?: string;
   RAZORPAY_OAUTH_CLIENT_SECRET?: string;
   RAZORPAY_OAUTH_REDIRECT_URI?: string;
@@ -38,12 +37,6 @@ export function isRazorpayOAuthEnabled(
   env: RazorpayEnv = process.env
 ): boolean {
   return env.RAZORPAY_OAUTH_ENABLED === 'true';
-}
-
-export function isRazorpayManualRollbackEnabled(
-  env: RazorpayEnv = process.env
-): boolean {
-  return env.RAZORPAY_MANUAL_ROLLBACK_ENABLED === 'true';
 }
 
 export function getRazorpayProviderMode(

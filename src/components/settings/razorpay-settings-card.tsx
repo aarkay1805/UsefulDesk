@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  Check,
-  Copy,
   ExternalLink,
   Loader2,
   RefreshCw,
@@ -37,9 +35,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 
 type ConnectionStatus =
   | 'connecting'
@@ -58,14 +53,11 @@ type MerchantStatus =
   | 'rejected';
 
 interface BrowserSafeConnection {
-  authenticationMode: 'manual' | 'oauth' | null;
+  authenticationMode: 'oauth' | null;
   connectionStatus: ConnectionStatus;
   merchantStatus: MerchantStatus;
   providerMode: 'test' | 'live' | null;
   merchantAccountSuffix: string | null;
-  keyId: string;
-  hasApiSecret: boolean;
-  hasWebhookSecret: boolean;
   configured: boolean;
   connectedAt: string | null;
   disconnectedAt: string | null;
@@ -73,7 +65,6 @@ interface BrowserSafeConnection {
   lastVerifiedAt: string | null;
   lastError: string | null;
   oauthEnabled: boolean;
-  manualRollbackEnabled: boolean;
 }
 
 interface ConnectionHealth {
@@ -130,11 +121,6 @@ export function RazorpaySettingsCard() {
   const [recovering, setRecovering] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
-  const [keyId, setKeyId] = useState('');
-  const [keySecret, setKeySecret] = useState('');
-  const [webhookSecret, setWebhookSecret] = useState('');
-  const [savingManual, setSavingManual] = useState(false);
-  const [copied, setCopied] = useState(false);
   const notifiedResult = useRef<string | null>(null);
 
   useEffect(() => {
@@ -153,7 +139,6 @@ export function RazorpaySettingsCard() {
         if (cancelled) return;
         const next = body.connection as BrowserSafeConnection;
         setConnection(next);
-        setKeyId(next.keyId);
         setHealth({
           failedEventCount: body.health.failedEventCount,
           missingLedgerCount: body.health.missingLedgerCount,
@@ -207,15 +192,6 @@ export function RazorpaySettingsCard() {
       health.paymentLinkSetupExceptionCount
     : 0;
   const oauthConnection = connection?.authenticationMode === 'oauth';
-  const webhookUrl =
-    typeof window !== 'undefined' && accountId
-      ? `${window.location.origin}/api/payments/razorpay/webhook/${accountId}`
-      : '';
-  const manualDirty =
-    !!connection &&
-    (keyId.trim() !== connection.keyId ||
-      keySecret.trim() !== '' ||
-      webhookSecret.trim() !== '');
 
   async function beginConnect() {
     setConnecting(true);
@@ -291,47 +267,6 @@ export function RazorpaySettingsCard() {
     } finally {
       setRecovering(false);
     }
-  }
-
-  async function saveManualRollback() {
-    if (!manualDirty) return;
-    setSavingManual(true);
-    const payload: Record<string, string | null> = {
-      keyId: keyId.trim() || null,
-    };
-    if (keySecret.trim()) payload.keySecret = keySecret.trim();
-    if (webhookSecret.trim()) payload.webhookSecret = webhookSecret.trim();
-    try {
-      const response = await fetch('/api/payments/razorpay/connection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body.error || 'Failed to save rollback credentials');
-      }
-      const next = body.connection as BrowserSafeConnection;
-      setConnection(next);
-      setKeyId(next.keyId);
-      setKeySecret('');
-      setWebhookSecret('');
-      toast.success('Manual rollback credentials saved');
-    } catch (error) {
-      toast.error(
-        getErrorMessage(error, 'Failed to save rollback credentials')
-      );
-    } finally {
-      setSavingManual(false);
-    }
-  }
-
-  async function copyWebhookUrl() {
-    if (!webhookUrl) return;
-    await navigator.clipboard.writeText(webhookUrl);
-    setCopied(true);
-    toast.success('Webhook URL copied');
-    setTimeout(() => setCopied(false), 1500);
   }
 
   return (
@@ -517,95 +452,6 @@ export function RazorpaySettingsCard() {
                 )}
               </div>
             )}
-
-            {connection.manualRollbackEnabled ? (
-              <>
-                <Separator />
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-foreground text-sm font-semibold">
-                      Manual rollback
-                    </p>
-                    <p className="text-muted-foreground mt-0.5 text-xs">
-                      Server-controlled fallback only. Saving these credentials
-                      explicitly switches this account to manual authentication.
-                    </p>
-                  </div>
-                  <div className="grid gap-3 sm:max-w-md">
-                    <div className="grid gap-2">
-                      <Label htmlFor="rzp-key-id">Key ID</Label>
-                      <Input
-                        id="rzp-key-id"
-                        value={keyId}
-                        onChange={(event) => setKeyId(event.target.value)}
-                        placeholder="rzp_live_XXXXXXXX"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="rzp-key-secret">Key secret</Label>
-                      <Input
-                        id="rzp-key-secret"
-                        type="password"
-                        value={keySecret}
-                        onChange={(event) => setKeySecret(event.target.value)}
-                        placeholder={
-                          connection.hasApiSecret
-                            ? '•••••••• saved — enter to replace'
-                            : 'Key secret'
-                        }
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="rzp-webhook-secret">Webhook secret</Label>
-                      <Input
-                        id="rzp-webhook-secret"
-                        type="password"
-                        value={webhookSecret}
-                        onChange={(event) =>
-                          setWebhookSecret(event.target.value)
-                        }
-                        placeholder={
-                          connection.hasWebhookSecret
-                            ? '•••••••• saved — enter to replace'
-                            : 'Webhook signing secret'
-                        }
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Legacy webhook URL</Label>
-                      <div className="flex items-center gap-2">
-                        <code className="bg-muted border-border flex-1 truncate rounded-md border px-2.5 py-2 text-xs">
-                          {webhookUrl || '—'}
-                        </code>
-                        <Button
-                          variant="outline"
-                          size="icon-sm"
-                          onClick={copyWebhookUrl}
-                          aria-label="Copy webhook URL"
-                          disabled={!webhookUrl}
-                        >
-                          {copied ? (
-                            <Check className="size-4" />
-                          ) : (
-                            <Copy className="size-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={saveManualRollback}
-                    disabled={savingManual || !manualDirty}
-                  >
-                    {savingManual ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : null}
-                    Save manual rollback
-                  </Button>
-                </div>
-              </>
-            ) : null}
           </>
         )}
       </CardContent>

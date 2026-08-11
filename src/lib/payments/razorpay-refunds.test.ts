@@ -7,7 +7,7 @@ import {
   fetchRefund,
   listPaymentRefunds,
   listRefunds,
-  type RazorpayOAuthAuthentication,
+  type RazorpayAuthentication,
 } from './razorpay';
 import {
   isUsefulDeskRefundId,
@@ -15,7 +15,7 @@ import {
   shouldSimulateAmbiguousRefundCreate,
 } from './razorpay-refunds';
 
-const auth: RazorpayOAuthAuthentication = {
+const auth: RazorpayAuthentication = {
   mode: 'oauth',
   accessToken: 'test-access-token',
 };
