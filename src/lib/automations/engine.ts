@@ -20,6 +20,7 @@ import type {
 import { istAddDays } from '@/lib/memberships/expiry';
 import { todayInTz } from '@/lib/locale/format';
 import { DEFAULT_FIELD_OPTIONS } from '@/lib/leads/field-options';
+import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
 import { supabaseAdmin } from './admin-client';
 import { engineSendText, engineSendTemplate } from './meta-send';
 
@@ -723,6 +724,13 @@ async function runStep(
     case 'send_webhook': {
       const cfg = step.step_config as SendWebhookStepConfig;
       if (!cfg.url) throw new Error('send_webhook needs url');
+      // Account-controlled automation URLs are server-side request targets.
+      // Reuse the outbound-webhook guard so private, loopback, link-local,
+      // reserved, and otherwise non-public destinations fail as a normal
+      // automation step error before fetch.
+      if (!(await isDeliverableUrl(cfg.url))) {
+        throw new Error('send_webhook: destination not allowed');
+      }
       const body = cfg.body_template
         ? interpolate(cfg.body_template, args)
         : JSON.stringify(args.context);
@@ -730,6 +738,9 @@ async function runStep(
         method: 'POST',
         headers: { 'content-type': 'application/json', ...(cfg.headers ?? {}) },
         body,
+        // A public target must not redirect the runner to an internal host.
+        redirect: 'manual',
+        signal: AbortSignal.timeout(10_000),
       });
       if (!res.ok) throw new Error(`webhook returned ${res.status}`);
       return `webhook ${res.status}`;

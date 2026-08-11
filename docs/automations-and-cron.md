@@ -18,6 +18,11 @@ double-sends or double-processes money. Deep dives:
 [renewal reminders](renewal-reminders.md) and
 [payment installments](payment-installments.md).
 
+Automation `send_webhook` steps may call only public, deliverable HTTP(S)
+targets. The runner applies the shared SSRF guard immediately before fetch,
+does not follow redirects, and aborts after ten seconds; blocked destinations
+remain visible through the existing failed-step automation log semantics.
+
 ### Follow-up reminder ringing
 
 The cron remains the delivery source of truth. Once it inserts an unread

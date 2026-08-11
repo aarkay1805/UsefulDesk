@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Shared mock state for the service-role client. Lives in a hoisted block
 // so the vi.mock factory below can close over it.
@@ -176,6 +176,11 @@ beforeEach(() => {
   h.state.logUpdates = [];
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
 describe('runAutomationsForTrigger — tenant isolation', () => {
   it('refuses to dispatch when the contact is not in the account (GHSA-63cv-2c49-m5v3)', async () => {
     // Ownership lookup returns nothing — the contact belongs to another tenant.
@@ -248,6 +253,74 @@ describe('automation log completion state', () => {
       status: 'failed',
       steps_executed: [],
     });
+    expect(h.state.logUpdates.at(-1)).toMatchObject({ status: 'success' });
+  });
+});
+
+describe('send_webhook — SSRF guard (GHSA-8jqh-598v-rfxc)', () => {
+  it('blocks cloud metadata before fetch and records the normal failed-step log', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    h.state.owned = { id: 'c1' };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [
+      webhookStep('http://169.254.169.254/latest/meta-data/'),
+    ];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: 'new_message_received',
+      contactId: 'c1',
+      context: {},
+    });
+
+    expect(h.state.fromCalls).toContain('automation_steps');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(h.state.logUpdates.at(-1)).toMatchObject({
+      status: 'failed',
+      error_message: 'send_webhook: destination not allowed',
+      steps_executed: [
+        expect.objectContaining({
+          step_type: 'send_webhook',
+          status: 'failed',
+          detail: 'send_webhook: destination not allowed',
+        }),
+      ],
+    });
+  });
+
+  it('delivers to a public target without redirects and with a ten-second timeout', async () => {
+    const fetchSpy = vi.fn(async () => ({ ok: true, status: 204 }));
+    vi.stubGlobal('fetch', fetchSpy);
+    const timeoutSignal = new AbortController().signal;
+    const timeoutSpy = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockReturnValue(timeoutSignal);
+    h.state.owned = { id: 'c1' };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [webhookStep('https://8.8.8.8/hook')];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: 'new_message_received',
+      contactId: 'c1',
+      context: { vars: { source: 'public-test' } },
+    });
+
+    expect(timeoutSpy).toHaveBeenCalledWith(10_000);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://8.8.8.8/hook',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'content-type': 'application/json',
+          'x-test': 'allowed',
+        }),
+        body: '{"source":"public-test"}',
+        redirect: 'manual',
+        signal: timeoutSignal,
+      })
+    );
     expect(h.state.logUpdates.at(-1)).toMatchObject({ status: 'success' });
   });
 });
@@ -580,6 +653,14 @@ function step(step_type: string, step_config: Record<string, unknown>) {
     parent_step_id: null,
     step_config,
   };
+}
+
+function webhookStep(url: string) {
+  return step('send_webhook', {
+    url,
+    headers: { 'x-test': 'allowed' },
+    body_template: '{"source":"{{ vars.source }}"}',
+  });
 }
 
 function automationWithUpdateStep() {

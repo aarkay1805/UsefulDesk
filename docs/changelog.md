@@ -6,6 +6,10 @@
 
 ---
 
+## Automation webhook SSRF hardening
+
+Automation `send_webhook` steps now reuse the public-address SSRF guard before fetch, refuse redirects, and time out after ten seconds while retaining the existing success and failed-step log semantics. Key code: `src/lib/automations/engine.ts` and its focused regression tests. Gotcha: every new server-side automation fetch must apply the guard immediately before the request and must not follow redirects.
+
 ## Next.js 16.3 React lint baseline
 
 The Next.js 16.3 ESLint preset now passes with zero errors and warnings without weakening React's rules. Effect-driven loads and prop/URL resets use cancellable async boundaries, compiler dependency mismatches use stable whole-object dependencies, the Leads table derives its related column layouts through one pure helper, and intentional auth/tenant full-page reloads carry local explanations instead of changing session behavior. Key code: `src/app/(dashboard)/leads/page.tsx`, `src/components/inbox/message-thread.tsx`, the affected member/settings components, and `src/hooks/use-auth.tsx`. Gotcha: keep `react-hooks/set-state-in-effect` enforced; new mount/refetch effects must use the repository's cancellable async pattern.
