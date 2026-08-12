@@ -885,7 +885,7 @@ export function InvoiceDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] min-w-0 overflow-hidden sm:max-w-[35rem]">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-[35rem]">
         <DialogHeader className="min-w-0">
           <DialogTitle size="lg" className="flex flex-wrap items-center gap-2">
             <span>{invoice ? `Invoice ${invoice.reference}` : 'Invoice'}</span>
