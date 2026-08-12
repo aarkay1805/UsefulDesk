@@ -1012,6 +1012,23 @@ confirmed status **Pending** for `en_US`. The provider has not approved it, so
 Send or exercise it until a later sync reports **Approved**. Copy remains
 available independently.
 
+Later on 2026-08-12, while `gym_payment_link` still reported **Pending**, the
+owner authorized trying the product's narrower payment-due starter. UsefulDesk
+submitted `gym_payment_due` as **Utility** / `en_US`, with dummy review samples
+only (`Rahul`, `₹3,999`, and `Quarterly`):
+
+> Hi {{1}}, a payment of {{2}} for your {{3}} membership is still pending.
+> Please clear it to keep your access active. Reply here for a payment link or
+> any help.
+
+Meta acknowledged this submission and an authenticated follow-up sync reports
+`gym_payment_due` **Pending**. This three-parameter reminder does not contain a
+payment URL and is not a substitute for the four-parameter
+`gym_payment_link` contract. It therefore does not unlock **Send payment
+link**, and no WhatsApp message was sent. An older approved provider template
+named `payment_reminder` was not used because it inaccurately describes an
+automatic scheduled payment and possible fees.
+
 ### Next real gym-owner OAuth pilot — authorization plan only
 
 No pilot is selected by this plan. VBF/Aakash is permanently excluded from

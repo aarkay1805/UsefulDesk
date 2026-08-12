@@ -731,6 +731,7 @@ Follow `docs/ui-patterns.md` and reuse existing master components.
 
 - Submit and approve the Meta Utility template `gym_payment_link` with the four parameters in section 10.2.
 - **Verified 2026-08-12:** an initial authenticated **Sync from Meta** returned zero provider templates. The owner then approved the exact `en_US` Utility wording, UsefulDesk submitted `gym_payment_link`, and an authenticated follow-up sync confirmed status **Pending**. Do not claim or exercise Send until Meta reports **Approved**.
+- **Alternative reminder evidence (2026-08-12):** with `gym_payment_link` still Pending, the owner authorized the built-in `gym_payment_due` Utility / `en_US` starter. Meta acknowledged the three-parameter reminder and a follow-up sync reports **Pending**. It asks the member to reply for a link, contains no URL, and does not satisfy or replace the four-parameter Payment Link Send contract. The already-approved provider template `payment_reminder` was deliberately not used because it claims an automatic scheduled payment and possible fees.
 - Missing approval disables **Send payment link** only. **Copy link**, OAuth, Payment Link creation, and settlement may proceed through their own acceptance gates.
 
 ### Stage 1 — schema and OAuth behind flags
