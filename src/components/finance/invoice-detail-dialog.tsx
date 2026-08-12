@@ -13,6 +13,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -48,15 +49,17 @@ import type {
   PaymentRefund,
   PaymentMethod,
   Membership,
+  Contact,
 } from '@/types';
 import {
   CopyUpiLinkButton,
   useUpiConfig,
 } from '../members/copy-upi-link-button';
 import {
-  InvoicePaymentBadge,
+  FinanceInvoiceStatusBadge,
   VoidedPaymentBadge,
 } from '../members/membership-status-badge';
+import { MemberIdentity } from '../members/member-identity';
 import { PaymentProofLink } from '../members/payment-proof-link';
 import { useAccountStaff } from '../members/use-account-staff';
 import { PaymentLinkActions } from './payment-link-actions';
@@ -79,7 +82,12 @@ export type InvoiceDetail = Pick<
   | 'accounting_balance'
   | 'collectible_balance'
   | 'requires_refund_review'
-> & { membership?: Membership | null };
+> & {
+  membership?: Membership | null;
+  contact?: Contact | null;
+  lifecycle?: FinanceInvoiceRow['lifecycle'];
+  overdue?: boolean;
+};
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: 'Cash',
@@ -260,7 +268,27 @@ function InvoiceDetailBody({
   const memberName =
     member?.contact?.name ??
     currentInvoice.membership?.contact?.name ??
-    'Deleted member';
+    currentInvoice.contact?.name ??
+    'Deleted customer';
+  const customer =
+    member?.contact ??
+    currentInvoice.membership?.contact ??
+    currentInvoice.contact ??
+    null;
+  const paymentState = invoicePaymentState(currentInvoice);
+  const headlineLabel = currentInvoice.requires_refund_review
+    ? 'Accounting balance'
+    : currentInvoice.state === 'void'
+      ? 'Invoice total'
+      : hasBalance
+        ? 'Balance due'
+        : paymentState === 'paid'
+          ? 'Paid in full'
+          : 'Invoice total';
+  const headlineAmount =
+    currentInvoice.requires_refund_review || hasBalance
+      ? Number(currentInvoice.accounting_balance ?? currentInvoice.balance)
+      : Number(currentInvoice.fee_amount);
 
   if (loading) {
     return (
@@ -295,8 +323,52 @@ function InvoiceDetailBody({
         </Alert>
       ) : null}
 
+      <Card size="sm">
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+            <div className="min-w-0">
+              <MemberIdentity
+                name={customer?.name}
+                secondary={customer?.phone}
+                src={customer?.avatar_url}
+                size="lg"
+                meta={
+                  (member?.member_number ??
+                  currentInvoice.membership?.member_number) ? (
+                    <p className="text-muted-foreground mt-1 font-mono text-xs tabular-nums">
+                      Member ID{' '}
+                      {member?.member_number ??
+                        currentInvoice.membership?.member_number}
+                    </p>
+                  ) : null
+                }
+              />
+            </div>
+            <div className="sm:text-right">
+              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                {headlineLabel}
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">
+                {fmt.money(headlineAmount)}
+              </p>
+              <p className="text-muted-foreground mt-1 text-xs">
+                {currentInvoice.requires_refund_review
+                  ? 'Collection is paused pending review'
+                  : currentInvoice.state === 'void'
+                    ? 'This invoice is not collectible'
+                    : hasBalance
+                      ? `${fmt.money(currentInvoice.amount_paid)} paid of ${fmt.money(currentInvoice.fee_amount)}`
+                      : paymentState === 'paid'
+                        ? 'The invoice is settled'
+                        : 'Nothing to collect'}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="space-y-2">
-        <h3 className="font-medium">Items</h3>
+        <h3 className="font-medium">Invoice items</h3>
         <div className="border-border divide-border divide-y rounded-lg border">
           {lines.length === 0 ? (
             <p className="text-muted-foreground px-3 py-4 text-sm">
@@ -457,9 +529,7 @@ function InvoiceDetailBody({
       </div>
 
       <div className="space-y-2">
-        <h3 className="font-medium">
-          {payments.length === 1 ? 'Payment' : 'Payments'}
-        </h3>
+        <h3 className="font-medium">Payment history</h3>
         {payments.length === 0 ? (
           <p className="text-muted-foreground text-sm">
             No payments recorded for this invoice.
@@ -790,20 +860,18 @@ export function InvoiceDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="min-w-0 sm:max-w-2xl">
+      <DialogContent className="max-h-[calc(100vh-2rem)] min-w-0 overflow-hidden sm:max-w-[35rem]">
         <DialogHeader className="min-w-0">
-          <DialogTitle className="flex flex-wrap items-center gap-2">
+          <DialogTitle size="lg" className="flex flex-wrap items-center gap-2">
             <span>{invoice ? `Invoice ${invoice.reference}` : 'Invoice'}</span>
             {activeInvoice ? (
-              activeInvoice.state === 'void' ? (
-                <Badge variant="neutral">Void</Badge>
-              ) : activeInvoice.requires_refund_review ? (
-                <Badge variant="warning">Refund review</Badge>
-              ) : (
-                <InvoicePaymentBadge
-                  state={invoicePaymentState(activeInvoice)}
-                />
-              )
+              <FinanceInvoiceStatusBadge
+                state={activeInvoice.state}
+                paymentState={invoicePaymentState(activeInvoice)}
+                lifecycle={activeInvoice.lifecycle}
+                overdue={activeInvoice.overdue}
+                requiresRefundReview={activeInvoice.requires_refund_review}
+              />
             ) : null}
           </DialogTitle>
           <DialogDescription>
@@ -812,18 +880,20 @@ export function InvoiceDetailDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {invoice ? (
-          <InvoiceDetailBody
-            key={invoice.id}
-            invoice={invoice}
-            member={member ?? invoice.membership ?? null}
-            onFinancialChange={handleFinancialChange}
-            canVoid={canVoid}
-            onVoidPayment={onVoidPayment}
-          />
-        ) : null}
+        <div className="-mx-1 min-h-0 min-w-0 overflow-y-auto px-1 py-1">
+          {invoice ? (
+            <InvoiceDetailBody
+              key={invoice.id}
+              invoice={invoice}
+              member={member ?? invoice.membership ?? null}
+              onFinancialChange={handleFinancialChange}
+              canVoid={canVoid}
+              onVoidPayment={onVoidPayment}
+            />
+          ) : null}
+        </div>
 
-        <DialogFooter className="min-w-0 sm:flex-wrap" showCloseButton>
+        <DialogFooter className="min-w-0 sm:flex-wrap">
           {collectible ? (
             <>
               <PaymentLinkActions

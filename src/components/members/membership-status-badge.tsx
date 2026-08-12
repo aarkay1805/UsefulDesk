@@ -99,6 +99,32 @@ export function InvoicePaymentBadge({ state }: { state: InvoicePaymentState }) {
   return <Badge variant={s.variant}>{s.label}</Badge>;
 }
 
+export function FinanceInvoiceStatusBadge({
+  state,
+  paymentState,
+  lifecycle,
+  overdue = false,
+  requiresRefundReview = false,
+}: {
+  state: 'open' | 'void';
+  paymentState: InvoicePaymentState;
+  lifecycle?: 'current' | 'past' | 'upcoming' | 'void';
+  overdue?: boolean;
+  requiresRefundReview?: boolean;
+}) {
+  if (requiresRefundReview) {
+    return <Badge variant="warning">Refund review</Badge>;
+  }
+  if (state === 'void' || lifecycle === 'void') {
+    return <Badge variant="neutral">Void</Badge>;
+  }
+  if (overdue) return <Badge variant="danger">Overdue</Badge>;
+  if (lifecycle === 'upcoming') {
+    return <Badge variant="info">Upcoming</Badge>;
+  }
+  return <InvoicePaymentBadge state={paymentState} />;
+}
+
 const MEMBER_SERVICE_VARIANT: Record<
   MemberServiceStatus,
   { label: string; variant: 'success' | 'danger' | 'info' | 'neutral' }

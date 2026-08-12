@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Invoice, InvoiceLine, InvoiceLineKind } from '@/types';
+import type { Contact, Invoice, InvoiceLine, InvoiceLineKind } from '@/types';
 
 import { dayStartInTz, todayInTz } from '@/lib/locale/format';
 import {
@@ -15,6 +15,8 @@ import type {
 import { financeMonthRange } from './overview';
 
 export type FinanceInvoiceLifecycle = 'current' | 'past' | 'upcoming' | 'void';
+export type FinanceInvoiceQueue =
+  'all' | 'attention' | 'paid' | 'upcoming' | 'void';
 
 export type FinanceInvoiceSortKey =
   | 'reference'
@@ -29,6 +31,7 @@ export type FinanceInvoiceSortKey =
 
 export interface FinanceInvoiceRow extends MembershipPeriodInvoice {
   membership: Membership | null;
+  contact: Contact | null;
   lifecycle: FinanceInvoiceLifecycle;
   paymentState: InvoicePaymentState;
   overdue: boolean;
@@ -112,6 +115,7 @@ type SortState = {
 
 const INVOICE_PAGE_SIZE = 1_000;
 const MEMBERSHIP_BATCH_SIZE = 200;
+const CONTACT_BATCH_SIZE = 200;
 
 type PagedResult = PromiseLike<{
   data: unknown[] | null;
@@ -190,17 +194,22 @@ export function financeInvoiceLifecycle(
 export function normalizeFinanceInvoiceRows(
   invoices: MembershipPeriodInvoice[],
   memberships: Membership[],
-  today: string
+  today: string,
+  contacts: Contact[] = []
 ): FinanceInvoiceRow[] {
   const membershipById = new Map(
     memberships.map((membership) => [membership.id, membership])
   );
+  const contactById = new Map(contacts.map((contact) => [contact.id, contact]));
   return invoices.map((invoice) => {
     const membership = membershipById.get(invoice.membership_id) ?? null;
+    const contact =
+      membership?.contact ?? contactById.get(invoice.contact_id) ?? null;
     const paymentState = invoicePaymentState(invoice);
     return {
       ...invoice,
       membership,
+      contact,
       lifecycle: financeInvoiceLifecycle(
         invoice,
         membership?.end_date ?? null,
@@ -233,12 +242,13 @@ export function filterFinanceInvoices(
   const term = search.trim().toLocaleLowerCase();
   const filtered = rows.filter((row) => {
     const membership = row.membership;
+    const contact = row.contact ?? membership?.contact;
     if (term) {
       const searchValues = [
         row.reference,
         row.id,
-        membership?.contact?.name,
-        membership?.contact?.phone,
+        contact?.name,
+        contact?.phone,
         membership?.member_number,
       ];
       if (
@@ -382,6 +392,54 @@ async function loadMemberships(
   return rows;
 }
 
+export function financeInvoiceMatchesQueue(
+  row: FinanceInvoiceRow,
+  queue: FinanceInvoiceQueue
+): boolean {
+  if (queue === 'all') return true;
+  if (queue === 'attention') {
+    return (
+      row.requires_refund_review ||
+      row.overdue ||
+      (row.state === 'open' &&
+        row.paymentState === 'due' &&
+        row.lifecycle !== 'upcoming')
+    );
+  }
+  if (queue === 'paid') {
+    return (
+      row.state === 'open' &&
+      !row.requires_refund_review &&
+      row.paymentState === 'paid'
+    );
+  }
+  if (queue === 'upcoming') {
+    return (
+      row.state === 'open' &&
+      !row.requires_refund_review &&
+      row.lifecycle === 'upcoming'
+    );
+  }
+  return row.state === 'void';
+}
+
+async function loadContacts(
+  db: SupabaseClient,
+  contactIds: string[]
+): Promise<Contact[]> {
+  const rows: Contact[] = [];
+  for (let index = 0; index < contactIds.length; index += CONTACT_BATCH_SIZE) {
+    const batch = contactIds.slice(index, index + CONTACT_BATCH_SIZE);
+    const { data, error } = await db
+      .from('contacts')
+      .select('*')
+      .in('id', batch);
+    if (error) throw error;
+    rows.push(...(((data as Contact[]) ?? []) as Contact[]));
+  }
+  return rows;
+}
+
 export async function loadFinanceInvoices(
   db: SupabaseClient,
   month: string,
@@ -483,6 +541,25 @@ export async function loadFinanceInvoices(
   );
   const memberships =
     membershipIds.length > 0 ? await loadMemberships(db, membershipIds) : [];
+  const loadedContactIds = new Set(
+    memberships
+      .filter((membership) => Boolean(membership.contact))
+      .map((membership) => membership.contact_id)
+  );
+  const standaloneContactIds = Array.from(
+    new Set(
+      genericInvoices
+        .map((invoice) => invoice.contact_id)
+        .filter(
+          (id): id is string =>
+            Boolean(id) && !loadedContactIds.has(id as string)
+        )
+    )
+  );
+  const contacts =
+    standaloneContactIds.length > 0
+      ? await loadContacts(db, standaloneContactIds)
+      : [];
   const sourceById = new Map(
     genericInvoices.map((invoice) => [invoice.id, invoice.source])
   );
@@ -516,20 +593,23 @@ export async function loadFinanceInvoices(
     });
     gatewayRefundsByInvoice.set(invoiceId, rows);
   }
-  return normalizeFinanceInvoiceRows(invoices, memberships, today).map(
-    (row) => ({
-      ...row,
-      source: sourceById.get(row.id),
-      lineKinds: [...(lineKindsByInvoice.get(row.id) ?? new Set())],
-      gatewayPaymentIds: gatewayPaymentsByInvoice.get(row.id) ?? [],
-      gatewayRefundIds: (gatewayRefundsByInvoice.get(row.id) ?? []).map(
-        (refund) => refund.id
-      ),
-      refundDispositions: (gatewayRefundsByInvoice.get(row.id) ?? [])
-        .map((refund) => refund.disposition)
-        .filter((value): value is string => Boolean(value)),
-    })
-  );
+  return normalizeFinanceInvoiceRows(
+    invoices,
+    memberships,
+    today,
+    contacts
+  ).map((row) => ({
+    ...row,
+    source: sourceById.get(row.id),
+    lineKinds: [...(lineKindsByInvoice.get(row.id) ?? new Set())],
+    gatewayPaymentIds: gatewayPaymentsByInvoice.get(row.id) ?? [],
+    gatewayRefundIds: (gatewayRefundsByInvoice.get(row.id) ?? []).map(
+      (refund) => refund.id
+    ),
+    refundDispositions: (gatewayRefundsByInvoice.get(row.id) ?? [])
+      .map((refund) => refund.disposition)
+      .filter((value): value is string => Boolean(value)),
+  }));
 }
 
 function csvCell(value: string | number): string {
@@ -570,8 +650,8 @@ export function financeInvoicesCsv(rows: FinanceInvoiceRow[]): string {
     ...rows.map((row) => [
       row.reference,
       row.membership?.member_number ?? '',
-      row.membership?.contact?.name ?? 'Deleted member',
-      row.membership?.contact?.phone ?? '',
+      row.contact?.name ?? 'Deleted customer',
+      row.contact?.phone ?? '',
       row.membership?.plan?.name ?? '',
       row.source ?? '',
       (row.lineKinds ?? []).join(' + '),

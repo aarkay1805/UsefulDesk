@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Membership, MembershipPeriodInvoice } from '@/types';
+import type { Contact, Membership, MembershipPeriodInvoice } from '@/types';
 import {
   EMPTY_FINANCE_INVOICE_FILTERS,
   filterFinanceInvoices,
+  financeInvoiceMatchesQueue,
   financeInvoiceLifecycle,
   financeInvoiceReference,
   financeInvoicesCsv,
@@ -210,6 +211,55 @@ describe('finance invoice filtering and totals', () => {
       sort: { key: 'total', dir: 'desc' },
     });
     expect(result.map((row) => row.reference)).toEqual(['#AAAAAAAA']);
+  });
+
+  it('groups invoices into action-first queues without hiding review cases', () => {
+    const [due, paid, voided] = rows;
+    const review = {
+      ...paid,
+      requires_refund_review: true,
+    };
+
+    expect(financeInvoiceMatchesQueue(due, 'attention')).toBe(true);
+    expect(financeInvoiceMatchesQueue(paid, 'paid')).toBe(true);
+    expect(financeInvoiceMatchesQueue(voided, 'void')).toBe(true);
+    expect(financeInvoiceMatchesQueue(review, 'attention')).toBe(true);
+    expect(financeInvoiceMatchesQueue(review, 'paid')).toBe(false);
+    expect(financeInvoiceMatchesQueue(voided, 'paid')).toBe(false);
+  });
+
+  it('keeps standalone sale customers searchable without a membership', () => {
+    const contact: Contact = {
+      id: 'contact-sale',
+      account_id: 'account-1',
+      user_id: 'user-1',
+      name: 'Walk-in Customer',
+      phone: '9000012345',
+      created_at: '2026-07-01T00:00:00.000Z',
+      updated_at: '2026-07-01T00:00:00.000Z',
+    };
+    const standalone = normalizeFinanceInvoiceRows(
+      [
+        invoice({
+          membership_id: '',
+          contact_id: contact.id,
+          plan_id: null,
+        }),
+      ],
+      [],
+      TODAY,
+      [contact]
+    );
+
+    expect(standalone[0].contact?.name).toBe('Walk-in Customer');
+    expect(
+      filterFinanceInvoices(standalone, {
+        search: '900001',
+        lifecycle: 'all',
+        filters: EMPTY_FINANCE_INVOICE_FILTERS,
+        sort: { key: 'issued_on', dir: 'desc' },
+      })
+    ).toHaveLength(1);
   });
 
   it('sorts by the dedicated Member ID column', () => {
