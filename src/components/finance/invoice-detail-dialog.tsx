@@ -564,94 +564,144 @@ function InvoiceDetailBody({
                 <div
                   key={payment.id}
                   className={cn(
-                    'flex min-w-0 items-start gap-3 p-3',
+                    'min-w-0 p-3',
                     payment.status === 'void' && 'opacity-65'
                   )}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">
-                        {METHOD_LABEL[payment.method]}
-                      </p>
-                      {payment.status === 'void' ? (
-                        <VoidedPaymentBadge
-                          payment={payment}
-                          voidedOn={
-                            payment.voided_at
-                              ? fmt.date(payment.voided_at)
-                              : null
-                          }
-                        />
-                      ) : null}
-                      {payment.source === 'auto' ? (
-                        <Badge variant="info">
-                          <Repeat className="size-3" /> Auto
-                        </Badge>
-                      ) : payment.source === 'payment_link' ? (
-                        <Badge variant="info">
-                          <Link2 className="size-3" /> Payment link
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs">
-                      <span className="tabular-nums">
-                        {fmt.dateTime(payment.paid_at)}
-                      </span>
-                      {payment.user_id ? (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          {staffNameById.has(payment.user_id) ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              <span>Recorded by</span>
-                              <UserAvatar
-                                name={staffNameById.get(payment.user_id) ?? '?'}
-                                src={staffAvatarById.get(payment.user_id)}
-                                className="size-5"
-                                fallbackClassName="text-[9px]"
-                              />
-                              <span>{staffNameById.get(payment.user_id)}</span>
-                            </span>
-                          ) : (
-                            <span>Recorded by Former teammate</span>
-                          )}
-                        </>
-                      ) : payment.source === 'auto' ? null : payment.source ===
-                        'payment_link' ? (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span>Collected by Razorpay</span>
-                        </>
-                      ) : (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span>Recorder unavailable</span>
-                        </>
-                      )}
-                    </div>
-                    {payment.note ? (
-                      <p className="text-muted-foreground mt-2 text-xs">
-                        Note: {payment.note}
-                      </p>
-                    ) : null}
-                    {payment.screenshot_url ||
-                    payment.screenshot_path ||
-                    (payment.status === 'void' && payment.void_reason) ? (
-                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-                        {payment.screenshot_url || payment.screenshot_path ? (
-                          <PaymentProofLink payment={payment} />
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">
+                          {METHOD_LABEL[payment.method]}
+                        </p>
+                        {payment.status === 'void' ? (
+                          <VoidedPaymentBadge
+                            payment={payment}
+                            voidedOn={
+                              payment.voided_at
+                                ? fmt.date(payment.voided_at)
+                                : null
+                            }
+                          />
                         ) : null}
-                        {payment.status === 'void' && payment.void_reason ? (
-                          <span className="text-muted-foreground">
-                            Void reason: {payment.void_reason}
-                          </span>
+                        {payment.source === 'auto' ? (
+                          <Badge variant="info">
+                            <Repeat className="size-3" /> Auto
+                          </Badge>
+                        ) : payment.source === 'payment_link' ? (
+                          <Badge variant="info">
+                            <Link2 className="size-3" /> Payment link
+                          </Badge>
                         ) : null}
                       </div>
-                    ) : null}
-                    {refunds.length > 0 ? (
-                      <div className="border-border mt-3 space-y-2 border-t pt-3">
-                        {refunds.map((refund) => (
-                          <div key={refund.id} className="text-xs">
-                            <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs">
+                        <span className="tabular-nums">
+                          {fmt.dateTime(payment.paid_at)}
+                        </span>
+                        {payment.user_id ? (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            {staffNameById.has(payment.user_id) ? (
+                              <span className="inline-flex items-center gap-1.5">
+                                <span>Recorded by</span>
+                                <UserAvatar
+                                  name={
+                                    staffNameById.get(payment.user_id) ?? '?'
+                                  }
+                                  src={staffAvatarById.get(payment.user_id)}
+                                  className="size-5"
+                                  fallbackClassName="text-[9px]"
+                                />
+                                <span>
+                                  {staffNameById.get(payment.user_id)}
+                                </span>
+                              </span>
+                            ) : (
+                              <span>Recorded by Former teammate</span>
+                            )}
+                          </>
+                        ) : payment.source ===
+                          'auto' ? null : payment.source === 'payment_link' ? (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span>Collected by Razorpay</span>
+                          </>
+                        ) : (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span>Recorder unavailable</span>
+                          </>
+                        )}
+                      </div>
+                      {payment.note ? (
+                        <p className="text-muted-foreground mt-2 text-xs">
+                          Note: {payment.note}
+                        </p>
+                      ) : null}
+                      {payment.screenshot_url ||
+                      payment.screenshot_path ||
+                      (payment.status === 'void' && payment.void_reason) ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                          {payment.screenshot_url || payment.screenshot_path ? (
+                            <PaymentProofLink payment={payment} />
+                          ) : null}
+                          {payment.status === 'void' && payment.void_reason ? (
+                            <span className="text-muted-foreground">
+                              Void reason: {payment.void_reason}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <p
+                        className={cn(
+                          'font-medium tabular-nums',
+                          payment.status === 'void' && 'line-through'
+                        )}
+                      >
+                        {fmt.money(payment.amount)}
+                      </p>
+                      {payment.status === 'paid' &&
+                      payment.source !== 'auto' &&
+                      payment.source !== 'payment_link' &&
+                      !payment.gateway_payment_id &&
+                      canVoid &&
+                      onVoidPayment ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onVoidPayment(payment)}
+                        >
+                          <RotateCcw className="size-3.5" /> Void
+                        </Button>
+                      ) : null}
+                      {payment.status === 'paid' &&
+                      gatewayPayment &&
+                      canRefund ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={Boolean(refundDisabledReason)}
+                          title={refundDisabledReason ?? undefined}
+                          onClick={() => setRefundPayment(payment)}
+                        >
+                          <RotateCcw className="size-3.5" /> Refund
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                  {refunds.length > 0 ? (
+                    <div className="bg-muted/30 divide-border mt-3 divide-y rounded-lg px-3">
+                      {refunds.map((refund) => (
+                        <div
+                          key={refund.id}
+                          className="space-y-3 py-3 text-xs first:pt-3 last:pb-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
                               <Badge
                                 variant={
                                   refund.status === 'processed'
@@ -667,106 +717,81 @@ function InvoiceDetailBody({
                                     ? 'Refund failed'
                                     : 'Refund pending'}
                               </Badge>
-                              <span className="font-medium tabular-nums">
-                                −{fmt.money(refund.amount)}
-                              </span>
                               {refund.disposition ? (
-                                <span className="text-muted-foreground">
+                                <span className="font-medium">
                                   {refund.disposition === 'reopen_balance'
                                     ? 'Balance reopened'
                                     : 'Charge reduced'}
                                 </span>
                               ) : null}
                             </div>
-                            <p className="text-muted-foreground mt-1">
-                              {refund.reason
-                                ? `Reason: ${refund.reason}`
-                                : refund.allocation_complete
-                                  ? 'Classification required'
-                                  : 'Line targeting required'}
-                            </p>
-                            {refund.gateway_refund_id ||
-                            refund.source === 'razorpay_dashboard' ||
-                            refund.requested_by ? (
-                              <p className="text-muted-foreground mt-1 flex flex-wrap gap-x-1.5 gap-y-1">
-                                {refund.gateway_refund_id ? (
-                                  <span className="break-all">
-                                    Razorpay refund {refund.gateway_refund_id}
-                                  </span>
-                                ) : null}
-                                {refund.source === 'razorpay_dashboard' ? (
-                                  <span>Razorpay Dashboard</span>
-                                ) : refund.requested_by ? (
-                                  <span>
-                                    Requested by{' '}
-                                    {staffNameById.get(refund.requested_by) ??
-                                      'Former teammate'}
-                                  </span>
-                                ) : null}
-                              </p>
-                            ) : null}
-                            {canRefund &&
-                            refund.source === 'razorpay_dashboard' &&
-                            refund.status === 'processed' &&
-                            !refund.disposition ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="mt-2"
-                                onClick={() =>
-                                  setClassification({ payment, refund })
-                                }
-                              >
-                                {refund.allocation_complete
-                                  ? 'Classify refund'
-                                  : 'Resolve refund review'}
-                              </Button>
-                            ) : null}
+                            <span className="shrink-0 font-semibold tabular-nums">
+                              {refund.status === 'processed' ? '−' : ''}
+                              {fmt.money(refund.amount)}
+                            </span>
                           </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    <p
-                      className={cn(
-                        'font-medium tabular-nums',
-                        payment.status === 'void' && 'line-through'
-                      )}
-                    >
-                      {fmt.money(payment.amount)}
-                    </p>
-                    {payment.status === 'paid' &&
-                    payment.source !== 'auto' &&
-                    payment.source !== 'payment_link' &&
-                    !payment.gateway_payment_id &&
-                    canVoid &&
-                    onVoidPayment ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onVoidPayment(payment)}
-                      >
-                        <RotateCcw className="size-3.5" /> Void
-                      </Button>
-                    ) : null}
-                    {payment.status === 'paid' &&
-                    gatewayPayment &&
-                    canRefund ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={Boolean(refundDisabledReason)}
-                        title={refundDisabledReason ?? undefined}
-                        onClick={() => setRefundPayment(payment)}
-                      >
-                        <RotateCcw className="size-3.5" /> Refund
-                      </Button>
-                    ) : null}
-                  </div>
+                          <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
+                            <div className="min-w-0 sm:col-span-2">
+                              <dt className="text-muted-foreground">Reason</dt>
+                              <dd className="mt-0.5">
+                                {refund.reason
+                                  ? refund.reason
+                                  : refund.allocation_complete
+                                    ? 'Classification required'
+                                    : 'Line targeting required'}
+                              </dd>
+                            </div>
+                            {refund.gateway_refund_id ? (
+                              <div className="min-w-0">
+                                <dt className="text-muted-foreground">
+                                  Provider reference
+                                </dt>
+                                <dd className="mt-0.5 font-mono break-all">
+                                  {refund.gateway_refund_id}
+                                </dd>
+                              </div>
+                            ) : null}
+                            {refund.source === 'razorpay_dashboard' ? (
+                              <div className="min-w-0">
+                                <dt className="text-muted-foreground">
+                                  Source
+                                </dt>
+                                <dd className="mt-0.5">Razorpay Dashboard</dd>
+                              </div>
+                            ) : null}
+                            {refund.requested_by ? (
+                              <div className="min-w-0">
+                                <dt className="text-muted-foreground">
+                                  Requested by
+                                </dt>
+                                <dd className="mt-0.5">
+                                  {staffNameById.get(refund.requested_by) ??
+                                    'Former teammate'}
+                                </dd>
+                              </div>
+                            ) : null}
+                          </dl>
+                          {canRefund &&
+                          refund.source === 'razorpay_dashboard' &&
+                          refund.status === 'processed' &&
+                          !refund.disposition ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setClassification({ payment, refund })
+                              }
+                            >
+                              {refund.allocation_complete
+                                ? 'Classify refund'
+                                : 'Resolve refund review'}
+                            </Button>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
