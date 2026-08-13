@@ -6,8 +6,6 @@ import {
   ExternalLink,
   Loader2,
   RefreshCw,
-  Repeat,
-  ShieldCheck,
   TriangleAlert,
   Unplug,
 } from 'lucide-react';
@@ -106,8 +104,37 @@ function connectionBadge(status: ConnectionStatus) {
   return 'neutral' as const;
 }
 
+function attentionSummary(health: ConnectionHealth): string {
+  const items = [
+    [health.failedEventCount, 'failed webhook'],
+    [health.missingLedgerCount, 'missing payment record'],
+    [health.unappliedChargeCount, 'unapplied charge'],
+    [health.setupExceptionCount, 'auto-pay setup issue'],
+    [health.paymentLinkExceptionCount, 'payment-link issue'],
+    [health.paymentLinkSetupExceptionCount, 'payment-link setup issue'],
+  ] as const;
+
+  return items
+    .filter(([count]) => count > 0)
+    .map(([count, label]) => `${count} ${label}${count === 1 ? '' : 's'}`)
+    .join(' · ');
+}
+
+function RazorpayLoading() {
+  return (
+    <div
+      className="text-muted-foreground flex items-center gap-2 py-4 text-sm"
+      role="status"
+      aria-live="polite"
+    >
+      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+      Checking Razorpay status…
+    </div>
+  );
+}
+
 export function RazorpaySettingsCard() {
-  const { accountId, accountRole } = useAuth();
+  const { accountId, accountRole, profileLoading } = useAuth();
   const { locale, fmt } = useLocale();
   const canConfigure = accountRole
     ? canConfigurePaymentGateway(accountRole)
@@ -116,7 +143,9 @@ export function RazorpaySettingsCard() {
     null
   );
   const [health, setHealth] = useState<ConnectionHealth | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [connecting, setConnecting] = useState(false);
   const [recovering, setRecovering] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -124,13 +153,19 @@ export function RazorpaySettingsCard() {
   const notifiedResult = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!accountId || !canConfigure) return;
+    if (profileLoading || !accountId || !canConfigure) return;
     let cancelled = false;
-    (async () => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
       setLoading(true);
+      setLoadError(null);
       try {
         const response = await fetch('/api/payments/razorpay/connection', {
           cache: 'no-store',
+          signal: controller.signal,
         });
         const body = await response.json();
         if (!response.ok) {
@@ -154,18 +189,26 @@ export function RazorpaySettingsCard() {
         });
       } catch (error) {
         if (!cancelled) {
-          toast.error(
-            getErrorMessage(error, 'Failed to load Razorpay connection')
+          setLoadError(
+            error instanceof DOMException && error.name === 'AbortError'
+              ? 'The connection check took too long. Try again.'
+              : getErrorMessage(
+                  error,
+                  "Razorpay status couldn't load. Try again."
+                )
           );
         }
       } finally {
+        window.clearTimeout(timeoutId);
         if (!cancelled) setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
+      controller.abort();
     };
-  }, [accountId, canConfigure]);
+  }, [accountId, canConfigure, profileLoading, reloadNonce]);
 
   useEffect(() => {
     const result = new URLSearchParams(window.location.search).get('razorpay');
@@ -191,6 +234,7 @@ export function RazorpaySettingsCard() {
       health.paymentLinkExceptionCount +
       health.paymentLinkSetupExceptionCount
     : 0;
+  const attentionDetails = health ? attentionSummary(health) : '';
   const oauthConnection = connection?.authenticationMode === 'oauth';
 
   async function beginConnect() {
@@ -272,13 +316,10 @@ export function RazorpaySettingsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-foreground flex items-center gap-2">
-          <Repeat className="text-primary-text size-4" />
-          Auto-pay (Razorpay)
-        </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Connect your gym&apos;s Razorpay account. Money settles directly to
-          that account; UsefulDesk never holds it.
+        <CardTitle>Razorpay</CardTitle>
+        <CardDescription>
+          Connect Razorpay for auto-pay and payment links. Money settles
+          directly to your account.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -287,35 +328,58 @@ export function RazorpaySettingsCard() {
             Razorpay UPI AutoPay is available for accounts billing in INR. Your
             account currency is {locale.currency}.
           </p>
+        ) : profileLoading ? (
+          <RazorpayLoading />
         ) : !canConfigure ? (
-          <p className="text-muted-foreground text-sm">
-            Only account owners and admins can connect or disconnect Razorpay.
-          </p>
-        ) : loading || !connection ? (
-          <p className="text-muted-foreground flex items-center gap-2 text-sm">
-            <Loader2 className="size-4 animate-spin" /> Loading Razorpay…
-          </p>
+          <Alert>
+            <AlertTitle>Read-only</AlertTitle>
+            <AlertDescription>
+              Only account owners and admins can connect or disconnect Razorpay.
+            </AlertDescription>
+          </Alert>
+        ) : loading ? (
+          <RazorpayLoading />
+        ) : loadError ? (
+          <Alert variant="destructive">
+            <TriangleAlert aria-hidden="true" />
+            <AlertTitle>Razorpay status couldn&apos;t load</AlertTitle>
+            <AlertDescription>
+              <p>{loadError}</p>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="mt-3"
+                onClick={() => setReloadNonce((nonce) => nonce + 1)}
+              >
+                Try again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : !connection ? (
+          <Alert variant="destructive">
+            <TriangleAlert aria-hidden="true" />
+            <AlertTitle>Razorpay status is unavailable</AlertTitle>
+            <AlertDescription>Try the connection check again.</AlertDescription>
+          </Alert>
         ) : (
           <>
             {attentionCount > 0 ? (
               <Alert variant="destructive">
-                <TriangleAlert />
+                <TriangleAlert aria-hidden="true" />
                 <AlertTitle>
                   Payments need attention · {attentionCount}
                 </AlertTitle>
                 <AlertDescription>
-                  Review {health?.failedEventCount ?? 0} failed webhook attempt
-                  {(health?.failedEventCount ?? 0) === 1 ? '' : 's'},{' '}
-                  {health?.missingLedgerCount ?? 0} missing-ledger event
-                  {(health?.missingLedgerCount ?? 0) === 1 ? '' : 's'},{' '}
-                  {health?.unappliedChargeCount ?? 0} unapplied charge
-                  {(health?.unappliedChargeCount ?? 0) === 1 ? '' : 's'}, and{' '}
-                  {health?.setupExceptionCount ?? 0} setup exception
-                  {(health?.setupExceptionCount ?? 0) === 1 ? '' : 's'} before
-                  retrying payment work.
-                  {health?.latestUnappliedReason
-                    ? ` Latest: ${health.latestUnappliedReason}`
-                    : ''}
+                  <p>{attentionDetails}</p>
+                  <p className="mt-1">
+                    Contact support before retrying affected payment work.
+                  </p>
+                  {health?.latestUnappliedReason ? (
+                    <p className="mt-1">
+                      Latest issue: {health.latestUnappliedReason}
+                    </p>
+                  ) : null}
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -368,7 +432,7 @@ export function RazorpaySettingsCard() {
 
                 {connection.lastError ? (
                   <Alert variant="destructive">
-                    <TriangleAlert />
+                    <TriangleAlert aria-hidden="true" />
                     <AlertTitle>Razorpay needs attention</AlertTitle>
                     <AlertDescription>{connection.lastError}</AlertDescription>
                   </Alert>
@@ -422,19 +486,12 @@ export function RazorpaySettingsCard() {
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <span className="bg-muted text-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
-                    <ShieldCheck className="size-4" />
-                  </span>
-                  <div>
-                    <p className="text-foreground text-sm font-semibold">
-                      Connect with Razorpay
-                    </p>
-                    <p className="text-muted-foreground mt-0.5 text-sm">
-                      Authorize UsefulDesk without pasting API keys. You can
-                      revoke access at any time.
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-sm font-medium">Connect with Razorpay</p>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    Authorize UsefulDesk without sharing API keys. You can
+                    disconnect at any time.
+                  </p>
                 </div>
                 {connection.oauthEnabled ? (
                   <Button onClick={beginConnect} disabled={connecting}>

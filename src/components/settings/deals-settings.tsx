@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { IndianRupee, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
+import { getErrorMessage } from '@/lib/errors';
 import { isValidVpa, upiAvailableFor } from '@/lib/payments/upi';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,14 +32,13 @@ import { RazorpaySettingsCard } from './razorpay-settings-card';
  */
 export function DealsSettings() {
   return (
-    <section className="animate-in fade-in-50 max-w-2xl duration-200">
+    <section className="max-w-2xl">
       <SettingsPanelHead
         title="Payments"
-        description="Set up UPI and Razorpay to collect member payments."
+        description="Set up UPI links and Razorpay collection."
       />
-      <UpiCard />
-
-      <div className="mt-6">
+      <div className="space-y-4">
+        <UpiCard />
         <RazorpaySettingsCard />
       </div>
     </section>
@@ -51,7 +52,7 @@ export function DealsSettings() {
  */
 function UpiCard() {
   const supabase = createClient();
-  const { accountId, canEditSettings } = useAuth();
+  const { accountId, canEditSettings, profileLoading } = useAuth();
   const { locale } = useLocale();
 
   const [vpa, setVpa] = useState('');
@@ -60,71 +61,99 @@ function UpiCard() {
     vpa: string;
     payeeName: string;
   } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [vpaTouched, setVpaTouched] = useState(false);
+  const [saveAttempted, setSaveAttempted] = useState(false);
 
   useEffect(() => {
-    if (!accountId) return;
+    if (profileLoading) return;
     let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from('accounts')
-        .select('upi_vpa, upi_payee_name')
-        .eq('id', accountId)
-        .maybeSingle();
+    void (async () => {
+      await Promise.resolve();
       if (cancelled) return;
-      const initial = {
-        vpa: data?.upi_vpa ?? '',
-        payeeName: data?.upi_payee_name ?? '',
-      };
-      setLoaded(initial);
-      setVpa(initial.vpa);
-      setPayeeName(initial.payeeName);
+      setLoading(true);
+      setLoadError(null);
+      try {
+        if (!accountId) throw new Error('No account is selected.');
+        const { data, error } = await supabase
+          .from('accounts')
+          .select('upi_vpa, upi_payee_name')
+          .eq('id', accountId)
+          .maybeSingle();
+        if (error) throw error;
+        if (cancelled) return;
+        const initial = {
+          vpa: data?.upi_vpa ?? '',
+          payeeName: data?.upi_payee_name ?? '',
+        };
+        setLoaded(initial);
+        setVpa(initial.vpa);
+        setPayeeName(initial.payeeName);
+      } catch (error) {
+        if (!cancelled) {
+          setLoadError(
+            getErrorMessage(error, "UPI details couldn't load. Try again.")
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId]);
+  }, [accountId, profileLoading, reloadNonce, supabase]);
 
   const dirty =
     !!loaded &&
     (vpa.trim() !== loaded.vpa || payeeName.trim() !== loaded.payeeName);
+  const vpaInvalid = vpa.trim() !== '' && !isValidVpa(vpa);
+  const showVpaError = vpaInvalid && (vpaTouched || saveAttempted);
 
-  async function handleSave() {
-    if (!accountId || !dirty) return;
+  async function handleSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!accountId || !dirty || !canEditSettings) return;
+    setSaveAttempted(true);
     const nextVpa = vpa.trim();
-    if (nextVpa && !isValidVpa(nextVpa)) {
-      return toast.error('Enter a valid UPI ID, e.g. gym@okhdfcbank');
-    }
+    if (vpaInvalid) return;
     setSaving(true);
-    const { error } = await supabase
-      .from('accounts')
-      .update({
-        upi_vpa: nextVpa || null,
-        upi_payee_name: payeeName.trim() || null,
-      })
-      .eq('id', accountId);
-    setSaving(false);
-    if (error) {
-      toast.error('Failed to save UPI details');
-      return;
+    try {
+      const nextPayeeName = payeeName.trim();
+      const { data, error } = await supabase
+        .from('accounts')
+        .update({
+          upi_vpa: nextVpa || null,
+          upi_payee_name: nextPayeeName || null,
+        })
+        .eq('id', accountId)
+        .select('id');
+      if (error) throw error;
+      if (!data?.length) throw new Error('UPI details were not updated.');
+      setLoaded({ vpa: nextVpa, payeeName: nextPayeeName });
+      setVpa(nextVpa);
+      setPayeeName(nextPayeeName);
+      setVpaTouched(false);
+      setSaveAttempted(false);
+      toast.success('UPI details updated');
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error, "UPI details couldn't be saved. Try again.")
+      );
+    } finally {
+      setSaving(false);
     }
-    setLoaded({ vpa: nextVpa, payeeName: payeeName.trim() });
-    toast.success('UPI details updated');
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-foreground flex items-center gap-2">
-          <IndianRupee className="text-primary-text size-4" />
-          UPI collection
-        </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Your UPI ID powers the &quot;UPI link&quot; buttons on payment-due
-          lists — staff copy a ready-to-pay link for the exact amount and paste
-          it into the member&apos;s WhatsApp chat. Money lands directly in this
-          UPI account.
+        <CardTitle>UPI payment links</CardTitle>
+        <CardDescription>
+          Save the UPI account used for exact-amount member payment links. Money
+          goes directly to this account.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -134,55 +163,95 @@ function UpiCard() {
             currency is {locale.currency} — change it under Regional settings to
             use UPI links.
           </p>
+        ) : loading ? (
+          <div
+            className="text-muted-foreground flex items-center gap-2 py-4 text-sm"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            Loading UPI details…
+          </div>
+        ) : loadError ? (
+          <Alert variant="destructive">
+            <AlertCircle aria-hidden="true" />
+            <AlertTitle>UPI details couldn&apos;t load</AlertTitle>
+            <AlertDescription>
+              <p>{loadError}</p>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="mt-3"
+                onClick={() => setReloadNonce((nonce) => nonce + 1)}
+              >
+                Try again
+              </Button>
+            </AlertDescription>
+          </Alert>
         ) : (
-          <>
+          <form className="space-y-4" onSubmit={handleSave} noValidate>
+            {!canEditSettings ? (
+              <Alert>
+                <AlertTitle>Read-only</AlertTitle>
+                <AlertDescription>
+                  Only account admins can change UPI details.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <div className="grid gap-3 sm:max-w-md sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="upi-vpa" className="text-muted-foreground">
-                  UPI ID (VPA)
-                </Label>
+                <Label htmlFor="upi-vpa">UPI ID</Label>
                 <Input
                   id="upi-vpa"
                   value={vpa}
                   onChange={(e) => setVpa(e.target.value)}
+                  onBlur={() => setVpaTouched(true)}
                   placeholder="gym@okhdfcbank"
-                  disabled={!canEditSettings || !loaded}
+                  disabled={!canEditSettings}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  aria-invalid={showVpaError}
+                  aria-describedby={showVpaError ? 'upi-vpa-error' : undefined}
                 />
+                {showVpaError ? (
+                  <p
+                    id="upi-vpa-error"
+                    role="alert"
+                    className="text-destructive text-xs"
+                  >
+                    Enter a valid UPI ID, such as gym@okhdfcbank.
+                  </p>
+                ) : null}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="upi-payee" className="text-muted-foreground">
-                  Payee name
-                </Label>
+                <Label htmlFor="upi-payee">Payee name</Label>
                 <Input
                   id="upi-payee"
                   value={payeeName}
                   onChange={(e) => setPayeeName(e.target.value)}
                   placeholder="Iron Fitness"
-                  disabled={!canEditSettings || !loaded}
+                  disabled={!canEditSettings}
                 />
               </div>
             </div>
-            {!canEditSettings ? (
-              <p className="text-muted-foreground text-xs">
-                Only account admins can change UPI details.
-              </p>
-            ) : (
-              <Button
-                onClick={handleSave}
-                disabled={saving || !dirty}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-              >
+            {canEditSettings ? (
+              <Button type="submit" disabled={saving || !dirty}>
                 {saving ? (
                   <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Saving...
+                    <Loader2
+                      className="size-4 animate-spin"
+                      aria-hidden="true"
+                    />
+                    Saving…
                   </>
                 ) : (
-                  'Save'
+                  'Save UPI details'
                 )}
               </Button>
-            )}
-          </>
+            ) : null}
+          </form>
         )}
       </CardContent>
     </Card>

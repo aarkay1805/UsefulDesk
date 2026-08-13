@@ -6,6 +6,10 @@
 
 ---
 
+## Payments settings polish
+
+Settings → Payments now leads with concise UPI and Razorpay setup tasks, uses labelled responsive forms, exposes recoverable loading/error/read-only states, validates UPI IDs inline, and confirms account updates through returned rows. Razorpay status checks now time out with a retry instead of loading forever, while OAuth, provider diagnostics, money movement, and disconnect behavior remain unchanged. Key code: `src/components/settings/deals-settings.tsx` and `razorpay-settings-card.tsx`.
+
 ## Products and services settings polish
 
 Settings → Products & services now uses concise setup copy, a responsive trainer roster, readable archived catalogue items, explicit loading/recovery and empty-trainer states, reset-on-close drafts, account-local money formatting, and clearer permission-safe errors without changing catalogue, trainer-fee, history, or checkout behavior. Key code: `src/components/settings/products-services-settings.tsx`.
