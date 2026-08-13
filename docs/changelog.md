@@ -6,6 +6,10 @@
 
 ---
 
+## Account authority-column hardening
+
+Direct browser/Data API updates can no longer change `accounts.owner_user_id`, `organization_id`, or `legal_entity_id`: an explicit safe-column grant and an invoker trigger protect those fields while audited lifecycle RPCs and backend operations remain available. Production already had the three column grants revoked by branch setup and its owner/legal-entity relationships were consistent; the dedicated trigger now prevents future privilege drift from reopening the boundary. Key code: `supabase/migrations/20260814015059_protect_account_authority_columns.sql` and `src/lib/auth/account-authority-boundary-contract.test.ts`.
+
 ## Account-scoped assignment and notification hardening
 
 Contact, conversation, and follow-up assignees must now be active members of the same branch at the database boundary, including service-role automation writes. Notification creation and RLS enforce the same membership invariant, while staff removal transactionally clears operational assignments and that branch's old notifications. The applied migration repairs any stale references before enabling the guards; production had none. Key code: `supabase/migrations/20260813201114_enforce_account_scoped_assignments.sql` and `src/lib/auth/assignment-membership-boundary-contract.test.ts`.

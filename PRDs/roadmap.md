@@ -114,6 +114,8 @@ Built foundation: **organization-over-accounts multi-branch** — an organizatio
 
 Assignment and notification isolation is also enforced at the database boundary: contact, conversation, and follow-up assignees plus notification recipients must belong to the referenced branch, notification reads require retained membership, and member removal clears branch-local operational ownership and notification rows transactionally.
 
+Account authority fields are function-only at the client boundary: branch admins retain direct edits for ordinary settings, while ownership, organization, and legal-entity changes require authorized lifecycle operations and are guarded by both column privileges and an invoker trigger.
+
 Left: richer legal-entity administration and tax documents · explicit organization export flow · connection-readiness recovery tooling · broader consolidated finance/retention drilldowns · authorized duplicate-person discovery UI · branch transfer workflows. Deliberately deferred: unified live inbox, cross-branch check-in, membership portability, automatic member transfer, shared payment/WhatsApp credentials, and merged member/contact records. Family/household plans remain separate work.
 
 ## Don't build early
