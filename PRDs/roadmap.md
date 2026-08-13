@@ -68,6 +68,8 @@ Engineering maintenance: **verified WhatsApp webhook payloads are now durably an
 
 Engineering maintenance: **public API broadcasts now persist normalized destinations and per-recipient template parameters before returning 202; `after()` is only the first atomic owner-leased drain, the authenticated 15-minute ops sweep reclaims expired work, stale workers cannot complete a newer claim, and the final recipient transition closes the broadcast. Applied migration: `20260814030000_resume_public_api_broadcasts.sql` on Test `hkuqzmgnhhgecqcbwupb` and UsefulDesk `fwqthstqrkrwtaehefks`; both had zero legacy broadcasts to repair**.
 
+Engineering maintenance: **public API contact submissions now preserve every enquiry in the lead timeline, including dedupe hits, while only genuinely new contacts dispatch `new_contact_created`; focused route coverage protects both states, no schema change was required, and Test plus Production had zero existing API-origin contacts to repair**.
+
 Engineering maintenance: **template image-header fetches and automation `send_webhook` steps reject non-public targets and redirects with a ten-second bound while preserving automation log semantics; browser broadcast fan-out has a matching 60/min budget plus bounded 429-only retry; successful login and invitation continuation use a full browser navigation so fresh Supabase cookies reach the proxy**.
 
 Engineering maintenance: **signed-in account access now retries one transient profile lookup failure, distinguishes a valid viewer from unresolved branch/role context, explains the fail-closed read-only state, and offers an in-place Retry path without changing RLS or requiring a migration**.

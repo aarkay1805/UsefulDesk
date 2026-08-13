@@ -8,8 +8,11 @@
 // `created: false`; a new row returns 201 with `created: true`.
 // ============================================================
 
+import { after } from 'next/server';
+
 import { requireApiKey } from '@/lib/auth/api-context';
 import { ok, okList, fail, toApiErrorResponse } from '@/lib/api/v1/respond';
+import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import {
   parseListParams,
   keysetFilter,
@@ -131,6 +134,35 @@ export async function POST(request: Request) {
         auditUserId,
         id,
         body.tags.filter((t): t is string => typeof t === 'string')
+      );
+    }
+
+    // Public API creates are lead captures just like the form and Meta
+    // paths. Record every enquiry, including dedupe hits, so a repeat from
+    // an existing phone number remains visible in the contact timeline.
+    const { error: noteError } = await ctx.supabase
+      .from('contact_notes')
+      .insert({
+        account_id: ctx.accountId,
+        contact_id: id,
+        user_id: auditUserId,
+        note_text: created
+          ? 'New enquiry via the public API.'
+          : 'Existing lead enquired again via the public API.',
+      });
+    if (noteError) {
+      // Match the existing capture-form contract: the contact is already
+      // persisted, so do not invite a retry that can duplicate side effects.
+      console.error('[api/v1/contacts] note insert failed:', noteError);
+    }
+
+    if (created) {
+      after(() =>
+        runAutomationsForTrigger({
+          accountId: ctx.accountId,
+          triggerType: 'new_contact_created',
+          contactId: id,
+        })
       );
     }
 

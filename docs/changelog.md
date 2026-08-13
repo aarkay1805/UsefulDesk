@@ -6,6 +6,10 @@
 
 ---
 
+## Public API lead-capture parity
+
+Public `POST /api/v1/contacts` now records an enquiry note for both newly created and deduplicated contacts, and newly created contacts dispatch the existing `new_contact_created` automation after the response. Dedupe hits remain visible without replaying welcome automation. Focused route coverage locks both states in `src/app/api/v1/contacts/route.test.ts`. No migration was needed: Test and Production both expose the existing non-null `contact_notes` shape to `service_role`, and both had zero `received_via='api'` contacts to repair.
+
 ## Resumable public API broadcasts
 
 Public `POST /api/v1/broadcasts` now persists each normalized destination and its template parameters before returning 202. Its `after()` callback and the authenticated 15-minute ops sweep share an atomic owner-leased recipient drain, so pending sends survive a platform timeout; lease-owner compare-and-set completion rejects stale workers and finalizes the broadcast only after every recipient is terminal. Connector-applied Test and Production schemas passed rollback-only expired-lease reclaim, stale-owner rejection, completion, aggregate-count, client-grant, and payload checks; both databases had zero existing broadcasts, so no repair was required. Key code: `src/lib/whatsapp/broadcast-core.ts`, `src/app/api/v1/broadcasts/cron/route.ts`, and `supabase/migrations/20260814030000_resume_public_api_broadcasts.sql`. Gotcha: deploy the migration before the route and keep `/api/v1/broadcasts/cron` scheduled; a process loss after Meta accepts a send but before its completion RPC remains an unavoidable at-least-once ambiguity.
