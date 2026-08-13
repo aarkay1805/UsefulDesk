@@ -22,6 +22,7 @@ import {
   type OnboardingRawStatus,
   type OnboardingStep,
 } from '@/lib/onboarding/steps';
+import { hasBranchSetupPrerequisite } from '@/lib/branches/setup';
 
 interface OnboardingStatusValue {
   /**
@@ -111,7 +112,8 @@ export function OnboardingProvider({
           .eq('status', 'APPROVED'),
         supabase
           .from('membership_plans')
-          .select('id', { count: 'exact', head: true }),
+          .select('is_active, pricing_options:plan_pricing_options(is_active)')
+          .eq('is_active', true),
         supabase
           .from('memberships')
           .select('id', { count: 'exact', head: true }),
@@ -144,7 +146,10 @@ export function OnboardingProvider({
           config.value.data?.status === 'connected',
         templateApproved:
           template.status === 'fulfilled' && (template.value.count ?? 0) > 0,
-        planCount: count(plans),
+        hasActivePlanPricing:
+          plans.status === 'fulfilled' &&
+          !plans.value.error &&
+          hasBranchSetupPrerequisite(plans.value.data ?? []),
         membershipCount: count(memberships),
         razorpayConnected:
           paymentCredentials.status === 'fulfilled' &&

@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
-import { requireOperationalAccess, toErrorResponse } from '@/lib/auth/account';
+import {
+  ForbiddenError,
+  requireOperationalAccess,
+  toErrorResponse,
+} from '@/lib/auth/account';
+import { requireSameOriginRequest } from '@/lib/auth/csrf';
+import { canEditAuthoredContent } from '@/lib/auth/roles';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { getTemplate } from '@/lib/automations/templates';
 import {
@@ -32,7 +38,11 @@ export async function GET() {
 export async function POST(request: Request) {
   let ctx;
   try {
+    requireSameOriginRequest(request);
     ctx = await requireOperationalAccess();
+    if (!canEditAuthoredContent(ctx.role, ctx.userId, ctx.userId)) {
+      throw new ForbiddenError('You cannot create automations');
+    }
   } catch (err) {
     return toErrorResponse(err);
   }

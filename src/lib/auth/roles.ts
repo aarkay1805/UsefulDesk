@@ -93,6 +93,35 @@ export function canSendMessages(role: AccountRole): boolean {
   return hasMinRole(role, 'agent');
 }
 
+/** Admin / owner: acknowledge that a branch's configuration was reviewed. */
+export function canCompleteBranchSetup(role: AccountRole): boolean {
+  return hasMinRole(role, 'admin');
+}
+
+/** Agent+ may edit or activate only content they authored. */
+export function canEditAuthoredContent(
+  role: AccountRole,
+  actorId: string | null,
+  authorId: string | null
+): boolean {
+  return (
+    hasMinRole(role, 'agent') &&
+    actorId !== null &&
+    authorId !== null &&
+    actorId === authorId
+  );
+}
+
+/** Agent+ authors may delete their own content; admins may moderate any. */
+export function canDeleteAuthoredContent(
+  role: AccountRole,
+  actorId: string | null,
+  authorId: string | null
+): boolean {
+  if (hasMinRole(role, 'admin')) return true;
+  return canEditAuthoredContent(role, actorId, authorId);
+}
+
 /**
  * Viewer: read-only across everything. Provided as a positive
  * predicate so UI gates read naturally (`if (canViewOnly(role))`

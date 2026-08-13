@@ -51,6 +51,35 @@ describe('operational route authorization contract', () => {
   });
 
   it.each([
+    ['automations', 1],
+    ['automations/[id]', 2],
+    ['automations/[id]/duplicate', 1],
+    ['flows', 1],
+    ['flows/[id]', 2],
+    ['flows/[id]/activate', 1],
+  ])(
+    'requires same-origin requests for every %s mutation',
+    (path, expected) => {
+      expect(count(route(path), /requireSameOriginRequest\(request\)/g)).toBe(
+        expected
+      );
+    }
+  );
+
+  it('mirrors authored-content rules before service-role definition writes', () => {
+    expect(route('automations')).toContain('canEditAuthoredContent');
+    expect(route('automations/[id]')).toContain('canEditAuthoredContent');
+    expect(route('automations/[id]')).toContain('canDeleteAuthoredContent');
+    expect(route('automations/[id]/duplicate')).toContain(
+      'canEditAuthoredContent'
+    );
+    expect(route('flows')).toContain('canEditAuthoredContent');
+    expect(route('flows/[id]')).toContain('canEditAuthoredContent');
+    expect(route('flows/[id]')).toContain('canDeleteAuthoredContent');
+    expect(route('flows/[id]/activate')).toContain('canEditAuthoredContent');
+  });
+
+  it.each([
     ['whatsapp/send', 'requireOperationalAccess', 1],
     ['whatsapp/react', 'requireOperationalAccess', 1],
     ['whatsapp/broadcast', 'requireOperationalAccess', 1],

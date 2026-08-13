@@ -5,23 +5,8 @@ import { Building2, Check, ChevronsUpDown, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
+import { BranchCreationDialog } from '@/components/branches/branch-creation-dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,18 +23,9 @@ import {
 } from '@/components/ui/tooltip';
 
 export function BranchSwitcher({ collapsed }: { collapsed: boolean }) {
-  const {
-    account,
-    branches,
-    switchBranch,
-    isOrganizationOwner,
-    organizationId,
-  } = useAuth();
+  const { account, branches, switchBranch, isOrganizationOwner } = useAuth();
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [branchName, setBranchName] = useState('');
-  const [legalEntityId, setLegalEntityId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
 
   if (!account || branches.length === 0) return null;
 
@@ -80,18 +56,6 @@ export function BranchSwitcher({ collapsed }: { collapsed: boolean }) {
         className={cn('size-4 shrink-0', collapsed && 'lg:hidden')}
       />
     </DropdownMenuTrigger>
-  );
-
-  const legalEntities = Array.from(
-    new Map(
-      branches.map((branch) => [
-        branch.legal_entity_id,
-        {
-          id: branch.legal_entity_id,
-          name: branch.legal_entity_name,
-        },
-      ])
-    ).values()
   );
 
   return (
@@ -159,8 +123,6 @@ export function BranchSwitcher({ collapsed }: { collapsed: boolean }) {
             <>
               <DropdownMenuItem
                 onClick={() => {
-                  setBranchName('');
-                  setLegalEntityId(account.legal_entity_id);
                   setCreateOpen(true);
                 }}
               >
@@ -172,110 +134,7 @@ export function BranchSwitcher({ collapsed }: { collapsed: boolean }) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add branch</DialogTitle>
-            <DialogDescription>
-              Creates an isolated branch with setup readiness. WhatsApp,
-              Razorpay, UPI, API keys, and webhook credentials are never copied.
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            className="space-y-4"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              if (
-                creating ||
-                !organizationId ||
-                !legalEntityId ||
-                !branchName.trim()
-              ) {
-                return;
-              }
-              setCreating(true);
-              try {
-                const response = await fetch('/api/branches', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    name: branchName.trim(),
-                    legalEntityId,
-                  }),
-                });
-                const payload = (await response.json().catch(() => ({}))) as {
-                  accountId?: string;
-                  error?: string;
-                };
-                if (!response.ok || !payload.accountId) {
-                  throw new Error(payload.error || 'Could not create branch');
-                }
-                toast.success('Branch created');
-                await switchBranch(payload.accountId);
-              } catch (error) {
-                console.error('[BranchSwitcher] create failed:', error);
-                toast.error(
-                  error instanceof Error
-                    ? error.message
-                    : 'Could not create branch'
-                );
-                setCreating(false);
-              }
-            }}
-          >
-            <div className="space-y-2">
-              <label htmlFor="new-branch-name" className="text-sm font-medium">
-                Branch name
-              </label>
-              <Input
-                id="new-branch-name"
-                value={branchName}
-                onChange={(event) => setBranchName(event.target.value)}
-                maxLength={80}
-                placeholder="Koramangala"
-                autoFocus
-                disabled={creating}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Legal entity</label>
-              <Select
-                value={legalEntityId}
-                onValueChange={(value) => setLegalEntityId(value)}
-                disabled={creating}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select legal entity" />
-                </SelectTrigger>
-                <SelectContent>
-                  {legalEntities.map((entity) => (
-                    <SelectItem key={entity.id} value={entity.id}>
-                      {entity.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCreateOpen(false)}
-                disabled={creating}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={creating || !branchName.trim() || !legalEntityId}
-              >
-                {creating ? <Loader2 className="size-4 animate-spin" /> : null}
-                Create branch
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <BranchCreationDialog open={createOpen} onOpenChange={setCreateOpen} />
     </>
   );
 }

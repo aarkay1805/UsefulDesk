@@ -1,12 +1,15 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
-import { FlowEditorShell } from "@/components/flows/flow-editor-shell";
-import type { FlowRow, FlowNodeRow } from "@/lib/flows/types";
+import { FlowEditorShell } from '@/components/flows/flow-editor-shell';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/use-auth';
+import { canEditAuthoredContent } from '@/lib/auth/roles';
+import type { FlowRow, FlowNodeRow } from '@/lib/flows/types';
 
 /**
  * Flow editor shell.
@@ -23,6 +26,7 @@ import type { FlowRow, FlowNodeRow } from "@/lib/flows/types";
 export default function FlowEditorPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const { user, accountRole, profileLoading } = useAuth();
 
   const [flow, setFlow] = useState<FlowRow | null>(null);
   const [nodes, setNodes] = useState<FlowNodeRow[]>([]);
@@ -62,24 +66,45 @@ export default function FlowEditorPage() {
     };
   }, [params.id]);
 
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
       </div>
     );
   }
   if (notFound || !flow) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3">
-        <p className="text-sm text-muted-foreground">Flow not found.</p>
+        <p className="text-muted-foreground text-sm">Flow not found.</p>
         <button
           type="button"
-          onClick={() => router.push("/flows")}
-          className="text-sm text-primary-text hover:opacity-80"
+          onClick={() => router.push('/flows')}
+          className="text-primary-text text-sm hover:opacity-80"
         >
           ← Back to flows
         </button>
+      </div>
+    );
+  }
+
+  const canEdit = accountRole
+    ? canEditAuthoredContent(accountRole, user?.id ?? null, flow.user_id)
+    : false;
+  if (!canEdit) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+        <p className="text-foreground text-sm font-medium">
+          Only the flow author can edit or activate it.
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.push('/flows')}>
+            Back to flows
+          </Button>
+          <Button onClick={() => router.push(`/flows/${flow.id}/runs`)}>
+            View runs
+          </Button>
+        </div>
       </div>
     );
   }

@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { requireOperationalAccess, toErrorResponse } from '@/lib/auth/account';
+import { requireSameOriginRequest } from '@/lib/auth/csrf';
+import {
+  canDeleteAuthoredContent,
+  canEditAuthoredContent,
+} from '@/lib/auth/roles';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import {
   loadStepsTree,
@@ -47,6 +52,7 @@ export async function PATCH(
   const { id } = await params;
   let ctx;
   try {
+    requireSameOriginRequest(request);
     ctx = await requireOperationalAccess();
   } catch (err) {
     return toErrorResponse(err);
@@ -68,6 +74,14 @@ export async function PATCH(
     .maybeSingle();
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  if (
+    !canEditAuthoredContent(ctx.role, ctx.userId, existing.user_id as string)
+  ) {
+    return NextResponse.json(
+      { error: 'Only the automation author can edit or activate it' },
+      { status: 403 }
+    );
   }
 
   const update: Record<string, unknown> = {};
@@ -134,18 +148,45 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   let ctx;
   try {
+    requireSameOriginRequest(request);
     ctx = await requireOperationalAccess();
   } catch (err) {
     return toErrorResponse(err);
   }
 
-  const { data, error } = await supabaseAdmin()
+  const admin = supabaseAdmin();
+  const { data: existing, error: lookupError } = await admin
+    .from('automations')
+    .select('id, user_id')
+    .eq('id', id)
+    .eq('account_id', ctx.accountId)
+    .maybeSingle();
+  if (lookupError) {
+    console.error('[DELETE /api/automations/:id] lookup failed:', lookupError);
+    return NextResponse.json(
+      { error: 'Failed to delete automation' },
+      { status: 500 }
+    );
+  }
+  if (!existing) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  if (
+    !canDeleteAuthoredContent(ctx.role, ctx.userId, existing.user_id as string)
+  ) {
+    return NextResponse.json(
+      { error: 'Only the automation author or an admin can delete it' },
+      { status: 403 }
+    );
+  }
+
+  const { data, error } = await admin
     .from('automations')
     .delete()
     .eq('id', id)

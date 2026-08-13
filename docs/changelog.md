@@ -6,6 +6,10 @@
 
 ---
 
+## Reviewed branch setup copying
+
+Organization owners now add branches through a four-step wizard with an authoritative preview, stable request replay, and either guaranteed blank creation or selective configuration copying from a reviewed, same-organization, same-currency branch. Membership/pricing, lead setup, reminder timing, automations, and flows use explicit allowlists; identifiers are remapped, unsupported definitions are skipped with exact warnings, copied executable content stays inactive/draft, credentials and operational history are excluded, and every new branch remains in Setup until an admin confirms active plan/pricing and records the review. The three connector-applied migrations passed the rollback-scoped authenticated SQL suite and advisors in Test and Production, and a READY Production deployment serves the application. Key code: `supabase/migrations/20260812193001_organization_branch_setup_copy.sql`, `src/app/api/branches`, `src/components/branches`, and `supabase/tests/organization_branch_setup_copy_acceptance.sql`. Gotcha: Production initially has no reviewed source branches, so blank creation remains the guaranteed fallback.
+
 ## Invoice detail overflow containment
 
 The shared invoice detail dialog now gives its content an explicit shrinkable grid row inside the viewport-height cap, so long invoice and payment histories scroll vertically while the header and footer remain visible. Key code: `src/components/finance/invoice-detail-dialog.tsx`.

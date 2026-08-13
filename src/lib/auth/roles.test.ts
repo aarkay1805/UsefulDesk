@@ -5,6 +5,7 @@ import {
   canDeleteAccount,
   canArchiveBranch,
   canDeleteAnyLead,
+  canDeleteAuthoredContent,
   canDeleteAnyNote,
   canDeleteLead,
   canDeleteMember,
@@ -24,6 +25,8 @@ import {
   canManagePaymentLinks,
   canConfigurePaymentGateway,
   canEditSettings,
+  canEditAuthoredContent,
+  canCompleteBranchSetup,
   canManageMembers,
   canReassignLeadsDirectly,
   canRequestLeadTransfer,
@@ -132,6 +135,31 @@ describe('capability predicates', () => {
     expect(canSendMessages('admin')).toBe(true);
     expect(canSendMessages('agent')).toBe(true);
     expect(canSendMessages('viewer')).toBe(false);
+  });
+
+  it('canCompleteBranchSetup: admin+ only', () => {
+    expect(canCompleteBranchSetup('owner')).toBe(true);
+    expect(canCompleteBranchSetup('admin')).toBe(true);
+    expect(canCompleteBranchSetup('agent')).toBe(false);
+    expect(canCompleteBranchSetup('viewer')).toBe(false);
+  });
+
+  describe('authored content', () => {
+    it('allows agent+ authors, but not viewers or other authors, to edit', () => {
+      expect(canEditAuthoredContent('agent', 'me', 'me')).toBe(true);
+      expect(canEditAuthoredContent('admin', 'me', 'me')).toBe(true);
+      expect(canEditAuthoredContent('agent', 'me', 'other')).toBe(false);
+      expect(canEditAuthoredContent('viewer', 'me', 'me')).toBe(false);
+      expect(canEditAuthoredContent('owner', null, null)).toBe(false);
+    });
+
+    it('allows admins to delete any authored content and agents only their own', () => {
+      expect(canDeleteAuthoredContent('admin', 'me', 'other')).toBe(true);
+      expect(canDeleteAuthoredContent('owner', null, null)).toBe(true);
+      expect(canDeleteAuthoredContent('agent', 'me', 'me')).toBe(true);
+      expect(canDeleteAuthoredContent('agent', 'me', 'other')).toBe(false);
+      expect(canDeleteAuthoredContent('viewer', 'me', 'me')).toBe(false);
+    });
   });
 
   it('canCorrectPayments: admin+ only', () => {

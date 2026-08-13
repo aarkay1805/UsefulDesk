@@ -9,7 +9,7 @@ const h = vi.hoisted(() => ({
     // Account rows in lead_field_options (field='status'). Empty array
     // = account uses the built-in defaults, mirroring production.
     leadFieldOptions: [] as { key: string }[],
-    // Account staff roster (profiles reads — assign_lead round-robin).
+    // Active branch staff roster (account_memberships reads).
     roster: [] as { user_id: string }[],
     // Per-teammate lead-load counts (assign_lead least-loaded pick).
     assignedCounts: {} as Record<string, number>,
@@ -72,7 +72,7 @@ vi.mock('./admin-client', () => {
     if (table === 'lead_field_options') {
       return { data: state.leadFieldOptions, error: null };
     }
-    if (table === 'profiles') {
+    if (table === 'account_memberships') {
       return { data: state.roster, error: null };
     }
     if (table === 'follow_ups') {
@@ -127,6 +127,7 @@ vi.mock('./admin-client', () => {
       delete: () => ((ops.type = 'delete'), b),
       upsert: (p: unknown) => ((ops.type = 'upsert'), (ops.payload = p), b),
       eq: (k: string, v: unknown) => (ops.filters.push(['eq', k, v]), b),
+      in: (k: string, v: unknown) => (ops.filters.push(['in', k, v]), b),
       gte: () => b,
       is: () => b,
       order: () => b,
@@ -316,9 +317,7 @@ describe('triggerMatches — tag_added', () => {
   }
 
   it('matches only the exact tag id', () => {
-    expect(triggerMatches(automation('tag-a'), { tag_id: 'tag-a' })).toBe(
-      true
-    );
+    expect(triggerMatches(automation('tag-a'), { tag_id: 'tag-a' })).toBe(true);
     expect(triggerMatches(automation('tag-a'), { tag_id: 'tag-ab' })).toBe(
       false
     );
@@ -455,9 +454,7 @@ describe('send_webhook — SSRF guard (GHSA-8jqh-598v-rfxc)', () => {
     vi.stubGlobal('fetch', fetchSpy);
     h.state.owned = { id: 'c1' };
     h.state.automations = [automationWithUpdateStep()];
-    h.state.steps = [
-      webhookStep('http://169.254.169.254/latest/meta-data/'),
-    ];
+    h.state.steps = [webhookStep('http://169.254.169.254/latest/meta-data/')];
 
     await runAutomationsForTrigger({
       accountId: ACCOUNT,
@@ -715,6 +712,8 @@ describe('assign_lead', () => {
     expect(
       (h.state.updateCalls[0].payload as { assigned_to: string }).assigned_to
     ).toBe('u-b');
+    expect(h.state.fromCalls).toContain('account_memberships');
+    expect(h.state.fromCalls).not.toContain('profiles');
   });
 
   it('round-robin breaks ties deterministically (first by sorted user_id)', async () => {

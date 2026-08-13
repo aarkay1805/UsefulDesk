@@ -15,6 +15,13 @@ vi.mock('@/lib/auth/account', () => ({
 }));
 
 vi.mock('@/lib/automations/admin-client', () => ({ supabaseAdmin }));
+vi.mock('@/lib/auth/csrf', () => ({
+  requireSameOriginRequest: (request: Request) => {
+    if (!request.headers.get('origin')) {
+      throw { status: 403, message: 'Invalid request origin' };
+    }
+  },
+}));
 
 import { POST } from './route';
 
@@ -77,9 +84,18 @@ function makeAdmin() {
 }
 
 function duplicate() {
-  return POST(new Request('http://localhost'), {
-    params: Promise.resolve({ id: original.id }),
-  });
+  return POST(
+    new Request('http://localhost/api/automations/automation-1/duplicate', {
+      method: 'POST',
+      headers: {
+        origin: 'http://localhost',
+        'sec-fetch-site': 'same-origin',
+      },
+    }),
+    {
+      params: Promise.resolve({ id: original.id }),
+    }
+  );
 }
 
 describe('POST /api/automations/[id]/duplicate tenancy', () => {
@@ -100,6 +116,18 @@ describe('POST /api/automations/[id]/duplicate tenancy', () => {
 
     expect(response.status).toBe(404);
     expect(admin.inserts).toHaveLength(0);
+  });
+
+  it('rejects an originless browser mutation before authorization', async () => {
+    const response = await POST(
+      new Request('http://localhost/api/automations/automation-1/duplicate', {
+        method: 'POST',
+      }),
+      { params: Promise.resolve({ id: original.id }) }
+    );
+
+    expect(response.status).toBe(403);
+    expect(requireOperationalAccess).not.toHaveBeenCalled();
   });
 
   it('lets an authorized current-tenant agent create the copy', async () => {

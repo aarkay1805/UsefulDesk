@@ -1,15 +1,25 @@
 import { NextResponse } from 'next/server';
-import { requireOperationalAccess, toErrorResponse } from '@/lib/auth/account';
+import {
+  ForbiddenError,
+  requireOperationalAccess,
+  toErrorResponse,
+} from '@/lib/auth/account';
+import { requireSameOriginRequest } from '@/lib/auth/csrf';
+import { canEditAuthoredContent } from '@/lib/auth/roles';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   let ctx;
   try {
+    requireSameOriginRequest(request);
     ctx = await requireOperationalAccess();
+    if (!canEditAuthoredContent(ctx.role, ctx.userId, ctx.userId)) {
+      throw new ForbiddenError('You cannot duplicate automations');
+    }
   } catch (err) {
     return toErrorResponse(err);
   }

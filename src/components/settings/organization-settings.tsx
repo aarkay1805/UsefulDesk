@@ -3,6 +3,8 @@
 import { Check, Building2 } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
+import { BranchSetupReviewCard } from '@/components/branches/branch-setup-review-card';
+import { BranchSetupStatusBadge } from '@/components/branches/branch-setup-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { BranchActions } from './branch-actions';
@@ -37,6 +39,8 @@ export function OrganizationSettings() {
         title="Organization & branches"
         description="Review branch access, restore archived branches, or manage branch and organization lifecycle actions."
       />
+
+      <BranchSetupReviewCard className="mb-4" />
 
       <Card>
         <CardContent className="p-4 sm:p-5">
@@ -74,6 +78,10 @@ export function OrganizationSettings() {
                   <Badge variant={branchStatusVariant(branch.branch_status)}>
                     {branchStatusLabel(branch.branch_status)}
                   </Badge>
+                  <BranchSetupStatusBadge
+                    readinessState={branch.readiness_state}
+                    setupReviewedAt={branch.setup_reviewed_at}
+                  />
                   {selected ? (
                     <Check
                       className="text-primary-text size-4 shrink-0"

@@ -4,20 +4,15 @@
 // makes the completion rules unit-testable.
 
 export type OnboardingStepId =
-  | "whatsapp"
-  | "template"
-  | "plan"
-  | "member"
-  | "autopay"
-  | "payment"
-  | "staff";
+  'whatsapp' | 'template' | 'plan' | 'member' | 'autopay' | 'payment' | 'staff';
 
-export type OnboardingStepGroup = "messaging" | "gym" | "payments";
+export type OnboardingStepGroup = 'messaging' | 'gym' | 'payments';
 
 export interface OnboardingRawStatus {
   whatsappConnected: boolean;
   templateApproved: boolean;
-  planCount: number;
+  /** Exact setup-completion prerequisite: an active plan with active pricing. */
+  hasActivePlanPricing: boolean;
   membershipCount: number;
   razorpayConnected: boolean;
   paidPaymentCount: number;
@@ -62,59 +57,60 @@ interface StepDefinition {
 
 const STEP_DEFINITIONS: StepDefinition[] = [
   {
-    id: "whatsapp",
-    title: "Connect WhatsApp",
-    subtitle: "Link your WhatsApp Business number so you can message members",
-    href: "/settings?tab=whatsapp",
-    group: "messaging",
+    id: 'whatsapp',
+    title: 'Connect WhatsApp',
+    subtitle: 'Link your WhatsApp Business number so you can message members',
+    href: '/settings?tab=whatsapp',
+    group: 'messaging',
     isDone: (raw) => raw.whatsappConnected,
   },
   {
-    id: "template",
-    title: "Approve the renewal reminder template",
+    id: 'template',
+    title: 'Approve the renewal reminder template',
     subtitle: "One-tap renewal reminders need Meta's approval once",
-    href: "/settings?tab=templates",
-    group: "messaging",
+    href: '/settings?tab=templates',
+    group: 'messaging',
     isDone: (raw) => raw.templateApproved,
   },
   {
-    id: "plan",
-    title: "Create your first membership plan",
-    subtitle: "Set up the plans and pricing your gym sells",
-    href: "/settings?tab=plans",
-    group: "gym",
-    isDone: (raw) => raw.planCount > 0,
+    id: 'plan',
+    title: 'Create your first membership plan',
+    subtitle: 'Set up the plans and pricing your gym sells',
+    href: '/settings?tab=plans',
+    group: 'gym',
+    isDone: (raw) => raw.hasActivePlanPricing,
   },
   {
-    id: "member",
-    title: "Add your first member",
-    subtitle: "Bring your existing members into UsefulDesk",
-    href: "/members",
-    group: "gym",
+    id: 'member',
+    title: 'Add your first member',
+    subtitle: 'Bring your existing members into UsefulDesk',
+    href: '/members',
+    group: 'gym',
     isDone: (raw) => raw.membershipCount > 0,
   },
   {
-    id: "staff",
-    title: "Invite your staff",
-    subtitle: "Give trainers and front-desk staff their own access",
-    href: "/settings?tab=members",
-    group: "gym",
+    id: 'staff',
+    title: 'Invite your staff',
+    subtitle: 'Give trainers and front-desk staff their own access',
+    href: '/settings?tab=members',
+    group: 'gym',
     isDone: (raw) => (raw.teamSize ?? 0) > 1 || (raw.pendingInvites ?? 0) > 0,
   },
   {
-    id: "autopay",
-    title: "Set up auto-pay for members",
-    subtitle: "Connect your Razorpay account to collect membership payments automatically",
-    href: "/settings?tab=deals",
-    group: "payments",
+    id: 'autopay',
+    title: 'Set up auto-pay for members',
+    subtitle:
+      'Connect your Razorpay account to collect membership payments automatically',
+    href: '/settings?tab=deals',
+    group: 'payments',
     isDone: (raw) => raw.razorpayConnected,
   },
   {
-    id: "payment",
-    title: "Record your first payment",
+    id: 'payment',
+    title: 'Record your first payment',
     subtitle: "Log a payment from a member's profile to track collections",
-    href: "/members",
-    group: "payments",
+    href: '/members',
+    group: 'payments',
     isDone: (raw) => raw.paidPaymentCount > 0,
   },
 ];
@@ -122,7 +118,7 @@ const STEP_DEFINITIONS: StepDefinition[] = [
 export const ONBOARDING_STEP_COUNT = STEP_DEFINITIONS.length;
 
 export function deriveOnboardingSteps(
-  raw: OnboardingRawStatus,
+  raw: OnboardingRawStatus
 ): OnboardingProgress {
   const steps = STEP_DEFINITIONS.map(({ isDone, ...step }) => ({
     ...step,

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireOperationalAccess, toErrorResponse } from '@/lib/auth/account';
+import { requireSameOriginRequest } from '@/lib/auth/csrf';
+import { canEditAuthoredContent } from '@/lib/auth/roles';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { validateFlowForActivation } from '@/lib/flows/validate';
 
@@ -25,6 +27,7 @@ export async function POST(
 
   let ctx;
   try {
+    requireSameOriginRequest(request);
     ctx = await requireOperationalAccess();
   } catch (err) {
     return toErrorResponse(err);
@@ -44,12 +47,18 @@ export async function POST(
   // Current-account membership via RLS — caller's client.
   const { data: existing } = await ctx.supabase
     .from('flows')
-    .select('id')
+    .select('id, user_id')
     .eq('id', id)
     .eq('account_id', ctx.accountId)
     .maybeSingle();
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  if (!canEditAuthoredContent(ctx.role, ctx.userId, existing.user_id)) {
+    return NextResponse.json(
+      { error: 'Only the flow author can change its status' },
+      { status: 403 }
+    );
   }
 
   const admin = supabaseAdmin();

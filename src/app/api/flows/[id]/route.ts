@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { requireOperationalAccess, toErrorResponse } from '@/lib/auth/account';
+import { requireSameOriginRequest } from '@/lib/auth/csrf';
+import {
+  canDeleteAuthoredContent,
+  canEditAuthoredContent,
+} from '@/lib/auth/roles';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 
 /**
@@ -93,18 +98,25 @@ export async function PUT(
   const { id } = await context.params;
   let ctx;
   try {
+    requireSameOriginRequest(request);
     ctx = await requireOperationalAccess();
   } catch (err) {
     return toErrorResponse(err);
   }
   const { data: existing } = await ctx.supabase
     .from('flows')
-    .select('id')
+    .select('id, user_id')
     .eq('id', id)
     .eq('account_id', ctx.accountId)
     .maybeSingle();
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  if (!canEditAuthoredContent(ctx.role, ctx.userId, existing.user_id)) {
+    return NextResponse.json(
+      { error: 'Only the flow author can edit it' },
+      { status: 403 }
+    );
   }
 
   const body = (await request.json().catch(() => null)) as PutBody | null;
@@ -192,24 +204,31 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params;
   let ctx;
   try {
+    requireSameOriginRequest(request);
     ctx = await requireOperationalAccess();
   } catch (err) {
     return toErrorResponse(err);
   }
   const { data: existing } = await ctx.supabase
     .from('flows')
-    .select('id')
+    .select('id, user_id')
     .eq('id', id)
     .eq('account_id', ctx.accountId)
     .maybeSingle();
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  if (!canDeleteAuthoredContent(ctx.role, ctx.userId, existing.user_id)) {
+    return NextResponse.json(
+      { error: 'Only the flow author or an admin can delete it' },
+      { status: 403 }
+    );
   }
 
   // CASCADE on flow_nodes / flow_runs / flow_run_events handles the

@@ -92,6 +92,8 @@ export interface AccountSummary {
   legal_entity_id: string;
   branch_status: 'active' | 'read_only' | 'archived';
   readiness_state: 'setup' | 'ready' | 'attention';
+  setup_reviewed_at: string | null;
+  setup_reviewed_by: string | null;
 }
 
 export interface BranchAccount {
@@ -107,6 +109,8 @@ export interface BranchAccount {
   default_currency: string;
   timezone: string;
   is_organization_owner: boolean;
+  setup_reviewed_at: string | null;
+  setup_reviewed_by: string | null;
 }
 
 interface ProfileRow {
@@ -396,7 +400,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // 055; every field is narrowed below / by
             // resolveAccountLocale for older schemas where it reads null.
             .select(
-              'id, name, created_at, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system, onboarding_dismissed_at, organization_id, legal_entity_id, branch_status, readiness_state'
+              'id, name, created_at, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system, onboarding_dismissed_at, organization_id, legal_entity_id, branch_status, readiness_state, setup_reviewed_at, setup_reviewed_by'
             )
             .eq('id', selectedBranch.account_id)
             .maybeSingle();
@@ -426,6 +430,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               legal_entity_id: account.legal_entity_id,
               branch_status: account.branch_status,
               readiness_state: account.readiness_state,
+              setup_reviewed_at: account.setup_reviewed_at ?? null,
+              setup_reviewed_by: account.setup_reviewed_by ?? null,
             };
           }
         }

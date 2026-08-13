@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { requireOperationalAccess, toErrorResponse } from '@/lib/auth/account';
+import {
+  ForbiddenError,
+  requireOperationalAccess,
+  toErrorResponse,
+} from '@/lib/auth/account';
+import { requireSameOriginRequest } from '@/lib/auth/csrf';
+import { canEditAuthoredContent } from '@/lib/auth/roles';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { getFlowTemplate } from '@/lib/flows/templates';
 
@@ -52,7 +58,11 @@ export async function GET() {
 export async function POST(request: Request) {
   let ctx;
   try {
+    requireSameOriginRequest(request);
     ctx = await requireOperationalAccess();
+    if (!canEditAuthoredContent(ctx.role, ctx.userId, ctx.userId)) {
+      throw new ForbiddenError('You cannot create flows');
+    }
   } catch (err) {
     return toErrorResponse(err);
   }

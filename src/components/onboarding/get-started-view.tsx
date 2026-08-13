@@ -19,6 +19,7 @@ import {
 
 import { useAuth } from '@/hooks/use-auth';
 import { useOnboardingStatus } from '@/hooks/use-onboarding-status';
+import { BranchSetupReviewCard } from '@/components/branches/branch-setup-review-card';
 import type { OnboardingStep, OnboardingStepId } from '@/lib/onboarding/steps';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -47,25 +48,25 @@ function StepRow({ step }: { step: OnboardingStep }) {
     <Link
       href={step.href}
       className={cn(
-        'group flex items-start gap-3.5 rounded-xl border border-border bg-card p-4 transition-colors',
-        'hover:border-border-hover',
+        'group border-border bg-card flex items-start gap-3.5 rounded-xl border p-4 transition-colors',
+        'hover:border-border-hover'
       )}
     >
       {/* Neutral by design: a brand accent here can collide with the
           emerald done-state on the trailing tick. */}
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
+      <span className="bg-muted text-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
         <Icon className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
         <span
           className={cn(
             'block text-sm font-semibold',
-            step.done ? 'text-muted-foreground' : 'text-foreground',
+            step.done ? 'text-muted-foreground' : 'text-foreground'
           )}
         >
           {step.title}
         </span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">
+        <span className="text-muted-foreground mt-0.5 block text-xs">
           {step.subtitle}
         </span>
       </span>
@@ -74,7 +75,7 @@ function StepRow({ step }: { step: OnboardingStep }) {
           <Check className="size-3.5" strokeWidth={3} />
         </span>
       ) : (
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+        <ChevronRight className="text-muted-foreground size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
       )}
     </Link>
   );
@@ -86,7 +87,7 @@ export function GetStartedView() {
 
   if (profileLoading) {
     return (
-      <div className="flex items-center justify-center py-24 text-muted-foreground">
+      <div className="text-muted-foreground flex items-center justify-center py-24">
         <Loader2 className="size-5 animate-spin" />
       </div>
     );
@@ -94,20 +95,28 @@ export function GetStartedView() {
 
   if (!canEditSettings) {
     return (
-      <Card className="mx-auto mt-8 max-w-lg items-center gap-3 px-6 py-8 text-center">
-        <span className="flex size-11 items-center justify-center rounded-lg bg-primary-soft text-primary-text">
-          <Rocket className="size-5" />
-        </span>
-        <div className="text-base font-semibold text-foreground">
-          Setup is handled by admins
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Ask an admin or the account owner to finish setting up this gym.
-        </p>
-        <Button variant="outline" render={<Link href="/dashboard" />}>
-          Go to dashboard
-        </Button>
-      </Card>
+      <section className="mx-auto max-w-3xl space-y-4">
+        <BranchSetupReviewCard />
+        <Card className="items-center gap-3 px-6 py-8 text-center">
+          <span className="bg-primary-soft text-primary-text flex size-11 items-center justify-center rounded-lg">
+            <Rocket className="size-5" />
+          </span>
+          <div className="text-foreground text-base font-semibold">
+            Setup is handled by admins
+          </div>
+          <p className="text-muted-foreground text-sm">
+            Ask an admin or the account owner to finish the seven-step setup
+            guide and review this branch’s configuration.
+          </p>
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link href="/dashboard" />}
+          >
+            Go to dashboard
+          </Button>
+        </Card>
+      </section>
     );
   }
 
@@ -116,27 +125,35 @@ export function GetStartedView() {
   const dismissed = account?.onboarding_dismissed_at != null;
   if (dismissed || onboarding.allDone) {
     return (
-      <Card className="mx-auto mt-8 max-w-lg items-center gap-3 px-6 py-8 text-center animate-in fade-in-50 duration-200">
-        <span className="flex size-11 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-foreground">
-          <CheckCircle2 className="size-5" />
-        </span>
-        <div className="text-base font-semibold text-foreground">
-          You&apos;re all set
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Setup is done — renewals, reminders and payments are ready to run.
-          You can always fine-tune things in Settings.
-        </p>
-        <Button variant="outline" render={<Link href="/dashboard" />}>
-          Go to dashboard
-        </Button>
-      </Card>
+      <section className="animate-in fade-in-50 mx-auto max-w-3xl space-y-4 duration-200">
+        <BranchSetupReviewCard />
+        <Card className="items-center gap-3 px-6 py-8 text-center">
+          <span className="text-emerald-foreground flex size-11 items-center justify-center rounded-lg bg-emerald-500/10">
+            <CheckCircle2 className="size-5" />
+          </span>
+          <div className="text-foreground text-base font-semibold">
+            Core checklist complete
+          </div>
+          <p className="text-muted-foreground text-sm">
+            The seven-step checklist is complete. Review WhatsApp, payments,
+            reminders, templates, and other integrations separately before
+            relying on them operationally.
+          </p>
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link href="/dashboard" />}
+          >
+            Go to dashboard
+          </Button>
+        </Card>
+      </section>
     );
   }
 
   if (onboarding.loading) {
     return (
-      <div className="flex items-center justify-center py-24 text-muted-foreground">
+      <div className="text-muted-foreground flex items-center justify-center py-24">
         <Loader2 className="size-5 animate-spin" />
       </div>
     );
@@ -146,12 +163,14 @@ export function GetStartedView() {
   const RecommendedIcon = recommended ? STEP_ICONS[recommended.id] : Rocket;
 
   return (
-    <section className="mx-auto max-w-3xl animate-in fade-in-50 duration-200">
+    <section className="animate-in fade-in-50 mx-auto max-w-3xl duration-200">
+      <BranchSetupReviewCard className="mb-4" />
+
       {/* Progress header */}
       <Card size="sm" className="gap-2 px-4 py-3">
         <div className="flex items-center justify-between text-sm">
-          <span className="flex items-center gap-2 font-semibold text-foreground">
-            <Rocket className="size-4 text-primary-text" /> Setup guide
+          <span className="text-foreground flex items-center gap-2 font-semibold">
+            <Rocket className="text-primary-text size-4" /> Setup guide
           </span>
           <span className="text-muted-foreground tabular-nums">
             {completedCount}/{total}
@@ -163,22 +182,25 @@ export function GetStartedView() {
       {/* Recommended next action */}
       {recommended && (
         <Card className="mt-3 px-5 py-5">
-          <div className="text-xs font-medium text-muted-foreground">
+          <div className="text-muted-foreground text-xs font-medium">
             We recommend this action next
           </div>
           <div className="flex flex-wrap items-center gap-4">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-text">
+            <span className="bg-primary-soft text-primary-text flex size-11 shrink-0 items-center justify-center rounded-lg">
               <RecommendedIcon className="size-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-base font-semibold text-foreground">
+              <div className="text-foreground text-base font-semibold">
                 {recommended.title}
               </div>
-              <div className="mt-0.5 text-sm text-muted-foreground">
+              <div className="text-muted-foreground mt-0.5 text-sm">
                 {recommended.subtitle}
               </div>
             </div>
-            <Button render={<Link href={recommended.href} />}>
+            <Button
+              nativeButton={false}
+              render={<Link href={recommended.href} />}
+            >
               Set up <ArrowRight data-icon="inline-end" />
             </Button>
           </div>
@@ -188,7 +210,7 @@ export function GetStartedView() {
       {/* Setup actions, grouped */}
       {GROUP_LABELS.map(({ key, label }) => (
         <div key={key} className="mt-5">
-          <h2 className="px-1 text-sm font-semibold text-foreground">
+          <h2 className="text-foreground px-1 text-sm font-semibold">
             {label}
           </h2>
           <div className="mt-2 flex flex-col gap-2">

@@ -23,7 +23,10 @@ import { todayInTz } from '@/lib/locale/format';
 import { DEFAULT_FIELD_OPTIONS } from '@/lib/leads/field-options';
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
 import { addContactTagIfAbsent } from '@/lib/contacts/tag-write';
-import { MAX_TAG_CHAIN_DEPTH, getTagChainDepth } from '@/lib/contacts/tag-chain';
+import {
+  MAX_TAG_CHAIN_DEPTH,
+  getTagChainDepth,
+} from '@/lib/contacts/tag-chain';
 import { supabaseAdmin } from './admin-client';
 import { engineSendText, engineSendTemplate } from './meta-send';
 
@@ -481,15 +484,17 @@ async function runStep(
         throw new Error('assign_conversation needs a contact');
       let agentId = cfg.agent_id;
       if (cfg.mode === 'round_robin') {
-        // Pick any member of the account. The existing implementation
-        // only ever returned the automation's author; preserving that
-        // shape until a real round-robin algorithm replaces it.
-        const { data: profiles } = await db
-          .from('profiles')
+        // Branch memberships are authoritative. profiles.account_id is only
+        // the user's legacy/default branch and omits teammates whose default
+        // currently points at another branch.
+        const { data: memberships } = await db
+          .from('account_memberships')
           .select('user_id')
           .eq('account_id', args.automation.account_id)
+          .in('role', ['owner', 'admin', 'agent'])
+          .order('user_id')
           .limit(1);
-        agentId = profiles?.[0]?.user_id;
+        agentId = memberships?.[0]?.user_id;
       }
       if (!agentId) return 'no agent resolved';
       await db
@@ -529,16 +534,14 @@ async function runStep(
         // Upsert on the table's UNIQUE(contact_id, custom_field_id) so repeated
         // runs overwrite rather than duplicate. Tenancy is enforced above and,
         // for the contact side, by the entry-point ownership guard.
-        await db
-          .from('contact_custom_values')
-          .upsert(
-            {
-              contact_id: args.contactId,
-              custom_field_id: customFieldId,
-              value,
-            },
-            { onConflict: 'contact_id,custom_field_id' }
-          );
+        await db.from('contact_custom_values').upsert(
+          {
+            contact_id: args.contactId,
+            custom_field_id: customFieldId,
+            value,
+          },
+          { onConflict: 'contact_id,custom_field_id' }
+        );
         return `custom field updated`;
       }
 
@@ -624,12 +627,13 @@ async function runStep(
         // batch onto one teammate. Ties break by user_id (sorted), so
         // the pick is deterministic. Roster sizes are tiny (gym staff),
         // so one head-count per teammate is cheap.
-        const { data: profiles } = await db
-          .from('profiles')
+        const { data: memberships } = await db
+          .from('account_memberships')
           .select('user_id')
           .eq('account_id', args.automation.account_id)
+          .in('role', ['owner', 'admin', 'agent'])
           .order('user_id');
-        const roster = (profiles ?? []) as { user_id: string }[];
+        const roster = (memberships ?? []) as { user_id: string }[];
         if (roster.length === 0) return 'no agent resolved';
         const loads = await Promise.all(
           roster.map((r) =>
@@ -859,9 +863,7 @@ export function triggerMatches(
     const haystack = cfg.case_sensitive ? text : text.toLowerCase();
     return cfg.keywords.some((raw) => {
       const k = cfg.case_sensitive ? raw : raw.toLowerCase();
-      return cfg.match_type === 'exact'
-        ? haystack === k
-        : haystack.includes(k);
+      return cfg.match_type === 'exact' ? haystack === k : haystack.includes(k);
     });
   }
 
