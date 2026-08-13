@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -8,6 +8,19 @@ const read = (path: string) =>
 const migration = read(
   'supabase/migrations/20260804233201_harden_razorpay_recurring_charges.sql'
 );
+const effectiveAllocatorMigration = readdirSync(
+  resolve(process.cwd(), 'supabase/migrations')
+)
+  .filter((name) => name.endsWith('.sql'))
+  .sort()
+  .map((name) => ({
+    name,
+    sql: read(`supabase/migrations/${name}`),
+  }))
+  .filter(({ sql }) =>
+    sql.includes('CREATE OR REPLACE FUNCTION public.allocate_invoice_payment()')
+  )
+  .at(-1);
 const mandateRoute = read('src/app/api/payments/razorpay/mandate/route.ts');
 const webhookProcessor = read('src/lib/payments/razorpay-webhook-processor.ts');
 const connectionRoute = read(
@@ -87,14 +100,27 @@ describe('Razorpay recurring payment hardening contract', () => {
   });
 
   it('keeps manual allocation proportional while restricting auto-pay', () => {
-    expect(migration).toMatch(
+    expect(effectiveAllocatorMigration).toBeDefined();
+    expect(effectiveAllocatorMigration!.sql).toMatch(
       /IF NEW\.source = 'auto' THEN[\s\S]*period\.period_end = NEW\.period_end/
     );
-    expect(migration).toMatch(
-      /NEW\.source <> 'auto' OR line\.id = v_auto_line_id/
-    );
-    expect(migration).toMatch(
+    expect(
+      effectiveAllocatorMigration!.sql.match(
+        /NEW\.source <> 'auto' OR line\.id = v_auto_line_id/g
+      )
+    ).toHaveLength(2);
+    expect(effectiveAllocatorMigration!.sql).toMatch(
       /v_payment_cents \* balance_cents \/ v_invoice_cents/
+    );
+  });
+
+  it('keeps the effective allocator refund-aware for its eligible lines', () => {
+    expect(effectiveAllocatorMigration).toBeDefined();
+    expect(effectiveAllocatorMigration!.sql).toMatch(
+      /FROM public\.invoice_line_balances[\s\S]*collectible_balance > 0/
+    );
+    expect(effectiveAllocatorMigration!.sql).toMatch(
+      /SELECT SUM\(balance_cents\)\s+INTO v_invoice_cents\s+FROM line_balance/
     );
   });
 });

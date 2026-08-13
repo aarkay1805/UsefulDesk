@@ -6,6 +6,10 @@
 
 ---
 
+## AutoPay invoice-line allocation regression repair
+
+The effective refund-aware payment allocator once again restricts `source='auto'` debits to the invoice line addressed by the payment's membership period, while manual and Payment Link payments retain generic proportional allocation and refund-adjusted collectible balances. The regression began when the full-refund migration replaced the earlier source-aware function; future contract coverage now resolves the last migrated definition rather than an obsolete historical copy. The connector-applied Test and Production schemas match, and neither database had an unrelated historical AutoPay allocation to repair. Key code: `supabase/migrations/20260814020500_restore_autopay_invoice_line_allocation.sql` and `src/lib/payments/razorpay-recurring-safety-contract.test.ts`.
+
 ## Account authority-column hardening
 
 Direct browser/Data API updates can no longer change `accounts.owner_user_id`, `organization_id`, or `legal_entity_id`: an explicit safe-column grant and an invoker trigger protect those fields while audited lifecycle RPCs and backend operations remain available. Production already had the three column grants revoked by branch setup and its owner/legal-entity relationships were consistent; the dedicated trigger now prevents future privilege drift from reopening the boundary. Key code: `supabase/migrations/20260814015059_protect_account_authority_columns.sql` and `src/lib/auth/account-authority-boundary-contract.test.ts`.
