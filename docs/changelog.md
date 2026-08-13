@@ -6,6 +6,10 @@
 
 ---
 
+## AutoPay membership-lifecycle containment
+
+Membership renew/edit/plan-change/freeze/cancel/reactivate/delete operations now fail at the database boundary while a Razorpay mandate is `creating`, `pending`, `active`, `paused`, or `orphaned`, and the member profile disables those same actions with a provider-resolution reason. The boundary recognizes both direct authenticated writes and authenticated callers retained through an RPC execution context. Delayed provider callbacks cannot switch a frozen, cancelled, or trial membership to auto collection or active state; an AutoPay insert against one of those states is rejected inside the existing charge transaction and preserved as a gateway exception. This is containment, not provider pause/cancel/rebind support: the remote subscription must become terminal before local lifecycle work resumes. The connector-applied Test and Production schemas match; Production had no mandates and Test had only two terminal mandates, so no data repair was required. Key code: `supabase/migrations/20260814021023_block_membership_mutations_with_live_mandates.sql`, `supabase/migrations/20260814022000_cover_security_definer_membership_deletion.sql`, `src/lib/payments/razorpay-membership-lifecycle-contract.test.ts`, and `src/components/members/member-detail-view.tsx`.
+
 ## AutoPay invoice-line allocation regression repair
 
 The effective refund-aware payment allocator once again restricts `source='auto'` debits to the invoice line addressed by the payment's membership period, while manual and Payment Link payments retain generic proportional allocation and refund-adjusted collectible balances. The regression began when the full-refund migration replaced the earlier source-aware function; future contract coverage now resolves the last migrated definition rather than an obsolete historical copy. The connector-applied Test and Production schemas match, and neither database had an unrelated historical AutoPay allocation to repair. Key code: `supabase/migrations/20260814020500_restore_autopay_invoice_line_allocation.sql` and `src/lib/payments/razorpay-recurring-safety-contract.test.ts`.

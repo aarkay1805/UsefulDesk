@@ -690,6 +690,9 @@ export function MemberDetailView({
     !membership.is_trial &&
     isRenewalChaseable(membership.plan) &&
     !mandate;
+  const membershipLifecycleBlockReason = mandate
+    ? "Resolve this member's AutoPay mandate before changing this membership."
+    : null;
 
   // Usage vs limit / sessions left (062) — the Attendance section line.
   const usagePlan = membership?.plan ?? null;
@@ -1018,11 +1021,15 @@ export function MemberDetailView({
                                   !membership.is_trial && (
                                     <DropdownMenuItem
                                       onClick={() => setRenewOpen(true)}
-                                      disabled={!canSendMessages}
+                                      disabled={
+                                        !canSendMessages ||
+                                        !!membershipLifecycleBlockReason
+                                      }
                                       title={
-                                        !canSendMessages
+                                        membershipLifecycleBlockReason ??
+                                        (!canSendMessages
                                           ? 'You need member-management access to renew memberships.'
-                                          : undefined
+                                          : undefined)
                                       }
                                     >
                                       <RefreshCw className="size-4" /> Renew
@@ -1036,11 +1043,15 @@ export function MemberDetailView({
                                   !membership.is_trial && (
                                     <DropdownMenuItem
                                       onClick={() => setChangePlanOpen(true)}
-                                      disabled={!canSendMessages}
+                                      disabled={
+                                        !canSendMessages ||
+                                        !!membershipLifecycleBlockReason
+                                      }
                                       title={
-                                        !canSendMessages
+                                        membershipLifecycleBlockReason ??
+                                        (!canSendMessages
                                           ? 'You need member-management access to change plans.'
-                                          : undefined
+                                          : undefined)
                                       }
                                     >
                                       <ArrowLeftRight className="size-4" />{' '}
@@ -1049,11 +1060,15 @@ export function MemberDetailView({
                                   )}
                                 <DropdownMenuItem
                                   onClick={() => onEdit(membership)}
-                                  disabled={!canSendMessages}
+                                  disabled={
+                                    !canSendMessages ||
+                                    !!membershipLifecycleBlockReason
+                                  }
                                   title={
-                                    !canSendMessages
+                                    membershipLifecycleBlockReason ??
+                                    (!canSendMessages
                                       ? 'You need member-management access to edit memberships.'
-                                      : undefined
+                                      : undefined)
                                   }
                                 >
                                   <Pencil className="size-4" /> Edit membership
@@ -1063,11 +1078,16 @@ export function MemberDetailView({
                                     onClick={() =>
                                       setPendingLifecycle('resume')
                                     }
-                                    disabled={busy || !canSendMessages}
+                                    disabled={
+                                      busy ||
+                                      !canSendMessages ||
+                                      !!membershipLifecycleBlockReason
+                                    }
                                     title={
-                                      !canSendMessages
+                                      membershipLifecycleBlockReason ??
+                                      (!canSendMessages
                                         ? 'You need member-management access to resume memberships.'
-                                        : undefined
+                                        : undefined)
                                     }
                                   >
                                     <Play className="size-4" /> Resume
@@ -1079,11 +1099,16 @@ export function MemberDetailView({
                                       onClick={() =>
                                         setPendingLifecycle('freeze')
                                       }
-                                      disabled={busy || !canSendMessages}
+                                      disabled={
+                                        busy ||
+                                        !canSendMessages ||
+                                        !!membershipLifecycleBlockReason
+                                      }
                                       title={
-                                        !canSendMessages
+                                        membershipLifecycleBlockReason ??
+                                        (!canSendMessages
                                           ? 'You need member-management access to freeze memberships.'
-                                          : undefined
+                                          : undefined)
                                       }
                                     >
                                       <Snowflake className="size-4" /> Freeze
@@ -1096,11 +1121,16 @@ export function MemberDetailView({
                                     onClick={() =>
                                       setPendingLifecycle('reactivate')
                                     }
-                                    disabled={busy || !canSendMessages}
+                                    disabled={
+                                      busy ||
+                                      !canSendMessages ||
+                                      !!membershipLifecycleBlockReason
+                                    }
                                     title={
-                                      !canSendMessages
+                                      membershipLifecycleBlockReason ??
+                                      (!canSendMessages
                                         ? 'You need member-management access to reactivate memberships.'
-                                        : undefined
+                                        : undefined)
                                     }
                                   >
                                     <RotateCcw className="size-4" /> Reactivate
@@ -1114,11 +1144,16 @@ export function MemberDetailView({
                                       onClick={() =>
                                         setPendingLifecycle('cancel')
                                       }
-                                      disabled={busy || !canSendMessages}
+                                      disabled={
+                                        busy ||
+                                        !canSendMessages ||
+                                        !!membershipLifecycleBlockReason
+                                      }
                                       title={
-                                        !canSendMessages
+                                        membershipLifecycleBlockReason ??
+                                        (!canSendMessages
                                           ? 'You need member-management access to cancel memberships.'
-                                          : undefined
+                                          : undefined)
                                       }
                                     >
                                       <Ban className="size-4" /> Cancel
@@ -1711,6 +1746,7 @@ export function MemberDetailView({
                         canDelete={
                           accountRole ? canDeleteMember(accountRole) : false
                         }
+                        blockedReason={membershipLifecycleBlockReason}
                         onDeleted={() => {
                           onOpenChange(false);
                           onChanged();

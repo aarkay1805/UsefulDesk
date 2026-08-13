@@ -26,6 +26,8 @@ interface MemberDangerZoneProps {
   memberName: string;
   /** Owner/admin only (canDeleteMember). */
   canDelete: boolean;
+  /** A live provider mandate must be resolved before local deletion. */
+  blockedReason?: string | null;
   /** Called after a successful delete — close the sheet + refresh the list. */
   onDeleted: () => void;
 }
@@ -40,6 +42,7 @@ export function MemberDangerZone({
   contactId,
   memberName,
   canDelete,
+  blockedReason,
   onDeleted,
 }: MemberDangerZoneProps) {
   const supabase = createClient();
@@ -72,13 +75,23 @@ export function MemberDangerZone({
               attendance, and notes. Payment ledger entries are retained
               without the member link for accounting. This can&apos;t be undone.
             </p>
+            {blockedReason && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {blockedReason} Deletion is unavailable until then.
+              </p>
+            )}
           </div>
           <Button
             variant="destructive"
             size="sm"
-            disabled={!canDelete}
+            disabled={!canDelete || !!blockedReason}
             onClick={() => setConfirmOpen(true)}
-            title={canDelete ? undefined : "Only an owner or admin can delete a member"}
+            title={
+              blockedReason ??
+              (canDelete
+                ? undefined
+                : "Only an owner or admin can delete a member")
+            }
           >
             <Trash2 className="size-4" /> Delete
           </Button>
