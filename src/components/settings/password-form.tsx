@@ -2,16 +2,23 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, KeyRound } from 'lucide-react';
+import { CircleAlert, KeyRound, Loader2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
+import { getErrorMessage } from '@/lib/errors';
+import {
+  validatePasswordChange,
+  type PasswordChangeError,
+} from '@/lib/auth/password-change';
 import { useAuth } from '@/hooks/use-auth';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
   CardDescription,
@@ -27,23 +34,28 @@ export function PasswordForm() {
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
-  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<PasswordChangeError | null>(null);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validationError = validatePasswordChange(
+      current,
+      next,
+      confirm,
+      MIN_PASSWORD
+    );
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
     if (!profile?.email) {
-      toast.error('Cannot change password without a current email');
+      setFormError({
+        message: 'Your sign-in email is unavailable. Refresh and try again.',
+        fields: [],
+      });
       return;
     }
-    if (next.length < MIN_PASSWORD) {
-      setConfirmError(`Password must be at least ${MIN_PASSWORD} characters`);
-      return;
-    }
-    if (next !== confirm) {
-      setConfirmError('New password and confirmation do not match');
-      return;
-    }
-    setConfirmError(null);
+    setFormError(null);
     setSaving(true);
 
     try {
@@ -56,7 +68,10 @@ export function PasswordForm() {
         password: current,
       });
       if (signInError) {
-        toast.error('Current password is incorrect');
+        setFormError({
+          message: 'Current password is incorrect.',
+          fields: ['current'],
+        });
         return;
       }
 
@@ -64,7 +79,13 @@ export function PasswordForm() {
         password: next,
       });
       if (updateError) {
-        toast.error(`Password update failed: ${updateError.message}`);
+        setFormError({
+          message: getErrorMessage(
+            updateError,
+            'Password could not be updated. Try again.'
+          ),
+          fields: [],
+        });
         return;
       }
 
@@ -72,39 +93,55 @@ export function PasswordForm() {
       setNext('');
       setConfirm('');
       toast.success('Password updated');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      toast.error(msg);
+    } catch (error) {
+      setFormError({
+        message: getErrorMessage(
+          error,
+          'Password could not be updated. Try again.'
+        ),
+        fields: [],
+      });
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-foreground">
-          <KeyRound className="size-4 text-primary-text" />
-          Password
-        </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Use at least {MIN_PASSWORD} characters. You will stay signed in on
-          this device after changing it.
-        </CardDescription>
-      </CardHeader>
+  const clearError = () => setFormError(null);
+  const describes = (field: 'current' | 'next' | 'confirm') => {
+    const ids =
+      field === 'next' || field === 'confirm' ? ['password-help'] : [];
+    if (formError?.fields.includes(field)) ids.push('password-error');
+    return ids.length ? ids.join(' ') : undefined;
+  };
 
-      <CardContent>
-        <form onSubmit={onSubmit} className="space-y-4">
+  return (
+    <form onSubmit={onSubmit} noValidate aria-labelledby="password-heading">
+      <Card>
+        <CardHeader>
+          <CardTitle id="password-heading" className="flex items-center gap-2">
+            <KeyRound className="text-primary-text size-4" />
+            Password
+          </CardTitle>
+          <CardDescription id="password-help">
+            Use {MIN_PASSWORD} or more characters. You&apos;ll stay signed in
+            here after the change.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="current-password" className="text-foreground">
-              Current password
-            </Label>
+            <Label htmlFor="current-password">Current password</Label>
             <Input
               id="current-password"
               type="password"
               value={current}
-              onChange={(e) => setCurrent(e.target.value)}
+              onChange={(e) => {
+                setCurrent(e.target.value);
+                clearError();
+              }}
               autoComplete="current-password"
+              aria-invalid={formError?.fields.includes('current') || undefined}
+              aria-describedby={describes('current')}
               disabled={saving}
               required
             />
@@ -112,60 +149,71 @@ export function PasswordForm() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="new-password" className="text-foreground">
-                New password
-              </Label>
+              <Label htmlFor="new-password">New password</Label>
               <Input
                 id="new-password"
                 type="password"
                 value={next}
-                onChange={(e) => setNext(e.target.value)}
+                onChange={(e) => {
+                  setNext(e.target.value);
+                  clearError();
+                }}
                 autoComplete="new-password"
                 minLength={MIN_PASSWORD}
+                aria-invalid={formError?.fields.includes('next') || undefined}
+                aria-describedby={describes('next')}
                 disabled={saving}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password" className="text-foreground">
-                Confirm new password
-              </Label>
+              <Label htmlFor="confirm-password">Confirm new password</Label>
               <Input
                 id="confirm-password"
                 type="password"
                 value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
+                onChange={(e) => {
+                  setConfirm(e.target.value);
+                  clearError();
+                }}
                 autoComplete="new-password"
                 minLength={MIN_PASSWORD}
+                aria-invalid={
+                  formError?.fields.includes('confirm') || undefined
+                }
+                aria-describedby={describes('confirm')}
                 disabled={saving}
                 required
               />
             </div>
           </div>
 
-          {confirmError && (
-            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {confirmError}
-            </p>
-          )}
+          {formError ? (
+            <Alert id="password-error" variant="destructive">
+              <CircleAlert />
+              <AlertDescription>{formError.message}</AlertDescription>
+            </Alert>
+          ) : null}
+        </CardContent>
 
-          <div className="flex justify-end">
-            <Button
-              type="submit"
-              disabled={saving || !current || !next || !confirm}
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Updating…
-                </>
-              ) : (
-                'Update password'
-              )}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+        <CardFooter className="justify-end">
+          <Button
+            type="submit"
+            disabled={
+              saving || !profile?.email || !current || !next || !confirm
+            }
+          >
+            {saving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Updating…
+              </>
+            ) : (
+              'Update password'
+            )}
+          </Button>
+        </CardFooter>
+      </Card>
+    </form>
   );
 }

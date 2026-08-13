@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 
+import { getErrorMessage } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/client';
 import {
   DEFAULT_MODE,
@@ -109,18 +110,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           // profile to update until a user is signed in.
           if (!session?.user) return;
 
-          const { error } = await supabase
+          const { data: updatedProfiles, error } = await supabase
             .from('profiles')
             .update(patch)
-            .eq('user_id', session.user.id);
+            .eq('user_id', session.user.id)
+            .select('id');
           if (error) throw error;
+          if (!updatedProfiles?.length) {
+            throw new Error('Your appearance preferences could not be saved.');
+          }
         })
         .catch((error: unknown) => {
           console.error('[ThemeProvider] appearance save failed:', error);
           toast.error(
-            'Appearance changed on this device, but could not be saved',
+            getErrorMessage(error, 'Appearance could not be synced'),
             {
-              description: 'Try again to sync it with your account.',
+              description:
+                'Your choice is still active on this device. Try again.',
             }
           );
         });

@@ -1,10 +1,18 @@
 'use client';
 
-import { Check, Moon, Palette, SunMoon, Sun } from 'lucide-react';
+import { Moon, Palette, SunMoon, Sun } from 'lucide-react';
 
 import { useTheme } from '@/hooks/use-theme';
-import { MODES, THEMES, type Mode, type ThemeId } from '@/lib/themes';
+import {
+  MODES,
+  THEMES,
+  isMode,
+  isThemeId,
+  type Mode,
+  type ThemeId,
+} from '@/lib/themes';
 import { cn } from '@/lib/utils';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { SettingsPanelHead } from './settings-panel-head';
 
 /**
@@ -21,159 +29,118 @@ import { SettingsPanelHead } from './settings-panel-head';
 export function AppearancePanel() {
   const { theme, setTheme, mode, setMode } = useTheme();
   return (
-    <section className="animate-in fade-in-50 max-w-3xl duration-200">
+    <section className="animate-in fade-in-50 max-w-3xl duration-200 motion-reduce:animate-none">
       <SettingsPanelHead
         title="Appearance"
-        description="Set the mode and accent colour used across the app. Saved to your account and applied wherever you sign in."
+        description="Choose a mode and accent. Changes apply immediately and sync to your account."
       />
 
       <div className="space-y-4">
-        <h3 className="text-foreground flex items-center gap-2 text-sm font-semibold">
+        <h3
+          id="appearance-mode-heading"
+          className="text-foreground flex items-center gap-2 text-sm font-semibold"
+        >
           <SunMoon className="text-muted-foreground size-4" />
           Mode
         </h3>
 
-        <div
-          role="radiogroup"
-          aria-label="Color mode"
+        <RadioGroup
+          value={mode}
+          onValueChange={(value) => isMode(value) && setMode(value)}
+          aria-labelledby="appearance-mode-heading"
           className="grid max-w-md grid-cols-2 gap-3"
         >
           {MODES.map((m) => (
-            <ModeCard
-              key={m}
-              mode={m}
-              isActive={m === mode}
-              onPick={() => setMode(m)}
-            />
+            <ModeCard key={m} mode={m} isActive={m === mode} />
           ))}
-        </div>
+        </RadioGroup>
       </div>
 
       <div className="mt-8 space-y-4">
-        <h3 className="text-foreground flex items-center gap-2 text-sm font-semibold">
+        <h3
+          id="appearance-accent-heading"
+          className="text-foreground flex items-center gap-2 text-sm font-semibold"
+        >
           <Palette className="text-muted-foreground size-4" />
-          Accent color
+          Accent colour
         </h3>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <RadioGroup
+          value={theme}
+          onValueChange={(value) => isThemeId(value) && setTheme(value)}
+          aria-labelledby="appearance-accent-heading"
+          className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+        >
           {THEMES.map((t) => (
             <ThemeCard
               key={t.id}
               id={t.id}
               name={t.name}
-              tagline={t.tagline}
               swatch={t.swatch}
               isActive={t.id === theme}
-              onPick={() => setTheme(t.id)}
             />
           ))}
-        </div>
+        </RadioGroup>
       </div>
     </section>
   );
 }
 
-function ModeCard({
-  mode,
-  isActive,
-  onPick,
-}: {
-  mode: Mode;
-  isActive: boolean;
-  onPick: () => void;
-}) {
+function ModeCard({ mode, isActive }: { mode: Mode; isActive: boolean }) {
   const isLight = mode === 'light';
   const Icon = isLight ? Sun : Moon;
   return (
-    <button
-      type="button"
-      role="radio"
-      onClick={onPick}
-      aria-checked={isActive}
-      aria-label={`Use ${mode} mode`}
+    <label
       className={cn(
-        'bg-card flex items-center gap-3 rounded-lg border p-4 text-left transition-colors',
+        'flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors',
         isActive
-          ? 'border-primary/60 ring-primary/40 ring-2'
-          : 'border-border hover:border-border-hover'
+          ? 'border-primary/40 bg-primary/[0.04]'
+          : 'border-border/80 hover:border-border-hover'
       )}
     >
       <span
         aria-hidden
-        className="bg-muted text-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+        className="bg-muted text-foreground flex size-9 shrink-0 items-center justify-center rounded-lg"
       >
-        <Icon className="h-4 w-4" />
+        <Icon className="size-4" />
       </span>
-      <span className="text-foreground flex-1 text-sm font-semibold capitalize">
+      <span className="text-foreground min-w-0 flex-1 text-sm font-medium capitalize">
         {mode}
       </span>
-      {isActive && (
-        <span className="bg-primary/15 text-primary-text inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
-          <Check className="h-3 w-3" />
-          Active
-        </span>
-      )}
-    </button>
+      <RadioGroupItem value={mode} />
+    </label>
   );
 }
 
 function ThemeCard({
   id,
   name,
-  tagline,
   swatch,
   isActive,
-  onPick,
 }: {
   id: ThemeId;
   name: string;
-  tagline: string;
   swatch: string;
   isActive: boolean;
-  onPick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onPick}
-      aria-pressed={isActive}
-      aria-label={`Use ${name} theme`}
+    <label
       className={cn(
-        'bg-card flex flex-col gap-3 rounded-lg border p-4 text-left transition-colors',
+        'flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors',
         isActive
-          ? 'border-primary/60 ring-primary/40 ring-2'
-          : 'border-border hover:border-border-hover'
+          ? 'border-primary/40 bg-primary/[0.04]'
+          : 'border-border/80 hover:border-border-hover'
       )}
     >
-      <div className="flex items-center justify-between">
-        <span
-          aria-hidden
-          className="h-8 w-8 shrink-0 rounded-full"
-          style={{
-            background: swatch,
-            boxShadow: 'inset 0 0 0 1px oklch(1 0 0 / 0.15)',
-          }}
-        />
-        {isActive && (
-          <span className="bg-primary/15 text-primary-text inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
-            <Check className="h-3 w-3" />
-            Active
-          </span>
-        )}
-      </div>
-      <div>
-        <div className="text-foreground text-sm font-semibold">{name}</div>
-        <div className="text-muted-foreground mt-1 text-xs leading-relaxed">
-          {tagline}
-        </div>
-      </div>
-      <div className="mt-1 flex h-2 overflow-hidden rounded-full" aria-hidden>
-        <span className="flex-1" style={{ background: swatch }} />
-        <span className="bg-muted-foreground/60 w-3" />
-        <span className="bg-muted w-3" />
-        <span className="bg-card w-3" />
-      </div>
-      <span className="sr-only">Theme id: {id}</span>
-    </button>
+      <span
+        aria-hidden
+        className="size-8 shrink-0 rounded-full"
+        style={{ background: swatch }}
+      />
+      <span className="text-foreground min-w-0 flex-1 text-sm font-medium">
+        {name}
+      </span>
+      <RadioGroupItem value={id} />
+    </label>
   );
 }

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, PlugZap } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { GatedButton } from '@/components/ui/gated-button';
+import { getErrorMessage } from '@/lib/errors';
 import {
   Card,
   CardContent,
@@ -32,11 +33,14 @@ interface WhatsAppEmbeddedSignupProps {
   onConnected: () => void;
   /** True when a config row already exists — softens the copy. */
   hasExistingConfig: boolean;
+  /** Owner/admin capability; server routes enforce the same boundary. */
+  canEdit: boolean;
 }
 
 export function WhatsAppEmbeddedSignup({
   onConnected,
   hasExistingConfig,
+  canEdit,
 }: WhatsAppEmbeddedSignupProps) {
   const [connecting, setConnecting] = useState(false);
   // Session info lands via a message event while the popup is still
@@ -87,7 +91,7 @@ export function WhatsAppEmbeddedSignup({
           info?.waba_id
             ? 'Signup finished without a phone number. Re-run Connect and add a phone number inside the Meta popup.'
             : 'Signup finished but Meta did not report the new WhatsApp account. Please try again.',
-          { duration: 10000 },
+          { duration: 10000 }
         );
         return;
       }
@@ -103,25 +107,27 @@ export function WhatsAppEmbeddedSignup({
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || 'Failed to complete the WhatsApp connection.');
+        toast.error(
+          data.error || 'Failed to complete the WhatsApp connection.'
+        );
         return;
       }
 
       if (data.registered === false && data.registration_error) {
         toast.warning(
           `Connected, but Meta couldn't register the number for messaging yet: ${data.registration_error}`,
-          { duration: 12000 },
+          { duration: 12000 }
         );
       } else {
         toast.success(
           data.phone_info?.verified_name
             ? `WhatsApp connected — ${data.phone_info.verified_name} is live.`
-            : 'WhatsApp connected. Events will start flowing within a minute.',
+            : 'WhatsApp connected. Events will start flowing within a minute.'
         );
       }
       onConnected();
     },
-    [onConnected],
+    [onConnected]
   );
 
   async function handleConnect() {
@@ -148,12 +154,12 @@ export function WhatsAppEmbeddedSignup({
           response_type: 'code',
           override_default_response_type: true,
           extras: { setup: {}, featureType: '', sessionInfoVersion: '3' },
-        },
+        }
       );
     } catch (err) {
       console.error('Embedded signup launch failed:', err);
       toast.error(
-        err instanceof Error ? err.message : 'Could not open the Meta signup popup.',
+        getErrorMessage(err, 'Could not open the Meta signup popup.')
       );
       setConnecting(false);
     }
@@ -164,20 +170,21 @@ export function WhatsAppEmbeddedSignup({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-foreground">
-          {hasExistingConfig ? 'Reconnect with Facebook' : 'Connect with Facebook'}
+        <CardTitle>
+          {hasExistingConfig ? 'WhatsApp number' : 'Connect WhatsApp'}
         </CardTitle>
-        <CardDescription className="text-muted-foreground">
+        <CardDescription>
           {hasExistingConfig
-            ? 'Re-run Meta’s guided signup to reconnect or switch the WhatsApp number linked to this account.'
-            : 'The fastest way to connect: Meta’s guided popup creates your WhatsApp Business account, verifies your phone number, and links it here automatically — no tokens to copy.'}
+            ? 'Reconnect or switch the number linked to this branch.'
+            : 'Link your WhatsApp Business number through Meta. No tokens to copy.'}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Button
+        <GatedButton
           onClick={handleConnect}
           disabled={connecting}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+          canAct={canEdit}
+          gateReason="change the WhatsApp connection"
         >
           {connecting ? (
             <>
@@ -187,14 +194,13 @@ export function WhatsAppEmbeddedSignup({
           ) : (
             <>
               <PlugZap className="size-4" />
-              {hasExistingConfig ? 'Reconnect WhatsApp' : 'Connect WhatsApp'}
+              {hasExistingConfig ? 'Reconnect with Meta' : 'Connect with Meta'}
             </>
           )}
-        </Button>
-        <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-          A Meta popup will open. Sign in with the Facebook account that manages your
-          business, then follow the steps to select or create a WhatsApp Business
-          account and phone number.
+        </GatedButton>
+        <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
+          Meta opens in a new window. Sign in and choose the business account
+          and phone number you want to use.
         </p>
       </CardContent>
     </Card>

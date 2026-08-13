@@ -6,6 +6,30 @@
 
 ---
 
+## Renewal reminder settings polish
+
+Settings → Renewal reminders now uses one responsive, permission-aware save flow for membership and service schedules, with accessible day choices, concise readiness guidance, explicit loading/recovery/read-only states, and no change to cron timing, templates, or WhatsApp gates. Key code: `src/components/settings/renewal-reminders-settings.tsx`.
+
+## Message template settings polish
+
+Settings → Templates now loads the full account template set, separates loading/error/empty/read-only states, and keeps create, preset, sync, edit, resubmit, and delete actions permission-gated. The responsive list and builder use canonical badges, alerts, cards, controls, linked labels, and safe native validation without changing Meta lifecycle behavior. Key code: `src/components/settings/template-manager.tsx`.
+
+## WhatsApp settings polish
+
+Settings → WhatsApp now leads with separate API-access and inbound-delivery checks, keeps delivery diagnostics visible, uses account-local date formatting, provides explicit read-only/loading/error states, and moves reset behind a keyboard-safe confirmation. Manual setup retains the existing Meta credentials, token, PIN, webhook, and registration behavior with labelled responsive controls and concise guidance. Key code: `src/components/settings/whatsapp-config.tsx` and `whatsapp-embedded-signup.tsx`.
+
+## Account appearance settings polish
+
+Settings → Appearance now uses compact radio-card choices with concise copy, responsive two/three-column accent selection, immediate account-synced updates, and explicit failure detection for RLS-blocked profile writes. Key code: `src/components/settings/appearance-panel.tsx`, `src/hooks/use-theme.tsx`, and `src/lib/themes.ts`.
+
+## Account security settings polish
+
+Settings → Login & security now uses concise task copy, field-linked accessible password errors, a contained save state, and a destructive global sign-out confirmation that stays visible while pending. Key code: `src/components/settings/security-panel.tsx`, `password-form.tsx`, and `sessions-card.tsx`.
+
+## Account profile settings polish
+
+Settings → Your profile now keeps the task to photo, display name, and sign-in email; it removes misleading internal account metadata, uses the canonical person avatar and alert patterns, keeps the save action inside the form card, and handles loading plus RLS-blocked updates explicitly. Key code: `src/components/settings/profile-form.tsx`.
+
 ## Payments and regional settings terminology
 
 Settings now uses the owner-facing labels **Payments** and **Regional settings**. Currency is edited only under Regional settings; the duplicate currency card and Payments rail hint are removed, while UPI and Razorpay remain under Payments. Existing `?tab=deals` and `?tab=localization` deep links are unchanged. Key code: `src/components/settings/settings-sections.ts`, `deals-settings.tsx`, and `localization-settings.tsx`.
