@@ -79,6 +79,36 @@ describe('submitMessageTemplate', () => {
     ).rejects.toThrow(/Rate limit/);
   });
 
+  it('preserves Meta error codes and actionable details', async () => {
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(400, {
+        error: {
+          message: 'Invalid parameter',
+          code: 100,
+          error_subcode: 2388299,
+          error_data: {
+            details: 'Body example contains an invalid value.',
+          },
+        },
+      }),
+    );
+
+    await expect(
+      submitMessageTemplate({
+        wabaId: 'W',
+        accessToken: 't',
+        payload: {
+          name: 'n',
+          category: 'UTILITY',
+          language: 'en_US',
+          components: [],
+        },
+      }),
+    ).rejects.toThrow(
+      'Invalid parameter — Meta code 100/2388299 — Body example contains an invalid value.',
+    );
+  });
+
   it('throws if Meta accepts but returns no id (data integrity guard)', async () => {
     fetchMock.mockResolvedValueOnce(okResponse({ status: 'PENDING' }));
     await expect(

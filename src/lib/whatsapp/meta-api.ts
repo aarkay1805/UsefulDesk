@@ -26,14 +26,44 @@ export interface MetaPhoneInfo {
 }
 
 interface MetaErrorResponse {
-  error?: { message?: string; code?: number; type?: string }
+  error?: {
+    message?: string
+    code?: number
+    error_subcode?: number
+    type?: string
+    error_user_title?: string
+    error_user_msg?: string
+    error_data?: { details?: string }
+  }
 }
 
 async function throwMetaError(response: Response, fallback: string): Promise<never> {
   let message = fallback
   try {
     const data = (await response.json()) as MetaErrorResponse
-    if (data.error?.message) message = data.error.message
+    if (data.error) {
+      const { error } = data
+      const providerMessage = error.message?.trim()
+      const actionableDetail = [
+        error.error_user_title,
+        error.error_user_msg,
+        error.error_data?.details,
+      ]
+        .map((value) => value?.trim())
+        .find((value) => value && value !== providerMessage)
+      const providerCode =
+        typeof error.code === 'number'
+          ? `Meta code ${error.code}${
+              typeof error.error_subcode === 'number'
+                ? `/${error.error_subcode}`
+                : ''
+            }`
+          : null
+
+      message = [providerMessage || fallback, providerCode, actionableDetail]
+        .filter(Boolean)
+        .join(' — ')
+    }
   } catch {
     // response body wasn't JSON — keep the fallback
   }

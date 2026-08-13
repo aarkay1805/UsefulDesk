@@ -88,7 +88,8 @@ function assertContiguous(indices: number[], where: string): void {
 }
 
 export function validateBody(bodyText: string): number[] {
-  if (!bodyText.trim()) throw new Error('Body text is required.');
+  const trimmedBody = bodyText.trim();
+  if (!trimmedBody) throw new Error('Body text is required.');
   if (bodyText.length > TEMPLATE_LIMITS.bodyMaxLength) {
     throw new Error(
       `Body text exceeds ${TEMPLATE_LIMITS.bodyMaxLength} chars (got ${bodyText.length}).`,
@@ -96,6 +97,11 @@ export function validateBody(bodyText: string): number[] {
   }
   const indices = extractVariableIndices(bodyText);
   assertContiguous(indices, 'Body');
+  if (/^\{\{\d+\}\}/.test(trimmedBody) || /\{\{\d+\}\}$/.test(trimmedBody)) {
+    throw new Error(
+      'Body text cannot start or end with a variable — add fixed wording around the placeholder (Meta rule).',
+    );
+  }
   return indices;
 }
 

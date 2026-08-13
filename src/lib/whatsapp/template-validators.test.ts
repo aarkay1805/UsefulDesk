@@ -56,8 +56,12 @@ describe('validateBody', () => {
   it('rejects non-contiguous variables', () => {
     expect(() => validateBody('Hi {{1}} {{3}}')).toThrow(/contiguous/);
   });
+  it('rejects a leading or trailing variable', () => {
+    expect(() => validateBody('{{1}} is due')).toThrow(/cannot start or end/);
+    expect(() => validateBody('Pay here: {{1}}')).toThrow(/cannot start or end/);
+  });
   it('accepts contiguous variables', () => {
-    expect(validateBody('Hi {{1}} {{2}}')).toEqual([1, 2]);
+    expect(validateBody('Hi {{1}}, item {{2}} is ready.')).toEqual([1, 2]);
   });
 });
 
@@ -270,7 +274,7 @@ describe('validateTemplatePayload — integration', () => {
     expect(() =>
       validateTemplatePayload({
         ...baseValid,
-        body_text: 'Hi {{1}}',
+        body_text: 'Hi {{1}}, your order is ready.',
       }),
     ).toThrow(/exactly 1 sample/);
   });

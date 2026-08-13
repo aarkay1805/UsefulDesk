@@ -992,42 +992,44 @@ Final Production evidence remains exact-account scoped:
 
 ### Post-Stage-6 Meta template verification
 
-On 2026-08-12, the authenticated Production workspace for Rajat Kashyap ran
-the existing **Sync from Meta** operation against its configured WhatsApp
-Business Account. The initial Meta Graph request succeeded and returned
-`total=0`, with zero inserts and zero updates, confirming that
-`gym_payment_link` was absent from the WABA.
+The authenticated 2026-08-12 **Sync from Meta** was valid and returned
+`total=0`, but both apparent submissions that followed were not provider
+submissions: Production still had `WHATSAPP_TEMPLATES_DRY_RUN=true`, so it wrote
+synthetic `dry-run-*` identifiers locally. On 2026-08-14 those exact synthetic
+rows were removed, Production's dry-run variable was removed, and deployment
+`dpl_BonbafyGjSn27wFFu8SEGW37VrpE` restored real Meta ingress. No WhatsApp
+message was sent.
 
-The owner then approved language `en_US` and the exact body below. UsefulDesk
-submitted it as the locked **Utility** template `gym_payment_link`, with dummy
-review samples only (`Rahul`, `₹3,999`, `INV-1001`, and a non-customer
-`rzp.io` URL):
+The first real `gym_payment_link` attempt reached Meta and returned code
+`100/2388299`, `Leading or trailing params not allowed`, because the body ended
+at `{{4}}`. The provider-error parser now preserves Meta's code and actionable
+detail, and local validation rejects bodies that begin or end with a variable.
+The owner-approved meaning and four-parameter contract were retained by adding
+fixed wording after the link:
 
 > Hi {{1}}, your payment of {{2}} for invoice {{3}} is due. Pay securely using
-> this link: {{4}}
+> this link: {{4}}. Please contact us if you need help.
 
-Meta acknowledged the submission and the authenticated follow-up sync
-confirmed status **Pending** for `en_US`. The provider has not approved it, so
-**Send payment link** remains unavailable and no Send is claimed. Do not claim
-Send or exercise it until a later sync reports **Approved**. Copy remains
-available independently.
-
-Later on 2026-08-12, while `gym_payment_link` still reported **Pending**, the
-owner authorized trying the product's narrower payment-due starter. UsefulDesk
-submitted `gym_payment_due` as **Utility** / `en_US`, with dummy review samples
-only (`Rahul`, `₹3,999`, and `Quarterly`):
+Meta accepted the corrected **Utility** / `en_US` template with numeric ID
+`1996323644342719`. The separately authorized product starter was then
+submitted as **Utility** / `en_US` with its existing dummy review samples
+(`Rahul`, `₹3,999`, and `Quarterly`):
 
 > Hi {{1}}, a payment of {{2}} for your {{3}} membership is still pending.
 > Please clear it to keep your access active. Reply here for a payment link or
 > any help.
 
-Meta acknowledged this submission and an authenticated follow-up sync reports
-`gym_payment_due` **Pending**. This three-parameter reminder does not contain a
-payment URL and is not a substitute for the four-parameter
-`gym_payment_link` contract. It therefore does not unlock **Send payment
-link**, and no WhatsApp message was sent. An older approved provider template
-named `payment_reminder` was not used because it inaccurately describes an
-automatic scheduled payment and possible fees.
+Meta accepted `gym_payment_due` with numeric ID `1528972491789269`. An
+authenticated provider sync returned `total=2`, zero inserts and two updates;
+both exact templates are **Pending** with no submission error. This
+three-parameter reminder contains no payment URL and is not a substitute for
+the four-parameter `gym_payment_link` contract. It therefore does not unlock
+**Send payment link**. An older approved provider template named
+`payment_reminder` was not used because it inaccurately describes an automatic
+scheduled payment and possible fees. Production deployment
+`dpl_DMSmuK8UtsRbjSnY3pzrpvfrdhpz` contains the provider-error and validation
+repair. Do not claim or exercise Send until a later provider sync reports
+`gym_payment_link` **Approved**; Copy remains independent.
 
 ### Next real gym-owner OAuth pilot — authorization plan only
 
