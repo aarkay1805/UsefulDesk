@@ -147,7 +147,18 @@ export function DashboardInsights() {
   );
 
   return (
-    <div className="space-y-4">
+    <section aria-labelledby="business-picture-heading" className="space-y-4">
+      <div>
+        <h2
+          id="business-picture-heading"
+          className="text-foreground text-sm font-semibold"
+        >
+          The full picture
+        </h2>
+        <p className="text-muted-foreground mt-0.5 text-xs">
+          Check your messages, leads, and recent work.
+        </p>
+      </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div className="h-full lg:col-span-3">
           <ConversationsChart
@@ -176,6 +187,6 @@ export function DashboardInsights() {
       </div>
       <LeadFunnel data={leadFunnel} loading={!leadFunnel} />
       <ActivityFeed items={activity} loading={!activity} />
-    </div>
+    </section>
   );
 }

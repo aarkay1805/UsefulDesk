@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Filter } from 'lucide-react'
 import { useLocale } from '@/hooks/use-locale'
 import type { LeadFunnelData } from '@/lib/dashboard/types'
+import { buttonVariants } from '@/components/ui/button'
 import { EmptyState } from './empty-state'
 import { Skeleton } from './skeleton'
 
@@ -24,16 +25,17 @@ export function LeadFunnel({ data, loading }: LeadFunnelProps) {
     <section className="rounded-xl border border-border bg-card">
       <header className="flex items-center justify-between border-b border-border px-5 py-4">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Lead Funnel</h2>
+          <h2 className="text-sm font-semibold text-foreground">Leads by stage</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Where leads sit, how long they&apos;ve sat there, and what converts
+            See how many leads are in each stage and how long they stay
           </p>
         </div>
         <Link
+          data-slot="button"
           href="/leads"
-          className="text-xs font-medium text-primary-text hover:text-primary-text/80"
+          className={buttonVariants({ variant: 'link', size: 'xs' })}
         >
-          Open Leads →
+          See all leads
         </Link>
       </header>
 
@@ -79,7 +81,7 @@ export function LeadFunnel({ data, loading }: LeadFunnelProps) {
                   </div>
                   <span className="w-24 shrink-0 whitespace-nowrap text-right text-[11px] text-muted-foreground tabular-nums">
                     {s.count > 0 && s.avgDays != null
-                      ? `~${s.avgDays}d in stage`
+                      ? `${s.avgDays} days here`
                       : ''}
                   </span>
                 </li>
@@ -92,7 +94,7 @@ export function LeadFunnel({ data, loading }: LeadFunnelProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5">
                 <p className="text-[11px] text-muted-foreground">
-                  Converted this month
+                  Joined this month
                 </p>
                 <p className="mt-0.5 text-lg font-semibold text-foreground tabular-nums">
                   {fmt.number(data.convertedThisMonth)}
@@ -100,7 +102,7 @@ export function LeadFunnel({ data, loading }: LeadFunnelProps) {
               </div>
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5">
                 <p className="text-[11px] text-muted-foreground">
-                  Lead → member (all time)
+                  Leads who joined
                 </p>
                 <p className="mt-0.5 text-lg font-semibold text-foreground tabular-nums">
                   {data.conversionRate == null
@@ -112,7 +114,7 @@ export function LeadFunnel({ data, loading }: LeadFunnelProps) {
 
             <div>
               <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-                Source performance
+                Lead source results
               </p>
               {data.topSources.length === 0 ? (
                 <p className="text-xs text-muted-foreground">

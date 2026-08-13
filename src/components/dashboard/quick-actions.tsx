@@ -11,14 +11,13 @@ interface Action {
   label: string
   href: string
   icon: ComponentType<{ className?: string }>
-  tint: string
 }
 
 const ACTIONS: Action[] = [
-  { label: 'New Lead', href: '/leads?action=new', icon: UserPlus, tint: 'text-primary-text' },
-  { label: 'New Member', href: '/members?action=new', icon: Dumbbell, tint: 'text-blue-foreground' },
-  { label: 'New Broadcast', href: '/broadcasts/new', icon: Radio, tint: 'text-amber-foreground' },
-  { label: 'New Automation', href: '/automations/new', icon: Zap, tint: 'text-primary-text' },
+  { label: 'Add lead', href: '/leads?action=new', icon: UserPlus },
+  { label: 'Add member', href: '/members?action=new', icon: Dumbbell },
+  { label: 'Send broadcast', href: '/broadcasts/new', icon: Radio },
+  { label: 'Add automation', href: '/automations/new', icon: Zap },
 ]
 
 export function QuickActions() {
@@ -30,9 +29,9 @@ export function QuickActions() {
           <Link
             key={a.href}
             href={a.href}
-            className="group flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:border-border-hover"
+            className="flex min-h-16 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:border-border-hover"
           >
-            <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-muted ${a.tint}`}>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-foreground">
               <Icon className="h-4 w-4" />
             </div>
             <span className="text-sm font-medium text-foreground">{a.label}</span>

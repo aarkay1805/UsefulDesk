@@ -18,6 +18,7 @@ import { useAccountStaff } from '@/components/members/use-account-staff';
 import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-up-dialog';
 import { FollowUpCompletionControl } from '@/components/follow-ups/follow-up-completion-control';
 import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Skeleton } from './skeleton';
 
@@ -150,17 +151,15 @@ export function LeadActionLists() {
       <header className="border-border border-b px-5 py-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-foreground text-sm font-semibold">
-              Today&apos;s lead actions
-            </h2>
+            <h2 className="text-foreground text-sm font-semibold">Lead work</h2>
             {followUps !== null && staleLeads !== null && (
               <Badge variant={actionTotal > 0 ? 'warning' : 'success'}>
-                {actionTotal} to clear
+                {actionTotal} to do
               </Badge>
             )}
           </div>
           <p className="text-muted-foreground mt-0.5 text-xs">
-            Actionable follow-ups and new leads still waiting for a first touch
+            Follow-ups to finish and new leads to call.
           </p>
         </div>
       </header>
@@ -171,14 +170,15 @@ export function LeadActionLists() {
           <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
             <span>
               {followUpMode === 'upcoming'
-                ? 'Upcoming follow-ups'
-                : 'Follow-ups due'}
+                ? 'Next follow-ups'
+                : 'Follow-ups to do'}
             </span>
             <Link
+              data-slot="button"
               href="/leads?view=followups"
-              className="text-primary-text hover:text-primary-text/80 font-medium"
+              className={buttonVariants({ variant: 'link', size: 'xs' })}
             >
-              Open follow-ups →
+              See all
             </Link>
           </div>
           {followUps === null ? (
@@ -188,8 +188,8 @@ export function LeadActionLists() {
               icon={Inbox}
               text={
                 followUpMode === 'upcoming'
-                  ? 'No due or upcoming follow-ups.'
-                  : 'Nothing due — queue is clear.'
+                  ? 'No follow-ups are due or coming up.'
+                  : 'No follow-ups are due today.'
               }
             />
           ) : (
@@ -267,7 +267,7 @@ export function LeadActionLists() {
         {/* Queue 2 — new leads waiting on first contact */}
         <div>
           <p className="text-muted-foreground mb-2 flex items-center justify-between text-xs font-medium">
-            <span>Waiting for first contact ({STALE_HOURS}h+)</span>
+            <span>New leads waiting {STALE_HOURS}+ hours</span>
             {staleTotal > 0 && (
               <span className="tabular-nums">
                 {staleTotal > LIST_LIMIT
@@ -281,7 +281,7 @@ export function LeadActionLists() {
           ) : staleLeads.length === 0 ? (
             <QueueEmpty
               icon={UserRoundSearch}
-              text="No new leads waiting — good response time."
+              text="No new leads are waiting."
             />
           ) : (
             <ul className="border-border/60 divide-border/60 bg-muted/20 divide-y overflow-hidden rounded-lg border">

@@ -19,6 +19,7 @@ import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-
 import { FollowUpCompletionControl } from '@/components/follow-ups/follow-up-completion-control';
 import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
 import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
 import { MemberIdentity } from '@/components/members/member-identity';
 import { MemberDetailView } from '@/components/members/member-detail-view';
 import { MemberForm } from '@/components/members/member-form';
@@ -154,16 +155,16 @@ export function MembershipActionLists() {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-foreground text-sm font-semibold">
-              Today&apos;s membership actions
+              Member work
             </h2>
             {followUps !== null && expiring !== null && expired !== null && (
               <Badge variant={actionTotal > 0 ? 'warning' : 'success'}>
-                {actionTotal} to clear
+                {actionTotal} to do
               </Badge>
             )}
           </div>
           <p className="text-muted-foreground mt-0.5 text-xs">
-            Member follow-ups and renewals that need attention
+            Follow-ups and renewals to finish.
           </p>
         </div>
       </header>
@@ -173,8 +174,8 @@ export function MembershipActionLists() {
           <QueueHeading
             label={
               followUpMode === 'upcoming'
-                ? 'Upcoming follow-ups'
-                : 'Follow-ups due'
+                ? 'Next follow-ups'
+                : 'Follow-ups to do'
             }
           />
           {followUps === null ? (
@@ -184,8 +185,8 @@ export function MembershipActionLists() {
               icon={ClipboardCheck}
               text={
                 followUpMode === 'upcoming'
-                  ? 'No due or upcoming follow-ups.'
-                  : 'Nothing due — queue is clear.'
+                  ? 'No follow-ups are due or coming up.'
+                  : 'No follow-ups are due today.'
               }
             />
           ) : (
@@ -301,10 +302,11 @@ export function MembershipActionLists() {
               </ToolbarToggleGroup>
             </Toolbar>
             <Link
+              data-slot="button"
               href="/members?view=renewals"
-              className="text-primary-text hover:text-primary-text/80 text-xs font-medium"
+              className={buttonVariants({ variant: 'link', size: 'xs' })}
             >
-              Open renewals →
+              See all
             </Link>
           </div>
           {renewals === null ? (
@@ -315,7 +317,7 @@ export function MembershipActionLists() {
               text={
                 bucket === 'expiring'
                   ? 'No memberships expiring in the next 7 days.'
-                  : 'No expired memberships.'
+                  : 'No memberships have expired.'
               }
             />
           ) : (
@@ -409,10 +411,11 @@ function QueueHeading({ label }: { label: string }) {
     <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
       <span>{label}</span>
       <Link
+        data-slot="button"
         href="/members?view=followups"
-        className="text-primary-text hover:text-primary-text/80 font-medium"
+        className={buttonVariants({ variant: 'link', size: 'xs' })}
       >
-        Open follow-ups →
+        See all
       </Link>
     </div>
   );

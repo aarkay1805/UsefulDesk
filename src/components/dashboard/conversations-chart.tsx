@@ -55,8 +55,8 @@ export function ConversationsChart({ series, loading, range, onRangeChange }: Co
     <section className="flex h-full flex-col rounded-xl border border-border bg-card">
       <header className="flex items-center justify-between border-b border-border px-5 py-4">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Conversations Over Time</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">Daily message volume by direction</p>
+          <h2 className="text-sm font-semibold text-foreground">Messages</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">Messages sent and received each day</p>
         </div>
         <Toolbar aria-label="Conversation range">
           <ToolbarToggleGroup<RangeValue>
@@ -81,8 +81,8 @@ export function ConversationsChart({ series, loading, range, onRangeChange }: Co
         ) : data.every((p) => p.incoming === 0 && p.outgoing === 0) ? (
           <EmptyState
             icon={MessageSquare}
-            title="No message activity in this range"
-            hint="Send or receive messages to start populating this chart."
+            title="No messages in this time"
+            hint="Sent and received messages will show here."
           />
         ) : (
           <LineSvg data={data} maxY={maxY} ticks={niceTicks} />
@@ -90,8 +90,8 @@ export function ConversationsChart({ series, loading, range, onRangeChange }: Co
       </div>
 
       <footer className="flex items-center gap-4 border-t border-border px-5 py-3 text-xs text-muted-foreground">
-        <LegendDot color="#3b82f6" label="Incoming" />
-        <LegendDot color="#7c3aed" label="Outgoing" />
+        <LegendDot color="#3b82f6" label="Received" />
+        <LegendDot color="#7c3aed" label="Sent" />
       </footer>
     </section>
   )
@@ -215,7 +215,7 @@ function LineSvg({
         viewBox={`0 0 ${vbW} ${VB_H}`}
         className="h-[240px] w-full"
         role="img"
-        aria-label="Conversations per day"
+        aria-label="Messages sent and received each day"
       >
         {/* Y-axis gridlines + labels */}
         {ticks.map((t) => {
@@ -307,11 +307,11 @@ function LineSvg({
           <div className="mt-1 flex flex-col gap-0.5">
             <span className="flex items-center gap-1.5 text-blue-foreground">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
-              {hovered.incoming} incoming
+              {hovered.incoming} received
             </span>
             <span className="flex items-center gap-1.5 text-primary-text">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
-              {hovered.outgoing} outgoing
+              {hovered.outgoing} sent
             </span>
           </div>
         </div>

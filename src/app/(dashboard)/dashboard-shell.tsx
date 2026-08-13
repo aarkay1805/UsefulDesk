@@ -33,7 +33,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/leads') || pathname === '/members';
   const contentPaddingTop = hasRoomyContentTop
     ? 'pt-6'
-    : pathname === '/finance'
+    : pathname === '/finance' || pathname === '/dashboard'
       ? 'pt-5'
       : 'pt-3';
 

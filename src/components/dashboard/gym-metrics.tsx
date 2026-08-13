@@ -9,6 +9,7 @@ import { useLocale } from '@/hooks/use-locale';
 import { loadGymStats, type GymStats } from '@/lib/memberships/stats';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { AnimatedNumber } from '@/components/ui/animated-number';
+import { buttonVariants } from '@/components/ui/button';
 import { SkeletonCard } from '@/components/dashboard/skeleton';
 
 /**
@@ -44,17 +45,18 @@ export function GymMetrics() {
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h2 className="text-foreground text-sm font-semibold">
-            Owner decisions
+            Today at a glance
           </h2>
           <p className="text-muted-foreground mt-0.5 text-xs">
-            Money, renewals, and retention that need attention today
+            Start with money, renewals, and members who need help.
           </p>
         </div>
         <Link
+          data-slot="button"
           href="/finance?view=performance"
-          className="text-primary-text text-xs font-medium hover:underline"
+          className={buttonVariants({ variant: 'link', size: 'xs' })}
         >
-          View performance →
+          See business report
         </Link>
       </div>
 
@@ -77,9 +79,9 @@ export function GymMetrics() {
                 />
               }
               icon={Wallet}
-              subtitle={`${fmt.number(stats.feesDueCount)} outstanding ${
-                stats.feesDueCount === 1 ? 'balance' : 'balances'
-              }`}
+              subtitle={`${fmt.number(stats.feesDueCount)} ${
+                stats.feesDueCount === 1 ? 'payment is' : 'payments are'
+              } not paid`}
             />
           </TileLink>
           <TileLink href="/members?view=renewals">
@@ -87,7 +89,7 @@ export function GymMetrics() {
               title="Renewals due"
               value={<AnimatedNumber value={stats.expiring7} />}
               icon={CalendarClock}
-              subtitle="Memberships ending in the next 7 days"
+              subtitle="Memberships ending in 7 days"
             />
           </TileLink>
           <TileLink href="/members?view=retention">
@@ -172,6 +174,6 @@ function collectionComparison(
     sign: difference,
     label: `${formatMoney(Math.abs(difference))} ${
       difference > 0 ? 'above' : 'below'
-    } 7-day daily average`,
+    } your usual day this week`,
   };
 }

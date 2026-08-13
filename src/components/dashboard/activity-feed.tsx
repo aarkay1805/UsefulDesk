@@ -11,6 +11,8 @@ import {
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import type { ActivityItem, ActivityKind } from '@/lib/dashboard/types'
+import { useLocale } from '@/hooks/use-locale'
+import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { EmptyState } from './empty-state'
 import { Skeleton } from './skeleton'
@@ -37,6 +39,7 @@ const KIND_THEME: Record<ActivityKind, KindTheme> = {
 }
 
 export function ActivityFeed({ items, loading }: ActivityFeedProps) {
+  const { fmt } = useLocale()
   // Start at 5 — a quick scan of the most recent events without
   // dominating vertical real estate. User expands explicitly via the
   // footer control when they want deeper history.
@@ -54,12 +57,13 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
   return (
     <section className="rounded-xl border border-border bg-card">
       <header className="flex items-center justify-between border-b border-border px-5 py-4">
-        <h2 className="text-sm font-semibold text-foreground">Recent Activity</h2>
+        <h2 className="text-sm font-semibold text-foreground">Recent work</h2>
         <Link
+          data-slot="button"
           href="/inbox"
-          className="text-xs font-medium text-primary-text hover:text-primary-text/80"
+          className={buttonVariants({ variant: 'link', size: 'xs' })}
         >
-          View all →
+          Open inbox
         </Link>
       </header>
 
@@ -74,7 +78,7 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
           <EmptyState
             icon={Inbox}
             title="No activity yet"
-            hint="Activity from messages, leads, broadcasts, and automations will appear here."
+            hint="Messages, leads, broadcasts, and automations will show here."
           />
         </div>
       ) : (
@@ -101,7 +105,7 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
                     {it.text}
                   </span>
                   <span className="flex-shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {relativeTime(it.at)}
+                    {relativeTime(it.at, fmt.date)}
                   </span>
                 </div>
               )
@@ -153,13 +157,16 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
   )
 }
 
-function relativeTime(iso: string): string {
+function relativeTime(
+  iso: string,
+  formatDate: (value: string | Date) => string,
+): string {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return ''
   const diffSec = Math.round((Date.now() - then) / 1000)
-  if (diffSec < 60) return `${Math.max(1, diffSec)}s ago`
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`
-  if (diffSec < 2_592_000) return `${Math.floor(diffSec / 86400)}d ago`
-  return new Date(iso).toLocaleDateString()
+  if (diffSec < 60) return 'Just now'
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} min ago`
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} hr ago`
+  if (diffSec < 2_592_000) return `${Math.floor(diffSec / 86400)} days ago`
+  return formatDate(new Date(iso))
 }

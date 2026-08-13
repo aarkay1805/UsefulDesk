@@ -71,14 +71,14 @@ export function NeedsAttentionCard() {
     ? [
         {
           label: 'Renewals due',
-          detail: 'Recurring plans ending in the next 7 days',
+          detail: 'Plans ending in 7 days',
           value: attention.renewalsDue,
           icon: CalendarClock,
           href: '/members?view=renewals',
           badge: '7 days',
         },
         {
-          label: 'Outstanding dues',
+          label: 'Fees to collect',
           detail: fmt.money(attention.outstandingAmount),
           value: attention.outstandingDues,
           icon: CircleDollarSign,
@@ -86,28 +86,28 @@ export function NeedsAttentionCard() {
         },
         {
           label: 'Inactive members',
-          detail: 'No visit for 10+ days, including never visited',
+          detail: 'No visit for 10 days or more',
           value: attention.inactiveMembers,
           icon: UserRoundX,
           href: '/members?view=renewals',
         },
         {
-          label: 'Churn risk',
-          detail: 'Active members carrying a churn-risk flag',
+          label: 'May leave',
+          detail: 'Active members marked as at risk',
           value: attention.churnRisk,
           icon: ShieldAlert,
           href: '/members?view=all',
         },
         {
-          label: 'Trial follow-ups',
-          detail: 'Trials expired or ending within 3 days',
+          label: 'Trials to follow up',
+          detail: 'Trials ending soon or already ended',
           value: attention.trialFollowups,
           icon: FlaskConical,
           href: '/members?view=trials',
         },
         {
-          label: 'Failed mandates',
-          detail: 'AutoPay mandates without an active replacement',
+          label: 'Auto-pay problems',
+          detail: 'Auto-pay needs to be fixed',
           value: attention.failedMandates,
           icon: CreditCard,
           href: '/members?view=payments',
@@ -119,13 +119,13 @@ export function NeedsAttentionCard() {
     <Card className="h-full">
       <CardHeader>
         <CardTitle>Needs attention</CardTitle>
-        <CardDescription>Live operating queues for today</CardDescription>
+        <CardDescription>Open a list to start the work.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-2 sm:grid-cols-2">
         {failed ? (
           <EmptyState
             icon={AlertCircle}
-            title="Operating queues unavailable"
+            title="Could not load these lists"
             hint="Reload the page to try again."
             className="min-h-52 sm:col-span-2"
           />

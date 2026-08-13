@@ -6,6 +6,10 @@
 
 ---
 
+## Dashboard polish
+
+The Dashboard now reads in four plain-language groups: Today at a glance, Quick actions, Work to do, and The full picture. Short labels, neutral action icons, canonical text links, account-local dates, simpler empty states, and a clearer Lead health score keep the full daily view easy to scan without changing data, queues, permissions, or routes. Key code: `src/app/(dashboard)/dashboard/page.tsx` and `src/components/dashboard/`.
+
 ## Member profile drawer polish
 
 The member profile drawer now keeps its identity and WhatsApp reminder action visually clear at narrow and wide widths, and its loading and failure states preserve the sheet hierarchy with explicit status, recovery, and accessible dialog labelling. Membership, billing, attendance, notes, permissions, and nested actions are unchanged. Key code: `src/components/members/member-detail-view.tsx` and `send-reminder-button.tsx`.
