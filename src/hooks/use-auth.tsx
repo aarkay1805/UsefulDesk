@@ -615,7 +615,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // One resolved locale + formatter set for the whole tree. Recomputed
   // only when the account row identity changes (fetch / refreshProfile
-  // after a Settings → Localization save).
+  // after a Settings → Regional settings save).
   const localized = useMemo(() => {
     const cfg = account
       ? resolveAccountLocale(account)

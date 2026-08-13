@@ -590,7 +590,7 @@ Refunds are irreversible once accepted by Razorpay, so the UI must confirm the d
 
 Follow `docs/ui-patterns.md` and reuse existing master components.
 
-### Settings → Payments & currency
+### Settings → Payments
 
 - Replace manual key fields with **Connect Razorpay**.
 - Connected state shows merchant account ID suffix, test/live mode, OAuth/merchant readiness, last verified time, and one consolidated **Payments need attention · N** action when review items exist.

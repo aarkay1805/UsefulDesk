@@ -305,7 +305,7 @@ Seed a concise default category set:
 - Taxes & licences
 - Other
 
-Custom category management belongs in Settings → Payments & currency, not the Business navigation.
+Custom category management belongs in Settings → Payments, not the Business navigation.
 
 ## 6. What to include, adapt, or defer
 

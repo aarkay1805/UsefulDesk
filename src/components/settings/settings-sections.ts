@@ -134,13 +134,13 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   },
   deals: {
     id: 'deals',
-    label: 'Payments & currency',
+    label: 'Payments',
     icon: Coins,
     group: 'business-setup',
   },
   localization: {
     id: 'localization',
-    label: 'Localization',
+    label: 'Regional settings',
     icon: Globe2,
     group: 'workspace',
   },

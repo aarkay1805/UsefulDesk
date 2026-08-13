@@ -58,8 +58,8 @@ function PhoneInput({
       </span>
       <span id={descriptionId} className="sr-only">
         {normalizedCountryCode
-          ? `Country code ${normalizedCountryCode}, set in Localization settings.`
-          : 'No country code is set. Configure it in Localization settings.'}
+          ? `Country code ${normalizedCountryCode}, set in Regional settings.`
+          : 'No country code is set. Configure it in Regional settings.'}
       </span>
       <Input
         type="tel"

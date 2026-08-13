@@ -2,23 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Coins, IndianRupee, Loader2 } from 'lucide-react';
+import { IndianRupee, Loader2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
-import { CURRENCIES } from '@/lib/currency';
 import { isValidVpa, upiAvailableFor } from '@/lib/payments/upi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Card,
   CardContent,
@@ -30,125 +22,20 @@ import { SettingsPanelHead } from './settings-panel-head';
 import { RazorpaySettingsCard } from './razorpay-settings-card';
 
 /**
- * Payments & currency settings — account-wide default currency + UPI.
- *
- * One currency per account (issue #218): the chosen code formats
- * membership fees, payment amounts, and every aggregated total.
- * Writes go straight to `accounts.default_currency`; the
- * `accounts_update` RLS policy (017) already restricts that to
- * admins+, so non-admins see a disabled, read-only control.
+ * Payment collection settings — UPI and Razorpay.
  *
  * (Filename/section id still say "deals" for URL back-compat —
  * the deals feature itself was retired when Pipelines merged
  * into Leads.)
  */
 export function DealsSettings() {
-  const supabase = createClient();
-  const {
-    accountId,
-    defaultCurrency,
-    canEditSettings,
-    profileLoading,
-    refreshProfile,
-  } = useAuth();
-
-  const [selected, setSelected] = useState(defaultCurrency);
-  const [syncedDefault, setSyncedDefault] = useState(defaultCurrency);
-  const [saving, setSaving] = useState(false);
-
-  // Keep the select in sync once the profile (and its account default)
-  // resolves, and after a save round-trips through refreshProfile.
-  if (syncedDefault !== defaultCurrency) {
-    setSyncedDefault(defaultCurrency);
-    setSelected(defaultCurrency);
-  }
-
-  const dirty = selected !== defaultCurrency;
-
-  async function handleSave() {
-    if (!accountId || !dirty) return;
-    setSaving(true);
-    const { error } = await supabase
-      .from('accounts')
-      .update({ default_currency: selected })
-      .eq('id', accountId);
-    if (error) {
-      toast.error('Failed to save default currency');
-      setSaving(false);
-      return;
-    }
-    // Pull the new value back into the auth context so the deal form
-    // and every total pick it up without a full reload.
-    await refreshProfile();
-    setSaving(false);
-    toast.success('Default currency updated');
-  }
-
   return (
     <section className="animate-in fade-in-50 max-w-2xl duration-200">
       <SettingsPanelHead
-        title="Payments & currency"
-        description="The currency used for membership fees, payments, and dashboard totals — plus your UPI collection details."
+        title="Payments"
+        description="Set up UPI and Razorpay to collect member payments."
       />
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-foreground flex items-center gap-2">
-            <Coins className="text-primary-text size-4" />
-            Default currency
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Membership fees, recorded payments, and dashboard totals are shown
-            in this currency.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2 sm:max-w-xs">
-            <Label className="text-muted-foreground">Currency</Label>
-            <Select
-              value={selected}
-              onValueChange={(v) => v && setSelected(v)}
-              disabled={!canEditSettings || profileLoading}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CURRENCIES.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.code} — {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {!canEditSettings && (
-              <p className="text-muted-foreground text-xs">
-                Only account admins can change the default currency.
-              </p>
-            )}
-          </div>
-
-          {canEditSettings && (
-            <Button
-              onClick={handleSave}
-              disabled={saving || !dirty}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save'
-              )}
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="mt-6">
-        <UpiCard />
-      </div>
+      <UpiCard />
 
       <div className="mt-6">
         <RazorpaySettingsCard />
@@ -160,8 +47,7 @@ export function DealsSettings() {
 /**
  * UPI collection details (migration 038) — the gym's VPA + payee name
  * behind every "Copy UPI link" button (payment-due lists, member
- * detail). Same accounts-row write path as the currency above, so the
- * accounts_update RLS (admins+) gates it identically.
+ * detail). The accounts_update RLS policy (admins+) gates the write.
  */
 function UpiCard() {
   const supabase = createClient();
@@ -244,9 +130,9 @@ function UpiCard() {
       <CardContent className="space-y-4">
         {!upiAvailableFor(locale.currency) ? (
           <p className="text-muted-foreground text-sm">
-            UPI collection is available for accounts billing in INR. Your
-            account currency is {locale.currency} — change it above to use UPI
-            links.
+            UPI collection is available for accounts using INR. Your account
+            currency is {locale.currency} — change it under Regional settings to
+            use UPI links.
           </p>
         ) : (
           <>

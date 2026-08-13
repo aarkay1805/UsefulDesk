@@ -30,7 +30,7 @@ import {
 export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { defaultCurrency, locale } = useAuth();
+  const { locale } = useAuth();
   const { mode } = useTheme();
 
   // The URL (`?tab=`) is the single source of truth for the active
@@ -51,10 +51,9 @@ export default function SettingsPage() {
   const hints: Partial<Record<SettingsSection, ReactNode>> = useMemo(
     () => ({
       appearance: mode.charAt(0).toUpperCase() + mode.slice(1),
-      deals: defaultCurrency,
       localization: locale.countryCode,
     }),
-    [mode, defaultCurrency, locale.countryCode]
+    [mode, locale.countryCode]
   );
 
   const panel: Record<SettingsSection, ReactNode> = {

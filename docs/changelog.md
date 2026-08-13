@@ -6,6 +6,10 @@
 
 ---
 
+## Payments and regional settings terminology
+
+Settings now uses the owner-facing labels **Payments** and **Regional settings**. Currency is edited only under Regional settings; the duplicate currency card and Payments rail hint are removed, while UPI and Razorpay remain under Payments. Existing `?tab=deals` and `?tab=localization` deep links are unchanged. Key code: `src/components/settings/settings-sections.ts`, `deals-settings.tsx`, and `localization-settings.tsx`.
+
 ## Settings navigation grouping
 
 The Settings rail now chunks its former thirteen-item Workspace section into Messaging, Lead management, Business setup, and a reduced Workspace, while Account remains unchanged and Overview stays ungrouped. All existing labels, icons, `?tab=` deep links, hints, panels, permissions, legacy tab aliases, and the mobile horizontal scroller are unchanged. Key code: `src/components/settings/settings-sections.ts`.

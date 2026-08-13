@@ -41,14 +41,12 @@ import {
 import { SettingsPanelHead } from './settings-panel-head';
 
 /**
- * Settings → Localization — the gym's regional profile (migration 055).
+ * Settings → Regional settings — the gym's regional profile (migration 055).
  *
  * One draft covering every localization column on `accounts`. Picking a
  * country re-fills the whole draft from its preset (lib/locale/config);
- * each field stays individually editable after. Currency is included —
- * it's part of the preset — and the same column also remains editable
- * under Payments & currency (one DB column, both panels round-trip
- * through refreshProfile, so they can't drift).
+ * each field stays individually editable after. Currency is included as
+ * part of the country preset and is edited only on this surface.
  *
  * Writes follow the deals-settings pattern: direct `accounts` update
  * (accounts_update RLS = admins+) + refreshProfile() so every open
@@ -153,19 +151,19 @@ export function LocalizationSettings() {
       .select('id');
     if (error || !data?.length) {
       setSaving(false);
-      toast.error('Failed to save localization settings');
+      toast.error('Failed to save regional settings');
       return;
     }
     await refreshProfile();
     setSaving(false);
-    toast.success('Localization updated');
+    toast.success('Regional settings updated');
   }
 
   return (
     <section className="animate-in fade-in-50 max-w-2xl duration-200">
       <SettingsPanelHead
-        title="Localization"
-        description="Your gym's country, time zone, and formatting — dates, times, numbers, and phone prefixes follow these everywhere, for every teammate."
+        title="Regional settings"
+        description="Set your gym's country, currency, time zone, and display formats for every teammate."
       />
       <Card>
         <CardHeader>
@@ -258,9 +256,6 @@ export function LocalizationSettings() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-muted-foreground text-xs">
-                Also editable under Payments &amp; currency — same setting.
-              </p>
             </div>
 
             <div className="grid gap-2">
@@ -387,7 +382,7 @@ export function LocalizationSettings() {
 
           {!canEditSettings ? (
             <p className="text-muted-foreground text-xs">
-              Only account admins can change localization settings.
+              Only account admins can change regional settings.
             </p>
           ) : (
             <Button

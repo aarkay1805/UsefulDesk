@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { THEMES } from '@/lib/themes';
-import { CURRENCIES } from '@/lib/currency';
 import { COUNTRY_PRESETS } from '@/lib/locale/config';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Card } from '@/components/ui/card';
@@ -167,9 +166,6 @@ export function SettingsOverview({
   const roleMeta = accountRole ? ROLE_META[accountRole] : null;
   const RoleIcon = roleMeta?.icon;
 
-  const currencyLabel =
-    CURRENCIES.find((c) => c.code === defaultCurrency)?.label ??
-    defaultCurrency;
   const countryLabel =
     COUNTRY_PRESETS[locale.countryCode]?.label ?? locale.countryCode;
   const themeName = THEMES.find((t) => t.id === theme)?.name ?? theme;
@@ -236,12 +232,12 @@ export function SettingsOverview({
     {
       section: 'deals',
       loading: false,
-      subtitle: `${defaultCurrency} — ${currencyLabel}`,
+      subtitle: 'UPI and Razorpay setup',
     },
     {
       section: 'localization',
       loading: false,
-      subtitle: `${countryLabel} · ${locale.timeZone.replace(/_/g, ' ')}`,
+      subtitle: `${countryLabel} · ${defaultCurrency}`,
     },
     {
       section: 'fields',

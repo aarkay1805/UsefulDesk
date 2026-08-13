@@ -388,7 +388,7 @@ export function ContactForm({
               </div>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Country code is set in Settings → Localization
+                Country code is set in Settings → Regional settings
               </p>
             )}
           </div>
