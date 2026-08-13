@@ -8,17 +8,17 @@ must ping on a schedule. This page is the map.
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | --------------------------------------------------------------------- |
 | `/api/follow-ups/cron`                 | Sends in-app bell notifications for follow-up tasks whose `remind_at` slot has arrived; an active dashboard rings while those notifications remain unread | Follow-up reminders (Leads)       | every 15 min                                                          |
 | `/api/automations/cron`                | Reclaims owner-leased automation runs parked on a **Wait** step, including expired `running` work                                                         | Automations with delays           | every 15 min                                                          |
-| `/api/flows/cron`                      | Times out flow runs abandoned mid-conversation (frees the one-active-run-per-contact lock)                                                                | WhatsApp flows                    | every 15 min                                                          |
+| `/api/flows/cron`                      | CAS-times out the exact active snapshot abandoned mid-conversation (frees the one-active-run-per-contact lock)                                            | WhatsApp flows                    | every 15 min                                                          |
 | `/api/whatsapp/webhook`                | Recovers leased, failed, or pending durable WhatsApp webhook receipts; ordinary unauthenticated GETs remain Meta verification requests                    | Inbound WhatsApp durability       | every 15 min                                                          |
 | `/api/v1/broadcasts/cron`              | Reclaims owner-leased public API broadcast recipients left pending by an interrupted `after()` drain                                                      | Public API broadcast durability   | every 15 min                                                          |
 | `/api/renewals/cron`                   | Sends separately configured membership and service renewal templates at each configured offset; service sends require a current sellable rate             | Auto renewal reminders            | hourly at :30 (sends after 09:00 in each account's timezone)          |
 | `/api/payment-installments/cron`       | Sends `gym_installment_reminder` while the second 40% of a joining checkout's full combined invoice remains due                                           | Joining payment installments      | hourly at :30 (7, 3, 1, and 0 days before the account-local deadline) |
 | `/api/payments/razorpay/recovery/cron` | Recovers owner-leased pending/failed/stale Razorpay events in bounded batches and performs the once-daily OAuth token-due scan                            | Razorpay webhook/OAuth durability | every 15 min                                                          |
 
-All eight are claim-first, so overlapping schedulers do not process the same
-active lease. Delayed automations and public broadcasts remain at-least-once
-across the narrow crash window after an external step succeeds but before its
-completion is recorded. Deep dives:
+All eight use claim or compare-and-set gates so overlapping schedulers do not
+overwrite newer state. Delayed automations and public broadcasts remain
+at-least-once across the narrow crash window after an external step succeeds
+but before its completion is recorded. Deep dives:
 [renewal reminders](renewal-reminders.md) and
 [payment installments](payment-installments.md).
 

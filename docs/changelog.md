@@ -6,6 +6,10 @@
 
 ---
 
+## Race-safe flow timeouts
+
+The flow timeout cron now compares both `status='active'` and the exact `last_advanced_at` snapshot that qualified a run as stale. A concurrent inbound that advances the same still-active run therefore wins the compare-and-set instead of being overwritten as `timed_out`. Focused route coverage reproduces the scan-to-update race and preserves ordinary stale-run expiry in `src/app/api/flows/cron/route.test.ts`. No migration or data repair was required: Test and Production already use a non-null `timestamptz` freshness column and had zero active or timed-out flow runs.
+
 ## Recoverable delayed automation claims
 
 Delayed automation waits now move through one atomic five-minute owner lease instead of a permanent `pending → running` claim. The 15-minute cron can reclaim an expired worker, while terminal `done` / `failed` transitions use lease-owner compare-and-set so a stale worker cannot finish newer work. Connector-applied Test and Production schemas passed rollback-only initial claim, expired reclaim, stale-owner rejection, current-owner completion, grant, and lease-clearing checks; both databases had zero queued executions to repair. Key code: `src/app/api/automations/cron/route.ts`, `src/lib/automations/engine.ts`, and `supabase/migrations/20260814031000_lease_delayed_automation_claims.sql`. Gotcha: a process loss after an external step succeeds but before completion is recorded can replay the remaining path at least once.

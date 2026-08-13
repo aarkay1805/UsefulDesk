@@ -70,6 +70,8 @@ Engineering maintenance: **public API broadcasts now persist normalized destinat
 
 Engineering maintenance: **delayed automation waits now use atomic five-minute owner leases; the authenticated 15-minute cron reclaims expired `running` work, and lease-owner compare-and-set blocks stale terminal updates. Applied migration: `20260814031000_lease_delayed_automation_claims.sql` on Test `hkuqzmgnhhgecqcbwupb` and UsefulDesk `fwqthstqrkrwtaehefks`; both had zero queued executions to repair**.
 
+Engineering maintenance: **flow timeouts now compare-and-set the exact active `last_advanced_at` snapshot classified as stale, so a concurrent inbound advance cannot be overwritten as `timed_out`; focused route coverage protects both the race and ordinary stale expiry, with no schema change and zero active or timed-out flow runs to repair on Test and Production**.
+
 Engineering maintenance: **public API contact submissions now preserve every enquiry in the lead timeline, including dedupe hits, while only genuinely new contacts dispatch `new_contact_created`; focused route coverage protects both states, no schema change was required, and Test plus Production had zero existing API-origin contacts to repair**.
 
 Engineering maintenance: **authenticated inbound WhatsApp media proxy responses are now private and non-storable instead of publicly cacheable for 24 hours; focused route coverage protects the downloaded bytes, content type, and cache contract, with no schema or persisted-data change and no change to the public outbound `chat-media` delivery bucket**.

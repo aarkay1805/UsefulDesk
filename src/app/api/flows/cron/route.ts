@@ -70,9 +70,9 @@ export async function GET(request: Request) {
     const ageHours = (now.getTime() - lastAdvanced.getTime()) / (1000 * 60 * 60)
     if (ageHours < policy.on_timeout_hours) continue
 
-    // Mark timed_out — guarded by the precondition `status='active'`
-    // so concurrent advance from a late inbound doesn't overwrite a
-    // legitimate update.
+    // Mark timed_out only if this is still the exact active snapshot we
+    // classified as stale. A concurrent inbound can keep the run active while
+    // advancing last_advanced_at, so status alone is not a sufficient CAS.
     const { data: updated } = await admin
       .from('flow_runs')
       .update({
@@ -82,6 +82,7 @@ export async function GET(request: Request) {
       })
       .eq('id', r.id)
       .eq('status', 'active')
+      .eq('last_advanced_at', r.last_advanced_at)
       .select('id')
 
     if (Array.isArray(updated) && updated.length > 0) {
