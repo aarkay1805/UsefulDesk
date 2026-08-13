@@ -26,7 +26,6 @@ import { NextResponse, after } from 'next/server';
 
 import {
   addContactTags,
-  findOrCreateContact,
   resolveAuditUserId,
   ContactError,
 } from '@/lib/api/v1/contacts';
@@ -46,6 +45,11 @@ import { verifyTurnstile } from '@/lib/security/turnstile';
  *  endpoint into a free "is this number already a lead at that gym?"
  *  oracle for anyone holding the public link. */
 const SUCCESS = { ok: true } as const;
+
+type PublicLeadCaptureResult = {
+  contact_id: string;
+  created_contact: boolean;
+};
 
 export async function POST(
   request: Request,
@@ -145,61 +149,48 @@ export async function POST(
 
   try {
     const auditUserId = await resolveAuditUserId(admin, accountId);
-
-    const { id: contactId, created } = await findOrCreateContact(
-      admin,
-      accountId,
-      auditUserId,
-      { phone, name, email, receivedVia: 'form', source: source || null }
-    );
-
     const goalText = goalLabel(goal);
+
+    // One Postgres transaction owns the complete durable capture boundary:
+    // contact create/dedupe, enquiry note, submission audit, and the consent
+    // event emitted by the submission trigger. A failure rolls all of them
+    // back, so a retry cannot inherit a half-created contact and suppress the
+    // new-contact automation.
+    const { data: capture, error: captureError } = await admin
+      .rpc('capture_public_lead_form_submission', {
+        p_account_id: accountId,
+        p_form_id: form.id,
+        p_audit_user_id: auditUserId,
+        p_phone: phone,
+        p_name: name,
+        p_email: email,
+        p_goal: goal,
+        p_goal_label: goalText,
+        p_source: source,
+        p_consent_text: form.consent_text,
+        p_ip: ip,
+        p_user_agent: request.headers.get('user-agent'),
+      })
+      .single();
+    if (captureError || !capture) {
+      console.error('[lead-capture] atomic capture failed:', captureError);
+      throw new Error('Atomic public lead capture failed');
+    }
+
+    const { contact_id: contactId, created_contact: created } =
+      capture as PublicLeadCaptureResult;
+
     if (goalText) {
-      await addContactTags(admin, accountId, auditUserId, contactId, [goalText]);
-    }
-
-    // Write the note on create AND on dedupe. A repeat enquiry from a
-    // number the gym already has would otherwise be completely
-    // invisible: findOrCreateContact returns the existing row, whose
-    // received_via still says 'manual', and no automation fires. The
-    // gym must still learn that this person asked again.
-    const noteParts = [
-      created
-        ? 'New enquiry via the capture form.'
-        : 'Existing lead enquired again via the capture form.',
-      goalText ? `Goal: ${goalText}` : null,
-      email ? `Email: ${email}` : null,
-    ].filter(Boolean);
-
-    const { error: noteError } = await admin.from('contact_notes').insert({
-      account_id: accountId,
-      contact_id: contactId,
-      user_id: auditUserId,
-      note_text: noteParts.join(' '),
-    });
-    if (noteError) {
-      // Non-fatal: the lead is captured, which is what matters. Log it
-      // rather than 500-ing and inviting a resubmit that double-writes.
-      console.error('[lead-capture] note insert failed:', noteError);
-    }
-
-    // The consent record. Deliberately written even when the contact
-    // deduped — this is the audit trail, the contact is its consequence.
-    const { error: subError } = await admin
-      .from('lead_capture_submissions')
-      .insert({
-        account_id: accountId,
-        form_id: form.id,
-        contact_id: contactId,
-        created_contact: created,
-        payload: { name, phone, email, goal, source },
-        consent: true,
-        consent_text: form.consent_text,
-        ip,
-        user_agent: request.headers.get('user-agent'),
-      });
-    if (subError) {
-      console.error('[lead-capture] submission insert failed:', subError);
+      try {
+        await addContactTags(admin, accountId, auditUserId, contactId, [
+          goalText,
+        ]);
+      } catch (tagError) {
+        // Goal classification is enrichment, not part of the capture commit.
+        // Do not turn a durable lead into a misleading retry that would dedupe
+        // and skip new-contact automation.
+        console.error('[lead-capture] goal tag failed:', tagError);
+      }
     }
 
     // Only a genuinely new contact is a "new contact". Firing this on a

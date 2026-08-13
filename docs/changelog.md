@@ -6,6 +6,10 @@
 
 ---
 
+## Atomic public-form lead evidence
+
+Public lead forms now commit the contact, enquiry note, submission audit, and consent evidence in one service-only database transaction before returning success or dispatching `new_contact_created`. The same migration repairs the consent trigger's service-role check, which previously inspected the security-definer identity and rejected every backend submission; goal tagging remains a best-effort enrichment after the durable capture. Connector-applied Test and Production schemas passed rollback-only success, injected-failure rollback, consent-audit, and grant checks, and neither environment had partial form records to repair. Key code: `src/app/api/lead-forms/[token]/submit/route.ts`, `supabase/migrations/20260814032000_atomic_public_lead_capture.sql`, and `supabase/migrations/20260814032100_fix_service_role_consent_capture.sql`.
+
 ## Race-safe flow timeouts
 
 The flow timeout cron now compares both `status='active'` and the exact `last_advanced_at` snapshot that qualified a run as stale. A concurrent inbound that advances the same still-active run therefore wins the compare-and-set instead of being overwritten as `timed_out`. Focused route coverage reproduces the scan-to-update race and preserves ordinary stale-run expiry in `src/app/api/flows/cron/route.test.ts`. No migration or data repair was required: Test and Production already use a non-null `timestamptz` freshness column and had zero active or timed-out flow runs.
