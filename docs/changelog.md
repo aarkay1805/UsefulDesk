@@ -6,6 +6,10 @@
 
 ---
 
+## Member profile drawer polish
+
+The member profile drawer now keeps its identity and WhatsApp reminder action visually clear at narrow and wide widths, and its loading and failure states preserve the sheet hierarchy with explicit status, recovery, and accessible dialog labelling. Membership, billing, attendance, notes, permissions, and nested actions are unchanged. Key code: `src/components/members/member-detail-view.tsx` and `send-reminder-button.tsx`.
+
 ## Workspace settings polish
 
 Settings → Regional settings, Organization & branches, and Team members now share the established narrow settings hierarchy, responsive card structure, canonical controls and status treatments, and concise owner-facing guidance. Regional settings groups account-wide formats with a live preview, Organization & branches clarifies the accessible branch roster and destructive lifecycle actions, and Team members pairs live presence with permission-safe role, invite, copy, revoke, and removal states without changing locale persistence, branch lifecycle behavior, invitations, or RBAC. Key code: `src/components/settings/localization-settings.tsx`, `organization-settings.tsx`, `organization-danger-zone.tsx`, `members-tab.tsx`, and `invite-member-dialog.tsx`.

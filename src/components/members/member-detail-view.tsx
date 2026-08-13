@@ -28,6 +28,7 @@ import {
   Repeat,
   ArrowLeftRight,
   Hash,
+  CircleAlert,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
@@ -71,6 +72,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -810,26 +812,45 @@ export function MemberDetailView({
         className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-[min(1200px,calc(100vw-2rem))]"
       >
         {loadError ? (
-          <div className="flex h-full items-center justify-center p-6">
-            <div className="border-destructive/30 bg-destructive/10 max-w-sm rounded-xl border p-4 text-center">
-              <p className="text-destructive text-sm font-medium">
-                Could not load this member safely
-              </p>
-              <p className="text-muted-foreground mt-1 text-sm">{loadError}</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => setNonce((n) => n + 1)}
-              >
-                <RefreshCw className="size-3.5" /> Try again
-              </Button>
+          <div className="flex h-full flex-col">
+            <SheetHeader className="border-border border-b p-4 pr-12 sm:p-5 sm:pr-12">
+              <SheetTitle>Member profile</SheetTitle>
+              <SheetDescription>
+                We couldn&apos;t load this member&apos;s details.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="bg-muted/20 flex flex-1 items-start justify-center p-4 sm:items-center sm:p-6">
+              <Alert variant="destructive" className="max-w-md">
+                <CircleAlert className="size-4" />
+                <AlertTitle>Could not load this member safely</AlertTitle>
+                <AlertDescription>
+                  <p>{loadError}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => setNonce((n) => n + 1)}
+                  >
+                    <RefreshCw className="size-3.5" /> Try again
+                  </Button>
+                </AlertDescription>
+              </Alert>
             </div>
           </div>
         ) : !membership || membership.id !== membershipId ? (
-          <div className="text-muted-foreground flex h-full items-center justify-center">
-            <Loader2 className="size-5 animate-spin" />
+          <div className="flex h-full flex-col">
+            <SheetHeader className="border-border border-b p-4 pr-12 sm:p-5 sm:pr-12">
+              <SheetTitle>Member profile</SheetTitle>
+              <SheetDescription>Loading member details…</SheetDescription>
+            </SheetHeader>
+            <div
+              className="bg-muted/20 text-muted-foreground flex flex-1 items-center justify-center gap-2 p-6"
+              role="status"
+            >
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+              <span>Loading member profile…</span>
+            </div>
           </div>
         ) : (
           <div className="flex h-full flex-col">
@@ -913,6 +934,7 @@ export function MemberDetailView({
                     readiness={readiness}
                     onSent={() => {}}
                     size="default"
+                    variant="outline"
                   />
                   {membership.is_trial && canSendMessages && (
                     <Button onClick={() => setConvertOpen(true)}>

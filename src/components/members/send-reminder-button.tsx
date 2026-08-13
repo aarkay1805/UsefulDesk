@@ -159,6 +159,8 @@ interface SendReminderButtonProps {
   /** Called after a reminder is successfully sent. */
   onSent?: () => void;
   size?: "sm" | "default";
+  /** Rows stay quiet; profile surfaces may give the same action an edge. */
+  variant?: "ghost" | "outline";
 }
 
 /**
@@ -171,6 +173,7 @@ export function SendReminderButton({
   readiness,
   onSent,
   size = "sm",
+  variant = "ghost",
 }: SendReminderButtonProps) {
   const { fmt } = useLocale();
   const [sending, setSending] = useState(false);
@@ -227,7 +230,7 @@ export function SendReminderButton({
     <>
       <Button
         type="button"
-        variant="ghost"
+        variant={variant}
         size={size}
         onClick={send}
         disabled={disabled}
