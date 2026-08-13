@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
@@ -15,6 +16,7 @@ import {
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook';
 import { isWhatsAppOptOut } from '@/lib/consent/whatsapp-opt-out';
+import { cronSecretConfigured, isAuthorizedCronRequest } from '@/lib/cron/auth';
 import {
   contactSourceFromReferral,
   parseWhatsAppReferral,
@@ -26,6 +28,9 @@ import {
 // give it headroom beyond the platform default (Vercel clamps this to the
 // plan's ceiling). Tune as needed.
 export const maxDuration = 60;
+
+const RECEIPT_RECOVERY_BATCH_LIMIT = 5;
+const RECEIPT_LEASE_SECONDS = 300;
 
 // Lazy-initialized to avoid build-time crash when env vars are missing
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -110,8 +115,26 @@ interface WhatsAppWebhookEntry {
   }>;
 }
 
+type WhatsAppWebhookBody = { entry?: WhatsAppWebhookEntry[] };
+
+interface ClaimedWebhookReceipt {
+  receipt_id: string;
+  payload: WhatsAppWebhookBody;
+  attempt_count: number;
+  received_at: string;
+}
+
 // GET - Webhook verification
 export async function GET(request: Request) {
+  // The same path remains Meta's verification callback. A scheduler request
+  // is unambiguous because Meta does not send either cron-auth header.
+  if (
+    request.headers.get('x-cron-secret') ||
+    request.headers.get('authorization')?.startsWith('Bearer ')
+  ) {
+    return recoverWebhookReceipts(request);
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get('hub.mode');
@@ -207,39 +230,155 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
-  let body: { entry?: WhatsAppWebhookEntry[] };
+  let body: WhatsAppWebhookBody;
   try {
     body = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  // Process AFTER the response so we ack Meta within their ~20s timeout
-  // (a slow ack triggers Meta retries + duplicate inserts), while still
-  // guaranteeing the work runs to completion.
-  //
-  // This MUST use `after()` rather than a detached `processWebhook(body)`
-  // promise: on serverless platforms (we run on Vercel) the function can
-  // be frozen or terminated the moment the response is sent, so a floating
-  // promise's DB writes are not guaranteed to finish. That dropped a
-  // non-deterministic *subset* of inbound messages — contacts/conversations
-  // were created but the message insert never landed, leaving conversations
-  // that show in the inbox with an empty thread, and no logs to explain it
-  // (see issue #301). `after()` hands the callback to the runtime, which
-  // keeps the function alive until it resolves (within the route's
-  // maxDuration).
-  after(async () => {
-    try {
-      await processWebhook(body);
-    } catch (error) {
-      console.error('Error processing webhook:', error);
+  // A 2xx tells Meta that it may discard this delivery, so the verified raw
+  // payload must cross a durable database boundary first. The SHA-256 claim is
+  // idempotent for byte-identical provider retries. `after()` is only a fast
+  // first drain; the authenticated GET recovery path above sweeps pending,
+  // failed, or stale-leased receipts when the serverless invocation ends.
+  const bodySha256 = createHash('sha256').update(rawBody).digest('hex');
+  const { data: receiptRows, error: receiptError } = await supabaseAdmin().rpc(
+    'record_whatsapp_webhook_receipt',
+    {
+      p_body_sha256: bodySha256,
+      p_payload: body,
     }
-  });
+  );
+  const receipt = (Array.isArray(receiptRows) ? receiptRows[0] : null) as {
+    receipt_id: string;
+    receipt_status: string;
+  } | null;
+
+  if (receiptError || !receipt) {
+    console.error(
+      '[webhook] durable receipt failed:',
+      receiptError?.message ?? 'receipt RPC returned no row'
+    );
+    return NextResponse.json(
+      { error: 'Webhook receipt unavailable' },
+      { status: 503 }
+    );
+  }
+
+  if (receipt.receipt_status !== 'processed') {
+    after(async () => {
+      try {
+        await drainWebhookReceipts({
+          receiptId: receipt.receipt_id,
+          limit: 1,
+        });
+      } catch (error) {
+        console.error('[webhook] immediate receipt drain failed:', error);
+      }
+    });
+  }
 
   return NextResponse.json({ status: 'received' }, { status: 200 });
 }
 
-async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
+/** Cron-authenticated recovery drain for the verified receipts above. */
+async function recoverWebhookReceipts(request: Request) {
+  if (!cronSecretConfigured()) {
+    return NextResponse.json({ error: 'cron not configured' }, { status: 503 });
+  }
+  if (!isAuthorizedCronRequest(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    return NextResponse.json(
+      await drainWebhookReceipts({ limit: RECEIPT_RECOVERY_BATCH_LIMIT })
+    );
+  } catch (error) {
+    console.error('[webhook] recovery drain failed:', error);
+    return NextResponse.json(
+      { error: 'WhatsApp webhook recovery failed' },
+      { status: 500 }
+    );
+  }
+}
+
+async function drainWebhookReceipts(input: {
+  receiptId?: string;
+  limit: number;
+}) {
+  const { data, error } = await supabaseAdmin().rpc(
+    'claim_whatsapp_webhook_receipts',
+    {
+      p_limit: input.limit,
+      p_receipt_id: input.receiptId ?? null,
+      p_lease_seconds: RECEIPT_LEASE_SECONDS,
+    }
+  );
+  if (error) {
+    throw new Error(`claim WhatsApp webhook receipts: ${error.message}`);
+  }
+
+  const receipts = (Array.isArray(data) ? data : []) as ClaimedWebhookReceipt[];
+  const result = {
+    claimed: receipts.length,
+    processed: 0,
+    failed: 0,
+    oldestAgeSeconds: null as number | null,
+    notes: [] as string[],
+  };
+
+  if (receipts.length > 0) {
+    const oldest = Math.min(
+      ...receipts.map((row) => new Date(row.received_at).getTime())
+    );
+    result.oldestAgeSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - oldest) / 1000)
+    );
+  }
+
+  for (const receipt of receipts) {
+    try {
+      await processWebhook(receipt.payload);
+      const { data: completed, error: completeError } =
+        await supabaseAdmin().rpc('complete_whatsapp_webhook_receipt', {
+          p_body_sha256: receipt.receipt_id,
+        });
+      if (completeError || completed !== true) {
+        throw new Error(
+          `complete WhatsApp webhook receipt: ${completeError?.message ?? 'receipt was not processing'}`
+        );
+      }
+      result.processed += 1;
+    } catch (error) {
+      result.failed += 1;
+      const errorText = (
+        error instanceof Error ? error.message : String(error)
+      ).slice(0, 4000);
+      result.notes.push(`${receipt.receipt_id}:${errorText}`);
+      const { data: failed, error: failError } = await supabaseAdmin().rpc(
+        'fail_whatsapp_webhook_receipt',
+        {
+          p_body_sha256: receipt.receipt_id,
+          p_error: errorText,
+        }
+      );
+      if (failError || failed !== true) {
+        console.error(
+          '[webhook] failed to release receipt lease:',
+          receipt.receipt_id,
+          failError?.message ?? 'receipt was not processing'
+        );
+      }
+    }
+  }
+
+  return result;
+}
+
+async function processWebhook(body: WhatsAppWebhookBody) {
   if (!body.entry) return;
 
   for (const entry of body.entry) {
@@ -282,31 +421,19 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
         .eq('phone_number_id', phoneNumberId);
 
       if (configError) {
-        console.error(
-          'Error fetching whatsapp_config for phone_number_id:',
-          phoneNumberId,
-          configError
+        throw new Error(
+          `Could not resolve whatsapp_config for ${phoneNumberId}: ${configError.message}`
         );
-        continue;
       }
 
       if (!configRows || configRows.length === 0) {
-        console.error('No config found for phone_number_id:', phoneNumberId);
-        continue;
+        throw new Error(`No whatsapp_config found for ${phoneNumberId}`);
       }
 
       if (configRows.length > 1) {
-        console.error(
-          `Multiple configs (${configRows.length}) found for phone_number_id:`,
-          phoneNumberId,
-          '— inbound message dropped. Resolve duplicates so each number maps to a single account.',
-          'Account owners:',
-          configRows.map(
-            (r: { account_id: string; user_id: string }) =>
-              `${r.account_id} (admin ${r.user_id})`
-          )
+        throw new Error(
+          `Multiple whatsapp_config rows found for ${phoneNumberId}; receipt retained for operator repair`
         );
-        continue;
       }
 
       const config = configRows[0];
@@ -365,8 +492,9 @@ async function handleStatusUpdate(
   );
 
   if (error) {
-    console.error('Error applying WhatsApp status callback:', error);
-    return;
+    throw new Error(
+      `Could not apply WhatsApp status callback: ${error.message}`
+    );
   }
 
   // Only fan out a public event for a stored message whose status
@@ -625,11 +753,17 @@ async function processMessage(
   // BEFORE we insert, so the count is accurate. Covers the case where
   // the contact row already exists (manual add / CSV import) but they've
   // never messaged us before — which new_contact_created wouldn't catch.
-  const { count: priorCustomerMsgCount } = await supabaseAdmin()
-    .from('messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('conversation_id', conversation.id)
-    .eq('sender_type', 'customer');
+  const { count: priorCustomerMsgCount, error: priorMessageError } =
+    await supabaseAdmin()
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('conversation_id', conversation.id)
+      .eq('sender_type', 'customer');
+  if (priorMessageError) {
+    throw new Error(
+      `Could not count prior inbound messages: ${priorMessageError.message}`
+    );
+  }
   const isFirstInboundMessage = (priorCustomerMsgCount ?? 0) === 0;
 
   const { data: insertedRows, error: msgError } = await supabaseAdmin()
@@ -658,8 +792,7 @@ async function processMessage(
     .select('id');
 
   if (msgError) {
-    console.error('Error inserting message:', msgError);
-    return;
+    throw new Error(`Could not persist inbound message: ${msgError.message}`);
   }
 
   // The full unique index turns Meta retries into an empty upsert result.
@@ -758,8 +891,8 @@ async function processMessage(
   // Fire any automations that react to this webhook event. All dispatches
   // run here (not earlier) so the contact, conversation, and inbound
   // message all exist before any step — including send_message — runs.
-  // This work is already inside Next's after() callback, so every dispatch
-  // must be awaited for the runtime to keep it alive until completion.
+  // This work runs inside either the immediate or recovery receipt drain, so
+  // every dispatch must be awaited before that durable receipt is completed.
   const inboundText = contentText ?? message.text?.body ?? '';
   const automationTriggers: (
     | 'new_contact_created'
@@ -796,7 +929,7 @@ async function processMessage(
 
   // AI auto-reply. Runs only for plain-text inbound the deterministic
   // flow runner did NOT consume (flows win over the LLM), and only when
-  // the account has enabled it. Awaited inside `after()` (same reason as
+  // the account has enabled it. Awaited by the receipt drain (same reason as
   // the webhook dispatch below); `dispatchInboundToAiReply` owns its
   // eligibility gates + try/catch and never throws.
   if (!flowConsumed && !interactiveReplyId && inboundText.trim()) {
@@ -808,10 +941,9 @@ async function processMessage(
     });
   }
 
-  // message.received webhook (public API). Awaited — not fire-and-forget
-  // — because we're inside the route's `after()` block, which only keeps
-  // the function alive for promises it can see; a detached promise could
-  // be frozen before it delivers. `dispatchWebhookEvent` early-exits
+  // message.received webhook (public API). Awaited — not fire-and-forget — so
+  // the receipt cannot complete before dispatch settles; a detached promise
+  // could be frozen before it delivers. `dispatchWebhookEvent` early-exits
   // when the account has no matching endpoint and never throws.
   // (conversation.created is emitted earlier, right after the thread is
   // opened.)
@@ -1089,8 +1221,7 @@ async function findOrCreateContact(
       );
       if (raced) return { contact: raced, wasCreated: false };
     }
-    console.error('Error creating contact:', createError);
-    return null;
+    throw new Error(`Could not create inbound contact: ${createError.message}`);
   }
 
   return { contact: newContact, wasCreated: true };
@@ -1112,8 +1243,9 @@ async function findOrCreateConversation(
     .limit(1);
 
   if (findError) {
-    console.error('Error finding conversation:', findError);
-    return null;
+    throw new Error(
+      `Could not resolve inbound conversation: ${findError.message}`
+    );
   }
 
   if (existingRows && existingRows.length > 0) {
@@ -1145,8 +1277,9 @@ async function findOrCreateConversation(
         return { conversation: raced[0], created: false };
       }
     }
-    console.error('Error creating conversation:', createError);
-    return null;
+    throw new Error(
+      `Could not create inbound conversation: ${createError.message}`
+    );
   }
 
   return { conversation: newConv, created: true };

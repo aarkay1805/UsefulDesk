@@ -20,6 +20,7 @@ const h = vi.hoisted(() => ({
     conversationLookupCall: 0,
     conversationInsertError: null as { code?: string } | null,
     conversationInsertResult: null as Record<string, unknown> | null,
+    configLookupError: null as { message: string } | null,
     messageUpserts: [] as {
       row: Record<string, unknown>;
       options: Record<string, unknown>;
@@ -29,6 +30,8 @@ const h = vi.hoisted(() => ({
       account_id: string;
       conversation_id: string;
     }[],
+    recordReceiptError: null as { message: string } | null,
+    receiptPayload: null as Record<string, unknown> | null,
     afterCallbacks: [] as (() => Promise<void> | void)[],
     automationStarted: 0,
     automationCompleted: 0,
@@ -53,14 +56,16 @@ vi.mock('@supabase/supabase-js', () => ({
             select: () => ({
               eq: () =>
                 Promise.resolve({
-                  data: [
-                    {
-                      account_id: 'account-1',
-                      user_id: 'user-1',
-                      access_token: 'encrypted',
-                    },
-                  ],
-                  error: null,
+                  data: h.state.configLookupError
+                    ? null
+                    : [
+                        {
+                          account_id: 'account-1',
+                          user_id: 'user-1',
+                          access_token: 'encrypted',
+                        },
+                      ],
+                  error: h.state.configLookupError,
                 }),
             }),
           };
@@ -149,6 +154,35 @@ vi.mock('@supabase/supabase-js', () => ({
     },
     rpc: (name: string, args: Record<string, unknown>) => {
       h.state.rpcCalls.push({ name, args });
+      if (name === 'record_whatsapp_webhook_receipt') {
+        return Promise.resolve({
+          data: h.state.recordReceiptError
+            ? null
+            : [{ receipt_id: 'receipt-1', receipt_status: 'pending' }],
+          error: h.state.recordReceiptError,
+        });
+      }
+      if (name === 'claim_whatsapp_webhook_receipts') {
+        return Promise.resolve({
+          data: h.state.receiptPayload
+            ? [
+                {
+                  receipt_id: 'receipt-1',
+                  payload: h.state.receiptPayload,
+                  attempt_count: 1,
+                  received_at: '2026-08-14T00:00:00.000Z',
+                },
+              ]
+            : [],
+          error: null,
+        });
+      }
+      if (
+        name === 'complete_whatsapp_webhook_receipt' ||
+        name === 'fail_whatsapp_webhook_receipt'
+      ) {
+        return Promise.resolve({ data: true, error: null });
+      }
       return Promise.resolve({
         data:
           name === 'apply_whatsapp_status_callback'
@@ -208,8 +242,12 @@ vi.mock('@/lib/whatsapp/referral', () => ({
 vi.mock('@/lib/conversations/reopen', () => ({
   reopenClosedConversation: h.reopenClosedConversation,
 }));
+vi.mock('@/lib/cron/auth', () => ({
+  cronSecretConfigured: () => true,
+  isAuthorizedCronRequest: () => true,
+}));
 
-import { POST } from './route';
+import { GET, POST } from './route';
 
 const TEXT_MESSAGE = {
   id: 'wamid.TEXT1',
@@ -220,26 +258,27 @@ const TEXT_MESSAGE = {
 };
 
 function inboundRequest(message: Record<string, unknown> = TEXT_MESSAGE) {
-  return {
-    text: async () =>
-      JSON.stringify({
-        entry: [
+  const payload = {
+    entry: [
+      {
+        changes: [
           {
-            changes: [
-              {
-                field: 'messages',
-                value: {
-                  metadata: { phone_number_id: 'phone-number-1' },
-                  contacts: [
-                    { wa_id: '15551230000', profile: { name: 'Ada' } },
-                  ],
-                  messages: [message],
-                },
-              },
-            ],
+            field: 'messages',
+            value: {
+              metadata: { phone_number_id: 'phone-number-1' },
+              contacts: [{ wa_id: '15551230000', profile: { name: 'Ada' } }],
+              messages: [message],
+            },
           },
         ],
-      }),
+      },
+    ],
+  };
+  return {
+    text: async () => {
+      h.state.receiptPayload = payload;
+      return JSON.stringify(payload);
+    },
     headers: { get: () => 'sha256=stub' },
   } as unknown as Request;
 }
@@ -265,9 +304,12 @@ beforeEach(() => {
   h.state.conversationLookupCall = 0;
   h.state.conversationInsertError = null;
   h.state.conversationInsertResult = null;
+  h.state.configLookupError = null;
   h.state.messageUpserts = [];
   h.state.rpcCalls = [];
   h.state.statusRpcResult = [];
+  h.state.recordReceiptError = null;
+  h.state.receiptPayload = null;
   h.state.afterCallbacks = [];
   h.state.automationStarted = 0;
   h.state.automationCompleted = 0;
@@ -287,33 +329,125 @@ beforeEach(() => {
 });
 
 function statusRequest(status = 'delivered', phoneNumberId = 'phone-number-1') {
-  return {
-    text: async () =>
-      JSON.stringify({
-        entry: [
+  const payload = {
+    entry: [
+      {
+        changes: [
           {
-            changes: [
-              {
-                field: 'messages',
-                value: {
-                  metadata: { phone_number_id: phoneNumberId },
-                  statuses: [
-                    {
-                      id: 'wamid.STATUS1',
-                      status,
-                      timestamp: '1700000000',
-                      recipient_id: '15551230000',
-                    },
-                  ],
+            field: 'messages',
+            value: {
+              metadata: { phone_number_id: phoneNumberId },
+              statuses: [
+                {
+                  id: 'wamid.STATUS1',
+                  status,
+                  timestamp: '1700000000',
+                  recipient_id: '15551230000',
                 },
-              },
-            ],
+              ],
+            },
           },
         ],
-      }),
+      },
+    ],
+  };
+  return {
+    text: async () => {
+      h.state.receiptPayload = payload;
+      return JSON.stringify(payload);
+    },
     headers: { get: () => 'sha256=stub' },
   } as unknown as Request;
 }
+
+describe('durable webhook receipt', () => {
+  it('persists the verified payload before acknowledging Meta', async () => {
+    const response = await POST(inboundRequest());
+
+    expect(h.state.rpcCalls[0]).toEqual({
+      name: 'record_whatsapp_webhook_receipt',
+      args: {
+        p_body_sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        p_payload: h.state.receiptPayload,
+      },
+    });
+    expect(response).toEqual({
+      body: { status: 'received' },
+      init: { status: 200 },
+    });
+    expect(h.state.afterCallbacks).toHaveLength(1);
+  });
+
+  it('returns a retryable failure when the durable receipt cannot be written', async () => {
+    h.state.recordReceiptError = { message: 'database unavailable' };
+
+    const response = await POST(inboundRequest());
+
+    expect(response).toEqual({
+      body: { error: 'Webhook receipt unavailable' },
+      init: { status: 503 },
+    });
+    expect(h.state.afterCallbacks).toHaveLength(0);
+  });
+
+  it('recovers a durably claimed receipt through the cron-authenticated drain', async () => {
+    await inboundRequest().text();
+
+    const response = await GET({
+      headers: new Headers({ 'x-cron-secret': 'test-secret' }),
+    } as Request);
+
+    expect(response).toEqual({
+      body: expect.objectContaining({ claimed: 1, processed: 1, failed: 0 }),
+      init: undefined,
+    });
+    expect(h.state.rpcCalls).toContainEqual({
+      name: 'claim_whatsapp_webhook_receipts',
+      args: {
+        p_limit: 5,
+        p_receipt_id: null,
+        p_lease_seconds: 300,
+      },
+    });
+    expect(h.state.rpcCalls).toContainEqual({
+      name: 'complete_whatsapp_webhook_receipt',
+      args: { p_body_sha256: 'receipt-1' },
+    });
+  });
+
+  it('releases a failed claim for a later recovery attempt', async () => {
+    await inboundRequest().text();
+    h.state.configLookupError = { message: 'transient database failure' };
+
+    const failedResponse = await GET({
+      headers: new Headers({ 'x-cron-secret': 'test-secret' }),
+    } as Request);
+
+    expect(failedResponse).toEqual({
+      body: expect.objectContaining({ claimed: 1, processed: 0, failed: 1 }),
+      init: undefined,
+    });
+    expect(h.state.rpcCalls).toContainEqual({
+      name: 'fail_whatsapp_webhook_receipt',
+      args: {
+        p_body_sha256: 'receipt-1',
+        p_error:
+          'Could not resolve whatsapp_config for phone-number-1: transient database failure',
+      },
+    });
+
+    h.state.configLookupError = null;
+    const recoveredResponse = await GET({
+      headers: new Headers({ 'x-cron-secret': 'test-secret' }),
+    } as Request);
+
+    expect(recoveredResponse).toEqual({
+      body: expect.objectContaining({ claimed: 1, processed: 1, failed: 0 }),
+      init: undefined,
+    });
+    expect(h.state.messageUpserts).toHaveLength(1);
+  });
+});
 
 async function runStatusWebhook(status?: string, phoneNumberId?: string) {
   const response = await POST(statusRequest(status, phoneNumberId));
@@ -382,7 +516,11 @@ describe('inbound message integrity', () => {
 
     await runWebhook();
 
-    expect(h.state.rpcCalls).toEqual([]);
+    expect(
+      h.state.rpcCalls.filter(
+        ({ name }) => !name.includes('whatsapp_webhook_receipt')
+      )
+    ).toEqual([]);
     expect(h.dispatchInboundToFlows).not.toHaveBeenCalled();
     expect(h.runAutomationsForTrigger).not.toHaveBeenCalled();
     expect(h.dispatchInboundToAiReply).not.toHaveBeenCalled();
@@ -452,7 +590,11 @@ describe('inbound message integrity', () => {
         contact_id: 'contact-1',
       }
     );
-    expect(h.state.rpcCalls).toEqual([]);
+    expect(
+      h.state.rpcCalls.filter(
+        ({ name }) => !name.includes('whatsapp_webhook_receipt')
+      )
+    ).toEqual([]);
     expect(h.dispatchInboundToFlows).not.toHaveBeenCalled();
   });
 });

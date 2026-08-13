@@ -64,6 +64,8 @@ Engineering maintenance: **inbound WhatsApp now has database-enforced one-thread
 
 Engineering maintenance: **outbound WhatsApp status callbacks now keep the signed phone-number ID as the tenant boundary, advance inbox-message and broadcast-recipient states through one service-role-only atomic invoker RPC, refuse duplicate/cross-tenant/regressive transitions, and emit public status events only when a stored message actually advances. Applied migration: `20260813205947_whatsapp_status_callback_integrity.sql` on UsefulDesk `fwqthstqrkrwtaehefks`**.
 
+Engineering maintenance: **verified WhatsApp webhook payloads are now durably and idempotently recorded before Meta receives 200; `after()` performs only the first leased drain, while the authenticated 15-minute ops sweep reclaims failed or stale receipts, and successful completion erases payload JSON while retaining the dedupe hash. Applied migration: `20260814023000_durable_whatsapp_webhook_receipts.sql` on UsefulDesk `fwqthstqrkrwtaehefks`**.
+
 Engineering maintenance: **template image-header fetches and automation `send_webhook` steps reject non-public targets and redirects with a ten-second bound while preserving automation log semantics; browser broadcast fan-out has a matching 60/min budget plus bounded 429-only retry; successful login and invitation continuation use a full browser navigation so fresh Supabase cookies reach the proxy**.
 
 Engineering maintenance: **signed-in account access now retries one transient profile lookup failure, distinguishes a valid viewer from unresolved branch/role context, explains the fail-closed read-only state, and offers an in-place Retry path without changing RLS or requiring a migration**.

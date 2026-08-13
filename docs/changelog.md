@@ -6,6 +6,10 @@
 
 ---
 
+## Durable WhatsApp webhook receipt and recovery
+
+Signed WhatsApp webhook payloads now enter an idempotent service-only receipt ledger before Meta receives 200. The request's `after()` callback is only the first drain: an atomic five-minute lease, failed/stale retry, and the existing 15-minute authenticated ops scheduler recover unfinished receipts without overlapping processing; completed payload JSON is erased while its SHA-256 dedupe key remains. The connector-applied Production schema denies client table/function access and passed rollback-only duplicate, lease, fail/retry, completion, payload-erasure, and service-role checks. Key code: `src/app/api/whatsapp/webhook/route.ts`, `supabase/migrations/20260814023000_durable_whatsapp_webhook_receipts.sql`, and `src/lib/whatsapp/webhook-receipt-durability.test.ts`. Gotcha: deploy the migration before the route, and keep `/api/whatsapp/webhook` in `ops-crons.yml`; `after()` is a latency optimization, not the durability boundary.
+
 ## Tenant-safe monotonic WhatsApp status callbacks
 
 Signed Meta status callbacks now retain `metadata.phone_number_id` as their tenant boundary and use one service-role-only invoker RPC to advance stored message and broadcast-recipient states atomically. Duplicate, unknown, cross-tenant, and regressive callbacks are no-ops, and public `message.status_updated` events fire only for a stored message that actually advanced. The connector-applied Production function has an empty search path, no client-role execute grant, and passed rollback-only wrong-tenant, regression, and forward-transition checks; no existing cross-account message-ID collision required repair. Key code: `src/app/api/whatsapp/webhook/route.ts`, `supabase/migrations/20260813205947_whatsapp_status_callback_integrity.sql`, and `src/lib/whatsapp/status-callback-integrity.test.ts`.

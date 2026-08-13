@@ -1,6 +1,6 @@
 # Cron endpoints — operator runbook
 
-Six scheduled jobs keep the time-based features alive. None of them
+Seven scheduled jobs keep the time-based features alive. None of them
 run by themselves: each is a plain GET route that something external
 must ping on a schedule. This page is the map.
 
@@ -9,6 +9,7 @@ must ping on a schedule. This page is the map.
 | `/api/follow-ups/cron`                 | Sends in-app bell notifications for follow-up tasks whose `remind_at` slot has arrived; an active dashboard rings while those notifications remain unread | Follow-up reminders (Leads)       | every 15 min                                                          |
 | `/api/automations/cron`                | Resumes automation runs parked on a **Wait** step                                                                                                         | Automations with delays           | every 15 min                                                          |
 | `/api/flows/cron`                      | Times out flow runs abandoned mid-conversation (frees the one-active-run-per-contact lock)                                                                | WhatsApp flows                    | every 15 min                                                          |
+| `/api/whatsapp/webhook`                | Recovers leased, failed, or pending durable WhatsApp webhook receipts; ordinary unauthenticated GETs remain Meta verification requests                    | Inbound WhatsApp durability       | every 15 min                                                          |
 | `/api/renewals/cron`                   | Sends separately configured membership and service renewal templates at each configured offset; service sends require a current sellable rate             | Auto renewal reminders            | hourly at :30 (sends after 09:00 in each account's timezone)          |
 | `/api/payment-installments/cron`       | Sends `gym_installment_reminder` while the second 40% of a joining checkout's full combined invoice remains due                                           | Joining payment installments      | hourly at :30 (7, 3, 1, and 0 days before the account-local deadline) |
 | `/api/payments/razorpay/recovery/cron` | Recovers owner-leased pending/failed/stale Razorpay events in bounded batches and performs the once-daily OAuth token-due scan                            | Razorpay webhook/OAuth durability | every 15 min                                                          |
@@ -55,7 +56,7 @@ secret configured → routes answer `503 cron not configured`.
 Two workflows ping production (`desk.usefulmade.com`):
 
 - [`.github/workflows/ops-crons.yml`](../.github/workflows/ops-crons.yml)
-  — follow-ups + automations + flows + Razorpay recovery, every 15 min (best-effort; GitHub
+  — follow-ups + automations + flows + WhatsApp receipt recovery + Razorpay recovery, every 15 min (best-effort; GitHub
   may stretch this to ~25 min under load, which is fine — reminder
   slots are hourly).
 - [`.github/workflows/renewals-cron.yml`](../.github/workflows/renewals-cron.yml)
@@ -91,6 +92,7 @@ curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/follow-ups
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/automations/cron
 # → { "processed": n }
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/flows/cron
+curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/whatsapp/webhook
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/renewals/cron
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/payment-installments/cron
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/payments/razorpay/recovery/cron
@@ -111,6 +113,7 @@ authenticate automatically — and create `vercel.json`:
     { "path": "/api/follow-ups/cron", "schedule": "*/15 * * * *" },
     { "path": "/api/automations/cron", "schedule": "*/15 * * * *" },
     { "path": "/api/flows/cron", "schedule": "*/15 * * * *" },
+    { "path": "/api/whatsapp/webhook", "schedule": "*/15 * * * *" },
     { "path": "/api/renewals/cron", "schedule": "30 * * * *" },
     { "path": "/api/payment-installments/cron", "schedule": "30 * * * *" }
   ]
