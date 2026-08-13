@@ -22,18 +22,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-} from '@/components/ui/table';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { canRefundGatewayPayments } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
+import {
+  invoiceHeadline,
+  invoiceSummaryRows,
+  PAYMENT_REFUND_STATUS_PRESENTATION,
+  paymentRefundEventAt,
+  paymentRefundOutcome,
+} from '@/lib/finance/invoice-detail-presentation';
 import type { FinanceInvoiceRow } from '@/lib/finance/invoices';
 import { invoiceSourceLabel } from '@/lib/finance/invoices';
 import {
@@ -57,6 +57,7 @@ import {
 } from '../members/copy-upi-link-button';
 import {
   FinanceInvoiceStatusBadge,
+  PaymentRefundStatusBadge,
   VoidedPaymentBadge,
 } from '../members/membership-status-badge';
 import { MemberIdentity } from '../members/member-identity';
@@ -259,12 +260,6 @@ function InvoiceDetailBody({
     () => new Map(periods.map((period) => [period.id, period])),
     [periods]
   );
-  const showCredit = isChargeableAmount(currentInvoice.credit_applied ?? 0);
-  const hasBalance = isChargeableAmount(currentInvoice.balance);
-  const showAmountPaid = isChargeableAmount(currentInvoice.amount_paid);
-  const processedRefundAmount = Number(
-    currentInvoice.processed_refund_amount ?? 0
-  );
   const memberName =
     member?.contact?.name ??
     currentInvoice.membership?.contact?.name ??
@@ -275,20 +270,27 @@ function InvoiceDetailBody({
     currentInvoice.membership?.contact ??
     currentInvoice.contact ??
     null;
-  const paymentState = invoicePaymentState(currentInvoice);
-  const headlineLabel = currentInvoice.requires_refund_review
-    ? 'Accounting balance'
-    : currentInvoice.state === 'void'
-      ? 'Invoice total'
-      : hasBalance
-        ? 'Balance due'
-        : paymentState === 'paid'
-          ? 'Paid in full'
-          : 'Invoice total';
-  const headlineAmount =
-    currentInvoice.requires_refund_review || hasBalance
-      ? Number(currentInvoice.accounting_balance ?? currentInvoice.balance)
-      : Number(currentInvoice.fee_amount);
+  const headline = invoiceHeadline(currentInvoice);
+  const summaryRows = invoiceSummaryRows(currentInvoice);
+  const headlineDetail = (() => {
+    if (headline.detail === 'refund_review') {
+      return 'Collection is paused pending review';
+    }
+    if (headline.detail === 'void') {
+      return 'This invoice is not collectible';
+    }
+    if (headline.detail === 'balance_reopened') {
+      return 'A refund reopened this balance';
+    }
+    if (headline.detail === 'balance_due') {
+      if (isChargeableAmount(currentInvoice.credit_applied ?? 0)) {
+        return `${fmt.money(currentInvoice.credit_applied ?? 0)} credit applied · ${fmt.money(currentInvoice.fee_amount)} total`;
+      }
+      return `${fmt.money(currentInvoice.amount_paid)} collected of ${fmt.money(currentInvoice.fee_amount)}`;
+    }
+    if (headline.detail === 'settled') return 'The invoice is settled';
+    return 'Nothing to collect';
+  })();
 
   if (loading) {
     return (
@@ -346,21 +348,13 @@ function InvoiceDetailBody({
             </div>
             <div className="sm:text-right">
               <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                {headlineLabel}
+                {headline.label}
               </p>
               <p className="mt-1 text-2xl font-semibold tabular-nums">
-                {fmt.money(headlineAmount)}
+                {fmt.money(headline.amount)}
               </p>
               <p className="text-muted-foreground mt-1 text-xs">
-                {currentInvoice.requires_refund_review
-                  ? 'Collection is paused pending review'
-                  : currentInvoice.state === 'void'
-                    ? 'This invoice is not collectible'
-                    : hasBalance
-                      ? `${fmt.money(currentInvoice.amount_paid)} paid of ${fmt.money(currentInvoice.fee_amount)}`
-                      : paymentState === 'paid'
-                        ? 'The invoice is settled'
-                        : 'Nothing to collect'}
+                {headlineDetail}
               </p>
             </div>
           </div>
@@ -449,91 +443,60 @@ function InvoiceDetailBody({
       </div>
 
       <div className="border-border overflow-hidden rounded-lg border">
-        <Table>
-          <TableBody>
-            <TableRow>
-              <TableHead scope="row" className="pl-3">
-                Invoice total
-              </TableHead>
-              <TableCell className="pr-3 text-right font-semibold tabular-nums">
-                {fmt.money(currentInvoice.fee_amount)}
-              </TableCell>
-            </TableRow>
-            {showAmountPaid ? (
-              <TableRow>
-                <TableHead scope="row" className="pl-3">
-                  Paid
-                </TableHead>
-                <TableCell className="pr-3 text-right font-medium tabular-nums">
-                  {fmt.money(currentInvoice.amount_paid)}
-                </TableCell>
-              </TableRow>
-            ) : null}
-            {isChargeableAmount(
-              Number(currentInvoice.gross_amount_paid ?? 0) -
-                Number(currentInvoice.amount_paid ?? 0)
-            ) ? (
-              <TableRow>
-                <TableHead scope="row" className="pl-3">
-                  Collected
-                </TableHead>
-                <TableCell className="pr-3 text-right font-medium tabular-nums">
-                  {fmt.money(currentInvoice.gross_amount_paid ?? 0)}
-                </TableCell>
-              </TableRow>
-            ) : null}
-            {isChargeableAmount(processedRefundAmount) ? (
-              <TableRow>
-                <TableHead scope="row" className="pl-3">
-                  Refunded
-                </TableHead>
-                <TableCell className="pr-3 text-right font-medium tabular-nums">
-                  −{fmt.money(processedRefundAmount)}
-                </TableCell>
-              </TableRow>
-            ) : null}
-            {isChargeableAmount(
-              Number(currentInvoice.invoice_adjustment_amount ?? 0)
-            ) ? (
-              <TableRow>
-                <TableHead scope="row" className="pl-3">
-                  Invoice adjustments
-                </TableHead>
-                <TableCell className="pr-3 text-right font-medium tabular-nums">
-                  −{fmt.money(currentInvoice.invoice_adjustment_amount ?? 0)}
-                </TableCell>
-              </TableRow>
-            ) : null}
-            {showCredit ? (
-              <TableRow>
-                <TableHead scope="row" className="pl-3">
-                  Credit applied
-                </TableHead>
-                <TableCell className="pr-3 text-right font-medium tabular-nums">
-                  {fmt.money(currentInvoice.credit_applied ?? 0)}
-                </TableCell>
-              </TableRow>
-            ) : null}
-            {hasBalance ? (
-              <TableRow>
-                <TableHead scope="row" className="pl-3">
-                  Balance due
-                </TableHead>
-                <TableCell className="text-amber-foreground pr-3 text-right font-semibold tabular-nums">
-                  {fmt.money(currentInvoice.balance)}
-                </TableCell>
-              </TableRow>
-            ) : null}
-          </TableBody>
-        </Table>
+        <dl className="divide-border divide-y">
+          {summaryRows.map((row) => (
+            <div
+              key={row.key}
+              className={cn(
+                'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-2.5',
+                row.emphasis && 'bg-muted/20'
+              )}
+            >
+              <dt
+                className={cn(
+                  'text-muted-foreground min-w-0',
+                  row.emphasis && 'text-foreground font-medium'
+                )}
+              >
+                {row.label}
+                {row.collectionBreakdown ? (
+                  <span className="mt-0.5 block text-xs font-normal">
+                    <span className="tabular-nums">
+                      {fmt.money(row.collectionBreakdown.gross)}
+                    </span>{' '}
+                    collected ·{' '}
+                    <span className="tabular-nums">
+                      {fmt.money(row.collectionBreakdown.refunded)}
+                    </span>{' '}
+                    refunded
+                  </span>
+                ) : null}
+              </dt>
+              <dd
+                className={cn(
+                  'text-right font-medium tabular-nums',
+                  row.emphasis && 'font-semibold',
+                  row.warning && 'text-amber-foreground'
+                )}
+              >
+                {row.sign === 'minus' ? '−' : ''}
+                {fmt.money(row.amount)}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
-      <div className="space-y-2">
-        <h3 className="font-medium">Payment history</h3>
+      <section className="space-y-2" aria-labelledby="payment-history-heading">
+        <h3 id="payment-history-heading" className="font-medium">
+          Payment history
+        </h3>
         {payments.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No payments recorded for this invoice.
-          </p>
+          <div className="border-border rounded-lg border px-3 py-4">
+            <p className="text-muted-foreground text-sm">
+              No payments recorded for this invoice.
+            </p>
+          </div>
         ) : (
           <div className="border-border divide-border divide-y rounded-lg border">
             {payments.map((payment) => {
@@ -694,102 +657,116 @@ function InvoiceDetailBody({
                     </div>
                   </div>
                   {refunds.length > 0 ? (
-                    <div className="bg-muted/30 divide-border mt-3 divide-y rounded-lg px-3">
-                      {refunds.map((refund) => (
-                        <div
-                          key={refund.id}
-                          className="space-y-3 py-3 text-xs first:pt-3 last:pb-3"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex min-w-0 flex-wrap items-center gap-2">
-                              <Badge
-                                variant={
-                                  refund.status === 'processed'
-                                    ? 'success'
-                                    : refund.status === 'failed'
-                                      ? 'destructive'
-                                      : 'warning'
-                                }
-                              >
-                                {refund.status === 'processed'
-                                  ? 'Refunded'
-                                  : refund.status === 'failed'
-                                    ? 'Refund failed'
-                                    : 'Refund pending'}
-                              </Badge>
-                              {refund.disposition ? (
-                                <span className="font-medium">
-                                  {refund.disposition === 'reopen_balance'
-                                    ? 'Balance reopened'
-                                    : 'Charge reduced'}
+                    <div className="border-border divide-border mt-3 divide-y border-t">
+                      {refunds.map((refund) => {
+                        const refundStatus =
+                          PAYMENT_REFUND_STATUS_PRESENTATION[refund.status];
+                        const eventAt = paymentRefundEventAt(refund);
+                        const hasAuditDetails = Boolean(
+                          refund.reason ||
+                          refund.gateway_refund_id ||
+                          refund.requested_by
+                        );
+
+                        return (
+                          <div
+                            key={refund.id}
+                            className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2.5 py-3 text-xs"
+                          >
+                            <span className="bg-muted text-muted-foreground mt-0.5 flex size-6 items-center justify-center rounded-md">
+                              <RotateCcw className="size-3" />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                  <PaymentRefundStatusBadge
+                                    status={refund.status}
+                                  />
+                                  <span className="font-medium">
+                                    {paymentRefundOutcome(refund)}
+                                  </span>
+                                </div>
+                                <span className="shrink-0 font-semibold tabular-nums">
+                                  {refund.status === 'processed' ? '−' : ''}
+                                  {fmt.money(refund.amount)}
                                 </span>
+                              </div>
+
+                              <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                                <time
+                                  dateTime={eventAt}
+                                  className="tabular-nums"
+                                >
+                                  {refundStatus.eventLabel}{' '}
+                                  {fmt.dateTime(eventAt)}
+                                </time>
+                                {refund.source === 'razorpay_dashboard' ? (
+                                  <>
+                                    <span aria-hidden="true">·</span>
+                                    <span>Razorpay Dashboard</span>
+                                  </>
+                                ) : null}
+                              </p>
+
+                              {hasAuditDetails ? (
+                                <dl className="mt-3 grid gap-x-4 gap-y-2 sm:grid-cols-2">
+                                  {refund.reason ? (
+                                    <div className="min-w-0 sm:col-span-2">
+                                      <dt className="text-muted-foreground">
+                                        Reason
+                                      </dt>
+                                      <dd className="mt-0.5">
+                                        {refund.reason}
+                                      </dd>
+                                    </div>
+                                  ) : null}
+                                  {refund.gateway_refund_id ? (
+                                    <div className="min-w-0">
+                                      <dt className="text-muted-foreground">
+                                        Provider reference
+                                      </dt>
+                                      <dd className="mt-0.5 font-mono break-all">
+                                        {refund.gateway_refund_id}
+                                      </dd>
+                                    </div>
+                                  ) : null}
+                                  {refund.requested_by ? (
+                                    <div className="min-w-0">
+                                      <dt className="text-muted-foreground">
+                                        Requested by
+                                      </dt>
+                                      <dd className="mt-0.5">
+                                        {staffNameById.get(
+                                          refund.requested_by
+                                        ) ?? 'Former teammate'}
+                                      </dd>
+                                    </div>
+                                  ) : null}
+                                </dl>
+                              ) : null}
+
+                              {canRefund &&
+                              refund.source === 'razorpay_dashboard' &&
+                              refund.status === 'processed' &&
+                              !refund.disposition ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-3"
+                                  onClick={() =>
+                                    setClassification({ payment, refund })
+                                  }
+                                >
+                                  {refund.allocation_complete
+                                    ? 'Classify refund'
+                                    : 'Resolve refund review'}
+                                </Button>
                               ) : null}
                             </div>
-                            <span className="shrink-0 font-semibold tabular-nums">
-                              {refund.status === 'processed' ? '−' : ''}
-                              {fmt.money(refund.amount)}
-                            </span>
                           </div>
-                          <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
-                            <div className="min-w-0 sm:col-span-2">
-                              <dt className="text-muted-foreground">Reason</dt>
-                              <dd className="mt-0.5">
-                                {refund.reason
-                                  ? refund.reason
-                                  : refund.allocation_complete
-                                    ? 'Classification required'
-                                    : 'Line targeting required'}
-                              </dd>
-                            </div>
-                            {refund.gateway_refund_id ? (
-                              <div className="min-w-0">
-                                <dt className="text-muted-foreground">
-                                  Provider reference
-                                </dt>
-                                <dd className="mt-0.5 font-mono break-all">
-                                  {refund.gateway_refund_id}
-                                </dd>
-                              </div>
-                            ) : null}
-                            {refund.source === 'razorpay_dashboard' ? (
-                              <div className="min-w-0">
-                                <dt className="text-muted-foreground">
-                                  Source
-                                </dt>
-                                <dd className="mt-0.5">Razorpay Dashboard</dd>
-                              </div>
-                            ) : null}
-                            {refund.requested_by ? (
-                              <div className="min-w-0">
-                                <dt className="text-muted-foreground">
-                                  Requested by
-                                </dt>
-                                <dd className="mt-0.5">
-                                  {staffNameById.get(refund.requested_by) ??
-                                    'Former teammate'}
-                                </dd>
-                              </div>
-                            ) : null}
-                          </dl>
-                          {canRefund &&
-                          refund.source === 'razorpay_dashboard' &&
-                          refund.status === 'processed' &&
-                          !refund.disposition ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setClassification({ payment, refund })
-                              }
-                            >
-                              {refund.allocation_complete
-                                ? 'Classify refund'
-                                : 'Resolve refund review'}
-                            </Button>
-                          ) : null}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : null}
                 </div>
@@ -797,7 +774,7 @@ function InvoiceDetailBody({
             })}
           </div>
         )}
-      </div>
+      </section>
 
       {refundPayment ? (
         <GatewayRefundDialog

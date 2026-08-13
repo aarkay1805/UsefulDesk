@@ -6,6 +6,10 @@
 
 ---
 
+## Invoice accounting and refund-history polish
+
+The shared invoice dialog now presents one reconciled summary across unpaid, part-paid, paid, no-charge, void, credited, adjusted, refunded, and refund-review states. Refunded invoices show net collection once with the gross-collected/refunded breakdown, while every refund is a dated ledger event with explicit pending, failed, orphaned, processed, accounting-outcome, and review language rather than a nested note card. The same component serves member Billing and Business → Invoices, with focused state-model tests in `src/lib/finance/invoice-detail-presentation.test.ts`. Key code: `src/components/finance/invoice-detail-dialog.tsx`, `src/components/members/membership-status-badge.tsx`, and `src/lib/finance/invoice-detail-presentation.ts`.
+
 ## Lean branch creation
 
 Add branch is now one screen when starting fresh and two screens when reusing settings. Its first screen uses responsive setup choices plus a compact source-branch select, while the copy screen keeps the new branch and source in view, defaults only plans/products/services plus lead fields/tags, and keeps advanced reminders/automations/flows collapsed and off. The wizard hides single-choice billing-business setup, step tracking, technical counts, raw exclusions, and redundant review while explaining separation in owner-facing language. The existing authoritative preview, idempotent create, currency, tenancy, size, sanitization, and inactive/draft safety rules are unchanged. Key code: `src/components/branches/branch-creation-dialog.tsx` and its focused test.

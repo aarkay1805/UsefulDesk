@@ -1,10 +1,12 @@
 import { Badge } from '@/components/ui/badge';
+import { PAYMENT_REFUND_STATUS_PRESENTATION } from '@/lib/finance/invoice-detail-presentation';
 import type { InvoicePaymentState } from '@/lib/memberships/periods';
 import type {
   MembershipStatus,
   MembershipFeeStatus,
   InvoiceStatus,
   Payment,
+  PaymentRefundStatus,
   PaymentStatus,
   PlanType,
   MemberServiceStatus,
@@ -97,6 +99,15 @@ const INVOICE_PAYMENT_VARIANT: Record<
 export function InvoicePaymentBadge({ state }: { state: InvoicePaymentState }) {
   const s = INVOICE_PAYMENT_VARIANT[state];
   return <Badge variant={s.variant}>{s.label}</Badge>;
+}
+
+export function PaymentRefundStatusBadge({
+  status,
+}: {
+  status: PaymentRefundStatus;
+}) {
+  const presentation = PAYMENT_REFUND_STATUS_PRESENTATION[status];
+  return <Badge variant={presentation.variant}>{presentation.label}</Badge>;
 }
 
 export function FinanceInvoiceStatusBadge({
