@@ -1,12 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import {
+  AlertCircle,
+  Loader2,
+  Plus,
+  Tag as TagIcon,
+  Trash2,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { Loader2, Plus, Tag as TagIcon, X } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { useAuth } from '@/hooks/use-auth';
+
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Card,
   CardContent,
@@ -17,131 +22,120 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useAuth } from '@/hooks/use-auth';
+import { getErrorMessage } from '@/lib/errors';
+import { createClient } from '@/lib/supabase/client';
 import type { Tag } from '@/types';
 
-// Tags render as neutral gray badges everywhere (see CLAUDE.md badge
-// canon), so there's no colour picker. The DB `color` column is NOT
-// NULL, so inserts stamp this fixed slate value.
+// Tags render with the neutral badge treatment everywhere. The database
+// column remains required, so new rows keep the canonical slate value.
 const DEFAULT_TAG_COLOR = '#64748b';
 
-/**
- * Tags card — contact labels. Creation is an inline row (name + Add);
- * deletion goes through a confirmation dialog since it detaches the
- * tag from every contact.
- */
-export function TagManager() {
+export function TagManager({ canEdit }: { canEdit: boolean }) {
   const supabase = createClient();
   const { user, accountId, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tagToDelete, setTagToDelete] = useState<Tag | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [newTagName, setNewTagName] = useState('');
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !accountId) return;
     let cancelled = false;
+
     void (async () => {
       await Promise.resolve();
       if (cancelled) return;
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      await fetchTags(user.id);
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user?.id]);
-
-  async function fetchTags(userId: string) {
-    try {
       setLoading(true);
+      setLoadError(null);
+
       const { data, error } = await supabase
         .from('tags')
         .select('*')
-        .eq('user_id', userId)
+        .eq('account_id', accountId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      setTags(data || []);
-    } catch (err) {
-      console.error('Failed to fetch tags:', err);
-      toast.error('Failed to load tags');
-    } finally {
+      if (cancelled) return;
+      if (error) {
+        setLoadError(getErrorMessage(error, "Tags couldn't load. Try again."));
+      } else {
+        setTags((data as Tag[] | null) ?? []);
+      }
       setLoading(false);
-    }
-  }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, authLoading, reloadNonce, supabase]);
 
   async function handleCreate() {
-    if (!newTagName.trim()) {
-      toast.error('Tag name is required');
+    const name = newTagName.trim();
+    if (!canEdit || !name) return;
+    if (!user || !accountId) {
+      toast.error('Your profile is not linked to an account.');
       return;
     }
 
+    setSaving(true);
     try {
-      setSaving(true);
-      if (!user || !accountId) {
-        toast.error('Not authenticated');
-        return;
+      const { data, error } = await supabase
+        .from('tags')
+        .insert({
+          user_id: user.id,
+          account_id: accountId,
+          name,
+          color: DEFAULT_TAG_COLOR,
+        })
+        .select('*')
+        .maybeSingle();
+
+      if (error || !data) {
+        throw error ?? new Error('The tag was not created.');
       }
 
-      // account_id is mandatory on every account-scoped insert (NOT
-      // NULL + RLS, no DB default).
-      const { error } = await supabase.from('tags').insert({
-        user_id: user.id,
-        account_id: accountId,
-        name: newTagName.trim(),
-        color: DEFAULT_TAG_COLOR,
-      });
-
-      if (error) throw error;
-
-      toast.success('Tag created');
+      setTags((current) => [...current, data as Tag]);
       setNewTagName('');
-      await fetchTags(user.id);
-    } catch (err) {
-      console.error('Create error:', err);
-      toast.error('Failed to create tag');
+      toast.success('Tag created');
+    } catch (error) {
+      toast.error(getErrorMessage(error, "The tag couldn't be created."));
     } finally {
       setSaving(false);
     }
   }
 
-  function confirmDelete(tag: Tag) {
-    setTagToDelete(tag);
-    setDeleteDialogOpen(true);
-  }
-
   async function handleDelete() {
-    if (!tagToDelete) return;
+    if (!canEdit || !tagToDelete) return;
 
+    setDeleting(true);
     try {
-      setDeleting(true);
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('tags')
         .delete()
-        .eq('id', tagToDelete.id);
+        .eq('id', tagToDelete.id)
+        .select('id');
 
-      if (error) throw error;
+      if (error || !data?.length) {
+        throw error ?? new Error('The tag was not deleted.');
+      }
 
-      toast.success('Tag deleted');
-      setTags((prev) => prev.filter((t) => t.id !== tagToDelete.id));
-      setDeleteDialogOpen(false);
+      setTags((current) => current.filter((tag) => tag.id !== tagToDelete.id));
       setTagToDelete(null);
-    } catch (err) {
-      console.error('Delete error:', err);
-      toast.error('Failed to delete tag');
+      toast.success('Tag deleted');
+    } catch (error) {
+      toast.error(getErrorMessage(error, "The tag couldn't be deleted."));
     } finally {
       setDeleting(false);
     }
@@ -150,93 +144,125 @@ export function TagManager() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-foreground">
-          <TagIcon className="size-4 text-primary-text" />
+        <CardTitle className="flex items-center gap-2">
+          <TagIcon className="size-4" aria-hidden="true" />
           Tags
         </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Labels for grouping and filtering contacts.
+        <CardDescription>
+          Use simple labels for quick grouping and filters.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="size-6 animate-spin text-primary-text" />
+          <div
+            className="text-muted-foreground flex items-center justify-center gap-2 py-8 text-sm"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            Loading tags…
           </div>
+        ) : loadError ? (
+          <Alert variant="destructive">
+            <AlertCircle aria-hidden="true" />
+            <AlertTitle>Tags couldn&apos;t load</AlertTitle>
+            <AlertDescription>
+              <p>{loadError}</p>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="mt-3"
+                onClick={() => setReloadNonce((nonce) => nonce + 1)}
+              >
+                Try again
+              </Button>
+            </AlertDescription>
+          </Alert>
         ) : (
           <>
             {tags.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
+              <ul className="divide-border border-border divide-y rounded-lg border">
                 {tags.map((tag) => (
-                  <span
+                  <li
                     key={tag.id}
-                    className="group inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-sm font-medium text-foreground transition-colors"
+                    className="flex min-h-11 items-center justify-between gap-3 px-3 py-2"
                   >
-                    {tag.name}
+                    <span className="min-w-0 truncate text-sm font-medium">
+                      {tag.name}
+                    </span>
                     <Button
                       type="button"
                       variant="destructive-ghost"
-                      size="icon-xs"
-                      onClick={() => confirmDelete(tag)}
+                      size="icon-sm"
+                      onClick={() => setTagToDelete(tag)}
+                      disabled={!canEdit}
                       aria-label={`Delete ${tag.name}`}
-                      className="-my-1 -mr-1 rounded-full"
                     >
-                      <X className="size-3" />
+                      <Trash2 className="size-4" aria-hidden="true" />
                     </Button>
-                  </span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                No tags yet — create your first one below.
-              </p>
+              <p className="text-muted-foreground text-sm">No tags yet.</p>
             )}
 
-            {/* Inline create row */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              <Input
-                placeholder="e.g. Newsletter"
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleCreate();
-                }}
-                disabled={saving}
-                maxLength={40}
-                className="min-w-[180px] flex-1"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCreate}
-                disabled={saving || !newTagName.trim()}
-              >
-                {saving ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Plus className="size-4" />
-                )}
-                Add tag
-              </Button>
-            </div>
+            <form
+              className="space-y-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleCreate();
+              }}
+            >
+              <Label htmlFor="new-tag-name">New tag</Label>
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <Input
+                  id="new-tag-name"
+                  placeholder="e.g. Newsletter"
+                  value={newTagName}
+                  onChange={(event) => setNewTagName(event.target.value)}
+                  disabled={!canEdit || saving}
+                  maxLength={40}
+                />
+                <Button
+                  type="submit"
+                  disabled={!canEdit || saving || !newTagName.trim()}
+                  className="w-full sm:w-auto"
+                >
+                  {saving ? (
+                    <Loader2
+                      className="size-4 animate-spin"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Plus className="size-4" aria-hidden="true" />
+                  )}
+                  {saving ? 'Adding…' : 'Add tag'}
+                </Button>
+              </div>
+            </form>
           </>
         )}
       </CardContent>
 
-      {/* Delete confirmation */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <Dialog
+        open={Boolean(tagToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setTagToDelete(null);
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Delete tag</DialogTitle>
+            <DialogTitle>Delete tag?</DialogTitle>
             <DialogDescription>
-              Delete the tag &quot;{tagToDelete?.name}&quot;? This removes it
-              from all contacts and cannot be undone.
+              “{tagToDelete?.name}” will be removed from every contact. This
+              cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
-              variant="ghost"
-              onClick={() => setDeleteDialogOpen(false)}
+              variant="outline"
+              onClick={() => setTagToDelete(null)}
               disabled={deleting}
             >
               Cancel
@@ -246,14 +272,10 @@ export function TagManager() {
               onClick={handleDelete}
               disabled={deleting}
             >
-              {deleting ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete tag'
+              {deleting && (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               )}
+              {deleting ? 'Deleting…' : 'Delete tag'}
             </Button>
           </DialogFooter>
         </DialogContent>

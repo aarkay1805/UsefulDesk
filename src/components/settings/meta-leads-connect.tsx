@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { AlertTriangle, Loader2, Megaphone, Unplug } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Card,
   CardContent,
@@ -27,6 +28,14 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { GatedButton } from '@/components/ui/gated-button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/use-auth';
 import { getErrorMessage } from '@/lib/errors';
 import { loadFbSdk, type FbLoginResponse } from '@/lib/meta/fb-sdk';
@@ -53,6 +62,10 @@ export function MetaLeadsConnect() {
   const [pages, setPages] = useState<PageConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [pageToDisconnect, setPageToDisconnect] = useState<PageConfig | null>(
+    null
+  );
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
@@ -66,7 +79,9 @@ export function MetaLeadsConnect() {
       }
       const { data, error } = await supabase
         .from('meta_page_config')
-        .select('id, page_id, page_name, status, last_error, last_lead_at, skipped_no_phone')
+        .select(
+          'id, page_id, page_name, status, last_error, last_lead_at, skipped_no_phone'
+        )
         .eq('account_id', accountId);
 
       if (cancelled) return;
@@ -113,7 +128,10 @@ export function MetaLeadsConnect() {
       if (!res.ok) throw new Error(data?.error ?? 'Could not connect');
 
       const connected = (data.connected ?? []) as { name: string }[];
-      const skipped = (data.skipped ?? []) as { name: string; reason: string }[];
+      const skipped = (data.skipped ?? []) as {
+        name: string;
+        reason: string;
+      }[];
 
       if (connected.length > 0) {
         toast.success(
@@ -131,114 +149,168 @@ export function MetaLeadsConnect() {
     }
   }, []);
 
-  const handleDisconnect = useCallback(async (pageId: string) => {
+  const handleDisconnect = useCallback(async () => {
+    if (!canEdit || !pageToDisconnect) return;
+    setDisconnecting(true);
     try {
       const res = await fetch('/api/meta/leads/connect', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page_id: pageId }),
+        body: JSON.stringify({ page_id: pageToDisconnect.page_id }),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data?.error ?? 'Could not disconnect');
       }
       toast.success('Page disconnected');
+      setPageToDisconnect(null);
       setNonce((n) => n + 1);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not disconnect the page'));
+    } finally {
+      setDisconnecting(false);
     }
-  }, []);
+  }, [canEdit, pageToDisconnect]);
 
   // The dark-launch gate.
   if (!META_APP_ID || !LEADS_CONFIG_ID) return null;
 
-  const totalSkipped = pages.reduce((sum, p) => sum + (p.skipped_no_phone ?? 0), 0);
+  const totalSkipped = pages.reduce(
+    (sum, p) => sum + (p.skipped_no_phone ?? 0),
+    0
+  );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Facebook & Instagram lead ads</CardTitle>
-        <CardDescription>
-          Connect your Page and every lead from a Facebook or Instagram lead
-          ad lands in Leads automatically, ready to follow up on WhatsApp.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Loading…
-          </div>
-        ) : (
-          <>
-            {pages.length > 0 && (
-              <ul className="space-y-2">
-                {pages.map((page) => (
-                  <li
-                    key={page.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
-                  >
-                    <div className="min-w-0 space-y-0.5">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {page.page_name ?? page.page_id}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {page.status === 'error'
-                          ? (page.last_error ?? 'Needs attention')
-                          : page.last_lead_at
-                            ? 'Receiving leads'
-                            : 'Connected — no leads yet'}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDisconnect(page.page_id)}
-                      disabled={!canEdit}
-                    >
-                      <Unplug className="size-4" />
-                      Disconnect
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {/* A lead Meta delivered that we could not use. Actionable,
-                so say what to do about it rather than hiding it. */}
-            {totalSkipped > 0 && (
-              <div className="flex gap-2.5 rounded-lg border border-warning/40 bg-warning/5 p-3">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
-                <div className="space-y-0.5 text-sm">
-                  <p className="font-medium text-foreground">
-                    {totalSkipped} lead{totalSkipped === 1 ? '' : 's'} skipped
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Your Meta lead form doesn&apos;t ask for a phone number, so
-                    we can&apos;t reach these people on WhatsApp. Add a phone
-                    question in Ads Manager to capture them.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <GatedButton
-              canAct={canEdit}
-              gateReason="connect a Facebook Page"
-              onClick={handleConnect}
-              disabled={connecting}
-              variant={pages.length > 0 ? 'outline' : 'default'}
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Facebook & Instagram lead ads</CardTitle>
+          <CardDescription>
+            Connect your Page and every lead from a Facebook or Instagram lead
+            ad lands in Leads automatically, ready to follow up on WhatsApp.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loading ? (
+            <div
+              className="text-muted-foreground flex items-center gap-2 text-sm"
+              role="status"
+              aria-live="polite"
             >
-              {connecting ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Megaphone className="size-4" />
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Loading…
+            </div>
+          ) : (
+            <>
+              {pages.length > 0 && (
+                <ul className="space-y-2">
+                  {pages.map((page) => (
+                    <li
+                      key={page.id}
+                      className="border-border flex items-center justify-between gap-3 rounded-lg border p-3"
+                    >
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="text-foreground truncate text-sm font-medium">
+                          {page.page_name ?? page.page_id}
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          {page.status === 'error'
+                            ? (page.last_error ?? 'Needs attention')
+                            : page.last_lead_at
+                              ? 'Receiving leads'
+                              : 'Connected — no leads yet'}
+                        </p>
+                      </div>
+                      <GatedButton
+                        canAct={canEdit}
+                        gateReason="disconnect a Facebook Page"
+                        variant="destructive-ghost"
+                        size="sm"
+                        onClick={() => setPageToDisconnect(page)}
+                      >
+                        <Unplug className="size-4" />
+                        Disconnect
+                      </GatedButton>
+                    </li>
+                  ))}
+                </ul>
               )}
-              {pages.length > 0 ? 'Connect another page' : 'Connect Facebook Page'}
-            </GatedButton>
-          </>
-        )}
-      </CardContent>
-    </Card>
+
+              {/* A lead Meta delivered that we could not use. Actionable,
+                so say what to do about it rather than hiding it. */}
+              {totalSkipped > 0 && (
+                <Alert>
+                  <AlertTriangle aria-hidden="true" />
+                  <AlertTitle>
+                    {totalSkipped} lead{totalSkipped === 1 ? '' : 's'} skipped
+                  </AlertTitle>
+                  <AlertDescription>
+                    <p>
+                      Your Meta lead form doesn&apos;t ask for a phone number,
+                      so we can&apos;t reach these people on WhatsApp. Add a
+                      phone question in Ads Manager to capture them.
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <GatedButton
+                canAct={canEdit}
+                gateReason="connect a Facebook Page"
+                onClick={handleConnect}
+                disabled={connecting}
+                variant={pages.length > 0 ? 'outline' : 'default'}
+              >
+                {connecting ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Megaphone className="size-4" />
+                )}
+                {pages.length > 0
+                  ? 'Connect another page'
+                  : 'Connect Facebook Page'}
+              </GatedButton>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={Boolean(pageToDisconnect)}
+        onOpenChange={(open) => {
+          if (!open && !disconnecting) setPageToDisconnect(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disconnect Facebook Page?</DialogTitle>
+            <DialogDescription>
+              New leads from{' '}
+              {pageToDisconnect?.page_name ?? pageToDisconnect?.page_id} will
+              stop entering UsefulDesk. Existing leads remain unchanged.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPageToDisconnect(null)}
+              disabled={disconnecting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+            >
+              {disconnecting && (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              )}
+              {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

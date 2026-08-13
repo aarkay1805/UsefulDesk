@@ -16,8 +16,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Check, Copy, Loader2, RefreshCw } from 'lucide-react';
+import { AlertCircle, Check, Copy, Loader2, RefreshCw } from 'lucide-react';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -59,8 +60,11 @@ export function LeadCaptureSettings() {
 
   const [form, setForm] = useState<CaptureForm | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const [copied, setCopied] = useState(false);
   const [rotateOpen, setRotateOpen] = useState(false);
   const [rotating, setRotating] = useState(false);
@@ -74,6 +78,8 @@ export function LeadCaptureSettings() {
     if (!accountId) return;
     let cancelled = false;
     (async () => {
+      setLoading(true);
+      setLoadError(null);
       const { data, error } = await supabase
         .from('lead_capture_forms')
         .select('id, token, is_active, headline, intro, consent_text')
@@ -82,7 +88,12 @@ export function LeadCaptureSettings() {
 
       if (cancelled) return;
       if (error) {
-        toast.error(getErrorMessage(error, 'Failed to load the capture form'));
+        setLoadError(
+          getErrorMessage(
+            error,
+            "Lead capture settings couldn't load. Try again."
+          )
+        );
         setLoading(false);
         return;
       }
@@ -104,11 +115,17 @@ export function LeadCaptureSettings() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, accountId]);
+  }, [supabase, accountId, reloadNonce]);
 
   const formUrl = form
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/f/${form.token}`
     : '';
+  const hasChanges = Boolean(
+    form &&
+    (headline.trim() !== (form.headline ?? '') ||
+      intro.trim() !== (form.intro ?? '') ||
+      consentText.trim() !== form.consent_text)
+  );
 
   const handleCreate = useCallback(async () => {
     setCreating(true);
@@ -116,8 +133,12 @@ export function LeadCaptureSettings() {
       const res = await fetch('/api/lead-forms', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? 'Failed to create the form');
-      setForm(data.form as CaptureForm);
-      setConsentText((data.form as CaptureForm).consent_text);
+      const nextForm = data.form as CaptureForm;
+      setForm(nextForm);
+      setHeadline(nextForm.headline ?? '');
+      setIntro(nextForm.intro ?? '');
+      setConsentText(nextForm.consent_text);
+      setSubmissionCount(0);
       toast.success('Enquiry form created');
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to create the form'));
@@ -159,24 +180,29 @@ export function LeadCaptureSettings() {
   const handleToggleActive = useCallback(
     async (next: boolean) => {
       if (!form) return;
-      const { data, error } = await supabase
-        .from('lead_capture_forms')
-        .update({
-          is_active: next,
-          revoked_at: next ? null : new Date().toISOString(),
-        })
-        .eq('id', form.id)
-        // Empty result = RLS refused. Without this the UI would toast
-        // success while the row sat unchanged.
-        .select('id')
-        .maybeSingle();
+      setUpdatingStatus(true);
+      try {
+        const { data, error } = await supabase
+          .from('lead_capture_forms')
+          .update({
+            is_active: next,
+            revoked_at: next ? null : new Date().toISOString(),
+          })
+          .eq('id', form.id)
+          // Empty result = RLS refused. Without this the UI would toast
+          // success while the row sat unchanged.
+          .select('id')
+          .maybeSingle();
 
-      if (error || !data) {
-        toast.error(getErrorMessage(error, 'Failed to update the form'));
-        return;
+        if (error || !data) {
+          toast.error(getErrorMessage(error, 'Failed to update the form'));
+          return;
+        }
+        setForm({ ...form, is_active: next });
+        toast.success(next ? 'Form is live' : 'Form turned off');
+      } finally {
+        setUpdatingStatus(false);
       }
-      setForm({ ...form, is_active: next });
-      toast.success(next ? 'Form is live' : 'Form turned off');
     },
     [form, supabase]
   );
@@ -211,7 +237,11 @@ export function LeadCaptureSettings() {
         intro: intro.trim() || null,
         consent_text: consent,
       });
-      toast.success('Saved');
+      toast.success('Enquiry form saved');
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error, "The enquiry form couldn't be saved. Try again.")
+      );
     } finally {
       setSaving(false);
     }
@@ -219,12 +249,34 @@ export function LeadCaptureSettings() {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="flex items-center gap-2 py-10 text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
-          <span className="text-sm">Loading…</span>
-        </CardContent>
-      </Card>
+      <div
+        className="text-muted-foreground flex items-center justify-center gap-2 py-12 text-sm"
+        role="status"
+        aria-live="polite"
+      >
+        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+        Loading lead capture settings…
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle aria-hidden="true" />
+        <AlertTitle>Lead capture settings couldn&apos;t load</AlertTitle>
+        <AlertDescription>
+          <p>{loadError}</p>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="mt-3"
+            onClick={() => setReloadNonce((nonce) => nonce + 1)}
+          >
+            Try again
+          </Button>
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -234,9 +286,7 @@ export function LeadCaptureSettings() {
         <CardHeader>
           <CardTitle>Enquiry form</CardTitle>
           <CardDescription>
-            A public form anyone can fill in — put the link in your Instagram
-            bio, or print it as a QR code at the front desk. Every submission
-            lands in Leads as a new enquiry.
+            Create a public link that sends every submission to Leads.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -260,12 +310,12 @@ export function LeadCaptureSettings() {
         <CardHeader>
           <CardTitle>Enquiry form</CardTitle>
           <CardDescription>
-            Share this link to collect enquiries. Every submission lands in
-            Leads, tagged with the enquirer&apos;s goal.
+            Share this link anywhere you collect enquiries. Submissions appear
+            in Leads with the selected goal tag.
             {submissionCount !== null && submissionCount > 0 && (
               <>
                 {' '}
-                <span className="font-medium text-foreground">
+                <span className="text-foreground font-medium">
                   {submissionCount} received so far.
                 </span>
               </>
@@ -276,20 +326,31 @@ export function LeadCaptureSettings() {
           <div className="space-y-2">
             <Label htmlFor="lc-url">Your link</Label>
             <div className="flex gap-2">
-              <Input id="lc-url" readOnly value={formUrl} className="font-mono text-xs" />
-              <Button variant="outline" onClick={handleCopy} className="shrink-0">
-                {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+              <Input id="lc-url" readOnly value={formUrl} />
+              <Button
+                variant="outline"
+                onClick={handleCopy}
+                className="shrink-0"
+              >
+                {copied ? (
+                  <Check className="size-4" />
+                ) : (
+                  <Copy className="size-4" />
+                )}
                 {copied ? 'Copied' : 'Copy'}
               </Button>
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+          <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
             <div className="space-y-0.5">
-              <p className="text-sm font-medium text-foreground">
+              <p className="text-foreground text-sm font-medium">
                 {form.is_active ? 'Form is live' : 'Form is turned off'}
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p
+                id="lead-capture-status-description"
+                className="text-muted-foreground text-xs"
+              >
                 {form.is_active
                   ? 'Anyone with the link can submit an enquiry.'
                   : 'The link shows a “not available” message.'}
@@ -298,8 +359,9 @@ export function LeadCaptureSettings() {
             <Switch
               checked={form.is_active}
               onCheckedChange={handleToggleActive}
-              disabled={!canEdit}
+              disabled={!canEdit || updatingStatus}
               aria-label="Form is live"
+              aria-describedby="lead-capture-status-description"
             />
           </div>
 
@@ -333,8 +395,12 @@ export function LeadCaptureSettings() {
                 onChange={(e) => setConsentText(e.target.value)}
                 rows={2}
                 disabled={!canEdit}
+                aria-describedby="lead-capture-consent-description"
               />
-              <p className="text-xs text-muted-foreground">
+              <p
+                id="lead-capture-consent-description"
+                className="text-muted-foreground text-xs"
+              >
                 Shown next to a required checkbox. The exact wording is stored
                 with every submission, so editing it never rewrites what past
                 enquirers agreed to.
@@ -346,10 +412,10 @@ export function LeadCaptureSettings() {
                 canAct={canEdit}
                 gateReason="edit the enquiry form"
                 onClick={handleSaveCopy}
-                disabled={saving}
+                disabled={saving || !hasChanges}
               >
                 {saving && <Loader2 className="size-4 animate-spin" />}
-                Save
+                {saving ? 'Saving…' : 'Save changes'}
               </GatedButton>
               <GatedButton
                 canAct={canEdit}
@@ -370,19 +436,21 @@ export function LeadCaptureSettings() {
           <DialogHeader>
             <DialogTitle>Rotate the enquiry link?</DialogTitle>
             <DialogDescription>
-              This generates a new URL and immediately kills the current one.
-              Anywhere you&apos;ve already shared it — your Instagram bio, a
-              printed QR poster, a WhatsApp broadcast — will stop working until
-              you replace it. Existing leads are unaffected.
+              A new URL will replace the current one. Update every place you
+              shared the old link. Existing leads remain unchanged.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRotateOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleRotate} disabled={rotating}>
+            <Button
+              variant="destructive"
+              onClick={handleRotate}
+              disabled={rotating}
+            >
               {rotating && <Loader2 className="size-4 animate-spin" />}
-              Rotate link
+              {rotating ? 'Rotating…' : 'Rotate link'}
             </Button>
           </DialogFooter>
         </DialogContent>

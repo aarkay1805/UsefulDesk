@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import {
+  AlertCircle,
   Archive,
   Loader2,
   Plus,
+  RefreshCw,
   RotateCcw,
   ShoppingBag,
   Trash2,
@@ -30,11 +32,11 @@ import type {
   Trainer,
   TrainerRate,
 } from '@/types';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -124,7 +126,7 @@ function catalogOptionLabel(
 
 export function ProductsServicesSettings() {
   const supabase = createClient();
-  const { accountId, accountRole } = useAuth();
+  const { accountId, accountRole, loading: authLoading } = useAuth();
   const { fmt } = useLocale();
   const canManageCatalog = accountRole
     ? canManageCatalogForRole(accountRole)
@@ -136,6 +138,7 @@ export function ProductsServicesSettings() {
   const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [teamMembers, setTeamMembers] = useState<AccountMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [itemOpen, setItemOpen] = useState(false);
   const [optionItem, setOptionItem] = useState<HydratedItem | null>(null);
@@ -157,10 +160,13 @@ export function ProductsServicesSettings() {
     useState<Trainer | null>(null);
   const [deletingTrainer, setDeletingTrainer] = useState(false);
   useEffect(() => {
-    if (!accountId) return;
+    if (authLoading || !accountId) return;
     let cancelled = false;
     void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
       setLoading(true);
+      setLoadError(null);
       try {
         const [itemResult, trainerResult, memberResponse] = await Promise.all([
           supabase
@@ -175,24 +181,25 @@ export function ProductsServicesSettings() {
             .order('display_name'),
           fetch('/api/account/members', { cache: 'no-store' }),
         ]);
-        const memberPayload = memberResponse.ok
-          ? ((await memberResponse.json()) as { members: AccountMember[] })
-          : null;
-        if (cancelled) return;
-        if (itemResult.error || trainerResult.error || !memberPayload) {
-          toast.error(
-            itemResult.error?.message ||
-              trainerResult.error?.message ||
-              'Failed to load the team roster'
-          );
+        if (itemResult.error) throw itemResult.error;
+        if (trainerResult.error) throw trainerResult.error;
+        if (!memberResponse.ok) {
+          throw new Error('The team roster could not be loaded.');
         }
+        const memberPayload = (await memberResponse.json()) as {
+          members: AccountMember[];
+        };
+        if (cancelled) return;
         setItems((itemResult.data as HydratedItem[]) ?? []);
         setTrainers((trainerResult.data as Trainer[]) ?? []);
-        setTeamMembers(memberPayload?.members ?? []);
+        setTeamMembers(memberPayload.members ?? []);
       } catch (error) {
         if (cancelled) return;
-        toast.error(
-          getErrorMessage(error, 'Failed to load products and services')
+        setLoadError(
+          getErrorMessage(
+            error,
+            "Products and services couldn't load. Try again."
+          )
         );
       } finally {
         if (!cancelled) setLoading(false);
@@ -201,7 +208,7 @@ export function ProductsServicesSettings() {
     return () => {
       cancelled = true;
     };
-  }, [accountId, reloadNonce, supabase]);
+  }, [accountId, authLoading, reloadNonce, supabase]);
 
   function refresh() {
     setReloadNonce((value) => value + 1);
@@ -218,10 +225,20 @@ export function ProductsServicesSettings() {
       .eq('id', id)
       .select('id');
     if (error || !data?.length) {
+      const optionItemKind = items.find((item) =>
+        item.catalog_options.some((option) => option.id === id)
+      )?.kind;
       toast.error(
-        error?.code === '23505' && table === 'catalog_options'
-          ? 'An active option with the same duration already exists.'
-          : error?.message || "You don't have permission to make this change"
+        error?.code === '23505'
+          ? table === 'catalog_items'
+            ? 'An active item with this name already exists.'
+            : optionItemKind === 'merchandise'
+              ? 'This item already has an active unit price.'
+              : 'This duration already exists.'
+          : getErrorMessage(
+              error,
+              "You don't have permission to make this change"
+            )
       );
       return false;
     }
@@ -257,7 +274,10 @@ export function ProductsServicesSettings() {
       toast.error(
         error?.code === '23503'
           ? `${deleteTarget.name} has sales or service history — archive it instead.`
-          : error?.message || "You don't have permission to delete this item"
+          : getErrorMessage(
+              error,
+              "You don't have permission to delete this item"
+            )
       );
       return;
     }
@@ -356,199 +376,213 @@ export function ProductsServicesSettings() {
   }
 
   return (
-    <section className="animate-in fade-in-50 max-w-5xl duration-200">
+    <section className="max-w-5xl">
       <SettingsPanelHead
         title="Products & services"
-        description="Sell time-bound services and merchandise alongside a membership. Trainer-priced services are available only where a duration-specific rate is configured."
+        description="Manage services, merchandise, trainers, and duration-specific fees."
       />
 
-      <Tabs defaultValue="catalogue">
-        <TabsList>
-          <TabsTrigger value="catalogue">Catalogue</TabsTrigger>
-          <TabsTrigger value="trainers">Trainers</TabsTrigger>
-        </TabsList>
+      {loading ? (
+        <Loading />
+      ) : loadError ? (
+        <Alert variant="destructive">
+          <AlertCircle aria-hidden="true" />
+          <AlertTitle>Products and services couldn&apos;t load</AlertTitle>
+          <AlertDescription>
+            <p>{loadError}</p>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="mt-3"
+              onClick={refresh}
+            >
+              <RefreshCw aria-hidden="true" /> Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Tabs defaultValue="catalogue">
+          <TabsList>
+            <TabsTrigger value="catalogue">Catalogue</TabsTrigger>
+            <TabsTrigger value="trainers">Trainers</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="catalogue" className="mt-4 space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-muted-foreground text-sm">
-              Services use calendar durations. Merchandise tracks quantity and
-              revenue only.
-            </p>
-            {canManageCatalog ? (
-              <Button onClick={() => setItemOpen(true)}>
-                <Plus className="size-4" /> Add item
-              </Button>
-            ) : null}
-          </div>
-          {loading ? (
-            <Loading />
-          ) : items.length === 0 ? (
-            <Empty
-              icon={<ShoppingBag className="size-7" />}
-              label="No products or services yet"
-            />
-          ) : (
-            items.map((item) => (
-              <Card
-                key={item.id}
-                className={item.is_active ? undefined : 'opacity-60'}
-              >
-                <CardHeader>
-                  <CardTitle className="flex flex-wrap items-center gap-2">
-                    {item.name}
-                    <Badge variant="neutral">
-                      {item.kind === 'service' ? 'Service' : 'Merchandise'}
-                    </Badge>
-                    {item.requires_trainer ? (
-                      <Badge variant="info">Trainer priced</Badge>
-                    ) : null}
-                    {!item.is_active ? (
-                      <Badge variant="neutral">Archived</Badge>
-                    ) : null}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {item.description ? (
-                    <p className="text-muted-foreground text-sm">
-                      {item.description}
-                    </p>
-                  ) : null}
-                  {item.catalog_options.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">
-                      No sellable options yet.
-                    </p>
-                  ) : (
-                    <div className="divide-y rounded-lg border">
-                      {[...item.catalog_options]
-                        .sort((a, b) => a.sort_order - b.sort_order)
-                        .map((option) => (
-                          <div
-                            key={option.id}
-                            className="flex flex-wrap items-center gap-3 px-3 py-2.5"
-                          >
-                            <div className="min-w-40 flex-1">
-                              <p className="font-medium">
-                                {catalogOptionLabel(option)}
-                              </p>
-                              <p className="text-muted-foreground text-xs">
-                                {item.requires_trainer
-                                  ? trainerFeeStatusLabel(option, trainers)
-                                  : option.standard_price == null
-                                    ? 'Price missing'
-                                    : fmt.money(option.standard_price)}
-                              </p>
-                            </div>
-                            {!option.is_active ? (
-                              <Badge variant="neutral">Archived</Badge>
-                            ) : null}
-                            {canManageCatalog &&
-                            item.requires_trainer &&
-                            option.is_active ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setRateOption({ item, option })}
-                              >
-                                {configuredTrainerFeeCount(option, trainers) > 0
-                                  ? 'Edit trainer fees'
-                                  : 'Set trainer fees'}
-                              </Button>
-                            ) : null}
-                            {canManageCatalog ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  if (option.is_active) {
-                                    setArchiveTarget({
-                                      table: 'catalog_options',
-                                      id: option.id,
-                                      title: `Archive ${catalogOptionLabel(option)}?`,
-                                      description:
-                                        'This option will no longer be available for new sales. Existing purchases and service history stay intact.',
-                                    });
-                                    return;
-                                  }
-                                  void setArchived(
-                                    'catalog_options',
-                                    option.id,
-                                    true
-                                  );
-                                }}
-                              >
-                                {option.is_active ? (
-                                  <Archive className="size-4" />
-                                ) : (
-                                  <RotateCcw className="size-4" />
-                                )}
-                                {option.is_active ? 'Archive' : 'Restore'}
-                              </Button>
-                            ) : null}
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                  {canManageCatalog ? (
-                    <div className="flex flex-wrap gap-2">
-                      {item.is_active &&
-                      (item.kind === 'service' ||
-                        !item.catalog_options.some(
-                          (option) => option.is_active
-                        )) ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setOptionItem(item)}
-                        >
-                          <Plus className="size-4" /> Add{' '}
-                          {item.kind === 'service' ? 'duration' : 'price'}
-                        </Button>
+          <TabsContent value="catalogue" className="mt-4 space-y-4">
+            <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+              <p className="text-muted-foreground text-sm">
+                Services use calendar durations; merchandise uses a unit price.
+              </p>
+              {canManageCatalog ? (
+                <Button onClick={() => setItemOpen(true)}>
+                  <Plus className="size-4" /> Add item
+                </Button>
+              ) : null}
+            </div>
+            {items.length === 0 ? (
+              <Empty
+                icon={<ShoppingBag className="size-7" aria-hidden="true" />}
+                label="No products or services yet"
+              />
+            ) : (
+              items.map((item) => (
+                <Card key={item.id}>
+                  <CardHeader>
+                    <CardTitle className="flex flex-wrap items-center gap-2">
+                      {item.name}
+                      <Badge variant="neutral">
+                        {item.kind === 'service' ? 'Service' : 'Merchandise'}
+                      </Badge>
+                      {item.requires_trainer ? (
+                        <Badge variant="info">Trainer priced</Badge>
                       ) : null}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (item.is_active) {
-                            setArchiveTarget({
-                              table: 'catalog_items',
-                              id: item.id,
-                              title: `Archive ${item.name}?`,
-                              description:
-                                'This item and its options will no longer be available for new sales. Existing purchases and service history stay intact.',
-                            });
-                            return;
+                      {!item.is_active ? (
+                        <Badge variant="neutral">Archived</Badge>
+                      ) : null}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {item.description ? (
+                      <p className="text-muted-foreground text-sm">
+                        {item.description}
+                      </p>
+                    ) : null}
+                    {item.catalog_options.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">
+                        No sellable options yet.
+                      </p>
+                    ) : (
+                      <div className="divide-y rounded-lg border">
+                        {[...item.catalog_options]
+                          .sort((a, b) => a.sort_order - b.sort_order)
+                          .map((option) => (
+                            <div
+                              key={option.id}
+                              className="flex flex-wrap items-center gap-3 px-3 py-2.5"
+                            >
+                              <div className="min-w-40 flex-1">
+                                <p className="font-medium">
+                                  {catalogOptionLabel(option)}
+                                </p>
+                                <p className="text-muted-foreground text-xs tabular-nums">
+                                  {item.requires_trainer
+                                    ? trainerFeeStatusLabel(option, trainers)
+                                    : option.standard_price == null
+                                      ? 'Price missing'
+                                      : fmt.money(option.standard_price)}
+                                </p>
+                              </div>
+                              {!option.is_active ? (
+                                <Badge variant="neutral">Archived</Badge>
+                              ) : null}
+                              {canManageCatalog &&
+                              item.is_active &&
+                              item.requires_trainer &&
+                              option.is_active ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    setRateOption({ item, option })
+                                  }
+                                >
+                                  {configuredTrainerFeeCount(option, trainers) >
+                                  0
+                                    ? 'Edit trainer fees'
+                                    : 'Set trainer fees'}
+                                </Button>
+                              ) : null}
+                              {canManageCatalog && item.is_active ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (option.is_active) {
+                                      setArchiveTarget({
+                                        table: 'catalog_options',
+                                        id: option.id,
+                                        title: `Archive ${catalogOptionLabel(option)}?`,
+                                        description:
+                                          'This option will no longer be available for new sales. Existing purchases and service history stay intact.',
+                                      });
+                                      return;
+                                    }
+                                    void setArchived(
+                                      'catalog_options',
+                                      option.id,
+                                      true
+                                    );
+                                  }}
+                                >
+                                  {option.is_active ? (
+                                    <Archive className="size-4" />
+                                  ) : (
+                                    <RotateCcw className="size-4" />
+                                  )}
+                                  {option.is_active ? 'Archive' : 'Restore'}
+                                </Button>
+                              ) : null}
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                    {canManageCatalog ? (
+                      <div className="flex flex-wrap gap-2">
+                        {item.is_active &&
+                        (item.kind === 'service' ||
+                          !item.catalog_options.some(
+                            (option) => option.is_active
+                          )) ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setOptionItem(item)}
+                          >
+                            <Plus className="size-4" /> Add{' '}
+                            {item.kind === 'service' ? 'duration' : 'price'}
+                          </Button>
+                        ) : null}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (item.is_active) {
+                              setArchiveTarget({
+                                table: 'catalog_items',
+                                id: item.id,
+                                title: `Archive ${item.name}?`,
+                                description:
+                                  'This item and its options will no longer be available for new sales. Existing purchases and service history stay intact.',
+                              });
+                              return;
+                            }
+                            void setArchived('catalog_items', item.id, true);
+                          }}
+                        >
+                          {item.is_active ? (
+                            <Archive className="size-4" />
+                          ) : (
+                            <RotateCcw className="size-4" />
+                          )}
+                          {item.is_active ? 'Archive item' : 'Restore item'}
+                        </Button>
+                        <Button
+                          variant="destructive-ghost"
+                          size="sm"
+                          onClick={() =>
+                            setDeleteTarget({ id: item.id, name: item.name })
                           }
-                          void setArchived('catalog_items', item.id, true);
-                        }}
-                      >
-                        {item.is_active ? (
-                          <Archive className="size-4" />
-                        ) : (
-                          <RotateCcw className="size-4" />
-                        )}
-                        {item.is_active ? 'Archive item' : 'Restore item'}
-                      </Button>
-                      <Button
-                        variant="destructive-ghost"
-                        size="sm"
-                        onClick={() =>
-                          setDeleteTarget({ id: item.id, name: item.name })
-                        }
-                      >
-                        <Trash2 className="size-4" /> Delete item
-                      </Button>
-                    </div>
-                  ) : null}
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </TabsContent>
+                        >
+                          <Trash2 className="size-4" /> Delete item
+                        </Button>
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
 
-        <TabsContent value="trainers" className="mt-4 space-y-4">
-          {loading ? (
-            <Loading />
-          ) : (
+          <TabsContent value="trainers" className="mt-4 space-y-4">
             <>
               <Card>
                 <CardHeader>
@@ -595,17 +629,19 @@ export function ProductsServicesSettings() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Independent trainers</CardTitle>
-                  {canManageTrainers ? (
-                    <CardAction>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-1.5">
+                      <CardTitle>Independent trainers</CardTitle>
+                      <CardDescription>
+                        For trainers without UsefulDesk team access.
+                      </CardDescription>
+                    </div>
+                    {canManageTrainers ? (
                       <Button size="sm" onClick={() => setTrainerOpen(true)}>
                         <Plus className="size-4" /> Add trainer
                       </Button>
-                    </CardAction>
-                  ) : null}
-                  <CardDescription>
-                    For trainers without UsefulDesk team access.
-                  </CardDescription>
+                    ) : null}
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   {trainers.filter((trainer) => !trainer.linked_user_id)
@@ -623,24 +659,27 @@ export function ProductsServicesSettings() {
                             name={trainer.display_name}
                             context={trainer.title || 'Trainer'}
                             action={
-                              <Button
-                                variant="destructive-ghost"
-                                size="icon-sm"
-                                onClick={() => setTrainerDeleteTarget(trainer)}
-                                disabled={
-                                  !canManageTrainers ||
-                                  (deletingTrainer &&
-                                    trainerDeleteTarget?.id === trainer.id)
-                                }
-                                aria-label={`Delete ${trainer.display_name}`}
-                              >
-                                {deletingTrainer &&
-                                trainerDeleteTarget?.id === trainer.id ? (
-                                  <Loader2 className="size-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="size-4" />
-                                )}
-                              </Button>
+                              canManageTrainers ? (
+                                <Button
+                                  variant="destructive-ghost"
+                                  size="icon-sm"
+                                  onClick={() =>
+                                    setTrainerDeleteTarget(trainer)
+                                  }
+                                  disabled={
+                                    deletingTrainer &&
+                                    trainerDeleteTarget?.id === trainer.id
+                                  }
+                                  aria-label={`Delete ${trainer.display_name}`}
+                                >
+                                  {deletingTrainer &&
+                                  trainerDeleteTarget?.id === trainer.id ? (
+                                    <Loader2 className="size-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="size-4" />
+                                  )}
+                                </Button>
+                              ) : null
                             }
                           />
                         ))}
@@ -649,9 +688,9 @@ export function ProductsServicesSettings() {
                 </CardContent>
               </Card>
             </>
-          )}
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      )}
 
       {!canManageCatalog && !canManageTrainers ? (
         <p className="text-muted-foreground mt-4 text-xs">
@@ -790,8 +829,13 @@ export function ProductsServicesSettings() {
 
 function Loading() {
   return (
-    <div className="text-muted-foreground flex items-center gap-2 text-sm">
-      <Loader2 className="size-4 animate-spin" /> Loading…
+    <div
+      className="text-muted-foreground flex items-center gap-2 py-6 text-sm"
+      role="status"
+      aria-live="polite"
+    >
+      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+      Loading products and services…
     </div>
   );
 }
@@ -889,6 +933,13 @@ function ItemDialog({
   const supabase = createClient();
   const [form, setForm] = useState(EMPTY_ITEM);
   const [saving, setSaving] = useState(false);
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen && saving) return;
+    if (!nextOpen) setForm(EMPTY_ITEM);
+    onOpenChange(nextOpen);
+  }
+
   async function save() {
     if (!accountId || !form.name.trim())
       return toast.error('Enter an item name');
@@ -901,14 +952,20 @@ function ItemDialog({
       requires_trainer: form.kind === 'service' && form.requiresTrainer,
     });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      return toast.error(
+        error.code === '23505'
+          ? 'An active item with this name already exists.'
+          : getErrorMessage(error, 'The catalogue item could not be added.')
+      );
+    }
     toast.success('Catalogue item added');
     setForm(EMPTY_ITEM);
     onOpenChange(false);
     onSaved();
   }
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add catalogue item</DialogTitle>
@@ -947,7 +1004,7 @@ function ItemDialog({
               </SelectContent>
             </Select>
           </Field>
-          <Field id="catalog-item-description" label="Description">
+          <Field id="catalog-item-description" label="Description (optional)">
             <Textarea
               id="catalog-item-description"
               value={form.description}
@@ -1062,7 +1119,7 @@ function OptionDialog({
           ? item.kind === 'service'
             ? 'This duration already exists.'
             : 'This item already has an active unit price.'
-          : error.message
+          : getErrorMessage(error, 'The sellable option could not be added.')
       );
     }
     toast.success(
@@ -1190,6 +1247,16 @@ function TrainerDialog({
   const [name, setName] = useState('');
   const [title, setTitle] = useState('');
   const [saving, setSaving] = useState(false);
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen && saving) return;
+    if (!nextOpen) {
+      setName('');
+      setTitle('');
+    }
+    onOpenChange(nextOpen);
+  }
+
   async function save() {
     if (!accountId || !name.trim())
       return toast.error('Enter the trainer name');
@@ -1200,7 +1267,13 @@ function TrainerDialog({
       title: title.trim() || null,
     });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      return toast.error(
+        error.code === '23505'
+          ? 'An active trainer with this name already exists.'
+          : getErrorMessage(error, 'The trainer could not be added.')
+      );
+    }
     toast.success('Trainer added');
     setName('');
     setTitle('');
@@ -1208,7 +1281,7 @@ function TrainerDialog({
     onSaved();
   }
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add trainer</DialogTitle>
@@ -1270,12 +1343,12 @@ function RateMatrixDialog({
     )
   );
   const [saving, setSaving] = useState(false);
+  const activeTrainers = trainers.filter((trainer) => trainer.is_active);
+
   async function save() {
     if (!selection || !accountId) return;
-    const rows = trainers
-      .filter(
-        (trainer) => trainer.is_active && prices[trainer.id]?.trim() !== ''
-      )
+    const rows = activeTrainers
+      .filter((trainer) => prices[trainer.id]?.trim() !== '')
       .map((trainer) => ({
         account_id: accountId,
         trainer_id: trainer.id,
@@ -1307,7 +1380,10 @@ function RateMatrixDialog({
     setSaving(false);
     if (upsertError || archiveError) {
       return toast.error(
-        upsertError?.message || archiveError?.message || 'Fees were not saved'
+        getErrorMessage(
+          upsertError || archiveError,
+          'Trainer fees could not be saved.'
+        )
       );
     }
     if (ratesToArchive.length && archived?.length !== ratesToArchive.length) {
@@ -1324,15 +1400,17 @@ function RateMatrixDialog({
           <DialogTitle>Trainer fees</DialogTitle>
           <DialogDescription>
             {selection
-              ? `${selection.item.name} · ${selection.option.duration_count} ${selection.option.duration_unit}${selection.option.duration_count === 1 ? '' : 's'}`
+              ? `${selection.item.name} · ${catalogOptionLabel(selection.option)}. Leave a fee blank to make that trainer unavailable at checkout.`
               : ''}
-            . Leave a fee blank to make that trainer unavailable at checkout.
           </DialogDescription>
         </DialogHeader>
         <div className="-mx-1 max-h-80 space-y-3 overflow-y-auto px-1 py-1">
-          {trainers
-            .filter((trainer) => trainer.is_active)
-            .map((trainer) => (
+          {activeTrainers.length === 0 ? (
+            <p className="text-muted-foreground py-4 text-sm">
+              No active trainers yet. Add or enable a trainer first.
+            </p>
+          ) : (
+            activeTrainers.map((trainer) => (
               <Field
                 key={trainer.id}
                 id={`trainer-rate-${trainer.id}`}
@@ -1342,7 +1420,7 @@ function RateMatrixDialog({
                   id={`trainer-rate-${trainer.id}`}
                   symbol={currencySymbol(locale.currency)}
                   groupLocale={locale.locale}
-                  placeholder="Fee not set"
+                  placeholder="Trainer fee not set"
                   value={prices[trainer.id] ?? ''}
                   onValueChange={(value) =>
                     setPrices((current) => ({
@@ -1353,10 +1431,14 @@ function RateMatrixDialog({
                   className="tabular-nums"
                 />
               </Field>
-            ))}
+            ))
+          )}
         </div>
         <DialogFooter showCloseButton>
-          <Button onClick={save} disabled={saving}>
+          <Button
+            onClick={save}
+            disabled={saving || activeTrainers.length === 0}
+          >
             {saving ? <Loader2 className="size-4 animate-spin" /> : null}Save
             fees
           </Button>

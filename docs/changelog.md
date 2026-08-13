@@ -6,6 +6,14 @@
 
 ---
 
+## Products and services settings polish
+
+Settings → Products & services now uses concise setup copy, a responsive trainer roster, readable archived catalogue items, explicit loading/recovery and empty-trainer states, reset-on-close drafts, account-local money formatting, and clearer permission-safe errors without changing catalogue, trainer-fee, history, or checkout behavior. Key code: `src/components/settings/products-services-settings.tsx`.
+
+## Lead management settings polish
+
+Settings → Lead capture and Fields & tags now share the established section hierarchy, concise task copy, explicit loading/recovery/read-only states, tenant-scoped catalogues, labelled responsive forms, RLS no-op detection, and accessible destructive confirmations without changing public-form, Meta lead-ad, tag, or custom-field behavior. Key code: `src/components/settings/lead-capture-*.tsx`, `fields-and-tags-panel.tsx`, `tag-manager.tsx`, and `src/components/contacts/custom-fields-manager.tsx`.
+
 ## Renewal reminder settings polish
 
 Settings → Renewal reminders now uses one responsive, permission-aware save flow for membership and service schedules, with accessible day choices, concise readiness guidance, explicit loading/recovery/read-only states, and no change to cron timing, templates, or WhatsApp gates. Key code: `src/components/settings/renewal-reminders-settings.tsx`.

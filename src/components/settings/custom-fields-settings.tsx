@@ -18,25 +18,24 @@ import { SettingsChip } from './settings-chip';
  * via a dialog). Writes are admin-gated by the caller and enforced by
  * `custom_fields` RLS.
  */
-export function CustomFieldsSettings() {
+export function CustomFieldsSettings({ canEdit }: { canEdit: boolean }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-foreground">
-          <SlidersHorizontal className="size-4 text-primary-text" />
+        <CardTitle className="flex items-center gap-2">
+          <SlidersHorizontal className="size-4" aria-hidden="true" />
           Custom fields
-          <SettingsChip variant="admin" className="font-medium">
+          <SettingsChip variant="admin">
             <Shield />
             Admin
           </SettingsChip>
         </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Extra contact fields (e.g. ZIP code, lead source). They appear on
-          every contact and in the “Update Contact Field” automation action.
+        <CardDescription>
+          Store structured details on every contact and use them in automations.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <CustomFieldsPanel />
+        <CustomFieldsPanel canEdit={canEdit} />
       </CardContent>
     </Card>
   );

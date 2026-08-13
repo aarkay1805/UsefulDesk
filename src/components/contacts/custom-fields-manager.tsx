@@ -1,45 +1,44 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useAuth } from '@/hooks/use-auth';
+import { useEffect, useState } from 'react';
+import { AlertCircle, Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { CustomField } from '@/types';
+
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { useAuth } from '@/hooks/use-auth';
+import { getErrorMessage } from '@/lib/errors';
+import { createClient } from '@/lib/supabase/client';
+import type { CustomField } from '@/types';
 
 interface CustomFieldsManagerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-/**
- * Dialog wrapper around {@link CustomFieldsPanel}, used on the Contacts page.
- * The same panel is rendered inline under Settings → Custom Fields, so the
- * editing UI lives in one place. Radix unmounts the dialog content on close,
- * so the panel remounts (and refetches) on each open.
- */
+/** Dialog wrapper used by the Contacts page. */
 export function CustomFieldsManager({
   open,
   onOpenChange,
 }: CustomFieldsManagerProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-border bg-popover text-popover-foreground sm:max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-popover-foreground">Custom fields</DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            Define extra contact fields (e.g. ZIP code, lead source). They
-            appear on every contact and in the “Update Contact Field” automation
-            action.
+          <DialogTitle>Custom fields</DialogTitle>
+          <DialogDescription>
+            Store structured details on every contact and use them in
+            automations.
           </DialogDescription>
         </DialogHeader>
         <CustomFieldsPanel />
@@ -48,198 +47,307 @@ export function CustomFieldsManager({
   );
 }
 
-/**
- * Create / rename / delete account-wide custom contact field definitions.
- * Per-contact values are edited elsewhere (contact detail → Custom Fields);
- * this only manages the field catalogue. Admin+ gated by the caller — the
- * `custom_fields` RLS also rejects non-admin writes as defense in depth.
- */
-export function CustomFieldsPanel() {
+/** Create, rename, and delete account-wide custom contact fields. */
+export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
   const supabase = createClient();
   const { user, accountId } = useAuth();
 
   const [fields, setFields] = useState<CustomField[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [fieldToDelete, setFieldToDelete] = useState<CustomField | null>(null);
 
-  const fetchFields = useCallback(async () => {
-    if (!accountId) return;
-    setLoading(true);
-    const { data } = await supabase
-      .from('custom_fields')
-      .select('*')
-      .order('field_name');
-    setFields((data as CustomField[] | null) ?? []);
-    setLoading(false);
-  }, [supabase, accountId]);
-
-  // Load the field list on mount once the account is known. The setters
-  // inside fetchFields run after the Supabase await — not synchronously in
-  // the effect body — so the cascade the lint rule warns about doesn't apply.
   useEffect(() => {
-    if (accountId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchFields();
-    }
-  }, [accountId, fetchFields]);
+    if (!accountId) return;
+    let cancelled = false;
 
-  /** Case-insensitive name clash within the loaded list. */
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setLoading(true);
+      setLoadError(null);
+
+      const { data, error } = await supabase
+        .from('custom_fields')
+        .select('*')
+        .eq('account_id', accountId)
+        .order('field_name');
+
+      if (cancelled) return;
+      if (error) {
+        setLoadError(
+          getErrorMessage(error, "Custom fields couldn't load. Try again.")
+        );
+      } else {
+        setFields((data as CustomField[] | null) ?? []);
+      }
+      setLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, reloadNonce, supabase]);
+
   function isDuplicate(name: string, exceptId?: string): boolean {
     const lower = name.toLowerCase();
     return fields.some(
-      (f) => f.id !== exceptId && f.field_name.toLowerCase() === lower
+      (field) =>
+        field.id !== exceptId && field.field_name.toLowerCase() === lower
     );
   }
 
   async function handleCreate() {
     const name = newName.trim();
-    if (!name) return;
+    if (!canEdit || !name) return;
     if (!accountId || !user) {
       toast.error('Your profile is not linked to an account.');
       return;
     }
     if (isDuplicate(name)) {
-      toast.error(`A field named "${name}" already exists.`);
+      toast.error(`A field named “${name}” already exists.`);
       return;
     }
 
     setCreating(true);
-    const { error } = await supabase.from('custom_fields').insert({
-      field_name: name,
-      field_type: 'text',
-      user_id: user.id,
-      account_id: accountId,
-    });
-    setCreating(false);
+    try {
+      const { data, error } = await supabase
+        .from('custom_fields')
+        .insert({
+          field_name: name,
+          field_type: 'text',
+          user_id: user.id,
+          account_id: accountId,
+        })
+        .select('*')
+        .maybeSingle();
 
-    if (error) {
-      toast.error('Could not create field. You may not have permission.');
-      return;
+      if (error || !data) {
+        throw error ?? new Error('The custom field was not created.');
+      }
+
+      setFields((current) =>
+        [...current, data as CustomField].sort((a, b) =>
+          a.field_name.localeCompare(b.field_name)
+        )
+      );
+      setNewName('');
+      toast.success(`Created “${name}”`);
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error, "The custom field couldn't be created.")
+      );
+    } finally {
+      setCreating(false);
     }
-    toast.success(`Created "${name}".`);
-    setNewName('');
-    await fetchFields();
   }
 
-  /** Returns true on success so the row can keep the new name, false so it
-   *  reverts to the previous one. No-ops (blank / unchanged) count as success. */
   async function handleRename(
     field: CustomField,
     nextName: string
   ): Promise<boolean> {
     const name = nextName.trim();
+    if (!canEdit) return false;
     if (!name || name === field.field_name) return true;
     if (isDuplicate(name, field.id)) {
-      toast.error(`A field named "${name}" already exists.`);
+      toast.error(`A field named “${name}” already exists.`);
       return false;
     }
+
     setBusyId(field.id);
-    const { error } = await supabase
-      .from('custom_fields')
-      .update({ field_name: name })
-      .eq('id', field.id);
-    setBusyId(null);
-    if (error) {
-      toast.error('Could not rename field.');
+    try {
+      const { data, error } = await supabase
+        .from('custom_fields')
+        .update({ field_name: name })
+        .eq('id', field.id)
+        .select('*')
+        .maybeSingle();
+
+      if (error || !data) {
+        throw error ?? new Error('The custom field was not renamed.');
+      }
+
+      setFields((current) =>
+        current
+          .map((item) => (item.id === field.id ? (data as CustomField) : item))
+          .sort((a, b) => a.field_name.localeCompare(b.field_name))
+      );
+      return true;
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error, "The custom field couldn't be renamed.")
+      );
       return false;
+    } finally {
+      setBusyId(null);
     }
-    await fetchFields();
-    return true;
   }
 
-  async function handleDelete(field: CustomField) {
-    if (
-      !window.confirm(
-        `Delete "${field.field_name}"? This also removes its stored value on every contact. This cannot be undone.`
-      )
-    ) {
-      return;
+  async function handleDelete() {
+    if (!canEdit || !fieldToDelete) return;
+
+    setBusyId(fieldToDelete.id);
+    try {
+      const { data, error } = await supabase
+        .from('custom_fields')
+        .delete()
+        .eq('id', fieldToDelete.id)
+        .select('id');
+
+      if (error || !data?.length) {
+        throw error ?? new Error('The custom field was not deleted.');
+      }
+
+      setFields((current) =>
+        current.filter((field) => field.id !== fieldToDelete.id)
+      );
+      toast.success(`Deleted “${fieldToDelete.field_name}”`);
+      setFieldToDelete(null);
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error, "The custom field couldn't be deleted.")
+      );
+    } finally {
+      setBusyId(null);
     }
-    setBusyId(field.id);
-    const { error } = await supabase
-      .from('custom_fields')
-      .delete()
-      .eq('id', field.id);
-    setBusyId(null);
-    if (error) {
-      toast.error('Could not delete field.');
-      return;
-    }
-    toast.success(`Deleted "${field.field_name}".`);
-    await fetchFields();
   }
 
   return (
     <div className="space-y-4">
-      {/* Create */}
-      <div className="flex items-center gap-2">
-        <Input
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              void handleCreate();
-            }
-          }}
-          placeholder="New field name…"
-          className="text-foreground"
-        />
-        <Button
-          onClick={handleCreate}
-          disabled={creating || !newName.trim()}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
-        >
-          {creating ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Plus className="size-4" />
-          )}
-          Add
-        </Button>
-      </div>
+      <form
+        className="space-y-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleCreate();
+        }}
+      >
+        <Label htmlFor="new-custom-field">New field</Label>
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <Input
+            id="new-custom-field"
+            value={newName}
+            onChange={(event) => setNewName(event.target.value)}
+            placeholder="e.g. Preferred time"
+            disabled={!canEdit || creating}
+          />
+          <Button
+            type="submit"
+            disabled={!canEdit || creating || !newName.trim()}
+            className="w-full sm:w-auto"
+          >
+            {creating ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Plus className="size-4" aria-hidden="true" />
+            )}
+            {creating ? 'Adding…' : 'Add field'}
+          </Button>
+        </div>
+      </form>
 
-      {/* List */}
-      <div className="max-h-72 overflow-y-auto rounded-md border border-border">
-        {loading ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Loading…
+      {loadError ? (
+        <Alert variant="destructive">
+          <AlertCircle aria-hidden="true" />
+          <AlertTitle>Custom fields couldn&apos;t load</AlertTitle>
+          <AlertDescription>
+            <p>{loadError}</p>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="mt-3"
+              onClick={() => setReloadNonce((nonce) => nonce + 1)}
+            >
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <div className="-mx-1 max-h-72 overflow-y-auto px-1 py-1">
+          <div className="border-border rounded-lg border">
+            {loading ? (
+              <div
+                className="text-muted-foreground flex items-center justify-center gap-2 py-8 text-sm"
+                role="status"
+                aria-live="polite"
+              >
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                Loading custom fields…
+              </div>
+            ) : fields.length === 0 ? (
+              <p className="text-muted-foreground py-8 text-center text-sm">
+                No custom fields yet.
+              </p>
+            ) : (
+              <ul className="divide-border divide-y">
+                {fields.map((field) => (
+                  <FieldRow
+                    key={field.id}
+                    field={field}
+                    busy={busyId === field.id}
+                    canEdit={canEdit}
+                    onRename={handleRename}
+                    onDelete={setFieldToDelete}
+                  />
+                ))}
+              </ul>
+            )}
           </div>
-        ) : fields.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            No custom fields yet.
-          </p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {fields.map((field) => (
-              <FieldRow
-                key={field.id}
-                field={field}
-                busy={busyId === field.id}
-                onRename={handleRename}
-                onDelete={handleDelete}
-              />
-            ))}
-          </ul>
-        )}
-      </div>
+        </div>
+      )}
+
+      <Dialog
+        open={Boolean(fieldToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !busyId) setFieldToDelete(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete custom field?</DialogTitle>
+            <DialogDescription>
+              “{fieldToDelete?.field_name}” and its saved value on every contact
+              will be deleted. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setFieldToDelete(null)}
+              disabled={Boolean(busyId)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={Boolean(busyId)}
+            >
+              {busyId && (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              )}
+              {busyId ? 'Deleting…' : 'Delete field'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-/** A single editable row. Controlled local state lets us commit on blur /
- *  Enter and cleanly revert to the last saved name when a rename fails. */
 function FieldRow({
   field,
   busy,
+  canEdit,
   onRename,
   onDelete,
 }: {
   field: CustomField;
   busy: boolean;
+  canEdit: boolean;
   onRename: (field: CustomField, name: string) => Promise<boolean>;
   onDelete: (field: CustomField) => void;
 }) {
@@ -247,7 +355,7 @@ function FieldRow({
 
   async function commit() {
     if (name.trim() === field.field_name) {
-      setName(field.field_name); // normalise any whitespace-only edit
+      setName(field.field_name);
       return;
     }
     const ok = await onRename(field, name);
@@ -255,30 +363,34 @@ function FieldRow({
   }
 
   return (
-    <li className="flex items-center gap-2 px-3 py-2">
+    <li className="flex min-h-11 items-center gap-2 px-3 py-2">
       <Input
         value={name}
-        disabled={busy}
-        onChange={(e) => setName(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur();
+        disabled={!canEdit || busy}
+        onChange={(event) => setName(event.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur();
+          if (event.key === 'Escape') {
+            setName(field.field_name);
+            event.currentTarget.blur();
+          }
         }}
         aria-label={`Rename ${field.field_name}`}
-        className="focus:border-primary h-8 border-transparent bg-transparent text-foreground hover:border-border"
+        className="min-w-0 flex-1"
       />
       <Button
         variant="destructive-ghost"
         size="icon-sm"
-        disabled={busy}
+        disabled={!canEdit || busy}
         onClick={() => onDelete(field)}
-        title="Delete field"
+        aria-label={`Delete ${field.field_name}`}
         className="shrink-0"
       >
         {busy ? (
-          <Loader2 className="size-4 animate-spin" />
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
         ) : (
-          <Trash2 className="size-4" />
+          <Trash2 className="size-4" aria-hidden="true" />
         )}
       </Button>
     </li>
