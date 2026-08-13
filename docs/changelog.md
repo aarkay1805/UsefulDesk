@@ -8,7 +8,7 @@
 
 ## Dashboard polish
 
-The Dashboard now reads in four plain-language groups: Today at a glance, Quick actions, Work to do, and The full picture. Short labels, neutral action icons, canonical text links, account-local dates, simpler empty states, and a clearer Lead health score keep the full daily view easy to scan without changing data, queues, permissions, or routes. Key code: `src/app/(dashboard)/dashboard/page.tsx` and `src/components/dashboard/`.
+The Dashboard now reads in four plain-language groups: Today at a glance, Quick actions, Work to do, and The full picture. Short labels, neutral action icons, canonical text links, account-local dates, simpler empty states, and a clearer Lead health score keep the full daily view easy to scan. Member work shows next-seven-day expiring memberships directly; expired recovery stays in the full Renewals queue. Data, permissions, and routes are unchanged. Key code: `src/app/(dashboard)/dashboard/page.tsx` and `src/components/dashboard/`.
 
 ## Member profile drawer polish
 
@@ -478,7 +478,7 @@ Authenticated self-service profile updates can no longer change `profiles.accoun
 
 ## Dashboard membership actions
 
-The dashboard now gives members a dedicated **Today’s membership actions** section beside the established lead workflow: due member follow-ups take priority, nearest upcoming work appears only when nothing is due, and the follow-up column mirrors Today’s lead actions with the same compact clickable rows, task summary, due state, assignee avatar, and direct completion control while opening the established member sheet in place. The adjacent renewal worklist keeps the canonical **Expiring** / **Expired** navigation; Expiring is account-local today through the next seven days, while Expired retains every recurring membership past its renewal date as actionable recovery work. Key code: `src/components/dashboard/membership-action-lists.tsx`, `src/lib/dashboard/follow-ups.ts`, and `src/app/(dashboard)/dashboard/page.tsx`.
+The dashboard gives members a dedicated **Member work** section beside the lead workflow: due member follow-ups take priority, nearest upcoming work appears only when nothing is due, and the follow-up column mirrors Lead work with the same compact clickable rows, task summary, due state, assignee avatar, and direct completion control while opening the established member sheet in place. The adjacent list shows account-local memberships expiring in the next seven days; expired recovery remains in Members → Renewals instead of adding a dashboard switch and second query. Key code: `src/components/dashboard/membership-action-lists.tsx`, `src/lib/dashboard/follow-ups.ts`, and `src/app/(dashboard)/dashboard/page.tsx`.
 
 ---
 

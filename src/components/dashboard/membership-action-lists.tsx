@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CalendarClock, CircleAlert, ClipboardCheck } from 'lucide-react';
+import { CalendarClock, ClipboardCheck } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -25,17 +25,11 @@ import { MemberDetailView } from '@/components/members/member-detail-view';
 import { MemberForm } from '@/components/members/member-form';
 import { useReminderReadiness } from '@/components/members/send-reminder-button';
 import { useAccountStaff } from '@/components/members/use-account-staff';
-import {
-  Toolbar,
-  ToolbarToggleGroup,
-  ToolbarToggleItem,
-} from '@/components/ui/toolbar';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Skeleton } from './skeleton';
 
 const LIST_LIMIT = 8;
 const RENEWAL_WINDOW_DAYS = 7;
-type RenewalBucket = 'expiring' | 'expired';
 
 interface MembershipFollowUp extends DashboardFollowUpRow {
   membership_id: string;
@@ -68,8 +62,6 @@ export function MembershipActionLists() {
   const [followUpMode, setFollowUpMode] =
     useState<DashboardFollowUpMode | null>(null);
   const [expiring, setExpiring] = useState<DashboardMembership[] | null>(null);
-  const [expired, setExpired] = useState<DashboardMembership[] | null>(null);
-  const [bucket, setBucket] = useState<RenewalBucket>('expiring');
   const [nonce, setNonce] = useState(0);
   const [completing, setCompleting] = useState<MembershipFollowUp | null>(null);
   const [detailMembershipId, setDetailMembershipId] = useState<string | null>(
@@ -84,30 +76,19 @@ export function MembershipActionLists() {
     (async () => {
       const today = fmt.today();
       const expiringThrough = istAddDays(today, RENEWAL_WINDOW_DAYS);
-      const [followUpResult, expiringResult, expiredResult] = await Promise.all(
-        [
-          loadDashboardFollowUps(supabase, today, LIST_LIMIT, 'member'),
-          supabase
-            .from('memberships')
-            .select(
-              'id, end_date, contact:contacts(name, phone, avatar_url), plan:membership_plans(name, plan_type)'
-            )
-            .eq('is_trial', false)
-            .eq('status', 'active')
-            .gte('end_date', today)
-            .lte('end_date', expiringThrough)
-            .order('end_date', { ascending: true }),
-          supabase
-            .from('memberships')
-            .select(
-              'id, end_date, contact:contacts(name, phone, avatar_url), plan:membership_plans(name, plan_type)'
-            )
-            .eq('is_trial', false)
-            .eq('status', 'active')
-            .lt('end_date', today)
-            .order('end_date', { ascending: false }),
-        ]
-      );
+      const [followUpResult, expiringResult] = await Promise.all([
+        loadDashboardFollowUps(supabase, today, LIST_LIMIT, 'member'),
+        supabase
+          .from('memberships')
+          .select(
+            'id, end_date, contact:contacts(name, phone, avatar_url), plan:membership_plans(name, plan_type)'
+          )
+          .eq('is_trial', false)
+          .eq('status', 'active')
+          .gte('end_date', today)
+          .lte('end_date', expiringThrough)
+          .order('end_date', { ascending: true }),
+      ]);
       if (cancelled) return;
 
       const renewalRows = (rows: DashboardMembership[] | null) =>
@@ -133,21 +114,15 @@ export function MembershipActionLists() {
       setExpiring(
         renewalRows(expiringResult.data as DashboardMembership[] | null)
       );
-      setExpired(
-        renewalRows(expiredResult.data as DashboardMembership[] | null)
-      );
     })();
     return () => {
       cancelled = true;
     };
   }, [fmt, nonce]);
 
-  const renewals = bucket === 'expiring' ? expiring : expired;
-  const renewalTotal = renewals?.length ?? 0;
+  const renewalTotal = expiring?.length ?? 0;
   const actionTotal =
-    (followUpMode === 'due' ? followUpTotal : 0) +
-    (expiring?.length ?? 0) +
-    (expired?.length ?? 0);
+    (followUpMode === 'due' ? followUpTotal : 0) + (expiring?.length ?? 0);
 
   return (
     <section className="border-border bg-card rounded-xl border">
@@ -157,7 +132,7 @@ export function MembershipActionLists() {
             <h2 className="text-foreground text-sm font-semibold">
               Member work
             </h2>
-            {followUps !== null && expiring !== null && expired !== null && (
+            {followUps !== null && expiring !== null && (
               <Badge variant={actionTotal > 0 ? 'warning' : 'success'}>
                 {actionTotal} to do
               </Badge>
@@ -272,57 +247,20 @@ export function MembershipActionLists() {
         </div>
 
         <div>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <Toolbar aria-label="Membership renewal status">
-              <ToolbarToggleGroup<RenewalBucket>
-                aria-label="Membership renewal status"
-                value={[bucket]}
-                onValueChange={(next) => next[0] && setBucket(next[0])}
-              >
-                <ToolbarToggleItem
-                  value="expiring"
-                  aria-label="Expiring memberships"
-                >
-                  <CalendarClock className="size-3.5" />
-                  <span>Expiring</span>
-                  <Badge variant="neutral" size="count">
-                    {expiring?.length ?? 0}
-                  </Badge>
-                </ToolbarToggleItem>
-                <ToolbarToggleItem
-                  value="expired"
-                  aria-label="Expired memberships"
-                >
-                  <CircleAlert className="size-3.5" />
-                  <span>Expired</span>
-                  <Badge variant="neutral" size="count">
-                    {expired?.length ?? 0}
-                  </Badge>
-                </ToolbarToggleItem>
-              </ToolbarToggleGroup>
-            </Toolbar>
-            <Link
-              data-slot="button"
-              href="/members?view=renewals"
-              className={buttonVariants({ variant: 'link', size: 'xs' })}
-            >
-              See all
-            </Link>
-          </div>
-          {renewals === null ? (
+          <QueueHeading
+            label="Expiring memberships"
+            href="/members?view=renewals"
+          />
+          {expiring === null ? (
             <ListSkeleton />
-          ) : renewals.length === 0 ? (
+          ) : expiring.length === 0 ? (
             <QueueEmpty
               icon={CalendarClock}
-              text={
-                bucket === 'expiring'
-                  ? 'No memberships expiring in the next 7 days.'
-                  : 'No memberships have expired.'
-              }
+              text="No memberships expiring in the next 7 days."
             />
           ) : (
             <ul className="border-border/60 divide-border/60 bg-muted/20 divide-y overflow-hidden rounded-lg border">
-              {renewals.slice(0, LIST_LIMIT).map((membership) => {
+              {expiring.slice(0, LIST_LIMIT).map((membership) => {
                 const days = daysBetween(fmt.today(), membership.end_date);
                 return (
                   <li
@@ -341,14 +279,10 @@ export function MembershipActionLists() {
                           meta={membership.plan?.name ?? undefined}
                         />
                       </div>
-                      <Badge
-                        variant={bucket === 'expired' ? 'danger' : 'warning'}
-                      >
-                        {bucket === 'expired'
-                          ? `Expired ${Math.abs(days)}d`
-                          : days === 0
-                            ? 'Expires today'
-                            : `Expires in ${days}d`}
+                      <Badge variant="warning">
+                        {days === 0
+                          ? 'Expires today'
+                          : `Expires in ${days}d`}
                       </Badge>
                     </Link>
                   </li>
@@ -406,13 +340,19 @@ export function MembershipActionLists() {
   );
 }
 
-function QueueHeading({ label }: { label: string }) {
+function QueueHeading({
+  label,
+  href = '/members?view=followups',
+}: {
+  label: string;
+  href?: string;
+}) {
   return (
     <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
       <span>{label}</span>
       <Link
         data-slot="button"
-        href="/members?view=followups"
+        href={href}
         className={buttonVariants({ variant: 'link', size: 'xs' })}
       >
         See all
