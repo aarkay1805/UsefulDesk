@@ -370,8 +370,9 @@ Delivery is **best-effort**: a single attempt per event with a short
 timeout, and **redirects are not followed**. `message.status_updated`
 covers messages wacrm stores (inbox + API sends), not broadcast-only
 sends, and — because providers re-send and re-order status callbacks —
-the same status may arrive more than once or out of order; **dedupe on
-`id` and don't assume ordering**. Each consecutive failure increments
+UsefulDesk applies only tenant-bound forward transitions and suppresses
+duplicate or regressive callbacks. Receivers should still **dedupe on
+`id`**. Each consecutive failure increments
 `failure_count`; after enough consecutive failures the endpoint is
 auto-disabled (`is_active: false`) — re-enable it with `PATCH` (which
 resets the counter). Durable retry-with-backoff (a delivery queue) is a

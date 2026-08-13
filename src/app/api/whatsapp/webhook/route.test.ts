@@ -25,6 +25,10 @@ const h = vi.hoisted(() => ({
       options: Record<string, unknown>;
     }[],
     rpcCalls: [] as { name: string; args: Record<string, unknown> }[],
+    statusRpcResult: [] as {
+      account_id: string;
+      conversation_id: string;
+    }[],
     afterCallbacks: [] as (() => Promise<void> | void)[],
     automationStarted: 0,
     automationCompleted: 0,
@@ -145,7 +149,13 @@ vi.mock('@supabase/supabase-js', () => ({
     },
     rpc: (name: string, args: Record<string, unknown>) => {
       h.state.rpcCalls.push({ name, args });
-      return Promise.resolve({ data: null, error: null });
+      return Promise.resolve({
+        data:
+          name === 'apply_whatsapp_status_callback'
+            ? h.state.statusRpcResult
+            : null,
+        error: null,
+      });
     },
   }),
 }));
@@ -257,6 +267,7 @@ beforeEach(() => {
   h.state.conversationInsertResult = null;
   h.state.messageUpserts = [];
   h.state.rpcCalls = [];
+  h.state.statusRpcResult = [];
   h.state.afterCallbacks = [];
   h.state.automationStarted = 0;
   h.state.automationCompleted = 0;
@@ -272,6 +283,79 @@ beforeEach(() => {
         resolve();
       }, 0);
     });
+  });
+});
+
+function statusRequest(status = 'delivered', phoneNumberId = 'phone-number-1') {
+  return {
+    text: async () =>
+      JSON.stringify({
+        entry: [
+          {
+            changes: [
+              {
+                field: 'messages',
+                value: {
+                  metadata: { phone_number_id: phoneNumberId },
+                  statuses: [
+                    {
+                      id: 'wamid.STATUS1',
+                      status,
+                      timestamp: '1700000000',
+                      recipient_id: '15551230000',
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    headers: { get: () => 'sha256=stub' },
+  } as unknown as Request;
+}
+
+async function runStatusWebhook(status?: string, phoneNumberId?: string) {
+  const response = await POST(statusRequest(status, phoneNumberId));
+  for (const callback of h.state.afterCallbacks) await callback();
+  return response;
+}
+
+describe('outbound status integrity', () => {
+  it('binds the callback to its signed phone-number tenant in one atomic RPC', async () => {
+    h.state.statusRpcResult = [
+      { account_id: 'account-1', conversation_id: 'conversation-1' },
+    ];
+
+    await runStatusWebhook('read', 'phone-number-1');
+
+    expect(h.state.rpcCalls).toContainEqual({
+      name: 'apply_whatsapp_status_callback',
+      args: {
+        p_phone_number_id: 'phone-number-1',
+        p_message_id: 'wamid.STATUS1',
+        p_status: 'read',
+        p_status_at: '2023-11-14T22:13:20.000Z',
+      },
+    });
+    expect(h.dispatchWebhookEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      'account-1',
+      'message.status_updated',
+      {
+        whatsapp_message_id: 'wamid.STATUS1',
+        conversation_id: 'conversation-1',
+        status: 'read',
+      }
+    );
+  });
+
+  it('does not emit a public event when a duplicate or regressive callback changes no row', async () => {
+    h.state.statusRpcResult = [];
+
+    await runStatusWebhook('delivered');
+
+    expect(h.dispatchWebhookEvent).not.toHaveBeenCalled();
   });
 });
 

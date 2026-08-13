@@ -6,6 +6,10 @@
 
 ---
 
+## Tenant-safe monotonic WhatsApp status callbacks
+
+Signed Meta status callbacks now retain `metadata.phone_number_id` as their tenant boundary and use one service-role-only invoker RPC to advance stored message and broadcast-recipient states atomically. Duplicate, unknown, cross-tenant, and regressive callbacks are no-ops, and public `message.status_updated` events fire only for a stored message that actually advanced. The connector-applied Production function has an empty search path, no client-role execute grant, and passed rollback-only wrong-tenant, regression, and forward-transition checks; no existing cross-account message-ID collision required repair. Key code: `src/app/api/whatsapp/webhook/route.ts`, `supabase/migrations/20260813205947_whatsapp_status_callback_integrity.sql`, and `src/lib/whatsapp/status-callback-integrity.test.ts`.
+
 ## AutoPay membership-lifecycle containment
 
 Membership renew/edit/plan-change/freeze/cancel/reactivate/delete operations now fail at the database boundary while a Razorpay mandate is `creating`, `pending`, `active`, `paused`, or `orphaned`, and the member profile disables those same actions with a provider-resolution reason. The boundary recognizes both direct authenticated writes and authenticated callers retained through an RPC execution context. Delayed provider callbacks cannot switch a frozen, cancelled, or trial membership to auto collection or active state; an AutoPay insert against one of those states is rejected inside the existing charge transaction and preserved as a gateway exception. This is containment, not provider pause/cancel/rebind support: the remote subscription must become terminal before local lifecycle work resumes. The connector-applied Test and Production schemas match; Production had no mandates and Test had only two terminal mandates, so no data repair was required. Key code: `supabase/migrations/20260814021023_block_membership_mutations_with_live_mandates.sql`, `supabase/migrations/20260814022000_cover_security_definer_membership_deletion.sql`, `src/lib/payments/razorpay-membership-lifecycle-contract.test.ts`, and `src/components/members/member-detail-view.tsx`.
