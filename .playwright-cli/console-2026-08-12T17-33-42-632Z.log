@@ -629,3 +629,29 @@ See https://react.dev/link/invalid-hook-call for tips about how to debug and fix
 [36685216ms] [LOG] [Fast Refresh] done in 127ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js:776
 [36689545ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js:776
 [36689838ms] [LOG] [Fast Refresh] done in 395ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js:776
+[36853777ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js:776
+[36853856ms] [LOG] [Fast Refresh] done in 181ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js:776
+[37019018ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js:776
+[46179928ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js:776
+[48865701ms] [ERROR] Failed to load resource: net::ERR_TIMED_OUT @ https://fwqthstqrkrwtaehefks.supabase.co/auth/v1/token?grant_type=refresh_token:0
+[48865716ms] [ERROR] TypeError: Failed to fetch
+    at fetch (http://localhost:3000/_next/static/chunks/src_1yt8h_m._.js:362:24)
+    at http://localhost:3000/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js:8201:27
+    at _handleRequest (http://localhost:3000/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js:7982:24)
+    at _request (http://localhost:3000/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js:7969:24)
+    at http://localhost:3000/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js:5473:220
+    at http://localhost:3000/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js:8278:42
+    at http://localhost:3000/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js:8290:11
+    at new Promise (<anonymous>)
+    at retryable (http://localhost:3000/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js:8272:21)
+    at SupabaseAuthClient._refreshAccessToken (http://localhost:3000/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js:5468:219)
+    at SupabaseAuthClient._callRefreshToken (http://localhost:3000/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js:5659:48)
+    at async SupabaseAuthClient.__loadSession (http://localhost:3000/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js:3927:46)
+    at async SupabaseAuthClient._useSession (http://localhost:3000/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js:3856:28)
+    at async SupabaseAuthClient._autoRefreshTokenTick (http://localhost:3000/_next/static/chunks/node_modules_%40supabase_auth-js_dist_module_1vqrmkg._.js:6084:17) @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js:1052
+[48866908ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://fwqthstqrkrwtaehefks.supabase.co/rest/v1/rpc/touch_presence:0
+[48866909ms] [ERROR] [PresenceHeartbeat] touch_presence failed: permission denied for function touch_presence @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js:1052
+[48888966ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://fwqthstqrkrwtaehefks.supabase.co/rest/v1/rpc/touch_presence:0
+[48888967ms] [ERROR] [PresenceHeartbeat] touch_presence failed: permission denied for function touch_presence @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js:1052
+[55348088ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js:776
+[56476849ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1e8vcs8._.js:776
