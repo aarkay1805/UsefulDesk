@@ -56,12 +56,12 @@ const branchesPayload = {
       legal_entity_name: 'Useful Fitness Pvt Ltd',
       role: 'owner',
       branch_status: 'active',
-      readiness_state: 'ready',
+      readiness_state: 'setup',
       default_currency: 'INR',
       timezone: 'Asia/Kolkata',
       is_organization_owner: true,
-      setup_reviewed_at: '2026-08-12T00:00:00.000Z',
-      setup_reviewed_by: '55555555-5555-4555-8555-555555555555',
+      setup_reviewed_at: null,
+      setup_reviewed_by: null,
     },
   ],
 };
@@ -82,8 +82,8 @@ function preview(totalRows: number): BranchSetupPreview {
       accountId: sourceAccountId,
       currency: 'INR',
       branchStatus: 'active',
-      readinessState: 'ready',
-      setupReviewedAt: '2026-08-12T00:00:00.000Z',
+      readinessState: 'setup',
+      setupReviewedAt: null,
     },
     targetCurrency: 'INR',
     packEligibility: {
@@ -149,20 +149,26 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-async function reachSetupPacks(user: ReturnType<typeof userEvent.setup>) {
+async function reachCopySettings(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByLabelText('Branch name');
   await user.type(screen.getByLabelText('Branch name'), 'HSR Layout');
-  await user.click(screen.getByRole('button', { name: /Continue/ }));
-  await user.click(screen.getByRole('radio', { name: /Copy reviewed setup/ }));
-  await user.click(screen.getByRole('button', { name: /Continue/ }));
-  await screen.findByRole('checkbox', { name: /Reminder timing/ });
-}
-
-async function reachReview(user: ReturnType<typeof userEvent.setup>) {
-  await reachSetupPacks(user);
-  await screen.findByText(/configuration rows ready/);
-  await user.click(screen.getByRole('button', { name: /Continue/ }));
-  await screen.findByText('Configuration only');
+  await user.click(
+    screen.getByRole('radio', { name: /Use settings from another branch/ })
+  );
+  expect(
+    screen.getByRole('combobox', { name: 'Copy settings from' })
+  ).toBeTruthy();
+  const chooseSettingsButton = screen.getByRole('button', {
+    name: /Choose settings|Checking/,
+  });
+  await waitFor(() =>
+    expect(chooseSettingsButton.hasAttribute('disabled')).toBe(false)
+  );
+  await user.click(screen.getByRole('button', { name: 'Choose settings' }));
+  await screen.findByText('Settings to copy');
+  expect(
+    screen.getByText('Choose what HSR Layout should reuse from Indiranagar.')
+  ).toBeTruthy();
 }
 
 beforeEach(() => {
@@ -189,6 +195,34 @@ afterEach(() => {
 });
 
 describe('BranchCreationDialog', () => {
+  it('keeps the fresh branch path on one plain-language screen', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: string | URL | Request) => {
+        const url = String(input);
+        if (url === '/api/branches') {
+          return Promise.resolve(jsonResponse(branchesPayload));
+        }
+        if (url.includes('/setup-preview')) {
+          return Promise.resolve(
+            jsonResponse({ ...preview(0), startMode: 'blank', packs: [] })
+          );
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      })
+    );
+
+    render(<BranchCreationDialog open onOpenChange={vi.fn()} />);
+
+    await screen.findByLabelText('Branch name');
+    expect(screen.getByRole('radio', { name: /Start fresh/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Create branch' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Continue/ })).toBeNull();
+    expect(screen.queryByText('Legal entity')).toBeNull();
+    expect(screen.queryByText(/configuration rows/i)).toBeNull();
+    expect(screen.queryByText(/Never copied/i)).toBeNull();
+  });
+
   it('starts a new request UUID only after an abandoned attempt is closed', async () => {
     const user = userEvent.setup();
     vi.stubGlobal(
@@ -273,14 +307,15 @@ describe('BranchCreationDialog', () => {
     );
 
     render(<BranchCreationDialog open onOpenChange={vi.fn()} />);
-    await reachSetupPacks(user);
+    await reachCopySettings(user);
     await waitFor(() => expect(copyUrls.length).toBeGreaterThan(0));
 
-    const membership = screen.getByRole('checkbox', {
-      name: /Memberships & products/,
-    });
-    expect(membership.outerHTML).toContain('disabled');
-    expect(membership.getAttribute('aria-checked')).toBe('false');
+    expect(
+      screen.queryByRole('checkbox', {
+        name: /Plans, products & services/,
+      })
+    ).toBeNull();
+    expect(screen.getByText(/different currencies/)).toBeTruthy();
     expect(copyUrls[0]).not.toContain('pack=membership_catalog');
   });
 
@@ -316,23 +351,33 @@ describe('BranchCreationDialog', () => {
     );
 
     render(<BranchCreationDialog open onOpenChange={vi.fn()} />);
-    await reachSetupPacks(user);
-    await screen.findByText('13 configuration rows ready');
-
-    await user.click(screen.getByRole('checkbox', { name: /Reminder timing/ }));
+    await reachCopySettings(user);
     await waitFor(() => expect(copyPreviewCalls).toBe(2));
+    expect(
+      screen.queryByRole('checkbox', { name: /Reminder schedule/ })
+    ).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Advanced settings' }));
     await user.click(
-      screen.getByRole('checkbox', { name: /Memberships & products/ })
+      screen.getByRole('checkbox', { name: /Reminder schedule/ })
     );
     await waitFor(() => expect(copyPreviewCalls).toBe(3));
 
     await act(async () => latest.resolve(jsonResponse(preview(2))));
-    await screen.findByText('2 configuration rows ready');
-    await act(async () => stale.resolve(jsonResponse(preview(99))));
+    const create = screen.getByRole('button', { name: 'Create branch' });
+    await waitFor(() => expect(create.hasAttribute('disabled')).toBe(false));
+    await act(async () =>
+      stale.resolve(
+        jsonResponse({
+          ...preview(99),
+          eligible: false,
+          reasonCodes: ['ROW_LIMIT_EXCEEDED'],
+        })
+      )
+    );
 
     await waitFor(() => {
-      expect(screen.getByText('2 configuration rows ready')).toBeTruthy();
-      expect(screen.queryByText('99 configuration rows ready')).toBeNull();
+      expect(create.hasAttribute('disabled')).toBe(false);
+      expect(screen.queryByText('These settings cannot be copied')).toBeNull();
     });
   });
 
@@ -361,9 +406,10 @@ describe('BranchCreationDialog', () => {
     );
 
     render(<BranchCreationDialog open onOpenChange={vi.fn()} />);
-    await reachReview(user);
-
+    await reachCopySettings(user);
     const create = screen.getByRole('button', { name: 'Create branch' });
+    await waitFor(() => expect(create.hasAttribute('disabled')).toBe(false));
+
     fireEvent.click(create);
     fireEvent.click(create);
     expect(postCalls).toBe(1);

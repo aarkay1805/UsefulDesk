@@ -3,22 +3,25 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Building2,
   Check,
   CircleAlert,
-  Copy,
-  FileCheck2,
   Loader2,
   RefreshCw,
-  Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Collapse } from '@/components/ui/collapse';
 import {
   Dialog,
   DialogContent,
@@ -40,7 +43,6 @@ import {
 import { useAuth, type BranchAccount } from '@/hooks/use-auth';
 import {
   BRANCH_SETUP_PACKS,
-  BRANCH_SETUP_WARNING_REGISTRY,
   normalizeBranchSetupPacks,
   type BranchSetupCreationResult,
   type BranchSetupPack,
@@ -68,20 +70,20 @@ const PACK_META: Record<
   { label: string; description: string }
 > = {
   membership_catalog: {
-    label: 'Memberships & products',
-    description: 'Active plans, pricing options, products, and services',
+    label: 'Plans, products & services',
+    description: 'Active plans, prices, products, and services',
   },
   lead_setup: {
-    label: 'Lead setup',
-    description: 'Lead fields, tags, custom fields, and a disabled lead form',
+    label: 'Lead fields & tags',
+    description: 'Lead fields, tags, custom fields, and a disabled form',
   },
   reminders: {
-    label: 'Reminder timing',
-    description: 'Membership and service offsets, copied disabled',
+    label: 'Reminder schedule',
+    description: 'Renewal reminder timing, kept off in the new branch',
   },
   automations: {
     label: 'Automations',
-    description: 'Supported definitions copied inactive for review',
+    description: 'Copied inactive so you can check them first',
   },
   flows: {
     label: 'Flows',
@@ -89,12 +91,15 @@ const PACK_META: Record<
   },
 };
 
-const STEP_LABELS = ['Branch', 'Start point', 'Setup packs', 'Review'];
+const BASIC_PACKS: BranchSetupPack[] = ['membership_catalog', 'lead_setup'];
+const ADVANCED_PACKS: BranchSetupPack[] = ['reminders', 'automations', 'flows'];
+
+type PackAvailability = Partial<
+  Record<BranchSetupPack, { count: number; eligible: boolean }>
+>;
 
 const REASON_COPY: Record<BranchSetupReasonCode, string> = {
   SOURCE_NOT_ACTIVE: 'The source branch is not active.',
-  SOURCE_NOT_READY: 'The source branch setup is not ready.',
-  SOURCE_NOT_REVIEWED: 'The source configuration has not been reviewed.',
   SNAPSHOT_TOO_LARGE: 'The selected setup is too large to copy safely.',
   ROW_LIMIT_EXCEEDED: 'The selected setup exceeds the copy row limit.',
   CURRENCY_MISMATCH:
@@ -103,12 +108,6 @@ const REASON_COPY: Record<BranchSetupReasonCode, string> = {
 
 function sourceIneligibility(branch: BranchAccount): string | null {
   if (branch.branch_status !== 'active') return 'Source branch must be active';
-  if (branch.readiness_state !== 'ready') {
-    return 'Finish and review this branch’s setup first';
-  }
-  if (!branch.setup_reviewed_at) {
-    return 'Mark this branch’s configuration as reviewed first';
-  }
   return null;
 }
 
@@ -167,6 +166,8 @@ export function BranchCreationDialog({
   const [startMode, setStartMode] = useState<BranchSetupStartMode>('blank');
   const [sourceAccountId, setSourceAccountId] = useState<string | null>(null);
   const [packs, setPacks] = useState<BranchSetupPack[]>([]);
+  const [packAvailability, setPackAvailability] =
+    useState<PackAvailability | null>(null);
   const [options, setOptions] = useState<BranchesResponse | null>(null);
   const [optionsError, setOptionsError] = useState<string | null>(null);
   const [preview, setPreview] = useState<BranchSetupPreview | null>(null);
@@ -283,19 +284,29 @@ export function BranchCreationDialog({
             const initializationKey = `${legalEntityId}:${sourceAccountId}`;
             if (initializedPacksForRef.current !== initializationKey) {
               initializedPacksForRef.current = initializationKey;
-              let eligibleNonempty = BRANCH_SETUP_PACKS.filter((pack) => {
+              const availability = Object.fromEntries(
+                BRANCH_SETUP_PACKS.map((pack) => [
+                  pack,
+                  {
+                    count: branchSetupPackRowCount(payload, pack),
+                    eligible: payload.packEligibility[pack]?.eligible !== false,
+                  },
+                ])
+              ) as Record<
+                BranchSetupPack,
+                { count: number; eligible: boolean }
+              >;
+              setPackAvailability(availability);
+
+              const basicDefaults = BASIC_PACKS.filter((pack) => {
                 const packStatus = payload.packEligibility[pack];
                 return (
                   packStatus?.eligible !== false &&
                   branchSetupPackRowCount(payload, pack) > 0
                 );
               });
-              if (!eligibleNonempty.includes('lead_setup')) {
-                eligibleNonempty = eligibleNonempty.filter(
-                  (pack) => pack !== 'automations' && pack !== 'flows'
-                );
-              }
-              setPacks(normalizeBranchSetupPacks(eligibleNonempty));
+              setPreview(null);
+              setPacks(normalizeBranchSetupPacks(basicDefaults));
             }
           }
         } catch (error) {
@@ -333,6 +344,7 @@ export function BranchCreationDialog({
     setStartMode('blank');
     setSourceAccountId(null);
     setPacks([]);
+    setPackAvailability(null);
     setOptions(null);
     setOptionsError(null);
     setPreview(null);
@@ -355,6 +367,7 @@ export function BranchCreationDialog({
     setStartMode(mode);
     setPreview(null);
     setPreviewError(null);
+    setPackAvailability(null);
     initializedPacksForRef.current = null;
     if (mode === 'blank') {
       setSourceAccountId(null);
@@ -372,30 +385,22 @@ export function BranchCreationDialog({
     setPacks(initialPacksForSource(accountId));
     setPreview(null);
     setPreviewError(null);
+    setPackAvailability(null);
     initializedPacksForRef.current = null;
   }
 
   function togglePack(pack: BranchSetupPack, checked: boolean) {
-    const next = checked
+    let next = checked
       ? [...packs, pack]
       : packs.filter((candidate) => candidate !== pack);
+    if (!checked && pack === 'lead_setup') {
+      next = next.filter(
+        (candidate) => candidate !== 'automations' && candidate !== 'flows'
+      );
+    }
     setPacks(normalizeBranchSetupPacks(next));
     setPreview(null);
     setPreviewError(null);
-  }
-
-  function packDisabled(pack: BranchSetupPack): boolean {
-    if (
-      pack === 'lead_setup' &&
-      (packs.includes('automations') || packs.includes('flows'))
-    ) {
-      return true;
-    }
-    if (pack === 'membership_catalog' && currencyMismatch) return true;
-    return (
-      preview?.packEligibility[pack]?.eligible === false &&
-      !packs.includes(pack)
-    );
   }
 
   function initialPacksForSource(accountId: string): BranchSetupPack[] {
@@ -476,20 +481,29 @@ export function BranchCreationDialog({
     }
   }
 
-  const stepOneReady = Boolean(branchName.trim() && legalEntityId);
-  const stepTwoReady =
-    startMode === 'blank' ||
-    Boolean(
-      sourceAccountId &&
-      selectedSource &&
-      sourceIneligibility(selectedSource) === null
-    );
-  const stepThreeReady = Boolean(
-    !previewLoading &&
-    !previewError &&
-    preview?.eligible &&
-    (startMode === 'blank' || packs.length > 0)
+  const branchDetailsReady = Boolean(branchName.trim() && legalEntityId);
+  const copySourceReady = Boolean(
+    sourceAccountId &&
+    selectedSource &&
+    sourceIneligibility(selectedSource) === null
   );
+  const selectedSetupReady = Boolean(
+    !previewLoading && !previewError && preview?.eligible && packs.length > 0
+  );
+  const blankBranchReady = Boolean(
+    branchDetailsReady && !previewLoading && !previewError && preview?.eligible
+  );
+  const packIsAvailable = (pack: BranchSetupPack) =>
+    packAvailability?.[pack]?.eligible !== false &&
+    (packAvailability?.[pack]?.count ?? 0) > 0 &&
+    (pack !== 'membership_catalog' || !currencyMismatch);
+  const basicPacks = BASIC_PACKS.filter(packIsAvailable);
+  const leadSetupAvailable = basicPacks.includes('lead_setup');
+  const advancedPacks = ADVANCED_PACKS.filter(
+    (pack) =>
+      packIsAvailable(pack) && (pack === 'reminders' || leadSetupAvailable)
+  );
+  const hasReusableSettings = basicPacks.length + advancedPacks.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -500,39 +514,15 @@ export function BranchCreationDialog({
         <DialogHeader>
           <DialogTitle size="lg">Add branch</DialogTitle>
           <DialogDescription>
-            Create an isolated branch, then review its setup before marking it
-            ready.
+            {created
+              ? 'The branch is ready. Open it to continue setup.'
+              : step === 1
+                ? 'Name the branch, then choose how to set it up.'
+                : `Choose what ${branchName.trim()} should reuse from ${selectedSource?.account_name ?? 'the source branch'}.`}
           </DialogDescription>
         </DialogHeader>
 
-        <ol className="grid grid-cols-4 gap-2" aria-label="Branch setup steps">
-          {STEP_LABELS.map((label, index) => {
-            const number = index + 1;
-            const active = number === step;
-            const done = number < step || created !== null;
-            return (
-              <li key={label} className="min-w-0 text-center">
-                <span
-                  className={cn(
-                    'mx-auto flex size-7 items-center justify-center rounded-full text-xs font-semibold',
-                    done
-                      ? 'bg-primary text-primary-foreground'
-                      : active
-                        ? 'bg-primary-soft text-primary-text'
-                        : 'bg-muted text-muted-foreground'
-                  )}
-                >
-                  {done ? <Check className="size-3.5" /> : number}
-                </span>
-                <span className="text-muted-foreground mt-1 block truncate text-xs">
-                  {label}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-
-        <div className="-mx-1 max-h-[58vh] overflow-y-auto px-1 py-1">
+        <div className="-mx-1 max-h-[calc(100dvh-15rem)] overflow-y-auto px-1 py-1 sm:max-h-[58vh]">
           {optionsError ? (
             <Alert variant="destructive">
               <CircleAlert />
@@ -566,227 +556,247 @@ export function BranchCreationDialog({
                   Use the location or operating name your team recognizes.
                 </p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-branch-legal-entity">Legal entity</Label>
-                <Select
-                  value={legalEntityId}
-                  onValueChange={(value) => {
-                    setLegalEntityId(value);
-                    setPreview(null);
-                    initializedPacksForRef.current = null;
-                    if (startMode === 'copy' && sourceAccountId) {
-                      const source = options.branches.find(
-                        (branch) => branch.account_id === sourceAccountId
-                      );
-                      const entity = options.legalEntities.find(
-                        (candidate) => candidate.id === value
-                      );
-                      setPacks(
-                        BRANCH_SETUP_PACKS.filter(
-                          (pack) =>
-                            pack !== 'membership_catalog' ||
-                            !source ||
-                            !entity ||
-                            source.default_currency === entity.defaultCurrency
-                        )
-                      );
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    id="new-branch-legal-entity"
-                    className="w-full"
-                  >
-                    <SelectValue placeholder="Select legal entity" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {options.legalEntities.map((entity) => (
-                      <SelectItem key={entity.id} value={entity.id}>
-                        {entity.name} · {entity.defaultCurrency}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          ) : step === 2 ? (
-            <div className="space-y-5">
-              <RadioGroup
-                value={startMode}
-                onValueChange={(value) =>
-                  value && chooseMode(value as BranchSetupStartMode)
-                }
-              >
-                <Label
-                  className={cn(
-                    'border-border hover:border-border-hover items-start rounded-xl border p-4 transition-colors',
-                    startMode === 'blank' && 'border-primary'
-                  )}
-                >
-                  <RadioGroupItem value="blank" />
-                  <span>
-                    <span className="block font-medium">Start blank</span>
-                    <span className="text-muted-foreground mt-1 block text-xs font-normal">
-                      Create only the branch and system defaults.
-                    </span>
-                  </span>
-                </Label>
-                <Label
-                  className={cn(
-                    'border-border items-start rounded-xl border p-4 transition-colors',
-                    eligibleSources.length > 0
-                      ? 'hover:border-border-hover'
-                      : 'opacity-60',
-                    startMode === 'copy' && 'border-primary'
-                  )}
-                >
-                  <RadioGroupItem
-                    value="copy"
-                    disabled={eligibleSources.length === 0}
-                  />
-                  <span>
-                    <span className="block font-medium">
-                      Copy reviewed setup
-                    </span>
-                    <span className="text-muted-foreground mt-1 block text-xs font-normal">
-                      Copy selected configuration from an eligible branch.
-                    </span>
-                    {eligibleSources.length === 0 ? (
-                      <span className="text-amber-foreground mt-1 block text-xs font-normal">
-                        No active, reviewed, ready source branch is available.
-                      </span>
-                    ) : null}
-                  </span>
-                </Label>
-              </RadioGroup>
 
-              {startMode === 'copy' ? (
+              {options.legalEntities.length > 1 ? (
                 <div className="space-y-2">
-                  <Label>Source branch</Label>
-                  <RadioGroup
+                  <Label htmlFor="new-branch-legal-entity">
+                    Billing business
+                  </Label>
+                  <Select
+                    value={legalEntityId}
+                    onValueChange={(value) => {
+                      setLegalEntityId(value);
+                      setPreview(null);
+                      setPreviewError(null);
+                      setPackAvailability(null);
+                      initializedPacksForRef.current = null;
+                      if (startMode === 'copy' && sourceAccountId) {
+                        const source = options.branches.find(
+                          (branch) => branch.account_id === sourceAccountId
+                        );
+                        const entity = options.legalEntities.find(
+                          (candidate) => candidate.id === value
+                        );
+                        setPacks(
+                          BRANCH_SETUP_PACKS.filter(
+                            (pack) =>
+                              pack !== 'membership_catalog' ||
+                              !source ||
+                              !entity ||
+                              source.default_currency === entity.defaultCurrency
+                          )
+                        );
+                      }
+                    }}
+                  >
+                    <SelectTrigger
+                      id="new-branch-legal-entity"
+                      className="w-full"
+                    >
+                      <SelectValue placeholder="Select billing business" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {options.legalEntities.map((entity) => (
+                        <SelectItem key={entity.id} value={entity.id}>
+                          {entity.name} · {entity.defaultCurrency}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-muted-foreground text-xs">
+                    Used for invoices and currency.
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="space-y-2">
+                <Label>Start with</Label>
+                <RadioGroup
+                  aria-label="Start with"
+                  value={startMode}
+                  onValueChange={(value) =>
+                    value && chooseMode(value as BranchSetupStartMode)
+                  }
+                  className="sm:grid-cols-2"
+                >
+                  <Label
+                    className={cn(
+                      'min-h-full cursor-pointer items-start rounded-xl border p-3 transition-colors sm:p-4',
+                      startMode === 'blank'
+                        ? 'border-primary bg-primary/[0.04]'
+                        : 'border-border hover:border-border-hover'
+                    )}
+                  >
+                    <RadioGroupItem value="blank" className="mt-0.5" />
+                    <span>
+                      <span className="block font-medium">Start fresh</span>
+                      <span className="text-muted-foreground mt-1 block text-xs font-normal">
+                        Create an empty branch. Add plans and settings later.
+                      </span>
+                    </span>
+                  </Label>
+                  <Label
+                    className={cn(
+                      'min-h-full items-start rounded-xl border p-3 transition-colors sm:p-4',
+                      eligibleSources.length > 0
+                        ? 'cursor-pointer'
+                        : 'cursor-not-allowed opacity-60',
+                      startMode === 'copy'
+                        ? 'border-primary bg-primary/[0.04]'
+                        : 'border-border hover:border-border-hover'
+                    )}
+                  >
+                    <RadioGroupItem
+                      value="copy"
+                      disabled={eligibleSources.length === 0}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="block font-medium">
+                        Use settings from another branch
+                      </span>
+                      <span className="text-muted-foreground mt-1 block text-xs font-normal">
+                        Reuse selected plans and settings. Members and payments
+                        stay separate.
+                      </span>
+                      {eligibleSources.length === 0 ? (
+                        <span className="text-amber-foreground mt-1 block text-xs font-normal">
+                          No active branch is available to copy from.
+                        </span>
+                      ) : null}
+                    </span>
+                  </Label>
+                </RadioGroup>
+              </div>
+
+              <Collapse open={startMode === 'copy'}>
+                <div className="-mx-1 space-y-2 px-1 py-1">
+                  <Label htmlFor="branch-copy-source">Copy settings from</Label>
+                  <Select
                     value={sourceAccountId}
                     onValueChange={(value) => value && chooseSource(value)}
                   >
-                    {options.branches.map((branch) => {
-                      const reason = sourceIneligibility(branch);
-                      return (
-                        <Label
+                    <SelectTrigger id="branch-copy-source" className="w-full">
+                      <SelectValue placeholder="Select a branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {eligibleSources.map((branch) => (
+                        <SelectItem
                           key={branch.account_id}
-                          className={cn(
-                            'border-border items-start rounded-xl border p-3 transition-colors',
-                            reason ? 'opacity-60' : 'hover:border-border-hover',
-                            sourceAccountId === branch.account_id &&
-                              'border-primary'
-                          )}
+                          value={branch.account_id}
                         >
-                          <RadioGroupItem
-                            value={branch.account_id}
-                            disabled={reason !== null}
-                          />
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium">
-                              {branch.account_name}
-                            </span>
-                            <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
-                              {branch.legal_entity_name} ·{' '}
-                              {branch.default_currency}
-                            </span>
-                            {reason ? (
-                              <span className="text-amber-foreground mt-0.5 block text-xs font-normal">
-                                {reason}
-                              </span>
-                            ) : null}
-                          </span>
-                        </Label>
-                      );
-                    })}
-                  </RadioGroup>
+                          {branch.account_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedSource ? (
+                    <p className="text-muted-foreground text-xs">
+                      {selectedSource.legal_entity_name} ·{' '}
+                      {selectedSource.default_currency}
+                    </p>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          ) : step === 3 ? (
-            <div className="space-y-4">
-              {startMode === 'blank' ? (
-                <Alert>
-                  <Sparkles />
-                  <AlertTitle>Blank branch setup</AlertTitle>
-                  <AlertDescription>
-                    No configuration will be copied. UsefulDesk will add only
-                    system-seeded defaults such as expense categories.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <div className="space-y-2">
-                  {BRANCH_SETUP_PACKS.map((pack) => {
-                    const disabled = packDisabled(pack);
-                    const locked =
-                      pack === 'lead_setup' &&
-                      (packs.includes('automations') ||
-                        packs.includes('flows'));
-                    const count = preview
-                      ? branchSetupPackRowCount(preview, pack)
-                      : null;
-                    return (
-                      <Label
-                        key={pack}
-                        className={cn(
-                          'border-border items-start rounded-xl border p-3 transition-colors',
-                          disabled ? 'opacity-60' : 'hover:border-border-hover',
-                          packs.includes(pack) && 'border-primary'
-                        )}
-                      >
-                        <Checkbox
-                          checked={packs.includes(pack)}
-                          disabled={disabled}
-                          onCheckedChange={(checked) =>
-                            togglePack(pack, checked === true)
-                          }
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium">
-                              {PACK_META[pack].label}
-                            </span>
-                            {count !== null ? (
-                              <Badge variant="neutral">
-                                {count} row{count === 1 ? '' : 's'}
-                              </Badge>
-                            ) : null}
-                            {locked ? (
-                              <Badge variant="info">Required dependency</Badge>
-                            ) : null}
-                          </span>
-                          <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
-                            {PACK_META[pack].description}
-                          </span>
-                          {pack === 'membership_catalog' && currencyMismatch ? (
-                            <span className="text-amber-foreground mt-0.5 block text-xs font-normal">
-                              Not available because source and target currencies
-                              differ.
-                            </span>
-                          ) : null}
-                        </span>
-                      </Label>
-                    );
-                  })}
-                </div>
-              )}
+              </Collapse>
 
-              <PreviewSummary
+              <PreviewProblem
                 preview={preview}
-                loading={previewLoading}
                 error={previewError}
+                loading={false}
               />
             </div>
           ) : (
-            <ReviewStep
-              branchName={branchName.trim()}
-              entity={selectedEntity}
-              startMode={startMode}
-              source={selectedSource}
-              packs={packs}
-              preview={preview}
-            />
+            <div className="space-y-5">
+              <div className="space-y-1">
+                <p className="font-medium">Settings to copy</p>
+                <p className="text-muted-foreground text-xs">
+                  Common settings are selected. Advanced settings stay off
+                  unless you choose them.
+                </p>
+              </div>
+
+              {!packAvailability ? (
+                <p className="text-muted-foreground flex items-center gap-2 text-sm">
+                  <Loader2 className="size-4 animate-spin" /> Checking available
+                  settings…
+                </p>
+              ) : !hasReusableSettings ? (
+                <Alert>
+                  <CircleAlert />
+                  <AlertTitle>No reusable settings found</AlertTitle>
+                  <AlertDescription>
+                    Go back and choose another branch, or start fresh.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <>
+                  {basicPacks.length > 0 ? (
+                    <div className="space-y-2">
+                      {basicPacks.map((pack) => (
+                        <PackChoice
+                          key={pack}
+                          pack={pack}
+                          checked={packs.includes(pack)}
+                          onCheckedChange={(checked) =>
+                            togglePack(pack, checked)
+                          }
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {currencyMismatch ? (
+                    <p className="text-amber-foreground text-xs">
+                      Plans, products, and services are unavailable because the
+                      two branches use different currencies.
+                    </p>
+                  ) : null}
+
+                  {advancedPacks.length > 0 ? (
+                    <Accordion
+                      key={`${sourceAccountId}:${basicPacks.length}`}
+                      defaultValue={
+                        basicPacks.length === 0 ? ['advanced'] : undefined
+                      }
+                    >
+                      <AccordionItem value="advanced">
+                        <AccordionTrigger>Advanced settings</AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-2">
+                            {advancedPacks.map((pack) => (
+                              <PackChoice
+                                key={pack}
+                                pack={pack}
+                                checked={packs.includes(pack)}
+                                onCheckedChange={(checked) =>
+                                  togglePack(pack, checked)
+                                }
+                              />
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  ) : null}
+
+                  <Alert>
+                    <ShieldCheck />
+                    <AlertTitle>Your branch data stays separate</AlertTitle>
+                    <AlertDescription>
+                      Members, leads, payments, attendance, team access,
+                      WhatsApp, and Razorpay stay separate. Reminders and
+                      automations are copied off.
+                    </AlertDescription>
+                  </Alert>
+                </>
+              )}
+
+              <PreviewProblem
+                preview={preview}
+                error={previewError}
+                loading={previewLoading}
+              />
+            </div>
           )}
         </div>
 
@@ -808,24 +818,42 @@ export function BranchCreationDialog({
                 </>
               )}
             </Button>
-            {step < 4 ? (
+            {step === 1 && startMode === 'copy' ? (
               <Button
                 type="button"
-                onClick={() => setStep(step + 1)}
+                onClick={() => setStep(2)}
                 disabled={
                   optionsError !== null ||
-                  (step === 1 && !stepOneReady) ||
-                  (step === 2 && !stepTwoReady) ||
-                  (step === 3 && !stepThreeReady)
+                  !branchDetailsReady ||
+                  !copySourceReady ||
+                  packAvailability === null ||
+                  previewError !== null
                 }
               >
-                Continue <ArrowRight data-icon="inline-end" />
+                {packAvailability === null && previewLoading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : null}
+                {packAvailability === null ? 'Checking…' : 'Choose settings'}
+                {packAvailability !== null ? (
+                  <ArrowRight data-icon="inline-end" />
+                ) : null}
+              </Button>
+            ) : step === 1 ? (
+              <Button
+                type="button"
+                onClick={() => void createBranch()}
+                disabled={submitting || !blankBranchReady}
+              >
+                {submitting || (branchDetailsReady && previewLoading) ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : null}
+                Create branch
               </Button>
             ) : (
               <Button
                 type="button"
                 onClick={() => void createBranch()}
-                disabled={submitting || !stepThreeReady}
+                disabled={submitting || !selectedSetupReady}
               >
                 {submitting ? (
                   <Loader2 className="size-4 animate-spin" />
@@ -840,7 +868,40 @@ export function BranchCreationDialog({
   );
 }
 
-function PreviewSummary({
+function PackChoice({
+  pack,
+  checked,
+  onCheckedChange,
+}: {
+  pack: BranchSetupPack;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <Label
+      className={cn(
+        'cursor-pointer items-start rounded-xl border p-3 transition-colors',
+        checked
+          ? 'border-primary bg-primary/[0.04]'
+          : 'border-border hover:border-border-hover'
+      )}
+    >
+      <Checkbox
+        className="mt-0.5"
+        checked={checked}
+        onCheckedChange={(value) => onCheckedChange(value === true)}
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium">{PACK_META[pack].label}</span>
+        <span className="text-muted-foreground mt-0.5 block text-xs font-normal">
+          {PACK_META[pack].description}
+        </span>
+      </span>
+    </Label>
+  );
+}
+
+function PreviewProblem({
   preview,
   loading,
   error,
@@ -852,7 +913,7 @@ function PreviewSummary({
   if (loading) {
     return (
       <p className="text-muted-foreground flex items-center gap-2 text-sm">
-        <Loader2 className="size-4 animate-spin" /> Checking what can be copied…
+        <Loader2 className="size-4 animate-spin" /> Checking branch settings…
       </p>
     );
   }
@@ -860,125 +921,21 @@ function PreviewSummary({
     return (
       <Alert variant="destructive">
         <CircleAlert />
-        <AlertTitle>Preview unavailable</AlertTitle>
+        <AlertTitle>Branch setup could not be checked</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
   }
-  if (!preview) return null;
+  if (!preview || preview.eligible) return null;
 
   return (
-    <div className="space-y-3">
-      <Alert>
-        <FileCheck2 />
-        <AlertTitle>
-          {preview.eligible
-            ? `${preview.copied.totalRows} configuration row${preview.copied.totalRows === 1 ? '' : 's'} ready`
-            : 'This setup cannot be created yet'}
-        </AlertTitle>
-        <AlertDescription>
-          {preview.eligible
-            ? 'Counts and warnings come from the authoritative branch snapshot.'
-            : preview.reasonCodes.map((code) => REASON_COPY[code]).join(' ')}
-        </AlertDescription>
-      </Alert>
-
-      {preview.warnings.length > 0 ? (
-        <div>
-          <p className="text-sm font-medium">Review notes</p>
-          <ul className="text-muted-foreground mt-1 space-y-1 text-xs">
-            {preview.warnings.map((warning, index) => (
-              <li key={`${warning.code}:${warning.pack ?? ''}:${index}`}>
-                {BRANCH_SETUP_WARNING_REGISTRY[warning.code]}
-                {warning.count ? ` (${warning.count})` : ''}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <div>
-        <p className="text-sm font-medium">Never copied</p>
-        <p className="text-muted-foreground mt-1 text-xs">
-          {preview.exclusions.join(', ')}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function ReviewStep({
-  branchName,
-  entity,
-  startMode,
-  source,
-  packs,
-  preview,
-}: {
-  branchName: string;
-  entity: LegalEntityOption | undefined;
-  startMode: BranchSetupStartMode;
-  source: BranchAccount | undefined;
-  packs: BranchSetupPack[];
-  preview: BranchSetupPreview | null;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="border-border rounded-xl border p-4">
-        <div className="flex items-center gap-3">
-          <span className="bg-muted flex size-9 items-center justify-center rounded-lg">
-            <Building2 className="size-4" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate font-semibold">{branchName}</p>
-            <p className="text-muted-foreground text-xs">
-              {entity?.name} · {entity?.defaultCurrency}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <dl className="grid gap-3 text-sm sm:grid-cols-2">
-        <div>
-          <dt className="text-muted-foreground text-xs">Start point</dt>
-          <dd className="mt-0.5 font-medium">
-            {startMode === 'blank'
-              ? 'Blank branch'
-              : `Copy from ${source?.account_name}`}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground text-xs">Configuration rows</dt>
-          <dd className="mt-0.5 font-medium tabular-nums">
-            {preview?.copied.totalRows ?? 0}
-          </dd>
-        </div>
-      </dl>
-
-      {packs.length > 0 ? (
-        <div>
-          <p className="text-muted-foreground text-xs">Setup packs</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {packs.map((pack) => (
-              <Badge key={pack} variant="neutral">
-                {PACK_META[pack].label}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      <Alert>
-        <Copy />
-        <AlertTitle>Configuration only</AlertTitle>
-        <AlertDescription>
-          Credentials, providers, WhatsApp, payments, templates, staff,
-          trainers, members, and operational history are not copied or made
-          operational. The new branch starts in Setup until an admin reviews its
-          configuration.
-        </AlertDescription>
-      </Alert>
-    </div>
+    <Alert variant="destructive">
+      <CircleAlert />
+      <AlertTitle>These settings cannot be copied</AlertTitle>
+      <AlertDescription>
+        {preview.reasonCodes.map((code) => REASON_COPY[code]).join(' ')}
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -1003,9 +960,9 @@ function CreationSuccess({
           {result.replayed ? 'Branch creation recovered' : 'Branch created'}
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
-          {result.copied.totalRows} configuration row
-          {result.copied.totalRows === 1 ? '' : 's'} copied. Credentials and
-          provider connections were not copied.
+          {result.setup.startMode === 'copy'
+            ? 'Selected settings were copied. Members and connected accounts remain separate.'
+            : 'Your new branch is ready to use.'}
         </p>
       </div>
       {switching ? (

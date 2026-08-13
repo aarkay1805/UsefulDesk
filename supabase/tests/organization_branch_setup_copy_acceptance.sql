@@ -442,10 +442,12 @@ BEGIN
 END;
 $$;
 
--- Caller, tenant, source-readiness, pack, and currency validation.
+-- Caller, tenant, source-lifecycle, pack, and currency validation.
 DO $$
 DECLARE
   v_failed BOOLEAN;
+  v_preview JSONB;
+  v_response JSONB;
 BEGIN
   v_failed := FALSE;
   BEGIN
@@ -470,17 +472,26 @@ BEGIN
   END;
   PERFORM pg_temp.assert_true(v_failed, 'cross-organization source must fail');
 
-  v_failed := FALSE;
-  BEGIN
-    PERFORM public.create_organization_branch_from_setup(
-      gen_random_uuid(), current_setting('acceptance.org_a')::UUID,
-      current_setting('acceptance.legal_a')::UUID,
-      'Bad Unreviewed', 'copy', current_setting('acceptance.unreviewed_source')::UUID,
-      ARRAY['lead_setup']::TEXT[]
-    );
-  EXCEPTION WHEN SQLSTATE '22023' THEN v_failed := TRUE;
-  END;
-  PERFORM pg_temp.assert_true(v_failed, 'unreviewed/attention source must fail');
+  v_preview := public.preview_organization_branch_setup(
+    current_setting('acceptance.org_a')::UUID,
+    current_setting('acceptance.legal_a')::UUID,
+    'copy', current_setting('acceptance.unreviewed_source')::UUID,
+    ARRAY['lead_setup']::TEXT[]
+  );
+  v_response := public.create_organization_branch_from_setup(
+    gen_random_uuid(), current_setting('acceptance.org_a')::UUID,
+    current_setting('acceptance.legal_a')::UUID,
+    'Minimal Source Copy', 'copy',
+    current_setting('acceptance.unreviewed_source')::UUID,
+    ARRAY['lead_setup']::TEXT[]
+  );
+  PERFORM pg_temp.assert_true(
+    (v_preview->>'eligible')::BOOLEAN
+    AND v_preview->'reasonCodes' = '[]'::JSONB
+    AND v_response->'setup'->>'sourceAccountId' =
+      current_setting('acceptance.unreviewed_source'),
+    'active source must copy without readiness or review acknowledgement'
+  );
 
   v_failed := FALSE;
   BEGIN

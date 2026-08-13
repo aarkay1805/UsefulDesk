@@ -18,6 +18,14 @@ const migration = readFileSync(
   'utf8'
 );
 
+const activeSourceMigration = readFileSync(
+  join(
+    process.cwd(),
+    'supabase/migrations/20260813154312_allow_active_branch_setup_copy.sql'
+  ),
+  'utf8'
+);
+
 const createFunction = migration.slice(
   migration.indexOf(
     'CREATE OR REPLACE FUNCTION public.create_organization_branch_from_setup'
@@ -28,6 +36,21 @@ const createFunction = migration.slice(
 );
 
 describe('organization branch setup copy database contract', () => {
+  it('allows active sources without readiness or review acknowledgements', () => {
+    expect(activeSourceMigration).toContain(
+      "IF v_copy_source.branch_status <> 'active' THEN"
+    );
+    expect(activeSourceMigration).toContain(
+      "pg_catalog.strpos(v_definition, 'SOURCE_NOT_READY')"
+    );
+    expect(activeSourceMigration).toContain(
+      "pg_catalog.strpos(v_definition, 'SOURCE_NOT_REVIEWED')"
+    );
+    expect(activeSourceMigration).toContain(
+      "RAISE EXCEPTION 'Copy source must be active'"
+    );
+  });
+
   it('protects review and lifecycle columns from direct authenticated updates', () => {
     expect(migration).toContain(
       'ADD COLUMN IF NOT EXISTS setup_reviewed_at TIMESTAMPTZ'
@@ -72,12 +95,8 @@ describe('organization branch setup copy database contract', () => {
       /created_account_id UUID,[\s\S]*?REFERENCES public\.accounts\(organization_id, id\)\s+ON DELETE CASCADE/
     );
     expect(migration).toContain('idx_accounts_setup_reviewed_by');
-    expect(migration).toContain(
-      'idx_branch_creation_requests_created_scope'
-    );
-    expect(migration).toContain(
-      'idx_branch_creation_requests_source_scope'
-    );
+    expect(migration).toContain('idx_branch_creation_requests_created_scope');
+    expect(migration).toContain('idx_branch_creation_requests_source_scope');
     expect(migration).toContain(
       'idx_branch_creation_requests_legal_entity_scope'
     );
@@ -161,8 +180,8 @@ describe('organization branch setup copy database contract', () => {
   });
 
   it('preserves the legacy branch RPC and locks caller-facing functions down', () => {
-    expect(migration).toContain(
-      'CREATE OR REPLACE FUNCTION public.create_organization_branch(\n  p_organization_id UUID,\n  p_legal_entity_id UUID,\n  p_name TEXT\n) RETURNS UUID'
+    expect(migration).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.create_organization_branch\(\r?\n  p_organization_id UUID,\r?\n  p_legal_entity_id UUID,\r?\n  p_name TEXT\r?\n\) RETURNS UUID/
     );
     expect(migration).toContain(
       'CREATE OR REPLACE FUNCTION public.preview_organization_branch_setup'
@@ -198,9 +217,7 @@ describe('organization branch setup copy database contract', () => {
     expect(migration).toMatch(
       /CREATE POLICY flows_delete[\s\S]*?OR public\.is_account_member\(account_id, 'admin'\)/
     );
-    expect(migration).toContain(
-      "pg_catalog.to_jsonb(NEW)->>'automation_id'"
-    );
+    expect(migration).toContain("pg_catalog.to_jsonb(NEW)->>'automation_id'");
     expect(migration).toContain("pg_catalog.to_jsonb(NEW)->>'flow_id'");
     expect(migration).not.toContain('NEW.automation_id IS DISTINCT FROM');
     expect(migration).not.toContain('NEW.flow_id IS DISTINCT FROM');

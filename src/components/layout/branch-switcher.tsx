@@ -106,11 +106,7 @@ export function BranchSwitcher({ collapsed }: { collapsed: boolean }) {
                     </span>
                     <span className="text-muted-foreground block truncate text-xs">
                       {branch.organization_name} · {branch.role}
-                      {archived
-                        ? ' · Archived'
-                        : branch.readiness_state !== 'ready'
-                          ? ` · ${branch.readiness_state}`
-                          : ''}
+                      {archived ? ' · Archived' : ''}
                     </span>
                   </span>
                   {selected ? <Check className="size-4" /> : null}

@@ -27,17 +27,12 @@ vi.mock('@/hooks/use-onboarding-status', () => ({
   }),
 }));
 
-vi.mock('@/components/branches/branch-setup-review-card', () => ({
-  BranchSetupReviewCard: () => <div>Branch readiness status</div>,
-}));
-
 afterEach(cleanup);
 
 describe('GetStartedView dismissed state', () => {
-  it('keeps branch readiness visible and uses integration-safe seven-step copy', () => {
+  it('uses integration-safe seven-step copy without a readiness gate', () => {
     render(<GetStartedView />);
 
-    expect(screen.getByText('Branch readiness status')).toBeTruthy();
     expect(screen.getByText('Core checklist complete')).toBeTruthy();
     expect(
       screen.getByText(/The seven-step checklist is complete/)

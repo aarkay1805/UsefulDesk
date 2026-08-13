@@ -19,7 +19,6 @@ import {
 
 import { useAuth } from '@/hooks/use-auth';
 import { useOnboardingStatus } from '@/hooks/use-onboarding-status';
-import { BranchSetupReviewCard } from '@/components/branches/branch-setup-review-card';
 import type { OnboardingStep, OnboardingStepId } from '@/lib/onboarding/steps';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -96,7 +95,6 @@ export function GetStartedView() {
   if (!canEditSettings) {
     return (
       <section className="mx-auto max-w-3xl space-y-4">
-        <BranchSetupReviewCard />
         <Card className="items-center gap-3 px-6 py-8 text-center">
           <span className="bg-primary-soft text-primary-text flex size-11 items-center justify-center rounded-lg">
             <Rocket className="size-5" />
@@ -105,8 +103,8 @@ export function GetStartedView() {
             Setup is handled by admins
           </div>
           <p className="text-muted-foreground text-sm">
-            Ask an admin or the account owner to finish the seven-step setup
-            guide and review this branch’s configuration.
+            Ask an admin or the account owner to manage the seven-step setup
+            guide.
           </p>
           <Button
             variant="outline"
@@ -126,7 +124,6 @@ export function GetStartedView() {
   if (dismissed || onboarding.allDone) {
     return (
       <section className="animate-in fade-in-50 mx-auto max-w-3xl space-y-4 duration-200">
-        <BranchSetupReviewCard />
         <Card className="items-center gap-3 px-6 py-8 text-center">
           <span className="text-emerald-foreground flex size-11 items-center justify-center rounded-lg bg-emerald-500/10">
             <CheckCircle2 className="size-5" />
@@ -164,8 +161,6 @@ export function GetStartedView() {
 
   return (
     <section className="animate-in fade-in-50 mx-auto max-w-3xl duration-200">
-      <BranchSetupReviewCard className="mb-4" />
-
       {/* Progress header */}
       <Card size="sm" className="gap-2 px-4 py-3">
         <div className="flex items-center justify-between text-sm">

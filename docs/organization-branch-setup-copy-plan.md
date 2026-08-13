@@ -4,7 +4,7 @@
 
 ## Summary
 
-Replace the inline Add branch dialog with a four-step wizard that creates an isolated active/setup branch and optionally copies reviewed, allowlisted configuration from an accessible active branch in the same organization.
+Replace the inline Add branch dialog with a four-step wizard that creates an isolated active/setup branch and optionally copies allowlisted configuration from an accessible active branch in the same organization.
 
 Blank creation remains compatible. Operational records, staff access, credentials, provider state, storage objects, execution history, and historical authorship are never copied.
 
@@ -16,7 +16,7 @@ Rollout order is fixed: migration to Test, SQL acceptance, application acceptanc
 - Add nullable `accounts.setup_reviewed_at TIMESTAMPTZ` and `setup_reviewed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL`. Do not backfill existing accounts.
 - Remove authenticated table-wide `accounts` updates. Grant column-level updates only for name, currency, localization, UPI, and onboarding-dismissal fields. Organization, legal-entity, owner, lifecycle, archive, readiness, and review fields become function-only.
 - Update restore behavior to clear both review fields and set the restored branch to active/attention.
-- A copy source must be accessible to the caller, same-organization, active, unarchived, `readiness_state='ready'`, and reviewed.
+- A copy source must be accessible to the caller, same-organization, active, and unarchived. Readiness and review metadata are not copy prerequisites because an owner may intentionally operate a minimal CRM-only branch.
 - Setup completion requires the selected branch to be active and to contain at least one active membership plan joined to an active pricing option. Revalidate this on every call.
 - Repeated completion is a no-op only when the branch is already ready, reviewed, and still satisfies the prerequisite. Do not duplicate its audit event.
 - Completion does not inspect or alter WhatsApp, payment, reminder, onboarding, staff, trainer-pricing, or provider readiness.
@@ -304,15 +304,7 @@ Behavior:
 - If switching fails, show Retry switch; never POST creation again.
 - Reset request ID only after closing/resetting a completed or abandoned attempt.
 
-Add a shared `BranchSetupStatusBadge`:
-
-- Setup → neutral.
-- Review needed/attention → warning.
-- Configuration reviewed → success.
-
-Render one shared review card in Organization settings and at the top of Get Started, including dismissed/all-complete states. Admin/owner can complete; other roles see status only. When blocked, link to plan settings.
-
-After completion, refresh auth/account context. Never imply that WhatsApp, payments, reminders, staff, templates, trainers, or provider connections are operational.
+Do not surface readiness badges or a setup-review card. Legacy review metadata and the completion endpoint remain for compatibility, but they do not gate branch creation, copying, switching, or ordinary CRM use.
 
 ## Onboarding alignment
 
@@ -327,8 +319,8 @@ Correct all six-step documentation and UI references to seven steps.
 ## Tests and acceptance
 
 - Add direct dev dependencies for Testing Library, user-event, and jsdom. Keep Node as Vitest’s default; use a jsdom project or per-file environment for interaction tests.
-- Unit/component coverage: normalization, pack dependencies, warning registry, readiness derivation, stale preview ordering, double-submit, replay, switch retry, dismissed onboarding, and auth refresh.
-- API coverage: legacy/new compatibility, same-origin failures, cross-organization source and legal entity, archived/unreviewed/attention source, currency mismatch, pack dependencies, size limits, replay/conflict, completion permissions, and generic error handling.
+- Unit/component coverage: normalization, pack dependencies, warning registry, active unreviewed source selection, stale preview ordering, double-submit, replay, switch retry, and dismissed onboarding.
+- API coverage: legacy/new compatibility, same-origin failures, cross-organization source and legal entity, inactive source, active unreviewed/attention source, currency mismatch, pack dependencies, size limits, replay/conflict, completion permissions, and generic error handling.
 - Test-project SQL acceptance must set authenticated JWT/header context and prove:
   - Protected account fields cannot be directly changed.
   - Caller and tenant validation.
@@ -350,6 +342,6 @@ Correct all six-step documentation and UI references to seven steps.
 
 - Save this plan as `docs/organization-branch-setup-copy-plan.md`.
 - On shipment, add only a terse entry to `docs/changelog.md` and update Phase 4 Built/Left status in `PRDs/roadmap.md`.
-- Document that Production initially has no reviewed source branches and blank creation remains the guaranteed fallback.
+- Document that blank creation remains available while any accessible active branch can be a copy source without a review marker.
 - Do not backfill review markers and do not record a fixed latest-migration number.
 - Do not add a feature flag; schema-first deployment and passing Test acceptance are the release gate.

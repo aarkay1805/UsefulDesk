@@ -6,6 +6,14 @@
 
 ---
 
+## Lean branch creation
+
+Add branch is now one screen when starting fresh and two screens when reusing settings. Its first screen uses responsive setup choices plus a compact source-branch select, while the copy screen keeps the new branch and source in view, defaults only plans/products/services plus lead fields/tags, and keeps advanced reminders/automations/flows collapsed and off. The wizard hides single-choice billing-business setup, step tracking, technical counts, raw exclusions, and redundant review while explaining separation in owner-facing language. The existing authoritative preview, idempotent create, currency, tenancy, size, sanitization, and inactive/draft safety rules are unchanged. Key code: `src/components/branches/branch-creation-dialog.tsx` and its focused test.
+
+## Active branches can be copied without setup review
+
+Branch copying now treats readiness as the owner’s judgment rather than a platform prerequisite: any accessible active branch in the organization can supply selected configuration, even with no members, plan, WhatsApp, payments, or review marker. Objective safety checks remain—tenant access, active lifecycle, currency compatibility, bounded snapshots, allowlisted packs, sanitization, and inactive/draft executable copies. The review card and readiness badges are removed from Get Started, Organization settings, and the branch switcher; legacy review fields and the completion endpoint remain for compatibility. Migration `20260813154312_allow_active_branch_setup_copy.sql` is applied to Test and Production, with the rollback-scoped authenticated SQL suite passing on Test. Key code: `src/components/branches/branch-creation-dialog.tsx` and `supabase/tests/organization_branch_setup_copy_acceptance.sql`.
+
 ## Reviewed branch setup copying
 
 Organization owners now add branches through a four-step wizard with an authoritative preview, stable request replay, and either guaranteed blank creation or selective configuration copying from a reviewed, same-organization, same-currency branch. Membership/pricing, lead setup, reminder timing, automations, and flows use explicit allowlists; identifiers are remapped, unsupported definitions are skipped with exact warnings, copied executable content stays inactive/draft, credentials and operational history are excluded, and every new branch remains in Setup until an admin confirms active plan/pricing and records the review. The three connector-applied migrations passed the rollback-scoped authenticated SQL suite and advisors in Test and Production, and a READY Production deployment serves the application. Key code: `supabase/migrations/20260812193001_organization_branch_setup_copy.sql`, `src/app/api/branches`, `src/components/branches`, and `supabase/tests/organization_branch_setup_copy_acceptance.sql`. Gotcha: Production initially has no reviewed source branches, so blank creation remains the guaranteed fallback.
