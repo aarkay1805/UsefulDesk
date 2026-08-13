@@ -70,6 +70,8 @@ Engineering maintenance: **public API broadcasts now persist normalized destinat
 
 Engineering maintenance: **public API contact submissions now preserve every enquiry in the lead timeline, including dedupe hits, while only genuinely new contacts dispatch `new_contact_created`; focused route coverage protects both states, no schema change was required, and Test plus Production had zero existing API-origin contacts to repair**.
 
+Engineering maintenance: **authenticated inbound WhatsApp media proxy responses are now private and non-storable instead of publicly cacheable for 24 hours; focused route coverage protects the downloaded bytes, content type, and cache contract, with no schema or persisted-data change and no change to the public outbound `chat-media` delivery bucket**.
+
 Engineering maintenance: **template image-header fetches and automation `send_webhook` steps reject non-public targets and redirects with a ten-second bound while preserving automation log semantics; browser broadcast fan-out has a matching 60/min budget plus bounded 429-only retry; successful login and invitation continuation use a full browser navigation so fresh Supabase cookies reach the proxy**.
 
 Engineering maintenance: **signed-in account access now retries one transient profile lookup failure, distinguishes a valid viewer from unresolved branch/role context, explains the fail-closed read-only state, and offers an in-place Retry path without changing RLS or requiring a migration**.

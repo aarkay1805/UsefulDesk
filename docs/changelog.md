@@ -6,6 +6,10 @@
 
 ---
 
+## Private WhatsApp media cache containment
+
+Authenticated inbound WhatsApp media proxy responses are now `private, no-store` instead of publicly cacheable for 24 hours, preventing Meta-downloaded customer media from entering shared browser or intermediary caches. Focused route coverage locks the authenticated download bytes, content type, and cache contract in `src/app/api/whatsapp/media/[mediaId]/route.test.ts`. No migration or data repair was required; the existing public `chat-media` bucket used for outbound Meta delivery is unchanged.
+
 ## Public API lead-capture parity
 
 Public `POST /api/v1/contacts` now records an enquiry note for both newly created and deduplicated contacts, and newly created contacts dispatch the existing `new_contact_created` automation after the response. Dedupe hits remain visible without replaying welcome automation. Focused route coverage locks both states in `src/app/api/v1/contacts/route.test.ts`. No migration was needed: Test and Production both expose the existing non-null `contact_notes` shape to `service_role`, and both had zero `received_via='api'` contacts to repair.
