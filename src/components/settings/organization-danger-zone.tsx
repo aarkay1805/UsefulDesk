@@ -9,7 +9,13 @@ import { useCan } from '@/hooks/use-can';
 import { branchHref } from '@/lib/auth/branch-context';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import {
+  Card,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -88,35 +94,35 @@ export function OrganizationDangerZone() {
 
   return (
     <Card>
-      <CardContent className="p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <div className="min-w-0">
-            <p className="text-destructive flex items-center gap-1.5 text-sm font-semibold">
-              <AlertTriangle className="size-4" />
-              Delete organization
-            </p>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Permanently erase{' '}
-              <span className="font-medium">{organizationName}</span>, all{' '}
-              {branches.length} branches, contacts, conversations, memberships,
-              payments, integrations, audit history, and stored media. Teammates
-              who only belong here lose their login.
-            </p>
-          </div>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="shrink-0"
-            onClick={() => {
-              setTyped('');
-              setOpen(true);
-            }}
-          >
-            <Trash2 className="size-4" />
-            Delete organization
-          </Button>
-        </div>
-      </CardContent>
+      <CardHeader>
+        <CardTitle className="text-destructive flex items-center gap-2">
+          <AlertTriangle className="size-4" />
+          Delete organization
+        </CardTitle>
+        <CardDescription>
+          Permanently erase{' '}
+          <span className="text-foreground font-medium">
+            {organizationName}
+          </span>
+          , all {branches.length} branches, contacts, conversations,
+          memberships, payments, integrations, audit history, and stored media.
+          Teammates who only belong here lose their login.
+        </CardDescription>
+      </CardHeader>
+      <CardFooter className="justify-end">
+        <Button
+          variant="destructive"
+          size="sm"
+          className="w-full sm:w-auto"
+          onClick={() => {
+            setTyped('');
+            setOpen(true);
+          }}
+        >
+          <Trash2 className="size-4" />
+          Delete organization
+        </Button>
+      </CardFooter>
 
       <Dialog
         open={open}

@@ -6,6 +6,10 @@
 
 ---
 
+## Workspace settings polish
+
+Settings → Regional settings, Organization & branches, and Team members now share the established narrow settings hierarchy, responsive card structure, canonical controls and status treatments, and concise owner-facing guidance. Regional settings groups account-wide formats with a live preview, Organization & branches clarifies the accessible branch roster and destructive lifecycle actions, and Team members pairs live presence with permission-safe role, invite, copy, revoke, and removal states without changing locale persistence, branch lifecycle behavior, invitations, or RBAC. Key code: `src/components/settings/localization-settings.tsx`, `organization-settings.tsx`, `organization-danger-zone.tsx`, `members-tab.tsx`, and `invite-member-dialog.tsx`.
+
 ## Payments settings polish
 
 Settings → Payments now leads with concise UPI and Razorpay setup tasks, uses labelled responsive forms, exposes recoverable loading/error/read-only states, validates UPI IDs inline, and confirms account updates through returned rows. Razorpay status checks now time out with a retry instead of loading forever, while OAuth, provider diagnostics, money movement, and disconnect behavior remain unchanged. Key code: `src/components/settings/deals-settings.tsx` and `razorpay-settings-card.tsx`.

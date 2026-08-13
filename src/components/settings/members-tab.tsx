@@ -44,7 +44,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -62,6 +68,7 @@ import {
 } from '@/components/ui/select';
 import { RequireRole } from '@/components/auth/require-role';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocale } from '@/hooks/use-locale';
 import { usePresence } from '@/hooks/use-presence';
 import type { AccountRole } from '@/lib/auth/roles';
 import { presenceLabel, summarize } from '@/lib/presence';
@@ -72,6 +79,7 @@ import {
 import { InviteMemberDialog } from './invite-member-dialog';
 import { SettingsPanelHead } from './settings-panel-head';
 import { ROLE_META } from './role-meta';
+import { SettingsChip } from './settings-chip';
 
 interface Member {
   user_id: string;
@@ -105,16 +113,6 @@ const EDITABLE_ROLES: { value: AccountRole; label: string; hint: string }[] = [
 // drift. The colour scale runs amber (owner — scarce, immutable) →
 // primary (admin) → muted (agent / viewer).
 
-function fmtDate(iso: string): string {
-  // Match the rest of the dashboard's locale-light formatting.
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
 function fmtExpiresIn(iso: string): string {
   const ms = new Date(iso).getTime() - Date.now();
   if (ms <= 0) return 'expired';
@@ -126,6 +124,7 @@ function fmtExpiresIn(iso: string): string {
 
 export function MembersTab() {
   const { user, canManageMembers } = useAuth();
+  const { fmt } = useLocale();
   const { getPresence, getRow, now } = usePresence();
 
   const [members, setMembers] = useState<Member[]>([]);
@@ -314,16 +313,12 @@ export function MembersTab() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="text-primary-text size-6 animate-spin" />
-      </div>
-    );
-  }
+  const presenceCounts = summarize(
+    members.map((member) => getPresence(member.user_id))
+  );
 
   return (
-    <section className="animate-in fade-in-50 space-y-6 duration-200">
+    <section className="animate-in fade-in-50 max-w-3xl space-y-6 duration-200 motion-reduce:animate-none">
       <SettingsPanelHead
         title="Team members"
         description="People with access to this account. Roles control what each teammate can do."
@@ -337,271 +332,275 @@ export function MembersTab() {
         }
       />
 
-      {/* Live presence summary across the roster. Updates without a
-          full refresh as heartbeats and the local re-derive tick land. */}
-      {members.length > 0 &&
-        (() => {
-          const counts = summarize(members.map((m) => getPresence(m.user_id)));
-          return (
-            <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-              <span className="inline-flex items-center gap-1.5">
-                <PresenceDot status="online" />
-                {counts.online} online
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <PresenceDot status="away" />
-                {counts.away} away
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <PresenceDot status="offline" />
-                {counts.offline} offline
-              </span>
-              <span className="text-muted-foreground/70">
-                · {members.length} member{members.length === 1 ? '' : 's'}
-              </span>
-            </div>
-          );
-        })()}
+      {loading ? (
+        <Card>
+          <CardContent
+            className="text-muted-foreground flex items-center justify-center gap-2 py-12 text-sm"
+            role="status"
+          >
+            <Loader2 className="text-primary-text size-5 animate-spin" />
+            Loading team members...
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Roster */}
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2">
+                <UsersRound className="text-primary-text size-4" />
+                Current team
+                <Badge variant="neutral" size="count">
+                  {members.length}
+                </Badge>
+              </CardTitle>
+              <CardDescription className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                <span className="inline-flex items-center gap-1.5">
+                  <PresenceDot status="online" />
+                  {presenceCounts.online} online
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <PresenceDot status="away" />
+                  {presenceCounts.away} away
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <PresenceDot status="offline" />
+                  {presenceCounts.offline} offline
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ul className="divide-border divide-y">
+                {members.map((member) => {
+                  const roleMeta = ROLE_META[member.role];
+                  const RoleIcon = roleMeta.icon;
+                  const isSelf = member.user_id === user?.id;
+                  const isOwnerRow = member.role === 'owner';
+                  const isBusy = pendingMemberAction === member.user_id;
+                  const presence = getPresence(member.user_id);
+                  const presenceRow = getRow(member.user_id);
+                  const presenceText = presenceLabel(
+                    presence,
+                    presenceRow?.last_seen_at ?? null,
+                    now
+                  );
 
-      {/* Roster */}
-      <Card>
-        <CardContent className="p-0">
-          <ul className="divide-border divide-y">
-            {members.map((member) => {
-              const roleMeta = ROLE_META[member.role];
-              const RoleIcon = roleMeta.icon;
-              const isSelf = member.user_id === user?.id;
-              const isOwnerRow = member.role === 'owner';
-              const isBusy = pendingMemberAction === member.user_id;
-              const presence = getPresence(member.user_id);
-              const presenceRow = getRow(member.user_id);
-              const presenceText = presenceLabel(
-                presence,
-                presenceRow?.last_seen_at ?? null,
-                now
-              );
-
-              return (
-                <li
-                  key={member.user_id}
-                  // Mobile: stack identity (avatar+name+email) above the
-                  // role/remove actions so the role dropdown's fixed
-                  // 128px width doesn't force the name into a 50-pixel
-                  // truncation. Desktop (sm+): everything inline as
-                  // before.
-                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:gap-4"
-                >
-                  <div className="flex min-w-0 flex-1 items-center gap-4">
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <UserAvatar
-                            className="size-9 shrink-0"
-                            name={member.full_name || member.email || 'U'}
-                            src={member.avatar_url}
-                          >
-                            {/* role+label so screen readers announce
+                  return (
+                    <li
+                      key={member.user_id}
+                      // Mobile: stack identity (avatar+name+email) above the
+                      // role/remove actions so the role dropdown's fixed
+                      // 128px width doesn't force the name into a 50-pixel
+                      // truncation. Desktop (sm+): everything inline as
+                      // before.
+                      className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4"
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <UserAvatar
+                                className="size-10 shrink-0"
+                                name={member.full_name || member.email || 'U'}
+                                src={member.avatar_url}
+                              >
+                                {/* role+label so screen readers announce
                                 presence — the hover tooltip alone isn't
                                 reachable by keyboard/AT on a non-focusable
                                 avatar. */}
-                            <AvatarBadge
-                              role="img"
-                              aria-label={presenceText}
-                              className={PRESENCE_DOT_CLASS[presence]}
-                            />
-                          </UserAvatar>
-                        }
-                      />
-                      <TooltipContent>{presenceText}</TooltipContent>
-                    </Tooltip>
+                                <AvatarBadge
+                                  role="img"
+                                  aria-label={presenceText}
+                                  className={PRESENCE_DOT_CLASS[presence]}
+                                />
+                              </UserAvatar>
+                            }
+                          />
+                          <TooltipContent>{presenceText}</TooltipContent>
+                        </Tooltip>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-foreground truncate text-sm font-medium">
-                          {member.full_name || 'Unnamed'}
-                        </span>
-                        {isSelf && (
-                          <Badge className="bg-muted text-muted-foreground border-border text-[10px] tracking-wide uppercase">
-                            You
-                          </Badge>
-                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-foreground truncate text-sm font-medium">
+                              {member.full_name || 'Unnamed'}
+                            </span>
+                            {isSelf && <Badge variant="neutral">You</Badge>}
+                          </div>
+                          {member.email && (
+                            <p className="text-muted-foreground truncate text-xs">
+                              {member.email}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      {member.email && (
-                        <p className="text-muted-foreground truncate text-xs">
-                          {member.email}
-                        </p>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Joined date stays desktop-only. The mobile row's
+                      {/* Joined date stays desktop-only. The mobile row's
                       vertical density makes the joined date noise. */}
-                  <div className="text-muted-foreground hidden text-right text-xs sm:block">
-                    Joined {fmtDate(member.joined_at)}
-                  </div>
+                      <div className="text-muted-foreground hidden text-right text-xs sm:block">
+                        Joined {fmt.date(member.joined_at)}
+                      </div>
 
-                  {/* Actions cluster. On mobile this is its own row
+                      {/* Actions cluster. On mobile this is its own row
                       below the identity block; on desktop it sits
                       inline. Items align to the start on mobile so the
                       role dropdown lines up under the avatar. */}
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    {/* Role display / editor. Inline Select is admin+
+                      <div className="flex items-center gap-2 pl-[3.25rem] sm:gap-3 sm:pl-0">
+                        {/* Role display / editor. Inline Select is admin+
                         only AND not allowed on the owner row (owner
                         changes go through transfer, which lands later). */}
-                    {canManageMembers && !isOwnerRow && !isSelf ? (
-                      <Select
-                        value={member.role}
-                        onValueChange={(v) =>
-                          // Base UI Select can emit null on clear. We
-                          // don't expose a clear affordance, so the
-                          // guard is defensive — but the typed
-                          // signature requires it.
-                          v && handleRoleChange(member, v as AccountRole)
-                        }
-                      >
-                        <SelectTrigger
-                          className="border-border text-foreground w-32"
-                          disabled={isBusy}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {EDITABLE_ROLES.map((r) => (
-                            <SelectItem key={r.value} value={r.value}>
-                              {r.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium ${roleMeta.className}`}
-                      >
-                        <RoleIcon className="size-3.5" />
-                        {roleMeta.label}
-                      </span>
-                    )}
-
-                    {/* Remove. Admin+ only; never on the owner row or yourself. */}
-                    {canManageMembers && !isOwnerRow && !isSelf && (
-                      <Button
-                        variant="destructive-ghost"
-                        size="icon-sm"
-                        onClick={() => setRemovingMember(member)}
-                        disabled={isBusy}
-                        aria-label={`Remove ${member.full_name || member.email}`}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </CardContent>
-      </Card>
-
-      {/* Pending invitations — admin+ only */}
-      <RequireRole min="admin">
-        <div>
-          <div className="mb-2 flex items-center gap-2">
-            <UsersRound className="text-muted-foreground size-4" />
-            <h3 className="text-foreground text-sm font-semibold">
-              Pending invitations
-            </h3>
-            <Badge className="bg-muted text-muted-foreground border-border">
-              {invitations.length}
-            </Badge>
-          </div>
-          {invitations.length > 0 ? (
-            <p className="text-muted-foreground mb-3 text-xs">
-              Invite links are stored hashed, so <b>Copy link</b> mints a fresh
-              one each time — which invalidates any link you shared for that
-              invite before. Share the newest one.
-            </p>
-          ) : null}
-
-          {invitations.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-                <Mail className="text-muted-foreground size-6" />
-                <p className="text-muted-foreground mt-2 text-sm">
-                  No pending invitations.
-                </p>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Click{' '}
-                  <span className="text-muted-foreground">Invite member</span>{' '}
-                  above to generate a shareable link.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                <ul className="divide-border divide-y">
-                  {invitations.map((inv) => {
-                    const inviteRoleMeta = ROLE_META[inv.role];
-                    const InviteRoleIcon = inviteRoleMeta.icon;
-                    return (
-                      <li
-                        key={inv.id}
-                        className="flex items-center gap-4 px-4 py-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-foreground text-sm font-medium">
-                              {inv.full_name || inv.label || 'Untitled invite'}
-                            </span>
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${inviteRoleMeta.className}`}
+                        {canManageMembers && !isOwnerRow && !isSelf ? (
+                          <Select
+                            value={member.role}
+                            onValueChange={(v) =>
+                              // Base UI Select can emit null on clear. We
+                              // don't expose a clear affordance, so the
+                              // guard is defensive — but the typed
+                              // signature requires it.
+                              v && handleRoleChange(member, v as AccountRole)
+                            }
+                          >
+                            <SelectTrigger
+                              className="w-32"
+                              disabled={isBusy}
+                              aria-label={`Role for ${member.full_name || member.email || 'team member'}`}
                             >
-                              <InviteRoleIcon className="size-3" />
-                              {inviteRoleMeta.label}
-                            </span>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {EDITABLE_ROLES.map((r) => (
+                                <SelectItem key={r.value} value={r.value}>
+                                  {r.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <SettingsChip variant={roleMeta.variant}>
+                            <RoleIcon />
+                            {roleMeta.label}
+                          </SettingsChip>
+                        )}
+
+                        {/* Remove. Admin+ only; never on the owner row or yourself. */}
+                        {canManageMembers && !isOwnerRow && !isSelf && (
+                          <Button
+                            variant="destructive-ghost"
+                            size="icon-sm"
+                            onClick={() => setRemovingMember(member)}
+                            disabled={isBusy}
+                            aria-label={`Remove ${member.full_name || member.email}`}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* Pending invitations — admin+ only */}
+          <RequireRole min="admin">
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="text-primary-text size-4" />
+                  Pending invitations
+                  <Badge variant="neutral" size="count">
+                    {invitations.length}
+                  </Badge>
+                </CardTitle>
+                <CardDescription>
+                  {invitations.length > 0
+                    ? 'Copy link creates a fresh link and invalidates the previous one. Share only the newest link.'
+                    : 'Invite links stay here until a teammate joins or you revoke them.'}
+                </CardDescription>
+              </CardHeader>
+
+              {invitations.length === 0 ? (
+                <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                  <span className="bg-muted flex size-10 items-center justify-center rounded-full">
+                    <Mail className="text-muted-foreground size-5" />
+                  </span>
+                  <p className="mt-3 text-sm font-medium">
+                    No pending invitations
+                  </p>
+                  <p className="text-muted-foreground mt-1 max-w-sm text-xs">
+                    New invite links will appear here until they are used or
+                    revoked.
+                  </p>
+                </CardContent>
+              ) : (
+                <CardContent className="p-0">
+                  <ul className="divide-border divide-y">
+                    {invitations.map((inv) => {
+                      const inviteRoleMeta = ROLE_META[inv.role];
+                      const InviteRoleIcon = inviteRoleMeta.icon;
+                      return (
+                        <li
+                          key={inv.id}
+                          className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                              <span className="truncate text-sm font-medium">
+                                {inv.full_name ||
+                                  inv.label ||
+                                  'Untitled invite'}
+                              </span>
+                              <SettingsChip variant={inviteRoleMeta.variant}>
+                                <InviteRoleIcon />
+                                {inviteRoleMeta.label}
+                              </SettingsChip>
+                            </div>
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              Created {fmt.date(inv.created_at)} ·{' '}
+                              {fmtExpiresIn(inv.expires_at)}
+                            </p>
                           </div>
-                          <p className="text-muted-foreground mt-0.5 text-xs">
-                            Created {fmtDate(inv.created_at)} ·{' '}
-                            {fmtExpiresIn(inv.expires_at)}
-                          </p>
-                        </div>
 
-                        {/* Copy link — rotates the token, so the freshest
-                          copy is the only working link (see the note above). */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={linkingId === inv.id}
-                          onClick={() => handleCopyLink(inv)}
-                          className="border-border text-muted-foreground hover:bg-muted"
-                        >
-                          {linkingId === inv.id ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : copiedId === inv.id ? (
-                            <Check className="text-emerald-foreground size-4" />
-                          ) : (
-                            <Link2 className="size-4" />
-                          )}
-                          {copiedId === inv.id ? 'Copied' : 'Copy link'}
-                        </Button>
+                          <div className="flex items-center gap-2 sm:shrink-0">
+                            {/* Copy link rotates the token, so the freshest
+                                copy is the only working link. */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={linkingId === inv.id}
+                              onClick={() => handleCopyLink(inv)}
+                              className="flex-1 sm:flex-none"
+                            >
+                              {linkingId === inv.id ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : copiedId === inv.id ? (
+                                <Check className="text-emerald-foreground size-4" />
+                              ) : (
+                                <Link2 className="size-4" />
+                              )}
+                              {copiedId === inv.id ? 'Copied' : 'Copy link'}
+                            </Button>
 
-                        <Button
-                          variant="destructive-ghost"
-                          size="sm"
-                          onClick={() => handleRevoke(inv)}
-                        >
-                          <MailX className="size-4" />
-                          Revoke
-                        </Button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </CardContent>
+                            <Button
+                              variant="destructive-ghost"
+                              size="sm"
+                              onClick={() => handleRevoke(inv)}
+                              className="flex-1 sm:flex-none"
+                            >
+                              <MailX className="size-4" />
+                              Revoke
+                            </Button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </CardContent>
+              )}
             </Card>
-          )}
-        </div>
-      </RequireRole>
+          </RequireRole>
+        </>
+      )}
 
       <InviteMemberDialog
         open={inviteOpen}
@@ -615,15 +614,15 @@ export function MembersTab() {
           if (!open) setRemovingMember(null);
         }}
       >
-        <DialogContent className="bg-popover border-border sm:max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-popover-foreground flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="text-amber-foreground size-4" />
               Remove member
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
+            <DialogDescription>
               Remove{' '}
-              <span className="text-muted-foreground font-medium">
+              <span className="font-medium">
                 {removingMember?.full_name || 'this teammate'}
               </span>{' '}
               from the account? They&apos;ll be signed out of this account and
@@ -631,12 +630,8 @@ export function MembersTab() {
               isn&apos;t deleted.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="bg-popover border-border">
-            <Button
-              variant="outline"
-              onClick={() => setRemovingMember(null)}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemovingMember(null)}>
               Cancel
             </Button>
             <Button

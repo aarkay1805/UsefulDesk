@@ -16,8 +16,15 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Copy, Loader2, MessageCircle, Sparkles } from 'lucide-react';
+import {
+  AlertTriangle,
+  Copy,
+  Loader2,
+  MessageCircle,
+  Sparkles,
+} from 'lucide-react';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Dialog,
@@ -37,6 +44,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
+import { ROLE_META } from './role-meta';
 
 type InviteRole = 'admin' | 'agent' | 'viewer';
 
@@ -55,8 +63,7 @@ const EXPIRY_OPTIONS: { value: string; label: string }[] = [
 ];
 
 const ROLE_DESCRIPTIONS: Record<InviteRole, string> = {
-  admin:
-    'Can invite teammates, manage settings, send messages, and edit data.',
+  admin: 'Can invite teammates, manage settings, send messages, and edit data.',
   agent:
     'Can use the inbox, contacts, broadcasts, automations, and flows. No settings or member access.',
   viewer: 'Read-only access across every page. Cannot send or edit anything.',
@@ -185,58 +192,53 @@ export function InviteMemberDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent className="bg-popover border-border sm:max-w-md">
+      <DialogContent className="sm:max-w-md">
         {result ? (
           <>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-popover-foreground">
-                <Sparkles className="size-4 text-primary-text" />
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="text-primary-text size-4" />
                 Invite created
               </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Share this link with your new teammate. They&apos;ll be able
-                to sign up (or sign in) and join the account as{' '}
-                <span className="font-medium text-muted-foreground">{result.role}</span>
-                . The link is valid for{' '}
-                <span className="font-medium text-muted-foreground">
-                  {result.expiresInDays} day{result.expiresInDays === 1 ? '' : 's'}
+              <DialogDescription>
+                Share this link with your new teammate. They&apos;ll be able to
+                sign up (or sign in) and join the account with the{' '}
+                <span className="font-medium">
+                  {ROLE_META[result.role].label}
+                </span>{' '}
+                role. The link is valid for{' '}
+                <span className="font-medium">
+                  {result.expiresInDays} day
+                  {result.expiresInDays === 1 ? '' : 's'}
                 </span>
                 .
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-3 py-2">
-              <Label className="text-muted-foreground">Invite link</Label>
+              <Label htmlFor="created-invite-link">Invite link</Label>
               <div className="flex gap-2">
                 <Input
+                  id="created-invite-link"
                   readOnly
                   value={result.url}
-                  className="border-border text-foreground font-mono text-xs"
                   onFocus={(e) => e.currentTarget.select()}
                 />
-                <Button
-                  type="button"
-                  onClick={copyToClipboard}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
-                >
+                <Button type="button" onClick={copyToClipboard}>
                   <Copy className="size-4" />
                   Copy
                 </Button>
               </div>
 
-              {/* Higher-contrast amber than the original 10% / amber-200.
-                  Reviewed against slate-900 to meet WCAG AAA for body
-                  text (target ratio 7:1). Border bumped to /50, bg to
-                  /15, foreground promoted to amber-100 for the strong
-                  intro, amber-200 for the body. */}
-              <div className="rounded-md border border-amber-500/50 bg-amber-500/15 px-3 py-2 text-xs text-amber-foreground">
-                <strong className="font-semibold text-amber-foreground">
-                  Save this link now.
-                </strong>{' '}
-                We never store the plaintext — once you close this dialog
-                the URL is gone. To re-share, revoke this invite and create
-                a new one.
-              </div>
+              <Alert>
+                <AlertTriangle />
+                <AlertTitle>Save this link now</AlertTitle>
+                <AlertDescription>
+                  UsefulDesk stores only a secure hash, so closing this dialog
+                  removes your only copy. To share again later, use Copy link in
+                  Pending invitations to create a fresh link.
+                </AlertDescription>
+              </Alert>
 
               {/* Anchor styled with `buttonVariants` rather than wrapping
                   in <Button asChild>. The wacrm Button is the Base UI
@@ -249,8 +251,7 @@ export function InviteMemberDialog({
                 rel="noreferrer noopener"
                 className={buttonVariants({
                   variant: 'outline',
-                  className:
-                    'w-full border-border text-muted-foreground hover:bg-muted',
+                  className: 'w-full',
                 })}
               >
                 <MessageCircle className="size-4" />
@@ -258,33 +259,38 @@ export function InviteMemberDialog({
               </a>
             </div>
 
-            <DialogFooter className="bg-popover border-border">
-              <Button
-                onClick={() => onOpenChange(false)}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                Done
-              </Button>
+            <DialogFooter>
+              <Button onClick={() => onOpenChange(false)}>Done</Button>
             </DialogFooter>
           </>
         ) : (
-          <>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleCreate();
+            }}
+          >
             <DialogHeader>
-              <DialogTitle className="text-popover-foreground">Invite a teammate</DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Generate a one-time invite link. Share it via WhatsApp,
-                Slack, or any channel you like — no email service required.
+              <DialogTitle>Invite a teammate</DialogTitle>
+              <DialogDescription>
+                Generate a one-time invite link. Share it via WhatsApp, Slack,
+                or any channel you like — no email service required.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-2">
+            <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Role</Label>
+                <Label htmlFor="invite-role">Role</Label>
                 <Select
                   value={role}
                   onValueChange={(v) => v && setRole(v as InviteRole)}
                 >
-                  <SelectTrigger className="w-full border-border text-foreground">
+                  <SelectTrigger
+                    id="invite-role"
+                    className="w-full"
+                    aria-describedby="invite-role-description"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -293,18 +299,18 @@ export function InviteMemberDialog({
                     <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
+                <p
+                  id="invite-role-description"
+                  className="text-muted-foreground text-xs"
+                >
                   {ROLE_DESCRIPTIONS[role]}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Link valid for</Label>
-                <Select
-                  value={expiry}
-                  onValueChange={(v) => v && setExpiry(v)}
-                >
-                  <SelectTrigger className="w-full border-border text-foreground">
+                <Label htmlFor="invite-expiry">Link valid for</Label>
+                <Select value={expiry} onValueChange={(v) => v && setExpiry(v)}>
+                  <SelectTrigger id="invite-expiry" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -318,37 +324,30 @@ export function InviteMemberDialog({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-muted-foreground">
-                  Label{' '}
-                  <span className="text-xs text-muted-foreground">(optional)</span>
-                </Label>
+                <Label htmlFor="invite-label">Label (optional)</Label>
                 <Input
+                  id="invite-label"
                   placeholder="e.g. Sara — support team"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
                   maxLength={MAX_LABEL_LEN}
-                  className="border-border text-foreground placeholder:text-muted-foreground"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   Helps you remember who you sent the link to in the pending
                   list below.
                 </p>
               </div>
             </div>
 
-            <DialogFooter className="bg-popover border-border">
+            <DialogFooter>
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="border-border text-muted-foreground hover:bg-muted"
               >
                 Cancel
               </Button>
-              <Button
-                onClick={handleCreate}
-                disabled={submitting}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
+              <Button type="submit" disabled={submitting}>
                 {submitting ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
@@ -359,7 +358,7 @@ export function InviteMemberDialog({
                 )}
               </Button>
             </DialogFooter>
-          </>
+          </form>
         )}
       </DialogContent>
     </Dialog>
