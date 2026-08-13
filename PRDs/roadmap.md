@@ -50,6 +50,8 @@ Engineering maintenance: **the Inbox now keeps its conversation list inside the 
 
 Engineering maintenance: **the primary sidebar now groups Broadcasts, Automations, Flows, and AI Agents under one Engagement disclosure; active child routes reveal themselves automatically, the open/closed preference persists, and the compact desktop rail expands before exposing the nested destinations**.
 
+Engineering maintenance: **Settings now replaces the thirteen-item Workspace wall with five stable functional groups—Account, Messaging, Lead management, Business setup, and a reduced Workspace—while preserving every existing section label, icon, deep link, hint, permission, panel, and the mobile horizontal rail**.
+
 Deliberately deferred from the referenced upstream batches: **i18n, AI dashboards, MCP server, Docker, media viewer, the full interactive-message suite, and tunnel-origin config**. Existing UsefulDesk cron timing-safe comparison, RBAC/security-route fixes, and Suspense/build fixes supersede their upstream counterparts.
 
 Shipped addition: **automatic Click-to-WhatsApp referral attribution that preserves every inbound ad/post touch on its message, labels Instagram/Facebook only when a trusted Meta source URL proves the platform, keeps WhatsApp as the immutable intake channel, fills an absent contact acquisition source without overwriting prior attribution, and surfaces both message-level context and contact-level source in the Inbox**.

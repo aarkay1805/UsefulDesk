@@ -49,12 +49,18 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 export const DEFAULT_SECTION: SettingsSection = 'overview';
 
-/** Rail grouping. `adminOnly` items are hidden for non-admins. */
+/** Functional grouping used by the Settings rail. */
 export interface SectionMeta {
   id: SettingsSection;
   label: string;
   icon: LucideIcon;
-  group: 'top' | 'account' | 'workspace';
+  group:
+    | 'top'
+    | 'account'
+    | 'messaging'
+    | 'lead-management'
+    | 'business-setup'
+    | 'workspace';
 }
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
@@ -86,7 +92,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     id: 'whatsapp',
     label: 'WhatsApp',
     icon: PlugZap,
-    group: 'workspace',
+    group: 'messaging',
   },
   // "Where do my leads come from" — the public capture form and (once
   // Meta App Review clears) Facebook/Instagram lead ads live together.
@@ -94,43 +100,43 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     id: 'capture',
     label: 'Lead capture',
     icon: Magnet,
-    group: 'workspace',
+    group: 'lead-management',
   },
   templates: {
     id: 'templates',
     label: 'Templates',
     icon: FileText,
-    group: 'workspace',
+    group: 'messaging',
   },
   fields: {
     id: 'fields',
     label: 'Fields & tags',
     icon: Tags,
-    group: 'workspace',
+    group: 'lead-management',
   },
   plans: {
     id: 'plans',
     label: 'Membership plans',
     icon: Dumbbell,
-    group: 'workspace',
+    group: 'business-setup',
   },
   'products-services': {
     id: 'products-services',
     label: 'Products & services',
     icon: PackageOpen,
-    group: 'workspace',
+    group: 'business-setup',
   },
   reminders: {
     id: 'reminders',
     label: 'Renewal reminders',
     icon: BellRing,
-    group: 'workspace',
+    group: 'messaging',
   },
   deals: {
     id: 'deals',
     label: 'Payments & currency',
     icon: Coins,
-    group: 'workspace',
+    group: 'business-setup',
   },
   localization: {
     id: 'localization',
@@ -159,6 +165,9 @@ export const RAIL_GROUPS: {
 }[] = [
   { label: null, group: 'top' },
   { label: 'Account', group: 'account' },
+  { label: 'Messaging', group: 'messaging' },
+  { label: 'Lead management', group: 'lead-management' },
+  { label: 'Business setup', group: 'business-setup' },
   { label: 'Workspace', group: 'workspace' },
 ];
 

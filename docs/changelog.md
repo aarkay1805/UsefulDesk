@@ -6,6 +6,10 @@
 
 ---
 
+## Settings navigation grouping
+
+The Settings rail now chunks its former thirteen-item Workspace section into Messaging, Lead management, Business setup, and a reduced Workspace, while Account remains unchanged and Overview stays ungrouped. All existing labels, icons, `?tab=` deep links, hints, panels, permissions, legacy tab aliases, and the mobile horizontal scroller are unchanged. Key code: `src/components/settings/settings-sections.ts`.
+
 ## Engagement navigation group
 
 The primary sidebar now nests Broadcasts, Automations, Flows, and AI Agents under one accessible Engagement disclosure. It opens automatically for active child routes, remembers the user's preference elsewhere, preserves child active and Beta states, and expands the compact desktop rail before showing the nested destinations. Key code: `src/components/layout/sidebar.tsx`; the reveal reuses `src/components/ui/collapse.tsx`.
