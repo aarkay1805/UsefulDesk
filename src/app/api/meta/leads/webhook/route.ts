@@ -19,22 +19,18 @@
 // point of the feature.
 //
 // IDEMPOTENCY
-// Meta redelivers aggressively. Each lead is CLAIMED in webhook_events
-// (the pattern from the Razorpay webhook) before any work: an insert
-// that hits the existing primary key means someone already handled it →
-// 200, no-op. On a mid-processing failure the claim is DELETED, so the
-// retry isn't deduped away into silence.
+// Meta redelivers aggressively. Each lead is lease-claimed in
+// webhook_events (the pattern from the Razorpay webhook) before any work.
+// Contact + note capture is atomic and its original creation result stays
+// on that durable event, so a failed delivery resumes safely. Only a
+// processed event is a permanent 200 no-op.
 // ============================================================
 
 import crypto from 'node:crypto';
 
 import { NextResponse } from 'next/server';
 
-import {
-  addContactTags,
-  findOrCreateContact,
-  resolveAuditUserId,
-} from '@/lib/api/v1/contacts';
+import { addContactTags, resolveAuditUserId } from '@/lib/api/v1/contacts';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { normalizeSubmittedPhone } from '@/lib/leads/capture-form';
@@ -53,6 +49,12 @@ interface LeadgenValue {
   ad_id?: string;
   created_time?: number;
 }
+
+type MetaLeadCaptureResult = {
+  contact_id: string;
+  created_contact: boolean;
+  automation_dispatched: boolean;
+};
 
 /**
  * GET — Meta's subscription handshake.
@@ -157,29 +159,31 @@ export async function POST(request: Request) {
       const accountId = config.account_id as string;
 
       // ---- claim it ------------------------------------------------
-      const { data: claim, error: claimError } = await admin
-        .from('webhook_events')
-        .upsert(
-          {
-            id: eventId,
-            account_id: accountId,
-            // The column DEFAULTs to 'razorpay' — pass this explicitly or
-            // the row lies about where it came from.
-            gateway: 'meta',
-            type: 'leadgen',
-            payload: value,
-          },
-          { onConflict: 'id', ignoreDuplicates: true }
-        )
-        .select('id')
-        .maybeSingle();
+      // The database owns the retry lease and retains any prior atomic
+      // capture result. A processed redelivery remains a permanent no-op;
+      // a failed/stale delivery resumes with its original created_contact
+      // state instead of inferring it again from the contacts table.
+      const { data: claim, error: claimError } = await admin.rpc(
+        'claim_meta_lead_webhook_event',
+        {
+          p_event_id: eventId,
+          p_account_id: accountId,
+          p_payload: value,
+        }
+      );
 
       if (claimError) {
         console.error('[meta-leads] claim failed:', claimError);
         return NextResponse.json({ error: 'Claim failed' }, { status: 500 });
       }
-      // Null claim = the row already existed = a redelivery we've handled.
-      if (!claim) continue;
+      if (claim === 'processed') continue;
+      if (claim !== 'claimed') {
+        console.warn('[meta-leads] event claim unavailable', eventId, claim);
+        return NextResponse.json(
+          { error: 'Claim unavailable' },
+          { status: 500 }
+        );
+      }
 
       try {
         const accessToken = decrypt(config.page_access_token as string);
@@ -193,14 +197,6 @@ export async function POST(request: Request) {
         // Meta form doesn't ask for a phone number", which is a problem
         // the gym can actually fix in Ads Manager.
         if (!mapped.phone) {
-          await admin
-            .from('webhook_events')
-            .update({
-              payload: { ...value, _skipped: 'no_phone' },
-              processed_at: new Date().toISOString(),
-            })
-            .eq('id', eventId);
-
           const { data: current } = await admin
             .from('meta_page_config')
             .select('skipped_no_phone')
@@ -209,9 +205,24 @@ export async function POST(request: Request) {
           await admin
             .from('meta_page_config')
             .update({
-              skipped_no_phone: ((current?.skipped_no_phone as number) ?? 0) + 1,
+              skipped_no_phone:
+                ((current?.skipped_no_phone as number) ?? 0) + 1,
             })
             .eq('id', config.id);
+
+          const { data: completed, error: completeError } = await admin.rpc(
+            'complete_meta_lead_webhook_event',
+            {
+              p_event_id: eventId,
+              p_account_id: accountId,
+              p_processing_context: {
+                meta_lead: { skipped: 'no_phone' },
+              },
+            }
+          );
+          if (completeError || completed !== true) {
+            throw new Error('Failed to complete skipped Meta lead event');
+          }
 
           console.warn('[meta-leads] lead has no phone, skipped', leadgenId);
           continue;
@@ -235,38 +246,55 @@ export async function POST(request: Request) {
 
         const auditUserId = await resolveAuditUserId(admin, accountId);
 
-        const { id: contactId, created } = await findOrCreateContact(
-          admin,
-          accountId,
-          auditUserId,
-          {
-            phone,
-            name: mapped.name,
-            email: mapped.email,
-            receivedVia: 'meta',
+        // One transaction owns the complete durable capture boundary. It
+        // creates/dedupes the contact, writes exactly one enquiry note for
+        // this Meta delivery, and stores the ORIGINAL created flag on the
+        // event. A partial retry therefore resumes instead of reclassifying
+        // the lead as an existing-contact enquiry.
+        const { data: capture, error: captureError } = await admin
+          .rpc('capture_meta_lead_webhook_event', {
+            p_event_id: eventId,
+            p_account_id: accountId,
+            p_audit_user_id: auditUserId,
+            p_phone: phone,
+            p_name: mapped.name,
+            p_email: mapped.email,
             // Instagram and Facebook lead ads are the same webhook but a
             // different acquisition channel, and the gym reports on them
             // separately.
-            source: lead.platform === 'ig' ? 'instagram' : 'facebook',
-          }
-        );
-
-        // Written on create AND on dedupe. Without it, a repeat enquiry
-        // from a number the gym already has is completely invisible:
-        // findOrCreateContact returns the existing row, received_via
-        // still reads 'manual', and no automation fires.
-        const noteLines = [
-          created
-            ? 'New lead from a Meta lead ad.'
-            : 'Existing lead enquired again via a Meta lead ad.',
-          ...mapped.extras.map((e) => `${e.label}: ${e.value}`),
-        ];
-        await admin.from('contact_notes').insert({
-          account_id: accountId,
+            p_source: lead.platform === 'ig' ? 'instagram' : 'facebook',
+            p_note_details: mapped.extras
+              .map((e) => `${e.label}: ${e.value}`)
+              .join('\n'),
+          })
+          .single();
+        if (captureError || !capture) {
+          console.error('[meta-leads] atomic capture failed:', captureError);
+          throw new Error('Atomic Meta lead capture failed');
+        }
+        const {
           contact_id: contactId,
-          user_id: auditUserId,
-          note_text: noteLines.join('\n'),
-        });
+          created_contact: created,
+          automation_dispatched: automationDispatched,
+        } = capture as MetaLeadCaptureResult;
+
+        if (created && !automationDispatched) {
+          await runAutomationsForTrigger({
+            accountId,
+            triggerType: 'new_contact_created',
+            contactId,
+          });
+          const { data: marked, error: markError } = await admin.rpc(
+            'mark_meta_lead_automation_dispatched',
+            {
+              p_event_id: eventId,
+              p_account_id: accountId,
+            }
+          );
+          if (markError || marked !== true) {
+            throw new Error('Failed to retain Meta automation dispatch state');
+          }
+        }
 
         // Meta's own goal answers are free text — tag only what matches a
         // goal we know, so an ad's custom question can't mint junk tags.
@@ -274,33 +302,56 @@ export async function POST(request: Request) {
           /goal|objective|interest/i.test(e.label)
         );
         if (goalExtra) {
-          await addContactTags(admin, accountId, auditUserId, contactId, [
-            goalExtra.value,
-          ]);
+          try {
+            await addContactTags(admin, accountId, auditUserId, contactId, [
+              goalExtra.value,
+            ]);
+          } catch (tagError) {
+            // Goal classification is enrichment, not part of lead capture.
+            // A tag outage must not turn a committed new lead into a retry
+            // that loses its note or new-contact automation.
+            console.error('[meta-leads] goal tag failed:', tagError);
+          }
         }
 
-        await admin
-          .from('webhook_events')
-          .update({ processed_at: new Date().toISOString() })
-          .eq('id', eventId);
-        await admin
+        const { data: completed, error: completeError } = await admin.rpc(
+          'complete_meta_lead_webhook_event',
+          {
+            p_event_id: eventId,
+            p_account_id: accountId,
+            p_processing_context: {},
+          }
+        );
+        if (completeError || completed !== true) {
+          throw new Error('Failed to complete Meta lead event');
+        }
+
+        const { error: configUpdateError } = await admin
           .from('meta_page_config')
           .update({ last_lead_at: new Date().toISOString(), last_error: null })
           .eq('id', config.id);
-
-        if (created) {
-          await runAutomationsForTrigger({
-            accountId,
-            triggerType: 'new_contact_created',
-            contactId,
-          });
+        if (configUpdateError) {
+          console.error(
+            '[meta-leads] capture status update failed:',
+            configUpdateError
+          );
         }
       } catch (error) {
-        // Release the claim so Meta's retry isn't deduped away — without
-        // this, one transient Graph blip loses the lead permanently.
-        await admin.from('webhook_events').delete().eq('id', eventId);
-
         const message = error instanceof Error ? error.message : String(error);
+        const { error: failError } = await admin.rpc(
+          'fail_meta_lead_webhook_event',
+          {
+            p_event_id: eventId,
+            p_account_id: accountId,
+            p_error: message,
+          }
+        );
+        if (failError) {
+          console.error(
+            '[meta-leads] failed to retain retry state:',
+            failError
+          );
+        }
         await admin
           .from('meta_page_config')
           .update({ last_error: message })

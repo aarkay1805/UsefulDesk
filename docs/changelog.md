@@ -6,6 +6,10 @@
 
 ---
 
+## Retry-safe Meta lead capture
+
+Meta lead-ad deliveries now use a lease-backed event claim and atomically retain the contact, one enquiry note, and the delivery's original `created_contact` result. A failure after capture resumes from that durable state instead of deduping the retry into an existing lead, duplicating its note, or suppressing `new_contact_created`; the automation dispatch marker also survives completion retries, phone-only/custom-name forms keep their prior normalized-phone fallback, and goal tagging remains non-blocking enrichment. Migrations `20260814033000_resume_meta_lead_capture.sql` and `20260814033100_allow_phone_only_meta_lead_capture.sql` were connector-applied as `20260813223320`/`20260813223747` in Test and `20260813223419`/`20260813223746` in Production; both schemas passed rollback-only capture/failure/resume/completion/grant and phone-only checks, advisors found no new related issues, and both environments had zero historical Meta events or contacts to repair. Key code: `src/app/api/meta/leads/webhook/route.ts` and its focused retry and schema-contract tests. Gotcha: as with any external dispatch, process loss after automation runs but before its marker commits retains a narrow at-least-once replay window.
+
 ## Atomic public-form lead evidence
 
 Public lead forms now commit the contact, enquiry note, submission audit, and consent evidence in one service-only database transaction before returning success or dispatching `new_contact_created`. The same migration repairs the consent trigger's service-role check, which previously inspected the security-definer identity and rejected every backend submission; goal tagging remains a best-effort enrichment after the durable capture. Connector-applied Test and Production schemas passed rollback-only success, injected-failure rollback, consent-audit, and grant checks, and neither environment had partial form records to repair. Key code: `src/app/api/lead-forms/[token]/submit/route.ts`, `supabase/migrations/20260814032000_atomic_public_lead_capture.sql`, and `supabase/migrations/20260814032100_fix_service_role_consent_capture.sql`.
