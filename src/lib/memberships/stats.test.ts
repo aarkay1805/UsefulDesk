@@ -1,6 +1,54 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 
-import { summarizeAttendanceRisk, summarizeCollections } from './stats';
+import {
+  loadGymStats,
+  summarizeAttendanceRisk,
+  summarizeCollections,
+} from './stats';
+
+function gymStatsDb(): SupabaseClient {
+  const results: Record<string, unknown> = {
+    member_activity: { data: [] },
+    memberships: {
+      count: 3,
+      data: [
+        { id: 'recurring', plan: { plan_type: 'recurring' } },
+        { id: 'fixed-term', plan: { plan_type: 'non_recurring' } },
+        { id: 'session-pack', plan: { plan_type: 'session_pack' } },
+      ],
+    },
+    membership_dues: { data: [] },
+    payments: { data: [] },
+  };
+
+  return {
+    from(table: string) {
+      const query = {
+        select: () => query,
+        eq: () => query,
+        gt: () => query,
+        gte: () => query,
+        lte: () => query,
+        then: (resolve: (value: unknown) => unknown) =>
+          Promise.resolve(results[table]).then(resolve),
+      };
+      return query;
+    },
+  } as unknown as SupabaseClient;
+}
+
+describe('loadGymStats', () => {
+  it('counts the same seven-day renewal chase shown by the destination', async () => {
+    const stats = await loadGymStats(
+      gymStatsDb(),
+      '2026-08-14',
+      'Asia/Kolkata'
+    );
+
+    expect(stats.expiring7).toBe(1);
+  });
+});
 
 describe('summarizeAttendanceRisk', () => {
   it('separates missed visits from members who never checked in', () => {

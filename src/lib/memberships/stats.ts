@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { dayStartInTz, todayInTz } from '@/lib/locale/format';
 import { isChargeableAmount } from './periods';
+import { isRenewalChaseable } from './pricing';
 import { daysBetween, istToday, istAddDays } from './expiry';
 
 /**
@@ -85,8 +86,6 @@ export async function loadGymStats(
     dayStartInTz(benchmarkStart, timeZone) ?? new Date()
   ).toISOString();
 
-  const head = { count: 'exact' as const, head: true };
-
   const [activityRes, expiringRes, dueRes, paidRes] = await Promise.all([
     db
       .from('member_activity')
@@ -96,7 +95,7 @@ export async function loadGymStats(
       .gte('end_date', today),
     db
       .from('memberships')
-      .select('id', head)
+      .select('id, plan:membership_plans(plan_type)')
       .eq('is_trial', false)
       .eq('status', 'active')
       .gte('end_date', today)
@@ -118,12 +117,19 @@ export async function loadGymStats(
   );
   const paidRows =
     (paidRes.data as { amount: number; paid_at: string }[] | null) ?? [];
+  const expiringRows =
+    (expiringRes.data as
+      | {
+          plan: { plan_type: string | null } | null;
+        }[]
+      | null) ?? [];
 
   const risk = summarizeAttendanceRisk(activityRows, today, timeZone);
   const collections = summarizeCollections(paidRows, today, timeZone);
 
   return {
-    expiring7: expiringRes.count ?? 0,
+    expiring7: expiringRows.filter((row) => isRenewalChaseable(row.plan))
+      .length,
     feesDueCount: dueRows.length,
     feesDueAmount: dueRows.reduce((s, r) => s + Number(r.balance || 0), 0),
     ...collections,

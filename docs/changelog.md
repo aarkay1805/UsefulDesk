@@ -6,6 +6,10 @@
 
 ---
 
+## Renewal KPI and queue parity
+
+Dashboard **Renewals due** now counts only active, non-trial memberships that participate in the renewal chase, matching its default seven-day Members → Renewals destination. Fixed-term and session-pack expiries no longer inflate the KPI; the loader reuses `isRenewalChaseable`, with focused regression coverage in `src/lib/memberships/stats.test.ts`. No migration or data repair was required.
+
 ## Retry-safe Meta lead capture
 
 Meta lead-ad deliveries now use a lease-backed event claim and atomically retain the contact, one enquiry note, and the delivery's original `created_contact` result. A failure after capture resumes from that durable state instead of deduping the retry into an existing lead, duplicating its note, or suppressing `new_contact_created`; the automation dispatch marker also survives completion retries, phone-only/custom-name forms keep their prior normalized-phone fallback, and goal tagging remains non-blocking enrichment. Migrations `20260814033000_resume_meta_lead_capture.sql` and `20260814033100_allow_phone_only_meta_lead_capture.sql` were connector-applied as `20260813223320`/`20260813223747` in Test and `20260813223419`/`20260813223746` in Production; both schemas passed rollback-only capture/failure/resume/completion/grant and phone-only checks, advisors found no new related issues, and both environments had zero historical Meta events or contacts to repair. Key code: `src/app/api/meta/leads/webhook/route.ts` and its focused retry and schema-contract tests. Gotcha: as with any external dispatch, process loss after automation runs but before its marker commits retains a narrow at-least-once replay window.
