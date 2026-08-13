@@ -4,17 +4,18 @@
 // Splits a broadcast into two phases so the HTTP route can persist +
 // acknowledge fast and fan out afterwards (in `after()`):
 //
-//   createBroadcast()  — validate, resolve contacts, insert the
-//                        `broadcasts` row + `broadcast_recipients`
-//                        rows (status 'pending'), return a plan.
-//   deliverBroadcast() — send each recipient's template via Meta
-//                        (phone-variant retry), stamp each recipient
-//                        row + the aggregate counts, finalize status.
+//   createBroadcast()  — validate, resolve contacts, and persist the
+//                        broadcast plus each recipient's complete send
+//                        payload with status 'pending'.
+//   deliverBroadcast() — start the same owner-leased database drain
+//                        used later by authenticated cron recovery.
 //
 // Recipient rows carry `whatsapp_message_id`, so the inbound webhook's
 // status handler (which matches on that column) updates delivered/read
 // for API broadcasts exactly as it does for dashboard ones.
 // ============================================================
+
+import { randomUUID } from 'node:crypto';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -63,6 +64,33 @@ interface PlannedRecipient {
   params: string[];
 }
 
+interface ClaimedBroadcastRecipient {
+  recipient_id: string;
+  broadcast_id: string;
+  account_id: string;
+  template_name: string;
+  template_language: string;
+  destination_phone: string;
+  template_params: unknown;
+  attempt_count: number;
+  created_at: string;
+}
+
+interface BroadcastDeliveryContext {
+  phoneNumberId: string;
+  accessToken: string;
+  templateRow: MessageTemplate | null;
+}
+
+export interface BroadcastDrainResult {
+  claimed: number;
+  sent: number;
+  failed: number;
+  deferred: number;
+  oldestAgeSeconds: number | null;
+  notes: string[];
+}
+
 export interface BroadcastPlan {
   accountId: string;
   broadcastId: string;
@@ -77,6 +105,8 @@ export interface BroadcastPlan {
 }
 
 const MAX_RECIPIENTS = 1000;
+const CLAIM_BATCH_LIMIT = 25;
+const RECIPIENT_LEASE_SECONDS = 300;
 
 /**
  * Validate + persist a broadcast, resolving each recipient to a
@@ -222,6 +252,8 @@ export async function createBroadcast(
         broadcast_id: broadcast.id,
         contact_id: r.contactId,
         status: 'pending' as const,
+        destination_phone: r.phone,
+        template_params: r.params,
       }))
     )
     .select('id, contact_id');
@@ -256,94 +288,227 @@ export async function createBroadcast(
 }
 
 /**
- * Fan out a {@link BroadcastPlan}: send each recipient's template
- * (phone-variant retry) and stamp its `broadcast_recipients` row.
- * Best-effort per recipient — one failure never aborts the rest.
- * Designed to run inside `after()`.
- *
- * The per-status count columns on `broadcasts` are owned by the DB
- * aggregate trigger (migrations 003/005): each recipient-row update
- * below advances them automatically, and later Meta delivery/read
- * webhooks keep advancing them. We therefore never write those columns
- * here — only the terminal `status` — otherwise a manual value would
- * race and clobber the trigger-maintained counts.
+ * Start the first database-backed drain for a newly created plan. Designed
+ * for `after()`; an interrupted invocation leaves owner-leased pending rows
+ * for the authenticated cron worker instead of stranding in-memory work.
  */
 export async function deliverBroadcast(
   db: SupabaseClient,
   plan: BroadcastPlan
 ): Promise<void> {
-  let sentCount = 0;
+  await drainPublicBroadcastRecipients(db, {
+    broadcastId: plan.broadcastId,
+    limit: plan.planned.length,
+  });
+}
 
-  for (const recipient of plan.planned) {
-    const variants = phoneVariants(recipient.phone);
-    let sentMessageId: string | null = null;
-    let lastError: string | null = null;
+/**
+ * Atomically claims and delivers persisted public-API broadcast recipients.
+ * The POST route uses this as its immediate `after()` drain, while the cron
+ * route calls the same worker without a broadcast id to reclaim unfinished
+ * rows after an invocation timeout.
+ */
+export async function drainPublicBroadcastRecipients(
+  db: SupabaseClient,
+  input: { broadcastId?: string; limit: number }
+): Promise<BroadcastDrainResult> {
+  const result: BroadcastDrainResult = {
+    claimed: 0,
+    sent: 0,
+    failed: 0,
+    deferred: 0,
+    oldestAgeSeconds: null,
+    notes: [],
+  };
+  const contextCache = new Map<string, Promise<BroadcastDeliveryContext>>();
+  let remaining = Math.min(Math.max(input.limit, 1), MAX_RECIPIENTS);
 
-    try {
-      await assertBusinessMessageAllowed(
-        db,
-        plan.accountId,
-        recipient.phone,
-        'broadcast'
-      );
-    } catch (error) {
-      lastError =
-        error instanceof Error ? error.message : 'Consent check failed';
+  while (remaining > 0) {
+    const batchLimit = Math.min(remaining, CLAIM_BATCH_LIMIT);
+    const leaseOwner = randomUUID();
+    const { data, error } = await db.rpc('claim_public_broadcast_recipients', {
+      p_lease_owner: leaseOwner,
+      p_limit: batchLimit,
+      p_broadcast_id: input.broadcastId ?? null,
+      p_lease_seconds: RECIPIENT_LEASE_SECONDS,
+    });
+    if (error) {
+      throw new Error(`claim public broadcast recipients: ${error.message}`);
     }
 
-    for (const variant of lastError ? [] : variants) {
+    const claimed = (Array.isArray(data) ? data : []) as
+      ClaimedBroadcastRecipient[] | [];
+    if (claimed.length === 0) break;
+
+    result.claimed += claimed.length;
+    remaining -= claimed.length;
+    const oldest = Math.min(
+      ...claimed.map((row) => new Date(row.created_at).getTime())
+    );
+    const oldestAgeSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - oldest) / 1000)
+    );
+    result.oldestAgeSeconds = Math.max(
+      result.oldestAgeSeconds ?? 0,
+      oldestAgeSeconds
+    );
+
+    for (const recipient of claimed) {
       try {
-        const result = await sendTemplateMessage({
-          phoneNumberId: plan.phoneNumberId,
-          accessToken: plan.accessToken,
-          to: variant,
-          templateName: plan.templateName,
-          language: plan.templateLanguage,
-          template: plan.templateRow ?? undefined,
-          params: recipient.params,
-        });
-        sentMessageId = result.messageId;
-        lastError = null;
-        break;
+        const outcome = await deliverClaimedBroadcastRecipient(
+          db,
+          recipient,
+          leaseOwner,
+          contextCache
+        );
+        result[outcome] += 1;
       } catch (error) {
+        result.deferred += 1;
         const message =
-          error instanceof Error ? error.message : 'Unknown error';
-        lastError = message;
-        // Only a "recipient not allowed" error is worth another variant.
-        if (!isRecipientNotAllowedError(message)) break;
+          error instanceof Error ? error.message : 'Unknown recovery error';
+        result.notes.push(`${recipient.recipient_id}:${message.slice(0, 500)}`);
+        console.error(
+          '[broadcast-core] recipient delivery deferred:',
+          recipient.recipient_id,
+          message
+        );
+        // Keep the claim intact. If this process dies or an infrastructure
+        // dependency is temporarily unavailable, the expired lease makes the
+        // same persisted recipient recoverable without a second state model.
       }
     }
 
-    if (sentMessageId) {
-      sentCount++;
-      await db
-        .from('broadcast_recipients')
-        .update({
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-          whatsapp_message_id: sentMessageId,
-          error_message: null,
-        })
-        .eq('id', recipient.recipientRowId);
-    } else {
-      await db
-        .from('broadcast_recipients')
-        .update({
-          status: 'failed',
-          error_message: lastError || 'Unknown error',
-        })
-        .eq('id', recipient.recipientRowId);
+    if (claimed.length < batchLimit) break;
+  }
+
+  return result;
+}
+
+async function deliverClaimedBroadcastRecipient(
+  db: SupabaseClient,
+  recipient: ClaimedBroadcastRecipient,
+  leaseOwner: string,
+  contextCache: Map<string, Promise<BroadcastDeliveryContext>>
+): Promise<'sent' | 'failed'> {
+  const contextKey = [
+    recipient.account_id,
+    recipient.template_name,
+    recipient.template_language,
+  ].join(':');
+  let contextPromise = contextCache.get(contextKey);
+  if (!contextPromise) {
+    contextPromise = loadBroadcastDeliveryContext(db, recipient);
+    contextCache.set(contextKey, contextPromise);
+  }
+  const context = await contextPromise;
+
+  const phone = sanitizePhoneForMeta(recipient.destination_phone);
+  const params = Array.isArray(recipient.template_params)
+    ? recipient.template_params.filter(
+        (value): value is string => typeof value === 'string'
+      )
+    : [];
+  let sentMessageId: string | null = null;
+  let lastError: string | null = null;
+
+  try {
+    await assertBusinessMessageAllowed(
+      db,
+      recipient.account_id,
+      phone,
+      'broadcast'
+    );
+  } catch (error) {
+    lastError = error instanceof Error ? error.message : 'Consent check failed';
+  }
+
+  for (const variant of lastError ? [] : phoneVariants(phone)) {
+    try {
+      const sendResult = await sendTemplateMessage({
+        phoneNumberId: context.phoneNumberId,
+        accessToken: context.accessToken,
+        to: variant,
+        templateName: recipient.template_name,
+        language: recipient.template_language,
+        template: context.templateRow ?? undefined,
+        params,
+      });
+      sentMessageId = sendResult.messageId;
+      lastError = null;
+      break;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      lastError = message;
+      if (!isRecipientNotAllowedError(message)) break;
     }
   }
 
-  // Terminal status only — counts are trigger-owned (see the note
-  // above). If nothing sent, the broadcast failed outright; a partial
-  // send is still 'sent' (per-recipient failures show in failed_count).
-  await db
-    .from('broadcasts')
-    .update({
-      status: sentCount > 0 ? 'sent' : 'failed',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', plan.broadcastId);
+  if (sentMessageId) {
+    const { data, error } = await db.rpc(
+      'complete_public_broadcast_recipient',
+      {
+        p_recipient_id: recipient.recipient_id,
+        p_lease_owner: leaseOwner,
+        p_whatsapp_message_id: sentMessageId,
+      }
+    );
+    if (error || data !== true) {
+      throw new Error(
+        `complete public broadcast recipient: ${error?.message ?? 'lease no longer owned'}`
+      );
+    }
+    return 'sent';
+  }
+
+  const { data, error } = await db.rpc('fail_public_broadcast_recipient', {
+    p_recipient_id: recipient.recipient_id,
+    p_lease_owner: leaseOwner,
+    p_error: lastError || 'Unknown error',
+  });
+  if (error || data !== true) {
+    throw new Error(
+      `fail public broadcast recipient: ${error?.message ?? 'lease no longer owned'}`
+    );
+  }
+  return 'failed';
+}
+
+async function loadBroadcastDeliveryContext(
+  db: SupabaseClient,
+  recipient: ClaimedBroadcastRecipient
+): Promise<BroadcastDeliveryContext> {
+  const [configResult, templateResult] = await Promise.all([
+    db
+      .from('whatsapp_config')
+      .select('phone_number_id, access_token')
+      .eq('account_id', recipient.account_id)
+      .single(),
+    db
+      .from('message_templates')
+      .select('*')
+      .eq('account_id', recipient.account_id)
+      .eq('name', recipient.template_name)
+      .eq('language', recipient.template_language)
+      .maybeSingle(),
+  ]);
+
+  if (configResult.error || !configResult.data) {
+    throw new Error(
+      `WhatsApp configuration unavailable: ${configResult.error?.message ?? 'missing row'}`
+    );
+  }
+  if (templateResult.error) {
+    throw new Error(`load message template: ${templateResult.error.message}`);
+  }
+  if (templateResult.data && !isMessageTemplate(templateResult.data)) {
+    throw new Error('Message template is malformed locally');
+  }
+
+  return {
+    phoneNumberId: configResult.data.phone_number_id as string,
+    accessToken: decrypt(configResult.data.access_token as string),
+    templateRow:
+      (templateResult.data as MessageTemplate | null | undefined) ?? null,
+  };
 }

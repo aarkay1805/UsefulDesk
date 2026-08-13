@@ -6,6 +6,10 @@
 
 ---
 
+## Resumable public API broadcasts
+
+Public `POST /api/v1/broadcasts` now persists each normalized destination and its template parameters before returning 202. Its `after()` callback and the authenticated 15-minute ops sweep share an atomic owner-leased recipient drain, so pending sends survive a platform timeout; lease-owner compare-and-set completion rejects stale workers and finalizes the broadcast only after every recipient is terminal. Connector-applied Test and Production schemas passed rollback-only expired-lease reclaim, stale-owner rejection, completion, aggregate-count, client-grant, and payload checks; both databases had zero existing broadcasts, so no repair was required. Key code: `src/lib/whatsapp/broadcast-core.ts`, `src/app/api/v1/broadcasts/cron/route.ts`, and `supabase/migrations/20260814030000_resume_public_api_broadcasts.sql`. Gotcha: deploy the migration before the route and keep `/api/v1/broadcasts/cron` scheduled; a process loss after Meta accepts a send but before its completion RPC remains an unavoidable at-least-once ambiguity.
+
 ## Durable WhatsApp webhook receipt and recovery
 
 Signed WhatsApp webhook payloads now enter an idempotent service-only receipt ledger before Meta receives 200. The request's `after()` callback is only the first drain: an atomic five-minute lease, failed/stale retry, and the existing 15-minute authenticated ops scheduler recover unfinished receipts without overlapping processing; completed payload JSON is erased while its SHA-256 dedupe key remains. The connector-applied Production schema denies client table/function access and passed rollback-only duplicate, lease, fail/retry, completion, payload-erasure, and service-role checks. Key code: `src/app/api/whatsapp/webhook/route.ts`, `supabase/migrations/20260814023000_durable_whatsapp_webhook_receipts.sql`, and `src/lib/whatsapp/webhook-receipt-durability.test.ts`. Gotcha: deploy the migration before the route, and keep `/api/whatsapp/webhook` in `ops-crons.yml`; `after()` is a latency optimization, not the durability boundary.

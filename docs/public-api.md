@@ -229,9 +229,11 @@ first (`404` otherwise).
 ### `POST /api/v1/broadcasts`
 
 Launch a template broadcast to a list of recipients. Scope:
-`broadcasts:send`. The broadcast + its recipient rows are persisted
-immediately and the sends fan out in the background, so the call
-returns fast — poll `GET /api/v1/broadcasts/{id}` for progress.
+`broadcasts:send`. The broadcast, normalized destinations, and each
+recipient's template parameters are persisted before acknowledgement.
+The first owner-leased send drain runs in the background; the authenticated
+ops scheduler reclaims pending recipients if that invocation times out. Poll
+`GET /api/v1/broadcasts/{id}` for progress.
 
 ```bash
 curl -X POST https://your-crm.example.com/api/v1/broadcasts \
@@ -267,8 +269,11 @@ Invalid phone numbers are dropped and counted as `rejected`. Response
 ### `GET /api/v1/broadcasts/{id}`
 
 Broadcast status + counts. Scope: `broadcasts:send`. `status` moves
-`sending` → `sent`; `delivered_count` / `read_count` keep climbing as
-Meta delivery webhooks arrive. `404` for another account's broadcast.
+`sending` → `sent` (or `failed` when every recipient fails);
+`delivered_count` / `read_count` keep climbing as Meta delivery webhooks
+arrive. Delivery is recoverable and at-least-once: an invocation loss after
+Meta accepts a send but before UsefulDesk records its message ID can cause that
+one recipient to be retried. `404` for another account's broadcast.
 
 ## Pagination
 
