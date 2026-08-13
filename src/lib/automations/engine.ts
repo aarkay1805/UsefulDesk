@@ -130,7 +130,7 @@ export async function runAutomationsForTrigger(
  * Resume a run that was parked at a wait step. Called from the cron
  * endpoint after it grabs a due `automation_pending_executions` row.
  */
-export async function resumePendingExecution(pending: {
+export interface PendingExecution {
   id: string;
   automation_id: string;
   /** Audit-only; the automation row carries account_id for tenancy. */
@@ -145,7 +145,12 @@ export async function resumePendingExecution(pending: {
   branch: 'yes' | 'no' | null;
   next_step_position: number;
   context: AutomationContext;
-}): Promise<void> {
+}
+
+export async function resumePendingExecution(
+  pending: PendingExecution,
+  leaseOwner: string
+): Promise<void> {
   const db = supabaseAdmin();
   const { data: automation, error } = await db
     .from('automations')
@@ -159,7 +164,7 @@ export async function resumePendingExecution(pending: {
       pending.automation_id,
       error
     );
-    await markPending(pending.id, 'failed');
+    await markPending(pending.id, leaseOwner, 'failed');
     return;
   }
 
@@ -174,10 +179,10 @@ export async function resumePendingExecution(pending: {
       logId: pending.log_id,
       triggerEvent: 'resumed_wait',
     });
-    await markPending(pending.id, 'done');
+    await markPending(pending.id, leaseOwner, 'done');
   } catch (err) {
     console.error('[automations] resume failed:', err);
-    await markPending(pending.id, 'failed');
+    await markPending(pending.id, leaseOwner, 'failed');
   }
 }
 
@@ -990,9 +995,20 @@ async function finalizeLog(
     .eq('id', logId);
 }
 
-async function markPending(id: string, status: 'done' | 'failed') {
-  await supabaseAdmin()
-    .from('automation_pending_executions')
-    .update({ status })
-    .eq('id', id);
+async function markPending(
+  id: string,
+  leaseOwner: string,
+  status: 'done' | 'failed'
+) {
+  const { data, error } = await supabaseAdmin().rpc(
+    'finish_automation_execution',
+    {
+      p_execution_id: id,
+      p_lease_owner: leaseOwner,
+      p_status: status,
+    }
+  );
+  if (error || data !== true) {
+    console.error('[automations] finish: lease no longer owned', id, error);
+  }
 }

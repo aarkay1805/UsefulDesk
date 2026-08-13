@@ -68,6 +68,8 @@ Engineering maintenance: **verified WhatsApp webhook payloads are now durably an
 
 Engineering maintenance: **public API broadcasts now persist normalized destinations and per-recipient template parameters before returning 202; `after()` is only the first atomic owner-leased drain, the authenticated 15-minute ops sweep reclaims expired work, stale workers cannot complete a newer claim, and the final recipient transition closes the broadcast. Applied migration: `20260814030000_resume_public_api_broadcasts.sql` on Test `hkuqzmgnhhgecqcbwupb` and UsefulDesk `fwqthstqrkrwtaehefks`; both had zero legacy broadcasts to repair**.
 
+Engineering maintenance: **delayed automation waits now use atomic five-minute owner leases; the authenticated 15-minute cron reclaims expired `running` work, and lease-owner compare-and-set blocks stale terminal updates. Applied migration: `20260814031000_lease_delayed_automation_claims.sql` on Test `hkuqzmgnhhgecqcbwupb` and UsefulDesk `fwqthstqrkrwtaehefks`; both had zero queued executions to repair**.
+
 Engineering maintenance: **public API contact submissions now preserve every enquiry in the lead timeline, including dedupe hits, while only genuinely new contacts dispatch `new_contact_created`; focused route coverage protects both states, no schema change was required, and Test plus Production had zero existing API-origin contacts to repair**.
 
 Engineering maintenance: **authenticated inbound WhatsApp media proxy responses are now private and non-storable instead of publicly cacheable for 24 hours; focused route coverage protects the downloaded bytes, content type, and cache contract, with no schema or persisted-data change and no change to the public outbound `chat-media` delivery bucket**.

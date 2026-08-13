@@ -6,6 +6,10 @@
 
 ---
 
+## Recoverable delayed automation claims
+
+Delayed automation waits now move through one atomic five-minute owner lease instead of a permanent `pending → running` claim. The 15-minute cron can reclaim an expired worker, while terminal `done` / `failed` transitions use lease-owner compare-and-set so a stale worker cannot finish newer work. Connector-applied Test and Production schemas passed rollback-only initial claim, expired reclaim, stale-owner rejection, current-owner completion, grant, and lease-clearing checks; both databases had zero queued executions to repair. Key code: `src/app/api/automations/cron/route.ts`, `src/lib/automations/engine.ts`, and `supabase/migrations/20260814031000_lease_delayed_automation_claims.sql`. Gotcha: a process loss after an external step succeeds but before completion is recorded can replay the remaining path at least once.
+
 ## Private WhatsApp media cache containment
 
 Authenticated inbound WhatsApp media proxy responses are now `private, no-store` instead of publicly cacheable for 24 hours, preventing Meta-downloaded customer media from entering shared browser or intermediary caches. Focused route coverage locks the authenticated download bytes, content type, and cache contract in `src/app/api/whatsapp/media/[mediaId]/route.test.ts`. No migration or data repair was required; the existing public `chat-media` bucket used for outbound Meta delivery is unchanged.
