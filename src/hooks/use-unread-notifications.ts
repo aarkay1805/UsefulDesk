@@ -9,9 +9,9 @@ import { useAuth } from '@/hooks/use-auth';
  * Count of unread notifications for the current user. Used by the
  * sidebar to surface a badge on the Notifications nav entry.
  *
- * RLS on `notifications` already scopes every read to `auth.uid() =
- * user_id`, so no explicit filter is needed here — same pattern as
- * `useTotalUnread` for conversations.
+ * RLS on `notifications` scopes every read to the recipient and requires
+ * that recipient to remain a member of the notification's account. The
+ * explicit account filter below keeps this counter branch-local.
  */
 export function useUnreadNotifications(): number {
   const { accountId } = useAuth();

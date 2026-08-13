@@ -6,6 +6,10 @@
 
 ---
 
+## Account-scoped assignment and notification hardening
+
+Contact, conversation, and follow-up assignees must now be active members of the same branch at the database boundary, including service-role automation writes. Notification creation and RLS enforce the same membership invariant, while staff removal transactionally clears operational assignments and that branch's old notifications. The applied migration repairs any stale references before enabling the guards; production had none. Key code: `supabase/migrations/20260813201114_enforce_account_scoped_assignments.sql` and `src/lib/auth/assignment-membership-boundary-contract.test.ts`.
+
 ## Dashboard polish
 
 The Dashboard now reads in four plain-language groups: Today at a glance, Quick actions, Work to do, and The full picture. Short labels, neutral action icons, canonical text links, account-local dates, simpler empty states, and a clearer Lead health score keep the full daily view easy to scan. Member work shows next-seven-day expiring memberships directly; expired recovery stays in the full Renewals queue. Data, permissions, and routes are unchanged. Key code: `src/app/(dashboard)/dashboard/page.tsx` and `src/components/dashboard/`.
