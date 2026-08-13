@@ -6,6 +6,14 @@
 
 ---
 
+## Engagement navigation group
+
+The primary sidebar now nests Broadcasts, Automations, Flows, and AI Agents under one accessible Engagement disclosure. It opens automatically for active child routes, remembers the user's preference elsewhere, preserves child active and Beta states, and expands the compact desktop rail before showing the nested destinations. Key code: `src/components/layout/sidebar.tsx`; the reveal reuses `src/components/ui/collapse.tsx`.
+
+## Inbox responsive and accessibility polish
+
+The Inbox conversation list now stays within the mobile viewport instead of expanding to its longest message, keeps timestamps and state visible, uses the full search width, and gives filtered and first-use empty states a clear recovery path. Conversation bubbles have a readable desktop measure, the composer uses concise mobile copy without a placeholder scrollbar, icon-only send/template/AI/assignment actions expose explicit accessible names, and status/count treatments reuse the canonical badges and loaders. Key code: `src/app/(dashboard)/inbox/page.tsx` and `src/components/inbox/`.
+
 ## Invoice accounting and refund-history polish
 
 The shared invoice dialog now presents one reconciled summary across unpaid, part-paid, paid, no-charge, void, credited, adjusted, refunded, and refund-review states. Refunded invoices show net collection once with the gross-collected/refunded breakdown, while every refund is a dated ledger event with explicit pending, failed, orphaned, processed, accounting-outcome, and review language rather than a nested note card. The same component serves member Billing and Business → Invoices, with focused state-model tests in `src/lib/finance/invoice-detail-presentation.test.ts`. Key code: `src/components/finance/invoice-detail-dialog.tsx`, `src/components/members/membership-status-badge.tsx`, and `src/lib/finance/invoice-detail-presentation.ts`.

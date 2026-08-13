@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Fragment, type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useOnboardingStatus } from '@/hooks/use-onboarding-status';
@@ -12,11 +12,13 @@ import {
   Bell,
   Bot,
   BriefcaseBusiness,
+  ChevronDown,
   Crown,
   Dumbbell,
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  MessagesSquare,
   PanelLeftClose,
   PanelLeftOpen,
   Radio,
@@ -36,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Collapse } from '@/components/ui/collapse';
 import {
   Tooltip,
   TooltipContent,
@@ -86,6 +89,8 @@ import {
 import { ModeToggle } from '@/components/layout/mode-toggle';
 import { BranchSwitcher } from '@/components/layout/branch-switcher';
 import { branchHref } from '@/lib/auth/branch-context';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useMatchMedia } from '@/hooks/use-match-media';
 
 interface NavItem {
   href: string;
@@ -98,27 +103,20 @@ interface NavItem {
   beta?: boolean;
 }
 
-const navSections: { key: string; items: NavItem[] }[] = [
-  {
-    key: 'members',
-    items: [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/inbox', label: 'Inbox', icon: MessageSquare },
-      { href: '/notifications', label: 'Notifications', icon: Bell },
-      { href: '/leads', label: 'Leads', icon: Users },
-      { href: '/members', label: 'Members', icon: Dumbbell },
-      { href: '/finance', label: 'Business', icon: BriefcaseBusiness },
-    ],
-  },
-  {
-    key: 'tools',
-    items: [
-      { href: '/broadcasts', label: 'Broadcasts', icon: Radio },
-      { href: '/automations', label: 'Automations', icon: Zap },
-      { href: '/flows', label: 'Flows', icon: Workflow, beta: true },
-      { href: '/agents', label: 'AI Agents', icon: Bot },
-    ],
-  },
+const primaryNavItems: NavItem[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/inbox', label: 'Inbox', icon: MessageSquare },
+  { href: '/notifications', label: 'Notifications', icon: Bell },
+  { href: '/leads', label: 'Leads', icon: Users },
+  { href: '/members', label: 'Members', icon: Dumbbell },
+  { href: '/finance', label: 'Business', icon: BriefcaseBusiness },
+];
+
+const engagementNavItems: NavItem[] = [
+  { href: '/broadcasts', label: 'Broadcasts', icon: Radio },
+  { href: '/automations', label: 'Automations', icon: Zap },
+  { href: '/flows', label: 'Flows', icon: Workflow, beta: true },
+  { href: '/agents', label: 'AI Agents', icon: Bot },
 ];
 
 const bottomNavItems = [
@@ -212,6 +210,29 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const totalUnread = useTotalUnread({ sound: true });
   const unreadNotifications = useUnreadNotifications();
   const [collapsed, setCollapsed] = useState(false);
+  const isDesktop = useMatchMedia('(min-width: 1024px)');
+  const compactRail = collapsed && isDesktop;
+  const [engagementPreference, setEngagementPreference] =
+    useLocalStorage<boolean>('sidebar-engagement-open', true);
+  const [engagementOverride, setEngagementOverride] = useState<{
+    pathname: string;
+    open: boolean;
+  } | null>(null);
+  const engagementRouteActive = engagementNavItems.some(
+    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
+  );
+
+  // A route change gets a fresh automatic decision: active children reveal
+  // themselves, while all other destinations respect the saved preference.
+  // A same-route override lets someone deliberately close an active group.
+  if (engagementOverride && engagementOverride.pathname !== pathname) {
+    setEngagementOverride(null);
+  }
+  const engagementOpen =
+    engagementOverride?.pathname === pathname
+      ? engagementOverride.open
+      : engagementRouteActive || engagementPreference;
+  const engagementChildrenVisible = engagementOpen && !compactRail;
   // Only surface the account-name strip when it actually carries
   // information. A solo user's personal account is named after them
   // (the 017 signup trigger seeds it from `full_name`), so showing it
@@ -246,6 +267,85 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       window.removeEventListener('keydown', onKey);
     };
   }, [open, onClose]);
+
+  function toggleEngagement() {
+    if (compactRail) {
+      setCollapsed(false);
+      setEngagementPreference(true);
+      setEngagementOverride({ pathname, open: true });
+      return;
+    }
+
+    const nextOpen = !engagementOpen;
+    setEngagementPreference(nextOpen);
+    setEngagementOverride({ pathname, open: nextOpen });
+  }
+
+  function renderNavItem(item: NavItem) {
+    const isActive =
+      pathname === item.href ||
+      (item.href !== '/dashboard' && pathname.startsWith(item.href));
+    const showUnreadDot = item.href === '/inbox' && totalUnread > 0;
+
+    // Keep unread state visible even while its page is active: viewing a
+    // section is not the same as clearing every item.
+    const showNotificationBadge =
+      item.href === '/notifications' && unreadNotifications > 0;
+
+    return (
+      <li key={item.href}>
+        <SidebarNavLink
+          href={branchHref(item.href, accountId)}
+          label={item.label}
+          icon={item.icon}
+          isActive={isActive}
+          collapsed={collapsed}
+          trailing={
+            item.beta || showUnreadDot || showNotificationBadge ? (
+              <>
+                {item.beta && (
+                  <span
+                    aria-label="Beta feature"
+                    className="text-amber-foreground rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase"
+                  >
+                    Beta
+                  </span>
+                )}
+                {showUnreadDot && (
+                  <span
+                    aria-label={`${totalUnread} unread conversation${totalUnread === 1 ? '' : 's'}`}
+                    className="relative flex h-2 w-2"
+                  >
+                    <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+                    <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
+                  </span>
+                )}
+                {showNotificationBadge && (
+                  <span
+                    aria-label={`${unreadNotifications} unread notification${unreadNotifications === 1 ? '' : 's'}`}
+                    className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
+                  >
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </span>
+                )}
+              </>
+            ) : null
+          }
+          compactIndicator={
+            item.beta ? (
+              <span className="absolute -top-1.5 -right-2 size-2 rounded-full bg-amber-500" />
+            ) : showUnreadDot ? (
+              <span className="bg-primary absolute -top-1.5 -right-2 size-2 rounded-full" />
+            ) : showNotificationBadge ? (
+              <span className="bg-primary text-primary-foreground absolute -top-2 -right-3 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[8px] font-semibold">
+                {unreadNotifications > 9 ? '9+' : unreadNotifications}
+              </span>
+            ) : null
+          }
+        />
+      </li>
+    );
+  }
 
   return (
     <>
@@ -353,122 +453,118 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Main navigation */}
         <ScrollArea className="min-h-0 flex-1" scrollbarVisibility="hover">
           <nav className="px-3 py-4">
-            {navSections.map((section, sectionIndex) => (
-              <Fragment key={section.key}>
-                {sectionIndex > 0 && <Separator className="my-4" />}
-                <ul className="flex flex-col gap-1">
-                  {/* Get Started sits above the regular nav while onboarding is
+            <ul className="flex flex-col gap-1">
+              {/* Get Started sits above the regular nav while onboarding is
                     live for this account (admin+, not yet complete/dismissed).
                     It auto-disappears once every step is done — the provider
                     stamps `onboarding_dismissed_at` and `active` flips off. */}
-                  {sectionIndex === 0 &&
-                    onboarding.active &&
-                    !onboarding.allDone && (
-                      <li>
-                        <SidebarNavLink
-                          href={branchHref('/get-started', accountId)}
-                          label="Get Started"
-                          icon={Rocket}
-                          isActive={pathname.startsWith('/get-started')}
-                          collapsed={collapsed}
-                          trailing={
-                            !onboarding.loading ? (
+              {onboarding.active && !onboarding.allDone && (
+                <li>
+                  <SidebarNavLink
+                    href={branchHref('/get-started', accountId)}
+                    label="Get Started"
+                    icon={Rocket}
+                    isActive={pathname.startsWith('/get-started')}
+                    collapsed={collapsed}
+                    trailing={
+                      !onboarding.loading ? (
+                        <span
+                          aria-label={`${onboarding.completedCount} of ${onboarding.total} setup steps complete`}
+                          className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
+                        >
+                          {onboarding.completedCount}/{onboarding.total}
+                        </span>
+                      ) : null
+                    }
+                    compactIndicator={
+                      !onboarding.loading ? (
+                        <span className="bg-primary text-primary-foreground absolute -top-2 -right-3 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[8px] font-semibold">
+                          {onboarding.completedCount}
+                        </span>
+                      ) : null
+                    }
+                  />
+                </li>
+              )}
+              {primaryNavItems.map(renderNavItem)}
+            </ul>
+
+            <Separator className="my-4" />
+
+            <ul>
+              <li>
+                <Tooltip disabled={!compactRail}>
+                  <TooltipTrigger
+                    delay={350}
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="lg"
+                        onClick={toggleEngagement}
+                        aria-expanded={engagementChildrenVisible}
+                        aria-controls="engagement-navigation"
+                        aria-label={
+                          engagementRouteActive && !engagementChildrenVisible
+                            ? 'Engagement, current section'
+                            : undefined
+                        }
+                        className={cn(
+                          'w-full justify-start',
+                          collapsed && 'lg:justify-center'
+                        )}
+                      >
+                        <span className="relative flex size-4 shrink-0 items-center justify-center">
+                          <MessagesSquare className="size-4" />
+                          {engagementRouteActive &&
+                            !engagementChildrenVisible && (
                               <span
-                                aria-label={`${onboarding.completedCount} of ${onboarding.total} setup steps complete`}
-                                className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
-                              >
-                                {onboarding.completedCount}/{onboarding.total}
-                              </span>
-                            ) : null
-                          }
-                          compactIndicator={
-                            !onboarding.loading ? (
-                              <span className="bg-primary text-primary-foreground absolute -top-2 -right-3 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[8px] font-semibold">
-                                {onboarding.completedCount}
-                              </span>
-                            ) : null
-                          }
-                        />
-                      </li>
-                    )}
-                  {section.items.map((item) => {
-                    const isActive =
-                      pathname === item.href ||
-                      (item.href !== '/dashboard' &&
-                        pathname.startsWith(item.href));
+                                aria-hidden="true"
+                                className="bg-primary absolute -top-1.5 -right-2 size-2 rounded-full"
+                              />
+                            )}
+                        </span>
+                        <span
+                          className={cn(
+                            'flex min-w-0 flex-1 items-center gap-2',
+                            collapsed && 'lg:hidden'
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'min-w-0 flex-1 text-left',
+                              engagementRouteActive &&
+                                !engagementChildrenVisible &&
+                                'text-primary-text'
+                            )}
+                          >
+                            Engagement
+                          </span>
+                          <ChevronDown
+                            className={cn(
+                              'size-4 transition-transform duration-200 motion-reduce:transition-none',
+                              engagementChildrenVisible && 'rotate-180'
+                            )}
+                          />
+                        </span>
+                      </Button>
+                    }
+                  />
+                  <TooltipContent side="right" sideOffset={8}>
+                    Engagement
+                  </TooltipContent>
+                </Tooltip>
 
-                    const showUnreadDot =
-                      item.href === '/inbox' && totalUnread > 0;
-
-                    // Keep unread state visible even while its page is active:
-                    // viewing a section is not the same as clearing every item.
-                    // Notifications clear only when their rows are marked read.
-                    const showNotificationBadge =
-                      item.href === '/notifications' && unreadNotifications > 0;
-
-                    return (
-                      <li key={item.href}>
-                        <SidebarNavLink
-                          href={branchHref(item.href, accountId)}
-                          label={item.label}
-                          icon={item.icon}
-                          isActive={isActive}
-                          collapsed={collapsed}
-                          trailing={
-                            item.beta ||
-                            showUnreadDot ||
-                            showNotificationBadge ? (
-                              <>
-                                {item.beta && (
-                                  <span
-                                    aria-label="Beta feature"
-                                    className="text-amber-foreground rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase"
-                                  >
-                                    Beta
-                                  </span>
-                                )}
-                                {showUnreadDot && (
-                                  <span
-                                    aria-label={`${totalUnread} unread conversation${totalUnread === 1 ? '' : 's'}`}
-                                    className="relative flex h-2 w-2"
-                                  >
-                                    <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
-                                    <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
-                                  </span>
-                                )}
-                                {showNotificationBadge && (
-                                  <span
-                                    aria-label={`${unreadNotifications} unread notification${unreadNotifications === 1 ? '' : 's'}`}
-                                    className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
-                                  >
-                                    {unreadNotifications > 9
-                                      ? '9+'
-                                      : unreadNotifications}
-                                  </span>
-                                )}
-                              </>
-                            ) : null
-                          }
-                          compactIndicator={
-                            item.beta ? (
-                              <span className="absolute -top-1.5 -right-2 size-2 rounded-full bg-amber-500" />
-                            ) : showUnreadDot ? (
-                              <span className="bg-primary absolute -top-1.5 -right-2 size-2 rounded-full" />
-                            ) : showNotificationBadge ? (
-                              <span className="bg-primary text-primary-foreground absolute -top-2 -right-3 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[8px] font-semibold">
-                                {unreadNotifications > 9
-                                  ? '9+'
-                                  : unreadNotifications}
-                              </span>
-                            ) : null
-                          }
-                        />
-                      </li>
-                    );
-                  })}
-                </ul>
-              </Fragment>
-            ))}
+                <Collapse open={engagementChildrenVisible}>
+                  <ul
+                    id="engagement-navigation"
+                    className="border-border mt-1 ml-4 flex flex-col gap-1 border-l pl-2"
+                  >
+                    {engagementNavItems.map(renderNavItem)}
+                  </ul>
+                </Collapse>
+              </li>
+            </ul>
 
             <Separator className="my-4" />
 

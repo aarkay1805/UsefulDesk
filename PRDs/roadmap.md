@@ -46,6 +46,10 @@ Engineering maintenance: **automation Keyword Match triggers now add an explicit
 
 Engineering maintenance: **Tag Added automations now dispatch exactly once for every genuinely new tenant-owned contact/tag join from dashboard contact edits, Flows, Automation add-tag steps, API v1, public lead forms, and Meta lead capture; exact tag matching fails closed, chained tag automations stop at depth three, contacts without conversations log an explicit send failure, and CSV/member imports remain intentionally non-dispatching to avoid accidental mass sends; no schema change**.
 
+Engineering maintenance: **the Inbox now keeps its conversation list inside the mobile viewport with timestamps and status visible, uses a full-width search and recoverable empty/filter states, caps desktop message measure for faster reading, simplifies the narrow composer, and provides explicit accessible names for icon-only messaging and assignment controls while preserving the shared contact-detail surface and existing WhatsApp behavior**.
+
+Engineering maintenance: **the primary sidebar now groups Broadcasts, Automations, Flows, and AI Agents under one Engagement disclosure; active child routes reveal themselves automatically, the open/closed preference persists, and the compact desktop rail expands before exposing the nested destinations**.
+
 Deliberately deferred from the referenced upstream batches: **i18n, AI dashboards, MCP server, Docker, media viewer, the full interactive-message suite, and tunnel-origin config**. Existing UsefulDesk cron timing-safe comparison, RBAC/security-route fixes, and Suspense/build fixes supersede their upstream counterparts.
 
 Shipped addition: **automatic Click-to-WhatsApp referral attribution that preserves every inbound ad/post touch on its message, labels Instagram/Facebook only when a trusted Meta source URL proves the platform, keeps WhatsApp as the immutable intake channel, fills an absent contact acquisition source without overwriting prior attribution, and surfaces both message-level context and contact-level source in the Inbox**.
