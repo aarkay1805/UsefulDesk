@@ -29,7 +29,8 @@ describe('AccountAccessAlert', () => {
 
     const markup = renderToStaticMarkup(<AccountAccessAlert />);
 
-    expect(markup).toContain('Could not load your permissions');
+    expect(markup).toContain('Could not load your account access');
+    expect(markup).toContain('business data and actions are unavailable');
     expect(markup).toContain('Support detail: connection unavailable');
     expect(markup).toContain('Retry');
   });

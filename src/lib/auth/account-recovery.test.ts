@@ -42,10 +42,24 @@ describe('resolveAccountStatus', () => {
         signedIn: true,
         profileLoading: false,
         hasProfile: true,
+        hasAccount: true,
         accountId: 'account-1',
         accountRole: 'viewer',
       })
     ).toBe('ready');
+  });
+
+  it('fails closed when membership resolves without its account row', () => {
+    expect(
+      resolveAccountStatus({
+        signedIn: true,
+        profileLoading: false,
+        hasProfile: true,
+        hasAccount: false,
+        accountId: 'account-1',
+        accountRole: 'owner',
+      })
+    ).toBe('error');
   });
 
   it('distinguishes loading, lookup failure, and an unlinked profile', () => {
@@ -54,6 +68,7 @@ describe('resolveAccountStatus', () => {
         signedIn: true,
         profileLoading: true,
         hasProfile: false,
+        hasAccount: false,
         accountId: null,
         accountRole: null,
       })
@@ -63,6 +78,7 @@ describe('resolveAccountStatus', () => {
         signedIn: true,
         profileLoading: false,
         hasProfile: false,
+        hasAccount: false,
         accountId: null,
         accountRole: null,
       })
@@ -72,6 +88,7 @@ describe('resolveAccountStatus', () => {
         signedIn: true,
         profileLoading: false,
         hasProfile: true,
+        hasAccount: false,
         accountId: null,
         accountRole: null,
       })

@@ -90,7 +90,7 @@ Engineering maintenance: **authenticated inbound WhatsApp media proxy responses 
 
 Engineering maintenance: **template image-header fetches and automation `send_webhook` steps reject non-public targets and redirects with a ten-second bound while preserving automation log semantics; browser broadcast fan-out has a matching 60/min budget plus bounded 429-only retry; successful login and invitation continuation use a full browser navigation so fresh Supabase cookies reach the proxy**.
 
-Engineering maintenance: **signed-in account access now retries one transient profile lookup failure, distinguishes a valid viewer from unresolved branch/role context, explains the fail-closed read-only state, and offers an in-place Retry path without changing RLS or requiring a migration**.
+Engineering maintenance: **signed-in account access now retries one transient profile lookup failure, distinguishes a valid viewer from unresolved branch/role context, and becomes ready only after the selected account row supplies authoritative locale, currency, and timezone settings; failed or unreadable account hydration clears tenant IDs, roles, and capabilities, keeps account-dependent content unmounted, and offers an in-place Retry path without changing RLS or requiring a migration**.
 
 Engineering maintenance: **automation steps inside Condition Yes/No branches now support targeted updates, deletion, insertion into deeply nested conditions, and deep reordering through one regression-tested tree-addressing model; responsive condition cards split by available container width and nested cards stay fluid without introducing i18n or interactive-message expansion**.
 

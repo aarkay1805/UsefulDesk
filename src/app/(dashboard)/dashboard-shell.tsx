@@ -22,6 +22,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const {
     user,
     loading,
+    accountStatus,
     branchAccessError,
     branches,
     switchBranch,
@@ -115,6 +116,30 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Account-scoped components capture locale-bound dates and currencies on
+  // mount. Keep them unmounted until the selected account row is authoritative
+  // so a slow or failed hydration cannot seed persisted state with defaults.
+  if (accountStatus === 'loading') {
+    return (
+      <div className="bg-background flex h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" />
+          <p className="text-muted-foreground text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (accountStatus !== 'ready') {
+    return (
+      <div className="bg-background flex h-screen items-center justify-center px-4">
+        <div className="w-full max-w-xl">
+          <AccountAccessAlert />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-background flex h-screen overflow-hidden">
       {/* Replaces the browser cache with this user's saved profile
@@ -135,7 +160,6 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             contentPaddingTop
           )}
         >
-          <AccountAccessAlert />
           {children}
         </main>
       </div>

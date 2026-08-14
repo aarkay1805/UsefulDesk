@@ -6,6 +6,10 @@
 
 ---
 
+## Authoritative account hydration
+
+Signed-in dashboard access now becomes ready only after the selected account row supplies authoritative locale, currency, and timezone settings. A failed or unreadable account lookup clears tenant IDs, roles, and capabilities, keeps account-dependent content unmounted, and shows the existing in-place Retry path; a successful retry remounts the dashboard with the resolved account settings. No migration or data repair was required. Key code: `src/hooks/use-auth.tsx`, `src/lib/auth/account-recovery.ts`, `src/app/(dashboard)/dashboard-shell.tsx`, and `src/hooks/use-auth.test.tsx`. Gotcha: never publish profile tenancy or mount account-scoped consumers while `account=null`.
+
 ## Profile creation authority hardening
 
 Profiles are no longer client-creatable authority records: the permissive `profiles_insert` policy is gone and `PUBLIC`, `anon`, and `authenticated` have no table INSERT grant, while atomic `postgres` signup provisioning, audited membership flows, self-service profile updates, and trusted `service_role` administration remain available. Migration `20260814165451_close_profile_insert_authority.sql` was connector-applied as `20260814165602` in Test and `20260814165712` in Production; rollback-only checks preserved complete signup provisioning and denied anonymous plus authenticated same-/cross-account inserts. Both environments had zero orphan Auth users or profile/membership inconsistencies to repair. Key coverage: `src/lib/auth/profile-insert-authority-contract.test.ts`. Gotcha: staff/assignee rosters read account-scoped profiles directly, so never restore a client-side profile INSERT path.

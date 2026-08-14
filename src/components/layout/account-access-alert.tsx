@@ -30,17 +30,17 @@ export function AccountAccessAlert() {
   const unlinked = accountStatus === 'unlinked';
 
   return (
-    <Alert variant="destructive" className="mb-4">
+    <Alert variant="destructive">
       <TriangleAlert />
       <AlertTitle>
         {unlinked
           ? 'Your login is not linked to an account'
-          : 'Could not load your permissions'}
+          : 'Could not load your account access'}
       </AlertTitle>
       <AlertDescription>
         {unlinked
           ? 'Changes cannot be saved until access is restored. Ask your UsefulDesk owner or admin to re-invite you or restore your branch access.'
-          : 'Your account role did not load, so actions are treated as read-only. Check your connection and try again.'}
+          : 'Your account details did not load, so business data and actions are unavailable. Check your connection and try again.'}
         {accountStatusDetail ? (
           <span className="mt-1 block font-mono text-xs opacity-70">
             Support detail: {accountStatusDetail}

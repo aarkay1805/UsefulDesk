@@ -177,12 +177,11 @@ interface AuthContextValue {
   branchAccessError: string | null;
   /** Audit the switch, then hard-reload into the target branch URL. */
   switchBranch: (accountId: string) => Promise<void>;
-  /** Account default deal currency. Falls back to DEFAULT_CURRENCY
-   *  while loading or when no account is resolved, so callers can use
-   *  it unconditionally. */
+  /** Account default deal currency. Falls back to DEFAULT_CURRENCY only
+   *  before account hydration; dashboard consumers mount after `ready`. */
   defaultCurrency: string;
-  /** Resolved localization config (migration 055). India-shaped until
-   *  the account row loads, so formatting is always total. */
+  /** Resolved localization config (migration 055). India-shaped before
+   *  hydration; dashboard consumers mount only after the account row loads. */
   locale: AccountLocale;
   /** Locale-bound formatters (dates, numbers, money, today) for
    *  `locale`. Prefer reading these via `useLocale()`. */
@@ -390,8 +389,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // hard with PGRST200 and blanks the whole profile — the user
         // then loses account context everywhere (issue #294). A point
         // lookup by id needs no relationship inference, so the profile
-        // (with account_id / account_role) still resolves even if the
-        // account name lookup itself can't.
+        // lookup still works without publishing a partially-hydrated
+        // account context when the point lookup itself fails.
         let accountRow: AccountSummary | null = null;
         if (selectedBranch.account_id) {
           const { data: account, error: accountErr } = await supabase
@@ -411,6 +410,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               hint: accountErr.hint,
               code: accountErr.code,
             });
+            // A valid membership is not enough to publish tenant context:
+            // locale, currency, timezone, and capabilities all come from the
+            // selected account row. Clear any previous snapshot so refresh
+            // failures also fail closed, then leave Retry able to fetch again.
+            lastFetchedUserIdRef.current = null;
+            setProfile(null);
+            setAccount(null);
+            setAccountStatusDetail(
+              `account lookup failed: ${accountErr.message}`
+            );
+            return;
           } else if (account) {
             accountRow = {
               id: account.id,
@@ -434,6 +444,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setup_reviewed_by: account.setup_reviewed_by ?? null,
             };
           }
+        }
+
+        if (!accountRow) {
+          // `maybeSingle()` can return no row when the account was removed or
+          // RLS made it unreadable. Do not claim which one happened client-side;
+          // both mean the tenant context is not authoritative.
+          lastFetchedUserIdRef.current = null;
+          setProfile(null);
+          setAccount(null);
+          setAccountStatusDetail(
+            'the selected account row is missing or unreadable'
+          );
+          return;
         }
 
         // Narrow the DB enum into our AccountRole union. The DB
@@ -627,6 +650,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signedIn: Boolean(user),
     profileLoading,
     hasProfile: Boolean(profile),
+    hasAccount: Boolean(account),
     accountId: derived.accountId,
     accountRole: derived.accountRole,
   });

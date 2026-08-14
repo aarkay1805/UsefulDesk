@@ -39,16 +39,19 @@ export function resolveAccountStatus({
   signedIn,
   profileLoading,
   hasProfile,
+  hasAccount,
   accountId,
   accountRole,
 }: {
   signedIn: boolean;
   profileLoading: boolean;
   hasProfile: boolean;
+  hasAccount: boolean;
   accountId: string | null;
   accountRole: string | null;
 }): AccountStatus {
   if (!signedIn || profileLoading) return 'loading';
   if (!hasProfile) return 'error';
-  return accountId && accountRole ? 'ready' : 'unlinked';
+  if (!accountId || !accountRole) return 'unlinked';
+  return hasAccount ? 'ready' : 'error';
 }

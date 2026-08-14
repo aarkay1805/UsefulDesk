@@ -1,0 +1,109 @@
+import { renderToStaticMarkup } from 'react-dom/server';
+import type { ReactNode } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const authState = vi.hoisted(() => ({
+  user: { id: 'user-1' } as { id: string } | null,
+  loading: false,
+  accountStatus: 'error' as 'loading' | 'ready' | 'unlinked' | 'error',
+  accountStatusDetail: 'account unavailable' as string | null,
+  branchAccessError: null as string | null,
+  branches: [] as Array<{
+    account_id: string;
+    account_name: string;
+    branch_status: 'active' | 'read_only' | 'archived';
+  }>,
+  switchBranch: vi.fn(),
+  refreshProfile: vi.fn(),
+}));
+
+vi.mock('@/hooks/use-auth', () => ({
+  AuthProvider: ({ children }: { children: ReactNode }) => children,
+  useAuth: () => authState,
+}));
+
+vi.mock('@/hooks/use-onboarding-status', () => ({
+  OnboardingProvider: ({ children }: { children: ReactNode }) => children,
+}));
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/dashboard',
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock('@/components/layout/sidebar', () => ({
+  Sidebar: () => <nav>Sidebar</nav>,
+}));
+
+vi.mock('@/components/layout/header', () => ({
+  Header: () => <header>Header</header>,
+}));
+
+vi.mock('@/components/layout/account-appearance-sync', () => ({
+  AccountAppearanceSync: () => null,
+}));
+
+vi.mock('@/components/presence/presence-heartbeat', () => ({
+  PresenceHeartbeat: () => null,
+}));
+
+vi.mock('@/hooks/use-notification-audio', () => ({
+  useNotificationAudio: () => undefined,
+}));
+
+vi.mock('@/hooks/use-follow-up-reminder-ringtone', () => ({
+  useFollowUpReminderRingtone: () => undefined,
+}));
+
+const { DashboardShell } = await import('./dashboard-shell');
+
+describe('DashboardShell account boundary', () => {
+  beforeEach(() => {
+    authState.user = { id: 'user-1' };
+    authState.loading = false;
+    authState.accountStatus = 'error';
+    authState.accountStatusDetail = 'account unavailable';
+    authState.branchAccessError = null;
+    authState.branches = [];
+  });
+
+  it('keeps account-dependent children unmounted after hydration fails', () => {
+    const markup = renderToStaticMarkup(
+      <DashboardShell>
+        <div>Business content</div>
+      </DashboardShell>
+    );
+
+    expect(markup).toContain('Could not load your account access');
+    expect(markup).toContain('Retry');
+    expect(markup).not.toContain('Business content');
+    expect(markup).not.toContain('Sidebar');
+  });
+
+  it('keeps account-dependent children unmounted while hydrating', () => {
+    authState.accountStatus = 'loading';
+
+    const markup = renderToStaticMarkup(
+      <DashboardShell>
+        <div>Business content</div>
+      </DashboardShell>
+    );
+
+    expect(markup).toContain('Loading...');
+    expect(markup).not.toContain('Business content');
+  });
+
+  it('mounts dashboard content only when account hydration is ready', () => {
+    authState.accountStatus = 'ready';
+
+    const markup = renderToStaticMarkup(
+      <DashboardShell>
+        <div>Business content</div>
+      </DashboardShell>
+    );
+
+    expect(markup).toContain('Business content');
+    expect(markup).toContain('Sidebar');
+    expect(markup).not.toContain('Could not load your account access');
+  });
+});
