@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { normalizeSignupFullName } from "@/lib/auth/signup";
 import { createClient } from "@/lib/supabase/client";
 import {
   COUNTRY_OPTIONS,
@@ -61,6 +62,12 @@ function SignupPageInner() {
     e.preventDefault();
     setError(null);
 
+    const trimmedFullName = normalizeSignupFullName(fullName);
+    if (!trimmedFullName) {
+      setError("Enter your full name");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -95,7 +102,7 @@ function SignupPageInner() {
       password,
       options: {
         data: {
-          full_name: fullName,
+          full_name: trimmedFullName,
           ...toAccountColumns(presetFor(country)),
         },
         emailRedirectTo,

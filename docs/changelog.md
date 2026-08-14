@@ -6,6 +6,10 @@
 
 ---
 
+## Atomic signup provisioning
+
+Signup now trims and rejects a blank required full name before calling Supabase Auth, while `handle_new_user` independently enforces the same invariant and propagates tenant-bootstrap failures so the Auth insert rolls back instead of leaving an orphan login. Migration `20260814164144_make_signup_provisioning_atomic.sql` was connector-applied as `20260814164435` in Test and `20260814164519` in Production; rollback-only checks proved blank-name rejection and complete normalized tenant provisioning, and the single unconfirmed `example.invalid` audit orphan was removed. Key code: `src/app/(auth)/signup/page.tsx`, `src/lib/auth/signup.ts`, and `src/lib/auth/signup-provisioning.test.ts`.
+
 ## Recovery-only password updates
 
 Password recovery now mints a ten-minute, HttpOnly, server-signed grant only after Supabase proves a recovery exchange. The reset page sends password changes through a same-origin server route that binds the grant to the authenticated user, rejects ordinary signed-in sessions and tampered or expired grants, and clears the grant after success; the existing eight-character password policy is enforced at both UI and route boundaries. No migration or data repair was required. Key code: `src/app/auth/callback/route.ts`, `src/app/(auth)/reset-password/update/route.ts`, and `src/lib/auth/recovery-intent.ts`.
