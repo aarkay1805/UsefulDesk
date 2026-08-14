@@ -6,6 +6,10 @@
 
 ---
 
+## Google OAuth login foundation
+
+Login and signup now share a live **Continue with Google** action that starts Supabase's PKCE flow, returns through the existing same-origin callback, and preserves validated team-invitation destinations. Provider failures use the existing auth error surface and Google tokens are not stored. `handle_new_user` accepts Google's normalized `name` fallback while retaining atomic tenant provisioning and blank-name rollback; migration `20260814174156_support_google_oauth_signup_metadata.sql` was connector-applied as `20260814174451` in Test and `20260814174525` in Production, where rollback-only Google-shaped signup and orphan-rejection checks passed. The separate `usefuldesk-oauth` Google project is published with the production Supabase callback, Google is enabled in Production Supabase, localhost and production callbacks are allow-listed, and Vercel deployment `dpl_4x6vLdpHBFLQfkrQjjDG2HM5KqkL` passed live localhost and `desk.usefulmade.com` round trips before promotion. Key code: `src/components/auth/google-auth-button.tsx`, `src/lib/auth/oauth.ts`, and the login/signup auth pages. Gotcha: localhost needs `http://localhost:3000/**` because `next` is carried as a callback query; OAuth signup bypasses the country form, so new Google owners intentionally receive the existing India defaults and can change them later under Regional settings.
+
 ## Authoritative account hydration
 
 Signed-in dashboard access now becomes ready only after the selected account row supplies authoritative locale, currency, and timezone settings. A failed or unreadable account lookup clears tenant IDs, roles, and capabilities, keeps account-dependent content unmounted, and shows the existing in-place Retry path; a successful retry remounts the dashboard with the resolved account settings. No migration or data repair was required. Key code: `src/hooks/use-auth.tsx`, `src/lib/auth/account-recovery.ts`, `src/app/(dashboard)/dashboard-shell.tsx`, and `src/hooks/use-auth.test.tsx`. Gotcha: never publish profile tenancy or mount account-scoped consumers while `account=null`.

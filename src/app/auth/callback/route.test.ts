@@ -44,7 +44,7 @@ describe('auth callback recovery handoff', () => {
 
     expect(location.pathname).toBe('/login');
     expect(location.searchParams.get('error')).toContain(
-      'Could not verify your email link'
+      'Could not complete sign-in'
     );
     expect(location.searchParams.get('invite')).toBe(INVITE_TOKEN);
   });

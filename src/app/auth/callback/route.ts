@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     }
     console.error('[auth/callback] code exchange failed:', error.message);
     return redirectToLoginError(
-      'Could not verify your email link. Open it in the same browser you signed up in, or request a new one.'
+      'Could not complete sign-in. Try again in the same browser, or request a new email link if you were verifying your account.'
     );
   }
 

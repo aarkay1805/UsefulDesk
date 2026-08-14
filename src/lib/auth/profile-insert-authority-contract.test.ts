@@ -9,7 +9,7 @@ const hardeningSql = migration(
   '20260814165451_close_profile_insert_authority.sql'
 );
 const signupSql = migration(
-  '20260814164144_make_signup_provisioning_atomic.sql'
+  '20260814174156_support_google_oauth_signup_metadata.sql'
 );
 
 function functionBody(sql: string, name: string) {

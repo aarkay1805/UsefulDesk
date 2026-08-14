@@ -20,6 +20,7 @@ import {
   normalizeInvitationToken,
   withInvitation,
 } from '@/lib/auth/invitation-continuation';
+import { GoogleAuthButton } from '@/components/auth/google-auth-button';
 
 // `useSearchParams` opts the component out of static prerendering
 // unless it sits under a Suspense boundary. We split the form into
@@ -94,6 +95,11 @@ function LoginPageInner() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <GoogleAuthButton
+            inviteToken={inviteToken}
+            onErrorChange={setError}
+          />
+
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             {error && (
               <div className="text-red-foreground rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm">

@@ -1,38 +1,39 @@
-"use client";
+'use client';
 
-import { Suspense, useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { normalizeSignupFullName } from "@/lib/auth/signup";
+import { Suspense, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { normalizeSignupFullName } from '@/lib/auth/signup';
 import {
   invitationJoinPath,
   normalizeInvitationToken,
   withInvitation,
-} from "@/lib/auth/invitation-continuation";
-import { createClient } from "@/lib/supabase/client";
+} from '@/lib/auth/invitation-continuation';
+import { createClient } from '@/lib/supabase/client';
 import {
   COUNTRY_OPTIONS,
   presetFor,
   toAccountColumns,
-} from "@/lib/locale/config";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/lib/locale/config';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { MessageSquare, CheckCircle, UsersRound } from "lucide-react";
+} from '@/components/ui/card';
+import { MessageSquare, CheckCircle, UsersRound } from 'lucide-react';
+import { GoogleAuthButton } from '@/components/auth/google-auth-button';
 
 // `useSearchParams` opts the component out of static prerendering
 // unless wrapped in Suspense — same pattern as /login.
@@ -51,13 +52,13 @@ function SignupPageInner() {
   // verification → redirect round-trip. `emailRedirectTo` below
   // points at /auth/callback with next=/join/<token> so the user
   // lands on the redeem step after verifying instead of /dashboard.
-  const inviteToken = normalizeInvitationToken(searchParams.get("invite"));
+  const inviteToken = normalizeInvitationToken(searchParams.get('invite'));
 
-  const [fullName, setFullName] = useState("");
-  const [country, setCountry] = useState("IN");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fullName, setFullName] = useState('');
+  const [country, setCountry] = useState('IN');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -69,17 +70,17 @@ function SignupPageInner() {
 
     const trimmedFullName = normalizeSignupFullName(fullName);
     if (!trimmedFullName) {
-      setError("Enter your full name");
+      setError('Enter your full name');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError('Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError('Password must be at least 6 characters');
       return;
     }
 
@@ -92,7 +93,7 @@ function SignupPageInner() {
     // page's redirect('/dashboard') strips the ?code param before
     // the client can exchange it, so the user lands on /login with
     // no session despite being verified.
-    const next = invitationJoinPath(inviteToken) ?? "/dashboard";
+    const next = invitationJoinPath(inviteToken) ?? '/dashboard';
     const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
     // The country picker resolves to a full localization preset
@@ -124,28 +125,26 @@ function SignupPageInner() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md border-border bg-card">
+      <div className="bg-background flex min-h-screen items-center justify-center px-4">
+        <Card className="border-border bg-card w-full max-w-md">
           <CardHeader className="items-center text-center">
-            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <CheckCircle className="h-6 w-6 text-primary-text" />
+            <div className="bg-primary/10 mb-2 flex h-12 w-12 items-center justify-center rounded-xl">
+              <CheckCircle className="text-primary-text h-6 w-6" />
             </div>
-            <CardTitle className="text-xl text-foreground">
+            <CardTitle className="text-foreground text-xl">
               Check your email
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              We&apos;ve sent a confirmation link to{" "}
-              <span className="text-foreground">{email}</span>. Please check your
-              inbox and click the link to verify your account.
+              We&apos;ve sent a confirmation link to{' '}
+              <span className="text-foreground">{email}</span>. Please check
+              your inbox and click the link to verify your account.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              href={withInvitation("/login", inviteToken)}
-            >
+            <Link href={withInvitation('/login', inviteToken)}>
               <Button
                 variant="outline"
-                className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
               >
                 Back to sign in
               </Button>
@@ -157,29 +156,34 @@ function SignupPageInner() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border bg-card">
+    <div className="bg-background flex min-h-screen items-center justify-center px-4">
+      <Card className="border-border bg-card w-full max-w-md">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+          <div className="bg-primary/10 mb-2 flex h-12 w-12 items-center justify-center rounded-xl">
             {inviteToken ? (
-              <UsersRound className="h-6 w-6 text-primary-text" />
+              <UsersRound className="text-primary-text h-6 w-6" />
             ) : (
-              <MessageSquare className="h-6 w-6 text-primary-text" />
+              <MessageSquare className="text-primary-text h-6 w-6" />
             )}
           </div>
-          <CardTitle className="text-xl text-foreground">
-            {inviteToken ? "Create account & join" : "Create account"}
+          <CardTitle className="text-foreground text-xl">
+            {inviteToken ? 'Create account & join' : 'Create account'}
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {inviteToken
-              ? "Verify your email, then accept the invitation to join your team."
-              : "Get started with UsefulDesk"}
+              ? 'Verify your email, then accept the invitation to join your team.'
+              : 'Get started with UsefulDesk'}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <GoogleAuthButton
+            inviteToken={inviteToken}
+            onErrorChange={setError}
+          />
+
           <form onSubmit={handleSignup} className="flex flex-col gap-4">
             {error && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-foreground">
+              <div className="text-red-foreground rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm">
                 {error}
               </div>
             )}
@@ -215,9 +219,9 @@ function SignupPageInner() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Sets your currency, time zone, and date formats — you can
-                change any of it later in Settings.
+              <p className="text-muted-foreground text-xs">
+                Sets your currency, time zone, and date formats — you can change
+                any of it later in Settings.
               </p>
             </div>
 
@@ -252,7 +256,10 @@ function SignupPageInner() {
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="confirmPassword" className="text-muted-foreground">
+              <Label
+                htmlFor="confirmPassword"
+                className="text-muted-foreground"
+              >
                 Confirm password
               </Label>
               <Input
@@ -269,16 +276,16 @@ function SignupPageInner() {
             <Button
               type="submit"
               disabled={loading}
-              className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 h-10 w-full disabled:opacity-50"
             >
-              {loading ? "Creating account..." : "Create account"}
+              {loading ? 'Creating account...' : 'Create account'}
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
+          <p className="text-muted-foreground mt-6 text-center text-sm">
+            Already have an account?{' '}
             <Link
-              href={withInvitation("/login", inviteToken)}
+              href={withInvitation('/login', inviteToken)}
               className="text-primary-text hover:text-primary-text/80"
             >
               Sign in

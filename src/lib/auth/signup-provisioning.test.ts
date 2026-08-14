@@ -20,16 +20,27 @@ describe('signup provisioning invariant', () => {
   });
 
   it('keeps Auth and tenant provisioning in one failure boundary', () => {
-    const migration = read(
+    const atomicMigration = read(
       'supabase/migrations/20260814164144_make_signup_provisioning_atomic.sql'
     );
+    const googleMigration = read(
+      'supabase/migrations/20260814174156_support_google_oauth_signup_metadata.sql'
+    );
 
-    expect(migration).toMatch(
+    expect(atomicMigration).toMatch(
       /v_full_name TEXT := btrim\(COALESCE\(NEW\.raw_user_meta_data->>'full_name', ''\)\)/
     );
-    expect(migration).toMatch(
+    expect(atomicMigration).toMatch(
       /IF v_full_name = '' THEN[\s\S]*ERRCODE = '22023'/
     );
-    expect(migration).not.toMatch(/EXCEPTION\s+WHEN\s+OTHERS/);
+    expect(atomicMigration).not.toMatch(/EXCEPTION\s+WHEN\s+OTHERS/);
+
+    expect(googleMigration).toMatch(
+      /NULLIF\(btrim\(v_meta->>'full_name'\), ''\)[\s\S]*NULLIF\(btrim\(v_meta->>'name'\), ''\)/
+    );
+    expect(googleMigration).toMatch(
+      /IF v_full_name IS NULL THEN[\s\S]*ERRCODE = '22023'/
+    );
+    expect(googleMigration).not.toMatch(/EXCEPTION\s+WHEN\s+OTHERS/);
   });
 });
