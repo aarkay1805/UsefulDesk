@@ -1,6 +1,11 @@
-import { NextResponse, type NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import type { EmailOtpType } from '@supabase/supabase-js'
+import { NextResponse, type NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import type { EmailOtpType } from '@supabase/supabase-js';
+import {
+  issueRecoveryIntent,
+  RECOVERY_INTENT_COOKIE,
+  RECOVERY_INTENT_COOKIE_OPTIONS,
+} from '@/lib/auth/recovery-intent';
 
 // ============================================================
 // /auth/callback — the single landing point for every Supabase
@@ -30,50 +35,90 @@ import type { EmailOtpType } from '@supabase/supabase-js'
 // ============================================================
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-  const tokenHash = searchParams.get('token_hash')
-  const type = searchParams.get('type') as EmailOtpType | null
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get('code');
+  const tokenHash = searchParams.get('token_hash');
+  const type = searchParams.get('type') as EmailOtpType | null;
 
   // Only allow same-origin relative redirects. Anything absolute
   // (or protocol-relative "//evil.com") is an open-redirect vector
   // via a crafted link, so fall back to /dashboard.
-  const rawNext = searchParams.get('next') ?? '/dashboard'
+  const rawNext = searchParams.get('next') ?? '/dashboard';
   const next =
-    rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/dashboard'
+    rawNext.startsWith('/') && !rawNext.startsWith('//')
+      ? rawNext
+      : '/dashboard';
 
-  const redirectTo = (path: string) => NextResponse.redirect(`${origin}${path}`)
+  const redirectTo = (path: string) =>
+    NextResponse.redirect(`${origin}${path}`);
 
-  const supabase = await createClient()
+  const redirectToPasswordReset = (userId: string) => {
+    const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!secret) {
+      console.error('[auth/callback] recovery intent secret is unavailable');
+      return redirectTo(
+        `/login?error=${encodeURIComponent(
+          'Could not start password recovery. Request a new link.'
+        )}`
+      );
+    }
+
+    const response = redirectTo('/reset-password');
+    response.cookies.set(
+      RECOVERY_INTENT_COOKIE,
+      issueRecoveryIntent(userId, secret),
+      RECOVERY_INTENT_COOKIE_OPTIONS
+    );
+    return response;
+  };
+
+  const supabase = await createClient();
 
   if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) return redirectTo(next)
-    console.error('[auth/callback] code exchange failed:', error.message)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) {
+      const redirectType =
+        'redirectType' in data && typeof data.redirectType === 'string'
+          ? data.redirectType
+          : null;
+      if (redirectType === 'recovery' && data.user) {
+        return redirectToPasswordReset(data.user.id);
+      }
+      return redirectTo(next);
+    }
+    console.error('[auth/callback] code exchange failed:', error.message);
     return redirectTo(
       `/login?error=${encodeURIComponent(
         'Could not verify your email link. Open it in the same browser you signed up in, or request a new one.'
       )}`
-    )
+    );
   }
 
   if (tokenHash && type) {
-    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
-    if (!error) return redirectTo(next)
-    console.error('[auth/callback] verifyOtp failed:', error.message)
+    const { data, error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type,
+    });
+    if (!error) {
+      if (type === 'recovery' && data.user) {
+        return redirectToPasswordReset(data.user.id);
+      }
+      return redirectTo(next);
+    }
+    console.error('[auth/callback] verifyOtp failed:', error.message);
     return redirectTo(
       `/login?error=${encodeURIComponent(
         'This link is invalid or has expired. Request a new one.'
       )}`
-    )
+    );
   }
 
   // Supabase also reports failures (expired link, already used)
   // as ?error=...&error_description=... on the redirect itself.
-  const description = searchParams.get('error_description')
+  const description = searchParams.get('error_description');
   return redirectTo(
     `/login?error=${encodeURIComponent(
       description ?? 'Invalid verification link.'
     )}`
-  )
+  );
 }

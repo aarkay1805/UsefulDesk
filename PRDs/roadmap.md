@@ -20,6 +20,8 @@ Engineering maintenance: **Settings → Appearance has compact keyboard-native m
 
 Engineering maintenance: **Settings → Login & security has concise task copy, accessible field-linked password errors, a contained save state, and a clearly destructive global sign-out confirmation that cannot disappear while pending**.
 
+Engineering maintenance: **password recovery now requires a short-lived, server-signed grant minted only by a verified Supabase recovery exchange; ordinary authenticated sessions, cross-site requests, user-mismatched grants, and tampered or expired grants cannot use the reset route, and a successful update clears the grant**.
+
 Engineering maintenance: **Settings → Your profile is reduced to its three owner-facing tasks—photo, display name, and sign-in email—with canonical avatar and alert primitives, a contained save action, explicit loading/unavailable states, and verified profile-update row returns instead of misleading internal role and user-ID detail**.
 
 Engineering maintenance: **Settings → WhatsApp now separates API access from inbound-delivery readiness, preserves delivery diagnostics, uses account-local timestamps, gates every change and verification path for non-admins, confirms resets accessibly, and keeps the Meta guided/manual credential flows responsive and concise without changing connection or registration security**.

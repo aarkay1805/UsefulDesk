@@ -6,6 +6,10 @@
 
 ---
 
+## Recovery-only password updates
+
+Password recovery now mints a ten-minute, HttpOnly, server-signed grant only after Supabase proves a recovery exchange. The reset page sends password changes through a same-origin server route that binds the grant to the authenticated user, rejects ordinary signed-in sessions and tampered or expired grants, and clears the grant after success; the existing eight-character password policy is enforced at both UI and route boundaries. No migration or data repair was required. Key code: `src/app/auth/callback/route.ts`, `src/app/(auth)/reset-password/update/route.ts`, and `src/lib/auth/recovery-intent.ts`.
+
 ## Razorpay pinned-readiness recovery
 
 An existing exact-pinned Live OAuth connection can now recover after its 24-hour readiness evidence expires: the owner/admin Payments card reaches the same-origin refresh route, which alone may cross the stale-readiness gate, requires the configured Live account and already-bound merchant pins, rotates the stored OAuth grant, reruns read-only provider readiness probes, and persists the result. Ordinary payment operations still fail closed on stale readiness. On 2026-08-14 the owner separately authorized this connection-only action for Rajat Kashyap account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` / merchant `acc_TCJwBqanN9LTrK`; token generation advanced to 2, readiness became fresh, and the secret-blind closeout found no manual material, leases, active OAuth state, conflicting binding, new money/link/refund record, unresolved exact-Live event, or open exception. Production deployment `dpl_6BurUwHRp6AramDkS23hZAMkvAX4` is READY with OAuth, enrollment, and every acceptance flag false. This remains owner-controlled readiness evidence, not a real-gym rollout; VBF stayed closed, WhatsApp was not sent, and the deferred client secrets were not rotated. Key code: `src/app/api/payments/razorpay/oauth/refresh/route.ts`, `src/lib/payments/credentials.ts`, and `src/components/settings/razorpay-settings-card.tsx`.
