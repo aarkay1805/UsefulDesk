@@ -18,7 +18,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { PasswordForm } from './password-form';
 
 function AddPasswordAction({ email }: { email: string | null }) {
   const [sending, setSending] = useState(false);
@@ -90,16 +89,16 @@ function AddPasswordAction({ email }: { email: string | null }) {
 export function SignInMethodsCard({
   summary,
   accountEmail,
-  onRefresh,
 }: {
   summary: AuthIdentitySummary;
   accountEmail: string | null;
-  onRefresh: () => void;
 }) {
   return (
-    <Card>
+    <Card role="region" aria-labelledby="sign-in-methods-heading">
       <CardHeader>
-        <CardTitle>Sign-in methods</CardTitle>
+        <CardTitle>
+          <h3 id="sign-in-methods-heading">Sign-in methods</h3>
+        </CardTitle>
         <CardDescription>
           Methods currently linked to your UsefulDesk account.
         </CardDescription>
@@ -108,7 +107,10 @@ export function SignInMethodsCard({
         {summary.googleIdentity ? (
           <>
             <div className="flex items-center gap-3">
-              <span className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
+              <span
+                aria-hidden
+                className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg"
+              >
                 <AtSign className="size-4" />
               </span>
               <div className="min-w-0 flex-1">
@@ -127,7 +129,10 @@ export function SignInMethodsCard({
         ) : null}
 
         <div className="flex items-center gap-3">
-          <span className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
+          <span
+            aria-hidden
+            className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg"
+          >
             <KeyRound className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
@@ -139,16 +144,23 @@ export function SignInMethodsCard({
             </div>
           </div>
           <Badge variant={summary.hasPassword ? 'success' : 'neutral'}>
-            {summary.hasPassword ? 'Connected' : 'Not set'}
+            {summary.hasPassword ? (
+              <>
+                <CheckCircle2 data-icon="inline-start" />
+                Connected
+              </>
+            ) : (
+              'Not set'
+            )}
           </Badge>
         </div>
 
-        <Separator />
-        {summary.hasPassword ? (
-          <PasswordForm onUpdated={onRefresh} />
-        ) : (
-          <AddPasswordAction email={accountEmail} />
-        )}
+        {!summary.hasPassword ? (
+          <>
+            <Separator />
+            <AddPasswordAction email={accountEmail} />
+          </>
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -6,6 +6,10 @@
 
 ---
 
+## Login & security visual polish
+
+Settings → Login & security now separates connected sign-in methods from password changes, gives email and session controls their own clear task hierarchy, adds accessible password visibility controls, and uses a wider responsive settings column without changing provider-aware auth behavior. Key code: `src/components/settings/security-panel.tsx`, `sign-in-methods-card.tsx`, `account-email-form.tsx`, `password-form.tsx`, and `sessions-card.tsx`.
+
 ## Provider-aware profile and login security
 
 Settings now reads Supabase's linked identities through `getUserIdentities()` with explicit loading, failure, and retry states, so Google-only, password-only, and Google-plus-password accounts see the correct sign-in methods instead of the latest session provider. **Your profile** now owns only photo and display name; **Login & security** owns the provider-specific Google address, verified recovery-link password addition, current-password changes, confirmation-aware account-email changes, and provider-neutral global UsefulDesk sign-out. A first Google sign-in may seed its HTTPS photo only while `profiles.avatar_url` is null and never retries after the first session, so a user photo or Remove remains authoritative. The existing signed recovery grant now allowlists the exact Login & security return path and refreshes identities on the completed settings landing; confirmed Auth email changes sync the denormalized profile copy only after Supabase changes `user.email`. No Google disconnect, migration, data repair, deployment, or auth-provider configuration change was made. Key code: `src/hooks/use-auth-identities.ts`, `src/components/settings/sign-in-methods-card.tsx`, `src/components/settings/account-email-form.tsx`, `src/components/settings/profile-form.tsx`, and `src/lib/auth/recovery-intent.ts`.

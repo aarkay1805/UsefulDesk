@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AccountEmailForm } from './account-email-form';
+import { PasswordForm } from './password-form';
 import { SignInMethodsCard } from './sign-in-methods-card';
 import { SessionsCard } from './sessions-card';
 import { SettingsPanelHead } from './settings-panel-head';
@@ -36,7 +37,7 @@ export function SecurityPanel() {
   });
 
   return (
-    <section className="animate-in fade-in-50 max-w-xl duration-200">
+    <section className="animate-in fade-in-50 max-w-2xl duration-200 motion-reduce:animate-none">
       <SettingsPanelHead
         title="Login & security"
         description="Manage how you sign in and protect your UsefulDesk account."
@@ -70,7 +71,6 @@ export function SecurityPanel() {
             <SignInMethodsCard
               summary={summary}
               accountEmail={user?.email ?? null}
-              onRefresh={refresh}
             />
             <AccountEmailForm
               accountEmail={user?.email ?? null}
@@ -78,6 +78,7 @@ export function SecurityPanel() {
               hasGoogle={Boolean(summary.googleIdentity)}
               hasPassword={summary.hasPassword}
             />
+            {summary.hasPassword ? <PasswordForm onUpdated={refresh} /> : null}
           </>
         )}
         <SessionsCard />

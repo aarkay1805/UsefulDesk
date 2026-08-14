@@ -6,7 +6,7 @@ import { CircleAlert, Loader2, Mail } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getErrorMessage } from '@/lib/errors';
 import { LOGIN_SECURITY_PATH } from '@/lib/auth/recovery-destination';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -81,12 +81,26 @@ export function AccountEmailForm({
 
   const googleOnly = hasGoogle && !hasPassword;
   const displayedEmail = googleEmail ?? accountEmail ?? '';
+  const emailHelpId = googleOnly || hasGoogle ? 'account-email-help' : null;
+  const emailDescribedBy = [
+    emailHelpId,
+    pendingEmail ? 'account-email-pending' : null,
+    error ? 'account-email-error' : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <form onSubmit={onSubmit} noValidate>
+    <form
+      onSubmit={onSubmit}
+      noValidate
+      aria-labelledby="account-email-heading"
+    >
       <Card>
         <CardHeader>
-          <CardTitle>Account email</CardTitle>
+          <CardTitle>
+            <h3 id="account-email-heading">Account email</h3>
+          </CardTitle>
           <CardDescription>
             The email UsefulDesk uses for account and security messages.
           </CardDescription>
@@ -105,16 +119,27 @@ export function AccountEmailForm({
               readOnly={googleOnly}
               disabled={saving}
               required={!googleOnly}
+              autoComplete="email"
+              inputMode="email"
+              spellCheck={false}
+              aria-invalid={Boolean(error) || undefined}
+              aria-describedby={emailDescribedBy || undefined}
             />
           </div>
 
           {googleOnly ? (
-            <p className="text-muted-foreground text-sm">
+            <p
+              id="account-email-help"
+              className="text-muted-foreground text-sm"
+            >
               This email comes from Google. Add a password fallback before
               changing it.
             </p>
           ) : hasGoogle ? (
-            <p className="text-muted-foreground text-sm">
+            <p
+              id="account-email-help"
+              className="text-muted-foreground text-sm"
+            >
               Changing your account email does not disconnect Google. Google
               sign-in will remain linked to {googleEmail ?? 'its current email'}
               .
@@ -122,8 +147,9 @@ export function AccountEmailForm({
           ) : null}
 
           {pendingEmail ? (
-            <Alert>
+            <Alert id="account-email-pending">
               <Mail />
+              <AlertTitle>Email change requested</AlertTitle>
               <AlertDescription>
                 Check your inboxes and complete every confirmation email you
                 receive for the change to {pendingEmail}.
@@ -131,8 +157,9 @@ export function AccountEmailForm({
             </Alert>
           ) : null}
           {error ? (
-            <Alert variant="destructive">
+            <Alert id="account-email-error" variant="destructive">
               <CircleAlert />
+              <AlertTitle>Email change unavailable</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}

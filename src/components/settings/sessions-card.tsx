@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, LogOut } from 'lucide-react';
+import { Loader2, LogOut, MonitorSmartphone } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { getErrorMessage } from '@/lib/errors';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
   CardDescription,
@@ -53,9 +54,12 @@ export function SessionsCard() {
     <>
       <Card role="region" aria-labelledby="sessions-heading">
         <CardHeader>
-          <CardTitle id="sessions-heading" className="flex items-center gap-2">
-            <LogOut className="text-primary-text size-4" />
-            Active sessions
+          <CardTitle className="flex items-center gap-2">
+            <MonitorSmartphone
+              aria-hidden
+              className="text-muted-foreground size-4"
+            />
+            <h3 id="sessions-heading">Active sessions</h3>
           </CardTitle>
           <CardDescription>
             End every UsefulDesk session on every device. This does not sign you
@@ -63,11 +67,21 @@ export function SessionsCard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button type="button" variant="outline" onClick={() => setOpen(true)}>
+          <p className="text-muted-foreground text-sm">
+            Use this after losing a device or signing in somewhere you no longer
+            trust.
+          </p>
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button
+            type="button"
+            variant="destructive-ghost"
+            onClick={() => setOpen(true)}
+          >
             <LogOut className="size-4" />
             Sign out everywhere
           </Button>
-        </CardContent>
+        </CardFooter>
       </Card>
 
       <Dialog

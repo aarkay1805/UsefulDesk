@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { toast } from 'sonner';
-import { CircleAlert, Loader2 } from 'lucide-react';
+import { CircleAlert, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { getErrorMessage } from '@/lib/errors';
@@ -13,10 +13,57 @@ import {
 } from '@/lib/auth/password-change';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 const MIN_PASSWORD = 8;
+
+function PasswordInput({
+  id,
+  label,
+  disabled,
+  ...props
+}: Omit<ComponentProps<typeof Input>, 'id' | 'type'> & {
+  id: string;
+  label: string;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <Input
+          {...props}
+          id={id}
+          type={visible ? 'text' : 'password'}
+          className="pr-10"
+          disabled={disabled}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="absolute top-1/2 right-1 -translate-y-1/2"
+          aria-label={`${visible ? 'Hide' : 'Show'} ${label.toLowerCase()}`}
+          aria-pressed={visible}
+          onClick={() => setVisible((current) => !current)}
+          disabled={disabled}
+        >
+          {visible ? <EyeOff /> : <Eye />}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function PasswordForm({ onUpdated }: { onUpdated?: () => void }) {
   const { user } = useAuth();
@@ -120,22 +167,20 @@ export function PasswordForm({ onUpdated }: { onUpdated?: () => void }) {
       noValidate
       aria-labelledby="change-password-heading"
     >
-      <div className="space-y-4">
-        <div>
-          <h3 id="change-password-heading" className="font-medium">
-            Change password
-          </h3>
-          <p id="password-help" className="text-muted-foreground mt-1 text-sm">
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h3 id="change-password-heading">Change password</h3>
+          </CardTitle>
+          <CardDescription id="password-help">
             Use {MIN_PASSWORD} or more characters. You&apos;ll stay signed in
             here after the change.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="current-password">Current password</Label>
-          <Input
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <PasswordInput
             id="current-password"
-            type="password"
+            label="Current password"
             value={current}
             onChange={(e) => {
               setCurrent(e.target.value);
@@ -147,14 +192,11 @@ export function PasswordForm({ onUpdated }: { onUpdated?: () => void }) {
             disabled={saving}
             required
           />
-        </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="new-password">New password</Label>
-            <Input
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <PasswordInput
               id="new-password"
-              type="password"
+              label="New password"
               value={next}
               onChange={(e) => {
                 setNext(e.target.value);
@@ -167,12 +209,9 @@ export function PasswordForm({ onUpdated }: { onUpdated?: () => void }) {
               disabled={saving}
               required
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Confirm new password</Label>
-            <Input
+            <PasswordInput
               id="confirm-password"
-              type="password"
+              label="Confirm new password"
               value={confirm}
               onChange={(e) => {
                 setConfirm(e.target.value);
@@ -186,16 +225,15 @@ export function PasswordForm({ onUpdated }: { onUpdated?: () => void }) {
               required
             />
           </div>
-        </div>
 
-        {formError ? (
-          <Alert id="password-error" variant="destructive">
-            <CircleAlert />
-            <AlertDescription>{formError.message}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <div className="flex justify-end">
+          {formError ? (
+            <Alert id="password-error" variant="destructive">
+              <CircleAlert />
+              <AlertDescription>{formError.message}</AlertDescription>
+            </Alert>
+          ) : null}
+        </CardContent>
+        <CardFooter className="justify-end">
           <Button
             type="submit"
             disabled={saving || !user?.email || !current || !next || !confirm}
@@ -209,8 +247,8 @@ export function PasswordForm({ onUpdated }: { onUpdated?: () => void }) {
               'Update password'
             )}
           </Button>
-        </div>
-      </div>
+        </CardFooter>
+      </Card>
     </form>
   );
 }
