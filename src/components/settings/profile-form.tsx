@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Upload, Trash2, Mail, CircleAlert } from 'lucide-react';
+import { Loader2, Upload, Trash2, CircleAlert } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { getErrorMessage } from '@/lib/errors';
@@ -23,23 +23,16 @@ const ALLOWED_MIME = new Set([
   'image/gif',
 ]);
 
-// Rough email shape check — the real validator is Supabase Auth, which
-// rejects anything malformed when we call updateUser({ email }). We
-// just want to stop obvious typos before making a network call.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export function ProfileForm() {
   const { user, profile, profileLoading, refreshProfile } = useAuth();
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [removeAvatar, setRemoveAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [emailChangePending, setEmailChangePending] = useState(false);
 
   // Seed form state once the profile loads.
   useEffect(() => {
@@ -49,7 +42,6 @@ export function ProfileForm() {
       await Promise.resolve();
       if (cancelled) return;
       setFullName(profile.full_name ?? '');
-      setEmail(profile.email ?? '');
     })();
     return () => {
       cancelled = true;
@@ -110,12 +102,6 @@ export function ProfileForm() {
       toast.error('Display name is required');
       return;
     }
-    const trimmedEmail = email.trim();
-    if (!EMAIL_RE.test(trimmedEmail)) {
-      toast.error('Enter a valid email address');
-      return;
-    }
-
     setSaving(true);
     try {
       let nextAvatarUrl: string | null = profile.avatar_url ?? null;
@@ -158,40 +144,12 @@ export function ProfileForm() {
         throw new Error('Your profile could not be updated. Try again.');
       }
 
-      // Email change goes through Supabase Auth, which emails a
-      // confirmation to both the old and new addresses. We don't
-      // touch profiles.email — Supabase will push the change there
-      // after the user clicks the link (handled by the handle_new_user
-      // trigger pattern in production deployments).
-      let emailSent = false;
-      if (trimmedEmail.toLowerCase() !== profile.email.toLowerCase()) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: trimmedEmail,
-        });
-        if (emailError) {
-          // Partial success: name/avatar saved but email didn't.
-          toast.success('Profile saved');
-          toast.error(
-            getErrorMessage(emailError, 'Your email could not be changed')
-          );
-          setSaving(false);
-          await refreshProfile();
-          return;
-        }
-        emailSent = true;
-      }
-
-      setEmailChangePending(emailSent);
       setPendingAvatar(null);
       setPreviewUrl(null);
       setRemoveAvatar(false);
       await refreshProfile();
 
-      toast.success(
-        emailSent
-          ? 'Profile saved — check your email to confirm the address change'
-          : 'Profile saved'
-      );
+      toast.success('Profile saved');
     } catch (error) {
       toast.error(getErrorMessage(error, 'Your profile could not be saved'));
     } finally {
@@ -202,7 +160,6 @@ export function ProfileForm() {
   const dirty =
     !!profile &&
     (fullName.trim() !== (profile.full_name ?? '') ||
-      email.trim().toLowerCase() !== (profile.email ?? '').toLowerCase() ||
       pendingAvatar !== null ||
       removeAvatar);
 
@@ -210,7 +167,7 @@ export function ProfileForm() {
     <section className="animate-in fade-in-50 max-w-xl duration-200">
       <SettingsPanelHead
         title="Your profile"
-        description="Update your photo, display name, and sign-in email."
+        description="Update the photo and display name people see in UsefulDesk."
       />
       {!profile ? (
         <Alert variant={profileLoading ? 'default' : 'destructive'}>
@@ -273,40 +230,17 @@ export function ProfileForm() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="profile-full-name">Display name</Label>
-                  <Input
-                    id="profile-full-name"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Ada Lovelace"
-                    maxLength={120}
-                    disabled={saving}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="profile-email">Email</Label>
-                  <Input
-                    id="profile-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={saving}
-                    required
-                  />
-                  {emailChangePending ? (
-                    <Alert>
-                      <Mail />
-                      <AlertDescription>
-                        Confirm the change from both {profile.email} and {email}
-                        .
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="profile-full-name">Display name</Label>
+                <Input
+                  id="profile-full-name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Ada Lovelace"
+                  maxLength={120}
+                  disabled={saving}
+                  required
+                />
               </div>
             </CardContent>
             <CardFooter className="justify-end">

@@ -20,6 +20,7 @@ const { GET, POST } = await import('./route');
 const SECRET = 'test-service-role-signing-secret';
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const INVITE_TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDEFGH123456789';
+const SECURITY_PATH = '/settings?tab=security';
 
 function request(
   method: 'GET' | 'POST',
@@ -64,15 +65,17 @@ describe('password recovery update route', () => {
 
     await expect((await GET(request('GET', token))).json()).resolves.toEqual({
       allowed: true,
+      next: null,
     });
     await expect((await GET(request('GET'))).json()).resolves.toEqual({
       allowed: false,
+      next: null,
     });
     await expect(
       (
         await GET(request('GET', issueRecoveryIntent('another-user', SECRET)))
       ).json()
-    ).resolves.toEqual({ allowed: false });
+    ).resolves.toEqual({ allowed: false, next: null });
   });
 
   it('updates the password through a valid grant and clears that grant', async () => {
@@ -103,6 +106,23 @@ describe('password recovery update route', () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       next: continueTo,
+    });
+  });
+
+  it('returns the signed Login & security destination after Add password', async () => {
+    const token = issueRecoveryIntent(
+      USER_ID,
+      SECRET,
+      Date.now(),
+      SECURITY_PATH
+    );
+    const response = await POST(
+      request('POST', token, { password: 'new-password' })
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      next: SECURITY_PATH,
     });
   });
 

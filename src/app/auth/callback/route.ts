@@ -11,6 +11,7 @@ import {
   invitationTokenFromPath,
   withInvitation,
 } from '@/lib/auth/invitation-continuation';
+import { recoveryDestinationOr } from '@/lib/auth/recovery-destination';
 
 // ============================================================
 // /auth/callback — the single landing point for every Supabase
@@ -77,7 +78,12 @@ export async function GET(request: NextRequest) {
     const response = redirectTo(withInvitation('/reset-password', inviteToken));
     response.cookies.set(
       RECOVERY_INTENT_COOKIE,
-      issueRecoveryIntent(userId, secret, Date.now(), inviteContinuation),
+      issueRecoveryIntent(
+        userId,
+        secret,
+        Date.now(),
+        recoveryDestinationOr(rawNext, inviteContinuation ?? '')
+      ),
       RECOVERY_INTENT_COOKIE_OPTIONS
     );
     return response;

@@ -19,6 +19,7 @@ import {
   normalizeInvitationToken,
   withInvitation,
 } from '@/lib/auth/invitation-continuation';
+import { LOGIN_SECURITY_PATH } from '@/lib/auth/recovery-destination';
 
 // Landing page for the password-recovery flow. The user arrives
 // here from /auth/callback?next=/reset-password after clicking
@@ -50,6 +51,7 @@ function ResetPasswordPageInner() {
   const [recoveryAllowed, setRecoveryAllowed] = useState<boolean | undefined>(
     undefined
   );
+  const [addingPassword, setAddingPassword] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,9 +62,11 @@ function ResetPasswordPageInner() {
         });
         const body = (await response.json().catch(() => null)) as {
           allowed?: boolean;
+          next?: unknown;
         } | null;
         if (!cancelled) {
           setRecoveryAllowed(response.ok && body?.allowed === true);
+          setAddingPassword(body?.next === LOGIN_SECURITY_PATH);
         }
       } catch {
         if (!cancelled) setRecoveryAllowed(false);
@@ -157,13 +161,18 @@ function ResetPasswordPageInner() {
               <CheckCircle className="text-primary-text h-6 w-6" />
             </div>
             <CardTitle className="text-foreground text-xl">
-              Password updated
+              {addingPassword ? 'Password added' : 'Password updated'}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Your password has been changed. Taking you to{' '}
-              {successDestination.startsWith('/join/')
-                ? 'your invitation'
-                : 'your dashboard'}
+              {addingPassword
+                ? 'You can now sign in with Google or your password.'
+                : 'Your password has been changed.'}{' '}
+              Taking you to{' '}
+              {successDestination === LOGIN_SECURITY_PATH
+                ? 'Login & security'
+                : successDestination.startsWith('/join/')
+                  ? 'your invitation'
+                  : 'your dashboard'}
               …
             </CardDescription>
           </CardHeader>
@@ -180,10 +189,12 @@ function ResetPasswordPageInner() {
             <KeyRound className="text-primary-text h-6 w-6" />
           </div>
           <CardTitle className="text-foreground text-xl">
-            Set new password
+            {addingPassword ? 'Add a password' : 'Set new password'}
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            Choose a new password for your account
+            {addingPassword
+              ? 'Create a password fallback for your UsefulDesk account'
+              : 'Choose a new password for your account'}
           </CardDescription>
         </CardHeader>
         <CardContent>

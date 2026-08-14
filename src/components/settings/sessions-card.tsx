@@ -58,8 +58,8 @@ export function SessionsCard() {
             Active sessions
           </CardTitle>
           <CardDescription>
-            Sign out everywhere if you lost a device or someone else knows your
-            password.
+            End every UsefulDesk session on every device. This does not sign you
+            out of Google.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -80,8 +80,8 @@ export function SessionsCard() {
           <DialogHeader>
             <DialogTitle>Sign out everywhere?</DialogTitle>
             <DialogDescription>
-              This ends every session, including this one. You&apos;ll return to
-              the login page.
+              This ends every UsefulDesk session, including this one, and
+              returns you to the login page. Your Google session is unchanged.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

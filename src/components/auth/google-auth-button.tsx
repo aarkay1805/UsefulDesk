@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import { getErrorMessage } from '@/lib/errors';
 import {
   generateGoogleNonce,
+  GOOGLE_AVATAR_SEED_METADATA_KEY,
+  resolveInitialGoogleAvatar,
   type GoogleNonce,
 } from '@/lib/auth/google-identity';
 import { navigateAfterLogin } from '@/lib/auth/post-login-navigation';
@@ -111,13 +113,48 @@ export function GoogleAuthButton({
         }
 
         const supabase = createClient();
-        const { error } = await supabase.auth.signInWithIdToken({
+        const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'google',
           token: response.credential,
           nonce: rawNonce,
         });
 
         if (error) throw error;
+
+        // A first-time Google account may safely inherit its provider photo,
+        // but only while UsefulDesk has no avatar. The first-sign-in guard
+        // prevents a later Google login from undoing Remove.
+        const avatarSeed = data.user
+          ? resolveInitialGoogleAvatar(data.user)
+          : null;
+        if (avatarSeed) {
+          // Mark the one allowed attempt before touching the profile. If the
+          // marker cannot be persisted, skip the seed rather than risk a
+          // future Google login undoing the user's Remove choice.
+          const { error: markerError } = await supabase.auth.updateUser({
+            data: {
+              ...data.user.user_metadata,
+              [GOOGLE_AVATAR_SEED_METADATA_KEY]: true,
+            },
+          });
+          if (markerError) {
+            console.warn('[GoogleAuthButton] avatar seed marker failed:', {
+              message: markerError.message,
+            });
+          } else {
+            const { error: avatarError } = await supabase
+              .from('profiles')
+              .update({ avatar_url: avatarSeed.url })
+              .eq('user_id', avatarSeed.userId)
+              .is('avatar_url', null)
+              .select('id');
+            if (avatarError) {
+              console.warn('[GoogleAuthButton] initial avatar seed failed:', {
+                message: avatarError.message,
+              });
+            }
+          }
+        }
         navigateAfterLogin(inviteToken);
       } catch (error) {
         onErrorChange(

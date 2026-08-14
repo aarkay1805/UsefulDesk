@@ -10,6 +10,7 @@ import {
 const SECRET = 'test-recovery-signing-secret';
 const NOW = Date.parse('2026-08-14T12:00:00Z');
 const INVITE_TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDEFGH123456789';
+const SECURITY_PATH = '/settings?tab=security';
 
 describe('recovery intent', () => {
   it('accepts an unexpired grant for the user it was issued to', () => {
@@ -42,12 +43,20 @@ describe('recovery intent', () => {
     );
   });
 
-  it('signs an invitation-only continuation into the recovery grant', () => {
+  it('signs an invitation continuation into the recovery grant', () => {
     const continueTo = `/join/${INVITE_TOKEN}`;
     const token = issueRecoveryIntent('user-1', SECRET, NOW, continueTo);
 
     expect(readRecoveryIntent(token, 'user-1', SECRET, NOW + 1_000)).toEqual({
       continueTo,
+    });
+  });
+
+  it('signs the Login & security continuation used by Add password', () => {
+    const token = issueRecoveryIntent('user-1', SECRET, NOW, SECURITY_PATH);
+
+    expect(readRecoveryIntent(token, 'user-1', SECRET, NOW + 1_000)).toEqual({
+      continueTo: SECURITY_PATH,
     });
   });
 

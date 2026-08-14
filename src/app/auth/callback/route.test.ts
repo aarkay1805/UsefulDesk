@@ -157,6 +157,27 @@ describe('auth callback recovery handoff', () => {
     ).toBe(true);
   });
 
+  it('signs the Add password return to Login & security', async () => {
+    auth.exchangeCodeForSession.mockResolvedValue({
+      data: { redirectType: 'recovery', user: { id: USER_ID } },
+      error: null,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'https://desk.example/auth/callback?code=code-1&next=%2Fsettings%3Ftab%3Dsecurity'
+      )
+    );
+
+    expect(
+      readRecoveryIntent(
+        response.cookies.get(RECOVERY_INTENT_COOKIE)?.value,
+        USER_ID,
+        SECRET
+      )
+    ).toEqual({ continueTo: '/settings?tab=security' });
+  });
+
   it('carries an invitation into an authorized recovery landing page', async () => {
     auth.exchangeCodeForSession.mockResolvedValue({
       data: { redirectType: 'recovery', user: { id: USER_ID } },

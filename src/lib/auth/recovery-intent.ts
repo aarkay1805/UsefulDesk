@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { invitationDestinationOr } from './invitation-continuation';
+import { recoveryDestinationOr } from './recovery-destination';
 
 export const RECOVERY_INTENT_COOKIE = 'usefuldesk_recovery_intent';
 export const RECOVERY_INTENT_MAX_AGE_SECONDS = 10 * 60;
@@ -40,13 +40,13 @@ export function issueRecoveryIntent(
   now: number = Date.now(),
   continueTo: string | null = null
 ): string {
-  const invitationDestination = invitationDestinationOr(continueTo, '');
+  const recoveryDestination = recoveryDestinationOr(continueTo, '');
   const payload: RecoveryIntentPayload = {
     version: 1,
     userId,
     expiresAt: now + RECOVERY_INTENT_MAX_AGE_SECONDS * 1000,
     nonce: randomBytes(18).toString('base64url'),
-    ...(invitationDestination ? { continueTo: invitationDestination } : {}),
+    ...(recoveryDestination ? { continueTo: recoveryDestination } : {}),
   };
   const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
   return `${encoded}.${sign(encoded, secret)}`;
@@ -90,7 +90,7 @@ export function readRecoveryIntent(
       return null;
     }
 
-    const continueTo = invitationDestinationOr(payload.continueTo, '');
+    const continueTo = recoveryDestinationOr(payload.continueTo, '');
     if (payload.continueTo !== undefined && !continueTo) return null;
     return { continueTo: continueTo || null };
   } catch {

@@ -5,8 +5,14 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const signInWithIdToken = vi.hoisted(() => vi.fn());
+const updateAuthUser = vi.hoisted(() => vi.fn());
 const generateGoogleNonce = vi.hoisted(() => vi.fn());
 const navigateAfterLogin = vi.hoisted(() => vi.fn());
+const selectProfile = vi.hoisted(() => vi.fn());
+const isAvatarNull = vi.hoisted(() => vi.fn(() => ({ select: selectProfile })));
+const eqUser = vi.hoisted(() => vi.fn(() => ({ is: isAvatarNull })));
+const updateProfile = vi.hoisted(() => vi.fn(() => ({ eq: eqUser })));
+const from = vi.hoisted(() => vi.fn(() => ({ update: updateProfile })));
 
 vi.mock('next/script', async () => {
   const React = await vi.importActual<typeof import('react')>('react');
@@ -20,10 +26,18 @@ vi.mock('next/script', async () => {
   return { default: MockScript };
 });
 
-vi.mock('@/lib/auth/google-identity', () => ({ generateGoogleNonce }));
+vi.mock('@/lib/auth/google-identity', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/auth/google-identity')
+  >('@/lib/auth/google-identity');
+  return { ...actual, generateGoogleNonce };
+});
 vi.mock('@/lib/auth/post-login-navigation', () => ({ navigateAfterLogin }));
 vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({ auth: { signInWithIdToken } }),
+  createClient: () => ({
+    auth: { signInWithIdToken, updateUser: updateAuthUser },
+    from,
+  }),
 }));
 
 const { GoogleAuthButton } = await import('./google-auth-button');
@@ -44,12 +58,23 @@ beforeEach(() => {
     'NEXT_PUBLIC_GOOGLE_CLIENT_ID',
     'public-client.apps.googleusercontent.com'
   );
-  signInWithIdToken.mockReset().mockResolvedValue({ error: null });
+  signInWithIdToken.mockReset().mockResolvedValue({
+    data: { user: null },
+    error: null,
+  });
+  updateAuthUser.mockReset().mockResolvedValue({ error: null });
   generateGoogleNonce.mockReset().mockResolvedValue({
     raw: 'raw-nonce-1',
     hashed: 'hashed-nonce-1',
   });
   navigateAfterLogin.mockReset();
+  selectProfile
+    .mockReset()
+    .mockResolvedValue({ data: [{ id: 'profile-id' }], error: null });
+  isAvatarNull.mockClear();
+  eqUser.mockClear();
+  updateProfile.mockClear();
+  from.mockClear();
   initialize.mockReset();
   renderButton.mockClear();
   Object.assign(window, {
@@ -163,5 +188,67 @@ describe('GoogleAuthButton', () => {
     );
     await screen.findByRole('button', { name: 'Continue with Google' });
     expect(generateGoogleNonce).toHaveBeenCalledTimes(2);
+  });
+
+  it('seeds a first-time Google photo only while the profile avatar is null', async () => {
+    signInWithIdToken.mockResolvedValueOnce({
+      data: {
+        user: {
+          id: 'new-user',
+          created_at: '2026-08-15T10:00:00.000Z',
+          last_sign_in_at: '2026-08-15T10:00:01.000Z',
+          user_metadata: { picture: 'https://images.example/avatar.png' },
+        },
+      },
+      error: null,
+    });
+    render(<GoogleAuthButton inviteToken={null} onErrorChange={vi.fn()} />);
+
+    await screen.findByRole('button', { name: 'Continue with Google' });
+    const config = initialize.mock.calls[0][0] as {
+      callback: (response: { credential: string }) => void;
+    };
+    config.callback({ credential: 'google-id-token' });
+
+    await waitFor(() =>
+      expect(updateProfile).toHaveBeenCalledWith({
+        avatar_url: 'https://images.example/avatar.png',
+      })
+    );
+    expect(updateAuthUser).toHaveBeenCalledWith({
+      data: {
+        picture: 'https://images.example/avatar.png',
+        usefuldesk_google_avatar_seed_attempted: true,
+      },
+    });
+    expect(eqUser).toHaveBeenCalledWith('user_id', 'new-user');
+    expect(isAvatarNull).toHaveBeenCalledWith('avatar_url', null);
+  });
+
+  it('skips the photo when the one-time marker cannot be persisted', async () => {
+    updateAuthUser.mockResolvedValueOnce({
+      error: new Error('metadata unavailable'),
+    });
+    signInWithIdToken.mockResolvedValueOnce({
+      data: {
+        user: {
+          id: 'new-user',
+          created_at: '2026-08-15T10:00:00.000Z',
+          last_sign_in_at: '2026-08-15T10:00:01.000Z',
+          user_metadata: { picture: 'https://images.example/avatar.png' },
+        },
+      },
+      error: null,
+    });
+    render(<GoogleAuthButton inviteToken={null} onErrorChange={vi.fn()} />);
+
+    await screen.findByRole('button', { name: 'Continue with Google' });
+    const config = initialize.mock.calls[0][0] as {
+      callback: (response: { credential: string }) => void;
+    };
+    config.callback({ credential: 'google-id-token' });
+
+    await waitFor(() => expect(navigateAfterLogin).toHaveBeenCalled());
+    expect(updateProfile).not.toHaveBeenCalled();
   });
 });

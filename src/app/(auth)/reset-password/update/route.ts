@@ -38,7 +38,10 @@ async function authorizedRecovery(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const recovery = await authorizedRecovery(request);
   return NextResponse.json(
-    { allowed: Boolean(recovery) },
+    {
+      allowed: Boolean(recovery),
+      next: recovery?.continueTo ?? null,
+    },
     {
       headers: { 'Cache-Control': 'private, no-store' },
     }

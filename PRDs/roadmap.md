@@ -18,7 +18,7 @@ Engineering maintenance: **public lead forms now atomically retain the contact, 
 
 Engineering maintenance: **Settings → Appearance has compact keyboard-native mode and accent choices, concise copy, immediate account-synced updates, responsive density, and explicit detection of silently blocked profile writes**.
 
-Engineering maintenance: **Settings → Login & security has concise task copy, accessible field-linked password errors, a contained save state, and a clearly destructive global sign-out confirmation that cannot disappear while pending**.
+Engineering maintenance: **Settings → Login & security is provider-aware from Supabase's authoritative linked identities: Google-only, password-only, and Google-plus-password accounts get explicit loading/retry states, accurate connected methods, a verified recovery-link Add password path with no current-password prompt, the existing current-password change flow, separate confirmation-aware account-email management that keeps Google linked, and provider-neutral global UsefulDesk sign-out that does not claim to end Google sessions**.
 
 Engineering maintenance: **password recovery now requires a short-lived, server-signed grant minted only by a verified Supabase recovery exchange; ordinary authenticated sessions, cross-site requests, user-mismatched grants, and tampered or expired grants cannot use the reset route, and a successful update clears the grant**.
 
@@ -30,7 +30,7 @@ Engineering maintenance: **direct Google Identity Services login/signup is live 
 
 Engineering maintenance: **profiles are now privileged membership projections rather than client-created authority rows: browser and anonymous roles have neither an INSERT policy nor table grant, while atomic signup, audited membership lifecycle operations, self-service profile updates, and trusted backend administration remain intact. Migration `20260814165451_close_profile_insert_authority.sql` was applied to Test and Production; both had zero orphan Auth users or profile/membership inconsistencies to repair**.
 
-Engineering maintenance: **Settings → Your profile is reduced to its three owner-facing tasks—photo, display name, and sign-in email—with canonical avatar and alert primitives, a contained save action, explicit loading/unavailable states, and verified profile-update row returns instead of misleading internal role and user-ID detail**.
+Engineering maintenance: **Settings → Your profile is reduced to its two cosmetic tasks—photo and display name—with the canonical avatar and alert primitives, a contained save action, explicit loading/unavailable states, and verified profile-update row returns; sign-in email now lives only in Login & security, and a new Google account may seed its provider photo once without ever overriding a UsefulDesk photo or a later Remove**.
 
 Engineering maintenance: **Settings → WhatsApp now separates API access from inbound-delivery readiness, preserves delivery diagnostics, uses account-local timestamps, gates every change and verification path for non-admins, confirms resets accessibly, and keeps the Meta guided/manual credential flows responsive and concise without changing connection or registration security**.
 
