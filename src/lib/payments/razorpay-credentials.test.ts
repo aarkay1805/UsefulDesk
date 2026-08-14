@@ -139,6 +139,31 @@ describe('Razorpay OAuth credential resolver', () => {
     ).rejects.toThrow(/blocked or needs reconnecting/);
   });
 
+  it('keeps stale readiness blocked outside the explicit recovery path', async () => {
+    vi.stubEnv('RAZORPAY_MODE', 'test');
+    vi.stubEnv('RAZORPAY_OAUTH_ENABLED', 'true');
+    const stale = credentialDb(
+      baseRow({
+        activation_verified_at: new Date(
+          Date.now() - 2 * 86_400_000
+        ).toISOString(),
+      })
+    );
+
+    await expect(getRazorpayConnection(stale, 'account')).rejects.toThrow(
+      /blocked or needs reconnecting/
+    );
+    await expect(
+      getRazorpayConnection(stale, 'account', {
+        allowStaleReadinessForRecovery: true,
+      })
+    ).resolves.toMatchObject({
+      accountId: 'account',
+      authenticationMode: 'oauth',
+      authentication: { mode: 'oauth', accessToken: 'access' },
+    });
+  });
+
   it('rejects a ready OAuth row without its bound read_write scope', async () => {
     vi.stubEnv('RAZORPAY_MODE', 'test');
     vi.stubEnv('RAZORPAY_OAUTH_ENABLED', 'true');

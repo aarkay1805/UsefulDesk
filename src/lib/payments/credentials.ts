@@ -202,7 +202,10 @@ export async function getRazorpayDiagnosticScope(
 export async function getRazorpayConnection(
   admin: SupabaseClient,
   accountId: string,
-  options: { forceRefresh?: boolean } = {}
+  options: {
+    forceRefresh?: boolean;
+    allowStaleReadinessForRecovery?: boolean;
+  } = {}
 ): Promise<RazorpayConnection | null> {
   const mode = getRazorpayProviderMode();
   const row = await loadCredentialRow(admin, accountId);
@@ -212,7 +215,10 @@ export async function getRazorpayConnection(
   if (!isRazorpayOAuthEnabled()) {
     throw new Error('Razorpay OAuth is disabled in this environment');
   }
-  if (row.connection_status !== 'ready' || !readinessIsUsable(row)) {
+  if (
+    row.connection_status !== 'ready' ||
+    (!options.allowStaleReadinessForRecovery && !readinessIsUsable(row))
+  ) {
     throw new Error(
       'Razorpay OAuth connection is blocked or needs reconnecting'
     );

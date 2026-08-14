@@ -1071,3 +1071,62 @@ owner-controlled evidence rather than the real gym-owner pilot.
 All rollout and acceptance flags remain false at rest. The existing OAuth
 client-secret rotation remains deferred under the recorded owner risk
 acceptance and is not part of this pilot plan.
+
+### Owner-controlled Rajat readiness revalidation
+
+On 2026-08-14 the owner selected and separately confirmed the existing Rajat
+Kashyap account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` and already-bound Live
+merchant `acc_TCJwBqanN9LTrK` for connection-readiness revalidation only. This
+did not relabel the historical acceptance account as an independent real-gym
+pilot and did not authorize another merchant, consent flow, Payment Link,
+payment, refund, or WhatsApp message.
+
+The secret-blind preflight proved one active owner membership, INR account
+configuration, the exact OAuth/Live/storage-v1/application/`read_write`/ready
+binding, zero conflicting merchant bindings or active OAuth states, and zero
+operational queues. Its token was healthy through November 2026, but the
+provider readiness fact from 2026-08-11 had exceeded the 24-hour freshness
+boundary. The existing refresh route could not recover that state because it
+applied the ordinary stale-readiness block before force-refreshing and did not
+persist a new readiness result. The Payments card also exposed no refresh
+action.
+
+The narrow repair keeps ordinary payment work unchanged and fail-closed. Only
+the authenticated, same-origin `requirePaymentGatewayAccess()` refresh route
+may cross stale readiness for recovery; it first requires the configured Live
+account pin and already-bound merchant pin, force-rotates the stored OAuth
+grant through the existing single-flight lease, runs the provider's read-only
+account/capability readiness probes, and finalizes the connection fact. The
+existing Payments card now exposes **Verify connection** for that route. Tests
+lock the normal stale rejection, recovery-only exception, CSRF/capability
+boundary, exact pins, forced refresh, provider verification, and persisted
+closeout.
+
+Production deployments progressed as follows without changing the isolated
+Test project:
+
+- `dpl_DSr6m2JN5r3GYzqXuPeaYxGTPYVb` shipped the backend repair while OAuth
+  remained false;
+- `dpl_74ag2jBvhS45MRckSMXjcvtCtf4p` was the shortest owner-approved window
+  with only `RAZORPAY_OAUTH_ENABLED=true`; the account/merchant pins remained
+  exact, while first-bind enrollment and every provider/refund acceptance flag
+  remained false;
+- the signed-in Rajat owner invoked **Verify connection** once. The provider
+  refresh and read-only readiness probes returned Connected/ready, advanced
+  token generation from 1 to 2, and recorded activation verification at
+  `2026-08-14T16:15:17.572Z` and final verification at
+  `2026-08-14T16:15:20.112Z`;
+- OAuth was immediately restored to false. Final Production deployment
+  `dpl_6BurUwHRp6AramDkS23hZAMkvAX4` is READY and aliased to
+  `desk.usefulmade.com`; the owner UI shows Connected/Live/fresh readiness with
+  Verify and Reconnect disabled at rest.
+
+The final secret-blind database closeout proves authentication mode OAuth,
+Live mode, storage version 1, application ingress, `read_write`, ready state,
+no manual material, refresh or scan lease, or error, zero active OAuth states
+or conflicting bindings, zero unfinished/failed Payment Links or refunds,
+zero open payment/charge/refund exceptions, and zero unresolved exact-Live
+webhooks. The bounded window created zero Payment Links, payments, or refunds.
+VBF/Aakash remained closed, no WhatsApp message was sent, the Pending Meta
+templates were not claimed as approved, and the accepted deferral of OAuth
+client-secret rotation was unchanged.

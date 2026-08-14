@@ -147,6 +147,7 @@ export function RazorpaySettingsCard() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [connecting, setConnecting] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [recovering, setRecovering] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
@@ -273,6 +274,32 @@ export function RazorpaySettingsCard() {
       toast.error(getErrorMessage(error, 'Could not disconnect Razorpay'));
     } finally {
       setDisconnecting(false);
+    }
+  }
+
+  async function verifyConnection() {
+    setVerifying(true);
+    try {
+      const response = await fetch('/api/payments/razorpay/oauth/refresh', {
+        method: 'POST',
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not verify Razorpay connection');
+      }
+      const next = body.connection as BrowserSafeConnection;
+      setConnection(next);
+      if (next.configured && next.connectionStatus === 'ready') {
+        toast.success('Razorpay connection verified');
+      } else {
+        toast.warning('Razorpay connection needs attention');
+      }
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error, 'Could not verify Razorpay connection')
+      );
+    } finally {
+      setVerifying(false);
     }
   }
 
@@ -453,24 +480,43 @@ export function RazorpaySettingsCard() {
                       Recheck connection
                     </Button>
                   ) : (
-                    <Button
-                      variant="outline"
-                      onClick={beginConnect}
-                      disabled={connecting || !connection.oauthEnabled}
-                    >
-                      {connecting ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="size-4" />
-                      )}
-                      Reconnect
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={verifyConnection}
+                        disabled={
+                          verifying || connecting || !connection.oauthEnabled
+                        }
+                      >
+                        {verifying ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="size-4" />
+                        )}
+                        Verify connection
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={beginConnect}
+                        disabled={
+                          connecting || verifying || !connection.oauthEnabled
+                        }
+                      >
+                        {connecting ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="size-4" />
+                        )}
+                        Reconnect
+                      </Button>
+                    </>
                   )}
                   <Button
                     variant="destructive"
                     onClick={() => setDisconnectOpen(true)}
                     disabled={
                       disconnecting ||
+                      verifying ||
                       recovering ||
                       connection.connectionStatus === 'disconnecting'
                     }
