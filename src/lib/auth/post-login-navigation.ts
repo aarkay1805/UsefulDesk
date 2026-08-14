@@ -1,7 +1,12 @@
+import {
+  invitationJoinPath,
+  normalizeInvitationToken,
+} from './invitation-continuation';
+
 export function postLoginDestination(inviteToken: string | null): string {
-  return inviteToken
-    ? `/join/${encodeURIComponent(inviteToken)}`
-    : '/dashboard';
+  return (
+    invitationJoinPath(normalizeInvitationToken(inviteToken)) ?? '/dashboard'
+  );
 }
 
 /** Force a top-level request so freshly written Supabase cookies reach proxy. */

@@ -4,7 +4,7 @@ import { requireSameOriginRequest } from '@/lib/auth/csrf';
 import {
   RECOVERY_INTENT_COOKIE,
   RECOVERY_INTENT_COOKIE_OPTIONS,
-  verifyRecoveryIntent,
+  readRecoveryIntent,
 } from '@/lib/auth/recovery-intent';
 import { createClient } from '@/lib/supabase/server';
 
@@ -30,8 +30,9 @@ async function authorizedRecovery(request: NextRequest) {
   if (error || !user) return null;
 
   const token = request.cookies.get(RECOVERY_INTENT_COOKIE)?.value;
-  if (!verifyRecoveryIntent(token, user.id, secret)) return null;
-  return { supabase };
+  const intent = readRecoveryIntent(token, user.id, secret);
+  if (!intent) return null;
+  return { supabase, continueTo: intent.continueTo };
 }
 
 export async function GET(request: NextRequest) {
@@ -85,5 +86,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return clearRecoveryIntent(NextResponse.json({ ok: true }));
+  return clearRecoveryIntent(
+    NextResponse.json({
+      ok: true,
+      next: recovery.continueTo ?? '/dashboard',
+    })
+  );
 }

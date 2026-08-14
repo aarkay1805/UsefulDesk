@@ -6,16 +6,23 @@ import {
 } from './post-login-navigation';
 
 describe('post-login full-page navigation', () => {
+  const inviteToken = 'abcdefghijklmnopqrstuvwxyzABCDEFGH123456789';
+
   it('loads the dashboard after a normal sign-in', () => {
     const location = { href: 'https://desk.example/login' };
     navigateAfterLogin(null, location);
     expect(location.href).toBe('/dashboard');
   });
 
-  it('preserves and safely encodes the invitation destination', () => {
+  it('preserves a validated invitation destination', () => {
     const location = { href: 'https://desk.example/login' };
-    navigateAfterLogin('token/with spaces', location);
-    expect(location.href).toBe('/join/token%2Fwith%20spaces');
-    expect(postLoginDestination('invite-123')).toBe('/join/invite-123');
+    navigateAfterLogin(inviteToken, location);
+    expect(location.href).toBe(`/join/${inviteToken}`);
+    expect(postLoginDestination(inviteToken)).toBe(`/join/${inviteToken}`);
+  });
+
+  it('does not turn an untrusted value into a return destination', () => {
+    expect(postLoginDestination('//evil.example')).toBe('/dashboard');
+    expect(postLoginDestination('token/with spaces')).toBe('/dashboard');
   });
 });

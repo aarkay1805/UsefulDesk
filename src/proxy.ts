@@ -5,6 +5,10 @@ import {
   BRANCH_QUERY_PARAM,
   isBranchAccountId,
 } from '@/lib/auth/branch-context';
+import {
+  invitationJoinPath,
+  normalizeInvitationToken,
+} from '@/lib/auth/invitation-continuation';
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -64,13 +68,12 @@ export async function proxy(request: NextRequest) {
       request.nextUrl.pathname === '/forgot-password')
   ) {
     const url = request.nextUrl.clone();
-    const inviteToken = request.nextUrl.searchParams.get('invite');
-    if (
-      inviteToken &&
-      (request.nextUrl.pathname === '/login' ||
-        request.nextUrl.pathname === '/signup')
-    ) {
-      url.pathname = `/join/${encodeURIComponent(inviteToken)}`;
+    const inviteToken = normalizeInvitationToken(
+      request.nextUrl.searchParams.get('invite')
+    );
+    const joinPath = invitationJoinPath(inviteToken);
+    if (joinPath) {
+      url.pathname = joinPath;
       url.search = '';
     } else {
       url.pathname = '/dashboard';

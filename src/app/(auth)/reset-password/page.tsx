@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +14,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { KeyRound, CheckCircle, ArrowLeft } from 'lucide-react';
+import {
+  invitationDestinationOr,
+  normalizeInvitationToken,
+  withInvitation,
+} from '@/lib/auth/invitation-continuation';
 
 // Landing page for the password-recovery flow. The user arrives
 // here from /auth/callback?next=/reset-password after clicking
@@ -23,12 +28,25 @@ import { KeyRound, CheckCircle, ArrowLeft } from 'lucide-react';
 // that grant again before changing the password; a normal signed-in
 // session is not sufficient.
 export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordPageInner />
+    </Suspense>
+  );
+}
+
+function ResetPasswordPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const inviteToken = normalizeInvitationToken(searchParams.get('invite'));
+  const loginPath = withInvitation('/login', inviteToken);
+  const forgotPasswordPath = withInvitation('/forgot-password', inviteToken);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [successDestination, setSuccessDestination] = useState('/dashboard');
   const [recoveryAllowed, setRecoveryAllowed] = useState<boolean | undefined>(
     undefined
   );
@@ -85,10 +103,20 @@ export default function ResetPasswordPage() {
       return;
     }
 
+    const body = (await response.json().catch(() => null)) as {
+      next?: unknown;
+    } | null;
+    const destination = invitationDestinationOr(
+      typeof body?.next === 'string' ? body.next : null,
+      '/dashboard'
+    );
+
+    setSuccessDestination(destination);
     setSuccess(true);
     setLoading(false);
-    // Recovery session is a full session — continue into the app.
-    setTimeout(() => router.push('/dashboard'), 1500);
+    // The server response reads this destination from the signed recovery
+    // grant; the browser never supplies an arbitrary return-to value.
+    setTimeout(() => router.push(destination), 1500);
   };
 
   // ----- No recovery session: link expired or opened cold -----
@@ -109,7 +137,7 @@ export default function ResetPasswordPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/forgot-password">
+            <Link href={forgotPasswordPath}>
               <Button className="bg-primary text-primary-foreground hover:bg-primary/90 w-full">
                 Request new link
               </Button>
@@ -132,7 +160,11 @@ export default function ResetPasswordPage() {
               Password updated
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Your password has been changed. Taking you to your dashboard…
+              Your password has been changed. Taking you to{' '}
+              {successDestination.startsWith('/join/')
+                ? 'your invitation'
+                : 'your dashboard'}
+              …
             </CardDescription>
           </CardHeader>
         </Card>
@@ -209,7 +241,7 @@ export default function ResetPasswordPage() {
           </form>
 
           <Link
-            href="/login"
+            href={loginPath}
             className="text-muted-foreground hover:text-foreground mt-6 flex items-center justify-center gap-2 text-sm"
           >
             <ArrowLeft className="h-4 w-4" />

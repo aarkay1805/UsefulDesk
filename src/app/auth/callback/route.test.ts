@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 import {
+  readRecoveryIntent,
   RECOVERY_INTENT_COOKIE,
   verifyRecoveryIntent,
 } from '@/lib/auth/recovery-intent';
@@ -19,6 +20,7 @@ const { GET } = await import('./route');
 
 const SECRET = 'test-service-role-signing-secret';
 const USER_ID = '11111111-1111-4111-8111-111111111111';
+const INVITE_TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDEFGH123456789';
 
 beforeEach(() => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = SECRET;
@@ -27,6 +29,73 @@ beforeEach(() => {
 });
 
 describe('auth callback recovery handoff', () => {
+  it('keeps an invitation continuation when an ordinary code exchange fails', async () => {
+    auth.exchangeCodeForSession.mockResolvedValue({
+      data: {},
+      error: { message: 'PKCE verifier missing' },
+    });
+
+    const response = await GET(
+      new NextRequest(
+        `https://desk.example/auth/callback?code=code-1&next=${encodeURIComponent(`/join/${INVITE_TOKEN}`)}`
+      )
+    );
+    const location = new URL(response.headers.get('location')!);
+
+    expect(location.pathname).toBe('/login');
+    expect(location.searchParams.get('error')).toContain(
+      'Could not verify your email link'
+    );
+    expect(location.searchParams.get('invite')).toBe(INVITE_TOKEN);
+  });
+
+  it('keeps an invitation continuation when token-hash verification fails', async () => {
+    auth.verifyOtp.mockResolvedValue({
+      data: {},
+      error: { message: 'Token expired' },
+    });
+
+    const response = await GET(
+      new NextRequest(
+        `https://desk.example/auth/callback?token_hash=hash-1&type=signup&next=${encodeURIComponent(`/join/${INVITE_TOKEN}`)}`
+      )
+    );
+    const location = new URL(response.headers.get('location')!);
+
+    expect(location.pathname).toBe('/login');
+    expect(location.searchParams.get('invite')).toBe(INVITE_TOKEN);
+  });
+
+  it('keeps an invitation continuation from provider-reported link errors', async () => {
+    const response = await GET(
+      new NextRequest(
+        `https://desk.example/auth/callback?error=access_denied&error_description=Link%20expired&next=${encodeURIComponent(`/join/${INVITE_TOKEN}`)}`
+      )
+    );
+    const location = new URL(response.headers.get('location')!);
+
+    expect(location.searchParams.get('error')).toBe('Link expired');
+    expect(location.searchParams.get('invite')).toBe(INVITE_TOKEN);
+  });
+
+  it('never converts an arbitrary next value into a login continuation', async () => {
+    auth.exchangeCodeForSession.mockResolvedValue({
+      data: {},
+      error: { message: 'bad code' },
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'https://desk.example/auth/callback?code=code-1&next=%2F%2Fevil.example'
+      )
+    );
+    const location = new URL(response.headers.get('location')!);
+
+    expect(location.origin).toBe('https://desk.example');
+    expect(location.pathname).toBe('/login');
+    expect(location.searchParams.get('invite')).toBeNull();
+  });
+
   it('mints a signed recovery grant only for a recovery PKCE exchange', async () => {
     auth.exchangeCodeForSession.mockResolvedValue({
       data: { redirectType: 'recovery', user: { id: USER_ID } },
@@ -86,5 +155,29 @@ describe('auth callback recovery handoff', () => {
         SECRET
       )
     ).toBe(true);
+  });
+
+  it('carries an invitation into an authorized recovery landing page', async () => {
+    auth.exchangeCodeForSession.mockResolvedValue({
+      data: { redirectType: 'recovery', user: { id: USER_ID } },
+      error: null,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        `https://desk.example/auth/callback?code=code-1&next=${encodeURIComponent(`/join/${INVITE_TOKEN}`)}`
+      )
+    );
+
+    expect(response.headers.get('location')).toBe(
+      `https://desk.example/reset-password?invite=${INVITE_TOKEN}`
+    );
+    expect(
+      readRecoveryIntent(
+        response.cookies.get(RECOVERY_INTENT_COOKIE)?.value,
+        USER_ID,
+        SECRET
+      )
+    ).toEqual({ continueTo: `/join/${INVITE_TOKEN}` });
   });
 });

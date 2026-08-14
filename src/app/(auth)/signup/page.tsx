@@ -4,6 +4,11 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { normalizeSignupFullName } from "@/lib/auth/signup";
+import {
+  invitationJoinPath,
+  normalizeInvitationToken,
+  withInvitation,
+} from "@/lib/auth/invitation-continuation";
 import { createClient } from "@/lib/supabase/client";
 import {
   COUNTRY_OPTIONS,
@@ -46,7 +51,7 @@ function SignupPageInner() {
   // verification → redirect round-trip. `emailRedirectTo` below
   // points at /auth/callback with next=/join/<token> so the user
   // lands on the redeem step after verifying instead of /dashboard.
-  const inviteToken = searchParams.get("invite");
+  const inviteToken = normalizeInvitationToken(searchParams.get("invite"));
 
   const [fullName, setFullName] = useState("");
   const [country, setCountry] = useState("IN");
@@ -87,9 +92,7 @@ function SignupPageInner() {
     // page's redirect('/dashboard') strips the ?code param before
     // the client can exchange it, so the user lands on /login with
     // no session despite being verified.
-    const next = inviteToken
-      ? `/join/${encodeURIComponent(inviteToken)}`
-      : "/dashboard";
+    const next = invitationJoinPath(inviteToken) ?? "/dashboard";
     const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
     // The country picker resolves to a full localization preset
@@ -138,11 +141,7 @@ function SignupPageInner() {
           </CardHeader>
           <CardContent>
             <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
-              }
+              href={withInvitation("/login", inviteToken)}
             >
               <Button
                 variant="outline"
@@ -279,11 +278,7 @@ function SignupPageInner() {
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
-              }
+              href={withInvitation("/login", inviteToken)}
               className="text-primary-text hover:text-primary-text/80"
             >
               Sign in

@@ -16,6 +16,10 @@ import {
 } from '@/components/ui/card';
 import { MessageSquare, UsersRound } from 'lucide-react';
 import { navigateAfterLogin } from '@/lib/auth/post-login-navigation';
+import {
+  normalizeInvitationToken,
+  withInvitation,
+} from '@/lib/auth/invitation-continuation';
 
 // `useSearchParams` opts the component out of static prerendering
 // unless it sits under a Suspense boundary. We split the form into
@@ -35,7 +39,7 @@ function LoginPageInner() {
   // Forwarded from `/join/<token>` when the visitor already has an
   // account. After a successful sign-in we send them to the join
   // page to accept rather than to /dashboard.
-  const inviteToken = searchParams.get('invite');
+  const inviteToken = normalizeInvitationToken(searchParams.get('invite'));
   // /auth/callback bounces here with a human-readable ?error= when
   // an email verification / recovery link fails (expired, reused,
   // opened in a different browser). Seed the banner with it.
@@ -118,7 +122,7 @@ function LoginPageInner() {
                   Password
                 </Label>
                 <Link
-                  href="/forgot-password"
+                  href={withInvitation('/forgot-password', inviteToken)}
                   className="text-primary-text hover:text-primary-text/80 text-sm"
                 >
                   Forgot password?
@@ -147,11 +151,7 @@ function LoginPageInner() {
           <p className="text-muted-foreground mt-6 text-center text-sm">
             Don&apos;t have an account?{' '}
             <Link
-              href={
-                inviteToken
-                  ? `/signup?invite=${encodeURIComponent(inviteToken)}`
-                  : '/signup'
-              }
+              href={withInvitation('/signup', inviteToken)}
               className="text-primary-text hover:text-primary-text/80"
             >
               Create account

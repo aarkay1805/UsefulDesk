@@ -22,6 +22,8 @@ Engineering maintenance: **Settings → Login & security has concise task copy, 
 
 Engineering maintenance: **password recovery now requires a short-lived, server-signed grant minted only by a verified Supabase recovery exchange; ordinary authenticated sessions, cross-site requests, user-mismatched grants, and tampered or expired grants cannot use the reset route, and a successful update clears the grant**.
 
+Engineering maintenance: **validated team-invitation continuations now survive signup verification failures and forgot-password recovery through callback, reset success, login, and proxy handling; only current-format invite tokens can produce an internal `/join/<token>` destination, recovery completion takes it from the signed user-bound grant, and ordinary auth keeps its dashboard destination**.
+
 Engineering maintenance: **signup now normalizes and requires a nonblank full name at both the form and database boundaries, and tenant provisioning failures abort the Supabase Auth insert instead of silently leaving a login without its organization, branch, profile, or memberships**.
 
 Engineering maintenance: **profiles are now privileged membership projections rather than client-created authority rows: browser and anonymous roles have neither an INSERT policy nor table grant, while atomic signup, audited membership lifecycle operations, self-service profile updates, and trusted backend administration remain intact. Migration `20260814165451_close_profile_insert_authority.sql` was applied to Test and Production; both had zero orphan Auth users or profile/membership inconsistencies to repair**.

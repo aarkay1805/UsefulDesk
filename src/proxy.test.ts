@@ -53,6 +53,7 @@ const ROTATED = {
   value: 'rotated-refresh-token',
   options: { path: '/', httpOnly: true },
 };
+const INVITE_TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDEFGH123456789';
 
 describe('proxy authentication', () => {
   it('carries the rotated token when redirecting a signed-in user off /login', async () => {
@@ -88,11 +89,33 @@ describe('proxy authentication', () => {
     refreshedCookies = [ROTATED];
 
     const res = await proxy(
-      new NextRequest('https://app.test/login?invite=abc123')
+      new NextRequest(`https://app.test/login?invite=${INVITE_TOKEN}`)
     );
 
-    expect(res.headers.get('location')).toContain('/join/abc123');
+    expect(res.headers.get('location')).toContain(`/join/${INVITE_TOKEN}`);
     expect(res.cookies.get(ROTATED.name)?.value).toBe(ROTATED.value);
+  });
+
+  it('keeps a signed-in invitee on the join flow from forgot-password', async () => {
+    mockUser = { id: 'user-1' };
+
+    const res = await proxy(
+      new NextRequest(`https://app.test/forgot-password?invite=${INVITE_TOKEN}`)
+    );
+
+    expect(res.headers.get('location')).toBe(
+      `https://app.test/join/${INVITE_TOKEN}`
+    );
+  });
+
+  it('does not treat an untrusted invite query as a continuation', async () => {
+    mockUser = { id: 'user-1' };
+
+    const res = await proxy(
+      new NextRequest('https://app.test/login?invite=%2F%2Fevil.example')
+    );
+
+    expect(res.headers.get('location')).toBe('https://app.test/dashboard');
   });
 
   it('passes through (no redirect) for a signed-in user on a protected page', async () => {

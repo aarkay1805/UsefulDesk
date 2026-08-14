@@ -19,6 +19,7 @@ const { GET, POST } = await import('./route');
 
 const SECRET = 'test-service-role-signing-secret';
 const USER_ID = '11111111-1111-4111-8111-111111111111';
+const INVITE_TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDEFGH123456789';
 
 function request(
   method: 'GET' | 'POST',
@@ -81,11 +82,28 @@ describe('password recovery update route', () => {
     );
 
     expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      next: '/dashboard',
+    });
     expect(auth.updateUser).toHaveBeenCalledWith({ password: 'new-password' });
     expect(response.headers.get('set-cookie')).toContain(
       `${RECOVERY_INTENT_COOKIE}=`
     );
     expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+  });
+
+  it('returns only the invitation destination signed into the recovery grant', async () => {
+    const continueTo = `/join/${INVITE_TOKEN}`;
+    const token = issueRecoveryIntent(USER_ID, SECRET, Date.now(), continueTo);
+    const response = await POST(
+      request('POST', token, { password: 'new-password' })
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      next: continueTo,
+    });
   });
 
   it('enforces same-origin submission and the eight-character policy', async () => {

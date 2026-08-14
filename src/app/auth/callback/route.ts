@@ -6,6 +6,11 @@ import {
   RECOVERY_INTENT_COOKIE,
   RECOVERY_INTENT_COOKIE_OPTIONS,
 } from '@/lib/auth/recovery-intent';
+import {
+  invitationJoinPath,
+  invitationTokenFromPath,
+  withInvitation,
+} from '@/lib/auth/invitation-continuation';
 
 // ============================================================
 // /auth/callback — the single landing point for every Supabase
@@ -48,25 +53,31 @@ export async function GET(request: NextRequest) {
     rawNext.startsWith('/') && !rawNext.startsWith('//')
       ? rawNext
       : '/dashboard';
+  const inviteToken = invitationTokenFromPath(rawNext);
+  const inviteContinuation = invitationJoinPath(inviteToken);
 
   const redirectTo = (path: string) =>
     NextResponse.redirect(`${origin}${path}`);
+
+  const redirectToLoginError = (message: string) => {
+    const params = new URLSearchParams({ error: message });
+    const loginPath = withInvitation(`/login?${params}`, inviteToken);
+    return redirectTo(loginPath);
+  };
 
   const redirectToPasswordReset = (userId: string) => {
     const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!secret) {
       console.error('[auth/callback] recovery intent secret is unavailable');
-      return redirectTo(
-        `/login?error=${encodeURIComponent(
-          'Could not start password recovery. Request a new link.'
-        )}`
+      return redirectToLoginError(
+        'Could not start password recovery. Request a new link.'
       );
     }
 
-    const response = redirectTo('/reset-password');
+    const response = redirectTo(withInvitation('/reset-password', inviteToken));
     response.cookies.set(
       RECOVERY_INTENT_COOKIE,
-      issueRecoveryIntent(userId, secret),
+      issueRecoveryIntent(userId, secret, Date.now(), inviteContinuation),
       RECOVERY_INTENT_COOKIE_OPTIONS
     );
     return response;
@@ -87,10 +98,8 @@ export async function GET(request: NextRequest) {
       return redirectTo(next);
     }
     console.error('[auth/callback] code exchange failed:', error.message);
-    return redirectTo(
-      `/login?error=${encodeURIComponent(
-        'Could not verify your email link. Open it in the same browser you signed up in, or request a new one.'
-      )}`
+    return redirectToLoginError(
+      'Could not verify your email link. Open it in the same browser you signed up in, or request a new one.'
     );
   }
 
@@ -106,19 +115,13 @@ export async function GET(request: NextRequest) {
       return redirectTo(next);
     }
     console.error('[auth/callback] verifyOtp failed:', error.message);
-    return redirectTo(
-      `/login?error=${encodeURIComponent(
-        'This link is invalid or has expired. Request a new one.'
-      )}`
+    return redirectToLoginError(
+      'This link is invalid or has expired. Request a new one.'
     );
   }
 
   // Supabase also reports failures (expired link, already used)
   // as ?error=...&error_description=... on the redirect itself.
   const description = searchParams.get('error_description');
-  return redirectTo(
-    `/login?error=${encodeURIComponent(
-      description ?? 'Invalid verification link.'
-    )}`
-  );
+  return redirectToLoginError(description ?? 'Invalid verification link.');
 }

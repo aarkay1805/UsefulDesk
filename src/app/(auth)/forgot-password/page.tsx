@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,8 +15,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MessageSquare, CheckCircle, ArrowLeft } from "lucide-react";
+import {
+  invitationJoinPath,
+  normalizeInvitationToken,
+  withInvitation,
+} from "@/lib/auth/invitation-continuation";
 
 export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ForgotPasswordPageInner />
+    </Suspense>
+  );
+}
+
+function ForgotPasswordPageInner() {
+  const searchParams = useSearchParams();
+  const inviteToken = normalizeInvitationToken(searchParams.get("invite"));
+  const loginPath = withInvitation("/login", inviteToken);
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -27,8 +44,11 @@ export default function ForgotPasswordPage() {
     setError(null);
     setLoading(true);
 
+    const callbackNext = invitationJoinPath(inviteToken) ?? "/reset-password";
+    const callback = new URL("/auth/callback", window.location.origin);
+    callback.searchParams.set("next", callbackNext);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      redirectTo: callback.toString(),
     });
 
     if (error) {
@@ -59,7 +79,7 @@ export default function ForgotPasswordPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/login">
+            <Link href={loginPath}>
               <Button
                 variant="outline"
                 className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -118,7 +138,7 @@ export default function ForgotPasswordPage() {
           </form>
 
           <Link
-            href="/login"
+            href={loginPath}
             className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />

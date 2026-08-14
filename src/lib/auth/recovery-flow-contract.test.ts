@@ -21,4 +21,15 @@ describe('password recovery authorization boundary', () => {
     expect(page).not.toMatch(/supabase\.auth\.updateUser/);
     expect(page).toContain("fetch('/reset-password/update'");
   });
+
+  it('keeps invitation continuation constrained across every auth boundary', () => {
+    const callback = read('src/app/auth/callback/route.ts');
+    const updateRoute = read('src/app/(auth)/reset-password/update/route.ts');
+    const proxy = read('src/proxy.ts');
+
+    expect(callback).toContain('invitationTokenFromPath(rawNext)');
+    expect(callback).toContain('issueRecoveryIntent');
+    expect(updateRoute).toContain('recovery.continueTo');
+    expect(proxy).toContain('normalizeInvitationToken');
+  });
 });
