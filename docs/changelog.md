@@ -6,6 +6,10 @@
 
 ---
 
+## Profile creation authority hardening
+
+Profiles are no longer client-creatable authority records: the permissive `profiles_insert` policy is gone and `PUBLIC`, `anon`, and `authenticated` have no table INSERT grant, while atomic `postgres` signup provisioning, audited membership flows, self-service profile updates, and trusted `service_role` administration remain available. Migration `20260814165451_close_profile_insert_authority.sql` was connector-applied as `20260814165602` in Test and `20260814165712` in Production; rollback-only checks preserved complete signup provisioning and denied anonymous plus authenticated same-/cross-account inserts. Both environments had zero orphan Auth users or profile/membership inconsistencies to repair. Key coverage: `src/lib/auth/profile-insert-authority-contract.test.ts`. Gotcha: staff/assignee rosters read account-scoped profiles directly, so never restore a client-side profile INSERT path.
+
 ## Atomic signup provisioning
 
 Signup now trims and rejects a blank required full name before calling Supabase Auth, while `handle_new_user` independently enforces the same invariant and propagates tenant-bootstrap failures so the Auth insert rolls back instead of leaving an orphan login. Migration `20260814164144_make_signup_provisioning_atomic.sql` was connector-applied as `20260814164435` in Test and `20260814164519` in Production; rollback-only checks proved blank-name rejection and complete normalized tenant provisioning, and the single unconfirmed `example.invalid` audit orphan was removed. Key code: `src/app/(auth)/signup/page.tsx`, `src/lib/auth/signup.ts`, and `src/lib/auth/signup-provisioning.test.ts`.

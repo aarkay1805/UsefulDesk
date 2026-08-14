@@ -24,6 +24,8 @@ Engineering maintenance: **password recovery now requires a short-lived, server-
 
 Engineering maintenance: **signup now normalizes and requires a nonblank full name at both the form and database boundaries, and tenant provisioning failures abort the Supabase Auth insert instead of silently leaving a login without its organization, branch, profile, or memberships**.
 
+Engineering maintenance: **profiles are now privileged membership projections rather than client-created authority rows: browser and anonymous roles have neither an INSERT policy nor table grant, while atomic signup, audited membership lifecycle operations, self-service profile updates, and trusted backend administration remain intact. Migration `20260814165451_close_profile_insert_authority.sql` was applied to Test and Production; both had zero orphan Auth users or profile/membership inconsistencies to repair**.
+
 Engineering maintenance: **Settings → Your profile is reduced to its three owner-facing tasks—photo, display name, and sign-in email—with canonical avatar and alert primitives, a contained save action, explicit loading/unavailable states, and verified profile-update row returns instead of misleading internal role and user-ID detail**.
 
 Engineering maintenance: **Settings → WhatsApp now separates API access from inbound-delivery readiness, preserves delivery diagnostics, uses account-local timestamps, gates every change and verification path for non-admins, confirms resets accessibly, and keeps the Meta guided/manual credential flows responsive and concise without changing connection or registration security**.
