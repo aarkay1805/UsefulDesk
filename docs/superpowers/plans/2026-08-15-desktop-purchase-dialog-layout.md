@@ -22,10 +22,12 @@
 ### Task 1: Add the desktop checkout composition
 
 **Files:**
+
 - Create: `src/components/members/product-service-sale-dialog.test.tsx`
 - Modify: `src/components/members/product-service-sale-dialog.tsx:185-341`
 
 **Interfaces:**
+
 - Consumes: existing `ProductServiceSaleDialog` props and `CheckoutSelection[]` state.
 - Produces: a `role="group"` named `Purchase checkout` whose labelled item `section` and payment `aside` become a two-column grid at `lg`.
 
@@ -36,7 +38,9 @@ Create a jsdom test that mocks only account, locale, and database boundaries and
 ```tsx
 const checkout = screen.getByRole('group', { name: 'Purchase checkout' });
 const items = within(checkout).getByRole('region', { name: 'Invoice items' });
-const payment = within(checkout).getByRole('complementary', { name: 'Payment' });
+const payment = within(checkout).getByRole('complementary', {
+  name: 'Payment',
+});
 
 expect(items.parentElement).toBe(checkout);
 expect(payment.parentElement).toBe(checkout);
@@ -106,10 +110,12 @@ Expected: both commands exit 0.
 ### Task 2: Document and verify the shipped layout
 
 **Files:**
+
 - Modify: `docs/changelog.md`
 - Modify: `PRDs/roadmap.md`
 
 **Interfaces:**
+
 - Consumes: the responsive layout from Task 1.
 - Produces: documentation recording the desktop checkout improvement and mobile non-goal.
 

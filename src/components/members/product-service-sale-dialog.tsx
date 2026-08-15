@@ -183,7 +183,7 @@ export function ProductServiceSaleDialog({
         if (!saving || next) onOpenChange(next);
       }}
     >
-      <DialogContent className="flex max-h-[min(92vh,780px)] flex-col sm:max-w-2xl">
+      <DialogContent className="flex max-h-[min(92vh,780px)] flex-col sm:max-w-2xl lg:max-w-[min(960px,calc(100vw-2rem))]">
         <DialogHeader className="shrink-0">
           <DialogTitle>
             {mode === 'service_renewal' ? 'Renew service' : 'Add purchase'}
@@ -200,143 +200,163 @@ export function ProductServiceSaleDialog({
             void checkout();
           }}
         >
-          <div className="-mx-1 min-h-0 flex-1 space-y-4 overflow-y-auto px-1 py-1">
-            <ProductsServicesPicker
-              value={selections}
-              onChange={setSelections}
-              membershipEnd={membership.end_date}
-              defaultStartDate={fmt.today()}
-              title="Invoice items"
-              description="Add one or more products or services to this invoice."
-            />
-            {selections.length > 0 ? (
-              <Card size="sm">
-                <CardHeader>
-                  <CardTitle>Payment</CardTitle>
-                  <CardDescription>
-                    Choose what to collect now. Any remainder stays due.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">
-                        Invoice total
-                      </span>
-                      <span className="font-medium tabular-nums">
-                        {fmt.money(total)}
-                      </span>
-                    </div>
-                    {creditApplied > 0 ? (
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">
-                          Member credit
-                        </span>
-                        <span className="tabular-nums">
-                          −{fmt.money(creditApplied)}
-                        </span>
-                      </div>
-                    ) : null}
-                    <Separator />
-                    <div className="flex items-center justify-between gap-4 font-medium">
-                      <span>Due after credit</span>
-                      <span className="tabular-nums">{fmt.money(cashDue)}</span>
-                    </div>
-                  </div>
-
-                  {cashDue > 0 ? (
-                    <>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="purchase-collect-amount">
-                            Collect now
-                          </Label>
-                          <CurrencyInput
-                            id="purchase-collect-amount"
-                            symbol={currencySymbol(locale.currency)}
-                            groupLocale={locale.locale}
-                            value={collectAmount}
-                            onValueChange={setCollectAmount}
-                            placeholder="0"
-                            aria-invalid={!!collectAmountError}
-                            aria-describedby={
-                              collectAmountError
-                                ? 'purchase-collect-amount-error'
-                                : undefined
-                            }
-                          />
-                          {collectAmountError ? (
-                            <p
-                              id="purchase-collect-amount-error"
-                              className="text-destructive text-xs"
-                              role="alert"
-                            >
-                              {collectAmountError}
-                            </p>
-                          ) : null}
+          <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 py-1">
+            <div
+              role="group"
+              aria-label="Purchase checkout"
+              className="space-y-4 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(18rem,2fr)] lg:items-start lg:gap-5 lg:space-y-0"
+            >
+              <section aria-label="Invoice items" className="min-w-0">
+                <ProductsServicesPicker
+                  value={selections}
+                  onChange={setSelections}
+                  membershipEnd={membership.end_date}
+                  defaultStartDate={fmt.today()}
+                  title="Invoice items"
+                  description="Add one or more products or services to this invoice."
+                />
+              </section>
+              {selections.length > 0 ? (
+                <aside
+                  aria-label="Payment"
+                  className="min-w-0 lg:sticky lg:top-0"
+                >
+                  <Card size="sm">
+                    <CardHeader>
+                      <CardTitle>Payment</CardTitle>
+                      <CardDescription>
+                        Choose what to collect now. Any remainder stays due.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-muted-foreground">
+                            Invoice total
+                          </span>
+                          <span className="font-medium tabular-nums">
+                            {fmt.money(total)}
+                          </span>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="purchase-payment-method">
-                            Payment method
-                          </Label>
-                          <Select
-                            value={method}
-                            disabled={validCollectAmount <= 0}
-                            onValueChange={(value) =>
-                              value && setMethod(value as PaymentMethod)
-                            }
-                          >
-                            <SelectTrigger
-                              id="purchase-payment-method"
-                              className="w-full"
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {METHODS.map((item) => (
-                                <SelectItem key={item.value} value={item.value}>
-                                  {item.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <ChipGroup
-                        selectionMode="single"
-                        value={selectedPreset}
-                        onValueChange={(values) => {
-                          if (values[0] === 'full') {
-                            setCollectAmount(String(cashDue));
-                          }
-                          if (values[0] === 'due') setCollectAmount('');
-                        }}
-                      >
-                        <Chip value="full">Full {fmt.moneyShort(cashDue)}</Chip>
-                        <Chip value="due">Leave due</Chip>
-                      </ChipGroup>
-                      <p className="text-muted-foreground text-xs">
-                        {amountRemaining > 0 ? (
-                          <>
-                            Remaining after this collection:{' '}
-                            <span className="text-foreground font-medium tabular-nums">
-                              {fmt.money(amountRemaining)}
+                        {creditApplied > 0 ? (
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-muted-foreground">
+                              Member credit
                             </span>
-                          </>
-                        ) : (
-                          'This collection settles the invoice.'
-                        )}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-muted-foreground text-sm">
-                      Member credit covers this invoice. No payment is needed
-                      today.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            ) : null}
+                            <span className="tabular-nums">
+                              −{fmt.money(creditApplied)}
+                            </span>
+                          </div>
+                        ) : null}
+                        <Separator />
+                        <div className="flex items-center justify-between gap-4 font-medium">
+                          <span>Due after credit</span>
+                          <span className="tabular-nums">
+                            {fmt.money(cashDue)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {cashDue > 0 ? (
+                        <>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="purchase-collect-amount">
+                                Collect now
+                              </Label>
+                              <CurrencyInput
+                                id="purchase-collect-amount"
+                                symbol={currencySymbol(locale.currency)}
+                                groupLocale={locale.locale}
+                                value={collectAmount}
+                                onValueChange={setCollectAmount}
+                                placeholder="0"
+                                aria-invalid={!!collectAmountError}
+                                aria-describedby={
+                                  collectAmountError
+                                    ? 'purchase-collect-amount-error'
+                                    : undefined
+                                }
+                              />
+                              {collectAmountError ? (
+                                <p
+                                  id="purchase-collect-amount-error"
+                                  className="text-destructive text-xs"
+                                  role="alert"
+                                >
+                                  {collectAmountError}
+                                </p>
+                              ) : null}
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="purchase-payment-method">
+                                Payment method
+                              </Label>
+                              <Select
+                                value={method}
+                                disabled={validCollectAmount <= 0}
+                                onValueChange={(value) =>
+                                  value && setMethod(value as PaymentMethod)
+                                }
+                              >
+                                <SelectTrigger
+                                  id="purchase-payment-method"
+                                  className="w-full"
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {METHODS.map((item) => (
+                                    <SelectItem
+                                      key={item.value}
+                                      value={item.value}
+                                    >
+                                      {item.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <ChipGroup
+                            selectionMode="single"
+                            value={selectedPreset}
+                            onValueChange={(values) => {
+                              if (values[0] === 'full') {
+                                setCollectAmount(String(cashDue));
+                              }
+                              if (values[0] === 'due') setCollectAmount('');
+                            }}
+                          >
+                            <Chip value="full">
+                              Full {fmt.moneyShort(cashDue)}
+                            </Chip>
+                            <Chip value="due">Leave due</Chip>
+                          </ChipGroup>
+                          <p className="text-muted-foreground text-xs">
+                            {amountRemaining > 0 ? (
+                              <>
+                                Remaining after this collection:{' '}
+                                <span className="text-foreground font-medium tabular-nums">
+                                  {fmt.money(amountRemaining)}
+                                </span>
+                              </>
+                            ) : (
+                              'This collection settles the invoice.'
+                            )}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-muted-foreground text-sm">
+                          Member credit covers this invoice. No payment is
+                          needed today.
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </aside>
+              ) : null}
+            </div>
           </div>
           <DialogFooter showCloseButton>
             <Button
