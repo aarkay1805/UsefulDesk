@@ -451,7 +451,7 @@ git commit -m "feat: add shared membership checkout panel"
 - Modify: `src/components/members/member-form.tsx:150-330,580-890,1180-1750`
 - Create: `src/components/members/member-form.checkout.test.tsx`
 
-- [ ] **Step 1: Write failing host tests**
+- [x] **Step 1: Write failing host tests**
 
 ```tsx
 expect(
@@ -473,17 +473,17 @@ expect(lastCheckoutBody().membership).not.toHaveProperty('period_end');
 
 Cover unseeded Add and seeded lead Convert. Assert offer intent is included but calculated values are absent.
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run: `npm test -- src/components/members/member-form.checkout.test.tsx`
 
 Expected: FAIL because `MemberForm` owns old inline checkout.
 
-- [ ] **Step 3: Integrate shared draft/panel**
+- [x] **Step 3: Integrate shared draft/panel**
 
 Keep personal info, dedupe, photo, trial, and edit state. For `isCreate`, use one draft/panel. A free trial hides paid offer/catalogue/payment sections. Do not route Edit membership through checkout.
 
-- [ ] **Step 4: Submit intent-only payload**
+- [x] **Step 4: Submit intent-only payload**
 
 ```ts
 membership: {
@@ -508,13 +508,13 @@ collection: {
 
 Preserve contact creation/attachment and idempotency.
 
-- [ ] **Step 5: Verify green**
+- [x] **Step 5: Verify green**
 
 Run: `npm test -- src/components/members/member-form.checkout.test.tsx src/lib/memberships/checkout.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/components/members/member-form.tsx src/components/members/member-form.checkout.test.tsx

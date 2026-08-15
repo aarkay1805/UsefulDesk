@@ -20,35 +20,16 @@ import { membershipIdForContact } from '@/lib/memberships/lookup';
 import { editMembershipCycle } from '@/lib/memberships/periods';
 import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg } from '@/lib/bmi/bmi';
 import {
-  oneTimeDiscountError,
-  oneTimeDiscountQuote,
-  type OneTimeDiscountKind,
-} from '@/lib/memberships/discount';
-import {
-  MAX_CONVERSION_BONUS_MONTHS,
-  oneTimeBonusMonthsError,
-  oneTimeBonusMonthsQuote,
-} from '@/lib/memberships/bonus-time';
-import {
-  installmentAmounts,
-  installmentSecondDueOn,
-} from '@/lib/memberships/installments';
-import {
-  durationLabel,
-  firstCycleFee,
-  optionEndDate,
-} from '@/lib/memberships/pricing';
-import { currencySymbol } from '@/lib/currency';
+  createMembershipCheckoutDraft,
+  quoteMembershipCheckout,
+} from '@/lib/memberships/checkout';
+import { firstCycleFee, optionEndDate } from '@/lib/memberships/pricing';
 import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
-import type {
-  CheckoutResult,
-  CheckoutSelection,
-  Membership,
-  PaymentMethod,
-} from '@/types';
+import type { CheckoutResult, Membership } from '@/types';
 import { useMembershipPlans } from './use-membership-plans';
 import { PlanOptionPicker, TRIAL_PLAN_VALUE } from './plan-option-picker';
+import { MembershipCheckoutPanel } from './membership-checkout-panel';
 import {
   Dialog,
   DialogContent,
@@ -58,21 +39,12 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Chip, ChipGroup } from '@/components/ui/chip';
-import { CurrencyInput } from '@/components/ui/currency-input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PhoneInput } from '@/components/ui/phone-input';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { InlineEditActions } from '@/components/ui/inline-edit-actions';
-import {
-  Toolbar,
-  ToolbarToggleGroup,
-  ToolbarToggleItem,
-} from '@/components/ui/toolbar';
 import {
   Select,
   SelectContent,
@@ -81,21 +53,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AvatarEditorDialog } from './avatar-editor-dialog';
-import { ProductsServicesPicker } from './products-services-picker';
-
-const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'upi', label: 'UPI' },
-  { value: 'card', label: 'Card' },
-  { value: 'bank', label: 'Bank transfer' },
-  { value: 'other', label: 'Other' },
-];
-
-type ConversionDiscountMode = 'none' | OneTimeDiscountKind;
-type ConversionPaymentTiming = 'full' | 'installments';
-
-const DISCOUNT_PERCENTAGE_PRESETS = ['10', '20', '30'] as const;
-const BONUS_MONTH_PRESETS = ['1', '2', '3'] as const;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -136,7 +93,6 @@ export function MemberForm({
   const { accountId, user } = useAuth();
   const { locale, fmt } = useLocale();
   const fieldOptions = useLeadFieldOptions();
-  const symbol = currencySymbol(locale.currency);
   const {
     plans,
     loading: plansLoading,
@@ -163,25 +119,9 @@ export function MemberForm({
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [heightCm, setHeightCm] = useState<number | null>(null);
   const [weightKg, setWeightKg] = useState<number | null>(null);
-
-  const [discountMode, setDiscountMode] =
-    useState<ConversionDiscountMode>('none');
-  const [discountValue, setDiscountValue] = useState('');
-  const [discountTouched, setDiscountTouched] = useState(false);
-  const [bonusMonthsEnabled, setBonusMonthsEnabled] = useState(false);
-  const [bonusMonths, setBonusMonths] = useState('');
-  const [bonusMonthsTouched, setBonusMonthsTouched] = useState(false);
-
-  // Walk-ins usually pay at signup, but Add member can still create an
-  // unpaid invoice for the exception. Lead conversion keeps its established
-  // collection-required behavior.
-  const [collectPayment, setCollectPayment] = useState(true);
-  const [payMethod, setPayMethod] = useState<PaymentMethod>('cash');
-  const [conversionPaymentTiming, setConversionPaymentTiming] =
-    useState<ConversionPaymentTiming>('full');
-  const [checkoutSelections, setCheckoutSelections] = useState<
-    CheckoutSelection[]
-  >([]);
+  const [checkoutDraft, setCheckoutDraft] = useState(() =>
+    createMembershipCheckoutDraft({ startDate: fmt.today() })
+  );
   const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState(() =>
     crypto.randomUUID()
   );
@@ -223,32 +163,6 @@ export function MemberForm({
         o.id === optionId &&
         (o.is_active || (isEdit && o.id === member?.pricing_option_id))
     ) ?? null;
-  // Every single-member creation path shares the canonical joining offer.
-  // Edit mode keeps the existing correction-oriented fee field.
-  const regularFirstFee = selectedOption ? firstCycleFee(selectedOption) : 0;
-  const discountKind = discountMode === 'none' ? null : discountMode;
-  const discountQuote = oneTimeDiscountQuote(
-    regularFirstFee,
-    discountKind,
-    discountValue
-  );
-  const discountFieldError =
-    discountKind && discountTouched
-      ? oneTimeDiscountError(regularFirstFee, discountKind, discountValue)
-      : null;
-  const previewFee = isCreate
-    ? discountQuote.firstInvoiceTotal
-    : feeAmount === ''
-      ? regularFirstFee
-      : Number(feeAmount) || 0;
-  const addOnTotal = checkoutSelections.reduce(
-    (sum, selection) =>
-      sum + Number(selection.unit_amount ?? 0) * (selection.quantity ?? 1),
-    0
-  );
-  const combinedPreviewFee = previewFee + addOnTotal;
-  const conversionInstallments = installmentAmounts(combinedPreviewFee);
-  const conversionSecondDueOn = installmentSecondDueOn(fmt.today());
 
   // Standard paid-membership expiry: the picked billing option drives it; a
   // legacy membership without an option (edit mode, plan unchanged)
@@ -267,19 +181,19 @@ export function MemberForm({
     }
     return selectedOption ? optionEndDate(startDate, selectedOption) : null;
   }
-  const standardEndForPaid = standardPaidEndDate();
-  const bonusMonthsQuote = oneTimeBonusMonthsQuote(
-    standardEndForPaid,
-    isCreate && bonusMonthsEnabled,
-    bonusMonths
-  );
-  const bonusMonthsFieldError =
-    bonusMonthsEnabled && bonusMonthsTouched
-      ? oneTimeBonusMonthsError(true, bonusMonths)
-      : null;
 
-  function paidEndDate(): string | null {
-    return bonusMonthsQuote.firstPeriodEndDate;
+  function updateCheckoutDraft(next: typeof checkoutDraft) {
+    setCheckoutDraft(next);
+    setStartDate(next.startDate);
+    if (next.planId === TRIAL_PLAN_VALUE) {
+      setIsTrial(true);
+      setPlanId('');
+      setOptionId(null);
+      return;
+    }
+    setIsTrial(false);
+    setPlanId(next.planId);
+    setOptionId(next.optionId);
   }
 
   useEffect(() => {
@@ -311,16 +225,13 @@ export function MemberForm({
       setAvatarOpen(false);
       setHeightCm(member?.contact?.height_cm ?? seedContact?.heightCm ?? null);
       setWeightKg(member?.contact?.weight_kg ?? seedContact?.weightKg ?? null);
-      setDiscountMode('none');
-      setDiscountValue('');
-      setDiscountTouched(false);
-      setBonusMonthsEnabled(false);
-      setBonusMonths('');
-      setBonusMonthsTouched(false);
-      setCollectPayment(true);
-      setPayMethod('cash');
-      setConversionPaymentTiming('full');
-      setCheckoutSelections([]);
+      setCheckoutDraft(
+        createMembershipCheckoutDraft({
+          planId: member?.is_trial ? TRIAL_PLAN_VALUE : member?.plan_id,
+          optionId: member?.pricing_option_id,
+          startDate: member?.start_date ?? fmt.today(),
+        })
+      );
       setCheckoutIdempotencyKey(crypto.randomUUID());
       setDupMatch(null);
       setIsTrial(member?.is_trial ?? false);
@@ -578,55 +489,45 @@ export function MemberForm({
     // edit (no option on the row) may proceed on the plan's frozen days.
     const plan = plans.find((p) => p.id === planId);
     if (!isTrial && !plan) return toast.error('Selected plan is unavailable');
-    const endForPaid = paidEndDate();
-    if (!isTrial && !endForPaid) {
+    const endForPaid = standardPaidEndDate();
+    if (!isTrial && !selectedOption && isCreate) {
       return toast.error('Pick a billing option for this plan');
     }
-    if (isCreate && !isTrial) {
-      setDiscountTouched(true);
-      setBonusMonthsTouched(true);
-      const discountError = oneTimeDiscountError(
-        regularFirstFee,
-        discountKind,
-        discountValue
-      );
-      if (discountError) return toast.error(discountError);
-      const bonusError = oneTimeBonusMonthsError(
-        bonusMonthsEnabled,
-        bonusMonths
-      );
-      if (bonusError) return toast.error(bonusError);
+    if (!isTrial && !endForPaid && isEdit) {
+      return toast.error('Pick a billing option for this plan');
     }
 
-    // Trials are free; a paid member's fee seeds from the option's
-    // first-cycle fee (price + one-time joining fee).
-    // No-option (legacy edit) rows fall back to the membership's own fee,
-    // not the plan's frozen price (which mirrors the first option only).
+    let checkoutQuote = null;
+    if (isCreate && !isTrial && selectedOption) {
+      try {
+        checkoutQuote = quoteMembershipCheckout({
+          mode: isConvert ? 'convert' : 'join',
+          option: selectedOption,
+          startDate: checkoutDraft.startDate,
+          discountKind: checkoutDraft.discountKind,
+          discountValue: checkoutDraft.discountValue,
+          bonusMonthsEnabled: checkoutDraft.bonusMonthsEnabled,
+          bonusMonths: checkoutDraft.bonusMonths,
+          selections: checkoutDraft.includeProductsServices
+            ? checkoutDraft.selections
+            : [],
+        });
+      } catch (error) {
+        return toast.error(getErrorMessage(error, 'Invalid checkout details'));
+      }
+    }
+
+    // Edit mode remains a correction workflow and keeps its explicit fee.
+    // Create mode sends only intent to the authoritative checkout RPC.
     const fee = isTrial
       ? 0
-      : isCreate
-        ? discountQuote.firstInvoiceTotal
-        : feeAmount === ''
-          ? selectedOption
-            ? firstCycleFee(selectedOption)
-            : Number(member?.fee_amount ?? 0)
-          : Number(feeAmount);
-    if (!Number.isFinite(fee) || fee < 0)
+      : feeAmount === ''
+        ? selectedOption
+          ? firstCycleFee(selectedOption)
+          : Number(member?.fee_amount ?? 0)
+        : Number(feeAmount);
+    if ((!isCreate || isTrial) && (!Number.isFinite(fee) || fee < 0))
       return toast.error('Enter a valid fee');
-
-    const combinedFee = fee + addOnTotal;
-    const collecting =
-      isCreate && !isTrial && combinedFee > 0 && (isConvert || collectPayment);
-    const payAmt =
-      conversionPaymentTiming === 'installments'
-        ? installmentAmounts(combinedFee).now
-        : combinedFee;
-    if (collecting) {
-      if (!Number.isFinite(payAmt) || payAmt <= 0)
-        return toast.error('Enter a valid payment amount');
-      if (payAmt > combinedFee)
-        return toast.error('The payment cannot exceed the invoice total');
-    }
 
     setSaving(true);
     try {
@@ -759,27 +660,28 @@ export function MemberForm({
             mode: isConvert ? 'convert' : 'join',
             contact_id: contactId,
             membership: {
-              plan_id: planId,
-              pricing_option_id: optionId,
-              period_start: startDate,
-              period_end: endDate,
-              fee_amount: fee,
-              notes: notes.trim() || null,
-              list_price: discountQuote.listPrice,
-              discount_type: discountKind,
-              discount_value: discountKind ? Number(discountValue) : null,
-              discount_amount: discountQuote.discountAmount,
-              standard_period_end:
-                bonusMonthsQuote.bonusMonths > 0 ? standardEndForPaid : null,
-              bonus_months: bonusMonthsQuote.bonusMonths,
+              plan_id: checkoutDraft.planId,
+              pricing_option_id: checkoutDraft.optionId,
+              period_start: checkoutDraft.startDate,
+              discount_type: checkoutDraft.discountKind,
+              discount_value: checkoutDraft.discountKind
+                ? Number(checkoutDraft.discountValue)
+                : null,
+              bonus_months: checkoutDraft.bonusMonthsEnabled
+                ? Number(checkoutDraft.bonusMonths)
+                : 0,
             },
-            selections: checkoutSelections,
+            selections: checkoutDraft.includeProductsServices
+              ? checkoutDraft.selections
+              : [],
             collection: {
-              amount: collecting ? payAmt : 0,
-              method: payMethod,
+              collect_now:
+                !!checkoutQuote &&
+                checkoutQuote.cashDue > 0 &&
+                checkoutDraft.collectNow,
+              timing: checkoutDraft.collectionTiming,
+              method: checkoutDraft.paymentMethod,
               paid_at: new Date().toISOString(),
-              installment:
-                collecting && conversionPaymentTiming === 'installments',
             },
             idempotency_key: checkoutIdempotencyKey,
           }),
@@ -818,19 +720,6 @@ export function MemberForm({
           fee_amount: fee,
           is_trial: isTrial,
           notes: notes.trim() || null,
-          conversion_list_price:
-            isCreate && !isTrial ? discountQuote.listPrice : null,
-          conversion_discount_type: isCreate && !isTrial ? discountKind : null,
-          conversion_discount_value:
-            isCreate && !isTrial && discountKind ? Number(discountValue) : null,
-          conversion_discount_amount:
-            isCreate && !isTrial ? discountQuote.discountAmount : 0,
-          conversion_standard_end_date:
-            isCreate && !isTrial && bonusMonthsQuote.bonusMonths > 0
-              ? standardEndForPaid
-              : null,
-          conversion_bonus_months:
-            isCreate && !isTrial ? bonusMonthsQuote.bonusMonths : 0,
         })
         .select('id, member_number')
         .single();
@@ -844,48 +733,6 @@ export function MemberForm({
           return;
         }
         throw mErr;
-      }
-
-      // Optional first payment (never for a free trial).
-      if (collecting) {
-        const paymentArgs =
-          conversionPaymentTiming === 'installments'
-            ? {
-                functionName: 'record_membership_installment_payment',
-                params: {
-                  p_membership_id: mRow.id,
-                  p_period_end: endDate,
-                  p_method: payMethod,
-                  p_paid_at: new Date().toISOString(),
-                  p_idempotency_key: crypto.randomUUID(),
-                },
-              }
-            : {
-                functionName: 'record_joining_payment',
-                params: {
-                  p_membership_id: mRow.id,
-                  p_period_end: endDate,
-                  p_amount: payAmt,
-                  p_method: payMethod,
-                  p_paid_at: new Date().toISOString(),
-                  p_note: '',
-                  p_receipt_path: null,
-                  p_idempotency_key: crypto.randomUUID(),
-                },
-              };
-        const { error: pErr } = await supabase.rpc(
-          paymentArgs.functionName,
-          paymentArgs.params
-        );
-        if (pErr) {
-          // The membership is saved; a payment hiccup shouldn't block it.
-          toast.warning(
-            "Member created, but the payment couldn't be recorded."
-          );
-          onOpenChange(false);
-          onSaved();
-          return;
-        }
       }
 
       toast.success(
@@ -1184,574 +1031,122 @@ export function MemberForm({
                 </>
               )}
 
-              {/* Membership fields are shared by edit and every creation
-                   path; creation uses the canonical right-hand pane. */}
-              <>
-                <div
-                  className={cn(
-                    'grid gap-4 sm:grid-cols-2',
-                    isCreate && 'border-border rounded-lg border p-4'
-                  )}
-                >
-                  {isCreate && (
-                    <h3 className="text-foreground text-base font-semibold sm:col-span-2">
-                      Membership details
-                    </h3>
-                  )}
-                  <div className="space-y-2">
-                    <PlanOptionPicker
-                      idPrefix="mf"
-                      plans={plans}
-                      planId={isTrial ? TRIAL_PLAN_VALUE : planId}
-                      optionId={optionId}
-                      allowTrial
-                      required
-                      onChange={(sel) => {
-                        if (sel.planId === TRIAL_PLAN_VALUE) {
-                          setIsTrial(true);
-                          setPlanId('');
-                          setOptionId(null);
-                        } else {
-                          setIsTrial(false);
-                          setPlanId(sel.planId);
-                          setOptionId(sel.optionId);
-                        }
-                      }}
-                      footer={
-                        !plansLoading && plans.length === 0 ? (
-                          <p className="text-muted-foreground text-xs">
-                            No plans yet —{' '}
-                            <a
-                              href="/settings?tab=plans"
-                              target="_blank"
-                              rel="noreferrer"
-                              className="font-medium underline underline-offset-2 hover:no-underline"
-                            >
-                              create one in Settings
-                            </a>
-                            , then come back.
-                          </p>
-                        ) : null
-                      }
-                    />
-                    {!isTrial && selectedPlan && paidEndDate() && (
-                      <p className="text-muted-foreground text-xs">
-                        Expires {fmt.date(paidEndDate()!)}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="mf-start">Start date</Label>
-                    <DatePicker
-                      id="mf-start"
-                      value={startDate}
-                      onChange={setStartDate}
-                    />
-                  </div>
-                </div>
-
-                {isTrial ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="mf-trial-days">Trial length (days)</Label>
-                    <Input
-                      id="mf-trial-days"
-                      type="number"
-                      min={1}
-                      value={trialDays}
-                      onChange={(e) => setTrialDays(e.target.value)}
-                    />
-                    <p className="text-muted-foreground text-xs">
-                      Ends{' '}
-                      {fmt.date(istAddDays(startDate, Number(trialDays) || 0))}{' '}
-                      · free pass, no fee — convert to a paid plan later.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {isCreate ? (
-                      selectedOption && (
-                        <>
-                          <div className="border-border space-y-6 rounded-lg border p-4">
-                            <Label htmlFor="mf-offer-discount">
-                              <Checkbox
-                                id="mf-offer-discount"
-                                checked={discountKind !== null}
-                                onCheckedChange={(checked) => {
-                                  setDiscountMode(
-                                    checked === true ? 'percentage' : 'none'
-                                  );
-                                  setDiscountValue('');
-                                  setDiscountTouched(false);
-                                }}
-                              />
-                              Offer discount
-                            </Label>
-
-                            {discountKind && (
-                              <div className="space-y-4">
-                                <div className="grid gap-4 sm:grid-cols-[max-content_minmax(0,1fr)]">
-                                  <div className="space-y-2">
-                                    <Label>Discount type</Label>
-                                    <Toolbar aria-label="Discount type">
-                                      <ToolbarToggleGroup<OneTimeDiscountKind>
-                                        value={[discountKind]}
-                                        onValueChange={(values) => {
-                                          if (!values[0]) return;
-                                          setDiscountMode(values[0]);
-                                          setDiscountValue('');
-                                          setDiscountTouched(false);
-                                        }}
-                                        aria-label="Discount type"
-                                      >
-                                        <ToolbarToggleItem value="percentage">
-                                          Percentage
-                                        </ToolbarToggleItem>
-                                        <ToolbarToggleItem value="amount">
-                                          Fixed amount
-                                        </ToolbarToggleItem>
-                                      </ToolbarToggleGroup>
-                                    </Toolbar>
-                                  </div>
-
-                                  <div className="min-w-0 space-y-2">
-                                    <Label htmlFor="mf-discount-value">
-                                      {discountKind === 'amount'
-                                        ? 'Discount amount'
-                                        : 'Discount percentage'}
-                                    </Label>
-                                    {discountKind === 'amount' ? (
-                                      <CurrencyInput
-                                        id="mf-discount-value"
-                                        symbol={symbol}
-                                        groupLocale={locale.locale}
-                                        value={discountValue}
-                                        onValueChange={(value) => {
-                                          setDiscountValue(value);
-                                          setDiscountTouched(true);
-                                        }}
-                                        onBlur={() => setDiscountTouched(true)}
-                                        inputMode="decimal"
-                                        placeholder="0"
-                                        aria-invalid={!!discountFieldError}
-                                        aria-describedby={
-                                          discountFieldError
-                                            ? 'mf-discount-error'
-                                            : undefined
-                                        }
-                                        className="tabular-nums"
-                                      />
-                                    ) : (
-                                      <div className="flex min-w-0 items-center gap-2">
-                                        <ChipGroup<string>
-                                          selectionMode="single"
-                                          value={
-                                            DISCOUNT_PERCENTAGE_PRESETS.includes(
-                                              discountValue as (typeof DISCOUNT_PERCENTAGE_PRESETS)[number]
-                                            )
-                                              ? [discountValue]
-                                              : []
-                                          }
-                                          onValueChange={(values) => {
-                                            const value = values[0];
-                                            if (!value) return;
-                                            setDiscountValue(value);
-                                            setDiscountTouched(true);
-                                          }}
-                                          aria-label="Common discount percentages"
-                                        >
-                                          {DISCOUNT_PERCENTAGE_PRESETS.map(
-                                            (value) => (
-                                              <Chip key={value} value={value}>
-                                                {value}%
-                                              </Chip>
-                                            )
-                                          )}
-                                        </ChipGroup>
-                                        <Input
-                                          id="mf-discount-value"
-                                          type="number"
-                                          min={0}
-                                          max={100}
-                                          step="0.01"
-                                          inputMode="decimal"
-                                          value={discountValue}
-                                          onChange={(event) => {
-                                            setDiscountValue(
-                                              event.target.value
-                                            );
-                                            setDiscountTouched(true);
-                                          }}
-                                          onBlur={() =>
-                                            setDiscountTouched(true)
-                                          }
-                                          placeholder="10"
-                                          aria-invalid={!!discountFieldError}
-                                          aria-describedby={
-                                            discountFieldError
-                                              ? 'mf-discount-error'
-                                              : undefined
-                                          }
-                                          className="w-24 shrink-0 tabular-nums"
-                                        />
-                                      </div>
-                                    )}
-                                    {discountFieldError && (
-                                      <p
-                                        id="mf-discount-error"
-                                        role="alert"
-                                        className="text-destructive text-xs"
-                                      >
-                                        {discountFieldError}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="border-border space-y-2 border-t pt-4">
-                                  <div className="text-muted-foreground flex items-center justify-between gap-4">
-                                    <span>Regular first invoice</span>
-                                    <span className="tabular-nums">
-                                      {fmt.money(discountQuote.listPrice)}
-                                    </span>
-                                  </div>
-                                  {discountQuote.discountAmount > 0 && (
-                                    <div className="text-muted-foreground flex items-center justify-between gap-4">
-                                      <span>
-                                        Discount
-                                        {discountKind === 'percentage' &&
-                                        discountValue
-                                          ? ` (${discountValue}%)`
-                                          : ''}
-                                      </span>
-                                      <span className="tabular-nums">
-                                        −
-                                        {fmt.money(
-                                          discountQuote.discountAmount
-                                        )}
-                                      </span>
-                                    </div>
-                                  )}
-                                  <div className="text-foreground flex items-center justify-between gap-4 font-medium">
-                                    <span>First invoice total</span>
-                                    <span className="tabular-nums">
-                                      {fmt.money(
-                                        discountQuote.firstInvoiceTotal
-                                      )}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <p className="text-muted-foreground text-xs">
-                                  {selectedPlan?.plan_type === 'recurring'
-                                    ? `Future renewals return to ${fmt.money(selectedOption.price)} per ${durationLabel(selectedOption.duration_count, selectedOption.duration_unit)}.`
-                                    : 'The regular plan price is unchanged; this offer applies only to this purchase.'}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="border-border space-y-6 rounded-lg border p-4">
-                            <Label htmlFor="mf-offer-bonus-months">
-                              <Checkbox
-                                id="mf-offer-bonus-months"
-                                checked={bonusMonthsEnabled}
-                                onCheckedChange={(checked) => {
-                                  setBonusMonthsEnabled(checked === true);
-                                  setBonusMonths('');
-                                  setBonusMonthsTouched(false);
-                                }}
-                              />
-                              Offer bonus months
-                            </Label>
-
-                            {bonusMonthsEnabled && (
-                              <div className="space-y-4">
-                                <div className="space-y-2">
-                                  <Label htmlFor="mf-bonus-months">
-                                    Bonus months
-                                  </Label>
-                                  <div className="flex min-w-0 items-center gap-2">
-                                    <ChipGroup<string>
-                                      selectionMode="single"
-                                      value={
-                                        BONUS_MONTH_PRESETS.includes(
-                                          bonusMonths as (typeof BONUS_MONTH_PRESETS)[number]
-                                        )
-                                          ? [bonusMonths]
-                                          : []
-                                      }
-                                      onValueChange={(values) => {
-                                        const value = values[0];
-                                        if (!value) return;
-                                        setBonusMonths(value);
-                                        setBonusMonthsTouched(true);
-                                      }}
-                                      aria-label="Common bonus month offers"
-                                    >
-                                      {BONUS_MONTH_PRESETS.map((value) => (
-                                        <Chip key={value} value={value}>
-                                          +{value}{' '}
-                                          {value === '1' ? 'month' : 'months'}
-                                        </Chip>
-                                      ))}
-                                    </ChipGroup>
-                                    <Input
-                                      id="mf-bonus-months"
-                                      type="number"
-                                      min={1}
-                                      max={MAX_CONVERSION_BONUS_MONTHS}
-                                      step={1}
-                                      inputMode="numeric"
-                                      value={bonusMonths}
-                                      onChange={(event) => {
-                                        setBonusMonths(event.target.value);
-                                        setBonusMonthsTouched(true);
-                                      }}
-                                      onBlur={() => setBonusMonthsTouched(true)}
-                                      placeholder="1"
-                                      aria-invalid={!!bonusMonthsFieldError}
-                                      aria-describedby={
-                                        bonusMonthsFieldError
-                                          ? 'mf-bonus-months-error'
-                                          : undefined
-                                      }
-                                      className="w-24 shrink-0 tabular-nums"
-                                    />
-                                  </div>
-                                  {bonusMonthsFieldError && (
-                                    <p
-                                      id="mf-bonus-months-error"
-                                      role="alert"
-                                      className="text-destructive text-xs"
-                                    >
-                                      {bonusMonthsFieldError}
-                                    </p>
-                                  )}
-                                </div>
-
-                                {bonusMonthsQuote.bonusMonths > 0 &&
-                                  bonusMonthsQuote.standardEndDate &&
-                                  bonusMonthsQuote.firstPeriodEndDate && (
-                                    <div className="border-border space-y-2 border-t pt-4">
-                                      <div className="text-muted-foreground flex items-center justify-between gap-4">
-                                        <span>Regular expiry</span>
-                                        <span>
-                                          {fmt.date(
-                                            bonusMonthsQuote.standardEndDate
-                                          )}
-                                        </span>
-                                      </div>
-                                      <div className="text-muted-foreground flex items-center justify-between gap-4">
-                                        <span>Bonus time</span>
-                                        <span>
-                                          +{bonusMonthsQuote.bonusMonths}{' '}
-                                          {bonusMonthsQuote.bonusMonths === 1
-                                            ? 'month'
-                                            : 'months'}
-                                        </span>
-                                      </div>
-                                      <div className="text-foreground flex items-center justify-between gap-4 font-medium">
-                                        <span>First expiry</span>
-                                        <span>
-                                          {fmt.date(
-                                            bonusMonthsQuote.firstPeriodEndDate
-                                          )}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                <p className="text-muted-foreground text-xs">
-                                  {selectedPlan?.plan_type === 'recurring'
-                                    ? `Future renewals remain ${fmt.money(selectedOption.price)} per ${durationLabel(selectedOption.duration_count, selectedOption.duration_unit)}.`
-                                    : 'The plan term is unchanged; these free months apply only to this purchase.'}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )
-                    ) : (
-                      <div className="space-y-2">
-                        <Label htmlFor="mf-fee">Fee for this period</Label>
-                        <Input
-                          id="mf-fee"
-                          type="number"
-                          min={0}
-                          value={feeAmount}
-                          onChange={(e) => {
-                            setFeeAmount(e.target.value);
-                            setFeeTouched(true);
-                          }}
-                          placeholder={
-                            selectedOption
-                              ? String(firstCycleFee(selectedOption))
-                              : '0'
-                          }
-                        />
-                        {!isEdit &&
-                          selectedOption &&
-                          selectedOption.setup_fee > 0 && (
-                            <p className="text-muted-foreground text-xs">
-                              <span className="tabular-nums">
-                                {fmt.money(selectedOption.price)}
-                              </span>{' '}
-                              plan
-                              {' + '}
-                              <span className="tabular-nums">
-                                {fmt.money(selectedOption.setup_fee)}
-                              </span>{' '}
-                              joining fee — first cycle only.
-                            </p>
-                          )}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {isCreate && !isTrial && (
-                  <ProductsServicesPicker
-                    value={checkoutSelections}
-                    onChange={setCheckoutSelections}
-                    membershipEnd={paidEndDate()}
-                    defaultStartDate={startDate}
+              {isCreate ? (
+                <>
+                  <MembershipCheckoutPanel
+                    idPrefix="mf"
+                    mode={isConvert ? 'convert' : 'join'}
+                    plans={plans}
+                    plansLoading={plansLoading}
+                    value={checkoutDraft}
+                    onChange={updateCheckoutDraft}
+                    allowTrial
+                    startDateEditable
                   />
-                )}
-
-                {isCreate && !isTrial && combinedPreviewFee > 0 && (
-                  <div className="border-border space-y-4 rounded-lg border p-4">
-                    <p className="text-foreground text-sm font-semibold">
-                      Payment methods
-                    </p>
-                    {!isConvert && (
-                      <Label htmlFor="mf-collect-payment">
-                        <Checkbox
-                          id="mf-collect-payment"
-                          checked={collectPayment}
-                          onCheckedChange={(checked) =>
-                            setCollectPayment(checked === true)
+                  {isTrial && (
+                    <div className="space-y-2">
+                      <Label htmlFor="mf-trial-days">Trial length (days)</Label>
+                      <Input
+                        id="mf-trial-days"
+                        type="number"
+                        min={1}
+                        value={trialDays}
+                        onChange={(e) => setTrialDays(e.target.value)}
+                      />
+                      <p className="text-muted-foreground text-xs">
+                        Ends{' '}
+                        {fmt.date(
+                          istAddDays(startDate, Number(trialDays) || 0)
+                        )}{' '}
+                        · free pass, no fee — convert to a paid plan later.
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <PlanOptionPicker
+                        idPrefix="mf"
+                        plans={plans}
+                        planId={isTrial ? TRIAL_PLAN_VALUE : planId}
+                        optionId={optionId}
+                        allowTrial
+                        required
+                        onChange={(selection) => {
+                          if (selection.planId === TRIAL_PLAN_VALUE) {
+                            setIsTrial(true);
+                            setPlanId('');
+                            setOptionId(null);
+                          } else {
+                            setIsTrial(false);
+                            setPlanId(selection.planId);
+                            setOptionId(selection.optionId);
                           }
-                        />
-                        Collect the first payment now
-                      </Label>
-                    )}
-                    {(isConvert || collectPayment) && (
-                      <>
-                        <RadioGroup
-                          value={conversionPaymentTiming}
-                          onValueChange={(value) =>
-                            value &&
-                            setConversionPaymentTiming(
-                              value as ConversionPaymentTiming
-                            )
-                          }
-                          className="gap-2"
-                        >
-                          <label
-                            className={cn(
-                              'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
-                              conversionPaymentTiming === 'full'
-                                ? 'border-primary/40 bg-primary/[0.04]'
-                                : 'border-border/80 hover:border-border-hover'
-                            )}
-                          >
-                            <RadioGroupItem value="full" className="mt-0.5" />
-                            <span className="min-w-0 space-y-0.5">
-                              <span className="text-foreground block text-sm font-medium">
-                                Pay in full
-                              </span>
-                              <span className="text-muted-foreground block text-xs">
-                                <span className="tabular-nums">
-                                  {fmt.money(combinedPreviewFee)}
-                                </span>{' '}
-                                due today · {fmt.date(fmt.today())}
-                              </span>
-                            </span>
-                          </label>
-                          <label
-                            className={cn(
-                              'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
-                              conversionPaymentTiming === 'installments'
-                                ? 'border-primary/40 bg-primary/[0.04]'
-                                : 'border-border/80 hover:border-border-hover'
-                            )}
-                          >
-                            <RadioGroupItem
-                              value="installments"
-                              className="mt-0.5"
-                            />
-                            <span className="min-w-0 space-y-0.5">
-                              <span className="text-foreground block text-sm font-medium">
-                                Part now, part later
-                              </span>
-                              <span className="text-muted-foreground block text-xs">
-                                <span className="tabular-nums">
-                                  {fmt.money(conversionInstallments.now)}
-                                </span>{' '}
-                                now, then{' '}
-                                <span className="tabular-nums">
-                                  {fmt.money(conversionInstallments.later)}
-                                </span>{' '}
-                                on {fmt.date(conversionSecondDueOn)}. No extra
-                                fees.
-                              </span>
-                            </span>
-                          </label>
-                        </RadioGroup>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="mf-conversion-method">
-                            Today&apos;s payment method
-                          </Label>
-                          <Select
-                            value={payMethod}
-                            onValueChange={(value) =>
-                              setPayMethod(value as PaymentMethod)
-                            }
-                          >
-                            <SelectTrigger
-                              id="mf-conversion-method"
-                              className="w-full"
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {PAYMENT_METHODS.map((method) => (
-                                <SelectItem
-                                  key={method.value}
-                                  value={method.value}
-                                >
-                                  {method.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {conversionPaymentTiming === 'installments' && (
-                          <p className="text-muted-foreground text-xs">
-                            We&apos;ll remind {displayName} on WhatsApp before
-                            the second payment is due.
-                          </p>
-                        )}
-                      </>
-                    )}
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mf-start">Start date</Label>
+                      <DatePicker
+                        id="mf-start"
+                        value={startDate}
+                        onChange={setStartDate}
+                      />
+                    </div>
                   </div>
-                )}
 
-                {isEdit && (
+                  {isTrial ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="mf-trial-days">Trial length (days)</Label>
+                      <Input
+                        id="mf-trial-days"
+                        type="number"
+                        min={1}
+                        value={trialDays}
+                        onChange={(event) => setTrialDays(event.target.value)}
+                      />
+                      <p className="text-muted-foreground text-xs">
+                        Ends{' '}
+                        {fmt.date(
+                          istAddDays(startDate, Number(trialDays) || 0)
+                        )}{' '}
+                        · free pass, no fee — convert to a paid plan later.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label htmlFor="mf-fee">Fee for this period</Label>
+                      <Input
+                        id="mf-fee"
+                        type="number"
+                        min={0}
+                        value={feeAmount}
+                        onChange={(event) => {
+                          setFeeAmount(event.target.value);
+                          setFeeTouched(true);
+                        }}
+                        placeholder={
+                          selectedOption
+                            ? String(firstCycleFee(selectedOption))
+                            : '0'
+                        }
+                      />
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label htmlFor="mf-notes">Notes</Label>
                     <Input
                       id="mf-notes"
                       value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
+                      onChange={(event) => setNotes(event.target.value)}
                       placeholder="Optional"
                     />
                   </div>
-                )}
-              </>
+                </>
+              )}
             </div>
           </div>
 
@@ -1768,15 +1163,7 @@ export function MemberForm({
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={
-                saving ||
-                checkingDup ||
-                !!discountFieldError ||
-                !!bonusMonthsFieldError
-              }
-            >
+            <Button type="submit" disabled={saving || checkingDup}>
               {saving && <Loader2 className="size-4 animate-spin" />}
               {isEdit ? 'Save' : isConvert ? 'Convert to member' : 'Add member'}
             </Button>
