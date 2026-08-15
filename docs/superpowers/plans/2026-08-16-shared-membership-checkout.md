@@ -370,7 +370,7 @@ export interface MembershipCheckoutPanelProps {
 }
 ```
 
-- [ ] **Step 1: Write failing interaction tests**
+- [x] **Step 1: Write failing interaction tests**
 
 ```tsx
 expect(
@@ -397,13 +397,13 @@ expect(currentDraft().selections).toEqual([]);
 
 Also test offer resets, hidden payment controls, exact **Collect full amount** copy, installment amounts, renewal fee without setup fee, and zero-due behavior.
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run: `npm test -- src/components/members/membership-checkout-panel.test.tsx`
 
 Expected: FAIL because panel does not exist.
 
-- [ ] **Step 3: Implement shared section composition**
+- [x] **Step 3: Implement shared section composition**
 
 Use `Checkbox` inside each header `Label`, and `Collapse` for Discount, Bonus months, Products & services, and Collect payment now. Render products only with `presentation="catalogue"`.
 
@@ -426,17 +426,17 @@ Use `Checkbox` inside each header `Label`, and `Collapse` for Discount, Bonus mo
 
 Immediately after the header, render a `Collapse` whose `open` value is `value.discountKind !== null`. Move the existing discount-kind selector and validated discount-value input from `member-form.tsx:1291-1367` into that collapse, preserving their labels, percentage/fixed choices, and reset behavior. Do the same for the existing validated bonus-month input at `member-form.tsx:1452-1518`. These are ordinary panel internals, not new `src/components/ui/` masters.
 
-- [ ] **Step 4: Render invoice/payment summary**
+- [x] **Step 4: Render invoice/payment summary**
 
 Show membership list price, discount, final fee, add-ons, invoice total, credit, and cash due. Payment cards use exactly **Collect full amount** and **Part now, part later**. Unchecked payment leaves due summary; zero due shows **No payment required**.
 
-- [ ] **Step 5: Verify green**
+- [x] **Step 5: Verify green**
 
 Run: `npm test -- src/components/members/membership-checkout-panel.test.tsx src/components/members/products-services-picker.test.tsx`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/components/members/membership-checkout-panel.tsx src/components/members/membership-checkout-panel.test.tsx src/components/members/products-services-picker.tsx

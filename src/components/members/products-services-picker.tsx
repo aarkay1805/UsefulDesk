@@ -365,7 +365,10 @@ export function ProductsServicesPicker({
             services.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-lg border">
+          <div
+            data-testid="catalogue-table"
+            className="overflow-hidden rounded-lg border"
+          >
             <div className="text-muted-foreground bg-muted/40 hidden grid-cols-[minmax(0,1fr)_11rem_8rem] gap-3 border-b px-3 py-2 text-xs font-medium md:grid">
               <span>Item</span>
               <span>Price</span>
