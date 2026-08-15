@@ -353,7 +353,7 @@ export function ProductServiceSaleCheckout({
                     </p>
                   )}
                 </CardContent>
-                <CardFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <CardFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-start">
                   <Button
                     type="button"
                     variant="outline"

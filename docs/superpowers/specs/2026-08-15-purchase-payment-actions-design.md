@@ -10,7 +10,7 @@ This is a layout-only change. Catalogue selection, collection timing, validation
 
 When at least one item is selected, the Payment card uses the existing shared `CardFooter` beneath its summary and collection controls. The footer's built-in divider and muted surface separate the final actions from the editable payment content while keeping them within the same visual group.
 
-The action order remains Cancel followed by **Create invoice · <total>**. On desktop, the buttons remain aligned to the card's trailing edge. On narrow screens, they retain the established stacked presentation with the primary action first in visual reading order. Loading and disabled states remain unchanged.
+The action order remains Cancel followed by **Create invoice · <total>**. On desktop, the buttons align to the card footer's leading edge. On narrow screens, they retain the established centered stack with the primary action first in visual reading order, keeping clear of the fixed account affordance. Loading and disabled states remain unchanged.
 
 Before an item is selected, the Payment card is not rendered. The standalone Cancel action therefore remains available in the page footer for the empty checkout. As soon as the first item is selected and Payment appears, both actions render in the Payment card footer and the detached page footer is removed. There must never be duplicate Cancel or Create invoice actions.
 

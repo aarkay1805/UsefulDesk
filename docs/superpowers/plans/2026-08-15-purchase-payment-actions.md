@@ -93,7 +93,7 @@ import {
 Inside the selected-state Payment `Card`, add `CardFooter` after `CardContent` and move the existing Cancel and Create invoice buttons into it:
 
 ```tsx
-<CardFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+<CardFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-start">
   <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>
     Cancel
   </Button>
@@ -196,7 +196,7 @@ Expected: the full Vitest suite passes and the production Next.js build exits 0.
 
 - [ ] **Step 4: Verify the rendered purchase page in one bounded pass**
 
-At the supplied `/members/purchase?...` URL, inspect desktop and narrow viewports. Confirm the selected-state buttons appear once inside Payment, desktop trailing alignment is intact, narrow buttons stack with Create invoice visually first, and the sticky/scroll behavior remains usable. If defects appear, fix them as one batch and perform at most one confirmation pass.
+At the supplied `/members/purchase?...` URL, inspect desktop and narrow viewports. Confirm the selected-state buttons appear once inside Payment, desktop leading alignment is intact, narrow buttons stack with Create invoice visually first, and the sticky/scroll behavior remains usable. If defects appear, fix them as one batch and perform at most one confirmation pass.
 
 - [ ] **Step 5: Review the final diff and commit**
 

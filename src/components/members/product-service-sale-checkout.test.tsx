@@ -125,6 +125,9 @@ describe('ProductServiceSaleCheckout', () => {
       'lg:grid-cols-[minmax(0,5fr)_minmax(20rem,3fr)]'
     );
     expect(payment.className).toContain('lg:sticky');
+    const paymentFooter = payment.querySelector('[data-slot="card-footer"]');
+    expect(paymentFooter).toBeTruthy();
+    expect(paymentFooter?.className).toContain('sm:justify-start');
     const cancel = screen.getByRole('button', { name: 'Cancel' });
     const createInvoice = screen.getByRole('button', {
       name: /Create invoice.*₹50/,

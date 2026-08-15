@@ -8,7 +8,7 @@
 
 ## Purchase actions grouped with Payment
 
-The dedicated **Add purchase** checkout now places Cancel and **Create invoice** in the Payment card footer once an item is selected, keeping the final action attached to the payment decision. Empty checkouts retain a standalone Cancel action, and payment, submission, and ledger behavior are unchanged. Key code: `src/components/members/product-service-sale-checkout.tsx` and `product-service-sale-checkout.test.tsx`.
+The dedicated **Add purchase** checkout now places Cancel and **Create invoice** at the leading edge of the Payment card footer once an item is selected, keeping the final action attached to the payment decision. Empty checkouts retain a standalone Cancel action, and payment, submission, and ledger behavior are unchanged. Key code: `src/components/members/product-service-sale-checkout.tsx` and `product-service-sale-checkout.test.tsx`.
 
 ## Dedicated member purchase checkout
 
