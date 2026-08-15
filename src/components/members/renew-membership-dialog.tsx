@@ -183,7 +183,9 @@ export function RenewMembershipDialog({
           selections: draft.includeProductsServices ? draft.selections : [],
           collection: {
             collect_now: quote.cashDue > 0 && draft.collectNow,
-            timing: draft.collectionTiming,
+            timing: quote.installmentsAvailable
+              ? draft.collectionTiming
+              : 'full',
             method: draft.paymentMethod,
             paid_at: new Date().toISOString(),
           },

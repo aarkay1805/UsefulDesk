@@ -155,13 +155,18 @@ describe('quoteMembershipCheckout', () => {
     expect(() => quote(overrides)).toThrow(message);
   });
 
-  it('rejects a cash balance too small to produce two positive installments', () => {
-    expect(() =>
+  it('keeps full collection available when cash due is too small to split', () => {
+    expect(
       quote({
         mode: 'membership_renewal',
         discountKind: 'amount',
         discountValue: '999.99',
       })
-    ).toThrow('Cash due cannot be split into two positive installments');
+    ).toMatchObject({
+      cashDue: 0.01,
+      installmentNow: 0.01,
+      installmentLater: 0,
+      installmentsAvailable: false,
+    });
   });
 });

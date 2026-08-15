@@ -294,4 +294,15 @@ describe('MembershipCheckoutPanel', () => {
       screen.queryByRole('combobox', { name: "Today's payment method" })
     ).toBeNull();
   });
+
+  it('keeps full collection but hides 60/40 when rounding cannot produce two positive installments', () => {
+    render(<Harness availableCredit={1_199.99} />);
+
+    expect(
+      screen.getByRole('radio', { name: /Collect full amount/ })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('radio', { name: /Part now, part later/ })
+    ).toBeNull();
+  });
 });

@@ -133,13 +133,8 @@ export function quoteMembershipCheckout(input: {
   );
   const cashDue = roundMoney(invoiceTotal - creditApplied);
   const installments = installmentAmounts(cashDue);
-
-  if (
-    cashDue > 0 &&
-    (installments.now <= 0 || installments.later <= 0)
-  ) {
-    throw new Error('Cash due cannot be split into two positive installments');
-  }
+  const installmentsAvailable =
+    installments.now > 0 && installments.later > 0;
 
   return {
     listPrice: discount.listPrice,
@@ -154,5 +149,6 @@ export function quoteMembershipCheckout(input: {
     cashDue,
     installmentNow: installments.now,
     installmentLater: installments.later,
+    installmentsAvailable,
   };
 }

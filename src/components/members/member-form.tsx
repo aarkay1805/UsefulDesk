@@ -679,7 +679,10 @@ export function MemberForm({
                 !!checkoutQuote &&
                 checkoutQuote.cashDue > 0 &&
                 checkoutDraft.collectNow,
-              timing: checkoutDraft.collectionTiming,
+              timing:
+                checkoutQuote?.installmentsAvailable === false
+                  ? 'full'
+                  : checkoutDraft.collectionTiming,
               method: checkoutDraft.paymentMethod,
               paid_at: new Date().toISOString(),
             },

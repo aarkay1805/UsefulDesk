@@ -590,7 +590,11 @@ export function MembershipCheckoutPanel({
               {quote ? (
                 <div className="-mx-1 space-y-4 px-1 py-1">
                   <RadioGroup
-                    value={value.collectionTiming}
+                    value={
+                      quote.installmentsAvailable
+                        ? value.collectionTiming
+                        : 'full'
+                    }
                     onValueChange={(collectionTiming) =>
                       collectionTiming &&
                       update({
@@ -620,32 +624,37 @@ export function MembershipCheckoutPanel({
                         </span>
                       </span>
                     </label>
-                    <label
-                      className={cn(
-                        'flex items-start gap-3 rounded-lg border p-3 transition-colors',
-                        value.collectionTiming === 'installments'
-                          ? 'border-primary/40 bg-primary/[0.04]'
-                          : 'border-border hover:border-border-hover'
-                      )}
-                    >
-                      <RadioGroupItem value="installments" className="mt-0.5" />
-                      <span className="min-w-0 space-y-0.5">
-                        <span className="text-foreground block text-sm font-medium">
-                          Part now, part later
+                    {quote.installmentsAvailable ? (
+                      <label
+                        className={cn(
+                          'flex items-start gap-3 rounded-lg border p-3 transition-colors',
+                          value.collectionTiming === 'installments'
+                            ? 'border-primary/40 bg-primary/[0.04]'
+                            : 'border-border hover:border-border-hover'
+                        )}
+                      >
+                        <RadioGroupItem
+                          value="installments"
+                          className="mt-0.5"
+                        />
+                        <span className="min-w-0 space-y-0.5">
+                          <span className="text-foreground block text-sm font-medium">
+                            Part now, part later
+                          </span>
+                          <span className="text-muted-foreground block text-xs">
+                            <span className="tabular-nums">
+                              {fmt.money(quote.installmentNow)}
+                            </span>{' '}
+                            now, then{' '}
+                            <span className="tabular-nums">
+                              {fmt.money(quote.installmentLater)}
+                            </span>{' '}
+                            on {fmt.date(installmentSecondDueOn(fmt.today()))}.
+                            No extra fees.
+                          </span>
                         </span>
-                        <span className="text-muted-foreground block text-xs">
-                          <span className="tabular-nums">
-                            {fmt.money(quote.installmentNow)}
-                          </span>{' '}
-                          now, then{' '}
-                          <span className="tabular-nums">
-                            {fmt.money(quote.installmentLater)}
-                          </span>{' '}
-                          on {fmt.date(installmentSecondDueOn(fmt.today()))}. No
-                          extra fees.
-                        </span>
-                      </span>
-                    </label>
+                      </label>
+                    ) : null}
                   </RadioGroup>
 
                   <div className="space-y-2">

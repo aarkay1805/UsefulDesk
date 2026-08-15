@@ -1397,6 +1397,7 @@ export interface MembershipCheckoutQuote {
   cashDue: number;
   installmentNow: number;
   installmentLater: number;
+  installmentsAvailable: boolean;
 }
 
 export interface MembershipCheckoutIntent {
