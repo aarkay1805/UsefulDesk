@@ -33,7 +33,8 @@ All three flows keep the existing large split-dialog shell, fixed header/footer,
 ### Left panel
 
 - **Add member:** the new person's editable basic details.
-- **Convert to member:** the existing lead's editable basic details.
+- **Convert a lead to member:** the existing lead's editable basic details.
+- **Convert an existing trial:** member identity plus the current trial context; this remains hosted by the renewal dialog but uses the same paid-checkout panel.
 - **Renew membership:** member identity plus current plan, current expiry, current fee, and any outstanding prior-invoice balance.
 
 The renewal warning must state that old balances remain on their original invoices. Renewal must never silently settle, merge, or replace arrears.
