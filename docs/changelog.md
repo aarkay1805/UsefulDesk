@@ -8,7 +8,7 @@
 
 ## Shared membership checkout
 
-Add member, lead conversion, trial conversion, and renewal now share one responsive checkout panel for plan dates, first-cycle offers, catalogue items, credit, deferred collection, full collection, and post-credit 60/40 installments. The API accepts structured intent only; the database derives prices, expiry, offer snapshots, credit application, and collection amounts atomically, excludes setup fees from renewals, and leaves prior arrears on their original invoices. Direct agent execution of the legacy renewal RPC is revoked. Key code: `src/components/members/membership-checkout-panel.tsx`, `src/lib/memberships/checkout.ts`, `src/app/api/member-checkouts/route.ts`, and `supabase/migrations/20260816120000_shared_membership_checkout.sql`.
+Add member, lead conversion, trial conversion, and renewal now share one responsive checkout panel for plan dates, first-cycle offers, catalogue items, credit, deferred collection, full collection, and post-credit 60/40 installments. The API accepts structured intent only; the database derives prices, expiry, offer snapshots, credit application, and collection amounts atomically, excludes setup fees from renewals, and leaves prior arrears on their original invoices. Direct agent execution of the legacy renewal RPC is revoked. Migration `20260816120000_shared_membership_checkout.sql` was connector-applied as `20260815195630` in Test and `20260815203350` in Production; rollback-scoped acceptance and exact execution-grant checks passed in both. Key code: `src/components/members/membership-checkout-panel.tsx`, `src/lib/memberships/checkout.ts`, `src/app/api/member-checkouts/route.ts`, and the migration.
 
 ## Renewal membership modal and modal blur standard
 

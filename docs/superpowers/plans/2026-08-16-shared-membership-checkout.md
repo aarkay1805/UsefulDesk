@@ -730,6 +730,6 @@ git add docs/gym-domain.md docs/changelog.md PRDs/roadmap.md
 git commit -m "docs: record shared membership checkout"
 ```
 
-- [ ] **Step 7: Completion review**
+- [x] **Step 7: Completion review**
 
 Invoke `superpowers:verification-before-completion`, inspect the full implementation commit range, then invoke `superpowers:requesting-code-review`. Address in-scope findings, rerun affected checks, and report migration application plus final commits.

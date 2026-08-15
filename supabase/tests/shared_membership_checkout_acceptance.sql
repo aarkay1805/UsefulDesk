@@ -1,6 +1,6 @@
 -- Rollback-scoped acceptance for the shared membership checkout transaction.
--- Run against the isolated Supabase Test project before/after applying
--- 20260816120000_shared_membership_checkout.sql.
+-- Safe to run after applying 20260816120000_shared_membership_checkout.sql;
+-- all fixtures and checkout writes stay inside this transaction and roll back.
 
 BEGIN;
 

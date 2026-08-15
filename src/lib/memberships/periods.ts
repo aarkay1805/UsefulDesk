@@ -11,11 +11,11 @@
  *     `projectNextInvoice()` synthesises the single next cycle for
  *     display (an Upcoming invoice can't be "real" until it happens).
  *   - WRITES: the birth of a period is a DB trigger (covers every
- *     create path); renew/convert go through renew_membership_transaction
- *     (harden migration), and edit/unfreeze/cancel/reactivate through the
- *     058 lifecycle RPCs wrapped below — each one transaction, so the
- *     membership, its current period, and that period's payments can
- *     never diverge.
+ *     create path); renew/convert enter through the canonical member checkout
+ *     transaction (which owns the internal legacy renewal call), and
+ *     edit/unfreeze/cancel/reactivate use the 058 lifecycle RPCs wrapped below
+ *     — each one transaction, so the membership, its current period, and that
+ *     period's payments can never diverge.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
