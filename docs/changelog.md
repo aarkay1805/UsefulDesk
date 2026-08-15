@@ -6,6 +6,10 @@
 
 ---
 
+## First real-client Razorpay Payment Link sent
+
+Under exact owner authorization, the pinned Rajat Kashyap account / Live merchant opened a single OAuth settlement window for invoice `#BC2B1DDB`: secret-blind preflight matched its open INR ₹40 collectible balance, exact account/merchant, fresh OAuth readiness, connected WhatsApp, approved `gym_payment_link`, no prior link, and zero operational queues. READY deployment `dpl_C6dFzbhXXjZ3ZULLq7uCbZLJp4mW` kept enrollment and every acceptance flag false; the authenticated owner action created provider link `plink_TPxvlgki47VMgP` for exactly ₹40 with the fixed seven-day/non-partial contract and sent the approved template through the existing conversation. Meta callbacks advanced the stored message to Read. No payment or refund exists yet, OAuth remains enabled only for signed settlement of this active link, and no second customer or broader rollout is authorized. Operational evidence: `docs/razorpay-operations.md`.
+
 ## Razorpay real-gym readiness and Meta template approval
 
 The owner confirmed the exact-pinned Rajat Kashyap account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` / Live merchant `acc_TCJwBqanN9LTrK` is their operating gym, so the completed connection revalidation now counts as the first real gym-owner OAuth readiness pilot without expanding its authorization into messaging or money movement. A fresh authenticated 2026-08-15 **Sync from Meta** updated two existing templates and shows both exact `en_US` Utility templates Approved: `gym_payment_link` (`1996323644342719`) and `gym_payment_due` (`1528972491789269`). This removes the WhatsApp template prerequisite for payment-link Send, but no message or Payment Link was created. All Razorpay rollout/acceptance flags remain false at rest, VBF/Aakash stays closed, and any recipient/invoice/amount delivery, money-path exercise, or broader rollout still needs separate exact approval. Operational evidence: `docs/razorpay-operations.md`.

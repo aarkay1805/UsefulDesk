@@ -1146,3 +1146,39 @@ templates were not claimed as approved at that closeout, and the accepted
 deferral of OAuth client-secret rotation was unchanged. The later authenticated
 2026-08-15 sync recorded above now proves both exact templates Approved without
 changing any Razorpay flag, connection, or financial state.
+
+### First real-client Payment Link delivery pilot
+
+On 2026-08-15 the owner separately authorized the Rajat Kashyap account
+`50a9e8f9-d7e5-44d2-ba04-c367509b981e` and exact Live merchant
+`acc_TCJwBqanN9LTrK` to create and send one full-balance ₹40 Payment Link for
+invoice `bc2b1ddb-0dd3-4abe-89fe-51588739db23` (`#BC2B1DDB`). No refund was
+authorized. The secret-blind preflight matched the open INR invoice and ₹40
+collectible balance, found no refund-review hold or existing link, and proved
+the exact OAuth/Live/storage-v1/application/`read_write`/ready binding, fresh
+readiness, connected WhatsApp, approved `gym_payment_link`, retired manual
+columns, no active OAuth state or lease/error, and zero exact Live operational
+queues. No member name, phone number, token, secret, or link URL is recorded
+here.
+
+Production deployment `dpl_C6dFzbhXXjZ3ZULLq7uCbZLJp4mW` is READY and opened
+the shortest authorized window with only `RAZORPAY_OAUTH_ENABLED=true`; the
+account/merchant pins stayed exact, first-bind enrollment and every
+provider/refund acceptance flag stayed false, and VBF/Aakash stayed closed.
+The authenticated owner action created revision 1 link
+`2712fa0c-c267-43c5-86b2-ae4cb5e9f4df` / provider link
+`plink_TPxvlgki47VMgP`, reference
+`udpl_2712fa0cc26743c586b2ae4cb5e9f4df`, for INR 40 / 4,000 subunits. The
+provider state is `created`, the exact seven-day expiry is
+`2026-08-22T07:37:47Z`, the short URL is present, and setup/recovery errors and
+leases are absent.
+
+The same action sent the approved `en_US` `gym_payment_link` template through
+the invoice's existing tenant/contact conversation at
+`2026-08-15T07:37:54.824577Z`. UsefulDesk stored one provider message identity;
+Meta delivery callbacks advanced that message from **Sent** to **Read**. No
+payment or refund exists for this link yet. Keep the OAuth window open only
+while this authorized link awaits settlement so a signed `payment_link.paid`
+event can verify and credit the invoice. After payment (or an explicit
+abandon/cancel decision), require the exact ledger/queue closeout and restore
+OAuth false; no broader enrollment or rollout is authorized.
