@@ -1,9 +1,15 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, within } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Membership } from '@/types';
+import type { CheckoutSelection, Membership } from '@/types';
 
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
@@ -31,7 +37,27 @@ vi.mock('@/lib/supabase/client', () => ({
 }));
 
 vi.mock('./products-services-picker', () => ({
-  ProductsServicesPicker: () => <div>Catalogue picker</div>,
+  ProductsServicesPicker: ({
+    onChange,
+  }: {
+    onChange: (value: CheckoutSelection[]) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() =>
+        onChange([
+          {
+            item_id: 'item-id',
+            option_id: 'option-id',
+            quantity: 1,
+            unit_amount: 50,
+          },
+        ])
+      }
+    >
+      Add catalogue item
+    </button>
+  ),
 }));
 
 const { ProductServiceSaleCheckout } =
@@ -86,7 +112,7 @@ describe('ProductServiceSaleCheckout', () => {
       name: 'Purchase checkout',
     });
     const items = within(checkout).getByRole('region', {
-      name: 'Invoice items',
+      name: 'Products & services',
     });
     const payment = within(checkout).getByRole('complementary', {
       name: 'Payment',
@@ -105,7 +131,7 @@ describe('ProductServiceSaleCheckout', () => {
     ).toBeTruthy();
   });
 
-  it('keeps payment context visible before an item is selected', () => {
+  it('reveals payment only after the first item is selected', () => {
     render(
       <ProductServiceSaleCheckout
         membership={membership}
@@ -115,14 +141,72 @@ describe('ProductServiceSaleCheckout', () => {
       />
     );
 
+    const checkout = screen.getByRole('group', {
+      name: 'Purchase checkout',
+    });
+    expect(checkout.className).toContain('lg:grid');
+    expect(checkout.className).toContain(
+      'lg:grid-cols-[minmax(0,5fr)_minmax(20rem,3fr)]'
+    );
+    expect(screen.queryByRole('complementary', { name: 'Payment' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Create invoice' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add catalogue item' }));
+
     expect(screen.getByRole('complementary', { name: 'Payment' })).toBeTruthy();
-    expect(screen.getByText('No items selected')).toBeTruthy();
     expect(
-      (
-        screen.getByRole('button', {
-          name: 'Create invoice',
-        }) as HTMLButtonElement
-      ).disabled
-    ).toBe(true);
+      screen.getByRole('button', { name: /Create invoice.*₹50/ })
+    ).toBeTruthy();
+  });
+
+  it('enables collection details only when collecting now', () => {
+    render(
+      <ProductServiceSaleCheckout
+        membership={membership}
+        mode="sale"
+        initialSelections={[
+          {
+            item_id: 'item-id',
+            option_id: 'option-id',
+            quantity: 1,
+            unit_amount: 50,
+          },
+        ]}
+        onCancel={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    );
+
+    const collectNow = screen.getByRole('radio', { name: 'Collect now' });
+    const collectLater = screen.getByRole('radio', {
+      name: 'Collect later',
+    });
+
+    expect(collectLater.getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByLabelText('Amount')).toBeNull();
+    expect(
+      screen.queryByRole('combobox', { name: 'Payment method' })
+    ).toBeNull();
+    expect(screen.queryByText('Leave due')).toBeNull();
+    expect(screen.queryByText('Full ₹50')).toBeNull();
+
+    fireEvent.click(collectNow);
+
+    const amount = screen.getByLabelText('Amount') as HTMLInputElement;
+    const method = screen.getByRole('combobox', {
+      name: 'Payment method',
+    }) as HTMLButtonElement;
+    expect(collectNow.getAttribute('aria-checked')).toBe('true');
+    expect(amount.disabled).toBe(false);
+    expect(amount.value).toBe('50');
+    expect(method.disabled).toBe(false);
+
+    fireEvent.click(collectLater);
+
+    expect(collectLater.getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByLabelText('Amount')).toBeNull();
+    expect(
+      screen.queryByRole('combobox', { name: 'Payment method' })
+    ).toBeNull();
   });
 });

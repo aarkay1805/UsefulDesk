@@ -14,7 +14,6 @@ import { MemberIdentity } from '@/components/members/member-identity';
 import { ProductServiceSaleCheckout } from '@/components/members/product-service-sale-checkout';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 
 interface MemberPurchasePageProps {
   membershipId: string | null;
@@ -147,37 +146,36 @@ export function MemberPurchasePage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl min-w-0 space-y-4">
-      <Card size="sm" className="min-w-0">
-        <CardContent className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <MemberIdentity
-            name={membership.contact?.name}
-            secondary={membership.contact?.phone}
-            src={membership.contact?.avatar_url}
-            size="lg"
-          />
-          <dl className="grid w-full min-w-0 grid-cols-2 gap-x-6 gap-y-2 sm:max-w-md md:grid-cols-3">
-            <div className="col-span-2 md:col-span-1">
-              <dt className="text-muted-foreground text-xs">Member ID</dt>
-              <dd className="mt-0.5 text-sm font-medium tabular-nums">
-                {membership.member_number}
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-muted-foreground text-xs">Plan</dt>
-              <dd className="mt-0.5 truncate text-sm font-medium">
+    <div className="mx-auto w-full max-w-6xl min-w-0 space-y-5">
+      <section aria-label="Member" className="min-w-0 border-b pb-4">
+        <MemberIdentity
+          name={membership.contact?.name}
+          secondary={membership.contact?.phone}
+          src={membership.contact?.avatar_url}
+          size="lg"
+          meta={
+            <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+              <span>
+                Member ID{' '}
+                <span className="text-foreground tabular-nums">
+                  {membership.member_number}
+                </span>
+              </span>
+              <span aria-hidden="true">·</span>
+              <span className="text-foreground">
                 {membership.plan?.name || 'No plan'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground text-xs">Expiry</dt>
-              <dd className="mt-0.5 text-sm font-medium tabular-nums">
-                {fmt.date(membership.end_date)}
-              </dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>
+                Expiry{' '}
+                <span className="text-foreground tabular-nums">
+                  {fmt.date(membership.end_date)}
+                </span>
+              </span>
+            </p>
+          }
+        />
+      </section>
 
       <ProductServiceSaleCheckout
         membership={membership}

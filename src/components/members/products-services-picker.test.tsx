@@ -144,9 +144,27 @@ describe('ProductsServicesPicker catalogue layout', () => {
 
     expect(screen.getByText('Item')).toBeTruthy();
     expect(screen.getByText('Price')).toBeTruthy();
+    expect(screen.queryByText('Products & services')).toBeNull();
     expect(
-      screen.getByRole('toolbar', { name: 'Protein powder quantity' })
-    ).toBeTruthy();
+      screen.getByText('Item').parentElement?.parentElement?.className
+    ).toContain('border');
+    expect(
+      screen.queryByRole('toolbar', { name: 'Protein powder quantity' })
+    ).toBeNull();
+    const addProduct = screen.getByRole('button', {
+      name: 'Add Protein powder',
+    });
+    expect(addProduct.className).toContain('w-full');
+    expect(addProduct.parentElement?.className).toContain('w-28');
+    expect(addProduct.parentElement?.className).toContain('justify-self-end');
+    const quantityContainer = addProduct.parentElement;
+    fireEvent.click(addProduct);
+    const quantityToolbar = screen.getByRole('toolbar', {
+      name: 'Protein powder quantity',
+    });
+    expect(quantityToolbar.className).toContain('w-full');
+    expect(quantityToolbar.className).toContain('justify-center');
+    expect(quantityToolbar.parentElement).toBe(quantityContainer);
 
     const increase = screen.getByRole('button', {
       name: 'Increase Protein powder quantity',
@@ -155,7 +173,6 @@ describe('ProductsServicesPicker catalogue layout', () => {
       name: 'Decrease Protein powder quantity',
     });
 
-    fireEvent.click(increase);
     expect(
       screen.getByRole('status', { name: 'Protein powder quantity: 1' })
     ).toBeTruthy();
@@ -173,6 +190,8 @@ describe('ProductsServicesPicker catalogue layout', () => {
     const adjustPrice = screen.getByRole('button', {
       name: 'Adjust price for Protein powder',
     });
+    const displayedPrice = screen.getByText('₹1500');
+    expect(displayedPrice.nextElementSibling).toBe(adjustPrice);
     expect(screen.queryByText('Adjust price')).toBeNull();
     fireEvent.click(adjustPrice);
     expect(screen.getByText('Unit price')).toBeTruthy();
@@ -182,17 +201,22 @@ describe('ProductsServicesPicker catalogue layout', () => {
   it('caps service quantity at one and reveals the start date after selection', async () => {
     render(<CatalogueHarness />);
 
-    const increase = await screen.findByRole('button', {
+    const add = await screen.findByRole('button', {
+      name: 'Add Nutrition coaching, 1 month',
+    });
+    fireEvent.click(add);
+
+    expect(screen.getByText('Starts')).toBeTruthy();
+    expect(
+      screen.getByRole('status', {
+        name: 'Nutrition coaching, 1 month quantity: 1',
+      })
+    ).toBeTruthy();
+    const increase = screen.getByRole('button', {
       name: 'Increase Nutrition coaching, 1 month quantity',
     });
+    expect(increase.getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(increase);
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Increase Nutrition coaching, 1 month quantity',
-      })
-    );
-    expect(screen.getByText('Starts')).toBeTruthy();
     expect(
       screen.getByRole('status', {
         name: 'Nutrition coaching, 1 month quantity: 1',

@@ -64,7 +64,7 @@ afterEach(() => {
 });
 
 describe('ProductServiceSaleDialog desktop layout', () => {
-  it('groups invoice items and payment as responsive checkout columns', () => {
+  it('groups catalogue and payment as responsive checkout columns', () => {
     render(
       <ProductServiceSaleDialog
         open
@@ -86,7 +86,7 @@ describe('ProductServiceSaleDialog desktop layout', () => {
       name: 'Purchase checkout',
     });
     const items = within(checkout).getByRole('region', {
-      name: 'Invoice items',
+      name: 'Products & services',
     });
     const payment = within(checkout).getByRole('complementary', {
       name: 'Payment',
@@ -101,7 +101,7 @@ describe('ProductServiceSaleDialog desktop layout', () => {
     expect(payment.className).toContain('lg:sticky');
   });
 
-  it('keeps the payment summary visible before items are selected', () => {
+  it('defers payment and invoice creation until an item is selected', () => {
     render(
       <ProductServiceSaleDialog
         open
@@ -111,14 +111,7 @@ describe('ProductServiceSaleDialog desktop layout', () => {
       />
     );
 
-    expect(screen.getByRole('complementary', { name: 'Payment' })).toBeTruthy();
-    expect(screen.getByText('No items selected')).toBeTruthy();
-    expect(
-      (
-        screen.getByRole('button', {
-          name: 'Create invoice',
-        }) as HTMLButtonElement
-      ).disabled
-    ).toBe(true);
+    expect(screen.queryByRole('complementary', { name: 'Payment' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Create invoice' })).toBeNull();
   });
 });
