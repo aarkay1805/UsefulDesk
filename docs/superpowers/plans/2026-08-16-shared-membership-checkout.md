@@ -588,7 +588,7 @@ git commit -m "refactor: share membership renewal checkout"
 - Create: `src/app/api/member-checkouts/route.test.ts`
 - Modify: `src/types/index.ts:1199-1204,1360-1390`
 
-- [ ] **Step 1: Write failing route tests**
+- [x] **Step 1: Write failing route tests**
 
 ```ts
 it('rejects browser-authored fee and final end', async () => {
@@ -620,13 +620,13 @@ it('accepts deferred conversion intent', async () => {
 
 Also reject bad discount type, invalid bonus months, bad timing/method, missing plan/option/start, and non-array selections.
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run: `npm test -- src/app/api/member-checkouts/route.test.ts`
 
 Expected: FAIL because current validation is shallow.
 
-- [ ] **Step 3: Add explicit no-Zod validation**
+- [x] **Step 3: Add explicit no-Zod validation**
 
 Read the pinned Next guide first. Reject calculated financial fields:
 
@@ -648,13 +648,13 @@ if (
 
 Continue overriding browser `account_id` with `ctx.accountId`; database remains authoritative.
 
-- [ ] **Step 4: Verify green**
+- [x] **Step 4: Verify green**
 
 Run: `npm test -- src/app/api/member-checkouts/route.test.ts src/components/members/member-form.checkout.test.tsx src/components/members/renew-membership-dialog.test.tsx`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/app/api/member-checkouts/route.ts src/app/api/member-checkouts/route.test.ts src/types/index.ts
