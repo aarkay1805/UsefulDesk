@@ -6,9 +6,9 @@
 
 ---
 
-## First real-client Razorpay Payment Link sent
+## First real-client Razorpay Payment Link settled
 
-Under exact owner authorization, the pinned Rajat Kashyap account / Live merchant opened a single OAuth settlement window for invoice `#BC2B1DDB`: secret-blind preflight matched its open INR ₹40 collectible balance, exact account/merchant, fresh OAuth readiness, connected WhatsApp, approved `gym_payment_link`, no prior link, and zero operational queues. READY deployment `dpl_C6dFzbhXXjZ3ZULLq7uCbZLJp4mW` kept enrollment and every acceptance flag false; the authenticated owner action created provider link `plink_TPxvlgki47VMgP` for exactly ₹40 with the fixed seven-day/non-partial contract and sent the approved template through the existing conversation. Meta callbacks advanced the stored message to Read. No payment or refund exists yet, OAuth remains enabled only for signed settlement of this active link, and no second customer or broader rollout is authorized. Operational evidence: `docs/razorpay-operations.md`.
+Under exact owner authorization, the pinned Rajat Kashyap account / Live merchant opened a single OAuth settlement window for invoice `#BC2B1DDB`: secret-blind preflight matched its open INR ₹40 collectible balance, exact account/merchant, fresh OAuth readiness, connected WhatsApp, approved `gym_payment_link`, no prior link, and zero operational queues. READY deployment `dpl_C6dFzbhXXjZ3ZULLq7uCbZLJp4mW` kept enrollment and every acceptance flag false; the authenticated owner action created provider link `plink_TPxvlgki47VMgP` for exactly ₹40 with the fixed seven-day/non-partial contract and sent the approved template through the existing conversation. Meta callbacks advanced the stored message to Read. Signed application event `TPy00PfdmPIwtD` then settled the link exactly once: payment `1f8b569e-ff1a-4f39-a389-c1e6d18096b6` allocated ₹40 once and reduced both invoice balances to zero, with no pilot refund or review hold. Exact Live queues remained zero, and READY deployment `dpl_DAtth8pTbH8osaCiSVao71wpoi5x` immediately restored OAuth false while preserving the OAuth/Live/storage-v1/application-only connection. No second customer or broader rollout is authorized. Operational evidence: `docs/razorpay-operations.md`.
 
 ## Razorpay real-gym readiness and Meta template approval
 

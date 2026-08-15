@@ -1169,7 +1169,7 @@ The authenticated owner action created revision 1 link
 `2712fa0c-c267-43c5-86b2-ae4cb5e9f4df` / provider link
 `plink_TPxvlgki47VMgP`, reference
 `udpl_2712fa0cc26743c586b2ae4cb5e9f4df`, for INR 40 / 4,000 subunits. The
-provider state is `created`, the exact seven-day expiry is
+provider state was initially `created`, and the exact seven-day expiry was
 `2026-08-22T07:37:47Z`, the short URL is present, and setup/recovery errors and
 leases are absent.
 
@@ -1177,8 +1177,23 @@ The same action sent the approved `en_US` `gym_payment_link` template through
 the invoice's existing tenant/contact conversation at
 `2026-08-15T07:37:54.824577Z`. UsefulDesk stored one provider message identity;
 Meta delivery callbacks advanced that message from **Sent** to **Read**. No
-payment or refund exists for this link yet. Keep the OAuth window open only
-while this authorized link awaits settlement so a signed `payment_link.paid`
-event can verify and credit the invoice. After payment (or an explicit
-abandon/cancel decision), require the exact ledger/queue closeout and restore
-OAuth false; no broader enrollment or rollout is authorized.
+refund was authorized or created.
+
+At `2026-08-15T07:41:50.089Z`, the application ingress received signed Live
+`payment_link.paid` event `TPy00PfdmPIwtD` for the exact merchant. Its header
+identity and raw payload hash matched the one non-shadow application delivery;
+processing completed once at attempt 1 with no error. The link and remote state
+became `paid` at `2026-08-15T07:41:52.602215Z`. Immutable payment
+`1f8b569e-ff1a-4f39-a389-c1e6d18096b6` recorded INR 40 from the Payment Link
+and one allocation totaling INR 40. Invoice `#BC2B1DDB` now has zero
+collectible and accounting balances, no refund review, and no pilot refund.
+
+The exact closeout found zero active OAuth states, unresolved exact-Live
+webhooks, missing ledgers, unfinished links/refunds, or open payment/refund
+exceptions. The stored connection remains OAuth, Live, storage version 1,
+application ingress, `read_write`, ready, manual-material-free, and free of
+leases/errors. OAuth was immediately restored to false; final Production
+deployment `dpl_DAtth8pTbH8osaCiSVao71wpoi5x` is READY and aliased to
+`desk.usefulmade.com`. First-bind enrollment and every provider/refund
+acceptance flag remained false, VBF/Aakash stayed closed, no refund occurred,
+and no second customer or broader rollout is authorized.
