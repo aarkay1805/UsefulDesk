@@ -6,6 +6,10 @@
 
 ---
 
+## Payment Link readiness loaders
+
+Invoice **Copy link** and **Send payment link** actions now keep their labels stable while showing the established spinner and `aria-busy` state during the parallel Razorpay, WhatsApp, and template readiness checks. An active link now reads **Payment link active** with its expiry on a separate supporting line, distinguishing link expiry from invoice status. The existing role, provider, phone, and template gates remain unchanged, and focused component coverage locks the busy, ready, and active-link hierarchy. Key code: `src/components/finance/payment-link-actions.tsx` and `payment-link-actions.test.tsx`.
+
 ## Razorpay permanently activated for Rajat
 
 Under exact owner authorization, Production now keeps `RAZORPAY_OAUTH_ENABLED=true` only behind the existing Rajat Kashyap account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` / Live merchant `acc_TCJwBqanN9LTrK` pins. READY deployment `dpl_9dcvUKMuTMiXzw8xsC21GQ49cfhp` from commit `26149600cdbe08c028736e8074761505199ecb72` is promoted on `desk.usefulmade.com`; first-bind enrollment and every provider/refund acceptance flag remain false, and Stage 6 manual-key/legacy-ingress retirement remains intact. Authenticated UI verification showed Connected, Live, ready, and payment-link controls enabled on an existing eligible invoice without using them. Secret-blind closeout found zero relevant queues and zero new financial, messaging, refund, link, mandate, webhook, or OAuth-state records; the prior ₹40 settlement remains exactly once. No second customer, WhatsApp send, consent, refund, money movement, secret rotation, VBF action, or broader rollout is authorized. Operational evidence: `docs/razorpay-operations.md`.

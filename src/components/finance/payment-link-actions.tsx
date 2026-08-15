@@ -37,7 +37,9 @@ function PaymentLinkStatusBadge({
 }: {
   status: BrowserPaymentLink['status'];
 }) {
-  if (status === 'created') return <Badge variant="info">Active</Badge>;
+  if (status === 'created') {
+    return <Badge variant="info">Payment link active</Badge>;
+  }
   if (status === 'paid') return <Badge variant="success">Paid</Badge>;
   if (status === 'creating' || status === 'cancel_requested') {
     return <Badge variant="warning">Updating</Badge>;
@@ -216,10 +218,10 @@ export function PaymentLinkActions({
   return (
     <>
       {showStatus ? (
-        <span className="mr-auto inline-flex items-center gap-2 text-xs">
+        <span className="mr-auto inline-flex flex-col items-start gap-1 text-xs">
           <PaymentLinkStatusBadge status={link.status} />
           {active && link.expiresAt ? (
-            <span className="text-muted-foreground tabular-nums">
+            <span className="text-muted-foreground whitespace-nowrap tabular-nums">
               Expires {fmt.dateTime(link.expiresAt)}
             </span>
           ) : null}
@@ -231,10 +233,15 @@ export function PaymentLinkActions({
         canAct={canManage}
         gateReason="create payment links"
         disabled={readinessLoading || creatingFor !== null || !providerReady}
-        title={providerReason ?? undefined}
+        aria-busy={readinessLoading || creatingFor === 'copy'}
+        title={
+          readinessLoading
+            ? 'Checking payment-link availability'
+            : (providerReason ?? undefined)
+        }
         onClick={copyLink}
       >
-        {creatingFor === 'copy' ? (
+        {readinessLoading || creatingFor === 'copy' ? (
           <Loader2 className="size-4 animate-spin" />
         ) : copied ? (
           <Check className="size-4" />
@@ -251,10 +258,15 @@ export function PaymentLinkActions({
         canAct={canManage}
         gateReason="send payment links"
         disabled={readinessLoading || creatingFor !== null || !sendReady}
-        title={sendReason ?? undefined}
+        aria-busy={readinessLoading || creatingFor === 'send'}
+        title={
+          readinessLoading
+            ? 'Checking payment-link availability'
+            : (sendReason ?? undefined)
+        }
         onClick={sendLink}
       >
-        {creatingFor === 'send' ? (
+        {readinessLoading || creatingFor === 'send' ? (
           <Loader2 className="size-4 animate-spin" />
         ) : (
           <MessageCircle className="size-4" />
