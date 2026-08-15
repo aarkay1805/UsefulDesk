@@ -56,7 +56,7 @@ describe('Finance revenue-attribution database contract', () => {
     expect(productCheckoutMigration).toContain("WHEN 'sale' THEN 'sale'");
   });
 
-  it('keeps joining and later collection browser flows separate', () => {
+  it('keeps canonical joining and later collection browser flows separate', () => {
     const memberForm = read('src/components/members/member-form.tsx');
     const importer = read(
       'src/components/members/import-members-csv-dialog.tsx'
@@ -68,7 +68,8 @@ describe('Finance revenue-attribution database contract', () => {
       'src/components/members/bulk-record-payment-dialog.tsx'
     );
 
-    expect(memberForm).toContain("functionName: 'record_joining_payment'");
+    expect(memberForm).toContain("fetch('/api/member-checkouts'");
+    expect(memberForm).not.toContain("functionName: 'record_joining_payment'");
     expect(importer).toContain("'record_joining_payment'");
     expect(recordPayment).toContain('rpc("record_membership_payment"');
     expect(bulkPayment).toContain('rpc("record_membership_payment"');
