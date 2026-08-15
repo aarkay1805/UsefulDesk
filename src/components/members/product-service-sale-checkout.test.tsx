@@ -125,10 +125,16 @@ describe('ProductServiceSaleCheckout', () => {
       'lg:grid-cols-[minmax(0,5fr)_minmax(20rem,3fr)]'
     );
     expect(payment.className).toContain('lg:sticky');
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    const createInvoice = screen.getByRole('button', {
+      name: /Create invoice.*₹50/,
+    });
+    expect(payment.contains(cancel)).toBe(true);
+    expect(payment.contains(createInvoice)).toBe(true);
+    expect(screen.getAllByRole('button', { name: 'Cancel' })).toHaveLength(1);
     expect(
-      screen.getByRole('button', { name: /Create invoice.*₹50/ })
-    ).toBeTruthy();
+      screen.getAllByRole('button', { name: /Create invoice.*₹50/ })
+    ).toHaveLength(1);
   });
 
   it('reveals payment only after the first item is selected', () => {
@@ -150,13 +156,20 @@ describe('ProductServiceSaleCheckout', () => {
     );
     expect(screen.queryByRole('complementary', { name: 'Payment' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Create invoice' })).toBeNull();
+    const emptyCancel = screen.getByRole('button', { name: 'Cancel' });
+    expect(checkout.contains(emptyCancel)).toBe(false);
 
     fireEvent.click(screen.getByRole('button', { name: 'Add catalogue item' }));
 
-    expect(screen.getByRole('complementary', { name: 'Payment' })).toBeTruthy();
+    const payment = screen.getByRole('complementary', { name: 'Payment' });
     expect(
-      screen.getByRole('button', { name: /Create invoice.*₹50/ })
-    ).toBeTruthy();
+      payment.contains(screen.getByRole('button', { name: 'Cancel' }))
+    ).toBe(true);
+    expect(
+      payment.contains(
+        screen.getByRole('button', { name: /Create invoice.*₹50/ })
+      )
+    ).toBe(true);
   });
 
   it('enables collection details only when collecting now', () => {

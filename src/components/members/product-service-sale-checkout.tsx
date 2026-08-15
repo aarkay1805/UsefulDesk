@@ -16,7 +16,13 @@ import type {
   PaymentMethod,
 } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -347,34 +353,51 @@ export function ProductServiceSaleCheckout({
                     </p>
                   )}
                 </CardContent>
+                <CardFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={onCancel}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={saving || !!collectAmountError}
+                  >
+                    {saving ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : null}
+                    {saving ? (
+                      'Creating invoice…'
+                    ) : (
+                      <>
+                        Create invoice
+                        <span className="tabular-nums">
+                          · {fmt.money(total)}
+                        </span>
+                      </>
+                    )}
+                  </Button>
+                </CardFooter>
               </Card>
             </aside>
           ) : null}
         </div>
       </div>
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={saving}
-          onClick={onCancel}
-        >
-          Cancel
-        </Button>
-        {selections.length > 0 ? (
-          <Button type="submit" disabled={saving || !!collectAmountError}>
-            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            {saving ? (
-              'Creating invoice…'
-            ) : (
-              <>
-                Create invoice
-                <span className="tabular-nums">· {fmt.money(total)}</span>
-              </>
-            )}
+      {selections.length === 0 ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving}
+            onClick={onCancel}
+          >
+            Cancel
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </form>
   );
 }

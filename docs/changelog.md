@@ -6,6 +6,10 @@
 
 ---
 
+## Purchase actions grouped with Payment
+
+The dedicated **Add purchase** checkout now places Cancel and **Create invoice** in the Payment card footer once an item is selected, keeping the final action attached to the payment decision. Empty checkouts retain a standalone Cancel action, and payment, submission, and ledger behavior are unchanged. Key code: `src/components/members/product-service-sale-checkout.tsx` and `product-service-sale-checkout.test.tsx`.
+
 ## Dedicated member purchase checkout
 
 Member profile **Add purchase** now opens a dedicated member-aware page instead of nesting another dialog over the profile sheet. One compact identity line keeps the member's name, phone, Member ID, plan, and expiry visible without a separate details card; the catalogue combines item metadata into one supporting line, uses the table as its sole bordered surface without a repeated section label, keeps its desktop column width stable before Payment appears, and shows **Add** before switching a selected item to a quantity stepper starting at 1. Add and stepper controls share one compact, fixed, right-aligned footprint with centered contents, while the price-adjustment icon follows the amount so prices remain anchored. Payment plus Create invoice remain deferred until the first selection; Payment now uses **Collect now / Collect later** radios and reveals the pre-filled amount plus payment method only for immediate collection. Conditional service/trainer details, audited price adjustment, credit, Cancel/success return navigation, authorization, API, and immutable-ledger behavior are unchanged. Key code: `src/app/(dashboard)/members/purchase/`, `src/components/members/product-service-sale-checkout.tsx`, `products-services-picker.tsx`, and `src/lib/members/member-purchase-navigation.ts`.
