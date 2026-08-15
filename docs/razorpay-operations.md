@@ -1197,3 +1197,54 @@ deployment `dpl_DAtth8pTbH8osaCiSVao71wpoi5x` is READY and aliased to
 `desk.usefulmade.com`. First-bind enrollment and every provider/refund
 acceptance flag remained false, VBF/Aakash stayed closed, no refund occurred,
 and no second customer or broader rollout is authorized.
+
+### Permanent Production activation for Rajat
+
+On 2026-08-15 the owner authorized `RAZORPAY_OAUTH_ENABLED=true` as the ongoing
+Production operating state only for UsefulDesk account
+`50a9e8f9-d7e5-44d2-ba04-c367509b981e` and exact Live merchant
+`acc_TCJwBqanN9LTrK`. This does not authorize a first bind, another account or
+merchant, consent, a Payment Link, WhatsApp send, second customer transaction,
+refund, money movement, client-secret rotation, or broader rollout.
+
+Before the flag change, a secret-blind Production preflight proved one active
+owner membership and the exact encrypted
+OAuth/Live/storage-v1/application/`read_write`/ready connection. Access and
+refresh tokens were present without being read, refresh generation remained 2,
+and there was no manual key/webhook material, active OAuth state, refresh or
+scan lease, disconnect marker, or error. Strict isolation checks found no Test
+credential in Production, conflicting merchant, non-pinned Razorpay
+credential, or VBF credential. WhatsApp was connected, `gym_payment_link` was
+Approved, and every relevant webhook, ledger, Payment Link, payment, refund,
+mandate, reconciliation, and exception queue was zero.
+
+The only environment mutation set `RAZORPAY_OAUTH_ENABLED=true`. The existing
+account and merchant pins stayed exact;
+`RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED`, provider acceptance, refund ambiguous
+create acceptance, and refund retry acceptance stayed false. The Stage 6
+manual rollback variable remained absent. The existing OAuth client-secret
+rotation remains deferred under the accepted owner risk and was not touched.
+
+Production deployment `dpl_9dcvUKMuTMiXzw8xsC21GQ49cfhp`, built from exact
+commit `26149600cdbe08c028736e8074761505199ecb72`, reached READY, is promoted,
+and is aliased to `desk.usefulmade.com`; the bounded post-deploy error-log query
+returned no entries. In the existing authenticated owner session, Settings →
+Payments showed Connected, Readiness verified, Live mode, and the expected
+merchant suffix. An already-existing eligible due invoice showed both Copy
+link and Send payment link enabled after readiness loaded. Neither control was
+used, and no link URL or member details were exposed or recorded.
+
+The secret-blind database closeout at `2026-08-15T08:12:04.581065Z` matched the
+preflight exactly: the generation-2 connection remained ready and free of
+manual material, leases, and errors; every relevant queue remained zero; and
+counts for links, refunds, messages, payments, adjustments, allocations, and
+Razorpay events were unchanged. The prior invoice `#BC2B1DDB`, signed event
+`TPy00PfdmPIwtD`, ₹40 payment
+`1f8b569e-ff1a-4f39-a389-c1e6d18096b6`, and its single ₹40 allocation remained
+settled exactly once with zero collectible/accounting balance and no refund.
+There were zero new invoices, invoice lines, payments, allocations, refunds,
+refund allocations, adjustments, adjustment allocations, links, messages,
+conversations, Razorpay events, mandates, or OAuth states during the window.
+VBF/Aakash remains closed. This exact pinned tuple is the only permanently
+active Production scope; onboarding or operating any other gym still requires
+separate authority.
