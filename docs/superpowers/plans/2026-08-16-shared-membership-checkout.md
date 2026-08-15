@@ -670,7 +670,7 @@ git commit -m "fix: validate membership checkout intent"
 - Modify: `docs/changelog.md`
 - Modify: `PRDs/roadmap.md`
 
-- [ ] **Step 1: Run targeted tests**
+- [x] **Step 1: Run targeted tests**
 
 ```bash
 npm test -- \
@@ -688,7 +688,7 @@ npm test -- \
 
 Expected: PASS without React warnings.
 
-- [ ] **Step 2: Run static checks**
+- [x] **Step 2: Run static checks**
 
 ```bash
 npm run typecheck
@@ -703,15 +703,15 @@ git diff --check
 
 Expected: exit 0.
 
-- [ ] **Step 3: Bounded browser verification**
+- [x] **Step 3: Bounded browser verification**
 
 At desktop and phone widths verify Add deferred, lead-convert offered/full, trial-convert 60/40, early renewal offered, expired renewal, zero cash due, add-on clearing, catalogue states, keyboard/focus, footer/scroll, totals/dates, and refreshed member/invoice data.
 
-- [ ] **Step 4: Update durable docs**
+- [x] **Step 4: Update durable docs**
 
 Document canonical Add/Convert/Renew offers, catalogue isolation, deferred payment, post-credit installments, and internal-only legacy renewal RPC in `docs/gym-domain.md`. Add a terse changelog entry and move/update the shipped roadmap item.
 
-- [ ] **Step 5: Run final verification**
+- [x] **Step 5: Run final verification**
 
 ```bash
 npm test
@@ -723,7 +723,7 @@ git status --short
 
 Expected: all checks pass; only intentional changes remain.
 
-- [ ] **Step 6: Commit docs**
+- [x] **Step 6: Commit docs**
 
 ```bash
 git add docs/gym-domain.md docs/changelog.md PRDs/roadmap.md

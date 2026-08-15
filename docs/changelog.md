@@ -6,6 +6,10 @@
 
 ---
 
+## Shared membership checkout
+
+Add member, lead conversion, trial conversion, and renewal now share one responsive checkout panel for plan dates, first-cycle offers, catalogue items, credit, deferred collection, full collection, and post-credit 60/40 installments. The API accepts structured intent only; the database derives prices, expiry, offer snapshots, credit application, and collection amounts atomically, excludes setup fees from renewals, and leaves prior arrears on their original invoices. Direct agent execution of the legacy renewal RPC is revoked. Key code: `src/components/members/membership-checkout-panel.tsx`, `src/lib/memberships/checkout.ts`, `src/app/api/member-checkouts/route.ts`, and `supabase/migrations/20260816120000_shared_membership_checkout.sql`.
+
 ## Renewal membership modal and modal blur standard
 
 **Renew membership** now follows the established Convert-to-member mental model: member/current-membership context sits beside a contained Membership details → Products & services → Payment task path, with a fixed header/footer, scrollable responsive body, labelled account-currency fields, and canonical Checkbox controls. Products & services is opt-in and reuses the dedicated Add purchase catalogue/quantity interaction; turning it off clears selected items before checkout. Dialog and Sheet now share one visible modal backdrop recipe; because Base UI suppresses nested child backdrops, their parent popup blurs while a nested dialog owns focus. Popovers, Selects, and DropdownMenus remain unchanged. Key code: `src/components/members/renew-membership-dialog.tsx`, `src/components/ui/modal-backdrop.ts`, `dialog.tsx`, and `sheet.tsx`.
