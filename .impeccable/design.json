@@ -1,0 +1,510 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-15T12:42:57Z",
+  "title": "Design System: UsefulDesk",
+  "extensions": {
+    "colorMeta": {
+      "dark-canvas": {
+        "role": "neutral",
+        "displayName": "Dark Canvas",
+        "canonical": "oklch(0.13 0.01 260)",
+        "tonalRamp": [
+          "oklch(0.15 0.01 260)",
+          "oklch(0.25 0.01 260)",
+          "oklch(0.35 0.01 260)",
+          "oklch(0.45 0.01 260)",
+          "oklch(0.55 0.01 260)",
+          "oklch(0.65 0.01 260)",
+          "oklch(0.8 0.01 260)",
+          "oklch(0.95 0.01 260)"
+        ]
+      },
+      "dark-ink": {
+        "role": "neutral",
+        "displayName": "Dark Ink",
+        "canonical": "oklch(0.985 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.25 0 0)",
+          "oklch(0.35 0 0)",
+          "oklch(0.45 0 0)",
+          "oklch(0.55 0 0)",
+          "oklch(0.65 0 0)",
+          "oklch(0.8 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "dark-card": {
+        "role": "neutral",
+        "displayName": "Dark Card",
+        "canonical": "oklch(0.18 0.01 260)",
+        "tonalRamp": [
+          "oklch(0.15 0.01 260)",
+          "oklch(0.25 0.01 260)",
+          "oklch(0.35 0.01 260)",
+          "oklch(0.45 0.01 260)",
+          "oklch(0.55 0.01 260)",
+          "oklch(0.65 0.01 260)",
+          "oklch(0.8 0.01 260)",
+          "oklch(0.95 0.01 260)"
+        ]
+      },
+      "dark-tile": {
+        "role": "neutral",
+        "displayName": "Dark Tile",
+        "canonical": "oklch(0.205 0.01 260)",
+        "tonalRamp": [
+          "oklch(0.15 0.01 260)",
+          "oklch(0.25 0.01 260)",
+          "oklch(0.35 0.01 260)",
+          "oklch(0.45 0.01 260)",
+          "oklch(0.55 0.01 260)",
+          "oklch(0.65 0.01 260)",
+          "oklch(0.8 0.01 260)",
+          "oklch(0.95 0.01 260)"
+        ]
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "Dark Muted",
+        "canonical": "oklch(0.22 0.01 260)",
+        "tonalRamp": [
+          "oklch(0.15 0.01 260)",
+          "oklch(0.25 0.01 260)",
+          "oklch(0.35 0.01 260)",
+          "oklch(0.45 0.01 260)",
+          "oklch(0.55 0.01 260)",
+          "oklch(0.65 0.01 260)",
+          "oklch(0.8 0.01 260)",
+          "oklch(0.95 0.01 260)"
+        ]
+      },
+      "dark-muted-text": {
+        "role": "neutral",
+        "displayName": "Dark Muted Text",
+        "canonical": "oklch(0.65 0.01 260)",
+        "tonalRamp": [
+          "oklch(0.15 0.01 260)",
+          "oklch(0.25 0.01 260)",
+          "oklch(0.35 0.01 260)",
+          "oklch(0.45 0.01 260)",
+          "oklch(0.55 0.01 260)",
+          "oklch(0.65 0.01 260)",
+          "oklch(0.8 0.01 260)",
+          "oklch(0.95 0.01 260)"
+        ]
+      },
+      "dark-border": {
+        "role": "neutral",
+        "displayName": "Dark Border",
+        "canonical": "oklch(0.28 0.01 260)",
+        "tonalRamp": [
+          "oklch(0.15 0.01 260)",
+          "oklch(0.25 0.01 260)",
+          "oklch(0.35 0.01 260)",
+          "oklch(0.45 0.01 260)",
+          "oklch(0.55 0.01 260)",
+          "oklch(0.65 0.01 260)",
+          "oklch(0.8 0.01 260)",
+          "oklch(0.95 0.01 260)"
+        ]
+      },
+      "light-canvas": {
+        "role": "neutral",
+        "displayName": "Light Canvas",
+        "canonical": "oklch(1 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.25 0 0)",
+          "oklch(0.35 0 0)",
+          "oklch(0.45 0 0)",
+          "oklch(0.55 0 0)",
+          "oklch(0.65 0 0)",
+          "oklch(0.8 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "light-ink": {
+        "role": "neutral",
+        "displayName": "Light Ink",
+        "canonical": "oklch(0.21 0.01 260)",
+        "tonalRamp": [
+          "oklch(0.15 0.01 260)",
+          "oklch(0.25 0.01 260)",
+          "oklch(0.35 0.01 260)",
+          "oklch(0.45 0.01 260)",
+          "oklch(0.55 0.01 260)",
+          "oklch(0.65 0.01 260)",
+          "oklch(0.8 0.01 260)",
+          "oklch(0.95 0.01 260)"
+        ]
+      },
+      "light-tile": {
+        "role": "neutral",
+        "displayName": "Light Tile",
+        "canonical": "oklch(0.985 0.002 260)",
+        "tonalRamp": [
+          "oklch(0.15 0.002 260)",
+          "oklch(0.25 0.002 260)",
+          "oklch(0.35 0.002 260)",
+          "oklch(0.45 0.002 260)",
+          "oklch(0.55 0.002 260)",
+          "oklch(0.65 0.002 260)",
+          "oklch(0.8 0.002 260)",
+          "oklch(0.95 0.002 260)"
+        ]
+      },
+      "light-muted": {
+        "role": "neutral",
+        "displayName": "Light Muted",
+        "canonical": "oklch(0.967 0.003 260)",
+        "tonalRamp": [
+          "oklch(0.15 0.003 260)",
+          "oklch(0.25 0.003 260)",
+          "oklch(0.35 0.003 260)",
+          "oklch(0.45 0.003 260)",
+          "oklch(0.55 0.003 260)",
+          "oklch(0.65 0.003 260)",
+          "oklch(0.8 0.003 260)",
+          "oklch(0.95 0.003 260)"
+        ]
+      },
+      "light-muted-text": {
+        "role": "neutral",
+        "displayName": "Light Muted Text",
+        "canonical": "oklch(0.52 0.015 260)",
+        "tonalRamp": [
+          "oklch(0.15 0.015 260)",
+          "oklch(0.25 0.015 260)",
+          "oklch(0.35 0.015 260)",
+          "oklch(0.45 0.015 260)",
+          "oklch(0.55 0.015 260)",
+          "oklch(0.65 0.015 260)",
+          "oklch(0.8 0.015 260)",
+          "oklch(0.95 0.015 260)"
+        ]
+      },
+      "light-border": {
+        "role": "neutral",
+        "displayName": "Light Border",
+        "canonical": "oklch(0.922 0.004 260)",
+        "tonalRamp": [
+          "oklch(0.15 0.004 260)",
+          "oklch(0.25 0.004 260)",
+          "oklch(0.35 0.004 260)",
+          "oklch(0.45 0.004 260)",
+          "oklch(0.55 0.004 260)",
+          "oklch(0.65 0.004 260)",
+          "oklch(0.8 0.004 260)",
+          "oklch(0.95 0.004 260)"
+        ]
+      },
+      "violet": {
+        "role": "primary",
+        "displayName": "Violet",
+        "canonical": "oklch(0.54 0.24 293)",
+        "tonalRamp": [
+          "oklch(0.15 0.24 293)",
+          "oklch(0.25 0.24 293)",
+          "oklch(0.35 0.24 293)",
+          "oklch(0.45 0.24 293)",
+          "oklch(0.55 0.24 293)",
+          "oklch(0.65 0.24 293)",
+          "oklch(0.8 0.24 293)",
+          "oklch(0.95 0.24 293)"
+        ]
+      },
+      "violet-hover": {
+        "role": "primary",
+        "displayName": "Violet Hover",
+        "canonical": "oklch(0.49 0.24 293)",
+        "tonalRamp": [
+          "oklch(0.15 0.24 293)",
+          "oklch(0.25 0.24 293)",
+          "oklch(0.35 0.24 293)",
+          "oklch(0.45 0.24 293)",
+          "oklch(0.55 0.24 293)",
+          "oklch(0.65 0.24 293)",
+          "oklch(0.8 0.24 293)",
+          "oklch(0.95 0.24 293)"
+        ]
+      },
+      "emerald": {
+        "role": "primary",
+        "displayName": "Emerald",
+        "canonical": "oklch(0.62 0.16 162)",
+        "tonalRamp": [
+          "oklch(0.15 0.16 162)",
+          "oklch(0.25 0.16 162)",
+          "oklch(0.35 0.16 162)",
+          "oklch(0.45 0.16 162)",
+          "oklch(0.55 0.16 162)",
+          "oklch(0.65 0.16 162)",
+          "oklch(0.8 0.16 162)",
+          "oklch(0.95 0.16 162)"
+        ]
+      },
+      "cobalt": {
+        "role": "primary",
+        "displayName": "Cobalt",
+        "canonical": "oklch(0.55 0.19 254)",
+        "tonalRamp": [
+          "oklch(0.15 0.19 254)",
+          "oklch(0.25 0.19 254)",
+          "oklch(0.35 0.19 254)",
+          "oklch(0.45 0.19 254)",
+          "oklch(0.55 0.19 254)",
+          "oklch(0.65 0.19 254)",
+          "oklch(0.8 0.19 254)",
+          "oklch(0.95 0.19 254)"
+        ]
+      },
+      "amber": {
+        "role": "primary",
+        "displayName": "Amber",
+        "canonical": "oklch(0.745 0.16 65)",
+        "tonalRamp": [
+          "oklch(0.15 0.16 65)",
+          "oklch(0.25 0.16 65)",
+          "oklch(0.35 0.16 65)",
+          "oklch(0.45 0.16 65)",
+          "oklch(0.55 0.16 65)",
+          "oklch(0.65 0.16 65)",
+          "oklch(0.8 0.16 65)",
+          "oklch(0.95 0.16 65)"
+        ]
+      },
+      "rose": {
+        "role": "primary",
+        "displayName": "Rose",
+        "canonical": "oklch(0.58 0.21 16)",
+        "tonalRamp": [
+          "oklch(0.15 0.21 16)",
+          "oklch(0.25 0.21 16)",
+          "oklch(0.35 0.21 16)",
+          "oklch(0.45 0.21 16)",
+          "oklch(0.55 0.21 16)",
+          "oklch(0.65 0.21 16)",
+          "oklch(0.8 0.21 16)",
+          "oklch(0.95 0.21 16)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Metric Display",
+        "purpose": "Short dashboard values and high-value numerals only."
+      },
+      "headline": {
+        "displayName": "App Headline",
+        "purpose": "App-bar and highest local headings."
+      },
+      "title": {
+        "displayName": "Component Title",
+        "purpose": "Cards, dialogs, and compact section hierarchy."
+      },
+      "body": {
+        "displayName": "Interface Body",
+        "purpose": "Default product copy, controls, and tables."
+      },
+      "label": {
+        "displayName": "Compact Label",
+        "purpose": "Metadata, badges, counts, and secondary labels."
+      },
+      "mono": {
+        "displayName": "Technical Mono",
+        "purpose": "Code, token names, identifiers, and technical values."
+      }
+    },
+    "shadows": [
+      {
+        "name": "control-lift",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+        "purpose": "Checked controls, compact active tabs, and small floating browse buttons."
+      },
+      {
+        "name": "floating-panel",
+        "value": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+        "purpose": "Menus, selects, popovers, and preview cards."
+      },
+      {
+        "name": "modal-sheet",
+        "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+        "purpose": "Sheets and the strongest temporary layer."
+      }
+    ],
+    "motion": [
+      {
+        "name": "overlay-fast",
+        "value": "100ms cubic-bezier(0, 0, 0.2, 1)",
+        "purpose": "Menu, dialog, tooltip, and popover entry or exit."
+      },
+      {
+        "name": "drawer",
+        "value": "200ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Mobile sheet and sidebar transitions."
+      },
+      {
+        "name": "rail",
+        "value": "300ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Desktop sidebar width transition."
+      },
+      {
+        "name": "progress",
+        "value": "500ms cubic-bezier(0, 0, 0.2, 1)",
+        "purpose": "Progress width and bounded number emphasis."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "2xl", "value": "1536px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The default action button using the active account accent.",
+      "html": "<button class=\"ds-btn-primary\">Save changes</button>",
+      "css": ".ds-btn-primary{height:32px;padding:0 10px;border:1px solid transparent;border-radius:var(--radius,10px);background:var(--primary);color:var(--primary-foreground);font:500 14px/1.25 Inter,ui-sans-serif,system-ui,sans-serif;transition:background-color 150ms,transform 100ms,box-shadow 150ms}.ds-btn-primary:hover{background:var(--primary-hover)}.ds-btn-primary:active{transform:translateY(1px)}.ds-btn-primary:focus-visible{outline:none;border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in oklch,var(--ring) 50%,transparent)}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "A neutral secondary action with restrained hover feedback.",
+      "html": "<button class=\"ds-btn-outline\">View details</button>",
+      "css": ".ds-btn-outline{height:32px;padding:0 10px;border:1px solid var(--border);border-radius:var(--radius,10px);background:var(--background);color:var(--foreground);font:500 14px/1.25 Inter,ui-sans-serif,system-ui,sans-serif;transition:background-color 150ms,transform 100ms,box-shadow 150ms}.ds-btn-outline:hover{background:var(--muted)}.ds-btn-outline:active{transform:translateY(1px)}.ds-btn-outline:focus-visible{outline:none;border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in oklch,var(--ring) 50%,transparent)}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A compact unfilled field with a contrast-safe structural outline.",
+      "html": "<input class=\"ds-input\" placeholder=\"Member name\" />",
+      "css": ".ds-input{box-sizing:border-box;width:240px;height:32px;padding:4px 10px;border:1px solid var(--input-border);border-radius:var(--radius,10px);background:transparent;color:var(--foreground);font:400 14px/1.25 Inter,ui-sans-serif,system-ui,sans-serif;transition:border-color 150ms,box-shadow 150ms}.ds-input::placeholder{color:var(--muted-foreground)}.ds-input:hover{border-color:var(--border-hover)}.ds-input:focus-visible{outline:none;border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in oklch,var(--ring) 50%,transparent)}"
+    },
+    {
+      "name": "Selected Choice Chip",
+      "kind": "chip",
+      "refersTo": "chip-selected",
+      "description": "The canonical pressed choice inside a single-row chip group.",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"true\">Expiring soon</button>",
+      "css": ".ds-chip{height:32px;padding:0 10px;border:1px solid color-mix(in oklch,var(--primary) 30%,transparent);border-radius:9999px;background:color-mix(in oklch,var(--primary) 12%,transparent);color:var(--primary-text);font:500 14px/1.25 Inter,ui-sans-serif,system-ui,sans-serif;transition:background-color 150ms,transform 100ms,box-shadow 150ms}.ds-chip:hover{background:color-mix(in oklch,var(--primary) 18%,transparent)}.ds-chip:active{transform:translateY(1px)}.ds-chip:focus-visible{outline:none;border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in oklch,var(--ring) 50%,transparent)}"
+    },
+    {
+      "name": "Success Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-status",
+      "description": "A fill-only semantic status pill; badges are informational, not selectable.",
+      "html": "<span class=\"ds-badge-success\">Active</span>",
+      "css": ".ds-badge-success{display:inline-flex;height:20px;align-items:center;padding:2px 8px;border:0;border-radius:26px;background:color-mix(in srgb,oklch(69.6% 0.17 162.48) 10%,transparent);color:var(--emerald-foreground);font:500 12px/1.333 Inter,ui-sans-serif,system-ui,sans-serif;white-space:nowrap}"
+    },
+    {
+      "name": "Canonical Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "A quiet resting surface defined by tonal separation and a structural ring.",
+      "html": "<section class=\"ds-card\"><h3>Renewals due</h3><p>Members who need attention today.</p></section>",
+      "css": ".ds-card{box-sizing:border-box;width:280px;padding:16px;border-radius:calc(var(--radius,10px)*1.4);background:var(--card);color:var(--card-foreground);box-shadow:inset 0 0 0 1px color-mix(in oklch,var(--foreground) 10%,transparent);font-family:Inter,ui-sans-serif,system-ui,sans-serif}.ds-card h3{margin:0;font-size:16px;line-height:1.375;font-weight:500}.ds-card p{margin:4px 0 0;color:var(--muted-foreground);font-size:14px;line-height:1.4286}.ds-card:hover{box-shadow:inset 0 0 0 1px var(--border-hover)}.ds-card:focus-within{box-shadow:inset 0 0 0 1px var(--ring),0 0 0 3px color-mix(in oklch,var(--ring) 50%,transparent)}"
+    },
+    {
+      "name": "Active Sidebar Item",
+      "kind": "nav",
+      "description": "The active destination in the desktop rail or mobile drawer.",
+      "html": "<a class=\"ds-nav-active\" href=\"#\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 13h8V3H3zM13 21h8V11h-8zM13 3h8v6h-8zM3 21h8v-6H3z\"/></svg><span>Dashboard</span></a>",
+      "css": ".ds-nav-active{box-sizing:border-box;display:flex;width:216px;height:36px;align-items:center;gap:12px;padding:8px 12px;border-radius:var(--radius,10px);background:color-mix(in oklch,var(--primary) 12%,transparent);color:var(--primary-text);font:500 14px/1.25 Inter,ui-sans-serif,system-ui,sans-serif;text-decoration:none;transition:background-color 150ms,transform 100ms,box-shadow 150ms}.ds-nav-active svg{width:16px;height:16px;flex:none}.ds-nav-active:hover{background:color-mix(in oklch,var(--primary) 18%,transparent)}.ds-nav-active:active{transform:translateY(1px)}.ds-nav-active:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in oklch,var(--ring) 50%,transparent)}"
+    },
+    {
+      "name": "Metric Card",
+      "kind": "custom",
+      "description": "A supporting dashboard metric with a stable numeric hierarchy.",
+      "html": "<section class=\"ds-metric\"><div class=\"ds-metric-top\"><span>Renewals due</span><span class=\"ds-metric-icon\">₹</span></div><strong>₹1,00,000</strong><small>12 members</small></section>",
+      "css": ".ds-metric{box-sizing:border-box;width:280px;padding:20px;border:1px solid var(--border);border-radius:calc(var(--radius,10px)*1.4);background:var(--card);color:var(--foreground);font-family:Inter,ui-sans-serif,system-ui,sans-serif}.ds-metric-top{display:flex;align-items:flex-start;justify-content:space-between;color:var(--muted-foreground);font-size:14px;font-weight:500}.ds-metric-icon{display:flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:var(--radius,10px);background:var(--muted);color:var(--muted-foreground)}.ds-metric strong{display:block;margin-top:12px;font-size:28px;line-height:1;font-weight:700;letter-spacing:-0.01em;font-variant-numeric:tabular-nums}.ds-metric small{display:block;margin-top:8px;color:var(--muted-foreground);font-size:14px}.ds-metric:hover{border-color:var(--border-hover)}.ds-metric:focus-within{border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in oklch,var(--ring) 50%,transparent)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Owner's Control Desk",
+    "overview": "UsefulDesk should feel like the steady operational surface a gym owner opens to regain control: quiet enough to scan under pressure, compact enough to keep the day's work visible, and explicit enough that status and next action are never ambiguous. The system is utilitarian and trustworthy rather than austere; it earns confidence through consistent geometry, contrast-safe semantic color, and predictable interaction feedback.\n\nThe interface is restrained at rest. Neutral surfaces carry the structure, the selected account accent marks action and focus, and status hues communicate domain state without competing with the main workflow. Hover and pressed states remain clearly perceptible, but they strengthen an existing edge, tint, or position instead of adding ornament.\n\nAvoid decorative SaaS gradients, oversized marketing typography, ornamental depth, and dashboard chrome that competes with action lists.",
+    "keyCharacteristics": [
+      "Dark-first neutral workspace with a complete light mode.",
+      "Compact controls and deliberate 4px-based rhythm.",
+      "One user-selected accent at a time; domain statuses retain fixed semantic hues.",
+      "Structural layering through tonal surfaces, borders, and rings.",
+      "Refined components with clear hover, focus, selected, pressed, invalid, and disabled states."
+    ],
+    "rules": [
+      {
+        "name": "The Two-Axis Rule",
+        "body": "Mode controls neutral surfaces; theme controls the primary accent. Never make an account accent redefine the neutral workspace.",
+        "section": "colors"
+      },
+      {
+        "name": "The Accent-as-Signal Rule",
+        "body": "Use the active accent for actions, selection, links, focus, and the first chart series. Fixed domain statuses use their semantic success, danger, warning, information, violet, orange, pink, or neutral hue instead.",
+        "section": "colors"
+      },
+      {
+        "name": "The Contrast-Role Rule",
+        "body": "Accent-colored text uses the contrast-adjusted primary-text role, not the primary fill value. Form controls use the stronger input-border role; decorative divisions use the quieter border role.",
+        "section": "colors"
+      },
+      {
+        "name": "The Shell-Owns-the-Title Rule",
+        "body": "Authenticated routes use the shared app-bar title; page content must not repeat it as a second large heading.",
+        "section": "typography"
+      },
+      {
+        "name": "The Stable-Numerals Rule",
+        "body": "Every rendered money value and animated metric uses tabular lining numerals so scanning columns and changing values never jitter.",
+        "section": "typography"
+      },
+      {
+        "name": "The Action-List Rule",
+        "body": "Layout prioritizes the work that needs action today; summary metrics support those lists instead of pushing them below ornamental dashboard content.",
+        "section": "layout"
+      },
+      {
+        "name": "The Shared-Chrome Rule",
+        "body": "Titles, actions, tabs, filters, and table controls use their shared shell slots and toolbar families. Do not create page-local substitutes for existing chrome.",
+        "section": "layout"
+      },
+      {
+        "name": "The Structural-Layering Rule",
+        "body": "Surfaces are flat at rest. Use borders and tonal separation for hierarchy; add a shadow only when an element is spatially above another surface.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Edge-Strengthening Rule",
+        "body": "A clickable card keeps its fill stable on hover and strengthens its border. Changing both fill and edge makes a quiet surface feel noisy.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One-Radius-Family Rule",
+        "body": "Reuse the established radius scale. Do not introduce arbitrary corner values at a page call site.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** resolve color through semantic roles so every accent works in both light and dark modes.",
+      "**Do** reuse the canonical primitives and their variants before composing a new pattern.",
+      "**Do** keep controls compact, labels literal, and today's actions visible near the top of an operational surface.",
+      "**Do** use the shared three-pixel focus treatment and honor reduced-motion preferences.",
+      "**Do** keep money and animated metrics in tabular numerals.",
+      "**Do** reserve shadows for floating layers and use borders or tonal steps for resting hierarchy."
+    ],
+    "donts": [
+      "**Don't** use gradients, glass effects, ornamental shadows, or oversized marketing type in authenticated product surfaces.",
+      "**Don't** hard-code a theme hue or a light/dark value at a call site; use the semantic token layer.",
+      "**Don't** use the primary fill color directly for text, or the decorative border where a form-control outline is required.",
+      "**Don't** override Badge, Chip, Toolbar, Button, Card, or field geometry to create a page-specific look.",
+      "**Don't** turn a clickable choice into a badge, or a menu trigger into a chip.",
+      "**Don't** repeat the shell's page title inside content or build a second local action bar.",
+      "**Don't** animate table rows or ancestors of sticky table columns with transforms."
+    ]
+  }
+}
