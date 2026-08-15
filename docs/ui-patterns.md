@@ -75,6 +75,10 @@ A `:disabled` control keeps the arrow (a dead affordance must not advertise itse
 
 `DialogTitle` (`ui/dialog.tsx`) owns modal-title typography. Its default size remains the compact-dialog treatment; large split-layout and multi-step dialogs use the supported 18px semibold `size="lg"` variant instead of call-site size/weight overrides. Section headings inside a large dialog must remain subordinate to that title. Canonical large consumers: single-member creation (Add member and Convert to member) and the contact/lead Import wizard.
 
+### Modal backdrop
+
+Every focus-taking modal layer uses the shared Dialog or Sheet primitive and therefore the single `MODAL_BACKDROP_CLASS` recipe in `ui/modal-backdrop.ts`: a semantic background veil plus visible backdrop blur. Never restyle or remove that treatment at a call-site. Base UI deliberately omits a child Dialog's backdrop, so the same master also blurs a parent Dialog/Sheet popup while `data-nested-dialog-open` is present. Popovers, Selects, and DropdownMenus remain lightweight anchored panels and deliberately do **not** use the modal blur recipe.
+
 **Fields are unfilled — never add `bg-muted` to one.** Every control (`Input`, `CurrencyInput`, `Textarea`, `SelectTrigger`, `DatePicker`, rare native `<input>`) renders on the primitive's `bg-transparent` (+ `dark:bg-input/30`). It reads as a field because of `border-input-border`, not a grey box. (~180 hand-added `bg-muted` fills were stripped across auth / contacts / leads / members / settings / broadcasts / automations / flows.) Don't reintroduce it; don't "fix" a plain-looking field by filling it.
 
 Placeholder copy always uses the field primitive's `placeholder:text-muted-foreground`; never replace it with a prefilled controlled value merely to show guidance, and never override its colour at a call-site. Real user-entered values remain foreground text. When existing data is shown as placeholder guidance, preserve that data separately if the user submits without typing a replacement.

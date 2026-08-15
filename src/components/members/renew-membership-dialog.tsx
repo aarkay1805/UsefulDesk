@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
+import { currencySymbol } from '@/lib/currency';
 import { getErrorMessage } from '@/lib/errors';
 import { useLocale } from '@/hooks/use-locale';
 import { daysBetween } from '@/lib/memberships/expiry';
@@ -21,8 +22,10 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Label } from '@/components/ui/label';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import {
   Select,
   SelectContent,
@@ -61,8 +64,8 @@ export function RenewMembershipDialog({
   outstandingBalance = 0,
   variant = 'renew',
 }: RenewMembershipDialogProps) {
-  const { fmt } = useLocale();
-  const { plans } = useMembershipPlans(true);
+  const { fmt, locale } = useLocale();
+  const { plans, loading } = useMembershipPlans(true);
   const isConvert = variant === 'convert';
 
   const [planId, setPlanId] = useState(membership.plan_id ?? '');
@@ -150,6 +153,10 @@ export function RenewMembershipDialog({
       sum + Number(selection.unit_amount ?? 0) * (selection.quantity ?? 1),
     0
   );
+  const invoiceTotal = Number(feeAmount || 0) + addOnTotal;
+  const displayName = membership.contact?.name || 'Unnamed member';
+  const currentPlan =
+    membership.plan ?? plans.find((plan) => plan.id === membership.plan_id);
 
   async function handleRenew() {
     if (!selectedPlan || !selectedOption || !newEnd) {
@@ -216,9 +223,9 @@ export function RenewMembershipDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="flex h-[min(96vh,900px)] max-h-[96vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(960px,calc(100vw-2rem))]">
+        <DialogHeader className="border-border shrink-0 border-b p-5">
+          <DialogTitle size="lg">
             {isConvert ? 'Convert trial to member' : 'Renew membership'}
           </DialogTitle>
           <DialogDescription>
@@ -228,121 +235,239 @@ export function RenewMembershipDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {!isConvert && outstandingBalance > 0 && (
-            <p className="text-amber-foreground rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
-              {fmt.money(outstandingBalance)} is still outstanding from existing
-              invoices. Renewing opens a separate next invoice; this balance
-              will remain due.
-            </p>
-          )}
-
-          <PlanOptionPicker
-            idPrefix="rn"
-            plans={plans}
-            planId={planId}
-            optionId={optionId}
-            onChange={(sel) => {
-              setPlanId(sel.planId);
-              setOptionId(sel.optionId);
-            }}
-          />
-
-          {newEnd && (
-            <div className="border-border bg-muted/40 rounded-lg border px-3 py-2 text-sm">
-              <span className="text-muted-foreground">New expiry: </span>
-              <span className="text-foreground font-medium">
-                {fmt.date(newEnd)}
-              </span>
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label htmlFor="rn-fee" className="text-muted-foreground">
-              Fee
-            </Label>
-            <Input
-              id="rn-fee"
-              type="number"
-              min={0}
-              value={feeAmount}
-              onChange={(e) => setFeeAmount(e.target.value)}
-            />
-          </div>
-
-          <ProductsServicesPicker
-            value={selections}
-            onChange={setSelections}
-            membershipEnd={newEnd}
-            defaultStartDate={base}
-          />
-
-          <div className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm font-medium">
-            <span>Combined invoice</span>
-            <span className="tabular-nums">
-              {fmt.money(Number(feeAmount || 0) + addOnTotal)}
-            </span>
-          </div>
-
-          <div className="border-border bg-muted/40 space-y-2 rounded-lg border p-3">
-            <label className="text-foreground flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={collectPayment}
-                onChange={(e) => setCollectPayment(e.target.checked)}
-                className="accent-primary size-4"
-              />
-              {isConvert
-                ? 'Record the first payment'
-                : 'Record payment for this renewal'}
-            </label>
-            {collectPayment && (
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  type="number"
-                  min={0}
-                  value={collectAmount}
-                  onChange={(e) => setCollectAmount(e.target.value)}
-                  placeholder="Amount"
-                  className="h-8"
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleRenew();
+          }}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+            <aside className="border-border border-b p-5 md:border-r md:border-b-0">
+              <div className="flex items-center gap-4">
+                <UserAvatar
+                  size="lg"
+                  name={displayName}
+                  src={membership.contact?.avatar_url}
                 />
-                <Select
-                  value={method}
-                  onValueChange={(v) => setMethod(v as PaymentMethod)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAYMENT_METHODS.map((m) => (
-                      <SelectItem key={m.value} value={m.value}>
-                        {m.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="min-w-0 space-y-0.5">
+                  <p className="text-foreground truncate font-medium">
+                    {displayName}
+                  </p>
+                  <p className="text-muted-foreground truncate text-sm">
+                    {membership.contact?.phone || 'No phone number'}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    Member ID{' '}
+                    <span className="font-mono tabular-nums">
+                      {membership.member_number}
+                    </span>
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
 
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleRenew}
-            disabled={saving || !selectedPlan || !selectedOption}
-          >
-            {saving && <Loader2 className="size-4 animate-spin" />}
-            {isConvert ? 'Convert' : 'Renew'}
-          </Button>
-        </DialogFooter>
+              <div className="mt-7">
+                <p className="text-foreground mb-3 text-sm font-semibold">
+                  Current membership
+                </p>
+                <dl className="border-border divide-border divide-y overflow-hidden rounded-lg border">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-3 py-2.5 text-sm">
+                    <dt className="text-muted-foreground">Plan</dt>
+                    <dd className="text-foreground max-w-40 truncate text-right font-medium">
+                      {currentPlan?.name || 'Not available'}
+                    </dd>
+                  </div>
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-3 py-2.5 text-sm">
+                    <dt className="text-muted-foreground">
+                      {isConvert ? 'Trial ends' : 'Current expiry'}
+                    </dt>
+                    <dd className="text-foreground text-right font-medium">
+                      {fmt.date(membership.end_date)}
+                    </dd>
+                  </div>
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-3 py-2.5 text-sm">
+                    <dt className="text-muted-foreground">Current fee</dt>
+                    <dd className="text-foreground text-right font-medium tabular-nums">
+                      {isConvert
+                        ? 'No charge'
+                        : fmt.money(membership.fee_amount)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              {!isConvert && outstandingBalance > 0 && (
+                <div className="text-amber-foreground mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm">
+                  <p className="font-medium tabular-nums">
+                    {fmt.money(outstandingBalance)} still due
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed">
+                    Existing invoices stay due. This renewal creates a separate
+                    invoice for the next term.
+                  </p>
+                </div>
+              )}
+            </aside>
+
+            <div className="min-w-0 space-y-6 p-5">
+              <section className="border-border space-y-4 rounded-lg border p-4">
+                <p className="text-foreground text-sm font-semibold">
+                  Membership details
+                </p>
+                <PlanOptionPicker
+                  idPrefix="rn"
+                  plans={plans}
+                  planId={selectedPlan ? planId : ''}
+                  optionId={selectedPlan ? optionId : null}
+                  disabled={loading}
+                  footer={
+                    loading ? (
+                      <p className="text-muted-foreground text-xs">
+                        Loading membership plans…
+                      </p>
+                    ) : undefined
+                  }
+                  onChange={(selection) => {
+                    setPlanId(selection.planId);
+                    setOptionId(selection.optionId);
+                  }}
+                />
+
+                {newEnd && (
+                  <dl className="border-border bg-muted/40 grid gap-3 rounded-lg border px-3 py-2.5 text-sm sm:grid-cols-2">
+                    <div>
+                      <dt className="text-muted-foreground text-xs">Starts</dt>
+                      <dd className="text-foreground mt-0.5 font-medium">
+                        {fmt.date(base)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground text-xs">Expires</dt>
+                      <dd className="text-foreground mt-0.5 font-medium">
+                        {fmt.date(newEnd)}
+                      </dd>
+                    </div>
+                  </dl>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="rn-fee">Fee for this term</Label>
+                  <CurrencyInput
+                    id="rn-fee"
+                    min={0}
+                    symbol={currencySymbol(locale.currency)}
+                    groupLocale={locale.locale}
+                    value={feeAmount}
+                    onValueChange={setFeeAmount}
+                    placeholder="0"
+                  />
+                </div>
+              </section>
+
+              <ProductsServicesPicker
+                value={selections}
+                onChange={setSelections}
+                membershipEnd={newEnd}
+                defaultStartDate={base}
+              />
+
+              <section className="border-border space-y-4 rounded-lg border p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-foreground text-sm font-semibold">
+                    Payment
+                  </p>
+                  <div className="text-right">
+                    <p className="text-muted-foreground text-xs">
+                      Combined invoice
+                    </p>
+                    <p className="text-foreground font-medium tabular-nums">
+                      {fmt.money(invoiceTotal)}
+                    </p>
+                  </div>
+                </div>
+
+                <Label htmlFor="rn-collect-payment">
+                  <Checkbox
+                    id="rn-collect-payment"
+                    checked={collectPayment}
+                    onCheckedChange={(checked) =>
+                      setCollectPayment(checked === true)
+                    }
+                  />
+                  {isConvert
+                    ? 'Record the first payment'
+                    : 'Record payment for this renewal'}
+                </Label>
+
+                {collectPayment && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="rn-collect-amount">
+                        Amount collected
+                      </Label>
+                      <CurrencyInput
+                        id="rn-collect-amount"
+                        min={0}
+                        symbol={currencySymbol(locale.currency)}
+                        groupLocale={locale.locale}
+                        value={collectAmount}
+                        onValueChange={setCollectAmount}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="rn-payment-method">Payment method</Label>
+                      <Select
+                        value={method}
+                        onValueChange={(value) =>
+                          value && setMethod(value as PaymentMethod)
+                        }
+                      >
+                        <SelectTrigger
+                          id="rn-payment-method"
+                          className="w-full"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PAYMENT_METHODS.map((paymentMethod) => (
+                            <SelectItem
+                              key={paymentMethod.value}
+                              value={paymentMethod.value}
+                            >
+                              {paymentMethod.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+
+          <DialogFooter className="border-border m-0 shrink-0">
+            <p className="text-muted-foreground mr-auto hidden self-center text-xs sm:block">
+              {isConvert ? 'Paid membership' : 'New term'} starts{' '}
+              {fmt.date(base)}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={saving || loading || !selectedPlan || !selectedOption}
+            >
+              {saving && <Loader2 className="size-4 animate-spin" />}
+              {isConvert ? 'Convert trial to member' : 'Renew membership'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

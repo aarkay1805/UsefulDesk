@@ -6,6 +6,10 @@
 
 ---
 
+## Renewal membership modal and modal blur standard
+
+**Renew membership** now follows the established Convert-to-member mental model: member/current-membership context sits beside a contained Membership details → Products & services → Payment task path, with a fixed header/footer, scrollable responsive body, labelled account-currency fields, and canonical Checkbox controls. Dialog and Sheet now share one visible modal backdrop recipe; because Base UI suppresses nested child backdrops, their parent popup blurs while a nested dialog owns focus. Popovers, Selects, and DropdownMenus remain unchanged. Key code: `src/components/members/renew-membership-dialog.tsx`, `src/components/ui/modal-backdrop.ts`, `dialog.tsx`, and `sheet.tsx`.
+
 ## Purchase page chrome refinement
 
 The dedicated **Add purchase** page now keeps its member context borderless, omits the redundant phone number, and leaves a 16px interval before the catalogue; its single accessible close icon lives in the shared app-bar trailing action slot. Its Create invoice action fills the payment card, while the reusable checkout retains its existing dialog action layout and Cancel controls. Key code: `src/app/(dashboard)/members/purchase/member-purchase-page.tsx` and `src/components/members/product-service-sale-checkout.tsx`.
