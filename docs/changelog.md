@@ -8,7 +8,7 @@
 
 ## Purchase page chrome refinement
 
-The dedicated **Add purchase** page now keeps its member context borderless, omits the redundant phone number, and leaves a 16px interval before the catalogue; its single accessible close icon lives in the shared app-bar trailing action slot. The reusable checkout retains its existing Cancel controls for dialog use; the dedicated page suppresses those duplicates and preserves the same return navigation. Key code: `src/app/(dashboard)/members/purchase/member-purchase-page.tsx` and `src/components/members/product-service-sale-checkout.tsx`.
+The dedicated **Add purchase** page now keeps its member context borderless, omits the redundant phone number, and leaves a 16px interval before the catalogue; its single accessible close icon lives in the shared app-bar trailing action slot. Its Create invoice action fills the payment card, while the reusable checkout retains its existing dialog action layout and Cancel controls. Key code: `src/app/(dashboard)/members/purchase/member-purchase-page.tsx` and `src/components/members/product-service-sale-checkout.tsx`.
 
 ## Trainer-first purchase rows
 

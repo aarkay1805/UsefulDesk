@@ -193,6 +193,31 @@ describe('ProductServiceSaleCheckout', () => {
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
   });
 
+  it('can make the invoice action span its payment card', () => {
+    render(
+      <ProductServiceSaleCheckout
+        membership={membership}
+        mode="sale"
+        initialSelections={[
+          {
+            item_id: 'item-id',
+            option_id: 'option-id',
+            quantity: 1,
+            unit_amount: 50,
+          },
+        ]}
+        onCancel={vi.fn()}
+        onSaved={vi.fn()}
+        showCancel={false}
+        submitFullWidth
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: /Create invoice.*₹50/ }).className
+    ).toContain('w-full');
+  });
+
   it('enables collection details only when collecting now', () => {
     render(
       <ProductServiceSaleCheckout

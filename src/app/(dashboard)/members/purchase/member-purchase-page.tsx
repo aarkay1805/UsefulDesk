@@ -199,6 +199,7 @@ export function MemberPurchasePage({
         onSavingChange={setCheckoutSaving}
         onSaved={navigateBack}
         showCancel={false}
+        submitFullWidth
       />
     </div>
   );

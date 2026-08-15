@@ -52,6 +52,7 @@ interface ProductServiceSaleCheckoutProps {
   initialSelections?: CheckoutSelection[];
   onSavingChange?: (saving: boolean) => void;
   showCancel?: boolean;
+  submitFullWidth?: boolean;
   className?: string;
 }
 
@@ -63,6 +64,7 @@ export function ProductServiceSaleCheckout({
   initialSelections = [],
   onSavingChange,
   showCancel = true,
+  submitFullWidth = false,
   className,
 }: ProductServiceSaleCheckoutProps) {
   const { fmt, locale } = useLocale();
@@ -369,6 +371,7 @@ export function ProductServiceSaleCheckout({
                   <Button
                     type="submit"
                     disabled={saving || !!collectAmountError}
+                    className={submitFullWidth ? 'w-full' : undefined}
                   >
                     {saving ? (
                       <Loader2 className="size-4 animate-spin" />
