@@ -46,7 +46,7 @@ Engineering maintenance: **Settings → Products & services now has concise cata
 
 Engineering maintenance: **member profile Add purchase now has a clear invoice-items → payment hierarchy, explicit total/credit/due math, Full and Leave due collection presets, inline amount validation, honest catalogue loading/failure states, labelled controls, and account-currency price overrides while preserving the transactional checkout and immutable-ledger contract**.
 
-Engineering maintenance: **member profile Add purchase now uses a wider two-column desktop checkout with invoice items on the left and a sticky payment summary on the right, while the existing stacked mobile/tablet layout and all transactional checkout behavior remain unchanged**.
+Engineering maintenance: **member profile Add purchase now opens a dedicated member-aware page instead of another nested modal, retains a compact name/phone/Member ID/plan/expiry context strip, and returns to the same Members branch/view with the profile reopened after Cancel or success; its conventional visible catalogue keeps compact item rows, prices, direct quantity controls, conditional service/trainer details, audited price adjustment, and a responsive sticky payment summary, while service renewal continues through the shared dialog host and transactional checkout, credit, authorization, API, and immutable-ledger behavior remain unchanged**.
 
 Engineering maintenance: **Settings → Payments now has concise UPI and Razorpay setup, responsive labelled forms, inline UPI-ID validation, RLS-confirmed account writes, and recoverable loading/error/read-only states; bounded Razorpay status checks replace indefinite loading without changing OAuth, provider diagnostics, money movement, or disconnect behavior**.
 

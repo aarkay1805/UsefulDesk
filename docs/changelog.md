@@ -6,6 +6,10 @@
 
 ---
 
+## Dedicated member purchase checkout
+
+Member profile **Add purchase** now opens a dedicated member-aware page instead of nesting another dialog over the profile sheet. A compact identity strip keeps the member's name, phone, Member ID, plan, and expiry visible; Cancel and successful checkout return to the retained Members branch/view with that profile reopened. The page keeps the full compact catalogue, direct quantity controls, conditional service/trainer details, audited price adjustment, and responsive payment summary; service renewal still uses the shared checkout inside its dialog, and checkout, credit, authorization, API, and immutable-ledger behavior are unchanged. Key code: `src/app/(dashboard)/members/purchase/`, `src/components/members/product-service-sale-checkout.tsx`, `member-detail-view.tsx`, and `src/lib/members/member-purchase-navigation.ts`.
+
 ## Theme-aware Google sign-in button
 
 The shared Google Identity Services control on login and signup now uses Google's filled-black treatment in UsefulDesk dark mode and its outlined treatment in light mode, so the provider control follows the surrounding auth surface without replacing Google's official button. Focused coverage locks both mode mappings. Key code: `src/components/auth/google-auth-button.tsx` and `google-auth-button.test.tsx`.

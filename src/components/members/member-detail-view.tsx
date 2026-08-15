@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   Loader2,
@@ -147,6 +148,7 @@ import {
 import { RecordInvoicePaymentDialog } from '@/components/finance/record-invoice-payment-dialog';
 import { VoidInvoicePaymentDialog } from '@/components/finance/void-invoice-payment-dialog';
 import { financeInvoiceReference } from '@/lib/finance/invoices';
+import { buildMemberPurchaseHref } from '@/lib/members/member-purchase-navigation';
 
 type MemberInvoiceBalance = Invoice;
 
@@ -235,6 +237,7 @@ export function MemberDetailView({
   onChanged,
   onEdit,
 }: MemberDetailViewProps) {
+  const router = useRouter();
   const supabase = createClient();
   const { user, canSendMessages, accountRole } = useAuth();
   const { locale, fmt } = useLocale();
@@ -269,7 +272,6 @@ export function MemberDetailView({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
   const [saleOpen, setSaleOpen] = useState(false);
-  const [saleMode, setSaleMode] = useState<'sale' | 'service_renewal'>('sale');
   const [saleInitial, setSaleInitial] = useState<CheckoutSelection[]>([]);
   const [reassignServiceTarget, setReassignServiceTarget] =
     useState<MemberService | null>(null);
@@ -753,9 +755,8 @@ export function MemberDetailView({
     : null;
 
   function openSale() {
-    setSaleMode('sale');
-    setSaleInitial([]);
-    setSaleOpen(true);
+    if (!membership) return;
+    router.push(buildMemberPurchaseHref(window.location.href, membership.id));
   }
 
   function renewService(service: MemberService) {
@@ -769,7 +770,6 @@ export function MemberDetailView({
       );
       return;
     }
-    setSaleMode('service_renewal');
     setSaleInitial([
       {
         item_id: service.catalog_item_id,
@@ -1906,11 +1906,11 @@ export function MemberDetailView({
               onCancel={() => setOverrideWarning(null)}
             />
             <ProductServiceSaleDialog
-              key={`${saleMode}:${saleInitial.map((selection) => selection.option_id).join(',')}:${saleOpen ? 'open' : 'closed'}`}
+              key={`${saleInitial.map((selection) => selection.option_id).join(',')}:${saleOpen ? 'open' : 'closed'}`}
               open={saleOpen}
               onOpenChange={setSaleOpen}
               membership={membership}
-              mode={saleMode}
+              mode="service_renewal"
               initialSelections={saleInitial}
               onSaved={refreshAll}
             />

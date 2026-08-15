@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useId, useMemo, useState } from 'react';
-import { AlertTriangle, Loader2, Plus, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Dumbbell,
+  Loader2,
+  Minus,
+  Package,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
@@ -32,6 +41,7 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Collapse } from '@/components/ui/collapse';
 import {
   Select,
   SelectContent,
@@ -39,6 +49,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Toolbar,
+  ToolbarButton,
+  ToolbarSeparator,
+} from '@/components/ui/toolbar';
 
 interface OptionChoice extends CatalogOption {
   item: CatalogItem;
@@ -52,6 +67,7 @@ export function ProductsServicesPicker({
   defaultStartDate,
   title = 'Products & services',
   description = "Optional. Items added here share this checkout's invoice.",
+  presentation = 'builder',
 }: {
   value: CheckoutSelection[];
   onChange: (value: CheckoutSelection[]) => void;
@@ -59,6 +75,7 @@ export function ProductsServicesPicker({
   defaultStartDate: string;
   title?: string;
   description?: string;
+  presentation?: 'builder' | 'catalogue';
 }) {
   const fieldId = useId();
   const supabase = createClient();
@@ -74,6 +91,14 @@ export function ProductsServicesPicker({
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [overridePrice, setOverridePrice] = useState('');
   const [overrideReason, setOverrideReason] = useState('');
+  const [trainerByOption, setTrainerByOption] = useState<
+    Record<string, string | null>
+  >({});
+  const [adjustingOptionId, setAdjustingOptionId] = useState<string | null>(
+    null
+  );
+  const [adjustedPrice, setAdjustedPrice] = useState('');
+  const [adjustReason, setAdjustReason] = useState('');
 
   useEffect(() => {
     if (!accountId) return;
@@ -182,6 +207,488 @@ export function ProductsServicesPicker({
     setQuantity('1');
     setOverridePrice('');
     setOverrideReason('');
+  }
+
+  function selectionIndex(choice: OptionChoice) {
+    return value.findIndex((selection) => selection.option_id === choice.id);
+  }
+
+  function updateSelection(
+    index: number,
+    update: (selection: CheckoutSelection) => CheckoutSelection
+  ) {
+    onChange(
+      value.map((selection, current) =>
+        current === index ? update(selection) : selection
+      )
+    );
+  }
+
+  function changeCatalogueQuantity(choice: OptionChoice, delta: -1 | 1) {
+    const index = selectionIndex(choice);
+    const selection = index >= 0 ? value[index] : null;
+    const currentQuantity = selection?.quantity ?? 0;
+    const nextQuantity = Math.max(
+      0,
+      choice.item.kind === 'service'
+        ? Math.min(1, currentQuantity + delta)
+        : currentQuantity + delta
+    );
+
+    if (nextQuantity === 0) {
+      if (index >= 0) {
+        onChange(value.filter((_, current) => current !== index));
+        if (adjustingOptionId === choice.id) setAdjustingOptionId(null);
+      }
+      return;
+    }
+
+    const trainerId = choice.item.requires_trainer
+      ? (selection?.trainer_id ?? trainerByOption[choice.id] ?? null)
+      : null;
+    const configuredPrice = configuredSelectionPrice(
+      choice.item,
+      choice,
+      trainerId,
+      choice.trainer_rates
+    );
+    if (configuredPrice == null) return;
+
+    if (selection && index >= 0) {
+      updateSelection(index, (current) => ({
+        ...current,
+        quantity: nextQuantity,
+      }));
+      return;
+    }
+
+    onChange([
+      ...value,
+      {
+        item_id: choice.item.id,
+        option_id: choice.id,
+        trainer_id: choice.item.requires_trainer ? trainerId : null,
+        quantity: nextQuantity,
+        start_date:
+          choice.item.kind === 'service' ? defaultStartDate : undefined,
+        unit_amount: configuredPrice,
+      },
+    ]);
+  }
+
+  function changeCatalogueTrainer(
+    choice: OptionChoice,
+    nextTrainerId: string | null
+  ) {
+    setTrainerByOption((current) => ({
+      ...current,
+      [choice.id]: nextTrainerId,
+    }));
+    const index = selectionIndex(choice);
+    if (index < 0 || !nextTrainerId) return;
+    const nextPrice = configuredSelectionPrice(
+      choice.item,
+      choice,
+      nextTrainerId,
+      choice.trainer_rates
+    );
+    if (nextPrice == null) return;
+    updateSelection(index, (current) => ({
+      ...current,
+      trainer_id: nextTrainerId,
+      unit_amount: nextPrice,
+      override_reason: undefined,
+    }));
+    if (adjustingOptionId === choice.id) setAdjustingOptionId(null);
+  }
+
+  function beginPriceAdjustment(
+    choice: OptionChoice,
+    selection: CheckoutSelection,
+    configuredPrice: number
+  ) {
+    setAdjustingOptionId(choice.id);
+    setAdjustedPrice(String(selection.unit_amount ?? configuredPrice));
+    setAdjustReason(selection.override_reason ?? '');
+  }
+
+  function applyPriceAdjustment(choice: OptionChoice, configuredPrice: number) {
+    const index = selectionIndex(choice);
+    const parsedPrice = Number(adjustedPrice);
+    if (
+      index < 0 ||
+      !Number.isFinite(parsedPrice) ||
+      parsedPrice < 0 ||
+      (parsedPrice !== configuredPrice && !adjustReason.trim())
+    ) {
+      return;
+    }
+    updateSelection(index, (current) => ({
+      ...current,
+      unit_amount: parsedPrice,
+      override_reason:
+        parsedPrice === configuredPrice ? undefined : adjustReason.trim(),
+    }));
+    setAdjustingOptionId(null);
+  }
+
+  if (presentation === 'catalogue') {
+    return (
+      <Card size="sm" className="min-w-0">
+        <CardHeader className="min-w-0">
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent className="min-w-0">
+          {loading ? (
+            <p className="text-muted-foreground flex items-center gap-2 py-6 text-sm">
+              <Loader2 className="size-4 animate-spin" />
+              Loading catalogue…
+            </p>
+          ) : loadError ? (
+            <p
+              className="text-destructive flex items-start gap-2 py-6 text-sm"
+              role="alert"
+            >
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              {loadError}
+            </p>
+          ) : choices.length === 0 ? (
+            <p className="text-muted-foreground py-6 text-sm">
+              No active catalogue options. Add them in Settings → Products &amp;
+              services.
+            </p>
+          ) : (
+            <div className="overflow-hidden rounded-lg border">
+              <div className="text-muted-foreground bg-muted/40 hidden grid-cols-[minmax(0,1fr)_8rem_8rem] gap-3 border-b px-3 py-2 text-xs font-medium md:grid">
+                <span>Item</span>
+                <span>Price</span>
+                <span className="text-center">Quantity</span>
+              </div>
+              <div className="divide-y">
+                {choices.map((choice) => {
+                  const index = selectionIndex(choice);
+                  const selection = index >= 0 ? value[index] : null;
+                  const quantity = selection ? (selection.quantity ?? 1) : 0;
+                  const availableChoiceTrainers = choice.item.requires_trainer
+                    ? trainers.filter((trainer) =>
+                        choice.trainer_rates.some(
+                          (rate) =>
+                            rate.trainer_id === trainer.id && rate.is_active
+                        )
+                      )
+                    : [];
+                  const activeTrainerId = choice.item.requires_trainer
+                    ? (selection?.trainer_id ??
+                      trainerByOption[choice.id] ??
+                      null)
+                    : null;
+                  const cataloguePrice = configuredSelectionPrice(
+                    choice.item,
+                    choice,
+                    activeTrainerId,
+                    choice.trainer_rates
+                  );
+                  const unitPrice = selection?.unit_amount ?? cataloguePrice;
+                  const duration =
+                    choice.duration_count && choice.duration_unit
+                      ? durationLabel(
+                          choice.duration_count,
+                          choice.duration_unit
+                        )
+                      : null;
+                  const optionLabel = duration
+                    ? `${choice.item.name}, ${duration}`
+                    : choice.item.name;
+                  const endIso =
+                    selection?.start_date && choice.item.kind === 'service'
+                      ? serviceEndDate(selection.start_date, choice)
+                      : null;
+                  const adjusted =
+                    selection &&
+                    cataloguePrice != null &&
+                    (selection.unit_amount ?? cataloguePrice) !==
+                      cataloguePrice;
+                  const priceDraft = Number(adjustedPrice);
+                  const adjustmentInvalid =
+                    adjustedPrice.trim() === '' ||
+                    !Number.isFinite(priceDraft) ||
+                    priceDraft < 0 ||
+                    (priceDraft !== cataloguePrice && !adjustReason.trim());
+
+                  return (
+                    <div key={choice.id} className="px-3 py-3">
+                      <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-[minmax(0,1fr)_8rem_8rem] md:items-center">
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <span className="bg-muted text-foreground flex size-8 shrink-0 items-center justify-center rounded-lg">
+                              {choice.item.kind === 'service' ? (
+                                <Dumbbell className="size-4" />
+                              ) : (
+                                <Package className="size-4" />
+                              )}
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-medium">
+                                {choice.item.name}
+                              </span>
+                              <span className="text-muted-foreground block text-xs">
+                                {choice.item.kind === 'service'
+                                  ? `Service${duration ? ` · ${duration}` : ''}`
+                                  : 'Product · priced per item'}
+                              </span>
+                              {choice.item.description ? (
+                                <span className="text-muted-foreground mt-1 line-clamp-1 block text-xs">
+                                  {choice.item.description}
+                                </span>
+                              ) : null}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="col-start-1 pl-11 md:col-start-2 md:row-start-1 md:pl-0">
+                          <span className="sr-only md:hidden">Price: </span>
+                          <div className="flex items-center gap-1">
+                            {selection &&
+                            canOverride &&
+                            cataloguePrice != null ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                aria-label={`${adjusted ? 'Edit adjusted' : 'Adjust'} price for ${optionLabel}`}
+                                onClick={() =>
+                                  beginPriceAdjustment(
+                                    choice,
+                                    selection,
+                                    cataloguePrice
+                                  )
+                                }
+                              >
+                                <Pencil className="size-3" />
+                              </Button>
+                            ) : null}
+                            {unitPrice != null ? (
+                              <span className="text-sm font-medium tabular-nums">
+                                {fmt.money(unitPrice)}
+                              </span>
+                            ) : (
+                              <>
+                                <span
+                                  aria-hidden="true"
+                                  className="text-muted-foreground text-sm"
+                                >
+                                  —
+                                </span>
+                                <span className="sr-only">
+                                  Price available after choosing a trainer
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          {adjusted && cataloguePrice != null ? (
+                            <span className="text-muted-foreground block text-xs tabular-nums">
+                              Usually {fmt.money(cataloguePrice)}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="col-start-1 self-center pl-11 md:col-start-3 md:row-start-1 md:justify-self-start md:pl-0">
+                          <Toolbar aria-label={`${optionLabel} quantity`}>
+                            <ToolbarButton
+                              type="button"
+                              aria-label={`Decrease ${optionLabel} quantity`}
+                              disabled={quantity === 0}
+                              onClick={() =>
+                                changeCatalogueQuantity(choice, -1)
+                              }
+                            >
+                              <Minus className="size-4" />
+                            </ToolbarButton>
+                            <ToolbarSeparator orientation="vertical" />
+                            <output
+                              aria-live="polite"
+                              aria-label={`${optionLabel} quantity: ${quantity}`}
+                              className="flex min-w-8 items-center justify-center px-2 text-sm font-medium tabular-nums"
+                            >
+                              {quantity}
+                            </output>
+                            <ToolbarSeparator orientation="vertical" />
+                            <ToolbarButton
+                              type="button"
+                              aria-label={`Increase ${optionLabel} quantity`}
+                              disabled={
+                                cataloguePrice == null ||
+                                (choice.item.kind === 'service' &&
+                                  quantity >= 1)
+                              }
+                              onClick={() => changeCatalogueQuantity(choice, 1)}
+                            >
+                              <Plus className="size-4" />
+                            </ToolbarButton>
+                          </Toolbar>
+                        </div>
+
+                        {choice.item.requires_trainer ? (
+                          <div className="space-y-1.5 pl-11 md:col-start-1 md:row-start-2">
+                            <Label
+                              htmlFor={`${fieldId}-${choice.id}-trainer`}
+                              size="sm"
+                            >
+                              Trainer
+                            </Label>
+                            <Select
+                              value={activeTrainerId}
+                              onValueChange={(next) =>
+                                changeCatalogueTrainer(choice, next)
+                              }
+                            >
+                              <SelectTrigger
+                                id={`${fieldId}-${choice.id}-trainer`}
+                                className="w-full"
+                              >
+                                <SelectValue placeholder="Choose trainer" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableChoiceTrainers.map((trainer) => {
+                                  const rate = choice.trainer_rates.find(
+                                    (candidate) =>
+                                      candidate.trainer_id === trainer.id &&
+                                      candidate.is_active
+                                  );
+                                  return (
+                                    <SelectItem
+                                      key={trainer.id}
+                                      value={trainer.id}
+                                    >
+                                      {trainer.display_name}
+                                      {trainer.title
+                                        ? ` · ${trainer.title}`
+                                        : ''}{' '}
+                                      · {fmt.money(rate?.price ?? 0)}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                            {availableChoiceTrainers.length === 0 ? (
+                              <p className="text-amber-foreground flex items-center gap-1.5 text-xs">
+                                <AlertTriangle className="size-3.5" />
+                                Trainer fee not set
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        {selection &&
+                        (choice.item.kind === 'service' ||
+                          adjustingOptionId === choice.id) ? (
+                          <div className="mt-1 border-t pt-3 md:col-span-3">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                              {choice.item.kind === 'service' ? (
+                                <div className="w-full space-y-1.5 sm:max-w-56">
+                                  <Label
+                                    htmlFor={`${fieldId}-${choice.id}-starts`}
+                                    size="sm"
+                                  >
+                                    Starts
+                                  </Label>
+                                  <DatePicker
+                                    id={`${fieldId}-${choice.id}-starts`}
+                                    value={
+                                      selection.start_date ?? defaultStartDate
+                                    }
+                                    onChange={(nextStart) =>
+                                      updateSelection(index, (current) => ({
+                                        ...current,
+                                        start_date: nextStart,
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+
+                            {membershipEnd &&
+                            endIso &&
+                            endIso > membershipEnd ? (
+                              <p className="text-amber-foreground mt-2 flex items-center gap-1 text-xs">
+                                <AlertTriangle className="size-3" />
+                                Service runs beyond membership expiry (
+                                {fmt.date(membershipEnd)}).
+                              </p>
+                            ) : null}
+
+                            <Collapse open={adjustingOptionId === choice.id}>
+                              <div className="-mx-1 mt-3 grid gap-3 px-1 py-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto] sm:items-end">
+                                <div className="space-y-1.5">
+                                  <Label
+                                    htmlFor={`${fieldId}-${choice.id}-price`}
+                                    size="sm"
+                                  >
+                                    Unit price
+                                  </Label>
+                                  <CurrencyInput
+                                    id={`${fieldId}-${choice.id}-price`}
+                                    symbol={currencySymbol(locale.currency)}
+                                    groupLocale={locale.locale}
+                                    value={adjustedPrice}
+                                    onValueChange={setAdjustedPrice}
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label
+                                    htmlFor={`${fieldId}-${choice.id}-reason`}
+                                    size="sm"
+                                  >
+                                    Reason
+                                  </Label>
+                                  <Input
+                                    id={`${fieldId}-${choice.id}-reason`}
+                                    value={adjustReason}
+                                    onChange={(event) =>
+                                      setAdjustReason(event.target.value)
+                                    }
+                                    placeholder="Required when price changes"
+                                  />
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setAdjustingOptionId(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    disabled={adjustmentInvalid}
+                                    onClick={() => {
+                                      if (cataloguePrice != null) {
+                                        applyPriceAdjustment(
+                                          choice,
+                                          cataloguePrice
+                                        );
+                                      }
+                                    }}
+                                  >
+                                    Apply
+                                  </Button>
+                                </div>
+                              </div>
+                            </Collapse>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

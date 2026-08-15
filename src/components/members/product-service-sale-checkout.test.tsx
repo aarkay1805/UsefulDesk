@@ -34,8 +34,8 @@ vi.mock('./products-services-picker', () => ({
   ProductsServicesPicker: () => <div>Catalogue picker</div>,
 }));
 
-const { ProductServiceSaleDialog } =
-  await import('./product-service-sale-dialog');
+const { ProductServiceSaleCheckout } =
+  await import('./product-service-sale-checkout');
 
 const membership = {
   id: 'membership-id',
@@ -63,13 +63,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('ProductServiceSaleDialog desktop layout', () => {
-  it('groups invoice items and payment as responsive checkout columns', () => {
+describe('ProductServiceSaleCheckout', () => {
+  it('keeps invoice building, payment, and actions in one responsive checkout', () => {
     render(
-      <ProductServiceSaleDialog
-        open
-        onOpenChange={vi.fn()}
+      <ProductServiceSaleCheckout
         membership={membership}
+        mode="sale"
         initialSelections={[
           {
             item_id: 'item-id',
@@ -78,6 +77,7 @@ describe('ProductServiceSaleDialog desktop layout', () => {
             unit_amount: 50,
           },
         ]}
+        onCancel={vi.fn()}
         onSaved={vi.fn()}
       />
     );
@@ -99,14 +99,18 @@ describe('ProductServiceSaleDialog desktop layout', () => {
       'lg:grid-cols-[minmax(0,5fr)_minmax(20rem,3fr)]'
     );
     expect(payment.className).toContain('lg:sticky');
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /Create invoice.*₹50/ })
+    ).toBeTruthy();
   });
 
-  it('keeps the payment summary visible before items are selected', () => {
+  it('keeps payment context visible before an item is selected', () => {
     render(
-      <ProductServiceSaleDialog
-        open
-        onOpenChange={vi.fn()}
+      <ProductServiceSaleCheckout
         membership={membership}
+        mode="sale"
+        onCancel={vi.fn()}
         onSaved={vi.fn()}
       />
     );

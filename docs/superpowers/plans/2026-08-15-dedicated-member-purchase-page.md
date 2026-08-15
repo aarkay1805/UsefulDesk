@@ -54,8 +54,9 @@ render(
   />
 );
 
-expect(screen.getByRole('group', { name: 'Purchase checkout' }).className)
-  .toContain('lg:grid');
+expect(
+  screen.getByRole('group', { name: 'Purchase checkout' }).className
+).toContain('lg:grid');
 expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
 ```
 
@@ -121,19 +122,24 @@ Run ESLint and Prettier check for the four Task 1 files. Resolve only extraction
 Cover these exact behaviors:
 
 ```ts
-expect(buildMemberPurchaseHref(
-  'http://localhost:3000/members?branch=branch-id&view=all',
-  'membership-id'
-)).toBe(
+expect(
+  buildMemberPurchaseHref(
+    'http://localhost:3000/members?branch=branch-id&view=all',
+    'membership-id'
+  )
+).toBe(
   '/members/purchase?membership=membership-id&branch=branch-id&returnTo=%2Fmembers%3Fbranch%3Dbranch-id%26view%3Dall%26member%3Dmembership-id'
 );
 
-expect(resolveMemberPurchaseReturn('/members?view=all', 'membership-id'))
-  .toBe('/members?view=all&member=membership-id');
-expect(resolveMemberPurchaseReturn('https://evil.example', 'membership-id'))
-  .toBe('/members?member=membership-id');
-expect(resolveMemberPurchaseReturn('/finance', 'membership-id'))
-  .toBe('/members?member=membership-id');
+expect(resolveMemberPurchaseReturn('/members?view=all', 'membership-id')).toBe(
+  '/members?view=all&member=membership-id'
+);
+expect(
+  resolveMemberPurchaseReturn('https://evil.example', 'membership-id')
+).toBe('/members?member=membership-id');
+expect(resolveMemberPurchaseReturn('/finance', 'membership-id')).toBe(
+  '/members?member=membership-id'
+);
 ```
 
 - [ ] **Step 2: Run helper tests and verify RED**
@@ -209,7 +215,8 @@ Await:
 ```ts
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const query = await searchParams;
-const membershipId = typeof query.membership === 'string' ? query.membership : null;
+const membershipId =
+  typeof query.membership === 'string' ? query.membership : null;
 const returnTo = typeof query.returnTo === 'string' ? query.returnTo : null;
 ```
 
