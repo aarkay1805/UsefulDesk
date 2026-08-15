@@ -6,6 +6,10 @@
 
 ---
 
+## Member purchase checkout polish
+
+Member profile **Add purchase** now separates invoice items from payment, shows the total/credit/due calculation before collection, provides Full and Leave due presets, validates collection amounts inline, and keeps catalogue loading/failure states honest. The shared picker now uses canonical cards, labelled controls, account-currency price overrides, and clearer required sale copy without changing checkout or ledger behavior. Key code: `src/components/members/product-service-sale-dialog.tsx` and `products-services-picker.tsx`.
+
 ## Payment Link readiness loaders
 
 Invoice **Copy link** and **Send payment link** actions now keep their labels stable while showing the established spinner and `aria-busy` state during the parallel Razorpay, WhatsApp, and template readiness checks. An active link now reads **Payment link active** with its expiry on a separate supporting line, distinguishing link expiry from invoice status. The existing role, provider, phone, and template gates remain unchanged, and focused component coverage locks the busy, ready, and active-link hierarchy. Key code: `src/components/finance/payment-link-actions.tsx` and `payment-link-actions.test.tsx`.

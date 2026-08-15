@@ -42,6 +42,8 @@ Engineering maintenance: **Settings → Lead capture and Fields & tags now use t
 
 Engineering maintenance: **Settings → Products & services now has concise catalogue guidance, a narrow-phone-safe trainer roster, readable archived items, explicit load recovery and empty-trainer states, reset-on-close drafts, and clearer permission-safe errors while preserving catalogue, trainer-fee, history, and checkout behavior**.
 
+Engineering maintenance: **member profile Add purchase now has a clear invoice-items → payment hierarchy, explicit total/credit/due math, Full and Leave due collection presets, inline amount validation, honest catalogue loading/failure states, labelled controls, and account-currency price overrides while preserving the transactional checkout and immutable-ledger contract**.
+
 Engineering maintenance: **Settings → Payments now has concise UPI and Razorpay setup, responsive labelled forms, inline UPI-ID validation, RLS-confirmed account writes, and recoverable loading/error/read-only states; bounded Razorpay status checks replace indefinite loading without changing OAuth, provider diagnostics, money movement, or disconnect behavior**.
 
 Engineering maintenance: **Settings → Regional settings, Organization & branches, and Team members now share the established narrow settings hierarchy, responsive card structure, canonical controls and status treatments, and concise owner-facing guidance while preserving account locale persistence, branch lifecycle behavior, invitations, role gates, and database authorization**.
