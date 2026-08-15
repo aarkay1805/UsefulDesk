@@ -1196,8 +1196,15 @@ export interface MembershipPeriodInvoice {
 export type CatalogItemKind = 'service' | 'merchandise';
 export type InvoiceLineKind =
   'membership' | 'service' | 'merchandise' | 'service_adjustment';
+export type MembershipCheckoutMode =
+  | 'join'
+  | 'convert'
+  | 'membership_renewal';
+export type MembershipCollectionTiming = 'full' | 'installments';
 export type CheckoutMode =
-  'join' | 'convert' | 'membership_renewal' | 'sale' | 'service_renewal';
+  | MembershipCheckoutMode
+  | 'sale'
+  | 'service_renewal';
 export type MemberServiceStatus =
   'upcoming' | 'active' | 'expired' | 'cancelled';
 
@@ -1366,6 +1373,36 @@ export interface CheckoutSelection {
   renewed_from_service_id?: string;
   unit_amount?: number;
   override_reason?: string;
+}
+
+export interface MembershipCheckoutDraft {
+  planId: string;
+  optionId: string | null;
+  startDate: string;
+  discountKind: MembershipDiscountType | null;
+  discountValue: string;
+  bonusMonthsEnabled: boolean;
+  bonusMonths: string;
+  includeProductsServices: boolean;
+  selections: CheckoutSelection[];
+  collectNow: boolean;
+  collectionTiming: MembershipCollectionTiming;
+  paymentMethod: PaymentMethod;
+}
+
+export interface MembershipCheckoutQuote {
+  listPrice: number;
+  discountAmount: number;
+  membershipFee: number;
+  standardEndDate: string;
+  periodEnd: string;
+  bonusMonths: number;
+  addOnTotal: number;
+  invoiceTotal: number;
+  creditApplied: number;
+  cashDue: number;
+  installmentNow: number;
+  installmentLater: number;
 }
 
 export interface CheckoutResult {

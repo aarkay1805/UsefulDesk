@@ -90,7 +90,7 @@ export function quoteMembershipCheckout(input: {
 }): MembershipCheckoutQuote;
 ```
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```ts
 expect(quote({ mode: 'join' }).listPrice).toBe(1200);
@@ -119,13 +119,13 @@ expect(offered).toMatchObject({
 expect(offered.installmentNow + offered.installmentLater).toBe(1200);
 ```
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run: `npm test -- src/lib/memberships/checkout.test.ts`
 
 Expected: FAIL because the module does not exist.
 
-- [ ] **Step 3: Implement minimal quote/draft helpers**
+- [x] **Step 3: Implement minimal quote/draft helpers**
 
 ```ts
 const listPrice =
@@ -159,13 +159,13 @@ const installments = installmentAmounts(cashDue);
 
 Reuse both existing offer validators. Reject invalid start dates, negative/non-finite catalogue amounts, and non-positive installment halves.
 
-- [ ] **Step 4: Verify green**
+- [x] **Step 4: Verify green**
 
 Run: `npm test -- src/lib/memberships/checkout.test.ts src/lib/memberships/discount.test.ts src/lib/memberships/bonus-time.test.ts src/lib/memberships/installments.test.ts src/lib/memberships/pricing.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/memberships/checkout.ts src/lib/memberships/checkout.test.ts src/types/index.ts
