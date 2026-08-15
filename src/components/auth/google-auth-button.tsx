@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { useTheme } from '@/hooks/use-theme';
 import { createClient } from '@/lib/supabase/client';
 import { getErrorMessage } from '@/lib/errors';
 import {
@@ -29,7 +30,7 @@ type GoogleIdentity = {
     parent: HTMLElement,
     config: {
       type: 'standard';
-      theme: 'outline';
+      theme: 'outline' | 'filled_black';
       size: 'large';
       text: 'continue_with';
       shape: 'rectangular';
@@ -59,6 +60,7 @@ export function GoogleAuthButton({
   inviteToken,
   onErrorChange,
 }: GoogleAuthButtonProps) {
+  const { mode } = useTheme();
   const [phase, setPhase] = useState<Phase>('loading');
   const [attempt, setAttempt] = useState<GoogleNonce | null>(null);
   const [useFedcm, setUseFedcm] = useState(true);
@@ -70,32 +72,35 @@ export function GoogleAuthButton({
   const enabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === 'true';
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
-  const prepareAttempt = useCallback(async (preferFedcm = true) => {
-    const preparation = ++preparationRef.current;
-    setAttempt(null);
-    setUseFedcm(preferFedcm);
-    phaseRef.current = 'loading';
-    setPhase('loading');
-    popupBlurredRef.current = false;
+  const prepareAttempt = useCallback(
+    async (preferFedcm = true) => {
+      const preparation = ++preparationRef.current;
+      setAttempt(null);
+      setUseFedcm(preferFedcm);
+      phaseRef.current = 'loading';
+      setPhase('loading');
+      popupBlurredRef.current = false;
 
-    try {
-      const nextAttempt = await generateGoogleNonce();
-      if (preparation !== preparationRef.current) return;
-      setAttempt(nextAttempt);
-      phaseRef.current = 'ready';
-      setPhase('ready');
-    } catch (error) {
-      if (preparation !== preparationRef.current) return;
-      onErrorChange(
-        getErrorMessage(
-          error,
-          'Could not secure Google sign-in. Refresh and try again.'
-        )
-      );
-      phaseRef.current = 'script-error';
-      setPhase('script-error');
-    }
-  }, [onErrorChange]);
+      try {
+        const nextAttempt = await generateGoogleNonce();
+        if (preparation !== preparationRef.current) return;
+        setAttempt(nextAttempt);
+        phaseRef.current = 'ready';
+        setPhase('ready');
+      } catch (error) {
+        if (preparation !== preparationRef.current) return;
+        onErrorChange(
+          getErrorMessage(
+            error,
+            'Could not secure Google sign-in. Refresh and try again.'
+          )
+        );
+        phaseRef.current = 'script-error';
+        setPhase('script-error');
+      }
+    },
+    [onErrorChange]
+  );
 
   const handleCredential = useCallback(
     async (
@@ -189,7 +194,7 @@ export function GoogleAuthButton({
       parent.replaceChildren();
       googleIdentity.renderButton(parent, {
         type: 'standard',
-        theme: 'outline',
+        theme: mode === 'dark' ? 'filled_black' : 'outline',
         size: 'large',
         text: 'continue_with',
         shape: 'rectangular',
@@ -209,7 +214,7 @@ export function GoogleAuthButton({
     const observer = new ResizeObserver(draw);
     observer.observe(parent);
     return () => observer.disconnect();
-  }, [attempt, clientId, handleCredential, useFedcm]);
+  }, [attempt, clientId, handleCredential, mode, useFedcm]);
 
   useEffect(() => {
     if (phase !== 'ready') return;

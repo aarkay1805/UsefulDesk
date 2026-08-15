@@ -3,6 +3,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ThemeProvider } from '@/hooks/use-theme';
 
 const signInWithIdToken = vi.hoisted(() => vi.fn());
 const updateAuthUser = vi.hoisted(() => vi.fn());
@@ -85,6 +86,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
+  delete document.documentElement.dataset.mode;
   Reflect.deleteProperty(window, 'google');
 });
 
@@ -114,6 +116,10 @@ describe('GoogleAuthButton', () => {
       nonce: 'hashed-nonce-1',
       use_fedcm_for_button: true,
     });
+    expect(renderButton).toHaveBeenCalledWith(
+      expect.any(HTMLElement),
+      expect.objectContaining({ theme: 'filled_black' })
+    );
 
     await user.click(googleButton);
     expect(
@@ -133,6 +139,22 @@ describe('GoogleAuthButton', () => {
     );
     await waitFor(() =>
       expect(navigateAfterLogin).toHaveBeenCalledWith('invite-token')
+    );
+  });
+
+  it('uses Google’s outline treatment in light mode', async () => {
+    document.documentElement.dataset.mode = 'light';
+
+    render(
+      <ThemeProvider>
+        <GoogleAuthButton inviteToken={null} onErrorChange={vi.fn()} />
+      </ThemeProvider>
+    );
+
+    await screen.findByRole('button', { name: 'Continue with Google' });
+    expect(renderButton).toHaveBeenCalledWith(
+      expect.any(HTMLElement),
+      expect.objectContaining({ theme: 'outline' })
     );
   });
 

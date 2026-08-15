@@ -6,6 +6,10 @@
 
 ---
 
+## Theme-aware Google sign-in button
+
+The shared Google Identity Services control on login and signup now uses Google's filled-black treatment in UsefulDesk dark mode and its outlined treatment in light mode, so the provider control follows the surrounding auth surface without replacing Google's official button. Focused coverage locks both mode mappings. Key code: `src/components/auth/google-auth-button.tsx` and `google-auth-button.test.tsx`.
+
 ## Member purchase checkout polish
 
 Member profile **Add purchase** now separates invoice items from payment, shows the total/credit/due calculation before collection, provides Full and Leave due presets, validates collection amounts inline, and keeps catalogue loading/failure states honest. The shared picker now uses canonical cards, labelled controls, account-currency price overrides, and clearer required sale copy without changing checkout or ledger behavior. Key code: `src/components/members/product-service-sale-dialog.tsx` and `products-services-picker.tsx`.
