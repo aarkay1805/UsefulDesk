@@ -8,7 +8,7 @@
 
 ## Renewal membership modal and modal blur standard
 
-**Renew membership** now follows the established Convert-to-member mental model: member/current-membership context sits beside a contained Membership details → Products & services → Payment task path, with a fixed header/footer, scrollable responsive body, labelled account-currency fields, and canonical Checkbox controls. Dialog and Sheet now share one visible modal backdrop recipe; because Base UI suppresses nested child backdrops, their parent popup blurs while a nested dialog owns focus. Popovers, Selects, and DropdownMenus remain unchanged. Key code: `src/components/members/renew-membership-dialog.tsx`, `src/components/ui/modal-backdrop.ts`, `dialog.tsx`, and `sheet.tsx`.
+**Renew membership** now follows the established Convert-to-member mental model: member/current-membership context sits beside a contained Membership details → Products & services → Payment task path, with a fixed header/footer, scrollable responsive body, labelled account-currency fields, and canonical Checkbox controls. Products & services is opt-in and reuses the dedicated Add purchase catalogue/quantity interaction; turning it off clears selected items before checkout. Dialog and Sheet now share one visible modal backdrop recipe; because Base UI suppresses nested child backdrops, their parent popup blurs while a nested dialog owns focus. Popovers, Selects, and DropdownMenus remain unchanged. Key code: `src/components/members/renew-membership-dialog.tsx`, `src/components/ui/modal-backdrop.ts`, `dialog.tsx`, and `sheet.tsx`.
 
 ## Purchase page chrome refinement
 

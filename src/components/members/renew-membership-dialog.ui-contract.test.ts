@@ -43,4 +43,13 @@ describe('RenewMembershipDialog UI contract', () => {
       "{isConvert ? 'Convert trial to member' : 'Renew membership'}"
     );
   });
+
+  it('keeps products and services optional and reuses the Add Purchase catalogue', () => {
+    expect(dialog).toContain('const [includeAddOns, setIncludeAddOns]');
+    expect(dialog).toContain('id="rn-include-add-ons"');
+    expect(dialog).toContain('checked={includeAddOns}');
+    expect(dialog).toContain('Add products or services to this renewal');
+    expect(dialog).toContain('presentation="catalogue"');
+    expect(dialog).toContain('setSelections([])');
+  });
 });

@@ -81,6 +81,7 @@ export function RenewMembershipDialog({
   );
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [saving, setSaving] = useState(false);
+  const [includeAddOns, setIncludeAddOns] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
     crypto.randomUUID()
   );
@@ -104,6 +105,7 @@ export function RenewMembershipDialog({
       setCollectPayment(true);
       setCollectAmount(String(membership.fee_amount ?? ''));
       setMethod('cash');
+      setIncludeAddOns(false);
       setIdempotencyKey(crypto.randomUUID());
       setSelections([]);
     })();
@@ -364,12 +366,42 @@ export function RenewMembershipDialog({
                 </div>
               </section>
 
-              <ProductsServicesPicker
-                value={selections}
-                onChange={setSelections}
-                membershipEnd={newEnd}
-                defaultStartDate={base}
-              />
+              <section className="border-border space-y-4 rounded-lg border p-4">
+                <p className="text-foreground text-sm font-semibold">
+                  Products &amp; services
+                </p>
+                <div className="space-y-1.5">
+                  <Label htmlFor="rn-include-add-ons">
+                    <Checkbox
+                      id="rn-include-add-ons"
+                      checked={includeAddOns}
+                      onCheckedChange={(checked) => {
+                        const included = checked === true;
+                        setIncludeAddOns(included);
+                        if (!included) setSelections([]);
+                      }}
+                    />
+                    {isConvert
+                      ? 'Add products or services to this membership'
+                      : 'Add products or services to this renewal'}
+                  </Label>
+                  <p className="text-muted-foreground pl-6 text-xs">
+                    Optional catalogue items share the membership invoice.
+                  </p>
+                </div>
+
+                {includeAddOns && (
+                  <div className="border-border border-t pt-4">
+                    <ProductsServicesPicker
+                      value={selections}
+                      onChange={setSelections}
+                      membershipEnd={newEnd}
+                      defaultStartDate={base}
+                      presentation="catalogue"
+                    />
+                  </div>
+                )}
+              </section>
 
               <section className="border-border space-y-4 rounded-lg border p-4">
                 <div className="flex items-center justify-between gap-4">
