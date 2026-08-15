@@ -986,9 +986,10 @@ Final Production evidence remains exact-account scoped:
   or reconciliation attention;
 - zero Razorpay credentials for VBF; the closed VBF/Aakash path was not
   reopened;
-- no repeated payment/refund exercise and no WhatsApp Send. The
-  `gym_payment_link` template remains unapproved, and existing OAuth client
-  secrets remain unrotated under the explicit owner risk acceptance.
+- no repeated payment/refund exercise and no WhatsApp Send. At this closeout
+  `gym_payment_link` was still Pending; its later approval is recorded below.
+  Existing OAuth client secrets remain unrotated under the explicit owner risk
+  acceptance.
 
 ### Post-Stage-6 Meta template verification
 
@@ -1019,23 +1020,35 @@ submitted as **Utility** / `en_US` with its existing dummy review samples
 > Please clear it to keep your access active. Reply here for a payment link or
 > any help.
 
-Meta accepted `gym_payment_due` with numeric ID `1528972491789269`. An
-authenticated provider sync returned `total=2`, zero inserts and two updates;
-both exact templates are **Pending** with no submission error. This
+Meta accepted `gym_payment_due` with numeric ID `1528972491789269`. The
+authenticated 2026-08-14 provider sync returned `total=2`, zero inserts and two
+updates; both exact templates were **Pending** with no submission error. This
 three-parameter reminder contains no payment URL and is not a substitute for
-the four-parameter `gym_payment_link` contract. It therefore does not unlock
-**Send payment link**. An older approved provider template named
+the four-parameter `gym_payment_link` contract. An older approved provider template named
 `payment_reminder` was not used because it inaccurately describes an automatic
 scheduled payment and possible fees. Production deployment
 `dpl_DMSmuK8UtsRbjSnY3pzrpvfrdhpz` contains the provider-error and validation
-repair. Do not claim or exercise Send until a later provider sync reports
-`gym_payment_link` **Approved**; Copy remains independent.
+repair.
 
-### Next real gym-owner OAuth pilot — authorization plan only
+On 2026-08-15, after the owner reported Meta approval, an authenticated
+**Sync from Meta** for the Rajat Kashyap account returned **Synced 2 templates
+from Meta (0 new, 2 updated)**. UsefulDesk now shows both exact `en_US` Utility
+templates as **Approved**, including `gym_payment_link` ID
+`1996323644342719` with the four-parameter body above and `gym_payment_due` ID
+`1528972491789269`. This clears the Meta-template prerequisite for **Send
+payment link**. The sync did not create a Payment Link or send a message; an
+actual member/invoice/amount/recipient delivery and any real-money exercise
+still require separate exact action authorization. Copy remains independent.
 
-No pilot is selected by this plan. VBF/Aakash is permanently excluded from
-this continuation, and the Rajat acceptance account is historical
-owner-controlled evidence rather than the real gym-owner pilot.
+### Real gym-owner OAuth pilot — authorization boundary
+
+The owner has confirmed that the Rajat Kashyap account is their operating gym
+workspace, that it has real clients, and that the bound Live merchant is their
+merchant. The completed exact-account/merchant readiness revalidation below
+therefore counts as the first real gym-owner **connection-readiness** pilot.
+This clarification does not retroactively authorize another consent flow, a
+Payment Link, WhatsApp delivery, payment, or refund. VBF/Aakash remains
+permanently excluded from this continuation.
 
 1. **Selection authority:** the owner must name one exact active UsefulDesk
    account UUID and branch name, the legal gym owner/admin who will consent,
@@ -1076,9 +1089,10 @@ acceptance and is not part of this pilot plan.
 
 On 2026-08-14 the owner selected and separately confirmed the existing Rajat
 Kashyap account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` and already-bound Live
-merchant `acc_TCJwBqanN9LTrK` for connection-readiness revalidation only. This
-did not relabel the historical acceptance account as an independent real-gym
-pilot and did not authorize another merchant, consent flow, Payment Link,
+merchant `acc_TCJwBqanN9LTrK` for connection-readiness revalidation only. The
+owner later confirmed this is their operating gym account with real clients,
+so the revalidation is now classified as a real gym-owner OAuth readiness
+pilot. It did not authorize another merchant, consent flow, Payment Link,
 payment, refund, or WhatsApp message.
 
 The secret-blind preflight proved one active owner membership, INR account
@@ -1128,5 +1142,7 @@ or conflicting bindings, zero unfinished/failed Payment Links or refunds,
 zero open payment/charge/refund exceptions, and zero unresolved exact-Live
 webhooks. The bounded window created zero Payment Links, payments, or refunds.
 VBF/Aakash remained closed, no WhatsApp message was sent, the Pending Meta
-templates were not claimed as approved, and the accepted deferral of OAuth
-client-secret rotation was unchanged.
+templates were not claimed as approved at that closeout, and the accepted
+deferral of OAuth client-secret rotation was unchanged. The later authenticated
+2026-08-15 sync recorded above now proves both exact templates Approved without
+changing any Razorpay flag, connection, or financial state.
