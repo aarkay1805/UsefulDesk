@@ -203,7 +203,7 @@ git commit -m "feat: define shared membership checkout model"
 }
 ```
 
-- [ ] **Step 1: Write rollback acceptance SQL**
+- [x] **Step 1: Write rollback acceptance SQL**
 
 Cover deferred lead conversion, forged-fee rejection, renewal discount/bonus snapshots, post-credit renewal installments, idempotent retry, and authenticated denial of direct legacy renewal RPC. Use explicit assertions:
 
@@ -217,13 +217,13 @@ END IF;
 
 End the fixture script with `ROLLBACK`.
 
-- [ ] **Step 2: Verify acceptance is red before migration**
+- [x] **Step 2: Verify acceptance is red before migration**
 
 Run through the approved Supabase SQL connection.
 
 Expected failures: positive-payment conversion guard, forged fee acceptance, and missing renewal installments.
 
-- [ ] **Step 3: Add authoritative quote helper**
+- [x] **Step 3: Add authoritative quote helper**
 
 ```sql
 CREATE OR REPLACE FUNCTION public.quote_membership_checkout_offer(
@@ -255,7 +255,7 @@ REVOKE ALL ON FUNCTION public.quote_membership_checkout_offer(
 
 Resolve an active account-owned option. Use `price + setup_fee` for join/convert and `price` for renewal. Validate offer math against existing constraints, derive calendar duration, and cap whole bonus months at 120.
 
-- [ ] **Step 4: Recreate join checkout**
+- [x] **Step 4: Recreate join checkout**
 
 `perform_join_checkout` must ignore browser fee/end/snapshot calculations, insert the helper result, and remove the convert-positive-payment requirement. After catalogue and credit:
 
@@ -277,7 +277,7 @@ END;
 
 Create a promise only when both derived installments are positive.
 
-- [ ] **Step 5: Recreate member checkout**
+- [x] **Step 5: Recreate member checkout**
 
 Preserve sale/service-renewal behavior outside their branch. For existing trial conversion and membership renewal, quote server-side, pass only derived values to `renew_membership_transaction`, and stamp the target period:
 
@@ -299,7 +299,7 @@ WHERE id = v_period_id;
 
 Synchronize invoice-line `list_amount`; keep `unit_amount/line_amount` equal to derived fee. Add deferred/full/installment membership collection from post-credit balance.
 
-- [ ] **Step 6: Generalize installment validation**
+- [x] **Step 6: Generalize installment validation**
 
 ```sql
 SELECT balance
@@ -323,7 +323,7 @@ END IF;
 
 Retain exact account-local paid date plus 28 days and all tenant/reference guards.
 
-- [ ] **Step 7: Revoke direct arbitrary renewal execution**
+- [x] **Step 7: Revoke direct arbitrary renewal execution**
 
 ```sql
 REVOKE EXECUTE ON FUNCTION public.renew_membership_transaction(
@@ -333,11 +333,11 @@ REVOKE EXECUTE ON FUNCTION public.renew_membership_transaction(
 
 Confirm application code has no direct caller. Owner-executed checkout RPC may call it internally.
 
-- [ ] **Step 8: Apply and verify**
+- [x] **Step 8: Apply and verify**
 
 Apply through the approved Supabase migration tool, never `db push`. Run the rollback acceptance SQL. Verify checkout RPC grants and authenticated denial of direct legacy renewal.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add supabase/migrations/20260816120000_shared_membership_checkout.sql supabase/tests/shared_membership_checkout_acceptance.sql
