@@ -20,36 +20,20 @@ describe('RenewMembershipDialog UI contract', () => {
     );
   });
 
-  it('groups member context, membership details, add-ons, and payment in order', () => {
+  it('keeps member context and delegates the task path to the shared panel', () => {
     expect(dialog).toContain('Current membership');
-    expect(dialog).toContain('Membership details');
-    expect(dialog).toContain('<ProductsServicesPicker');
-    expect(dialog).toContain('Payment');
-    expect(dialog.indexOf('Membership details')).toBeLessThan(
-      dialog.indexOf('<ProductsServicesPicker')
-    );
-    expect(dialog.indexOf('<ProductsServicesPicker')).toBeLessThan(
-      dialog.indexOf('\n                    Payment\n')
-    );
+    expect(dialog).toContain('<MembershipCheckoutPanel');
+    expect(dialog).not.toContain('Fee for this term');
+    expect(dialog).not.toContain('onValueChange={setFeeAmount}');
+    expect(dialog).not.toContain('presentation="catalogue"');
   });
 
-  it('uses shared accessible form primitives for renewal collection', () => {
-    expect(dialog).toContain("from '@/components/ui/checkbox'");
-    expect(dialog).toContain("from '@/components/ui/currency-input'");
-    expect(dialog).toContain('<Checkbox');
-    expect(dialog.match(/<CurrencyInput/g)).toHaveLength(2);
-    expect(dialog).not.toMatch(/<input[\s\S]*?type=["']checkbox["']/);
+  it('keeps the renewal shell actions and lifecycle copy', () => {
     expect(dialog).toContain(
       "{isConvert ? 'Convert trial to member' : 'Renew membership'}"
     );
-  });
-
-  it('keeps products and services optional and reuses the Add Purchase catalogue', () => {
-    expect(dialog).toContain('const [includeAddOns, setIncludeAddOns]');
-    expect(dialog).toContain('id="rn-include-add-ons"');
-    expect(dialog).toContain('checked={includeAddOns}');
-    expect(dialog).toContain('Add products or services to this renewal');
-    expect(dialog).toContain('presentation="catalogue"');
-    expect(dialog).toContain('setSelections([])');
+    expect(dialog).toContain('Trial converted to member');
+    expect(dialog).toContain('Membership renewed');
+    expect(dialog).toContain('Existing invoices stay due');
   });
 });

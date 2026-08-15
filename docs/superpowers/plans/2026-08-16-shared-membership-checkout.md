@@ -530,7 +530,7 @@ git commit -m "refactor: share member creation checkout flow"
 - Modify: `src/components/members/renew-membership-dialog.ui-contract.test.ts:1-60`
 - Create: `src/components/members/renew-membership-dialog.test.tsx`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```ts
 expect(dialog).toContain('<MembershipCheckoutPanel');
@@ -541,13 +541,13 @@ expect(dialog).not.toContain('presentation="catalogue"');
 
 Behavioral tests assert renewal mode starts at `max(expiry,today)` and trial-convert mode starts today with first-cycle pricing.
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run: `npm test -- src/components/members/renew-membership-dialog.ui-contract.test.ts src/components/members/renew-membership-dialog.test.tsx`
 
 Expected: FAIL because the dialog owns raw fee/add-on/payment controls.
 
-- [ ] **Step 3: Reduce dialog to context plus panel**
+- [x] **Step 3: Reduce dialog to context plus panel**
 
 Keep the left context, arrears warning, shell/footer, caller lifecycle locks, success/refetch, and idempotency reset. Load the current membership's usable credit from `member_credit_balances` with the same account/member scoping and cancelled-effect pattern used by `product-service-sale-checkout.tsx`, then pass the summed balance as `availableCredit`. Treat a failed credit lookup as a blocking checkout error rather than showing an incorrect collection amount.
 
@@ -562,17 +562,17 @@ const startDate =
 
 Use `convert` for trial conversion and `membership_renewal` for renewal.
 
-- [ ] **Step 4: Submit intent-only renewal**
+- [x] **Step 4: Submit intent-only renewal**
 
 Send Task 4 shape plus `membership_id`. Send no fee, final end, collection amount, or calculated snapshots. Retain **Trial converted to member** / **Membership renewed**.
 
-- [ ] **Step 5: Verify green**
+- [x] **Step 5: Verify green**
 
 Run: `npm test -- src/components/members/renew-membership-dialog.ui-contract.test.ts src/components/members/renew-membership-dialog.test.tsx src/components/members/membership-checkout-panel.test.tsx`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/components/members/renew-membership-dialog.tsx src/components/members/renew-membership-dialog.ui-contract.test.ts src/components/members/renew-membership-dialog.test.tsx
