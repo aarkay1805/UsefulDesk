@@ -51,18 +51,15 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 
+vi.mock('@/components/layout/page-header-actions', () => ({
+  PageHeaderActions: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="page-header-actions">{children}</div>
+  ),
+}));
+
 vi.mock('@/components/members/product-service-sale-checkout', () => ({
-  ProductServiceSaleCheckout: ({
-    onCancel,
-    onSaved,
-  }: {
-    onCancel: () => void;
-    onSaved: () => void;
-  }) => (
+  ProductServiceSaleCheckout: ({ onSaved }: { onSaved: () => void }) => (
     <div>
-      <button type="button" onClick={onCancel}>
-        Cancel checkout
-      </button>
       <button type="button" onClick={onSaved}>
         Complete checkout
       </button>
@@ -122,7 +119,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('MemberPurchasePage', () => {
-  it('keeps the selected member visible and returns to their retained profile', async () => {
+  it('shows compact member context above the catalogue and returns to the retained profile', async () => {
     render(
       <MemberPurchasePage
         membershipId="membership-id"
@@ -131,12 +128,15 @@ describe('MemberPurchasePage', () => {
     );
 
     expect(await screen.findByText('Mira Shah')).toBeTruthy();
-    expect(screen.getByText('+91 90000 00000')).toBeTruthy();
+    expect(screen.queryByText('+91 90000 00000')).toBeNull();
     expect(screen.getByText('1007')).toBeTruthy();
     expect(screen.getByText('Strength Monthly')).toBeTruthy();
     expect(screen.getByText('15 Sep 2026')).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Member' }).className).toContain(
+      'mb-4'
+    );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel checkout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close add purchase' }));
     expect(routerPush).toHaveBeenCalledWith(
       '/members?branch=branch-id&view=all&member=membership-id'
     );
@@ -150,7 +150,7 @@ describe('MemberPurchasePage', () => {
       screen.getByRole('button', { name: 'Back to members' })
     ).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: 'Cancel checkout' })
+      screen.queryByRole('button', { name: 'Close add purchase' })
     ).toBeNull();
   });
 
@@ -165,7 +165,7 @@ describe('MemberPurchasePage', () => {
       screen.getByRole('button', { name: 'Back to members' })
     ).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: 'Cancel checkout' })
+      screen.queryByRole('button', { name: 'Close add purchase' })
     ).toBeNull();
   });
 
@@ -179,7 +179,7 @@ describe('MemberPurchasePage', () => {
       screen.getByRole('button', { name: 'Back to members' })
     ).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: 'Cancel checkout' })
+      screen.queryByRole('button', { name: 'Close add purchase' })
     ).toBeNull();
     await waitFor(() => expect(membershipQuery.select).not.toHaveBeenCalled());
   });

@@ -67,6 +67,77 @@ const catalogue = [
       },
     ],
   },
+  {
+    id: 'trainer-service-id',
+    account_id: 'account-id',
+    kind: 'service',
+    name: 'Personal training',
+    description: null,
+    requires_trainer: true,
+    is_active: true,
+    created_by: 'user-id',
+    created_at: '2026-08-15T00:00:00Z',
+    updated_at: '2026-08-15T00:00:00Z',
+    catalog_options: [
+      {
+        id: 'trainer-service-option-id',
+        account_id: 'account-id',
+        item_id: 'trainer-service-id',
+        duration_count: 1,
+        duration_unit: 'month',
+        standard_price: null,
+        is_active: true,
+        sort_order: 0,
+        created_at: '2026-08-15T00:00:00Z',
+        updated_at: '2026-08-15T00:00:00Z',
+        trainer_rates: [
+          {
+            id: 'zara-rate-id',
+            account_id: 'account-id',
+            trainer_id: 'zara-id',
+            catalog_option_id: 'trainer-service-option-id',
+            price: 3500,
+            is_active: true,
+            created_at: '2026-08-15T00:00:00Z',
+            updated_at: '2026-08-15T00:00:00Z',
+          },
+          {
+            id: 'anaya-rate-id',
+            account_id: 'account-id',
+            trainer_id: 'anaya-id',
+            catalog_option_id: 'trainer-service-option-id',
+            price: 3000,
+            is_active: true,
+            created_at: '2026-08-15T00:00:00Z',
+            updated_at: '2026-08-15T00:00:00Z',
+          },
+        ],
+      },
+    ],
+  },
+];
+
+const trainers = [
+  {
+    id: 'anaya-id',
+    account_id: 'account-id',
+    display_name: 'Anaya',
+    title: 'Senior trainer',
+    linked_user_id: null,
+    is_active: true,
+    created_at: '2026-08-15T00:00:00Z',
+    updated_at: '2026-08-15T00:00:00Z',
+  },
+  {
+    id: 'zara-id',
+    account_id: 'account-id',
+    display_name: 'Zara',
+    title: null,
+    linked_user_id: null,
+    is_active: true,
+    created_at: '2026-08-15T00:00:00Z',
+    updated_at: '2026-08-15T00:00:00Z',
+  },
 ];
 
 vi.mock('@/hooks/use-auth', () => ({
@@ -96,7 +167,7 @@ vi.mock('@/lib/supabase/client', () => ({
           table === 'catalog_items'
             ? Promise.resolve({ data: catalogue, error: null })
             : {
-                order: () => Promise.resolve({ data: [], error: null }),
+                order: () => Promise.resolve({ data: trainers, error: null }),
               },
       }),
     }),
@@ -108,12 +179,15 @@ const { ProductsServicesPicker } = await import('./products-services-picker');
 function CatalogueHarness() {
   const [value, setValue] = useState<CheckoutSelection[]>([]);
   return (
-    <ProductsServicesPicker
-      value={value}
-      onChange={setValue}
-      defaultStartDate="2026-08-15"
-      presentation="catalogue"
-    />
+    <>
+      <ProductsServicesPicker
+        value={value}
+        onChange={setValue}
+        defaultStartDate="2026-08-15"
+        presentation="catalogue"
+      />
+      <output aria-label="Selections">{JSON.stringify(value)}</output>
+    </>
   );
 }
 
@@ -222,5 +296,32 @@ describe('ProductsServicesPicker catalogue layout', () => {
         name: 'Nutrition coaching, 1 month quantity: 1',
       })
     ).toBeTruthy();
+  });
+
+  it('defaults a trainer-priced service to its first eligible trainer', async () => {
+    render(<CatalogueHarness />);
+
+    const add = await screen.findByRole('button', {
+      name: 'Add Personal training, 1 month',
+    });
+    const trainer = screen.getByRole('combobox');
+
+    expect(trainer.textContent).toContain('Anaya');
+    expect(trainer.textContent).toContain('₹3000');
+    expect(add.hasAttribute('disabled')).toBe(false);
+
+    fireEvent.click(add);
+
+    expect(
+      JSON.parse(
+        screen.getByRole('status', { name: 'Selections' }).textContent || '[]'
+      )
+    ).toEqual([
+      expect.objectContaining({
+        option_id: 'trainer-service-option-id',
+        trainer_id: 'anaya-id',
+        unit_amount: 3000,
+      }),
+    ]);
   });
 });

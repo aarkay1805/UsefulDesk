@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CircleAlert, Loader2 } from 'lucide-react';
+import { ArrowLeft, CircleAlert, Loader2, X } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Membership } from '@/types';
 import { MemberIdentity } from '@/components/members/member-identity';
 import { ProductServiceSaleCheckout } from '@/components/members/product-service-sale-checkout';
+import { PageHeaderActions } from '@/components/layout/page-header-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
@@ -57,6 +58,7 @@ export function MemberPurchasePage({
   const [membership, setMembership] = useState<Membership | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadFailure, setLoadFailure] = useState<LoadFailure | null>(null);
+  const [checkoutSaving, setCheckoutSaving] = useState(false);
   const safeReturn = resolveMemberPurchaseReturn(returnTo, membershipId ?? '');
   const canSell = accountRole ? canSellProductsServices(accountRole) : false;
 
@@ -146,11 +148,24 @@ export function MemberPurchasePage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl min-w-0 space-y-5">
-      <section aria-label="Member" className="min-w-0 border-b pb-4">
+    <div className="mx-auto w-full max-w-6xl min-w-0">
+      <PageHeaderActions>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Close add purchase"
+          title="Close add purchase"
+          disabled={checkoutSaving}
+          onClick={navigateBack}
+        >
+          <X className="size-4" />
+        </Button>
+      </PageHeaderActions>
+
+      <section aria-label="Member" className="mb-4 min-w-0">
         <MemberIdentity
           name={membership.contact?.name}
-          secondary={membership.contact?.phone}
           src={membership.contact?.avatar_url}
           size="lg"
           meta={
@@ -181,7 +196,9 @@ export function MemberPurchasePage({
         membership={membership}
         mode="sale"
         onCancel={navigateBack}
+        onSavingChange={setCheckoutSaving}
         onSaved={navigateBack}
+        showCancel={false}
       />
     </div>
   );

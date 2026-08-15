@@ -175,6 +175,24 @@ describe('ProductServiceSaleCheckout', () => {
     ).toBe(true);
   });
 
+  it('can defer cancellation to the page chrome', () => {
+    render(
+      <ProductServiceSaleCheckout
+        membership={membership}
+        mode="sale"
+        onCancel={vi.fn()}
+        onSaved={vi.fn()}
+        showCancel={false}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add catalogue item' }));
+
+    expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+  });
+
   it('enables collection details only when collecting now', () => {
     render(
       <ProductServiceSaleCheckout

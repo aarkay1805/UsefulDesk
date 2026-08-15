@@ -51,6 +51,7 @@ interface ProductServiceSaleCheckoutProps {
   mode?: Extract<CheckoutMode, 'sale' | 'service_renewal'>;
   initialSelections?: CheckoutSelection[];
   onSavingChange?: (saving: boolean) => void;
+  showCancel?: boolean;
   className?: string;
 }
 
@@ -61,6 +62,7 @@ export function ProductServiceSaleCheckout({
   mode = 'sale',
   initialSelections = [],
   onSavingChange,
+  showCancel = true,
   className,
 }: ProductServiceSaleCheckoutProps) {
   const { fmt, locale } = useLocale();
@@ -354,14 +356,16 @@ export function ProductServiceSaleCheckout({
                   )}
                 </CardContent>
                 <CardFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-start">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={saving}
-                    onClick={onCancel}
-                  >
-                    Cancel
-                  </Button>
+                  {showCancel ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={saving}
+                      onClick={onCancel}
+                    >
+                      Cancel
+                    </Button>
+                  ) : null}
                   <Button
                     type="submit"
                     disabled={saving || !!collectAmountError}
@@ -386,7 +390,7 @@ export function ProductServiceSaleCheckout({
           ) : null}
         </div>
       </div>
-      {selections.length === 0 ? (
+      {showCancel && selections.length === 0 ? (
         <div className="flex justify-end">
           <Button
             type="button"

@@ -6,6 +6,14 @@
 
 ---
 
+## Purchase page chrome refinement
+
+The dedicated **Add purchase** page now keeps its member context borderless, omits the redundant phone number, and leaves a 16px interval before the catalogue; its single accessible close icon lives in the shared app-bar trailing action slot. The reusable checkout retains its existing Cancel controls for dialog use; the dedicated page suppresses those duplicates and preserves the same return navigation. Key code: `src/app/(dashboard)/members/purchase/member-purchase-page.tsx` and `src/components/members/product-service-sale-checkout.tsx`.
+
+## Trainer-first purchase rows
+
+Trainer-priced services in **Add purchase** now place the trainer selector in the Price column and smart-default to the first alphabetically listed trainer with an active fee, so the configured price is visible and Add is immediately available. The selected trainer and fee still flow through the existing transactional checkout; missing trainer fees remain explicitly unavailable. Key code: `src/components/members/products-services-picker.tsx` and `products-services-picker.test.tsx`.
+
 ## Purchase actions grouped with Payment
 
 The dedicated **Add purchase** checkout now places Cancel and **Create invoice** at the leading edge of the Payment card footer once an item is selected, keeping the final action attached to the payment decision. Empty checkouts retain a standalone Cancel action, and payment, submission, and ledger behavior are unchanged. Key code: `src/components/members/product-service-sale-checkout.tsx` and `product-service-sale-checkout.test.tsx`.

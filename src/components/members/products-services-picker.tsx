@@ -211,6 +211,16 @@ export function ProductsServicesPicker({
     return value.findIndex((selection) => selection.option_id === choice.id);
   }
 
+  function availableTrainersFor(choice: OptionChoice) {
+    return choice.item.requires_trainer
+      ? trainers.filter((trainer) =>
+          choice.trainer_rates.some(
+            (rate) => rate.trainer_id === trainer.id && rate.is_active
+          )
+        )
+      : [];
+  }
+
   function updateSelection(
     index: number,
     update: (selection: CheckoutSelection) => CheckoutSelection
@@ -242,7 +252,10 @@ export function ProductsServicesPicker({
     }
 
     const trainerId = choice.item.requires_trainer
-      ? (selection?.trainer_id ?? trainerByOption[choice.id] ?? null)
+      ? (selection?.trainer_id ??
+        trainerByOption[choice.id] ??
+        availableTrainersFor(choice)[0]?.id ??
+        null)
       : null;
     const configuredPrice = configuredSelectionPrice(
       choice.item,
@@ -353,7 +366,7 @@ export function ProductsServicesPicker({
           </p>
         ) : (
           <div className="overflow-hidden rounded-lg border">
-            <div className="text-muted-foreground bg-muted/40 hidden grid-cols-[minmax(0,1fr)_8rem_8rem] gap-3 border-b px-3 py-2 text-xs font-medium md:grid">
+            <div className="text-muted-foreground bg-muted/40 hidden grid-cols-[minmax(0,1fr)_11rem_8rem] gap-3 border-b px-3 py-2 text-xs font-medium md:grid">
               <span>Item</span>
               <span>Price</span>
               <span className="text-center">Quantity</span>
@@ -363,17 +376,11 @@ export function ProductsServicesPicker({
                 const index = selectionIndex(choice);
                 const selection = index >= 0 ? value[index] : null;
                 const quantity = selection ? (selection.quantity ?? 1) : 0;
-                const availableChoiceTrainers = choice.item.requires_trainer
-                  ? trainers.filter((trainer) =>
-                      choice.trainer_rates.some(
-                        (rate) =>
-                          rate.trainer_id === trainer.id && rate.is_active
-                      )
-                    )
-                  : [];
+                const availableChoiceTrainers = availableTrainersFor(choice);
                 const activeTrainerId = choice.item.requires_trainer
                   ? (selection?.trainer_id ??
                     trainerByOption[choice.id] ??
+                    availableChoiceTrainers[0]?.id ??
                     null)
                   : null;
                 const cataloguePrice = configuredSelectionPrice(
@@ -407,7 +414,7 @@ export function ProductsServicesPicker({
 
                 return (
                   <div key={choice.id} className="px-3 py-3">
-                    <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-[minmax(0,1fr)_8rem_8rem] md:items-center">
+                    <div className="grid min-w-0 grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-[minmax(0,1fr)_11rem_8rem] md:items-center">
                       <div className="min-w-0">
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-medium">
@@ -425,12 +432,51 @@ export function ProductsServicesPicker({
                       </div>
 
                       <div className="col-start-1 md:col-start-2 md:row-start-1">
-                        <span className="sr-only md:hidden">Price: </span>
                         <div className="flex items-center gap-1">
-                          {unitPrice != null ? (
-                            <span className="text-sm font-medium tabular-nums">
-                              {fmt.money(unitPrice)}
-                            </span>
+                          {choice.item.requires_trainer ? (
+                            <Select
+                              value={activeTrainerId}
+                              disabled={availableChoiceTrainers.length === 0}
+                              onValueChange={(next) =>
+                                changeCatalogueTrainer(choice, next)
+                              }
+                            >
+                              <SelectTrigger
+                                id={`${fieldId}-${choice.id}-trainer`}
+                                aria-label={`Trainer for ${optionLabel}`}
+                                className="min-w-0 flex-1"
+                              >
+                                <SelectValue placeholder="Choose trainer" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableChoiceTrainers.map((trainer) => {
+                                  const rate = choice.trainer_rates.find(
+                                    (candidate) =>
+                                      candidate.trainer_id === trainer.id &&
+                                      candidate.is_active
+                                  );
+                                  return (
+                                    <SelectItem
+                                      key={trainer.id}
+                                      value={trainer.id}
+                                    >
+                                      {trainer.display_name}
+                                      {trainer.title
+                                        ? ` · ${trainer.title}`
+                                        : ''}{' '}
+                                      · {fmt.money(rate?.price ?? 0)}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          ) : unitPrice != null ? (
+                            <>
+                              <span className="sr-only md:hidden">Price: </span>
+                              <span className="text-sm font-medium tabular-nums">
+                                {fmt.money(unitPrice)}
+                              </span>
+                            </>
                           ) : (
                             <>
                               <span
@@ -464,6 +510,13 @@ export function ProductsServicesPicker({
                             </Button>
                           ) : null}
                         </div>
+                        {choice.item.requires_trainer &&
+                        availableChoiceTrainers.length === 0 ? (
+                          <p className="text-amber-foreground mt-1.5 flex items-center gap-1.5 text-xs">
+                            <AlertTriangle className="size-3.5" />
+                            Trainer fee not set
+                          </p>
+                        ) : null}
                         {adjusted && cataloguePrice != null ? (
                           <span className="text-muted-foreground block text-xs tabular-nums">
                             Usually {fmt.money(cataloguePrice)}
@@ -518,57 +571,6 @@ export function ProductsServicesPicker({
                           </Toolbar>
                         )}
                       </div>
-
-                      {choice.item.requires_trainer ? (
-                        <div className="space-y-1.5 md:col-start-1 md:row-start-2">
-                          <Label
-                            htmlFor={`${fieldId}-${choice.id}-trainer`}
-                            size="sm"
-                          >
-                            Trainer
-                          </Label>
-                          <Select
-                            value={activeTrainerId}
-                            onValueChange={(next) =>
-                              changeCatalogueTrainer(choice, next)
-                            }
-                          >
-                            <SelectTrigger
-                              id={`${fieldId}-${choice.id}-trainer`}
-                              className="w-full"
-                            >
-                              <SelectValue placeholder="Choose trainer" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableChoiceTrainers.map((trainer) => {
-                                const rate = choice.trainer_rates.find(
-                                  (candidate) =>
-                                    candidate.trainer_id === trainer.id &&
-                                    candidate.is_active
-                                );
-                                return (
-                                  <SelectItem
-                                    key={trainer.id}
-                                    value={trainer.id}
-                                  >
-                                    {trainer.display_name}
-                                    {trainer.title
-                                      ? ` · ${trainer.title}`
-                                      : ''}{' '}
-                                    · {fmt.money(rate?.price ?? 0)}
-                                  </SelectItem>
-                                );
-                              })}
-                            </SelectContent>
-                          </Select>
-                          {availableChoiceTrainers.length === 0 ? (
-                            <p className="text-amber-foreground flex items-center gap-1.5 text-xs">
-                              <AlertTriangle className="size-3.5" />
-                              Trainer fee not set
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : null}
 
                       {selection &&
                       (choice.item.kind === 'service' ||
