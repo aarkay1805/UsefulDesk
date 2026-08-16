@@ -32,6 +32,7 @@ import {
 } from '@/lib/memberships/pricing';
 import { isValidE164 } from '@/lib/whatsapp/phone-utils';
 import type { MembershipPlan, PaymentMethod, PlanPricingOption } from '@/types';
+import type { MemberImportCandidate } from './member-import-candidates';
 
 export const MEMBER_IGNORE_KEY = IGNORE_KEY;
 
@@ -124,6 +125,11 @@ export interface MemberMappingResult {
   skippedNoPhone: number;
   skippedInvalidPhone: number;
   skippedDuplicate: number;
+  invalidCustomValues: number;
+}
+
+export interface PreservedMemberMappingResult {
+  rows: MemberImportRow[];
   invalidCustomValues: number;
 }
 
@@ -255,6 +261,63 @@ export function applyMemberMapping(
     skippedDuplicate,
     invalidCustomValues,
   };
+}
+
+/**
+ * Apply the configured fields without filtering or de-duplicating source
+ * rows. Validation belongs to the candidate state machine, which must retain
+ * every original row so reviewers can repair or explicitly exclude it.
+ */
+export function applyMemberMappingPreservingRows(
+  rows: string[][],
+  mapping: string[],
+  options: {
+    dialCode?: string;
+    customFieldTypes?: Map<string, string>;
+    dateOrder?: DateOrder;
+  } = {}
+): PreservedMemberMappingResult {
+  const indexes = new Map<string, number[]>();
+  mapping.forEach((key, index) => {
+    if (key === MEMBER_IGNORE_KEY) return;
+    indexes.set(key, [...(indexes.get(key) ?? []), index]);
+  });
+  const first = (row: string[], key: string): string =>
+    (indexes.get(key) ?? []).map((index) => row[index]?.trim()).find(Boolean) ??
+    '';
+  let invalidCustomValues = 0;
+  const output = rows.map((source, sourceRowIndex) => {
+    const rawPhone = first(source, 'phone');
+    const mapped: MemberImportRow = {
+      sourceRowIndex,
+      phone:
+        normalizeSubmittedPhone(rawPhone, options.dialCode ?? '') ?? rawPhone,
+      tagNames: [],
+      customValues: [],
+    };
+    for (const [key, prop] of Object.entries(ROW_PROP)) {
+      const value = first(source, key);
+      if (value) mapped[prop as MemberStringProp] = value;
+    }
+    for (const index of indexes.get('tags') ?? []) {
+      for (const tag of parseTagCell(source[index])) mapped.tagNames.push(tag);
+    }
+    for (const [key, cols] of indexes) {
+      const fieldId = customFieldId(key);
+      if (!fieldId) continue;
+      const rawValue = cols.map((index) => source[index]?.trim()).find(Boolean);
+      if (!rawValue) continue;
+      const value = coerceCustomValue(
+        rawValue,
+        options.customFieldTypes?.get(fieldId) ?? 'text',
+        options.dateOrder
+      );
+      if (value === null) invalidCustomValues++;
+      else mapped.customValues.push({ fieldId, value });
+    }
+    return mapped;
+  });
+  return { rows: output, invalidCustomValues };
 }
 
 const MONTHS: Record<string, number> = {
@@ -500,7 +563,7 @@ export function parseMembershipStatus(value: string): {
   if (/^(expired|lapsed|ended|overdue)$/.test(key)) {
     return { status: 'active', matched: true, expired: true };
   }
-  if (/^(frozen|freeze|paused|pause|on hold|hold)$/.test(key)) {
+  if (/^(frozen|freezed|freeze|paused|pause|on hold|hold)$/.test(key)) {
     return { status: 'frozen', matched: true, expired: false };
   }
   if (/^(cancelled|canceled|inactive|terminated|closed)$/.test(key)) {
@@ -716,6 +779,307 @@ export function buildMembershipRow(
     errors,
     warnings,
   };
+}
+
+/**
+ * The commit boundary receives candidates after a caller has resolved its
+ * preview. Keeping that resolution explicit prevents a stale UI action from
+ * silently importing rows the reviewer excluded or still needs to resolve.
+ */
+export type MemberImportCommitCandidate = MemberImportCandidate;
+
+export type MemberImportDisposition =
+  'imported' | 'partial' | 'failed' | 'excluded' | 'unresolved' | 'invalid';
+
+export type MemberImportMemberOutcome =
+  'created' | 'attached' | 'failed' | 'not-processed';
+
+export type MemberImportPaymentOutcome =
+  'recorded' | 'failed' | 'not-requested' | 'not-processed';
+
+/** One durable-in-memory result per source row, including rows never written. */
+export interface MemberImportCommitResult {
+  sourceRowIndex: number;
+  disposition: MemberImportDisposition;
+  memberOutcome: MemberImportMemberOutcome;
+  paymentOutcome: MemberImportPaymentOutcome;
+  reason: string | null;
+  contactId: string | null;
+  membershipId: string | null;
+}
+
+/**
+ * Database work is injected so callers can retain their existing persistence
+ * and tenancy checks while this engine owns candidate gating and outcome
+ * accounting. Existing contacts are attached before their membership is made.
+ */
+export interface MemberImportCommitExecutor {
+  createContact?: (
+    candidate: MemberImportCommitCandidate
+  ) => Promise<{ contactId: string }>;
+  attachExistingContact?: (
+    contactId: string,
+    candidate: MemberImportCommitCandidate
+  ) => Promise<void>;
+  createMembership: (
+    candidate: MemberImportCommitCandidate,
+    contactId: string
+  ) => Promise<{ membershipId: string }>;
+  recordPayment?: (
+    candidate: MemberImportCommitCandidate,
+    membershipId: string
+  ) => Promise<void>;
+}
+
+function errorReason(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  return fallback;
+}
+
+function skippedCommitResult(
+  candidate: MemberImportCommitCandidate,
+  disposition: 'excluded' | 'unresolved' | 'invalid',
+  reason: string
+): MemberImportCommitResult {
+  return {
+    sourceRowIndex: candidate.sourceRow,
+    disposition,
+    memberOutcome: 'not-processed',
+    paymentOutcome: 'not-processed',
+    reason,
+    contactId: null,
+    membershipId: null,
+  };
+}
+
+/**
+ * Commit only reviewer-included, fully resolved candidates. The returned list
+ * deliberately retains every input candidate so a receipt can explain rows
+ * which were excluded, unresolved, invalid, or only partially persisted.
+ */
+export async function commitMemberImportCandidates(
+  candidates: MemberImportCommitCandidate[],
+  executor: MemberImportCommitExecutor
+): Promise<MemberImportCommitResult[]> {
+  const results: MemberImportCommitResult[] = [];
+
+  for (const candidate of candidates) {
+    if (candidate.disposition !== 'included') {
+      results.push(
+        skippedCommitResult(candidate, 'excluded', 'candidate-excluded')
+      );
+      continue;
+    }
+    if (!candidate.isReady) {
+      results.push(
+        skippedCommitResult(candidate, 'unresolved', 'candidate-unresolved')
+      );
+      continue;
+    }
+    if (!candidate.built.membership || candidate.built.errors.length > 0) {
+      results.push(
+        skippedCommitResult(candidate, 'invalid', 'candidate-not-ready')
+      );
+      continue;
+    }
+
+    const existingContactId = candidate.existingMatch?.contactId.trim() || null;
+    let contactId: string;
+    let memberOutcome: MemberImportMemberOutcome;
+    try {
+      if (existingContactId) {
+        await executor.attachExistingContact?.(existingContactId, candidate);
+        contactId = existingContactId;
+        memberOutcome = 'attached';
+      } else {
+        if (!executor.createContact) {
+          throw new Error('contact executor unavailable');
+        }
+        contactId = (await executor.createContact(candidate)).contactId;
+        if (!contactId) throw new Error('contact creation returned no id');
+        memberOutcome = 'created';
+      }
+    } catch (error) {
+      results.push({
+        sourceRowIndex: candidate.sourceRow,
+        disposition: 'failed',
+        memberOutcome: 'failed',
+        paymentOutcome: 'not-processed',
+        reason: errorReason(error, 'contact import failed'),
+        contactId: null,
+        membershipId: null,
+      });
+      continue;
+    }
+
+    let membershipId: string;
+    try {
+      membershipId = (await executor.createMembership(candidate, contactId))
+        .membershipId;
+      if (!membershipId) throw new Error('membership creation returned no id');
+    } catch (error) {
+      results.push({
+        sourceRowIndex: candidate.sourceRow,
+        disposition: 'failed',
+        memberOutcome: 'failed',
+        paymentOutcome: 'not-processed',
+        reason: errorReason(error, 'membership import failed'),
+        contactId,
+        membershipId: null,
+      });
+      continue;
+    }
+
+    if (!candidate.built.payment) {
+      results.push({
+        sourceRowIndex: candidate.sourceRow,
+        disposition: 'imported',
+        memberOutcome,
+        paymentOutcome: 'not-requested',
+        reason:
+          candidate.resolutions.payment === 'member_only'
+            ? 'member-only-import'
+            : 'no-payment-supplied',
+        contactId,
+        membershipId,
+      });
+      continue;
+    }
+
+    try {
+      if (!executor.recordPayment)
+        throw new Error('payment executor unavailable');
+      await executor.recordPayment(candidate, membershipId);
+      results.push({
+        sourceRowIndex: candidate.sourceRow,
+        disposition: 'imported',
+        memberOutcome,
+        paymentOutcome: 'recorded',
+        reason: null,
+        contactId,
+        membershipId,
+      });
+    } catch (error) {
+      results.push({
+        sourceRowIndex: candidate.sourceRow,
+        disposition: 'partial',
+        memberOutcome,
+        paymentOutcome: 'failed',
+        reason: errorReason(error, 'payment import failed'),
+        contactId,
+        membershipId,
+      });
+    }
+  }
+
+  return results;
+}
+
+export interface MemberImportReceiptRow {
+  source_row: number;
+  legacy_id: string;
+  phone_suffix: string;
+  disposition: MemberImportDisposition;
+  member_outcome: MemberImportMemberOutcome;
+  payment_outcome: MemberImportPaymentOutcome;
+  reason: string;
+}
+
+function phoneSuffix(phone: string): string {
+  return phone.replace(/\D/g, '').slice(-4);
+}
+
+function receiptFallback(
+  candidate: MemberImportCommitCandidate
+): Pick<
+  MemberImportCommitResult,
+  'disposition' | 'memberOutcome' | 'paymentOutcome' | 'reason'
+> {
+  if (candidate.disposition !== 'included') {
+    return {
+      disposition: 'excluded',
+      memberOutcome: 'not-processed',
+      paymentOutcome: 'not-processed',
+      reason: 'candidate-excluded',
+    };
+  }
+  if (!candidate.isReady) {
+    return {
+      disposition: 'unresolved',
+      memberOutcome: 'not-processed',
+      paymentOutcome: 'not-processed',
+      reason: 'candidate-unresolved',
+    };
+  }
+  return {
+    disposition: 'invalid',
+    memberOutcome: 'not-processed',
+    paymentOutcome: 'not-processed',
+    reason: 'candidate-not-committed',
+  };
+}
+
+/**
+ * Build a privacy-safe, deterministic receipt from the complete candidate
+ * set. It never emits a full phone number, contact ID, or membership ID.
+ */
+export function buildMemberImportReceiptRows(
+  candidates: MemberImportCommitCandidate[],
+  results: MemberImportCommitResult[]
+): MemberImportReceiptRow[] {
+  const resultBySourceRow = new Map(
+    results.map((result) => [result.sourceRowIndex, result])
+  );
+
+  return candidates
+    .map((candidate, originalIndex) => ({ candidate, originalIndex }))
+    .sort(
+      (left, right) =>
+        left.candidate.sourceRow - right.candidate.sourceRow ||
+        left.originalIndex - right.originalIndex
+    )
+    .map(({ candidate }) => {
+      const result = resultBySourceRow.get(candidate.sourceRow);
+      const fallback = receiptFallback(candidate);
+      return {
+        source_row: candidate.sourceRow,
+        legacy_id: candidate.legacyMemberId?.trim() ?? '',
+        phone_suffix: phoneSuffix(candidate.draftValues.phone),
+        disposition: result?.disposition ?? fallback.disposition,
+        member_outcome: result?.memberOutcome ?? fallback.memberOutcome,
+        payment_outcome: result?.paymentOutcome ?? fallback.paymentOutcome,
+        reason: result?.reason ?? fallback.reason ?? '',
+      };
+    });
+}
+
+function escapeCsv(value: string | number): string {
+  const text = String(value);
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/** Serialize receipt rows as a downloadable RFC 4180-compatible CSV. */
+export function serializeMemberImportReceiptCsv(
+  rows: MemberImportReceiptRow[]
+): string {
+  const header = [
+    'source_row',
+    'legacy_id',
+    'phone_suffix',
+    'disposition',
+    'member_outcome',
+    'payment_outcome',
+    'reason',
+  ];
+  return [
+    header.join(','),
+    ...rows.map((row) =>
+      header
+        .map((key) => escapeCsv(row[key as keyof MemberImportReceiptRow]))
+        .join(',')
+    ),
+  ].join('\n');
 }
 
 /** Sample offered on Upload. It intentionally demonstrates broad migration

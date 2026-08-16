@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyMemberMapping,
+  applyMemberMappingPreservingRows,
   autoMapMemberColumns,
+  buildMemberImportReceiptRows,
   buildMembershipRow,
+  commitMemberImportCandidates,
   MEMBER_IGNORE_KEY,
   parseBoolean,
   parseFeeStatus,
@@ -15,9 +18,12 @@ import {
   parseWeightKg,
   resolvePlan,
   resolvePricingOption,
+  serializeMemberImportReceiptCsv,
   validateMemberMapping,
+  type MemberImportCommitResult,
   type MemberImportRow,
 } from './import-commit';
+import type { MemberImportCandidate } from './member-import-candidates';
 import type { MembershipPlan } from '@/types';
 
 function opt(
@@ -115,6 +121,27 @@ describe('member column mapping', () => {
 });
 
 describe('applyMemberMapping', () => {
+  it('retains missing, invalid, and duplicate phones for candidate resolution', () => {
+    const result = applyMemberMappingPreservingRows(
+      [
+        ['Asha', '', 'Gold'],
+        ['Jo', '123', 'Gold'],
+        ['Mina', '98765 43210', 'Gold'],
+        ['Ravi', '98765 43210', 'Gold'],
+      ],
+      ['name', 'phone', 'plan'],
+      { dialCode: '+91' }
+    );
+
+    expect(result.rows).toHaveLength(4);
+    expect(result.rows.map((row) => row.phone)).toEqual([
+      '',
+      '91123',
+      '919876543210',
+      '919876543210',
+    ]);
+  });
+
   it('qualifies local phones, preserves explicit international numbers, and dedupes', () => {
     const result = applyMemberMapping(
       [
@@ -306,5 +333,250 @@ describe('buildMembershipRow', () => {
       buildMembershipRow(memberRow({ planName: 'Bare' }), PLANS, 'DMY', TODAY)
         .errors
     ).toContain('no-pricing');
+  });
+});
+
+function commitCandidate(
+  patch: Partial<MemberImportCandidate> = {}
+): MemberImportCandidate {
+  return {
+    sourceKey: 'sheet-1:2',
+    sourceRow: 2,
+    legacyMemberId: 'LEG-002',
+    originalValues: memberRow(),
+    draftValues: memberRow(),
+    disposition: 'included',
+    isReady: true,
+    existingMatch: null,
+    issues: [],
+    exclusionReason: null,
+    resolutions: {
+      plan: null,
+      payment: 'member_only',
+      existingContact: null,
+    },
+    built: buildMembershipRow(memberRow(), PLANS, 'DMY', TODAY),
+    receiptOutcome: null,
+    ...patch,
+  };
+}
+
+describe('candidate-aware member import commit', () => {
+  it('only executes included ready candidates and reports excluded and unresolved rows', async () => {
+    const calls: string[] = [];
+    const results = await commitMemberImportCandidates(
+      [
+        commitCandidate({ sourceRow: 1, disposition: 'excluded' }),
+        commitCandidate({ sourceRow: 2, isReady: false }),
+        commitCandidate({ sourceRow: 3 }),
+      ],
+      {
+        createContact: async () => {
+          calls.push('contact');
+          return { contactId: 'contact-3' };
+        },
+        createMembership: async () => {
+          calls.push('member');
+          return { membershipId: 'member-3' };
+        },
+        recordPayment: async () => {
+          calls.push('payment');
+        },
+      }
+    );
+
+    expect(calls).toEqual(['contact', 'member']);
+    expect(results).toEqual([
+      expect.objectContaining({
+        sourceRowIndex: 1,
+        disposition: 'excluded',
+        memberOutcome: 'not-processed',
+        paymentOutcome: 'not-processed',
+        reason: 'candidate-excluded',
+      }),
+      expect.objectContaining({
+        sourceRowIndex: 2,
+        disposition: 'unresolved',
+        memberOutcome: 'not-processed',
+        paymentOutcome: 'not-processed',
+        reason: 'candidate-unresolved',
+      }),
+      expect.objectContaining({
+        sourceRowIndex: 3,
+        disposition: 'imported',
+        memberOutcome: 'created',
+        paymentOutcome: 'not-requested',
+        reason: 'member-only-import',
+      }),
+    ]);
+  });
+
+  it('retains a successful member outcome when its payment write fails', async () => {
+    const built = buildMembershipRow(
+      memberRow({ amountPaid: '1500' }),
+      PLANS,
+      'DMY',
+      TODAY
+    );
+    const results = await commitMemberImportCandidates(
+      [commitCandidate({ built })],
+      {
+        createContact: async () => ({ contactId: 'contact-1' }),
+        createMembership: async () => ({ membershipId: 'member-1' }),
+        recordPayment: async () => {
+          throw new Error('ledger unavailable');
+        },
+      }
+    );
+
+    expect(results[0]).toEqual(
+      expect.objectContaining({
+        disposition: 'partial',
+        memberOutcome: 'created',
+        paymentOutcome: 'failed',
+        reason: 'ledger unavailable',
+      })
+    );
+  });
+
+  it('attaches an existing contact and distinguishes an intentional member-only import', async () => {
+    const calls: string[] = [];
+    const results = await commitMemberImportCandidates(
+      [
+        commitCandidate({
+          existingMatch: { contactId: 'existing-contact', isMember: false },
+          resolutions: {
+            plan: null,
+            payment: 'member_only',
+            existingContact: 'use_csv',
+          },
+        }),
+      ],
+      {
+        attachExistingContact: async (contactId: string) => {
+          calls.push(`attach:${contactId}`);
+        },
+        createMembership: async () => {
+          calls.push('member');
+          return { membershipId: 'member-1' };
+        },
+        recordPayment: async () => {
+          calls.push('payment');
+        },
+      }
+    );
+
+    expect(calls).toEqual(['attach:existing-contact', 'member']);
+    expect(results[0]).toEqual(
+      expect.objectContaining({
+        disposition: 'imported',
+        memberOutcome: 'attached',
+        paymentOutcome: 'not-requested',
+        reason: 'member-only-import',
+      })
+    );
+  });
+
+  it('accepts the canonical included and ready candidate shape from resolution', async () => {
+    const calls: string[] = [];
+    const results = await commitMemberImportCandidates(
+      [
+        commitCandidate({
+          sourceKey: 'sheet-1:20',
+          sourceRow: 20,
+          legacyMemberId: 'M-20',
+          existingMatch: { contactId: 'existing-contact', isMember: false },
+          resolutions: {
+            plan: null,
+            payment: 'member_only',
+            existingContact: 'use_csv',
+          },
+        }),
+      ],
+      {
+        attachExistingContact: async (contactId: string) => {
+          calls.push(`attach:${contactId}`);
+        },
+        createMembership: async () => {
+          calls.push('member');
+          return { membershipId: 'member-20' };
+        },
+      }
+    );
+
+    expect(calls).toEqual(['attach:existing-contact', 'member']);
+    expect(results[0]).toEqual(
+      expect.objectContaining({
+        sourceRowIndex: 20,
+        memberOutcome: 'attached',
+        paymentOutcome: 'not-requested',
+      })
+    );
+  });
+
+  it('builds ordered, redacted receipt rows and escapes the CSV safely', () => {
+    const candidates = [
+      commitCandidate({
+        sourceRow: 12,
+        legacyMemberId: 'LEG,"12"',
+        originalValues: memberRow({ phone: '+91 98765 43210' }),
+        draftValues: memberRow({ phone: '+91 98765 43210' }),
+      }),
+      commitCandidate({
+        sourceRow: 4,
+        legacyMemberId: 'LEG-004',
+        originalValues: memberRow({ phone: '447700900123' }),
+        draftValues: memberRow({ phone: '447700900123' }),
+        disposition: 'excluded',
+      }),
+    ];
+    const results: MemberImportCommitResult[] = [
+      {
+        sourceRowIndex: 12,
+        disposition: 'partial',
+        memberOutcome: 'created',
+        paymentOutcome: 'failed',
+        reason: 'payment, provider said "retry"',
+        contactId: 'contact-12',
+        membershipId: 'membership-12',
+      },
+      {
+        sourceRowIndex: 4,
+        disposition: 'excluded',
+        memberOutcome: 'not-processed',
+        paymentOutcome: 'not-processed',
+        reason: 'candidate-excluded',
+        contactId: null,
+        membershipId: null,
+      },
+    ];
+
+    const rows = buildMemberImportReceiptRows(candidates, results);
+
+    expect(rows).toEqual([
+      {
+        source_row: 4,
+        legacy_id: 'LEG-004',
+        phone_suffix: '0123',
+        disposition: 'excluded',
+        member_outcome: 'not-processed',
+        payment_outcome: 'not-processed',
+        reason: 'candidate-excluded',
+      },
+      {
+        source_row: 12,
+        legacy_id: 'LEG,"12"',
+        phone_suffix: '3210',
+        disposition: 'partial',
+        member_outcome: 'created',
+        payment_outcome: 'failed',
+        reason: 'payment, provider said "retry"',
+      },
+    ]);
+    expect(serializeMemberImportReceiptCsv(rows)).toBe(
+      'source_row,legacy_id,phone_suffix,disposition,member_outcome,payment_outcome,reason\n' +
+        '4,LEG-004,0123,excluded,not-processed,not-processed,candidate-excluded\n' +
+        '12,"LEG,""12""",3210,partial,created,failed,"payment, provider said ""retry"""'
+    );
   });
 });

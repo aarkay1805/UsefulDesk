@@ -15,10 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import {
-  ImportMembersPreview,
-  type MemberImportPreviewRow,
-} from './import-members-preview';
+import { ImportMembersPreview } from './import-members-preview';
 import { useAccountStaff } from './use-account-staff';
 import { useMembershipPlans } from './use-membership-plans';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +33,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -71,14 +67,15 @@ import {
   type DateOrder,
 } from '@/lib/leads/import-coerce';
 import {
-  applyMemberMapping,
+  applyMemberMappingPreservingRows,
   autoMapMemberColumns,
   buildMemberTargets,
-  buildMembershipRow,
+  buildMemberImportReceiptRows,
+  commitMemberImportCandidates,
   MEMBER_IGNORE_KEY,
   MEMBER_TEMPLATE_CSV,
+  serializeMemberImportReceiptCsv,
   validateMemberMapping,
-  type MemberImportRow,
 } from '@/lib/memberships/import-commit';
 import {
   MemberImportFileError,
@@ -88,12 +85,21 @@ import {
 } from '@/lib/memberships/import-workbook';
 import { MEMBER_IMPORT_FIELDS } from '@/lib/memberships/member-field-registry';
 import {
-  applyMemberMigrationRecipe,
   buildMigrationAnalysis,
-  summarizeMigrationIssues,
+  normalizeMemberMigrationStatus,
+  splitPlanDuration,
+  suggestMemberMigrationRecipe,
   type MemberMigrationRecipe,
-  type MigrationIssue,
 } from '@/lib/memberships/migration-recipe';
+import {
+  buildMemberImportCandidates,
+  patchMemberImportCandidate,
+  resolveExistingContact,
+  resolveGroupedPlan,
+  resolvePaymentConflict,
+  summarizeMemberImportCandidates,
+  type MemberImportCandidate,
+} from '@/lib/memberships/member-import-candidates';
 import { setMembershipCancellation } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -115,13 +121,6 @@ interface ImportMembersCsvDialogProps {
   onSaved: () => void;
 }
 
-interface PreviewMeta {
-  skippedNoPhone: number;
-  skippedInvalidPhone: number;
-  skippedDuplicate: number;
-  invalidCustomValues: number;
-}
-
 interface ImportResult {
   imported: number;
   attached: number;
@@ -133,12 +132,27 @@ interface ImportResult {
   statusFailed: number;
   tagsAssigned: number;
   customValues: number;
+  receiptCsv: string;
 }
 
 interface ImportProgress {
   completed: number;
   total: number;
   label: string;
+}
+
+function mappingForRecipe(
+  raw: RawCsv,
+  recipe: MemberMigrationRecipe,
+  customFields: CustomFieldRef[]
+): string[] {
+  const mapping = autoMapMemberColumns(raw.headers, customFields);
+  for (const [target, header] of Object.entries(recipe.mappings)) {
+    if (!header) continue;
+    const index = raw.headers.indexOf(header);
+    if (index >= 0) mapping[index] = target;
+  }
+  return mapping;
 }
 
 export function ImportMembersCsvDialog({
@@ -151,12 +165,7 @@ export function ImportMembersCsvDialog({
   const { locale, fmt } = useLocale();
   const accountDateOrder = importDateOrder(locale);
   const { plans, loading: plansLoading } = useMembershipPlans(false);
-  const {
-    staff,
-    nameById,
-    avatarById,
-    loading: staffLoading,
-  } = useAccountStaff();
+  const { staff, loading: staffLoading } = useAccountStaff();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileReadSequence = useRef(0);
 
@@ -168,25 +177,12 @@ export function ImportMembersCsvDialog({
   const [raw, setRaw] = useState<RawCsv | null>(null);
   const [sourceRaw, setSourceRaw] = useState<RawCsv | null>(null);
   const [mapping, setMapping] = useState<string[]>([]);
-  const [fileExplanation, setFileExplanation] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [suggestedRecipe, setSuggestedRecipe] =
     useState<MemberMigrationRecipe | null>(null);
-  const [migrationIssues, setMigrationIssues] = useState<MigrationIssue[]>([]);
-  const [migrationCounts, setMigrationCounts] = useState<{
-    ready: number;
-    needsReview: number;
-    excluded: number;
-  } | null>(null);
   const [dateOrder, setDateOrder] = useState<DateOrder>(accountDateOrder);
   const [customFields, setCustomFields] = useState<CustomFieldRef[]>([]);
-  const [previewRows, setPreviewRows] = useState<MemberImportPreviewRow[]>([]);
-  const [previewMeta, setPreviewMeta] = useState<PreviewMeta>({
-    skippedNoPhone: 0,
-    skippedInvalidPhone: 0,
-    skippedDuplicate: 0,
-    invalidCustomValues: 0,
-  });
+  const [candidates, setCandidates] = useState<MemberImportCandidate[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [compliance, setCompliance] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -214,19 +210,10 @@ export function ImportMembersCsvDialog({
       setRaw(null);
       setSourceRaw(null);
       setMapping([]);
-      setFileExplanation('');
       setAnalyzing(false);
       setSuggestedRecipe(null);
-      setMigrationIssues([]);
-      setMigrationCounts(null);
       setDateOrder(accountDateOrder);
-      setPreviewRows([]);
-      setPreviewMeta({
-        skippedNoPhone: 0,
-        skippedInvalidPhone: 0,
-        skippedDuplicate: 0,
-        invalidCustomValues: 0,
-      });
+      setCandidates([]);
       setCompliance(false);
       setImporting(false);
       setImportProgress(null);
@@ -295,9 +282,15 @@ export function ImportMembersCsvDialog({
     return cols;
   }, [raw, mapping, customFieldTypes]);
 
-  const readyRows = previewRows.filter(
-    (row) => row.built.membership && !row.alreadyMember
+  const candidateContext = useMemo(
+    () => ({ plans, dateOrder, today: fmt.today(), staff }),
+    [dateOrder, fmt, plans, staff]
   );
+  const candidateSummary = useMemo(
+    () => summarizeMemberImportCandidates(candidates),
+    [candidates]
+  );
+  const readyRows = candidates.filter((candidate) => candidate.isReady);
 
   function handleOpenChange(next: boolean) {
     if (importing) return;
@@ -314,8 +307,7 @@ export function ImportMembersCsvDialog({
     setSourceRaw(parsed);
     setMapping(nextMapping);
     setSuggestedRecipe(null);
-    setMigrationIssues([]);
-    setMigrationCounts(null);
+    setCandidates([]);
     setResult(null);
 
     const dateColumns = nextMapping
@@ -337,10 +329,7 @@ export function ImportMembersCsvDialog({
       const response = await fetch('/api/members/import-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...buildMigrationAnalysis(input),
-          explanation: fileExplanation,
-        }),
+        body: JSON.stringify(buildMigrationAnalysis(input)),
       });
       const data = (await response.json()) as {
         error?: string;
@@ -351,15 +340,9 @@ export function ImportMembersCsvDialog({
       if (!response.ok || !data.recipe) {
         throw new Error(data.error || 'Could not analyze this file');
       }
-      const transformed = applyMemberMigrationRecipe(input, data.recipe, {
-        today: fmt.today(),
-        dialCode: locale.phoneCountryCode,
-      });
       setSuggestedRecipe(data.recipe);
-      setMigrationIssues(transformed.issues);
-      setMigrationCounts(transformed.counts);
-      setRaw(transformed.raw);
-      setMapping(transformed.mapping);
+      setRaw(input);
+      setMapping(mappingForRecipe(input, data.recipe, customFields));
       setStep(2);
       if (!data.configured) {
         toast.info(
@@ -369,7 +352,14 @@ export function ImportMembersCsvDialog({
         toast.warning(data.warning);
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not analyze this file'));
+      const fallback = suggestMemberMigrationRecipe(input.headers);
+      setSuggestedRecipe(fallback);
+      setRaw(input);
+      setMapping(mappingForRecipe(input, fallback, customFields));
+      setStep(2);
+      toast.warning(
+        `${getErrorMessage(error, 'Analysis unavailable')} Safe local mapping is shown instead.`
+      );
     } finally {
       setAnalyzing(false);
     }
@@ -380,8 +370,7 @@ export function ImportMembersCsvDialog({
     setRaw(sourceRaw);
     setMapping(autoMapMemberColumns(sourceRaw.headers, customFields));
     setSuggestedRecipe(null);
-    setMigrationIssues([]);
-    setMigrationCounts(null);
+    setCandidates([]);
   }
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -528,18 +517,66 @@ export function ImportMembersCsvDialog({
     if (!raw || !accountId) return;
     setLoadingPreview(true);
     try {
-      const mapped = applyMemberMapping(raw.rows, mapping, {
+      const mapped = applyMemberMappingPreservingRows(raw.rows, mapping, {
         dialCode: locale.phoneCountryCode,
         customFieldTypes,
         dateOrder,
       });
+      const recipe =
+        suggestedRecipe ?? suggestMemberMigrationRecipe(raw.headers);
+      const headerIndex = new Map(
+        raw.headers.map((header, index) => [header, index])
+      );
+      const sourceCell = (row: string[], header: string | null | undefined) =>
+        header ? (row[headerIndex.get(header) ?? -1] ?? '').trim() : '';
+      const inputs = mapped.rows.map((mappedRow, index) => {
+        const source = raw.rows[index] ?? [];
+        const originalValues = {
+          ...mappedRow,
+          balance: sourceCell(source, recipe.money.balanceColumn),
+        };
+        if (recipe.splitPlanDuration && originalValues.planName) {
+          const split = splitPlanDuration(originalValues.planName);
+          originalValues.planName = split.plan;
+          if (split.option) originalValues.pricingOption = split.option;
+        }
+        originalValues.status = normalizeMemberMigrationStatus(
+          originalValues.status,
+          originalValues.endDate,
+          dateOrder,
+          fmt.today()
+        );
+        const legacyMemberId = sourceCell(source, recipe.identityColumn);
+        if (recipe.legacyId === 'notes' && legacyMemberId) {
+          originalValues.notes = [
+            originalValues.notes,
+            `Legacy Member ID: ${legacyMemberId}`,
+          ]
+            .filter(Boolean)
+            .join(' · ');
+        }
+        return {
+          sourceKey: `${selectedSheet || file?.name || 'csv'}:${index + 2}`,
+          sourceRow: index + 2,
+          legacyMemberId,
+          originalValues,
+          isSummaryRow:
+            recipe.excludeSummaryRows &&
+            source.some((value) =>
+              /^number of records\s*:/i.test(value.trim())
+            ),
+        };
+      });
+      const preliminary = buildMemberImportCandidates(inputs, candidateContext);
       const [
         { data: contacts, error: contactsError },
         { data: memberships, error: membersError },
       ] = await Promise.all([
         supabase
           .from('contacts')
-          .select('id, phone_normalized, received_via')
+          .select(
+            'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country'
+          )
           .eq('account_id', accountId),
         supabase
           .from('memberships')
@@ -549,22 +586,11 @@ export function ImportMembersCsvDialog({
       if (contactsError) throw contactsError;
       if (membersError) throw membersError;
 
-      const contactByPhone = new Map<
-        string,
-        { id: string; receivedVia: string | null }
-      >();
+      const contactByPhone = new Map<string, Record<string, unknown>>();
       for (const contact of contacts ?? []) {
-        const item = contact as {
-          id: string;
-          phone_normalized: string | null;
-          received_via: string | null;
-        };
-        if (item.phone_normalized) {
-          contactByPhone.set(item.phone_normalized, {
-            id: item.id,
-            receivedVia: item.received_via,
-          });
-        }
+        const item = contact as Record<string, unknown>;
+        const phone = item.phone_normalized;
+        if (typeof phone === 'string') contactByPhone.set(phone, item);
       }
       const memberContactIds = new Set(
         (memberships ?? []).map(
@@ -572,39 +598,31 @@ export function ImportMembersCsvDialog({
         )
       );
 
-      const issuesByRow = new Map<number, MigrationIssue[]>();
-      for (const issue of migrationIssues) {
-        issuesByRow.set(issue.rowIndex, [
-          ...(issuesByRow.get(issue.rowIndex) ?? []),
-          issue,
-        ]);
-      }
-
-      setPreviewRows(
-        mapped.rows.map((source) => {
-          const existing = contactByPhone.get(normalizeKey(source.phone));
-          return {
-            source,
-            built: buildMembershipRow(
-              source,
-              plans,
-              dateOrder,
-              fmt.today(),
-              staff
-            ),
-            existingContactId: existing?.id ?? null,
-            existingReceivedVia: existing?.receivedVia ?? null,
-            alreadyMember: existing ? memberContactIds.has(existing.id) : false,
-            migrationIssues: issuesByRow.get(source.sourceRowIndex ?? -1) ?? [],
-          } satisfies MemberImportPreviewRow;
-        })
-      );
-      setPreviewMeta({
-        skippedNoPhone: mapped.skippedNoPhone,
-        skippedInvalidPhone: mapped.skippedInvalidPhone,
-        skippedDuplicate: mapped.skippedDuplicate,
-        invalidCustomValues: mapped.invalidCustomValues,
+      const withMatches = inputs.map((input, index) => {
+        const candidate = preliminary[index];
+        const existing = contactByPhone.get(
+          normalizeKey(candidate.draftValues.phone)
+        );
+        if (!existing) return input;
+        const contactId = String(existing.id);
+        const profileConflict = Object.entries(candidate.built.contact).some(
+          ([key, value]) =>
+            value !== null && String(existing[key] ?? '') !== String(value)
+        );
+        return {
+          ...input,
+          existingMatch: {
+            contactId,
+            isMember: memberContactIds.has(contactId),
+            receivedVia:
+              typeof existing.received_via === 'string'
+                ? existing.received_via
+                : null,
+            profileConflict,
+          },
+        };
       });
+      setCandidates(buildMemberImportCandidates(withMatches, candidateContext));
       setStep(3);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not prepare the preview'));
@@ -613,62 +631,33 @@ export function ImportMembersCsvDialog({
     }
   }
 
-  function rebuild(
-    row: MemberImportPreviewRow,
-    source: MemberImportRow
-  ): MemberImportPreviewRow {
-    return {
-      ...row,
-      source,
-      built: buildMembershipRow(source, plans, dateOrder, fmt.today(), staff),
-    };
-  }
-
-  function patchPreviewRow(index: number, patch: Partial<MemberImportRow>) {
-    setPreviewRows((current) =>
-      current.map((row, rowIndex) =>
-        rowIndex === index ? rebuild(row, { ...row.source, ...patch }) : row
-      )
-    );
-  }
-
-  function bulkFixPlan(rawPlan: string, planId: string) {
-    const plan = plans.find((item) => item.id === planId);
-    if (!plan) return;
-    setPreviewRows((current) =>
-      current.map((row) => {
-        const value = row.source.planName?.trim() || '(blank)';
-        return value === rawPlan
-          ? rebuild(row, {
-              ...row.source,
-              planName: plan.name,
-              pricingOption: '',
-            })
-          : row;
-      })
+  function patchCandidate(
+    sourceKey: string,
+    patch: Parameters<typeof patchMemberImportCandidate>[2]
+  ) {
+    setCandidates((current) =>
+      patchMemberImportCandidate(current, sourceKey, patch, candidateContext)
     );
   }
 
   async function handleImport() {
-    if (!accountId || !user || readyRows.length === 0) return;
-    const totalWork = readyRows.length + 2;
-    let completedWork = 0;
-    const advanceProgress = (label: string) => {
-      completedWork++;
-      setImportProgress({
-        completed: completedWork,
-        total: totalWork,
-        label,
-      });
-    };
+    if (
+      !accountId ||
+      !user ||
+      readyRows.length === 0 ||
+      candidateSummary.needsResolution > 0
+    )
+      return;
     setImporting(true);
     setImportProgress({
       completed: 0,
-      total: totalWork,
+      total: Math.max(1, readyRows.length),
       label: 'Preparing member import…',
     });
     try {
-      const allTagNames = readyRows.flatMap((row) => row.source.tagNames);
+      const allTagNames = readyRows.flatMap(
+        (candidate) => candidate.draftValues.tagNames
+      );
       const { tagIdByKey, skippedNames } = await resolveImportTagIds(supabase, {
         accountId,
         userId: user.id,
@@ -676,37 +665,17 @@ export function ImportMembersCsvDialog({
         canCreateTags: canEditSettings,
       });
 
-      let imported = 0;
-      let attached = 0;
-      let skipped = previewRows.filter((row) => row.alreadyMember).length;
-      let failed = 0;
-      let payments = 0;
-      let paymentFailed = 0;
       let statusFailed = 0;
-      const tagAssignments: ContactTagAssignment[] = [];
-      const customValueRows: {
-        contact_id: string;
-        custom_field_id: string;
-        value: string;
-      }[] = [];
-
-      for (const row of readyRows) {
-        const built = row.built;
-        const membership = built.membership;
-        if (!membership) {
-          advanceProgress('Skipping an invalid member…');
-          continue;
-        }
-
-        let contactId = row.existingContactId;
-        const existed = !!contactId;
-        if (!contactId) {
+      let completedWork = 0;
+      const results = await commitMemberImportCandidates(candidates, {
+        createContact: async (candidate) => {
+          const built = candidate.built;
           const { data, error } = await supabase
             .from('contacts')
             .insert({
               user_id: user.id,
               account_id: accountId,
-              phone: row.source.phone,
+              phone: candidate.draftValues.phone,
               assigned_to: built.assignedTo ?? user.id,
               received_via: 'import' as const,
               churn_risk: built.churnRisk ?? false,
@@ -715,15 +684,17 @@ export function ImportMembersCsvDialog({
             .select('id')
             .single();
           if (error || !data?.id) {
-            if (isUniqueViolation(error)) skipped++;
-            else failed++;
-            advanceProgress(
-              `Processed ${completedWork + 1} of ${readyRows.length} members`
+            throw new Error(
+              isUniqueViolation(error)
+                ? 'contact-already-exists'
+                : getErrorMessage(error, 'contact-create-failed')
             );
-            continue;
           }
-          contactId = data.id;
-        } else {
+          return { contactId: data.id };
+        },
+        attachExistingContact: async (contactId, candidate) => {
+          if (candidate.resolutions.existingContact !== 'use_csv') return;
+          const built = candidate.built;
           const patch: Record<string, string | number | boolean | null> = {};
           const contactField = (
             importKey: string,
@@ -755,9 +726,9 @@ export function ImportMembersCsvDialog({
           if (
             mappedKeys.has('assigned_to') &&
             built.assignedTo &&
-            (!row.existingReceivedVia ||
-              row.existingReceivedVia === 'manual' ||
-              row.existingReceivedVia === 'import')
+            (!candidate.existingMatch?.receivedVia ||
+              candidate.existingMatch.receivedVia === 'manual' ||
+              candidate.existingMatch.receivedVia === 'import')
           ) {
             patch.assigned_to = built.assignedTo;
           }
@@ -769,25 +740,18 @@ export function ImportMembersCsvDialog({
               .eq('account_id', accountId)
               .select('id');
             if (error || !data?.length) {
-              failed++;
-              advanceProgress(
-                `Processed ${completedWork + 1} of ${readyRows.length} members`
-              );
-              continue;
+              throw new Error(getErrorMessage(error, 'contact-update-failed'));
             }
           }
-        }
-
-        // A cancelled cycle is void and therefore rejects ledger writes.
-        // For a paid historical cancellation, create the open cycle, record
-        // its real payment, then use the lifecycle RPC to cancel/void it.
-        const deferCancellation =
-          membership.status === 'cancelled' && !!built.payment;
-        const membershipInsert = deferCancellation
-          ? { ...membership, status: 'active' as const, frozen_at: null }
-          : membership;
-        const { data: createdMembership, error: membershipError } =
-          await supabase
+        },
+        createMembership: async (candidate, contactId) => {
+          const membership = candidate.built.membership!;
+          const deferCancellation =
+            membership.status === 'cancelled' && !!candidate.built.payment;
+          const membershipInsert = deferCancellation
+            ? { ...membership, status: 'active' as const, frozen_at: null }
+            : membership;
+          const { data, error } = await supabase
             .from('memberships')
             .insert({
               account_id: accountId,
@@ -798,64 +762,81 @@ export function ImportMembersCsvDialog({
             })
             .select('id')
             .single();
-        if (membershipError || !createdMembership?.id) {
-          if (isUniqueViolation(membershipError)) skipped++;
-          else failed++;
-          advanceProgress(
-            `Processed ${completedWork + 1} of ${readyRows.length} members`
-          );
-          continue;
-        }
-
-        if (built.payment) {
+          if (error || !data?.id) {
+            throw new Error(
+              isUniqueViolation(error)
+                ? 'membership-already-exists'
+                : getErrorMessage(error, 'membership-create-failed')
+            );
+          }
+          completedWork++;
+          setImportProgress({
+            completed: completedWork,
+            total: Math.max(1, readyRows.length),
+            label: `Processed ${completedWork} of ${readyRows.length} members`,
+          });
+          return { membershipId: data.id };
+        },
+        recordPayment: async (candidate, membershipId) => {
+          const payment = candidate.built.payment!;
+          const membership = candidate.built.membership!;
           const paidAt = (
-            dateAtNoonInTz(built.payment.paidOn, locale.timeZone) ?? new Date()
+            dateAtNoonInTz(payment.paidOn, locale.timeZone) ?? new Date()
           ).toISOString();
           const { error: paymentError } = await supabase.rpc(
             'record_joining_payment',
             {
-              p_membership_id: createdMembership.id,
+              p_membership_id: membershipId,
               p_period_end: membership.end_date,
-              p_amount: built.payment.amount,
-              p_method: built.payment.method,
+              p_amount: payment.amount,
+              p_method: payment.method,
               p_paid_at: paidAt,
               p_note: 'Imported payment',
               p_receipt_path: null,
               p_idempotency_key: crypto.randomUUID(),
             }
           );
-          if (paymentError) paymentFailed++;
-          else payments++;
-        }
+          if (membership.status === 'cancelled') {
+            const { error } = await setMembershipCancellation(
+              supabase,
+              membershipId,
+              true
+            );
+            if (error) statusFailed++;
+          }
+          if (paymentError) throw paymentError;
+        },
+      });
 
-        if (deferCancellation) {
-          const { error: cancellationError } = await setMembershipCancellation(
-            supabase,
-            createdMembership.id,
-            true
-          );
-          if (cancellationError) statusFailed++;
+      const candidateByRow = new Map(
+        candidates.map((candidate) => [candidate.sourceRow, candidate])
+      );
+      const persisted = results.filter(
+        (item) =>
+          item.contactId &&
+          (item.disposition === 'imported' || item.disposition === 'partial')
+      );
+      const tagAssignments: ContactTagAssignment[] = persisted.flatMap(
+        (item) => {
+          const candidate = candidateByRow.get(item.sourceRowIndex);
+          return candidate && candidate.draftValues.tagNames.length > 0
+            ? [
+                {
+                  contactId: item.contactId!,
+                  tagNames: candidate.draftValues.tagNames,
+                },
+              ]
+            : [];
         }
-
-        if (existed) attached++;
-        else imported++;
-        if (row.source.tagNames.length > 0) {
-          tagAssignments.push({
-            contactId: contactId!,
-            tagNames: row.source.tagNames,
-          });
-        }
-        for (const custom of row.source.customValues) {
-          customValueRows.push({
-            contact_id: contactId!,
-            custom_field_id: custom.fieldId,
-            value: custom.value,
-          });
-        }
-        advanceProgress(
-          `Processed ${completedWork + 1} of ${readyRows.length} members`
-        );
-      }
+      );
+      const customValueRows = persisted.flatMap((item) => {
+        const candidate = candidateByRow.get(item.sourceRowIndex);
+        return (candidate?.draftValues.customValues ?? []).map((custom) => ({
+          contact_id: item.contactId!,
+          custom_field_id: custom.fieldId,
+          value: custom.value,
+        }));
+      });
 
       let customValues = 0;
       for (
@@ -869,8 +850,6 @@ export function ImportMembersCsvDialog({
           .upsert(chunk, { onConflict: 'contact_id,custom_field_id' });
         if (!error) customValues += chunk.length;
       }
-      advanceProgress('Saved profile and custom-field details');
-
       let tagsAssigned = 0;
       try {
         tagsAssigned = await assignImportedContactTags(
@@ -881,21 +860,41 @@ export function ImportMembersCsvDialog({
       } catch {
         toast.warning('Members imported, but some tag assignments failed.');
       }
-      advanceProgress('Finalizing import receipt…');
-
+      const imported = results.filter(
+        (item) => item.memberOutcome === 'created'
+      ).length;
+      const attached = results.filter(
+        (item) => item.memberOutcome === 'attached'
+      ).length;
+      const failed = results.filter(
+        (item) => item.memberOutcome === 'failed'
+      ).length;
+      const payments = results.filter(
+        (item) => item.paymentOutcome === 'recorded'
+      ).length;
+      const paymentFailed = results.filter(
+        (item) => item.paymentOutcome === 'failed'
+      ).length;
+      const skipped = results.filter(
+        (item) =>
+          item.disposition === 'excluded' ||
+          item.disposition === 'unresolved' ||
+          item.disposition === 'invalid'
+      ).length;
       const nextResult: ImportResult = {
         imported,
         attached,
         skipped,
-        invalid: previewRows.filter(
-          (row) => !row.alreadyMember && row.built.errors.length > 0
-        ).length,
+        invalid: 0,
         failed,
         payments,
         paymentFailed,
         statusFailed,
         tagsAssigned,
         customValues,
+        receiptCsv: serializeMemberImportReceiptCsv(
+          buildMemberImportReceiptRows(candidates, results)
+        ),
       };
       setResult(nextResult);
       if (imported + attached > 0) onSaved();
@@ -920,8 +919,8 @@ export function ImportMembersCsvDialog({
   const descriptions: Record<Step, string> = {
     1: 'Upload a CSV or Excel workbook of members to begin.',
     2: 'Map your file columns to member fields.',
-    3: 'Check and edit members exactly as they will appear.',
-    4: 'Review the import receipt and confirm.',
+    3: 'Resolve every blocking issue or explicitly exclude the row.',
+    4: 'Review the exact source equation and confirm.',
   };
 
   return (
@@ -939,12 +938,11 @@ export function ImportMembersCsvDialog({
           </div>
 
           <div
-            className={cn(
-              'min-h-0 flex-1 px-6 py-5',
-              !result && step === 3
-                ? 'flex flex-col overflow-hidden'
-                : 'overflow-y-auto'
-            )}
+            role={!result && step === 3 ? 'region' : undefined}
+            aria-label={
+              !result && step === 3 ? 'Resolve issues content' : undefined
+            }
+            className="min-h-0 flex-1 overflow-y-auto px-6 py-5"
           >
             {result ? (
               <ResultPanel result={result} />
@@ -956,13 +954,10 @@ export function ImportMembersCsvDialog({
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.13, ease: 'easeOut' }}
-                  className={cn(
-                    'min-h-0',
-                    step === 3 && 'flex flex-1 flex-col'
-                  )}
+                  className="min-h-0"
                 >
                   {step === 1 && (
-                    <div className="space-y-5">
+                    <div className="space-y-3">
                       <UploadStep
                         file={file}
                         readingFile={readingFile}
@@ -974,38 +969,32 @@ export function ImportMembersCsvDialog({
                         onWorksheetChange={handleWorksheetChange}
                       />
                       {(sourceRaw ?? raw) && (
-                        <div className="space-y-2">
-                          <Label htmlFor="member-import-explanation">
-                            Explain your file
-                          </Label>
-                          <Textarea
-                            id="member-import-explanation"
-                            value={fileExplanation}
-                            onChange={(event) =>
-                              setFileExplanation(event.target.value)
-                            }
-                            placeholder="Example: repeated Member IDs are membership history; import the latest row and keep the old ID in notes."
-                            maxLength={2000}
-                          />
-                          <p className="text-muted-foreground text-xs">
-                            Analyze file sends headers, a few representative
-                            values, counts, and this explanation—not the full
-                            file. You will review every suggestion before
-                            import.
-                          </p>
-                        </div>
+                        <p className="text-muted-foreground text-xs">
+                          Analysis is local-first. Only headers and aggregate
+                          type, blank, distinct, and format counts may leave
+                          this browser—never names, phones, IDs, notes, sample
+                          values, or raw financial values.
+                        </p>
                       )}
                     </div>
                   )}
                   {step === 2 && raw && (
                     <div className="space-y-5">
-                      {suggestedRecipe && migrationCounts && (
-                        <MigrationAnalysisSummary
-                          recipe={suggestedRecipe}
-                          counts={migrationCounts}
-                          issues={migrationIssues}
-                          onUseManualMapping={useManualMapping}
-                        />
+                      {suggestedRecipe && (
+                        <div className="border-border bg-muted/20 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+                          <p className="text-muted-foreground text-sm">
+                            Safe local mapping is active. You remain in control
+                            of every field below.
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={useManualMapping}
+                          >
+                            Use manual mapping
+                          </Button>
+                        </div>
                       )}
                       <MappingStep
                         raw={raw}
@@ -1036,23 +1025,48 @@ export function ImportMembersCsvDialog({
                   )}
                   {step === 3 && (
                     <ImportMembersPreview
-                      rows={previewRows}
-                      mappedKeys={mappedKeys}
+                      candidates={candidates}
                       plans={plans}
-                      staff={staff}
-                      nameById={nameById}
-                      avatarById={avatarById}
-                      skippedNoPhone={previewMeta.skippedNoPhone}
-                      skippedInvalidPhone={previewMeta.skippedInvalidPhone}
-                      skippedDuplicates={previewMeta.skippedDuplicate}
-                      onPatch={patchPreviewRow}
-                      onBulkPlanFix={bulkFixPlan}
+                      onPatch={patchCandidate}
+                      onResolveGroupedPlan={(sourceKeys, resolution) =>
+                        setCandidates((current) =>
+                          resolveGroupedPlan(
+                            current,
+                            sourceKeys,
+                            resolution,
+                            candidateContext
+                          )
+                        )
+                      }
+                      onResolvePayment={(sourceKey, resolution, correction) =>
+                        setCandidates((current) =>
+                          resolvePaymentConflict(
+                            current,
+                            sourceKey,
+                            resolution,
+                            correction,
+                            candidateContext
+                          )
+                        )
+                      }
+                      onResolveExistingContact={(sourceKey, resolution) =>
+                        setCandidates((current) =>
+                          resolveExistingContact(
+                            current,
+                            sourceKey,
+                            resolution,
+                            candidateContext
+                          )
+                        )
+                      }
+                      onSetDisposition={(sourceKey, disposition) =>
+                        patchCandidate(sourceKey, { disposition })
+                      }
                     />
                   )}
                   {step === 4 && (
                     <ConfirmStep
-                      rows={previewRows}
-                      meta={previewMeta}
+                      candidates={candidates}
                       compliance={compliance}
                       progress={importProgress}
                       onComplianceChange={setCompliance}
@@ -1163,7 +1177,14 @@ export function ImportMembersCsvDialog({
                     </Button>
                   )}
                   {step === 3 && (
-                    <Button type="button" onClick={() => setStep(4)}>
+                    <Button
+                      type="button"
+                      disabled={
+                        candidateSummary.needsResolution > 0 ||
+                        candidateSummary.ready === 0
+                      }
+                      onClick={() => setStep(4)}
+                    >
                       Next: Confirm
                     </Button>
                   )}
@@ -1171,7 +1192,10 @@ export function ImportMembersCsvDialog({
                     <Button
                       type="button"
                       disabled={
-                        !compliance || importing || readyRows.length === 0
+                        !compliance ||
+                        importing ||
+                        readyRows.length === 0 ||
+                        candidateSummary.needsResolution > 0
                       }
                       onClick={handleImport}
                     >
@@ -1249,109 +1273,8 @@ export function ImportMembersCsvDialog({
   );
 }
 
-function MigrationAnalysisSummary({
-  recipe,
-  counts,
-  issues,
-  onUseManualMapping,
-}: {
-  recipe: MemberMigrationRecipe;
-  counts: { ready: number; needsReview: number; excluded: number };
-  issues: MigrationIssue[];
-  onUseManualMapping: () => void;
-}) {
-  const { fmt } = useLocale();
-  const summary = summarizeMigrationIssues(issues);
-  const totalMembers = counts.ready + counts.needsReview;
-  const outcomes = [
-    summary.expiryDatesKept > 0
-      ? {
-          key: 'expiry',
-          badge: 'No action needed',
-          badgeVariant: 'success' as const,
-          text: `We’ll keep the expiry date from your file for ${fmt.number(summary.expiryDatesKept)} member${summary.expiryDatesKept === 1 ? '' : 's'} where it differs from the plan length.`,
-        }
-      : null,
-    summary.missingPhones > 0
-      ? {
-          key: 'missing-phone',
-          badge: 'Will be skipped',
-          badgeVariant: 'warning' as const,
-          text: `${fmt.number(summary.missingPhones)} member${summary.missingPhones === 1 ? '' : 's'} ${summary.missingPhones === 1 ? 'has' : 'have'} no usable phone number. Add ${summary.missingPhones === 1 ? 'it' : 'them'} to the file and upload again.`,
-        }
-      : null,
-    summary.sharedPhones > 0
-      ? {
-          key: 'shared-phone',
-          badge: 'Will be skipped',
-          badgeVariant: 'warning' as const,
-          text: `${fmt.number(summary.sharedPhones)} member${summary.sharedPhones === 1 ? '' : 's'} share a phone number with another member. Give each person a unique number in the file and upload again.`,
-        }
-      : null,
-    summary.paymentsSkipped > 0
-      ? {
-          key: 'payment',
-          badge: 'Payment skipped',
-          badgeVariant: 'warning' as const,
-          text: `${fmt.number(summary.paymentsSkipped)} member${summary.paymentsSkipped === 1 ? '' : 's'} will import with the fee due because the payment totals don’t match. Correct the source amounts and upload again to record ${summary.paymentsSkipped === 1 ? 'this payment' : 'these payments'}.`,
-        }
-      : null,
-  ].filter((outcome) => outcome !== null);
-
-  return (
-    <div className="border-border bg-muted/20 space-y-3 rounded-lg border p-4">
-      <div className="space-y-2">
-        <p className="text-foreground font-medium">
-          How this file will be imported
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-foreground text-sm">
-            {fmt.number(totalMembers)} member record
-            {totalMembers === 1 ? '' : 's'} found
-          </span>
-          <Badge variant="success">{fmt.number(counts.ready)} ready</Badge>
-          {counts.needsReview > 0 && (
-            <Badge variant="warning">
-              {fmt.number(counts.needsReview)} need attention
-            </Badge>
-          )}
-          {counts.excluded > 0 && (
-            <Badge variant="secondary">
-              {fmt.number(counts.excluded)} older or summary row
-              {counts.excluded === 1 ? '' : 's'} won’t import
-            </Badge>
-          )}
-        </div>
-        <p className="text-muted-foreground text-sm">
-          {recipe.identityColumn && recipe.latestByDateColumn
-            ? 'We’ll use the latest membership row for each member and leave older history out of this import.'
-            : 'Review the proposed column mapping below before previewing the members.'}
-        </p>
-      </div>
-
-      {outcomes.length > 0 && (
-        <div className="border-border divide-border divide-y rounded-lg border">
-          {outcomes.map((outcome) => (
-            <div
-              key={outcome.key}
-              className="grid gap-2 p-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start"
-            >
-              <Badge variant={outcome.badgeVariant}>{outcome.badge}</Badge>
-              <p className="text-muted-foreground text-sm">{outcome.text}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <Button type="button" variant="outline" onClick={onUseManualMapping}>
-        Use manual mapping instead
-      </Button>
-    </div>
-  );
-}
-
 function StepIndicator({ step }: { step: Step }) {
-  const labels = ['Upload', 'Map columns', 'Preview & edit', 'Confirm'];
+  const labels = ['Upload', 'Map columns', 'Resolve issues', 'Confirm'];
   return (
     <div className="flex items-center gap-2 overflow-x-auto">
       {labels.map((label, index) => {
@@ -1718,29 +1641,18 @@ function MappingStep({
 }
 
 function ConfirmStep({
-  rows,
-  meta,
+  candidates,
   compliance,
   progress,
   onComplianceChange,
 }: {
-  rows: MemberImportPreviewRow[];
-  meta: PreviewMeta;
+  candidates: MemberImportCandidate[];
   compliance: boolean;
   progress: ImportProgress | null;
   onComplianceChange: (checked: boolean) => void;
 }) {
-  const ready = rows.filter(
-    (row) => row.built.membership && !row.alreadyMember
-  );
-  const invalid = rows.filter(
-    (row) => !row.alreadyMember && row.built.errors.length > 0
-  ).length;
-  const existingContacts = ready.filter((row) => row.existingContactId).length;
-  const payments = ready.filter((row) => row.built.payment).length;
-  const profileValues = ready.filter((row) =>
-    Object.values(row.built.contact).some((value) => value !== null)
-  ).length;
+  const { fmt } = useLocale();
+  const summary = summarizeMemberImportCandidates(candidates);
 
   return (
     <div className="space-y-5">
@@ -1765,39 +1677,31 @@ function ConfirmStep({
           <p className="text-muted-foreground text-xs">{progress.label}</p>
         </div>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard label="Ready to import" value={ready.length} />
-        <SummaryCard
-          label="New contacts"
-          value={ready.length - existingContacts}
-        />
-        <SummaryCard label="Existing contacts" value={existingContacts} />
-        <SummaryCard label="Payments to record" value={payments} />
-      </div>
       <div className="border-border bg-background/40 rounded-lg border p-4">
-        <p className="text-foreground text-sm font-medium">Import handling</p>
-        <ul className="text-muted-foreground mt-2 space-y-1.5 text-xs">
-          <li>{invalid} rows needing attention will be skipped.</li>
-          <li>
-            {rows.filter((row) => row.alreadyMember).length} existing members
-            will be skipped instead of duplicated.
-          </li>
-          <li>{profileValues} rows include profile information.</li>
-          <li>
-            {meta.skippedNoPhone + meta.skippedInvalidPhone} rows have no usable
-            phone; {meta.skippedDuplicate} in-file duplicates were removed.
-          </li>
-          {meta.invalidCustomValues > 0 && (
-            <li>
-              {meta.invalidCustomValues} invalid custom-field values were
-              ignored; the member rows remain importable.
-            </li>
-          )}
-          <li>
-            Paid rows create real payment-ledger entries, so Fee status remains
-            database-derived.
-          </li>
-        </ul>
+        <p className="text-foreground text-sm font-medium">
+          Exact source equation
+        </p>
+        <p className="text-muted-foreground mt-1 text-sm tabular-nums">
+          {fmt.number(summary.source)} source rows = {fmt.number(summary.ready)}{' '}
+          ready + {fmt.number(summary.needsResolution)} needs resolution +{' '}
+          {fmt.number(summary.automaticExcluded)} automatic exclusions +{' '}
+          {fmt.number(summary.explicitlyExcluded)} explicit exclusions
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard label="New contacts" value={summary.newContacts} />
+        <SummaryCard
+          label="Attached contacts"
+          value={summary.attachedContacts}
+        />
+        <SummaryCard label="Memberships" value={summary.memberships} />
+        <SummaryCard label="Payments" value={summary.payments} />
+        <SummaryCard
+          label="Member-only imports"
+          value={summary.memberOnlyImports}
+        />
+        <SummaryCard label="Notices" value={summary.notices} />
+        <SummaryCard label="Exclusions" value={summary.exclusions} />
       </div>
       <label className="border-border flex items-start gap-3 rounded-lg border p-4">
         <Checkbox
@@ -1867,6 +1771,17 @@ function ResultPanel({ result }: { result: ImportResult }) {
           values saved
         </p>
       )}
+      <div className="flex justify-center">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            downloadCsv('member-import-receipt.csv', result.receiptCsv)
+          }
+        >
+          <Download className="size-4" /> Download CSV receipt
+        </Button>
+      </div>
     </div>
   );
 }

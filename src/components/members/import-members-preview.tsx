@@ -1,10 +1,28 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  Info,
+  XCircle,
+} from 'lucide-react';
 
+import { EditableCell } from '@/components/leads/editable-cell';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { SearchInput } from '@/components/ui/search-input';
 import {
   Select,
   SelectContent,
@@ -20,534 +38,902 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  EditableCell,
-  type CellOption,
-} from '@/components/leads/editable-cell';
-import { AssigneeDisplay } from '@/components/leads/lead-cell-renderers';
 import { useLocale } from '@/hooks/use-locale';
-import { daysUntil, effectiveStatus } from '@/lib/memberships/expiry';
 import {
-  MEMBER_TABLE_COLUMNS,
-  type MemberColumn,
-} from '@/lib/memberships/member-field-registry';
-import type {
-  BuiltMemberRow,
-  MemberImportRow,
-  MemberRowError,
-} from '@/lib/memberships/import-commit';
-import type { MigrationIssue } from '@/lib/memberships/migration-recipe';
-import { isChargeableAmount } from '@/lib/memberships/periods';
-import type { Membership, MembershipPlan } from '@/types';
-import type { StaffMember } from './use-account-staff';
+  filterMemberImportCandidates,
+  searchMemberImportCandidates,
+  summarizeMemberImportCandidates,
+  type MemberImportCandidate,
+  type MemberImportCandidateDisposition,
+  type MemberImportCandidateFilter,
+  type MemberImportDraftValues,
+  type MemberImportExistingContactResolution,
+  type MemberImportPaymentCorrection,
+  type MemberImportPaymentResolution,
+} from '@/lib/memberships/member-import-candidates';
+import { parseMoney } from '@/lib/memberships/import-commit';
+import { durationLabel } from '@/lib/memberships/pricing';
+import type { MembershipPlan } from '@/types';
 import { MemberIdentity } from './member-identity';
-import {
-  FeeStatusBadge,
-  MembershipStatusBadge,
-} from './membership-status-badge';
 
-const PREVIEW_CAP = 200;
+const PAGE_SIZE = 50;
 
-const ERROR_LABEL: Record<MemberRowError, string> = {
-  'unknown-plan': 'Plan needs matching',
-  'no-pricing': 'Plan has no active billing option',
-  'bad-date': 'Check date values',
-  'bad-fee': 'Check the fee',
-  'bad-payment': 'Check amount paid',
-  'payment-exceeds-fee': 'Amount paid exceeds the fee',
-  'unknown-status': 'Status needs matching',
-  'expired-needs-expiry': 'Expired rows need a past expiry',
-};
-
-export interface MemberImportPreviewRow {
-  source: MemberImportRow;
-  built: BuiltMemberRow;
-  existingContactId: string | null;
-  existingReceivedVia: string | null;
-  alreadyMember: boolean;
-  migrationIssues: MigrationIssue[];
-}
+type CandidatePatch = Partial<MemberImportDraftValues>;
+type EditingCell = {
+  sourceKey: string;
+  key: string;
+  surface: 'desktop' | 'mobile';
+} | null;
 
 interface ImportMembersPreviewProps {
-  rows: MemberImportPreviewRow[];
-  mappedKeys: Set<string>;
+  candidates: MemberImportCandidate[];
   plans: MembershipPlan[];
-  staff: StaffMember[];
-  nameById: Map<string, string>;
-  avatarById: Map<string, string | null>;
-  skippedNoPhone: number;
-  skippedInvalidPhone: number;
-  skippedDuplicates: number;
-  onPatch: (index: number, patch: Partial<MemberImportRow>) => void;
-  onBulkPlanFix: (rawPlan: string, planId: string) => void;
+  onPatch: (sourceKey: string, patch: CandidatePatch) => void;
+  onResolveGroupedPlan: (
+    sourceKeys: string[],
+    resolution: { planId: string; pricingOptionId: string }
+  ) => void;
+  onResolvePayment: (
+    sourceKey: string,
+    resolution: MemberImportPaymentResolution,
+    correction?: MemberImportPaymentCorrection
+  ) => void;
+  onResolveExistingContact: (
+    sourceKey: string,
+    resolution: MemberImportExistingContactResolution
+  ) => void;
+  onSetDisposition: (
+    sourceKey: string,
+    disposition: MemberImportCandidateDisposition
+  ) => void;
+}
+
+interface IssueGroup {
+  key: string;
+  code: MemberImportCandidate['issues'][number]['code'];
+  candidates: MemberImportCandidate[];
+}
+
+function unresolvedGroups(candidates: MemberImportCandidate[]): IssueGroup[] {
+  const groups = new Map<string, IssueGroup>();
+  for (const candidate of candidates) {
+    if (candidate.disposition !== 'included') continue;
+    for (const issue of candidate.issues) {
+      if (issue.severity === 'notice' || issue.resolved) continue;
+      const existing = groups.get(issue.groupKey);
+      if (existing) existing.candidates.push(candidate);
+      else {
+        groups.set(issue.groupKey, {
+          key: issue.groupKey,
+          code: issue.code,
+          candidates: [candidate],
+        });
+      }
+    }
+  }
+  return [...groups.values()];
 }
 
 export function ImportMembersPreview({
-  rows,
-  mappedKeys,
+  candidates,
   plans,
-  staff,
-  nameById,
-  avatarById,
-  skippedNoPhone,
-  skippedInvalidPhone,
-  skippedDuplicates,
   onPatch,
-  onBulkPlanFix,
+  onResolveGroupedPlan,
+  onResolvePayment,
+  onResolveExistingContact,
+  onSetDisposition,
 }: ImportMembersPreviewProps) {
   const { fmt } = useLocale();
-  const [editing, setEditing] = useState<{
-    row: number;
-    key: string;
-  } | null>(null);
-  const [showOnlyAttention, setShowOnlyAttention] = useState(() =>
-    rows.some(
-      (row) =>
-        !row.alreadyMember &&
-        (row.built.errors.length > 0 ||
-          row.migrationIssues.some((issue) => issue.severity === 'review'))
-    )
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<MemberImportCandidateFilter>('all');
+  const [page, setPage] = useState(0);
+  const [editing, setEditing] = useState<EditingCell>(null);
+  const [manualPaymentKey, setManualPaymentKey] = useState<string | null>(null);
+  const [manualPayments, setManualPayments] = useState<
+    Record<string, { paid: string; balance: string }>
+  >({});
+
+  const summary = useMemo(
+    () => summarizeMemberImportCandidates(candidates),
+    [candidates]
   );
+  const groups = useMemo(() => unresolvedGroups(candidates), [candidates]);
+  const visible = useMemo(() => {
+    const searched = searchMemberImportCandidates(candidates, search);
+    return filterMemberImportCandidates(searched, filter);
+  }, [candidates, filter, search]);
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const paged = visible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const counts: Record<MemberImportCandidateFilter, number> = {
+    all: summary.source,
+    'needs-resolution': summary.needsResolution,
+    ready: summary.ready,
+    excluded: summary.exclusions,
+  };
 
-  const columns = useMemo(
-    () =>
-      MEMBER_TABLE_COLUMNS.filter((column) => {
-        if (column.importPolicy.kind !== 'fields') return false;
-        return column.importPolicy.fields.some((key) => mappedKeys.has(key));
-      }),
-    [mappedKeys]
-  );
-  const attentionRows = useMemo(
-    () =>
-      rows
-        .map((row, index) => ({ row, index }))
-        .filter(
-          ({ row }) =>
-            !row.alreadyMember &&
-            (row.built.errors.length > 0 ||
-              row.migrationIssues.some((issue) => issue.severity === 'review'))
-        ),
-    [rows]
-  );
-  const attention = attentionRows.length;
-  const alreadyMembers = rows.filter((row) => row.alreadyMember).length;
-  const ready = rows.filter(
-    (row) =>
-      !row.alreadyMember &&
-      row.built.membership &&
-      row.built.errors.length === 0 &&
-      !row.migrationIssues.some((issue) => issue.severity === 'review')
-  ).length;
-  const visibleRows = showOnlyAttention
-    ? attentionRows
-    : rows.slice(0, PREVIEW_CAP).map((row, index) => ({ row, index }));
-
-  const unknownPlans = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const row of rows) {
-      if (!row.built.errors.includes('unknown-plan')) continue;
-      const raw = row.source.planName?.trim() || '(blank)';
-      counts.set(raw, (counts.get(raw) ?? 0) + 1);
-    }
-    return [...counts.entries()];
-  }, [rows]);
-
-  const planOptions: CellOption[] = plans.map((plan) => ({
-    value: plan.id,
-    label: plan.name,
-  }));
-  const statusOptions: CellOption[] = [
-    { value: 'active', label: 'Active' },
-    { value: 'expired', label: 'Expired' },
-    { value: 'frozen', label: 'Frozen' },
-    { value: 'cancelled', label: 'Cancelled' },
-  ];
-  const staffOptions: CellOption[] = [
-    { value: '', label: 'You (importer)' },
-    ...staff.map((person) => ({
-      value: person.user_id,
-      label: person.full_name,
-    })),
-  ];
-  const riskOptions: CellOption[] = [
-    { value: 'no', label: 'No' },
-    { value: 'yes', label: 'Yes' },
-  ];
-
-  function editCell(
-    row: MemberImportPreviewRow,
-    index: number,
-    column: MemberColumn
+  function startEditing(
+    sourceKey: string,
+    key: string,
+    surface: 'desktop' | 'mobile'
   ) {
-    const active = editing?.row === index && editing.key === column.key;
-    const close = () => setEditing(null);
-    const start = () => setEditing({ row: index, key: column.key });
-    const built = row.built.membership;
+    setEditing({ sourceKey, key, surface });
+  }
 
-    switch (column.key) {
-      case 'name':
-        return (
-          <MemberIdentity
-            name={row.source.name}
-            secondary={row.source.phone}
-            meta={
-              row.alreadyMember
-                ? 'Already a member — will skip'
-                : row.existingContactId
-                  ? 'Existing contact'
-                  : undefined
-            }
-          />
-        );
-      case 'plan': {
-        const plan = plans.find((item) => item.id === built?.plan_id);
-        return (
-          <EditableCell
-            editing={active}
-            saving={false}
-            kind="select"
-            value={plan?.id ?? ''}
-            options={planOptions}
-            display={
-              plan ? (
-                <span className="text-foreground truncate text-sm">
-                  {plan.name}
-                </span>
-              ) : (
-                <Badge variant="warning">
-                  {row.source.planName || 'No plan'}
-                </Badge>
-              )
-            }
-            onStart={start}
-            onCancel={close}
-            onCommit={(planId) => {
-              const next = plans.find((item) => item.id === planId);
-              if (next) {
-                onPatch(index, {
-                  planName: next.name,
-                  pricingOption: '',
-                });
-              }
-              close();
-            }}
-          />
-        );
-      }
-      case 'expiry':
-        return (
-          <EditableCell
-            editing={active}
-            saving={false}
-            kind="text"
-            value={row.source.endDate || built?.end_date || ''}
-            display={
-              <span className="text-muted-foreground text-sm">
-                {built?.end_date ? fmt.date(built.end_date) : 'Check date'}
-              </span>
-            }
-            onStart={start}
-            onCancel={close}
-            onCommit={(value) => {
-              onPatch(index, { endDate: value });
-              close();
-            }}
-          />
-        );
-      case 'status': {
-        const status = built
-          ? effectiveStatus(
-              built as Pick<Membership, 'status' | 'end_date'>,
-              fmt.today()
-            )
-          : 'active';
-        return (
-          <EditableCell
-            editing={active}
-            saving={false}
-            kind="select"
-            value={status}
-            options={statusOptions}
-            display={
-              built ? (
-                <MembershipStatusBadge
-                  status={status}
-                  daysToExpiry={daysUntil(built.end_date, fmt.today())}
-                />
-              ) : (
-                <Badge variant="warning">
-                  {row.source.status || 'Check status'}
-                </Badge>
-              )
-            }
-            onStart={start}
-            onCancel={close}
-            onCommit={(value) => {
-              onPatch(index, { status: value });
-              close();
-            }}
-          />
-        );
-      }
-      case 'assignee':
-        return (
-          <EditableCell
-            editing={active}
-            saving={false}
-            kind="select"
-            value={row.built.assignedTo ?? ''}
-            options={staffOptions}
-            display={
-              row.built.assignedTo ? (
-                <AssigneeDisplay
-                  name={nameById.get(row.built.assignedTo) ?? 'Teammate'}
-                  avatarUrl={avatarById.get(row.built.assignedTo)}
-                />
-              ) : row.built.warnings.includes('unknown-assignee') ? (
-                <Badge variant="warning">
-                  {row.source.assignedTo || 'Unknown'}
-                </Badge>
-              ) : (
-                <span className="text-muted-foreground text-sm">
-                  You (importer)
-                </span>
-              )
-            }
-            onStart={start}
-            onCancel={close}
-            onCommit={(userId) => {
-              onPatch(index, {
-                assignedTo:
-                  staff.find((person) => person.user_id === userId)
-                    ?.full_name ?? '',
-              });
-              close();
-            }}
-          />
-        );
-      case 'fee': {
-        const payment = row.built.payment?.amount ?? 0;
-        const paid = built
-          ? !isChargeableAmount(Number(built.fee_amount) - payment)
-          : false;
-        return (
-          <EditableCell
-            editing={active}
-            saving={false}
-            kind="number"
-            value={row.source.fee || String(built?.fee_amount ?? '')}
-            display={
-              built ? (
-                <span className="flex items-center gap-1.5">
-                  <FeeStatusBadge status={paid ? 'paid' : 'due'} />
-                  <span className="text-muted-foreground text-xs tabular-nums">
-                    {fmt.money(built.fee_amount)}
-                  </span>
-                </span>
-              ) : (
-                <Badge variant="warning">Check fee</Badge>
-              )
-            }
-            onStart={start}
-            onCancel={close}
-            onCommit={(value) => {
-              onPatch(index, { fee: value });
-              close();
-            }}
-          />
-        );
-      }
-      case 'churnRisk':
-        return (
-          <EditableCell
-            editing={active}
-            saving={false}
-            kind="select"
-            value={row.built.churnRisk ? 'yes' : 'no'}
-            options={riskOptions}
-            display={
-              row.built.churnRisk ? (
-                <Badge variant="danger">Yes</Badge>
-              ) : (
-                <span className="text-muted-foreground text-sm">No</span>
-              )
-            }
-            onStart={start}
-            onCancel={close}
-            onCommit={(value) => {
-              onPatch(index, { churnRisk: value });
-              close();
-            }}
-          />
-        );
-      default:
-        return null;
-    }
+  function isEditing(
+    sourceKey: string,
+    key: string,
+    surface: 'desktop' | 'mobile'
+  ) {
+    return (
+      editing?.sourceKey === sourceKey &&
+      editing.key === key &&
+      editing.surface === surface
+    );
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="success">{fmt.number(ready)} ready</Badge>
-        {attention > 0 && (
-          <Badge variant="warning">
-            {fmt.number(attention)} need attention
-          </Badge>
-        )}
-        {alreadyMembers > 0 && (
-          <Badge variant="neutral">
-            {fmt.number(alreadyMembers)} already members
-          </Badge>
-        )}
-        {skippedNoPhone > 0 && (
-          <Badge variant="neutral">
-            {fmt.number(skippedNoPhone)} without phone
-          </Badge>
-        )}
-        {skippedInvalidPhone > 0 && (
-          <Badge variant="neutral">
-            {fmt.number(skippedInvalidPhone)} invalid phones
-          </Badge>
-        )}
-        {skippedDuplicates > 0 && (
-          <Badge variant="neutral">
-            {fmt.number(skippedDuplicates)} duplicates
-          </Badge>
-        )}
-        {attention > 0 && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="ml-auto"
-            onClick={() => setShowOnlyAttention((current) => !current)}
-          >
-            {showOnlyAttention
-              ? 'Show all rows'
-              : `Review ${fmt.number(attention)} row${attention === 1 ? '' : 's'}`}
-          </Button>
-        )}
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <SearchInput
+          value={search}
+          onValueChange={(value) => {
+            setSearch(value);
+            setPage(0);
+          }}
+          placeholder="Search members or Member ID"
+          aria-label="Search import candidates"
+          containerClassName="w-full lg:w-[240px]"
+        />
+        <ChipGroup<MemberImportCandidateFilter>
+          selectionMode="single"
+          value={[filter]}
+          onValueChange={(values) => {
+            if (!values[0]) return;
+            setFilter(values[0]);
+            setPage(0);
+          }}
+          aria-label="Import candidate filters"
+        >
+          {(
+            [
+              ['all', 'All'],
+              ['needs-resolution', 'Needs resolution'],
+              ['ready', 'Ready'],
+              ['excluded', 'Excluded'],
+            ] as const
+          ).map(([value, label]) => (
+            <Chip key={value} value={value}>
+              {label} <ChipCount count={counts[value]} />
+            </Chip>
+          ))}
+        </ChipGroup>
       </div>
 
-      {unknownPlans.length > 0 && (
-        <div className="border-border bg-background/40 rounded-lg border p-3">
-          <div className="mb-2 flex items-start gap-2">
-            <AlertTriangle className="text-amber-foreground mt-0.5 size-4 shrink-0" />
+      {groups.length > 0 && (
+        <section aria-labelledby="member-import-resolutions-heading">
+          <div className="mb-2 flex items-center justify-between gap-3">
             <div>
-              <p className="text-foreground text-sm font-medium">
-                Match plan names once
-              </p>
+              <h3
+                id="member-import-resolutions-heading"
+                className="text-foreground text-sm font-medium"
+              >
+                Grouped resolutions
+              </h3>
               <p className="text-muted-foreground text-xs">
-                A choice applies to every row carrying that source value.
+                Resolve a source pattern once, then review individual rows.
               </p>
             </div>
+            <Badge variant="warning">
+              {fmt.number(summary.needsResolution)} need resolution
+            </Badge>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {unknownPlans.map(([rawPlan, count]) => (
-              <div
-                key={rawPlan}
-                className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-2"
-              >
-                <div className="min-w-0">
-                  <p className="text-foreground truncate text-xs font-medium">
-                    {rawPlan}
-                  </p>
-                  <p className="text-muted-foreground text-[11px]">
-                    {count} row{count === 1 ? '' : 's'}
-                  </p>
-                </div>
-                <Select
-                  value={null}
-                  onValueChange={(planId) =>
-                    planId && onBulkPlanFix(rawPlan, planId)
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose plan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {plans.map((plan) => (
-                      <SelectItem key={plan.id} value={plan.id}>
-                        {plan.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <Accordion multiple defaultValue={groups.map((group) => group.key)}>
+            {groups.map((group) => (
+              <AccordionItem key={group.key} value={group.key}>
+                <AccordionTrigger>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <AlertTriangle className="text-amber-foreground size-4 shrink-0" />
+                    <span className="truncate">{groupTitle(group)}</span>
+                    <Badge variant="neutral" size="count">
+                      {group.candidates.length}
+                    </Badge>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <GroupResolver
+                    group={group}
+                    plans={plans}
+                    manualPaymentKey={manualPaymentKey}
+                    manualPayments={manualPayments}
+                    onManualPaymentKey={setManualPaymentKey}
+                    onManualPaymentChange={(sourceKey, patch) =>
+                      setManualPayments((current) => ({
+                        ...current,
+                        [sourceKey]: {
+                          paid:
+                            patch.paid ??
+                            current[sourceKey]?.paid ??
+                            group.candidates.find(
+                              (candidate) => candidate.sourceKey === sourceKey
+                            )?.draftValues.amountPaid ??
+                            '',
+                          balance:
+                            patch.balance ??
+                            current[sourceKey]?.balance ??
+                            group.candidates.find(
+                              (candidate) => candidate.sourceKey === sourceKey
+                            )?.draftValues.balance ??
+                            '',
+                        },
+                      }))
+                    }
+                    onResolveGroupedPlan={onResolveGroupedPlan}
+                    onResolvePayment={onResolvePayment}
+                    onResolveExistingContact={onResolveExistingContact}
+                    onPatch={onPatch}
+                    onSetDisposition={onSetDisposition}
+                  />
+                </AccordionContent>
+              </AccordionItem>
             ))}
-          </div>
-        </div>
+          </Accordion>
+        </section>
       )}
 
-      <div className="border-border ring-border/50 min-h-0 flex-1 overflow-auto rounded-xl border ring-1">
-        <Table className="min-w-[760px] table-fixed">
+      <div
+        data-testid="member-import-desktop"
+        className="border-border ring-border/50 hidden min-h-0 flex-1 overflow-auto rounded-xl border ring-1 md:block"
+      >
+        <Table className="min-w-[980px] table-fixed">
           <TableHeader className="bg-background sticky top-0 z-10">
             <TableRow>
-              {columns.map((column) => (
-                <TableHead
-                  key={column.key}
-                  style={{ width: column.defaultWidth }}
-                >
-                  {column.label}
-                </TableHead>
-              ))}
-              <TableHead className="w-40">Import check</TableHead>
+              <TableHead className="w-56">Name</TableHead>
+              <TableHead className="w-32">Member ID</TableHead>
+              <TableHead className="w-44">Phone</TableHead>
+              <TableHead className="w-56">Plan</TableHead>
+              <TableHead className="w-28">Expiry</TableHead>
+              <TableHead className="w-44">Import check</TableHead>
+              <TableHead className="w-28">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visibleRows.map(({ row, index }) => (
-              <TableRow key={`${row.source.phone}-${index}`}>
-                {columns.map((column) => (
-                  <TableCell key={column.key} className="p-0">
-                    {editCell(row, index, column)}
-                  </TableCell>
-                ))}
+            {paged.map((candidate) => (
+              <TableRow key={candidate.sourceKey}>
                 <TableCell>
-                  {row.alreadyMember ? (
-                    <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
-                      <CheckCircle className="size-3.5" /> Skip existing
-                    </span>
-                  ) : row.built.errors.length > 0 ? (
-                    <span className="text-red-foreground inline-flex items-start gap-1.5 text-xs">
-                      <XCircle className="mt-px size-3.5 shrink-0" />
-                      {ERROR_LABEL[row.built.errors[0]]}
-                    </span>
-                  ) : row.migrationIssues.some((issue) =>
-                      ['payment-mismatch', 'overpayment'].includes(issue.code)
-                    ) ? (
-                    <span className="text-amber-foreground inline-flex items-start gap-1.5 text-xs">
-                      <AlertTriangle className="mt-px size-3.5 shrink-0" />
-                      Payment won’t import
-                    </span>
-                  ) : (
-                    <span className="text-emerald-foreground inline-flex items-center gap-1.5 text-xs">
-                      <CheckCircle className="size-3.5" /> Ready
-                    </span>
-                  )}
+                  <MemberIdentity
+                    name={candidate.draftValues.name || 'Unnamed member'}
+                    secondary={`Source row ${candidate.sourceRow}`}
+                  />
+                </TableCell>
+                <TableCell className="text-muted-foreground truncate text-xs">
+                  {candidate.legacyMemberId || '—'}
+                </TableCell>
+                <TableCell className="p-0">
+                  <EditableCell
+                    editing={isEditing(candidate.sourceKey, 'phone', 'desktop')}
+                    saving={false}
+                    kind="phone"
+                    value={candidate.draftValues.phone}
+                    display={
+                      <span className="text-foreground truncate text-sm">
+                        {candidate.draftValues.phone || 'Add phone'}
+                      </span>
+                    }
+                    onStart={() =>
+                      startEditing(candidate.sourceKey, 'phone', 'desktop')
+                    }
+                    onCancel={() => setEditing(null)}
+                    onCommit={(phone) => {
+                      onPatch(candidate.sourceKey, { phone });
+                      setEditing(null);
+                    }}
+                  />
+                </TableCell>
+                <TableCell className="p-0">
+                  <EditableCell
+                    editing={isEditing(candidate.sourceKey, 'plan', 'desktop')}
+                    saving={false}
+                    kind="select"
+                    value={candidate.built.membership?.plan_id ?? ''}
+                    options={plans.map((plan) => ({
+                      value: plan.id,
+                      label: plan.name,
+                    }))}
+                    display={
+                      <span className="text-foreground truncate text-sm">
+                        {candidate.draftValues.planName || 'Choose plan'}
+                      </span>
+                    }
+                    onStart={() =>
+                      startEditing(candidate.sourceKey, 'plan', 'desktop')
+                    }
+                    onCancel={() => setEditing(null)}
+                    onCommit={(planId) => {
+                      const plan = plans.find((item) => item.id === planId);
+                      const option = plan?.pricing_options?.find(
+                        (item) => item.is_active
+                      );
+                      if (plan && option) {
+                        onResolveGroupedPlan([candidate.sourceKey], {
+                          planId: plan.id,
+                          pricingOptionId: option.id,
+                        });
+                      }
+                      setEditing(null);
+                    }}
+                  />
+                </TableCell>
+                <TableCell className="text-muted-foreground text-xs">
+                  {candidate.built.membership?.end_date
+                    ? fmt.date(candidate.built.membership.end_date)
+                    : '—'}
+                </TableCell>
+                <TableCell>
+                  <CandidateStatus candidate={candidate} />
+                </TableCell>
+                <TableCell>
+                  <DispositionAction
+                    candidate={candidate}
+                    onSetDisposition={onSetDisposition}
+                  />
                 </TableCell>
               </TableRow>
             ))}
-            {visibleRows.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length + 1}
-                  className="text-muted-foreground h-24 text-center text-sm"
-                >
-                  No rows need attention.
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
+        <Pagination
+          page={safePage}
+          pageCount={pageCount}
+          total={visible.length}
+          onPageChange={setPage}
+        />
       </div>
 
-      {!showOnlyAttention && rows.length > PREVIEW_CAP && (
-        <p className="text-muted-foreground text-xs">
-          Showing the first {fmt.number(PREVIEW_CAP)} of{' '}
-          {fmt.number(rows.length)} rows — all valid rows will be imported. Use
-          Review to see every row needing attention.
-        </p>
+      <div className="space-y-3 md:hidden" data-testid="member-import-mobile">
+        {paged.map((candidate) => (
+          <article
+            key={candidate.sourceKey}
+            className="border-border bg-background/40 space-y-3 rounded-xl border p-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <MemberIdentity
+                name={candidate.draftValues.name || 'Unnamed member'}
+                secondary={candidate.draftValues.phone || 'Phone required'}
+                meta={`Source row ${candidate.sourceRow} · ${candidate.legacyMemberId || 'No Member ID'}`}
+              />
+              <CandidateStatus candidate={candidate} />
+            </div>
+            <dl className="grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
+              <dt className="text-muted-foreground">Plan</dt>
+              <dd className="text-foreground min-w-0 break-words">
+                {candidate.draftValues.planName || 'Choose plan'}
+                {candidate.draftValues.pricingOption
+                  ? ` · ${candidate.draftValues.pricingOption}`
+                  : ''}
+              </dd>
+              <dt className="text-muted-foreground">Expiry</dt>
+              <dd className="text-foreground">
+                {candidate.built.membership?.end_date
+                  ? fmt.date(candidate.built.membership.end_date)
+                  : '—'}
+              </dd>
+            </dl>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  startEditing(candidate.sourceKey, 'phone', 'mobile')
+                }
+              >
+                {candidate.draftValues.phone ? 'Edit phone' : 'Add phone'}
+              </Button>
+              <DispositionAction
+                candidate={candidate}
+                onSetDisposition={onSetDisposition}
+              />
+            </div>
+            {isEditing(candidate.sourceKey, 'phone', 'mobile') && (
+              <EditableCell
+                editing
+                saving={false}
+                kind="phone"
+                value={candidate.draftValues.phone}
+                display={null}
+                onStart={() => undefined}
+                onCancel={() => setEditing(null)}
+                onCommit={(phone) => {
+                  onPatch(candidate.sourceKey, { phone });
+                  setEditing(null);
+                }}
+              />
+            )}
+          </article>
+        ))}
+        <Pagination
+          page={safePage}
+          pageCount={pageCount}
+          total={visible.length}
+          onPageChange={setPage}
+        />
+      </div>
+
+      {visible.length === 0 && (
+        <div className="border-border text-muted-foreground rounded-xl border py-10 text-center text-sm">
+          No candidates match this view.
+        </div>
       )}
     </div>
   );
 }
+
+function groupTitle(group: IssueGroup) {
+  switch (group.code) {
+    case 'plan-needs-resolution':
+    case 'pricing-option-needs-resolution':
+      return 'Match plan and billing option';
+    case 'payment-conflict':
+      return 'Payment figures conflict';
+    case 'missing-phone':
+    case 'invalid-phone':
+    case 'shared-phone':
+      return 'Repair phone numbers';
+    case 'existing-contact':
+      return 'Choose how to attach existing contacts';
+    default:
+      return 'Correct membership details';
+  }
+}
+
+function GroupResolver({
+  group,
+  plans,
+  manualPaymentKey,
+  manualPayments,
+  onManualPaymentKey,
+  onManualPaymentChange,
+  onResolveGroupedPlan,
+  onResolvePayment,
+  onResolveExistingContact,
+  onPatch,
+  onSetDisposition,
+}: {
+  group: IssueGroup;
+  plans: MembershipPlan[];
+  manualPaymentKey: string | null;
+  manualPayments: Record<string, { paid: string; balance: string }>;
+  onManualPaymentKey: (sourceKey: string | null) => void;
+  onManualPaymentChange: (
+    sourceKey: string,
+    patch: Partial<{ paid: string; balance: string }>
+  ) => void;
+  onResolveGroupedPlan: ImportMembersPreviewProps['onResolveGroupedPlan'];
+  onResolvePayment: ImportMembersPreviewProps['onResolvePayment'];
+  onResolveExistingContact: ImportMembersPreviewProps['onResolveExistingContact'];
+  onPatch: ImportMembersPreviewProps['onPatch'];
+  onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+}) {
+  const { fmt } = useLocale();
+  const first = group.candidates[0];
+
+  if (
+    group.code === 'plan-needs-resolution' ||
+    group.code === 'pricing-option-needs-resolution'
+  ) {
+    const sourceLabel = `${first.originalValues.planName || '(blank)'} · ${first.originalValues.pricingOption || '(no billing option)'}`;
+    return (
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)] sm:items-center">
+        <div>
+          <p className="text-foreground text-sm font-medium break-words">
+            {sourceLabel}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Applies to {group.candidates.length} source row
+            {group.candidates.length === 1 ? '' : 's'}.
+          </p>
+        </div>
+        <Select<string>
+          value={null}
+          onValueChange={(value) => {
+            if (!value) return;
+            const [planId, pricingOptionId] = value.split('::');
+            onResolveGroupedPlan(
+              group.candidates.map((candidate) => candidate.sourceKey),
+              { planId, pricingOptionId }
+            );
+          }}
+        >
+          <SelectTrigger className="w-full" aria-label={`Map ${sourceLabel}`}>
+            <SelectValue placeholder="Choose plan and billing option" />
+          </SelectTrigger>
+          <SelectContent>
+            {plans.flatMap((plan) =>
+              (plan.pricing_options ?? [])
+                .filter((option) => option.is_active)
+                .map((option) => (
+                  <SelectItem
+                    key={`${plan.id}::${option.id}`}
+                    value={`${plan.id}::${option.id}`}
+                  >
+                    {plan.name} ·{' '}
+                    {durationLabel(option.duration_count, option.duration_unit)}
+                  </SelectItem>
+                ))
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
+  if (group.code === 'payment-conflict') {
+    return (
+      <div className="space-y-4">
+        {group.candidates.map((candidate) => {
+          const fee = parseMoney(candidate.draftValues.fee ?? '') ?? 0;
+          const paid = parseMoney(candidate.draftValues.amountPaid ?? '') ?? 0;
+          const balance = parseMoney(candidate.draftValues.balance ?? '') ?? 0;
+          const difference = fee - paid - balance;
+          const manual = manualPayments[candidate.sourceKey] ?? {
+            paid: candidate.draftValues.amountPaid ?? '',
+            balance: candidate.draftValues.balance ?? '',
+          };
+          return (
+            <div
+              key={candidate.sourceKey}
+              className="border-border grid gap-3 rounded-lg border p-3 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,0.8fr)] lg:items-start"
+            >
+              <div>
+                <p className="text-foreground text-sm font-medium">
+                  {candidate.draftValues.name || 'Unnamed member'} · source row{' '}
+                  {candidate.sourceRow}
+                </p>
+                <p className="text-muted-foreground mt-1 text-xs tabular-nums">
+                  Fee {fmt.money(fee)} · Paid {fmt.money(paid)} · Balance{' '}
+                  {fmt.money(balance)} · Difference {fmt.money(difference)}
+                </p>
+              </div>
+              <div className="space-y-3">
+                <Select
+                  value={candidate.resolutions.payment}
+                  onValueChange={(value) => {
+                    if (!value) return;
+                    if (value === 'manual') {
+                      onManualPaymentKey(candidate.sourceKey);
+                      return;
+                    }
+                    onManualPaymentKey(null);
+                    onResolvePayment(
+                      candidate.sourceKey,
+                      value as MemberImportPaymentResolution
+                    );
+                  }}
+                >
+                  <SelectTrigger
+                    className="w-full"
+                    aria-label={`Resolve payment for source row ${candidate.sourceRow}`}
+                  >
+                    <SelectValue placeholder="Choose payment handling" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="trust_paid">Trust paid</SelectItem>
+                    <SelectItem value="trust_balance">Trust balance</SelectItem>
+                    <SelectItem value="member_only">
+                      Import member without payment
+                    </SelectItem>
+                    <SelectItem value="manual">
+                      Enter corrected values
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {manualPaymentKey === candidate.sourceKey && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`paid-${candidate.sourceKey}`} size="sm">
+                        Corrected paid
+                      </Label>
+                      <Input
+                        id={`paid-${candidate.sourceKey}`}
+                        inputMode="decimal"
+                        value={manual.paid}
+                        onChange={(event) =>
+                          onManualPaymentChange(candidate.sourceKey, {
+                            paid: event.currentTarget.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor={`balance-${candidate.sourceKey}`}
+                        size="sm"
+                      >
+                        Corrected balance
+                      </Label>
+                      <Input
+                        id={`balance-${candidate.sourceKey}`}
+                        inputMode="decimal"
+                        value={manual.balance}
+                        onChange={(event) =>
+                          onManualPaymentChange(candidate.sourceKey, {
+                            balance: event.currentTarget.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="sm:col-span-2 sm:justify-self-end"
+                      onClick={() => {
+                        onResolvePayment(candidate.sourceKey, 'manual', manual);
+                        onManualPaymentKey(null);
+                      }}
+                    >
+                      Apply corrected values
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (group.code === 'existing-contact') {
+    return (
+      <div className="space-y-3">
+        {group.candidates.map((candidate) => (
+          <div
+            key={candidate.sourceKey}
+            className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_15rem] sm:items-center"
+          >
+            <p className="text-foreground text-sm">
+              {candidate.draftValues.name || 'Unnamed member'} · source row{' '}
+              {candidate.sourceRow}
+            </p>
+            <Select
+              value={candidate.resolutions.existingContact}
+              onValueChange={(value) =>
+                value &&
+                onResolveExistingContact(
+                  candidate.sourceKey,
+                  value as MemberImportExistingContactResolution
+                )
+              }
+            >
+              <SelectTrigger
+                className="w-full"
+                aria-label={`Resolve existing contact for source row ${candidate.sourceRow}`}
+              >
+                <SelectValue placeholder="Choose contact values" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="keep_existing">Keep existing</SelectItem>
+                <SelectItem value="use_csv">Use CSV values</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (group.code === 'invalid-membership-values') {
+    const fields: {
+      key: keyof Pick<
+        MemberImportDraftValues,
+        | 'startDate'
+        | 'endDate'
+        | 'status'
+        | 'freezeDate'
+        | 'fee'
+        | 'amountPaid'
+        | 'paidAt'
+        | 'dateOfBirth'
+      >;
+      label: string;
+      inputMode?: 'decimal';
+    }[] = [
+      { key: 'startDate', label: 'Start date' },
+      { key: 'endDate', label: 'Expiry' },
+      { key: 'status', label: 'Status' },
+      { key: 'freezeDate', label: 'Freeze date' },
+      { key: 'fee', label: 'Fee', inputMode: 'decimal' },
+      { key: 'amountPaid', label: 'Amount paid', inputMode: 'decimal' },
+      { key: 'paidAt', label: 'Payment date' },
+      { key: 'dateOfBirth', label: 'Date of birth' },
+    ];
+    return (
+      <div className="space-y-3">
+        {group.candidates.map((candidate) => (
+          <div
+            key={candidate.sourceKey}
+            className="border-border space-y-3 rounded-lg border p-3"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-foreground text-sm font-medium">
+                  {candidate.draftValues.name || 'Unnamed member'} · source row{' '}
+                  {candidate.sourceRow}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Correct invalid dates, status, or amounts. Changes are checked
+                  immediately.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  onSetDisposition(candidate.sourceKey, 'excluded')
+                }
+              >
+                Exclude source row {candidate.sourceRow}
+              </Button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {fields.map((field) => {
+                const id = `${field.key}-${candidate.sourceKey}`;
+                return (
+                  <div key={field.key} className="min-w-0 space-y-1.5">
+                    <Label htmlFor={id} size="sm">
+                      {field.label}
+                    </Label>
+                    <Input
+                      id={id}
+                      aria-label={`${field.label} for source row ${candidate.sourceRow}`}
+                      inputMode={field.inputMode}
+                      value={candidate.draftValues[field.key] ?? ''}
+                      onChange={(event) =>
+                        onPatch(candidate.sourceKey, {
+                          [field.key]: event.currentTarget.value,
+                        })
+                      }
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-muted-foreground text-sm">
+        Edit the affected rows below, or explicitly exclude a row from this
+        import.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {group.candidates.map((candidate) => (
+          <Button
+            key={candidate.sourceKey}
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onSetDisposition(candidate.sourceKey, 'excluded')}
+          >
+            Exclude source row {candidate.sourceRow}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CandidateStatus({ candidate }: { candidate: MemberImportCandidate }) {
+  if (candidate.disposition === 'excluded') {
+    return (
+      <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
+        <XCircle className="size-3.5" /> Excluded
+      </span>
+    );
+  }
+  if (candidate.isReady) {
+    const noticeCount = candidate.issues.filter(
+      (issue) => issue.severity === 'notice'
+    ).length;
+    return (
+      <span className="text-emerald-foreground inline-flex items-center gap-1.5 text-xs">
+        <CheckCircle className="size-3.5" /> Ready
+        {noticeCount > 0 &&
+          ` · ${noticeCount} notice${noticeCount === 1 ? '' : 's'}`}
+      </span>
+    );
+  }
+  return (
+    <span className="text-amber-foreground inline-flex items-start gap-1.5 text-xs">
+      <AlertTriangle className="mt-px size-3.5 shrink-0" /> Needs resolution
+    </span>
+  );
+}
+
+function DispositionAction({
+  candidate,
+  onSetDisposition,
+}: {
+  candidate: MemberImportCandidate;
+  onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+}) {
+  const automatic =
+    candidate.exclusionReason === 'membership-history' ||
+    candidate.exclusionReason === 'summary-row' ||
+    candidate.exclusionReason === 'existing-member';
+  if (automatic) {
+    return (
+      <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
+        <Info className="size-3.5" /> Automatic
+      </span>
+    );
+  }
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="link"
+      onClick={() =>
+        onSetDisposition(
+          candidate.sourceKey,
+          candidate.disposition === 'included' ? 'excluded' : 'included'
+        )
+      }
+    >
+      {candidate.disposition === 'included' ? 'Exclude' : 'Include'}
+    </Button>
+  );
+}
+
+function Pagination({
+  page,
+  pageCount,
+  total,
+  onPageChange,
+}: {
+  page: number;
+  pageCount: number;
+  total: number;
+  onPageChange: (page: number) => void;
+}) {
+  return (
+    <div className="border-border flex items-center justify-between gap-3 border-t px-3 py-2">
+      <p className="text-muted-foreground text-xs">
+        {total} candidate{total === 1 ? '' : 's'}
+      </p>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          disabled={page === 0}
+          aria-label="Previous page"
+          onClick={() => onPageChange(page - 1)}
+        >
+          <ChevronLeft className="size-4" />
+        </Button>
+        <span className="text-muted-foreground px-2 text-xs">
+          Page {page + 1} of {pageCount}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          disabled={page >= pageCount - 1}
+          aria-label="Next page"
+          onClick={() => onPageChange(page + 1)}
+        >
+          <ChevronRight className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export type { ImportMembersPreviewProps };

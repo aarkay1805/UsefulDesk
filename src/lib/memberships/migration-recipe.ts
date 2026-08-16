@@ -256,6 +256,20 @@ export function splitPlanDuration(value: string): {
   return { plan: trimmed.slice(0, match.index).trim(), option };
 }
 
+export function normalizeMemberMigrationStatus(
+  status: string | null | undefined,
+  explicitEndDate: string | null | undefined,
+  dateOrder: 'DMY' | 'MDY',
+  today: string
+): string {
+  const value = status?.trim() ?? '';
+  if (value.toLowerCase() !== 'inactive') return value;
+  const end = explicitEndDate
+    ? parseImportDate(explicitEndDate, dateOrder)
+    : null;
+  return end && end < today ? 'expired' : 'cancelled';
+}
+
 function countAffectedRows(
   issues: MigrationIssue[],
   codes: MigrationIssue['code'][]
@@ -399,11 +413,15 @@ export function applyMemberMigrationRecipe(
         nextAction: 'The explicit end date will win; verify it in preview.',
       });
     }
-    const end = parsedEnd;
-    const status = (values.get('status') ?? '').toLowerCase();
-    if (status === 'inactive' && end && end < options.today)
-      values.set('status', 'expired');
-    else if (status === 'inactive') values.set('status', 'cancelled');
+    values.set(
+      'status',
+      normalizeMemberMigrationStatus(
+        values.get('status'),
+        values.get('end_date'),
+        'DMY',
+        options.today
+      )
+    );
     const fee = parseMoney(cell(row, recipe.money.feeColumn));
     const paid = parseMoney(cell(row, recipe.money.paidColumn));
     const balance = parseMoney(cell(row, recipe.money.balanceColumn));
@@ -463,15 +481,94 @@ export function applyMemberMigrationRecipe(
   };
 }
 
-export function buildMigrationAnalysis(raw: RawCsv) {
+export type MigrationValueFormat =
+  'text' | 'number' | 'date' | 'email' | 'phone' | 'url' | 'blank';
+
+export interface MemberMigrationAnalysis {
+  headers: string[];
+  rowCount: number;
+  inferredTypes: Record<string, Exclude<MigrationValueFormat, 'blank'>>;
+  blankCounts: Record<string, number>;
+  distinctCounts: Record<string, number>;
+  formatStatistics: Record<
+    string,
+    Partial<Record<MigrationValueFormat, number>>
+  >;
+}
+
+function migrationValueFormat(
+  header: string,
+  value: string
+): MigrationValueFormat {
+  const trimmed = value.trim();
+  if (!trimmed) return 'blank';
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return 'email';
+  if (/^https?:\/\/\S+$/i.test(trimmed)) return 'url';
+
+  const normalizedHeader = normalizeImportHeader(header);
+  const dateHeader = /(?:date|dob|birth|expiry|expire|valid until|joined)/.test(
+    normalizedHeader
+  );
+  if (dateHeader && parseImportDate(trimmed)) return 'date';
+
+  const phoneHeader = /(?:phone|mobile|contact|whatsapp|cell)/.test(
+    normalizedHeader
+  );
+  const phoneDigits = trimmed.replace(/\D/g, '');
+  if (
+    phoneHeader &&
+    phoneDigits.length >= 7 &&
+    phoneDigits.length <= 15 &&
+    /^[+()\d\s.-]+$/.test(trimmed)
+  ) {
+    return 'phone';
+  }
+  if (parseMoney(trimmed) !== null) return 'number';
+  if (parseImportDate(trimmed)) return 'date';
+  return 'text';
+}
+
+/**
+ * Build the complete analysis request without retaining a single source
+ * value. The endpoint receives schema and value-pattern counts only; local
+ * deterministic parsing remains the authority for every row decision.
+ */
+export function buildMigrationAnalysis(raw: RawCsv): MemberMigrationAnalysis {
+  const inferredTypes: MemberMigrationAnalysis['inferredTypes'] = {};
+  const blankCounts: MemberMigrationAnalysis['blankCounts'] = {};
+  const distinctCounts: MemberMigrationAnalysis['distinctCounts'] = {};
+  const formatStatistics: MemberMigrationAnalysis['formatStatistics'] = {};
+
+  raw.headers.forEach((header, column) => {
+    const formats: Partial<Record<MigrationValueFormat, number>> = {};
+    const distinct = new Set<string>();
+    for (const row of raw.rows) {
+      const value = row[column]?.trim() ?? '';
+      const format = migrationValueFormat(header, value);
+      formats[format] = (formats[format] ?? 0) + 1;
+      if (value) distinct.add(value);
+    }
+    formatStatistics[header] = formats;
+    blankCounts[header] = formats.blank ?? 0;
+    distinctCounts[header] = distinct.size;
+    const ranked: Exclude<MigrationValueFormat, 'blank'>[] = [
+      'phone',
+      'email',
+      'url',
+      'date',
+      'number',
+      'text',
+    ];
+    ranked.sort((left, right) => (formats[right] ?? 0) - (formats[left] ?? 0));
+    inferredTypes[header] = ranked[0] ?? 'text';
+  });
+
   return {
     headers: raw.headers,
     rowCount: raw.rows.length,
-    samples: raw.headers.map((header, column) => ({
-      header,
-      values: [
-        ...new Set(raw.rows.map((row) => row[column]?.trim()).filter(Boolean)),
-      ].slice(0, 5),
-    })),
+    inferredTypes,
+    blankCounts,
+    distinctCounts,
+    formatStatistics,
   };
 }
