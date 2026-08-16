@@ -103,9 +103,7 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 
-const { MembershipCheckoutPanel } = await import(
-  './membership-checkout-panel'
-);
+const { MembershipCheckoutPanel } = await import('./membership-checkout-panel');
 
 let latestDraft: MembershipCheckoutDraft;
 
@@ -210,10 +208,11 @@ describe('MembershipCheckoutPanel', () => {
       name: 'Offer discount',
     });
     await user.click(discountToggle);
-    await user.type(
-      screen.getByRole('spinbutton', { name: 'Discount percentage' }),
-      '10'
-    );
+    const discountPercentage = screen.getByRole('spinbutton', {
+      name: 'Discount percentage',
+    });
+    await user.clear(discountPercentage);
+    await user.type(discountPercentage, '10');
     expect(latestDraft.discountKind).toBe('percentage');
     expect(latestDraft.discountValue).toBe('10');
     await user.click(discountToggle);
@@ -224,14 +223,119 @@ describe('MembershipCheckoutPanel', () => {
       name: 'Offer bonus months',
     });
     await user.click(bonusToggle);
-    await user.type(
-      screen.getByRole('spinbutton', { name: 'Bonus months' }),
-      '2'
-    );
+    const bonusMonths = screen.getByRole('spinbutton', {
+      name: 'Bonus months',
+    });
+    await user.clear(bonusMonths);
+    await user.type(bonusMonths, '2');
     expect(latestDraft.bonusMonths).toBe('2');
     await user.click(bonusToggle);
     expect(latestDraft.bonusMonthsEnabled).toBe(false);
     expect(latestDraft.bonusMonths).toBe('');
+  });
+
+  it('defaults enabled bonus time to one month and keeps collection available', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Offer bonus months' })
+    );
+
+    expect(latestDraft.bonusMonthsEnabled).toBe(true);
+    expect(latestDraft.bonusMonths).toBe('1');
+    expect(
+      screen
+        .getByRole('button', { name: '+1 month' })
+        .getAttribute('aria-pressed')
+    ).toBe('true');
+    expect(
+      screen
+        .getByRole('spinbutton', { name: 'Bonus months' })
+        .getAttribute('placeholder')
+    ).toBeNull();
+
+    const collectNow = screen.getByRole('checkbox', {
+      name: 'Collect payment now',
+    });
+    expect(collectNow.hasAttribute('disabled')).toBe(false);
+    expect(collectNow.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('surfaces cleared bonus time where it blocks collection', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Offer bonus months' })
+    );
+    const bonusMonths = screen.getByRole('spinbutton', {
+      name: 'Bonus months',
+    });
+    await user.clear(bonusMonths);
+
+    expect(bonusMonths.getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByText('Enter the number of bonus months')).toBeTruthy();
+    expect(
+      screen
+        .getByRole('checkbox', { name: 'Collect payment now' })
+        .getAttribute('aria-disabled')
+    ).toBe('true');
+    expect(
+      screen.getByText(
+        'Complete the bonus months above to calculate the amount due.'
+      )
+    ).toBeTruthy();
+  });
+
+  it('defaults an enabled percentage discount to 10% and keeps collection available', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByRole('checkbox', { name: 'Offer discount' }));
+
+    expect(latestDraft.discountKind).toBe('percentage');
+    expect(latestDraft.discountValue).toBe('10');
+    expect(
+      screen.getByRole('button', { name: '10%' }).getAttribute('aria-pressed')
+    ).toBe('true');
+
+    const collectNow = screen.getByRole('checkbox', {
+      name: 'Collect payment now',
+    });
+    expect(collectNow.hasAttribute('disabled')).toBe(false);
+    expect(collectNow.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('surfaces a missing fixed discount where it blocks collection', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByRole('checkbox', { name: 'Offer discount' }));
+    await user.click(screen.getByRole('button', { name: 'Fixed amount' }));
+
+    const discountAmount = screen.getByRole('textbox', {
+      name: 'Discount amount',
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(discountAmount);
+    });
+    expect(discountAmount.getAttribute('placeholder')).toBeNull();
+    expect(discountAmount.getAttribute('aria-invalid')).toBe('true');
+    expect(
+      screen.getByText('Enter a discount amount to continue.')
+    ).toBeTruthy();
+
+    expect(
+      screen
+        .getByRole('checkbox', { name: 'Collect payment now' })
+        .getAttribute('aria-disabled')
+    ).toBe('true');
+    expect(
+      screen.getByText(
+        'Complete the discount above to calculate the amount due.'
+      )
+    ).toBeTruthy();
   });
 
   it('hides collection controls when deferred while keeping the new invoice due', async () => {

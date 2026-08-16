@@ -953,7 +953,7 @@ export function MemberForm({
 
             <div
               className={cn(
-                'space-y-4',
+                'min-w-0 space-y-4',
                 isCreate && 'space-y-6 px-5 py-5 sm:px-6'
               )}
             >

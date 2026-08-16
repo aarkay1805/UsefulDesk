@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Checkbox } from '@/components/ui/checkbox';
 import { Chip, ChipGroup } from '@/components/ui/chip';
@@ -54,7 +54,9 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'other', label: 'Other' },
 ];
 const DISCOUNT_PERCENTAGE_PRESETS = ['10', '20', '30'] as const;
+const DEFAULT_DISCOUNT_PERCENTAGE = DISCOUNT_PERCENTAGE_PRESETS[0];
 const BONUS_MONTH_PRESETS = ['1', '2', '3'] as const;
+const DEFAULT_BONUS_MONTHS = BONUS_MONTH_PRESETS[0];
 
 export interface MembershipCheckoutPanelProps {
   idPrefix: string;
@@ -119,16 +121,20 @@ export function MembershipCheckoutPanel({
       : firstCycleFee(selectedOption)
     : 0;
   const discountError = selectedOption
-    ? oneTimeDiscountError(
-        listPrice,
-        value.discountKind,
-        value.discountValue
-      )
+    ? oneTimeDiscountError(listPrice, value.discountKind, value.discountValue)
     : null;
   const bonusError = oneTimeBonusMonthsError(
     value.bonusMonthsEnabled,
     value.bonusMonths
   );
+  const showDiscountError =
+    !!discountError && (discountTouched || value.discountKind === 'amount');
+  const discountErrorMessage =
+    discountError && !value.discountValue.trim()
+      ? value.discountKind === 'amount'
+        ? 'Enter a discount amount to continue.'
+        : 'Enter a discount percentage to continue.'
+      : discountError;
 
   let quote = null;
   if (selectedOption && !isTrial) {
@@ -149,6 +155,21 @@ export function MembershipCheckoutPanel({
     }
   }
 
+  const quoteBlockedReason = quote
+    ? null
+    : !selectedOption
+      ? 'Select a plan and billing option to calculate the amount due.'
+      : discountError
+        ? 'Complete the discount above to calculate the amount due.'
+        : bonusError
+          ? 'Complete the bonus months above to calculate the amount due.'
+          : 'Review the membership details above to calculate the amount due.';
+
+  useEffect(() => {
+    if (value.discountKind !== 'amount' || value.discountValue) return;
+    document.getElementById(`${idPrefix}-discount-value`)?.focus();
+  }, [idPrefix, value.discountKind, value.discountValue]);
+
   function update(patch: Partial<MembershipCheckoutDraft>) {
     onChange({ ...value, ...patch });
   }
@@ -157,13 +178,16 @@ export function MembershipCheckoutPanel({
     setDiscountTouched(false);
     update({
       discountKind: enabled ? 'percentage' : null,
-      discountValue: '',
+      discountValue: enabled ? DEFAULT_DISCOUNT_PERCENTAGE : '',
     });
   }
 
   function setBonusEnabled(enabled: boolean) {
     setBonusTouched(false);
-    update({ bonusMonthsEnabled: enabled, bonusMonths: '' });
+    update({
+      bonusMonthsEnabled: enabled,
+      bonusMonths: enabled ? DEFAULT_BONUS_MONTHS : '',
+    });
   }
 
   function setProductsEnabled(enabled: boolean) {
@@ -276,7 +300,13 @@ export function MembershipCheckoutPanel({
                           const discountKind = values[0];
                           if (!discountKind) return;
                           setDiscountTouched(false);
-                          update({ discountKind, discountValue: '' });
+                          update({
+                            discountKind,
+                            discountValue:
+                              discountKind === 'percentage'
+                                ? DEFAULT_DISCOUNT_PERCENTAGE
+                                : '',
+                          });
                         }}
                         aria-label="Discount type"
                       >
@@ -308,10 +338,9 @@ export function MembershipCheckoutPanel({
                         }}
                         onBlur={() => setDiscountTouched(true)}
                         inputMode="decimal"
-                        placeholder="0"
-                        aria-invalid={discountTouched && !!discountError}
+                        aria-invalid={showDiscountError}
                         aria-describedby={
-                          discountTouched && discountError
+                          showDiscountError
                             ? `${idPrefix}-discount-error`
                             : undefined
                         }
@@ -356,9 +385,9 @@ export function MembershipCheckoutPanel({
                           }}
                           onBlur={() => setDiscountTouched(true)}
                           placeholder="10"
-                          aria-invalid={discountTouched && !!discountError}
+                          aria-invalid={showDiscountError}
                           aria-describedby={
-                            discountTouched && discountError
+                            showDiscountError
                               ? `${idPrefix}-discount-error`
                               : undefined
                           }
@@ -366,13 +395,13 @@ export function MembershipCheckoutPanel({
                         />
                       </div>
                     )}
-                    {discountTouched && discountError ? (
+                    {showDiscountError ? (
                       <p
                         id={`${idPrefix}-discount-error`}
                         role="alert"
                         className="text-destructive text-xs"
                       >
-                        {discountError}
+                        {discountErrorMessage}
                       </p>
                     ) : null}
                   </div>
@@ -456,7 +485,6 @@ export function MembershipCheckoutPanel({
                         update({ bonusMonths: event.target.value });
                       }}
                       onBlur={() => setBonusTouched(true)}
-                      placeholder="1"
                       aria-invalid={bonusTouched && !!bonusError}
                       aria-describedby={
                         bonusTouched && bonusError
@@ -530,8 +558,15 @@ export function MembershipCheckoutPanel({
               <Label htmlFor={`${idPrefix}-collect-now`}>
                 <Checkbox
                   id={`${idPrefix}-collect-now`}
-                  checked={quote ? quote.cashDue > 0 && value.collectNow : false}
+                  checked={
+                    quote ? quote.cashDue > 0 && value.collectNow : false
+                  }
                   disabled={!quote || quote.cashDue <= 0}
+                  aria-describedby={
+                    quoteBlockedReason
+                      ? `${idPrefix}-collection-unavailable`
+                      : undefined
+                  }
                   onCheckedChange={(checked) =>
                     setCollectionEnabled(checked === true)
                   }
@@ -539,6 +574,15 @@ export function MembershipCheckoutPanel({
                 Collect payment now
               </Label>
             </h3>
+
+            {quoteBlockedReason ? (
+              <p
+                id={`${idPrefix}-collection-unavailable`}
+                className="text-muted-foreground text-xs"
+              >
+                {quoteBlockedReason}
+              </p>
+            ) : null}
 
             {quote ? (
               <div className="space-y-2">
@@ -665,7 +709,9 @@ export function MembershipCheckoutPanel({
                       value={value.paymentMethod}
                       onValueChange={(paymentMethod) =>
                         paymentMethod &&
-                        update({ paymentMethod: paymentMethod as PaymentMethod })
+                        update({
+                          paymentMethod: paymentMethod as PaymentMethod,
+                        })
                       }
                     >
                       <SelectTrigger
