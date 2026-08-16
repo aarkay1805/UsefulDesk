@@ -77,6 +77,9 @@ describe('service-aware resumable member import schema contract', () => {
     expect(sql).toMatch(
       /REVOKE ALL ON FUNCTION public\.perform_member_import_group\(JSONB\)[\s\S]*FROM PUBLIC, anon/
     );
+    expect(hardeningSql).toContain('idx_member_import_runs_contact_fk');
+    expect(hardeningSql).toContain('idx_member_import_runs_membership_fk');
+    expect(hardeningSql).toContain('idx_member_import_runs_created_by_fk');
   });
 
   it('revalidates active account-owned offerings and audits imported sold terms', () => {
