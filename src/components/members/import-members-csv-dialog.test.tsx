@@ -2,8 +2,39 @@
 
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import type { MembershipPlan } from '@/types';
+
+const draftHook = vi.hoisted(() => ({
+  draft: null as null | {
+    id: string;
+    revision: number;
+    sourceFilename: string;
+    state: Record<string, unknown>;
+  },
+  saveState: 'idle' as
+    'idle' | 'loading' | 'saving' | 'saved' | 'error' | 'conflict',
+  lastAcknowledgedRevision: null as number | null,
+  adopt: vi.fn(),
+  load: vi.fn(async () => null),
+  reload: vi.fn(async () => null),
+  initialize: vi.fn(async () => null),
+  save: vi.fn(),
+  flush: vi.fn(async () => true),
+  discard: vi.fn(async () => true),
+}));
+
+vi.mock('@/hooks/use-member-import-draft', () => ({
+  useMemberImportDraft: () => draftHook,
+}));
 
 const plan = {
   id: 'gold',
@@ -97,9 +128,78 @@ beforeAll(() => {
   vi.stubGlobal('cancelAnimationFrame', () => undefined);
 });
 
+beforeEach(() => {
+  draftHook.draft = null;
+  draftHook.saveState = 'idle';
+  draftHook.lastAcknowledgedRevision = null;
+  draftHook.load.mockClear();
+  draftHook.reload.mockClear();
+  draftHook.initialize.mockClear();
+  draftHook.save.mockClear();
+  draftHook.flush.mockReset().mockResolvedValue(true);
+  draftHook.discard.mockReset().mockResolvedValue(true);
+});
+
 afterEach(cleanup);
 
 describe('ImportMembersCsvDialog candidate continuity', () => {
+  it('keeps the dialog open when Save & close cannot flush', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    draftHook.draft = {
+      id: 'draft-1',
+      revision: 2,
+      sourceFilename: 'members.csv',
+      state: {},
+    };
+    draftHook.saveState = 'error';
+    draftHook.flush.mockResolvedValue(false);
+
+    render(
+      <ImportMembersCsvDialog
+        open
+        onOpenChange={onOpenChange}
+        onSaved={vi.fn()}
+      />
+    );
+    const input =
+      document.querySelector<HTMLInputElement>('input[type="file"]');
+    await user.upload(
+      input!,
+      new window.File(
+        window.Array.of('Name,Phone,Plan\nAsha,+919876543210,Gold'),
+        'members.csv',
+        { type: 'text/csv' }
+      )
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Save & close' }));
+
+    expect(draftHook.flush).toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it('names the private workbook in Start fresh confirmation', async () => {
+    const user = userEvent.setup();
+    draftHook.draft = {
+      id: 'draft-1',
+      revision: 2,
+      sourceFilename: 'August members.xlsx',
+      state: {},
+    };
+    draftHook.saveState = 'saved';
+    render(
+      <ImportMembersCsvDialog open onOpenChange={vi.fn()} onSaved={vi.fn()} />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Start fresh' }));
+
+    expect(screen.getAllByText(/August members\.xlsx/)).toHaveLength(2);
+    expect(
+      screen.getByRole('button', { name: 'Delete draft and start fresh' })
+    ).toBeTruthy();
+  });
+
   it('allows the Resolve issues content to scroll vertically', async () => {
     const user = userEvent.setup();
     render(

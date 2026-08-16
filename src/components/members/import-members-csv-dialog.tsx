@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
+import { useMemberImportDraft } from '@/hooks/use-member-import-draft';
 import {
   customFieldId,
   CUSTOM_FIELD_TYPES,
@@ -77,6 +78,10 @@ import {
   serializeMemberImportReceiptCsv,
   validateMemberMapping,
 } from '@/lib/memberships/import-commit';
+import {
+  MEMBER_IMPORT_DRAFT_VERSION,
+  type MemberImportDraftState,
+} from '@/lib/memberships/import-draft';
 import {
   MemberImportFileError,
   memberImportFileKind,
@@ -168,6 +173,7 @@ export function ImportMembersCsvDialog({
   const { staff, loading: staffLoading } = useAccountStaff();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileReadSequence = useRef(0);
+  const draftManager = useMemberImportDraft();
 
   const [step, setStep] = useState<Step>(1);
   const [file, setFile] = useState<File | null>(null);
@@ -190,6 +196,9 @@ export function ImportMembersCsvDialog({
     null
   );
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [resumingDraft, setResumingDraft] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [startFreshConfirm, setStartFreshConfirm] = useState(false);
 
   const [createCol, setCreateCol] = useState<number | null>(null);
   const [newFieldName, setNewFieldName] = useState('');
@@ -218,6 +227,9 @@ export function ImportMembersCsvDialog({
       setImporting(false);
       setImportProgress(null);
       setResult(null);
+      setResumingDraft(false);
+      setResumeError(null);
+      setStartFreshConfirm(false);
       setCreateCol(null);
     }
   }
@@ -291,14 +303,103 @@ export function ImportMembersCsvDialog({
     [candidates]
   );
   const readyRows = candidates.filter((candidate) => candidate.isReady);
+  const draftState = useMemo<MemberImportDraftState>(
+    () => ({
+      version: MEMBER_IMPORT_DRAFT_VERSION,
+      step,
+      worksheet: selectedSheet || null,
+      mapping,
+      dateOrder,
+      recipe: suggestedRecipe,
+      candidates,
+      resolutions: {},
+      exclusions: candidates
+        .filter((candidate) => candidate.disposition === 'excluded')
+        .map((candidate) => candidate.sourceKey),
+      receipt: result,
+    }),
+    [
+      candidates,
+      dateOrder,
+      mapping,
+      result,
+      selectedSheet,
+      step,
+      suggestedRecipe,
+    ]
+  );
+  const activeDraftForAutosave = draftManager.draft;
+  const scheduleDraftSave = draftManager.save;
+
+  useEffect(() => {
+    if (
+      !open ||
+      !file ||
+      !activeDraftForAutosave ||
+      readingFile ||
+      resumingDraft ||
+      importing
+    ) {
+      return;
+    }
+    scheduleDraftSave(draftState);
+  }, [
+    activeDraftForAutosave,
+    draftState,
+    file,
+    importing,
+    open,
+    readingFile,
+    resumingDraft,
+    scheduleDraftSave,
+  ]);
+
+  async function requestClose() {
+    if (importing) return;
+    if (draftManager.draft && file && !result) {
+      const saved = await draftManager.flush();
+      if (!saved) return;
+    }
+    fileReadSequence.current++;
+    setReadingFile(false);
+    onOpenChange(false);
+  }
 
   function handleOpenChange(next: boolean) {
-    if (importing) return;
-    if (!next) {
-      fileReadSequence.current++;
-      setReadingFile(false);
-    }
-    onOpenChange(next);
+    if (next) onOpenChange(true);
+    else void requestClose();
+  }
+
+  function resetWorkingImport() {
+    fileReadSequence.current++;
+    setStep(1);
+    setFile(null);
+    setReadingFile(false);
+    setWorkbookSheets([]);
+    setSelectedSheet('');
+    setRaw(null);
+    setSourceRaw(null);
+    setMapping([]);
+    setSuggestedRecipe(null);
+    setDateOrder(accountDateOrder);
+    setCandidates([]);
+    setCompliance(false);
+    setImportProgress(null);
+    setResult(null);
+    setResumeError(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  async function startFresh() {
+    const discarded = await draftManager.discard();
+    if (!discarded) return;
+    resetWorkingImport();
+    setStartFreshConfirm(false);
+  }
+
+  async function reloadSavedDraft() {
+    const saved = await draftManager.reload();
+    if (saved) await resumeSavedDraft(saved);
   }
 
   function prepareRawTable(parsed: RawCsv) {
@@ -318,7 +419,10 @@ export function ImportMembersCsvDialog({
         parsed.rows.slice(0, 50).map((row) => row[index] ?? '')
       )
     );
-    setDateOrder(detected === 'ambiguous' ? accountDateOrder : detected);
+    const nextDateOrder =
+      detected === 'ambiguous' ? accountDateOrder : detected;
+    setDateOrder(nextDateOrder);
+    return { mapping: nextMapping, dateOrder: nextDateOrder };
   }
 
   async function analyzeFile() {
@@ -373,9 +477,33 @@ export function ImportMembersCsvDialog({
     setCandidates([]);
   }
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selected = event.target.files?.[0];
-    if (!selected) return;
+  function restoreDraftState(state: MemberImportDraftState) {
+    const savedStep =
+      typeof state.step === 'number'
+        ? state.step
+        : state.step === 'map'
+          ? 2
+          : state.step === 'resolve'
+            ? 3
+            : state.step === 'confirm' || state.step === 'receipt'
+              ? 4
+              : 1;
+    setStep(savedStep as Step);
+    setSelectedSheet(state.worksheet ?? '');
+    if (Array.isArray(state.mapping)) setMapping(state.mapping);
+    setDateOrder(state.dateOrder);
+    setSuggestedRecipe((state.recipe as MemberMigrationRecipe | null) ?? null);
+    setCandidates((state.candidates as MemberImportCandidate[]) ?? []);
+    setResult((state.receipt as ImportResult | null) ?? null);
+  }
+
+  async function processSelectedFile(
+    selected: File,
+    options: {
+      initializeDraft: boolean;
+      restore?: MemberImportDraftState;
+    }
+  ) {
     const kind = memberImportFileKind(selected.name);
     if (!kind) {
       toast.error(
@@ -383,8 +511,7 @@ export function ImportMembersCsvDialog({
           ? 'Legacy .xls files are not supported. Save the workbook as .xlsx or .csv and try again.'
           : 'Unsupported file. Choose a .csv or .xlsx file.'
       );
-      event.target.value = '';
-      return;
+      return false;
     }
 
     const sequence = ++fileReadSequence.current;
@@ -397,34 +524,75 @@ export function ImportMembersCsvDialog({
     setResult(null);
 
     try {
+      let initialState: MemberImportDraftState = {
+        version: MEMBER_IMPORT_DRAFT_VERSION,
+        step: 1,
+        worksheet: null,
+        mapping: [],
+        dateOrder: accountDateOrder,
+        recipe: null,
+        candidates: [],
+        resolutions: {},
+        exclusions: [],
+        receipt: null,
+      };
       if (kind === 'csv') {
         const parsed = parseCsvRaw(await selected.text());
-        if (sequence !== fileReadSequence.current) return;
+        if (sequence !== fileReadSequence.current) return false;
         if (parsed.headers.length === 0 || parsed.rows.length === 0) {
           throw new MemberImportFileError(
             'No rows found. Ensure the file has a header row and data.'
           );
         }
-        prepareRawTable(parsed);
-        return;
-      }
-
-      const sheets = await parseMemberImportWorkbook(selected);
-      if (sequence !== fileReadSequence.current) return;
-      setWorkbookSheets(sheets);
-      if (sheets.length === 1 && sheets[0].raw) {
-        setSelectedSheet(sheets[0].name);
-        prepareRawTable(sheets[0].raw);
+        const prepared = prepareRawTable(parsed);
+        initialState = {
+          ...initialState,
+          mapping: prepared.mapping,
+          dateOrder: prepared.dateOrder,
+        };
       } else {
-        const firstUsable = sheets.find((sheet) => sheet.raw);
-        if (!firstUsable) {
-          toast.error(
-            sheets[0]?.error ?? 'No usable worksheets found in this workbook.'
-          );
+        const sheets = await parseMemberImportWorkbook(selected);
+        if (sequence !== fileReadSequence.current) return false;
+        setWorkbookSheets(sheets);
+        const requestedSheet = options.restore?.worksheet
+          ? sheets.find((sheet) => sheet.name === options.restore?.worksheet)
+          : null;
+        const selectedWorksheet =
+          requestedSheet ??
+          (sheets.length === 1 && sheets[0].raw ? sheets[0] : null);
+        if (selectedWorksheet?.raw) {
+          setSelectedSheet(selectedWorksheet.name);
+          const prepared = prepareRawTable(selectedWorksheet.raw);
+          initialState = {
+            ...initialState,
+            worksheet: selectedWorksheet.name,
+            mapping: prepared.mapping,
+            dateOrder: prepared.dateOrder,
+          };
+        } else {
+          const firstUsable = sheets.find((sheet) => sheet.raw);
+          if (!firstUsable) {
+            throw new MemberImportFileError(
+              sheets[0]?.error ?? 'No usable worksheets found in this workbook.'
+            );
+          }
         }
       }
+      if (options.restore) restoreDraftState(options.restore);
+      if (options.initializeDraft) {
+        const created = await draftManager.initialize(
+          selected,
+          initialState.dateOrder,
+          initialState
+        );
+        if (!created) {
+          toast.error('Couldn’t save the private import draft. Try again.');
+          return false;
+        }
+      }
+      return true;
     } catch (error) {
-      if (sequence !== fileReadSequence.current) return;
+      if (sequence !== fileReadSequence.current) return false;
       setFile(null);
       setWorkbookSheets([]);
       setSelectedSheet('');
@@ -436,10 +604,82 @@ export function ImportMembersCsvDialog({
           ? error.message
           : getErrorMessage(error, 'Could not read this file')
       );
+      return false;
     } finally {
       if (sequence === fileReadSequence.current) setReadingFile(false);
     }
   }
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0];
+    if (!selected) return;
+    const succeeded = await processSelectedFile(selected, {
+      initializeDraft: true,
+    });
+    if (!succeeded) event.target.value = '';
+  }
+
+  async function resumeSavedDraft(
+    saved: NonNullable<typeof draftManager.draft>
+  ) {
+    if (!saved.signedUrl) {
+      setResumeError('The saved workbook could not be opened.');
+      return false;
+    }
+    setResumingDraft(true);
+    setResumeError(null);
+    try {
+      const response = await fetch(saved.signedUrl, { cache: 'no-store' });
+      if (!response.ok) throw new Error('Private workbook download failed');
+      const bytes = await response.arrayBuffer();
+      if (
+        saved.sourceSize !== undefined &&
+        bytes.byteLength !== saved.sourceSize
+      ) {
+        throw new Error('Saved workbook size no longer matches its draft');
+      }
+      if (saved.sourceSha256) {
+        const digest = await crypto.subtle.digest('SHA-256', bytes);
+        const actual = [...new Uint8Array(digest)]
+          .map((value) => value.toString(16).padStart(2, '0'))
+          .join('');
+        if (actual !== saved.sourceSha256) {
+          throw new Error('Saved workbook content no longer matches its draft');
+        }
+      }
+      const source = new File([bytes], saved.sourceFilename, {
+        type:
+          saved.sourceKind === 'xlsx'
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            : 'text/csv',
+      });
+      return await processSelectedFile(source, {
+        initializeDraft: false,
+        restore: saved.state,
+      });
+    } catch (error) {
+      setResumeError(getErrorMessage(error, 'Could not resume saved import'));
+      return false;
+    } finally {
+      setResumingDraft(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void (async () => {
+      const saved = await draftManager.load();
+      if (cancelled || !saved) return;
+      await resumeSavedDraft(saved);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // A new open cycle mounts a fresh continuation check. The manager callbacks
+    // are stable; processing functions intentionally read current account data.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, draftManager.load]);
 
   function handleWorksheetChange(name: string) {
     const sheet = workbookSheets.find((item) => item.name === name);
@@ -897,6 +1137,14 @@ export function ImportMembersCsvDialog({
         ),
       };
       setResult(nextResult);
+      if (draftManager.draft) {
+        const cleaned = await draftManager.discard();
+        if (!cleaned) {
+          toast.warning(
+            'Import completed, but the saved draft still needs cleanup.'
+          );
+        }
+      }
       if (imported + attached > 0) onSaved();
       if (skippedNames.length > 0) {
         const sample = skippedNames.slice(0, 3).join(', ');
@@ -922,6 +1170,18 @@ export function ImportMembersCsvDialog({
     3: 'Resolve every blocking issue or explicitly exclude the row.',
     4: 'Review the exact source equation and confirm.',
   };
+  const draftStatusLabel =
+    draftManager.saveState === 'saving'
+      ? 'Saving…'
+      : draftManager.saveState === 'saved'
+        ? 'Saved just now'
+        : draftManager.saveState === 'conflict'
+          ? 'Saved draft changed elsewhere'
+          : draftManager.saveState === 'error'
+            ? 'Couldn’t save draft'
+            : draftManager.saveState === 'loading' || resumingDraft
+              ? 'Loading saved draft…'
+              : '';
 
   return (
     <>
@@ -935,6 +1195,34 @@ export function ImportMembersCsvDialog({
               </DialogDescription>
             </DialogHeader>
             <StepIndicator step={result ? 4 : step} />
+            {draftManager.draft && !result ? (
+              <div className="border-border bg-muted/20 flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs">
+                <span className="text-foreground min-w-0 truncate font-medium">
+                  Continuing {draftManager.draft.sourceFilename}
+                </span>
+                <span
+                  className="text-muted-foreground"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {draftStatusLabel}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => setStartFreshConfirm(true)}
+                >
+                  Start fresh
+                </Button>
+              </div>
+            ) : null}
+            {resumeError ? (
+              <p className="text-destructive text-sm" role="alert">
+                {resumeError}
+              </p>
+            ) : null}
           </div>
 
           <div
@@ -1079,6 +1367,55 @@ export function ImportMembersCsvDialog({
 
           <DialogFooter className="border-border/80 bg-background/50 mx-0 mt-0 mb-0 shrink-0 items-center gap-2 border-t px-6 py-4 sm:justify-between">
             <div className="min-w-0 flex-1">
+              {draftManager.saveState === 'error' && draftManager.draft ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-destructive text-xs">
+                    Couldn’t save draft.
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      draftManager.save(draftState);
+                      void draftManager.flush();
+                    }}
+                  >
+                    Retry
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStartFreshConfirm(true)}
+                  >
+                    Discard draft
+                  </Button>
+                </div>
+              ) : draftManager.saveState === 'conflict' &&
+                draftManager.draft ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-destructive text-xs">
+                    This draft changed in another tab or device.
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void reloadSavedDraft()}
+                  >
+                    Reload saved draft
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStartFreshConfirm(true)}
+                  >
+                    Start fresh
+                  </Button>
+                </div>
+              ) : null}
               {step === 1 && !result && (
                 <Button
                   type="button"
@@ -1125,11 +1462,15 @@ export function ImportMembersCsvDialog({
                     disabled={importing}
                     onClick={() =>
                       step === 1
-                        ? onOpenChange(false)
+                        ? void requestClose()
                         : setStep((value) => (value - 1) as Step)
                     }
                   >
-                    {step === 1 ? 'Cancel' : 'Back'}
+                    {step === 1
+                      ? draftManager.draft
+                        ? 'Save & close'
+                        : 'Cancel'
+                      : 'Back'}
                   </Button>
                   {step === 1 && (
                     <>
@@ -1265,6 +1606,35 @@ export function ImportMembersCsvDialog({
             >
               {savingField && <Loader2 className="size-4 animate-spin" />}
               Create & map
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={startFreshConfirm} onOpenChange={setStartFreshConfirm}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Start a fresh import?</DialogTitle>
+            <DialogDescription>
+              This deletes the saved progress and private uploaded file for{' '}
+              {draftManager.draft?.sourceFilename ?? 'this import'}. It does not
+              affect another teammate or branch.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setStartFreshConfirm(false)}
+            >
+              Keep draft
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void startFresh()}
+            >
+              Delete draft and start fresh
             </Button>
           </DialogFooter>
         </DialogContent>
