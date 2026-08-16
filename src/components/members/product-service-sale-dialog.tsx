@@ -2,7 +2,12 @@
 
 import { useState } from 'react';
 
-import type { CheckoutMode, CheckoutSelection, Membership } from '@/types';
+import type {
+  CheckoutMode,
+  CheckoutSelection,
+  Contact,
+  Membership,
+} from '@/types';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +20,7 @@ import { ProductServiceSaleCheckout } from './product-service-sale-checkout';
 export function ProductServiceSaleDialog({
   open,
   onOpenChange,
+  contact,
   membership,
   onSaved,
   mode = 'sale',
@@ -22,7 +28,8 @@ export function ProductServiceSaleDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  membership: Membership;
+  contact?: Contact;
+  membership?: Membership | null;
   onSaved: () => void;
   mode?: Extract<CheckoutMode, 'sale' | 'service_renewal'>;
   initialSelections?: CheckoutSelection[];
@@ -41,11 +48,12 @@ export function ProductServiceSaleDialog({
             {mode === 'service_renewal' ? 'Renew service' : 'Add purchase'}
           </DialogTitle>
           <DialogDescription>
-            Set quantities, then choose what to collect. Member credit is
-            applied automatically.
+            Set quantities, then choose what to collect.
+            {membership ? ' Member credit is applied automatically.' : ''}
           </DialogDescription>
         </DialogHeader>
         <ProductServiceSaleCheckout
+          contact={contact}
           membership={membership}
           mode={mode}
           initialSelections={initialSelections}

@@ -149,6 +149,7 @@ import { RecordInvoicePaymentDialog } from '@/components/finance/record-invoice-
 import { VoidInvoicePaymentDialog } from '@/components/finance/void-invoice-payment-dialog';
 import { financeInvoiceReference } from '@/lib/finance/invoices';
 import { buildMemberPurchaseHref } from '@/lib/members/member-purchase-navigation';
+import { ServiceCustomerDetailView } from './service-customer-detail-view';
 
 type MemberInvoiceBalance = Invoice;
 
@@ -199,6 +200,7 @@ const LIFECYCLE_COPY: Record<
 
 interface MemberDetailViewProps {
   membershipId: string | null;
+  contactId?: string | null;
   open: boolean;
   /** Parent-level refetch signal (for example, a saved edit dialog). */
   reloadKey?: number;
@@ -228,7 +230,22 @@ function Section({ id, children }: { id: string; children: ReactNode }) {
   );
 }
 
-export function MemberDetailView({
+export function MemberDetailView(props: MemberDetailViewProps) {
+  if (props.contactId && !props.membershipId) {
+    return (
+      <ServiceCustomerDetailView
+        contactId={props.contactId}
+        open={props.open}
+        reloadKey={props.reloadKey}
+        onOpenChange={props.onOpenChange}
+        onChanged={props.onChanged}
+      />
+    );
+  }
+  return <MembershipDetailView {...props} />;
+}
+
+function MembershipDetailView({
   membershipId,
   open,
   reloadKey = 0,

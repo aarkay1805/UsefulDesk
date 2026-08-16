@@ -66,7 +66,9 @@ import { ServiceRenewalActionLists } from './service-renewal-action-lists';
 
 interface RenewalActionListsProps {
   readiness: ReminderReadiness;
-  onSelect: (membershipId: string) => void;
+  onSelect: (
+    customer: string | { contactId: string; membershipId: string | null }
+  ) => void;
   reloadKey: number;
 }
 

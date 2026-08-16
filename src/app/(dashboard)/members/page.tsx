@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Plus, Upload } from 'lucide-react';
-import { toast } from 'sonner';
 
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/supabase/client';
@@ -82,6 +81,7 @@ export default function MembersPage() {
   const [importOpen, setImportOpen] = useState(false);
 
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailContactId, setDetailContactId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
   // Report action links deep-link to the relevant operating queue. Read the
@@ -170,8 +170,15 @@ export default function MembersPage() {
     setFormOpen(true);
   }
 
-  function openDetail(id: string) {
-    setDetailId(id);
+  function openDetail(
+    customer: string | { contactId: string; membershipId: string | null }
+  ) {
+    setDetailId(
+      typeof customer === 'string' ? customer : customer.membershipId
+    );
+    setDetailContactId(
+      typeof customer === 'string' ? null : customer.contactId
+    );
     setDetailOpen(true);
   }
 
@@ -183,6 +190,7 @@ export default function MembersPage() {
         url.searchParams.delete('member');
         window.history.replaceState(null, '', url);
       }
+      setDetailContactId(null);
     }
   }
 
@@ -337,8 +345,7 @@ export default function MembersPage() {
             if (membershipId) {
               openDetail(membershipId);
             } else {
-              // Contact exists but isn't a member — nothing to open.
-              toast.info('Already a contact, but not a member yet.');
+              openDetail({ contactId, membershipId: null });
             }
             reload();
           })();
@@ -353,6 +360,7 @@ export default function MembersPage() {
 
       <MemberDetailView
         membershipId={detailId}
+        contactId={detailContactId}
         open={detailOpen}
         reloadKey={reloadKey}
         onOpenChange={changeDetailOpen}

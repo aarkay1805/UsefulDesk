@@ -204,4 +204,29 @@ describe('POST /api/member-checkouts intent contract', () => {
       p_payload: expect.any(Object),
     });
   });
+
+  it('accepts a service renewal for a contact without a membership', async () => {
+    const response = await post({
+      mode: 'service_renewal',
+      membership_id: undefined,
+      membership: undefined,
+      selections: [
+        {
+          item_id: '66666666-6666-4666-8666-666666666666',
+          option_id: '77777777-7777-4777-8777-777777777777',
+          quantity: 1,
+          unit_amount: 500,
+        },
+      ],
+      collection: { amount: 0, method: 'cash' },
+    });
+
+    expect(response.status).toBe(201);
+    expect(h.rpc).toHaveBeenCalledWith('perform_contact_checkout', {
+      p_payload: expect.objectContaining({
+        account_id: 'account',
+        contact_id: CONTACT_ID,
+      }),
+    });
+  });
 });

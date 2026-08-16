@@ -9,7 +9,7 @@ import {
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { CheckoutSelection, Membership } from '@/types';
+import type { CheckoutSelection, Contact, Membership } from '@/types';
 
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
@@ -68,6 +68,11 @@ const membership = {
   contact_id: 'contact-id',
   end_date: '2026-09-15',
 } as Membership;
+const contact = {
+  id: 'contact-id',
+  name: 'Service customer',
+  phone: '+919876543210',
+} as Contact;
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -90,6 +95,22 @@ afterEach(() => {
 });
 
 describe('ProductServiceSaleCheckout', () => {
+  it('supports a contact-only customer without querying member credit', () => {
+    render(
+      <ProductServiceSaleCheckout
+        contact={contact}
+        membership={null}
+        mode="sale"
+        onCancel={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByRole('group', { name: 'Purchase checkout' })
+    ).toBeTruthy();
+  });
+
   it('keeps invoice building, payment, and actions in one responsive checkout', () => {
     render(
       <ProductServiceSaleCheckout

@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { useLocale } from '@/hooks/use-locale';
 import { createClient } from '@/lib/supabase/client';
 import { istAddDays } from '@/lib/memberships/expiry';
-import type { MemberService, Membership } from '@/types';
+import type { Contact, MemberService, Membership } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,7 +40,8 @@ import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
 import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
 import { ProductServiceSaleDialog } from './product-service-sale-dialog';
 
-type ServiceQueueRow = MemberService & {
+type ServiceQueueRow = Omit<MemberService, 'contact_id'> & {
+  contact_id: string;
   member_name: string | null;
   phone: string | null;
   days_until_expiry: number;
@@ -60,13 +61,25 @@ const WINDOWS = {
 } as const;
 const SERVICE_TEMPLATE = 'gym_service_renewal_reminder';
 
+export function serviceCustomerTarget(
+  row: Pick<ServiceQueueRow, 'contact_id' | 'membership_id'>
+) {
+  return {
+    contactId: row.contact_id,
+    membershipId: row.membership_id ?? null,
+  };
+}
+
 export function ServiceRenewalActionLists({
   onSelect,
   reloadKey,
   canAct,
   sourceControl,
 }: {
-  onSelect: (membershipId: string) => void;
+  onSelect: (customer: {
+    contactId: string;
+    membershipId: string | null;
+  }) => void;
   reloadKey: number;
   canAct: boolean;
   sourceControl: ReactNode;
@@ -79,6 +92,7 @@ export function ServiceRenewalActionLists({
   const [actionMembership, setActionMembership] = useState<Membership | null>(
     null
   );
+  const [actionContact, setActionContact] = useState<Contact | null>(null);
   const [action, setAction] = useState<'renew' | 'followup' | null>(null);
   const [actionService, setActionService] = useState<ServiceQueueRow | null>(
     null
@@ -120,15 +134,23 @@ export function ServiceRenewalActionLists({
   }, [bucket, expired, expiring, today, windowValue]);
 
   async function openAction(row: ServiceQueueRow, next: 'renew' | 'followup') {
-    const { data, error } = await createClient()
-      .from('memberships')
-      .select(
-        '*, contact:contacts(*), plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
-      )
-      .eq('id', row.membership_id)
-      .single();
+    const supabase = createClient();
+    const [contactResult, membershipResult] = await Promise.all([
+      supabase.from('contacts').select('*').eq('id', row.contact_id).single(),
+      row.membership_id
+        ? supabase
+            .from('memberships')
+            .select(
+              '*, contact:contacts(*), plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
+            )
+            .eq('id', row.membership_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    const error = contactResult.error ?? membershipResult.error;
     if (error) return toast.error(error.message);
-    setActionMembership(data as Membership);
+    setActionContact(contactResult.data as Contact);
+    setActionMembership((membershipResult.data as Membership | null) ?? null);
     setActionService(row);
     setAction(next);
   }
@@ -258,9 +280,7 @@ export function ServiceRenewalActionLists({
                   <TableRow
                     key={row.id}
                     className="cursor-pointer"
-                    onClick={() =>
-                      row.membership_id && onSelect(row.membership_id)
-                    }
+                    onClick={() => onSelect(serviceCustomerTarget(row))}
                   >
                     <TableCell>
                       <p className="font-medium">
@@ -327,17 +347,19 @@ export function ServiceRenewalActionLists({
         )}
       </section>
 
-      {actionMembership && action === 'renew' ? (
+      {actionContact && action === 'renew' ? (
         <ProductServiceSaleDialog
-          key={`${actionMembership.id}:${actionService?.id ?? ''}`}
+          key={`${actionContact.id}:${actionService?.id ?? ''}`}
           open
           onOpenChange={(open) => {
             if (!open) {
               setAction(null);
+              setActionContact(null);
               setActionMembership(null);
               setActionService(null);
             }
           }}
+          contact={actionContact}
           membership={actionMembership}
           mode="service_renewal"
           initialSelections={
@@ -358,19 +380,36 @@ export function ServiceRenewalActionLists({
           onSaved={() => setNonce((value) => value + 1)}
         />
       ) : null}
-      {actionMembership && action === 'followup' ? (
-        <FollowUpDialog
-          open
-          onOpenChange={(open) => {
-            if (!open) {
-              setAction(null);
-              setActionMembership(null);
-              setActionService(null);
-            }
-          }}
-          membership={actionMembership}
-          onSaved={() => setNonce((value) => value + 1)}
-        />
+      {actionContact && action === 'followup' ? (
+        actionMembership ? (
+          <FollowUpDialog
+            open
+            onOpenChange={(open) => {
+              if (!open) {
+                setAction(null);
+                setActionContact(null);
+                setActionMembership(null);
+                setActionService(null);
+              }
+            }}
+            membership={actionMembership}
+            onSaved={() => setNonce((value) => value + 1)}
+          />
+        ) : (
+          <FollowUpDialog
+            open
+            onOpenChange={(open) => {
+              if (!open) {
+                setAction(null);
+                setActionContact(null);
+                setActionService(null);
+              }
+            }}
+            contactId={actionContact.id}
+            contactName={actionContact.name}
+            onSaved={() => setNonce((value) => value + 1)}
+          />
+        )
       ) : null}
     </>
   );

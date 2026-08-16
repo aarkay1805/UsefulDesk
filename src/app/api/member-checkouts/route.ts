@@ -221,6 +221,14 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
+    } else if (
+      body?.membership_id !== undefined &&
+      (typeof body.membership_id !== 'string' || !UUID.test(body.membership_id))
+    ) {
+      return NextResponse.json(
+        { error: 'A valid membership is required when supplied' },
+        { status: 400 }
+      );
     }
 
     // The selected branch is authoritative. Never trust account_id supplied by
@@ -229,10 +237,13 @@ export async function POST(request: Request) {
     const joinsExistingContact =
       (mode === 'join' || mode === 'convert') &&
       typeof body?.membership_id !== 'string';
+    const isContactCheckout = mode === 'sale' || mode === 'service_renewal';
     const { data, error } = await ctx.supabase.rpc(
-      joinsExistingContact
-        ? 'perform_join_checkout'
-        : 'perform_member_checkout',
+      isContactCheckout
+        ? 'perform_contact_checkout'
+        : joinsExistingContact
+          ? 'perform_join_checkout'
+          : 'perform_member_checkout',
       {
         p_payload: payload,
       }

@@ -10,40 +10,37 @@
  * of the underlying status.
  */
 export type MemberStatusFilter =
-  | "active"
-  | "expired"
-  | "frozen"
-  | "cancelled"
-  | "trial";
+  'active' | 'expired' | 'frozen' | 'cancelled' | 'trial' | 'service_customer';
 
 export const MEMBER_STATUS_OPTIONS: {
   value: MemberStatusFilter;
   label: string;
 }[] = [
-  { value: "active", label: "Active" },
-  { value: "expired", label: "Expired" },
-  { value: "frozen", label: "Frozen" },
-  { value: "cancelled", label: "Cancelled" },
-  { value: "trial", label: "Trial" },
+  { value: 'active', label: 'Active' },
+  { value: 'expired', label: 'Expired' },
+  { value: 'frozen', label: 'Frozen' },
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'trial', label: 'Trial' },
+  { value: 'service_customer', label: 'Service customers' },
 ];
 
-export type ChurnRiskFilter = "yes" | "no";
+export type ChurnRiskFilter = 'yes' | 'no';
 
-export type FollowUpFilter = "open";
+export type FollowUpFilter = 'open';
 
 export const CHURN_RISK_OPTIONS: {
   value: ChurnRiskFilter;
   label: string;
 }[] = [
-  { value: "yes", label: "Yes" },
-  { value: "no", label: "No" },
+  { value: 'yes', label: 'Yes' },
+  { value: 'no', label: 'No' },
 ];
 
 export interface MemberFilters {
   /** membership_plans ids. */
   plans: string[];
   statuses: MemberStatusFilter[];
-  feeStatus: ("paid" | "due")[];
+  feeStatus: ('paid' | 'due')[];
   churnRisk: ChurnRiskFilter[];
   followUps: FollowUpFilter[];
 }
@@ -72,16 +69,39 @@ export function activeMemberFilterCount(f: MemberFilters): number {
 // expired/active boundary must be the IST day, never the server's UTC day.
 function statusCondition(status: MemberStatusFilter, today: string): string {
   switch (status) {
-    case "active":
+    case 'active':
       return `and(status.eq.active,is_trial.eq.false,end_date.gte.${today})`;
-    case "expired":
+    case 'expired':
       return `and(status.eq.active,is_trial.eq.false,end_date.lt.${today})`;
-    case "frozen":
-      return "status.eq.frozen";
-    case "cancelled":
-      return "status.eq.cancelled";
-    case "trial":
-      return "is_trial.eq.true";
+    case 'frozen':
+      return 'status.eq.frozen';
+    case 'cancelled':
+      return 'status.eq.cancelled';
+    case 'trial':
+      return 'is_trial.eq.true';
+    case 'service_customer':
+      // Membership-backed queues cannot contain service-only customers.
+      return 'id.eq.00000000-0000-0000-0000-000000000000';
+  }
+}
+
+function customerStatusCondition(
+  status: MemberStatusFilter,
+  today: string
+): string {
+  switch (status) {
+    case 'active':
+      return `and(customer_kind.eq.membership,membership_status.eq.active,membership_is_trial.eq.false,membership_end_date.gte.${today})`;
+    case 'expired':
+      return `and(customer_kind.eq.membership,membership_status.eq.active,membership_is_trial.eq.false,membership_end_date.lt.${today})`;
+    case 'frozen':
+      return 'and(customer_kind.eq.membership,membership_status.eq.frozen)';
+    case 'cancelled':
+      return 'and(customer_kind.eq.membership,membership_status.eq.cancelled)';
+    case 'trial':
+      return 'and(customer_kind.eq.membership,membership_is_trial.eq.true)';
+    case 'service_customer':
+      return 'customer_kind.eq.service';
   }
 }
 
@@ -95,7 +115,18 @@ export function memberStatusOrClause(
   today: string
 ): string | null {
   if (statuses.length === 0) return null;
-  return statuses.map((s) => statusCondition(s, today)).join(",");
+  return statuses.map((s) => statusCondition(s, today)).join(',');
+}
+
+/** Derived status clause for the flat contact-backed customer directory. */
+export function customerStatusOrClause(
+  statuses: MemberStatusFilter[],
+  today: string
+): string | null {
+  if (statuses.length === 0) return null;
+  return statuses
+    .map((status) => customerStatusCondition(status, today))
+    .join(',');
 }
 
 // Structural query surface — matches the supabase-js builder without
@@ -106,6 +137,10 @@ interface MemberFilterableQuery<Q> {
   or(filters: string): Q;
 }
 
+interface CustomerFilterableQuery<Q> extends MemberFilterableQuery<Q> {
+  gt(column: string, value: number): Q;
+}
+
 /** Apply the Filters panel selections to a memberships query. */
 export function applyMemberFilters<Q extends MemberFilterableQuery<Q>>(
   query: Q,
@@ -113,21 +148,46 @@ export function applyMemberFilters<Q extends MemberFilterableQuery<Q>>(
   today: string
 ): Q {
   let q = query;
-  if (filters.plans.length) q = q.in("plan_id", filters.plans);
-  if (filters.feeStatus.length) q = q.in("fee_status", filters.feeStatus);
+  if (filters.plans.length) q = q.in('plan_id', filters.plans);
+  if (filters.feeStatus.length) q = q.in('fee_status', filters.feeStatus);
   // `contact` is the !inner alias embedded by every member-list query.
   // Selecting both values intentionally leaves the boolean facet open,
   // matching the other multi-select facets when all options are checked.
   if (filters.churnRisk.length === 1) {
-    q = q.eq("contact.churn_risk", filters.churnRisk[0] === "yes");
+    q = q.eq('contact.churn_risk', filters.churnRisk[0] === 'yes');
   }
   // The caller conditionally embeds this relation with `!inner` whenever
   // the facet is active, so the related-row filter also constrains the
   // top-level membership rows.
-  if (filters.followUps.includes("open")) {
-    q = q.eq("open_follow_ups.status", "open");
+  if (filters.followUps.includes('open')) {
+    q = q.eq('open_follow_ups.status', 'open');
   }
   const orClause = memberStatusOrClause(filters.statuses, today);
+  if (orClause) q = q.or(orClause);
+  return q;
+}
+
+/** Apply All-members facets to the flat member_customer_directory view. */
+export function applyCustomerFilters<Q extends CustomerFilterableQuery<Q>>(
+  query: Q,
+  filters: MemberFilters,
+  today: string
+): Q {
+  let q = query;
+  if (filters.plans.length || filters.feeStatus.length) {
+    q = q.eq('customer_kind', 'membership');
+  }
+  if (filters.plans.length) q = q.in('plan_id', filters.plans);
+  if (filters.feeStatus.length) {
+    q = q.in('membership_fee_status', filters.feeStatus);
+  }
+  if (filters.churnRisk.length === 1) {
+    q = q.eq('contact_churn_risk', filters.churnRisk[0] === 'yes');
+  }
+  if (filters.followUps.includes('open')) {
+    q = q.gt('open_follow_up_count', 0);
+  }
+  const orClause = customerStatusOrClause(filters.statuses, today);
   if (orClause) q = q.or(orClause);
   return q;
 }

@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import type {
   CheckoutMode,
   CheckoutSelection,
+  Contact,
   Membership,
   PaymentMethod,
 } from '@/types';
@@ -45,7 +46,8 @@ const METHODS: { value: PaymentMethod; label: string }[] = [
 ];
 
 interface ProductServiceSaleCheckoutProps {
-  membership: Membership;
+  contact?: Contact;
+  membership?: Membership | null;
   onSaved: () => void;
   onCancel: () => void;
   mode?: Extract<CheckoutMode, 'sale' | 'service_renewal'>;
@@ -57,6 +59,7 @@ interface ProductServiceSaleCheckoutProps {
 }
 
 export function ProductServiceSaleCheckout({
+  contact,
   membership,
   onSaved,
   onCancel,
@@ -79,6 +82,7 @@ export function ProductServiceSaleCheckout({
   const [saving, setSaving] = useState(false);
   const [creditBalance, setCreditBalance] = useState(0);
   const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const contactId = contact?.id ?? membership?.contact_id;
   const total = selections.reduce(
     (sum, selection) =>
       sum + Number(selection.unit_amount ?? 0) * (selection.quantity ?? 1),
@@ -109,6 +113,11 @@ export function ProductServiceSaleCheckout({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      if (!membership) {
+        await Promise.resolve();
+        if (!cancelled) setCreditBalance(0);
+        return;
+      }
       const { data } = await supabase
         .from('member_credit_balances')
         .select('balance')
@@ -125,11 +134,12 @@ export function ProductServiceSaleCheckout({
     return () => {
       cancelled = true;
     };
-  }, [membership.id, supabase]);
+  }, [membership, supabase]);
 
   async function checkout() {
     if (selections.length === 0)
       return toast.error('Add at least one product or service');
+    if (!contactId) return toast.error('Customer contact is required');
     if (collectAmountError) return toast.error(collectAmountError);
     const amount = validCollectAmount;
     setSaving(true);
@@ -140,8 +150,8 @@ export function ProductServiceSaleCheckout({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           mode,
-          contact_id: membership.contact_id,
-          membership_id: membership.id,
+          contact_id: contactId,
+          ...(membership ? { membership_id: membership.id } : {}),
           selections,
           collection: {
             amount,
@@ -199,7 +209,7 @@ export function ProductServiceSaleCheckout({
             <ProductsServicesPicker
               value={selections}
               onChange={setSelections}
-              membershipEnd={membership.end_date}
+              membershipEnd={membership?.end_date}
               defaultStartDate={fmt.today()}
               title="Products & services"
               description={

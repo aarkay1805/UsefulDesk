@@ -58,6 +58,10 @@ export function MembershipStatusBadge({
   return <Badge variant={s.variant}>{s.label}</Badge>;
 }
 
+export function ServiceCustomerStatusBadge() {
+  return <Badge variant="neutral">Service customer</Badge>;
+}
+
 /**
  * Invoice/billing-period status pill (migration 057). Paid = settled,
  * Unpaid = owed (current or overdue), Upcoming = a future cycle, Void =

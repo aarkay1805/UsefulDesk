@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 // The "All members" table — server-paginated, sortable, filterable, with
 // multi-select bulk actions (remind / add note / record payment / delete). Borrows
@@ -7,9 +7,9 @@
 // and CSV export), and the Collapse bulk toolbar. Deliberately NOT the
 // leads grid — member columns stay intentionally lightweight.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LayoutGroup, motion, useReducedMotion } from "motion/react";
-import { toast } from "sonner";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
+import { toast } from 'sonner';
 import {
   Check,
   Ban,
@@ -30,38 +30,43 @@ import {
   UserPlus,
   Wallet,
   X,
-} from "lucide-react";
+} from 'lucide-react';
 
-import { cn } from "@/lib/utils";
-import { getErrorMessage } from "@/lib/errors";
-import { createClient } from "@/lib/supabase/client";
-import { useLocale } from "@/hooks/use-locale";
-import { useAuth } from "@/hooks/use-auth";
-import { toCsv, downloadCsv } from "@/lib/csv/export";
-import { effectiveStatus, daysUntil } from "@/lib/memberships/expiry";
+import { cn } from '@/lib/utils';
+import { getErrorMessage } from '@/lib/errors';
+import { createClient } from '@/lib/supabase/client';
+import { useLocale } from '@/hooks/use-locale';
+import { useAuth } from '@/hooks/use-auth';
+import { toCsv, downloadCsv } from '@/lib/csv/export';
+import { effectiveStatus, daysUntil } from '@/lib/memberships/expiry';
 import {
-  applyMemberFilters,
+  applyCustomerFilters,
   CHURN_RISK_OPTIONS,
   EMPTY_MEMBER_FILTERS,
   MEMBER_STATUS_OPTIONS,
   type MemberFilters,
-} from "@/lib/memberships/filters";
+} from '@/lib/memberships/filters';
 import {
-  resolveMemberSearch,
-  resolvedMembershipIds,
-} from "@/lib/memberships/search";
+  resolveCustomerSearch,
+  resolvedCustomerIds,
+} from '@/lib/memberships/search';
+import {
+  asMembership,
+  normalizeCustomerDirectoryRow,
+  type NormalizedMemberCustomerDirectoryRow,
+} from '@/lib/memberships/customer-directory';
 import {
   MEMBER_COLUMN_BY_KEY,
   MEMBER_TABLE_COLUMNS as MEMBER_COLUMNS,
   type MemberColumn,
   type MemberColumnKey,
   type MemberFilterDim,
-} from "@/lib/memberships/member-field-registry";
-import type { LeadTransfer, Membership } from "@/types";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Collapse } from "@/components/ui/collapse";
+} from '@/lib/memberships/member-field-registry';
+import type { LeadTransfer, Membership } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Collapse } from '@/components/ui/collapse';
 import {
   Dialog,
   DialogContent,
@@ -69,18 +74,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { GatedButton } from "@/components/ui/gated-button";
-import { SearchInput } from "@/components/ui/search-input";
-import { Separator } from "@/components/ui/separator";
-import { Chip, ChipCount, ChipGroup } from "@/components/ui/chip";
+} from '@/components/ui/dropdown-menu';
+import { GatedButton } from '@/components/ui/gated-button';
+import { SearchInput } from '@/components/ui/search-input';
+import { Separator } from '@/components/ui/separator';
+import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import {
   Table,
   TableBody,
@@ -88,58 +93,59 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { LeadsSort, type SortState } from "@/components/leads/leads-sort";
-import { EditableCell } from "@/components/leads/editable-cell";
+} from '@/components/ui/table';
+import { LeadsSort, type SortState } from '@/components/leads/leads-sort';
+import { EditableCell } from '@/components/leads/editable-cell';
 import {
   AssigneeDisplay,
   PendingAssigneeDisplay,
   TransferPendingDisplay,
   assigneeCellOptions,
-} from "@/components/leads/lead-cell-renderers";
+} from '@/components/leads/lead-cell-renderers';
 import {
   cancelLeadAssignment,
   fetchPendingTransfers,
   pendingTransferMap,
   requestLeadAssignment,
   respondLeadAssignment,
-} from "@/lib/leads/transfers";
-import { canDeleteMember, canResolveAnyLeadTransfer } from "@/lib/auth/roles";
+} from '@/lib/leads/transfers';
+import { canDeleteMember, canResolveAnyLeadTransfer } from '@/lib/auth/roles';
 import {
   ColumnHeader,
   type ColumnFilterProp,
   type SortDir,
-} from "@/components/table/column-header";
-import { BulkAddNoteDialog } from "@/components/leads/bulk-add-note-dialog";
-import { useTablePrefs } from "@/hooks/use-table-prefs";
+} from '@/components/table/column-header';
+import { BulkAddNoteDialog } from '@/components/leads/bulk-add-note-dialog';
+import { useTablePrefs } from '@/hooks/use-table-prefs';
 import {
   MembershipStatusBadge,
   FeeStatusBadge,
-} from "./membership-status-badge";
-import { MembersFilters } from "./members-filters";
-import { MemberIdentity } from "./member-identity";
-import { buildMemberAvatarPreview } from "./member-avatar-quick-view";
-import { BulkRecordPaymentDialog } from "./bulk-record-payment-dialog";
-import { FollowUpDialog } from "@/components/follow-ups/follow-up-dialog";
-import { FollowUpButton } from "@/components/follow-ups/follow-up-button";
-import { RecordPaymentDialog } from "./record-payment-dialog";
-import { RenewMembershipDialog } from "./renew-membership-dialog";
-import { useMembershipPlans } from "./use-membership-plans";
-import { useAccountStaff } from "./use-account-staff";
+  ServiceCustomerStatusBadge,
+} from './membership-status-badge';
+import { MembersFilters } from './members-filters';
+import { MemberIdentity } from './member-identity';
+import { buildMemberAvatarPreview } from './member-avatar-quick-view';
+import { BulkRecordPaymentDialog } from './bulk-record-payment-dialog';
+import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
+import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
+import { RecordPaymentDialog } from './record-payment-dialog';
+import { RenewMembershipDialog } from './renew-membership-dialog';
+import { useMembershipPlans } from './use-membership-plans';
+import { useAccountStaff } from './use-account-staff';
 import {
   SendReminderButton,
   sendRenewalReminder,
   type ReminderReadiness,
-} from "./send-reminder-button";
+} from './send-reminder-button';
 
 const PAGE_SIZE = 25;
 
-type QuickMemberFilter = "churnRisk" | "feesDue" | "followUps";
+type QuickMemberFilter = 'churnRisk' | 'feesDue' | 'followUps';
 
 const QUICK_MEMBER_FILTERS: { key: QuickMemberFilter; label: string }[] = [
-  { key: "churnRisk", label: "Churn risk" },
-  { key: "feesDue", label: "Fees due" },
-  { key: "followUps", label: "Follow-ups" },
+  { key: 'churnRisk', label: 'Churn risk' },
+  { key: 'feesDue', label: 'Fees due' },
+  { key: 'followUps', label: 'Follow-ups' },
 ];
 
 const EMPTY_QUICK_MEMBER_FILTER_COUNTS: Record<QuickMemberFilter, number> = {
@@ -153,49 +159,43 @@ function filtersForQuickMemberCount(
   key: QuickMemberFilter
 ): MemberFilters {
   switch (key) {
-    case "churnRisk":
-      return { ...filters, churnRisk: ["yes"] };
-    case "feesDue":
-      return { ...filters, feeStatus: ["due"] };
-    case "followUps":
-      return { ...filters, followUps: ["open"] };
+    case 'churnRisk':
+      return { ...filters, churnRisk: ['yes'] };
+    case 'feesDue':
+      return { ...filters, feeStatus: ['due'] };
+    case 'followUps':
+      return { ...filters, followUps: ['open'] };
   }
 }
 
-// An open-follow-up filter needs an inner relation embed for PostgREST to
-// constrain the top-level membership rows. Keep literal select pairs for both
-// data shapes so Supabase can type-parse them, and use them in every data path.
-const MEMBER_SELECT = "*, contact:contacts!inner(*), plan:membership_plans(*)";
-const MEMBER_WITH_OPEN_FOLLOW_UP_SELECT =
-  "*, contact:contacts!inner(*), plan:membership_plans(*), open_follow_ups:follow_ups!inner(id)";
-const MEMBER_ID_SELECT = "id, contact_id, contact:contacts!inner(id)";
-const MEMBER_ID_WITH_OPEN_FOLLOW_UP_SELECT =
-  "id, contact_id, contact:contacts!inner(id), open_follow_ups:follow_ups!inner(id)";
+// The security-invoker directory is already flat and account-scoped, so every
+// data path can share one select shape without relation-embed filter drift.
+const CUSTOMER_SELECT = '*';
 
 // Sortable columns for the toolbar Sort menu. `name` orders the parent by
 // the embedded contact (PostgREST `order=contact(name)`); the rest are
 // memberships columns. (Per-header sort covers name/expiry/fee; the menu
 // keeps start_date + fee_status which have no dedicated column.)
 const SORT_COLUMNS: { key: string; label: string }[] = [
-  { key: "name", label: "Name" },
-  { key: "member_number", label: "Member ID" },
-  { key: "end_date", label: "Expiry" },
-  { key: "fee_amount", label: "Fee" },
-  { key: "fee_status", label: "Fee status" },
-  { key: "start_date", label: "Start date" },
+  { key: 'contact_name', label: 'Name' },
+  { key: 'member_number', label: 'Member ID' },
+  { key: 'display_expiry', label: 'Expiry' },
+  { key: 'membership_fee_amount', label: 'Fee' },
+  { key: 'membership_fee_status', label: 'Fee status' },
+  { key: 'membership_start_date', label: 'Start date' },
 ];
 
 const CHECKBOX_COL_WIDTH = 40;
 
 // Fee status options for the fee column's header Filter submenu.
 const FEE_STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: "paid", label: "Paid" },
-  { value: "due", label: "Due" },
+  { value: 'paid', label: 'Paid' },
+  { value: 'due', label: 'Due' },
 ];
 
 const CHURN_RISK_CELL_OPTIONS = CHURN_RISK_OPTIONS.map((option) => ({
   ...option,
-  color: option.value === "yes" ? "#ef4444" : "#64748b",
+  color: option.value === 'yes' ? '#ef4444' : '#64748b',
 }));
 
 interface MembersTablePrefs {
@@ -231,7 +231,10 @@ function useDebounced<T>(value: T, ms: number): T {
 
 interface MembersTableProps {
   readiness: ReminderReadiness;
-  onSelect: (membershipId: string) => void;
+  onSelect: (customer: {
+    contactId: string;
+    membershipId: string | null;
+  }) => void;
   onEdit: (membership: Membership) => void;
   /** Bump to force a refetch after a mutation elsewhere. */
   reloadKey: number;
@@ -268,18 +271,18 @@ export function MembersTable({
   // Include archived plans so members on a retired plan still filter.
   const { plans } = useMembershipPlans(false);
 
-  const [rows, setRows] = useState<Membership[]>([]);
+  const [rows, setRows] = useState<NormalizedMemberCustomerDirectoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
-  const [searchInput, setSearchInput] = useState("");
+  const [searchInput, setSearchInput] = useState('');
   const search = useDebounced(searchInput, 300);
   const [filters, setFilters] = useState<MemberFilters>(EMPTY_MEMBER_FILTERS);
   const [quickFilterCounts, setQuickFilterCounts] = useState<
     Record<QuickMemberFilter, number>
   >(EMPTY_QUICK_MEMBER_FILTER_COUNTS);
   const [prefs, setPrefs] = useTablePrefs<MembersTablePrefs>(
-    "members-all",
+    'members-all',
     DEFAULT_PREFS
   );
   // Drops out-of-order responses: only the latest fetch may set state.
@@ -299,7 +302,8 @@ export function MembersTable({
   const [deleting, setDeleting] = useState(false);
 
   // Contextual row-action dialogs opened from the Actions column.
-  const [followUpFor, setFollowUpFor] = useState<Membership | null>(null);
+  const [followUpFor, setFollowUpFor] =
+    useState<NormalizedMemberCustomerDirectoryRow | null>(null);
   const [renewFor, setRenewFor] = useState<Membership | null>(null);
   const [paymentFor, setPaymentFor] = useState<Membership | null>(null);
 
@@ -307,7 +311,7 @@ export function MembersTable({
   // dropdown choice, and a visible save state.
   const [editingCell, setEditingCell] = useState<{
     id: string;
-    key: "assignee" | "churnRisk";
+    key: 'assignee' | 'churnRisk';
   } | null>(null);
   const [savingCell, setSavingCell] = useState(false);
 
@@ -320,7 +324,7 @@ export function MembersTable({
   const [assignmentNonce, setAssignmentNonce] = useState(0);
   const fetchAssignmentRequests = useCallback(async () => {
     const transfers = await fetchPendingTransfers(supabase);
-    setAssignmentRequests(pendingTransferMap(transfers, "assignment"));
+    setAssignmentRequests(pendingTransferMap(transfers, 'assignment'));
   }, [supabase]);
 
   useEffect(() => {
@@ -336,10 +340,10 @@ export function MembersTable({
 
   useEffect(() => {
     const channel = supabase
-      .channel("member-assignment-requests")
+      .channel('member-assignment-requests')
       .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "lead_transfers" },
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'lead_transfers' },
         () => {
           void fetchAssignmentRequests();
           setAssignmentNonce((nonce) => nonce + 1);
@@ -430,13 +434,13 @@ export function MembersTable({
     }
     function onUp(ev: MouseEvent) {
       const w = Math.max(col.minWidth, startWidth + (ev.clientX - startX));
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
       setResizing(null);
       setPrefs((p) => ({ ...p, widths: { ...p.widths, [col.key]: w } }));
     }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   }
 
   function hideColumn(key: string) {
@@ -477,13 +481,13 @@ export function MembersTable({
 
   function quickFilterPressed(key: QuickMemberFilter): boolean {
     switch (key) {
-      case "churnRisk":
-        return filters.churnRisk.length === 1 && filters.churnRisk[0] === "yes";
-      case "feesDue":
-        return filters.feeStatus.length === 1 && filters.feeStatus[0] === "due";
-      case "followUps":
+      case 'churnRisk':
+        return filters.churnRisk.length === 1 && filters.churnRisk[0] === 'yes';
+      case 'feesDue':
+        return filters.feeStatus.length === 1 && filters.feeStatus[0] === 'due';
+      case 'followUps':
         return (
-          filters.followUps.length === 1 && filters.followUps[0] === "open"
+          filters.followUps.length === 1 && filters.followUps[0] === 'open'
         );
     }
   }
@@ -494,12 +498,12 @@ export function MembersTable({
   function setQuickFilter(key: QuickMemberFilter, pressed: boolean) {
     setFilters((current) => {
       switch (key) {
-        case "churnRisk":
-          return { ...current, churnRisk: pressed ? ["yes"] : [] };
-        case "feesDue":
-          return { ...current, feeStatus: pressed ? ["due"] : [] };
-        case "followUps":
-          return { ...current, followUps: pressed ? ["open"] : [] };
+        case 'churnRisk':
+          return { ...current, churnRisk: pressed ? ['yes'] : [] };
+        case 'feesDue':
+          return { ...current, feeStatus: pressed ? ['due'] : [] };
+        case 'followUps':
+          return { ...current, followUps: pressed ? ['open'] : [] };
       }
     });
   }
@@ -523,14 +527,14 @@ export function MembersTable({
   function filterFor(col: MemberColumn): ColumnFilterProp | undefined {
     if (!col.filterDim) return undefined;
     const options =
-      col.filterDim === "plans"
+      col.filterDim === 'plans'
         ? plans.map((p) => ({ value: p.id, label: p.name }))
-        : col.filterDim === "statuses"
+        : col.filterDim === 'statuses'
           ? MEMBER_STATUS_OPTIONS.map((o) => ({
               value: o.value,
               label: o.label,
             }))
-          : col.filterDim === "feeStatus"
+          : col.filterDim === 'feeStatus'
             ? FEE_STATUS_OPTIONS
             : CHURN_RISK_OPTIONS;
     return {
@@ -540,29 +544,33 @@ export function MembersTable({
     };
   }
 
-  async function commitChurnRisk(membership: Membership, rawValue: string) {
-    const next = rawValue === "yes";
+  async function commitChurnRisk(
+    customer: NormalizedMemberCustomerDirectoryRow,
+    rawValue: string
+  ) {
+    const next = rawValue === 'yes';
     setSavingCell(true);
     try {
       // Returning the id distinguishes a successful write from an
       // RLS-blocked update that affected zero rows.
       const { data, error } = await supabase
-        .from("contacts")
+        .from('contacts')
         .update({ churn_risk: next })
-        .eq("id", membership.contact_id)
-        .select("id")
+        .eq('id', customer.contact_id)
+        .select('id')
         .maybeSingle();
 
       if (error || !data) {
-        toast.error(getErrorMessage(error, "Failed to update churn risk"));
+        toast.error(getErrorMessage(error, 'Failed to update churn risk'));
         return;
       }
 
       setRows((current) =>
         current.map((row) =>
-          row.id === membership.id && row.contact
+          row.contact_id === customer.contact_id && row.contact
             ? {
                 ...row,
+                contact_churn_risk: next,
                 contact: { ...row.contact, churn_risk: next },
               }
             : row
@@ -574,8 +582,11 @@ export function MembersTable({
     }
   }
 
-  async function commitAssignee(membership: Membership, rawValue: string) {
-    const contact = membership.contact;
+  async function commitAssignee(
+    customer: NormalizedMemberCustomerDirectoryRow,
+    rawValue: string
+  ) {
+    const contact = customer.contact;
     if (!contact) return;
     const target = rawValue || null;
     if (target === (contact.assigned_to ?? null)) {
@@ -586,12 +597,13 @@ export function MembersTable({
     setSavingCell(true);
     try {
       const outcome = await requestLeadAssignment(supabase, contact.id, target);
-      if (outcome === "approved") {
+      if (outcome === 'approved') {
         setRows((current) =>
           current.map((row) =>
-            row.id === membership.id && row.contact
+            row.contact_id === customer.contact_id && row.contact
               ? {
                   ...row,
+                  contact_assigned_to: target,
                   contact: {
                     ...row.contact,
                     assigned_to: target,
@@ -602,13 +614,13 @@ export function MembersTable({
               : row
           )
         );
-        toast.success(target ? "Member assigned" : "Member unassigned");
+        toast.success(target ? 'Member assigned' : 'Member unassigned');
       } else {
         await fetchAssignmentRequests();
-        toast.success("Sent to the contact owner for approval");
+        toast.success('Sent to the contact owner for approval');
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, "Failed to update assignee"));
+      toast.error(getErrorMessage(error, 'Failed to update assignee'));
     } finally {
       setSavingCell(false);
       setEditingCell(null);
@@ -617,27 +629,27 @@ export function MembersTable({
 
   async function handleAssignmentAction(
     requestId: string,
-    action: "approve" | "reject" | "cancel"
+    action: 'approve' | 'reject' | 'cancel'
   ) {
     try {
-      if (action === "cancel") {
+      if (action === 'cancel') {
         await cancelLeadAssignment(supabase, requestId);
-        toast.success("Request withdrawn");
+        toast.success('Request withdrawn');
       } else {
-        await respondLeadAssignment(supabase, requestId, action === "approve");
+        await respondLeadAssignment(supabase, requestId, action === 'approve');
         toast.success(
-          action === "approve" ? "Assignment approved" : "Assignment rejected"
+          action === 'approve' ? 'Assignment approved' : 'Assignment rejected'
         );
       }
       await fetchAssignmentRequests();
       setAssignmentNonce((nonce) => nonce + 1);
     } catch (error) {
-      toast.error(getErrorMessage(error, "Action failed"));
+      toast.error(getErrorMessage(error, 'Action failed'));
     }
   }
 
-  function renderAssignee(membership: Membership) {
-    const contact = membership.contact;
+  function renderAssignee(customer: NormalizedMemberCustomerDirectoryRow) {
+    const contact = customer.contact;
     if (!contact) {
       return <span className="text-muted-foreground text-sm">Unassigned</span>;
     }
@@ -646,11 +658,11 @@ export function MembersTable({
     if (request) {
       const fromId = request.from_user_id ?? contact.assigned_to ?? null;
       const targetName = request.to_user_id
-        ? (nameById.get(request.to_user_id) ?? "Teammate")
-        : "Unassign";
+        ? (nameById.get(request.to_user_id) ?? 'Teammate')
+        : 'Unassign';
       const badge = (
         <TransferPendingDisplay
-          ownerName={fromId ? (nameById.get(fromId) ?? "Unassigned") : null}
+          ownerName={fromId ? (nameById.get(fromId) ?? 'Unassigned') : null}
           ownerAvatarUrl={fromId ? avatarById.get(fromId) : null}
           targetName={targetName}
         />
@@ -678,7 +690,7 @@ export function MembersTable({
               <>
                 <DropdownMenuItem
                   onClick={() =>
-                    void handleAssignmentAction(request.id, "approve")
+                    void handleAssignmentAction(request.id, 'approve')
                   }
                 >
                   <Check className="size-4" />
@@ -686,7 +698,7 @@ export function MembersTable({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() =>
-                    void handleAssignmentAction(request.id, "reject")
+                    void handleAssignmentAction(request.id, 'reject')
                   }
                 >
                   <X className="size-4" />
@@ -697,7 +709,7 @@ export function MembersTable({
             {canCancel && (
               <DropdownMenuItem
                 onClick={() =>
-                  void handleAssignmentAction(request.id, "cancel")
+                  void handleAssignmentAction(request.id, 'cancel')
                 }
               >
                 <Ban className="size-4" />
@@ -717,21 +729,63 @@ export function MembersTable({
     }
     return (
       <AssigneeDisplay
-        name={nameById.get(contact.assigned_to) ?? "Teammate"}
+        name={nameById.get(contact.assigned_to) ?? 'Teammate'}
         avatarUrl={avatarById.get(contact.assigned_to)}
       />
     );
   }
 
-  function renderRowActions(m: Membership) {
-    const memberName = m.contact?.name?.trim() || "member";
-    const canRenewOrConvert = m.status === "active";
+  function renderRowActions(customer: NormalizedMemberCustomerDirectoryRow) {
+    const m = asMembership(customer);
+    const memberName = customer.contact?.name?.trim() || 'customer';
+    if (!m) {
+      return (
+        <div className="flex items-center justify-end gap-1">
+          <FollowUpButton
+            canAct={canEdit}
+            onClick={() => setFollowUpFor(customer)}
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`More actions for ${memberName}`}
+                  title="More actions"
+                />
+              }
+            >
+              <MoreHorizontal className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-52">
+              <DropdownMenuItem
+                onClick={() =>
+                  onSelect({
+                    contactId: customer.contact_id,
+                    membershipId: null,
+                  })
+                }
+              >
+                <Eye className="size-4" />
+                View details
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      );
+    }
+    const canRenewOrConvert = m.status === 'active';
     const canRecordPayment =
-      !m.is_trial && m.status !== "cancelled" && m.fee_status === "due";
+      !m.is_trial && m.status !== 'cancelled' && m.fee_status === 'due';
 
     return (
       <div className="flex items-center justify-end gap-1">
-        <FollowUpButton canAct={canEdit} onClick={() => setFollowUpFor(m)} />
+        <FollowUpButton
+          canAct={canEdit}
+          onClick={() => setFollowUpFor(customer)}
+        />
         <SendReminderButton membership={m} readiness={readiness} />
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -748,7 +802,11 @@ export function MembersTable({
             <MoreHorizontal className="size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-52">
-            <DropdownMenuItem onClick={() => onSelect(m.id)}>
+            <DropdownMenuItem
+              onClick={() =>
+                onSelect({ contactId: m.contact_id, membershipId: m.id })
+              }
+            >
               <Eye className="size-4" />
               View details
             </DropdownMenuItem>
@@ -767,7 +825,7 @@ export function MembersTable({
                 ) : (
                   <RefreshCw className="size-4" />
                 )}
-                {m.is_trial ? "Convert to member" : "Renew membership"}
+                {m.is_trial ? 'Convert to member' : 'Renew membership'}
               </DropdownMenuItem>
             )}
             {canRecordPayment && (
@@ -786,49 +844,71 @@ export function MembersTable({
   }
 
   // Cell body per column key — reaches fmt/readiness/todayDisplay closures.
-  function renderCell(key: string, m: Membership) {
+  function renderCell(
+    key: string,
+    customer: NormalizedMemberCustomerDirectoryRow
+  ) {
+    const m = asMembership(customer);
     switch (key) {
-      case "name":
+      case 'name':
         return (
           <MemberIdentity
-            name={m.contact?.name}
-            secondary={m.contact?.phone}
-            src={m.contact?.avatar_url}
-            avatarPreview={buildMemberAvatarPreview({
-              membership: m,
-              accountId,
-              view: "all",
-              readiness,
-              canFollowUp: canEdit,
-              onSelect: () => onSelect(m.id),
-              onFollowUp: () => setFollowUpFor(m),
-            })}
+            name={customer.contact?.name}
+            secondary={customer.contact?.phone}
+            src={customer.contact?.avatar_url}
+            avatarPreview={
+              m
+                ? buildMemberAvatarPreview({
+                    membership: m,
+                    accountId,
+                    view: 'all',
+                    readiness,
+                    canFollowUp: canEdit,
+                    onSelect: () =>
+                      onSelect({
+                        contactId: m.contact_id,
+                        membershipId: m.id,
+                      }),
+                    onFollowUp: () => setFollowUpFor(customer),
+                  })
+                : undefined
+            }
           />
         );
-      case "memberId":
+      case 'memberId':
         return (
           <span className="text-foreground font-mono text-sm tabular-nums">
-            {m.member_number}
+            {m?.member_number ?? '—'}
           </span>
         );
-      case "plan":
+      case 'plan':
         return (
           <span className="text-muted-foreground truncate">
-            {m.plan?.name ?? "—"}
+            {m?.plan?.name ?? '—'}
           </span>
         );
-      case "expiry":
+      case 'expiry':
         return (
-          <span className="text-muted-foreground">{fmt.date(m.end_date)}</span>
+          <span className="text-muted-foreground">
+            {customer.display_expiry ? fmt.date(customer.display_expiry) : '—'}
+          </span>
         );
-      case "status": {
+      case 'status': {
+        if (!m) return <ServiceCustomerStatusBadge />;
         const eff = effectiveStatus(m, todayDisplay);
         const days = daysUntil(m.end_date, todayDisplay);
         return <MembershipStatusBadge status={eff} daysToExpiry={days} />;
       }
-      case "assignee":
-        return renderAssignee(m);
-      case "fee":
+      case 'assignee':
+        return renderAssignee(customer);
+      case 'fee':
+        if (!m) {
+          return (
+            <span className="text-muted-foreground text-sm tabular-nums">
+              {fmt.money(customer.generic_balance)}
+            </span>
+          );
+        }
         return (
           <div className="flex items-center gap-1.5">
             <FeeStatusBadge status={m.fee_status} />
@@ -837,16 +917,56 @@ export function MembersTable({
             </span>
           </div>
         );
-      case "churnRisk":
-        return m.contact?.churn_risk ? (
+      case 'churnRisk':
+        return customer.contact?.churn_risk ? (
           <Badge variant="danger">Yes</Badge>
         ) : (
           <span className="text-muted-foreground">No</span>
         );
-      case "reminder":
-        return renderRowActions(m);
+      case 'reminder':
+        return renderRowActions(customer);
       default:
         return null;
+    }
+  }
+
+  function applySearch<
+    Q extends {
+      in(column: string, values: readonly string[]): Q;
+      or(filters: string): Q;
+    },
+  >(
+    query: Q,
+    resolution: Awaited<ReturnType<typeof resolveCustomerSearch>>
+  ): Q {
+    if (resolution.kind === 'customerIds') {
+      return query.in('contact_id', resolvedCustomerIds(resolution));
+    }
+    if (resolution.kind === 'contact') {
+      const like = `%${resolution.term}%`;
+      return query.or(
+        `contact_name.ilike.${like},contact_phone.ilike.${like},contact_email.ilike.${like}`
+      );
+    }
+    return query;
+  }
+
+  function directorySortKey(key: string): string {
+    switch (key) {
+      case 'name':
+      case 'contact_name':
+        return 'contact_name';
+      case 'end_date':
+      case 'display_expiry':
+        return 'display_expiry';
+      case 'fee_amount':
+        return 'membership_fee_amount';
+      case 'fee_status':
+        return 'membership_fee_status';
+      case 'start_date':
+        return 'membership_start_date';
+      default:
+        return key;
     }
   }
 
@@ -856,42 +976,36 @@ export function MembersTable({
     (async () => {
       setLoading(true);
       const today = fmt.today();
-      const searchResolution = await resolveMemberSearch(supabase, search);
-      const memberships = supabase.from("memberships");
-      let q = filters.followUps.includes("open")
-        ? memberships.select(MEMBER_WITH_OPEN_FOLLOW_UP_SELECT, {
-            count: "exact",
-          })
-        : memberships.select(MEMBER_SELECT, { count: "exact" });
+      const searchResolution = await resolveCustomerSearch(supabase, search);
+      let q = supabase
+        .from('member_customer_directory')
+        .select(CUSTOMER_SELECT, { count: 'exact' });
 
-      if (searchResolution.kind === "membershipIds") {
-        q = q.in("id", resolvedMembershipIds(searchResolution));
-      } else if (searchResolution.kind === "contact") {
-        const like = `%${searchResolution.term}%`;
-        q = q.or(`name.ilike.${like},phone.ilike.${like}`, {
-          referencedTable: "contact",
+      q = applySearch(q, searchResolution);
+      q = applyCustomerFilters(q, filters, today);
+
+      if (sort) {
+        q = q.order(directorySortKey(sort.key), {
+          ascending: sort.dir === 'asc',
         });
-      }
-      q = applyMemberFilters(q, filters, today);
-
-      if (sort?.key === "name") {
-        q = q.order("contact(name)", { ascending: sort.dir === "asc" });
-      } else if (sort) {
-        q = q.order(sort.key, { ascending: sort.dir === "asc" });
       } else {
         // Default: soonest expiry first — the renewal-first ordering.
-        q = q.order("end_date", { ascending: true });
+        q = q.order('display_expiry', { ascending: true, nullsFirst: false });
       }
 
       const from = page * pageSize;
       const { data, count } = await q.range(from, from + pageSize - 1);
       if (cancelled || seq !== fetchSeq.current) return;
-      setRows((data as Membership[]) ?? []);
+      setRows(
+        ((data as unknown as NormalizedMemberCustomerDirectoryRow[]) ?? []).map(
+          normalizeCustomerDirectoryRow
+        )
+      );
       setTotalCount(count ?? 0);
       setLoading(false);
     })().catch((error) => {
       if (cancelled || seq !== fetchSeq.current) return;
-      toast.error(getErrorMessage(error, "Failed to load members"));
+      toast.error(getErrorMessage(error, 'Failed to load members'));
       setLoading(false);
     });
     return () => {
@@ -915,30 +1029,16 @@ export function MembersTable({
 
     void (async () => {
       const today = fmt.today();
-      const searchResolution = await resolveMemberSearch(supabase, search);
+      const searchResolution = await resolveCustomerSearch(supabase, search);
       const results = await Promise.all(
         QUICK_MEMBER_FILTERS.map(async ({ key }) => {
           const countFilters = filtersForQuickMemberCount(filters, key);
-          const memberships = supabase.from("memberships");
-          let query = countFilters.followUps.includes("open")
-            ? memberships.select(MEMBER_ID_WITH_OPEN_FOLLOW_UP_SELECT, {
-                count: "exact",
-                head: true,
-              })
-            : memberships.select(MEMBER_ID_SELECT, {
-                count: "exact",
-                head: true,
-              });
+          let query = supabase
+            .from('member_customer_directory')
+            .select('contact_id', { count: 'exact', head: true });
 
-          if (searchResolution.kind === "membershipIds") {
-            query = query.in("id", resolvedMembershipIds(searchResolution));
-          } else if (searchResolution.kind === "contact") {
-            const like = `%${searchResolution.term}%`;
-            query = query.or(`name.ilike.${like},phone.ilike.${like}`, {
-              referencedTable: "contact",
-            });
-          }
-          query = applyMemberFilters(query, countFilters, today);
+          query = applySearch(query, searchResolution);
+          query = applyCustomerFilters(query, countFilters, today);
           const { count, error } = await query;
           return { key, count: error ? 0 : (count ?? 0), error };
         })
@@ -948,7 +1048,7 @@ export function MembersTable({
       const failed = results.find((result) => result.error);
       if (failed) {
         console.error(
-          "Failed to load member quick-filter counts",
+          'Failed to load member quick-filter counts',
           failed.error
         );
       }
@@ -959,7 +1059,7 @@ export function MembersTable({
       );
     })().catch((error) => {
       if (cancelled || seq !== quickCountFetchSeq.current) return;
-      console.error("Failed to resolve member search", error);
+      console.error('Failed to resolve member search', error);
       setQuickFilterCounts(EMPTY_QUICK_MEMBER_FILTER_COUNTS);
     });
 
@@ -972,15 +1072,23 @@ export function MembersTable({
   const hasPrev = page > 0;
   const hasNext = page < totalPages - 1;
 
+  const selectableRows = rows.filter((row) => row.membership_id !== null);
   const allOnPageSelected =
-    rows.length > 0 && rows.every((m) => selected.has(m.id));
-  const someOnPageSelected = rows.some((m) => selected.has(m.id));
+    selectableRows.length > 0 &&
+    selectableRows.every((row) => selected.has(row.membership_id!));
+  const someOnPageSelected = selectableRows.some((row) =>
+    selected.has(row.membership_id!)
+  );
 
-  function toggleSelect(m: Membership) {
+  function toggleSelect(customer: NormalizedMemberCustomerDirectoryRow) {
+    if (!customer.membership_id) return;
     setSelected((prev) => {
       const next = new Map(prev);
-      if (next.has(m.id)) next.delete(m.id);
-      else next.set(m.id, m.contact_id);
+      if (next.has(customer.membership_id!)) {
+        next.delete(customer.membership_id!);
+      } else {
+        next.set(customer.membership_id!, customer.contact_id);
+      }
       return next;
     });
   }
@@ -988,8 +1096,13 @@ export function MembersTable({
   function toggleSelectAll() {
     setSelected((prev) => {
       const next = new Map(prev);
-      if (allOnPageSelected) rows.forEach((m) => next.delete(m.id));
-      else rows.forEach((m) => next.set(m.id, m.contact_id));
+      if (allOnPageSelected) {
+        selectableRows.forEach((row) => next.delete(row.membership_id!));
+      } else {
+        selectableRows.forEach((row) =>
+          next.set(row.membership_id!, row.contact_id)
+        );
+      }
       return next;
     });
   }
@@ -998,33 +1111,32 @@ export function MembersTable({
   // rows on other pages. Same query shape as the fetch, ids only.
   async function selectAllMatching() {
     const today = fmt.today();
-    const searchResolution = await resolveMemberSearch(supabase, search).catch(
-      (error) => {
-        toast.error(getErrorMessage(error, "Failed to select members"));
-        return null;
-      }
-    );
+    const searchResolution = await resolveCustomerSearch(
+      supabase,
+      search
+    ).catch((error) => {
+      toast.error(getErrorMessage(error, 'Failed to select members'));
+      return null;
+    });
     if (!searchResolution) return;
-    const memberships = supabase.from("memberships");
-    let q = filters.followUps.includes("open")
-      ? memberships.select(MEMBER_ID_WITH_OPEN_FOLLOW_UP_SELECT)
-      : memberships.select(MEMBER_ID_SELECT);
-    if (searchResolution.kind === "membershipIds") {
-      q = q.in("id", resolvedMembershipIds(searchResolution));
-    } else if (searchResolution.kind === "contact") {
+    let q = supabase
+      .from('member_customer_directory')
+      .select('membership_id, contact_id');
+    if (searchResolution.kind === 'customerIds') {
+      q = q.in('contact_id', resolvedCustomerIds(searchResolution));
+    } else if (searchResolution.kind === 'contact') {
       const like = `%${searchResolution.term}%`;
-      q = q.or(`name.ilike.${like},phone.ilike.${like}`, {
-        referencedTable: "contact",
-      });
+      q = q.or(
+        `contact_name.ilike.${like},contact_phone.ilike.${like},contact_email.ilike.${like}`
+      );
     }
-    q = applyMemberFilters(q, filters, today);
-    const { data } = await q;
+    q = applyCustomerFilters(q, filters, today);
+    const { data } = await q.not('membership_id', 'is', null);
     setSelected(
       new Map(
-        ((data as { id: string; contact_id: string }[]) ?? []).map((m) => [
-          m.id,
-          m.contact_id,
-        ])
+        ((data as { membership_id: string; contact_id: string }[]) ?? []).map(
+          (customer) => [customer.membership_id, customer.contact_id]
+        )
       )
     );
   }
@@ -1038,70 +1150,67 @@ export function MembersTable({
   // the file matches the screen.
   async function handleExport() {
     const today = fmt.today();
-    const searchResolution = await resolveMemberSearch(supabase, search).catch(
-      (error) => {
-        toast.error(getErrorMessage(error, "Export failed"));
-        return null;
-      }
-    );
+    const searchResolution = await resolveCustomerSearch(
+      supabase,
+      search
+    ).catch((error) => {
+      toast.error(getErrorMessage(error, 'Export failed'));
+      return null;
+    });
     if (!searchResolution) return;
-    const memberships = supabase.from("memberships");
-    let q = filters.followUps.includes("open")
-      ? memberships.select(MEMBER_WITH_OPEN_FOLLOW_UP_SELECT)
-      : memberships.select(MEMBER_SELECT);
-    if (searchResolution.kind === "membershipIds") {
-      q = q.in("id", resolvedMembershipIds(searchResolution));
-    } else if (searchResolution.kind === "contact") {
-      const like = `%${searchResolution.term}%`;
-      q = q.or(`name.ilike.${like},phone.ilike.${like}`, {
-        referencedTable: "contact",
-      });
-    }
-    q = applyMemberFilters(q, filters, today).order("end_date", {
+    let q = supabase.from('member_customer_directory').select(CUSTOMER_SELECT);
+    q = applySearch(q, searchResolution);
+    q = applyCustomerFilters(q, filters, today).order('display_expiry', {
       ascending: true,
+      nullsFirst: false,
     });
     const { data, error } = await q;
     if (error) {
-      toast.error("Export failed");
+      toast.error('Export failed');
       return;
     }
-    const all = (data as Membership[]) ?? [];
+    const all = (
+      (data as unknown as NormalizedMemberCustomerDirectoryRow[]) ?? []
+    ).map(normalizeCustomerDirectoryRow);
     const csv = toCsv(
       [
-        "Name",
-        "Member ID",
-        "Phone",
-        "Email",
-        "Plan",
-        "Start",
-        "Expiry",
-        "Status",
-        "Assigned to",
-        "Fee",
-        "Fee status",
-        "Churn risk",
+        'Name',
+        'Member ID',
+        'Phone',
+        'Email',
+        'Plan',
+        'Start',
+        'Expiry',
+        'Status',
+        'Assigned to',
+        'Fee',
+        'Fee status',
+        'Churn risk',
       ],
-      all.map((m) => [
-        m.contact?.name ?? "",
-        m.member_number,
-        m.contact?.phone ?? "",
-        m.contact?.email ?? "",
-        m.plan?.name ?? "",
-        m.start_date,
-        m.end_date,
-        effectiveStatus(m, today),
-        m.contact?.pending_assignee_name ??
-          (m.contact?.assigned_to
-            ? (nameById.get(m.contact.assigned_to) ?? "Teammate")
-            : "Unassigned"),
-        fmt.money(m.fee_amount),
-        m.fee_status,
-        m.contact?.churn_risk ? "Yes" : "No",
-      ])
+      all.map((customer) => {
+        const membership = asMembership(customer);
+        return [
+          customer.contact?.name ?? '',
+          membership?.member_number ?? '',
+          customer.contact?.phone ?? '',
+          customer.contact?.email ?? '',
+          membership?.plan?.name ?? '',
+          membership?.start_date ?? '',
+          customer.display_expiry ?? '',
+          membership ? effectiveStatus(membership, today) : 'Service customer',
+          customer.contact?.pending_assignee_name ??
+            (customer.contact?.assigned_to
+              ? (nameById.get(customer.contact.assigned_to) ?? 'Teammate')
+              : 'Unassigned'),
+          fmt.money(membership?.fee_amount ?? customer.generic_balance),
+          membership?.fee_status ?? '',
+          customer.contact?.churn_risk ? 'Yes' : 'No',
+        ];
+      })
     );
     downloadCsv(`members-${today}.csv`, csv);
     toast.success(
-      `Exported ${all.length} member${all.length === 1 ? "" : "s"}`
+      `Exported ${all.length} member${all.length === 1 ? '' : 's'}`
     );
   }
 
@@ -1134,9 +1243,9 @@ export function MembersTable({
     setReminding(true);
     const ids = [...selected.keys()];
     const { data } = await supabase
-      .from("memberships")
-      .select("*, contact:contacts(*), plan:membership_plans(*)")
-      .in("id", ids);
+      .from('memberships')
+      .select('*, contact:contacts(*), plan:membership_plans(*)')
+      .in('id', ids);
     const memberships = (data as Membership[]) ?? [];
 
     let sent = 0;
@@ -1157,10 +1266,10 @@ export function MembersTable({
     setReminding(false);
     setRemindOpen(false);
 
-    const parts = [`${sent} reminder${sent === 1 ? "" : "s"} sent`];
+    const parts = [`${sent} reminder${sent === 1 ? '' : 's'} sent`];
     if (noPhone) parts.push(`${noPhone} without a phone skipped`);
     if (failed) parts.push(`${failed} failed`);
-    (sent === 0 && failed ? toast.error : toast.success)(parts.join(" · "));
+    (sent === 0 && failed ? toast.error : toast.success)(parts.join(' · '));
     bulkDone();
   }
 
@@ -1181,7 +1290,7 @@ export function MembersTable({
       while (nextIndex < contactIds.length) {
         const contactId = contactIds[nextIndex++];
         try {
-          const { error } = await supabase.rpc("delete_member", {
+          const { error } = await supabase.rpc('delete_member', {
             p_contact_id: contactId,
           });
           results.push({ contactId, error });
@@ -1213,15 +1322,15 @@ export function MembersTable({
 
     if (failed.length === 0) {
       toast.success(
-        `${deletedCount} member${deletedCount === 1 ? "" : "s"} deleted`
+        `${deletedCount} member${deletedCount === 1 ? '' : 's'} deleted`
       );
     } else if (deletedCount > 0) {
       toast.success(
-        `${deletedCount} member${deletedCount === 1 ? "" : "s"} deleted · ${failed.length} failed`
+        `${deletedCount} member${deletedCount === 1 ? '' : 's'} deleted · ${failed.length} failed`
       );
     } else {
       toast.error(
-        getErrorMessage(failed[0]?.error, "Failed to delete members")
+        getErrorMessage(failed[0]?.error, 'Failed to delete members')
       );
     }
   }
@@ -1311,10 +1420,10 @@ export function MembersTable({
                     >
                       <span
                         className={cn(
-                          "flex size-4 shrink-0 items-center justify-center rounded-[4px] border",
+                          'flex size-4 shrink-0 items-center justify-center rounded-[4px] border',
                           shown
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-input-border bg-card"
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-input-border bg-card'
                         )}
                       >
                         {shown && <Check className="size-3.5" />}
@@ -1341,7 +1450,7 @@ export function MembersTable({
                   />
                 }
               >
-                {bulkCount} member{bulkCount === 1 ? "" : "s"} selected
+                {bulkCount} member{bulkCount === 1 ? '' : 's'} selected
                 <ChevronDown className="size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-56">
@@ -1420,8 +1529,8 @@ export function MembersTable({
             <Dumbbell className="text-muted-foreground size-8" />
             <p className="text-muted-foreground text-sm">
               {totalCount === 0 && !search.trim()
-                ? "No members yet. Add your first member."
-                : "No members match your search or filters."}
+                ? 'No members yet. Add your first member.'
+                : 'No members match your search or filters.'}
             </p>
           </div>
         ) : (
@@ -1437,8 +1546,8 @@ export function MembersTable({
                 <TableRow>
                   <TableHead
                     className={cn(
-                      "px-0",
-                      prefs.nameFrozen && "bg-card sticky left-0 z-20"
+                      'px-0',
+                      prefs.nameFrozen && 'bg-card sticky left-0 z-20'
                     )}
                   >
                     <div className="flex items-center justify-center">
@@ -1455,15 +1564,15 @@ export function MembersTable({
                     <TableHead
                       key={col.key}
                       style={
-                        col.key === "name" && prefs.nameFrozen
-                          ? { position: "sticky", left: CHECKBOX_COL_WIDTH }
+                        col.key === 'name' && prefs.nameFrozen
+                          ? { position: 'sticky', left: CHECKBOX_COL_WIDTH }
                           : undefined
                       }
                       className={cn(
-                        "text-muted-foreground select-none",
-                        col.key === "name" && prefs.nameFrozen
-                          ? "bg-card z-20"
-                          : "relative"
+                        'text-muted-foreground select-none',
+                        col.key === 'name' && prefs.nameFrozen
+                          ? 'bg-card z-20'
+                          : 'relative'
                       )}
                     >
                       <ColumnHeader
@@ -1481,9 +1590,9 @@ export function MembersTable({
                         onHide={
                           col.required ? undefined : () => hideColumn(col.key)
                         }
-                        frozen={col.key === "name" && prefs.nameFrozen}
+                        frozen={col.key === 'name' && prefs.nameFrozen}
                         onToggleFreeze={
-                          col.key === "name" ? toggleNameFrozen : undefined
+                          col.key === 'name' ? toggleNameFrozen : undefined
                         }
                       />
                       {/* Resize grip on the right edge (leads pattern). */}
@@ -1498,93 +1607,118 @@ export function MembersTable({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((m) => (
-                  <TableRow
-                    key={m.id}
-                    className="group cursor-pointer"
-                    onClick={() => onSelect(m.id)}
-                  >
-                    <TableCell
-                      className={cn(
-                        "px-0",
-                        prefs.nameFrozen &&
-                          "bg-card group-hover:bg-card-2 sticky left-0 z-10"
-                      )}
-                      onClick={(e) => e.stopPropagation()}
+                {rows.map((customer) => {
+                  const membership = asMembership(customer);
+                  return (
+                    <TableRow
+                      key={customer.contact_id}
+                      className="group cursor-pointer"
+                      onClick={() =>
+                        onSelect({
+                          contactId: customer.contact_id,
+                          membershipId: customer.membership_id,
+                        })
+                      }
                     >
-                      <div className="flex items-center justify-center">
-                        <Checkbox
-                          checked={selected.has(m.id)}
-                          onCheckedChange={() => toggleSelect(m)}
-                          aria-label={`Select ${m.contact?.name || "member"}`}
-                        />
-                      </div>
-                    </TableCell>
-                    {visibleColumns.map((col) => (
                       <TableCell
-                        key={col.key}
-                        style={
-                          col.key === "name" && prefs.nameFrozen
-                            ? { position: "sticky", left: CHECKBOX_COL_WIDTH }
-                            : undefined
-                        }
                         className={cn(
-                          "overflow-hidden",
-                          col.key === "name" &&
-                            prefs.nameFrozen &&
-                            "bg-card group-hover:bg-card-2 z-10",
-                          (col.key === "assignee" || col.key === "churnRisk") &&
-                            canEdit &&
-                            "p-0",
-                          col.align === "right" && "text-right"
+                          'px-0',
+                          prefs.nameFrozen &&
+                            'bg-card group-hover:bg-card-2 sticky left-0 z-10'
                         )}
-                        onClick={
-                          col.key === "reminder"
-                            ? (e) => e.stopPropagation()
-                            : undefined
-                        }
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        {col.key === "assignee" && canEdit ? (
-                          <EditableCell
-                            editing={
-                              editingCell?.id === m.id &&
-                              editingCell.key === "assignee"
-                            }
-                            saving={savingCell}
-                            kind="select"
-                            value={m.contact?.assigned_to ?? ""}
-                            options={assigneeCellOptions(staff)}
-                            display={renderCell(col.key, m)}
-                            onStart={() =>
-                              setEditingCell({ id: m.id, key: "assignee" })
-                            }
-                            onCommit={(value) => void commitAssignee(m, value)}
-                            onCancel={() => setEditingCell(null)}
+                        <div className="flex items-center justify-center">
+                          <Checkbox
+                            checked={Boolean(
+                              customer.membership_id &&
+                              selected.has(customer.membership_id)
+                            )}
+                            onCheckedChange={() => toggleSelect(customer)}
+                            disabled={!membership}
+                            aria-label={`Select ${customer.contact?.name || 'customer'}`}
                           />
-                        ) : col.key === "churnRisk" && canEdit ? (
-                          <EditableCell
-                            editing={
-                              editingCell?.id === m.id &&
-                              editingCell.key === "churnRisk"
-                            }
-                            saving={savingCell}
-                            kind="status"
-                            value={m.contact?.churn_risk ? "yes" : "no"}
-                            options={CHURN_RISK_CELL_OPTIONS}
-                            display={renderCell(col.key, m)}
-                            onStart={() =>
-                              setEditingCell({ id: m.id, key: "churnRisk" })
-                            }
-                            onCommit={(value) => commitChurnRisk(m, value)}
-                            onCancel={() => setEditingCell(null)}
-                          />
-                        ) : (
-                          renderCell(col.key, m)
-                        )}
+                        </div>
                       </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
+                      {visibleColumns.map((col) => (
+                        <TableCell
+                          key={col.key}
+                          style={
+                            col.key === 'name' && prefs.nameFrozen
+                              ? { position: 'sticky', left: CHECKBOX_COL_WIDTH }
+                              : undefined
+                          }
+                          className={cn(
+                            'overflow-hidden',
+                            col.key === 'name' &&
+                              prefs.nameFrozen &&
+                              'bg-card group-hover:bg-card-2 z-10',
+                            (col.key === 'assignee' ||
+                              col.key === 'churnRisk') &&
+                              canEdit &&
+                              'p-0',
+                            col.align === 'right' && 'text-right'
+                          )}
+                          onClick={
+                            col.key === 'reminder'
+                              ? (e) => e.stopPropagation()
+                              : undefined
+                          }
+                        >
+                          {col.key === 'assignee' && canEdit ? (
+                            <EditableCell
+                              editing={
+                                editingCell?.id === customer.contact_id &&
+                                editingCell.key === 'assignee'
+                              }
+                              saving={savingCell}
+                              kind="select"
+                              value={customer.contact?.assigned_to ?? ''}
+                              options={assigneeCellOptions(staff)}
+                              display={renderCell(col.key, customer)}
+                              onStart={() =>
+                                setEditingCell({
+                                  id: customer.contact_id,
+                                  key: 'assignee',
+                                })
+                              }
+                              onCommit={(value) =>
+                                void commitAssignee(customer, value)
+                              }
+                              onCancel={() => setEditingCell(null)}
+                            />
+                          ) : col.key === 'churnRisk' && canEdit ? (
+                            <EditableCell
+                              editing={
+                                editingCell?.id === customer.contact_id &&
+                                editingCell.key === 'churnRisk'
+                              }
+                              saving={savingCell}
+                              kind="status"
+                              value={
+                                customer.contact?.churn_risk ? 'yes' : 'no'
+                              }
+                              options={CHURN_RISK_CELL_OPTIONS}
+                              display={renderCell(col.key, customer)}
+                              onStart={() =>
+                                setEditingCell({
+                                  id: customer.contact_id,
+                                  key: 'churnRisk',
+                                })
+                              }
+                              onCommit={(value) =>
+                                commitChurnRisk(customer, value)
+                              }
+                              onCancel={() => setEditingCell(null)}
+                            />
+                          ) : (
+                            renderCell(col.key, customer)
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
 
@@ -1592,8 +1726,8 @@ export function MembersTable({
             <div className="border-border flex items-center justify-between border-t px-3 py-2">
               <p className="text-muted-foreground text-xs">
                 {totalCount > 0
-                  ? `${totalCount} member${totalCount === 1 ? "" : "s"}`
-                  : "No members"}
+                  ? `${totalCount} member${totalCount === 1 ? '' : 's'}`
+                  : 'No members'}
               </p>
               <div className="flex items-center gap-1">
                 <Button
@@ -1621,20 +1755,29 @@ export function MembersTable({
         )}
       </section>
 
-      {followUpFor && (
-        <FollowUpDialog
-          open
-          onOpenChange={(open) => !open && setFollowUpFor(null)}
-          membership={followUpFor}
-          onSaved={onChanged}
-        />
-      )}
+      {followUpFor &&
+        (asMembership(followUpFor) ? (
+          <FollowUpDialog
+            open
+            onOpenChange={(open) => !open && setFollowUpFor(null)}
+            membership={asMembership(followUpFor)!}
+            onSaved={onChanged}
+          />
+        ) : (
+          <FollowUpDialog
+            open
+            onOpenChange={(open) => !open && setFollowUpFor(null)}
+            contactId={followUpFor.contact_id}
+            contactName={followUpFor.contact.name}
+            onSaved={onChanged}
+          />
+        ))}
       {renewFor && (
         <RenewMembershipDialog
           open
           onOpenChange={(open) => !open && setRenewFor(null)}
           membership={renewFor}
-          variant={renewFor.is_trial ? "convert" : "renew"}
+          variant={renewFor.is_trial ? 'convert' : 'renew'}
           onSaved={onChanged}
         />
       )}
@@ -1670,7 +1813,7 @@ export function MembersTable({
           <DialogHeader>
             <DialogTitle>
               Delete {selected.size} selected member
-              {selected.size === 1 ? "" : "s"}?
+              {selected.size === 1 ? '' : 's'}?
             </DialogTitle>
             <DialogDescription>
               This permanently removes the selected member profiles,
@@ -1699,7 +1842,7 @@ export function MembersTable({
               ) : (
                 <Trash2 className="size-4" />
               )}
-              Delete member{selected.size === 1 ? "" : "s"}
+              Delete member{selected.size === 1 ? '' : 's'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1712,7 +1855,7 @@ export function MembersTable({
             <DialogTitle>Send renewal reminders</DialogTitle>
             <DialogDescription>
               Send the WhatsApp renewal template to {selected.size} selected
-              member{selected.size === 1 ? "" : "s"}? Members without a phone
+              member{selected.size === 1 ? '' : 's'}? Members without a phone
               number are skipped.
             </DialogDescription>
           </DialogHeader>
