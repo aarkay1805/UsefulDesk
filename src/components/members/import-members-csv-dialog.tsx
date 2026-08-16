@@ -1761,7 +1761,7 @@ function StepIndicator({ step }: { step: Step }) {
           <div key={label} className="flex flex-1 items-center gap-2">
             <div
               className={cn(
-                'flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors',
+                'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors',
                 active && 'bg-primary text-primary-foreground',
                 done && 'bg-primary/20 text-primary-text',
                 !active && !done && 'bg-muted text-muted-foreground'
@@ -1837,7 +1837,7 @@ function UploadStep({
             <p className="text-foreground max-w-full truncate px-2 text-sm font-medium">
               {file?.name}
             </p>
-            <p className="text-muted-foreground text-[11px]">Reading file…</p>
+            <p className="text-muted-foreground text-xs">Reading file…</p>
           </>
         ) : file ? (
           <>
@@ -1868,7 +1868,7 @@ function UploadStep({
             <p className="text-muted-foreground text-sm">
               Click to choose a CSV or Excel file
             </p>
-            <p className="text-muted-foreground text-[11px]">
+            <p className="text-muted-foreground text-xs">
               Any column layout — you&apos;ll map fields next
             </p>
           </>
@@ -1994,7 +1994,7 @@ function MappingStep({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.14em] uppercase">
+        <p className="text-muted-foreground text-xs font-semibold tracking-[0.14em] uppercase">
           Column mapping
         </p>
         <div className="flex gap-1.5">
@@ -2040,7 +2040,7 @@ function MappingStep({
                       )}
                     </td>
                     <td className="text-muted-foreground px-3 py-2">
-                      <span className="block truncate font-mono text-[11px]">
+                      <span className="block truncate font-mono text-xs">
                         {samples[column]?.join(' · ') || '—'}
                       </span>
                     </td>
@@ -2068,7 +2068,7 @@ function MappingStep({
                         </span>
                       </Combobox>
                       {key === 'phone' && (
-                        <p className="text-muted-foreground mt-1 max-w-[25rem] text-[10px] leading-snug">
+                        <p className="text-muted-foreground mt-1 max-w-[25rem] text-xs leading-snug">
                           Members are matched by phone; local numbers are
                           qualified with the account&apos;s country code.
                         </p>
@@ -2078,7 +2078,7 @@ function MappingStep({
                           type="button"
                           onClick={onToggleDateOrder}
                           title="Toggle day/month order"
-                          className="bg-primary/10 text-primary-text hover:bg-primary/20 mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold"
+                          className="bg-primary/10 text-primary-text hover:bg-primary/20 mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold"
                         >
                           {dateOrder === 'DMY' ? 'DD/MM' : 'MM/DD'} ▾
                           <span className="text-muted-foreground font-sans font-normal">
@@ -2091,11 +2091,11 @@ function MappingStep({
                     </td>
                     <td className="px-3 py-2">
                       {isMapped ? (
-                        <span className="text-emerald-foreground inline-flex items-center gap-1 text-[11px] font-medium">
+                        <span className="text-emerald-foreground inline-flex items-center gap-1 text-xs font-medium">
                           <CheckCircle className="size-3.5" /> Mapped
                         </span>
                       ) : (
-                        <span className="text-muted-foreground text-[11px]">
+                        <span className="text-muted-foreground text-xs">
                           Skipped
                         </span>
                       )}
@@ -2107,7 +2107,7 @@ function MappingStep({
           </table>
         </div>
       </div>
-      <p className="text-muted-foreground text-[11px]">
+      <p className="text-muted-foreground text-xs">
         {unmapped === 0
           ? `All ${mapping.length} columns mapped`
           : `${unmapped} column${unmapped === 1 ? '' : 's'} won’t be imported`}

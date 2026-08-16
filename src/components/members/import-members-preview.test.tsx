@@ -10,7 +10,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type { MembershipPlan } from '@/types';
+import type { CatalogItem, MembershipPlan } from '@/types';
 import {
   buildMemberImportCandidates,
   type MemberImportCandidateInput,
@@ -70,6 +70,29 @@ const plans = [
   },
 ] as unknown as MembershipPlan[];
 
+const services = [
+  {
+    id: 'service-pt',
+    account_id: 'account-1',
+    kind: 'service',
+    name: 'Personal training',
+    requires_trainer: false,
+    is_active: true,
+    catalog_options: [
+      {
+        id: 'pt-month',
+        account_id: 'account-1',
+        item_id: 'service-pt',
+        duration_count: 1,
+        duration_unit: 'month',
+        standard_price: 4000,
+        is_active: true,
+        trainer_rates: [],
+      },
+    ],
+  },
+] as unknown as CatalogItem[];
+
 function input(
   sourceRow: number,
   values: Partial<MemberImportCandidateInput['originalValues']> = {}
@@ -92,9 +115,13 @@ function input(
   };
 }
 
-function candidates(rows: MemberImportCandidateInput[]) {
+function candidates(
+  rows: MemberImportCandidateInput[],
+  catalogItems: CatalogItem[] = []
+) {
   return buildMemberImportCandidates(rows, {
     plans,
+    catalogItems,
     dateOrder: 'DMY',
     today: '2026-07-11',
   });
@@ -189,5 +216,58 @@ describe('ImportMembersPreview conflict resolution', () => {
     fireEvent.change(status, { target: { value: 'Active' } });
 
     expect(onPatch).toHaveBeenCalledWith('sheet:2', { status: 'Active' });
+  });
+
+  it('shows service outcome, sold price, and independent dates', () => {
+    renderPreview(
+      candidates(
+        [
+          input(2, {
+            planName: '',
+            serviceName: 'Personal training',
+            serviceOption: '1 month',
+            serviceStart: '01/08/2026',
+            serviceSoldPrice: '3500',
+            fee: '3500',
+          }),
+        ],
+        services
+      ),
+      { catalogItems: services }
+    );
+
+    const desktop = screen.getByTestId('member-import-desktop');
+    expect(within(desktop).getByText('Service')).toBeTruthy();
+    expect(within(desktop).getByText('Sold for $3500')).toBeTruthy();
+    expect(
+      within(desktop).getByText('Service 2026-08-01–2026-09-01', {
+        exact: false,
+      })
+    ).toBeTruthy();
+  });
+
+  it('offers labelled corrections for an invalid service purchase total', () => {
+    const onPatch = vi.fn();
+    renderPreview(
+      candidates(
+        [
+          input(2, {
+            planName: '',
+            serviceName: 'Personal training',
+            serviceOption: '1 month',
+            serviceSoldPrice: '4000',
+            fee: 'not money',
+          }),
+        ],
+        services
+      ),
+      { catalogItems: services, onPatch }
+    );
+
+    expect(screen.getByText('Correct purchase total')).toBeTruthy();
+    const total = screen.getByRole('textbox', { name: 'Row total' });
+    fireEvent.change(total, { target: { value: '4000' } });
+    fireEvent.blur(total);
+    expect(onPatch).toHaveBeenCalledWith('sheet:2', { fee: '4000' });
   });
 });

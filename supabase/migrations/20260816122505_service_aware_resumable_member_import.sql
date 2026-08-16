@@ -686,6 +686,30 @@ BEGIN
           THEN NULLIF(LOWER(BTRIM(v_contact_data->>'email')), '') ELSE contact.email END,
         company = CASE WHEN v_contact_data ? 'company'
           THEN NULLIF(BTRIM(v_contact_data->>'company'), '') ELSE contact.company END,
+        date_of_birth = CASE WHEN v_contact_data ? 'date_of_birth'
+          THEN NULLIF(v_contact_data->>'date_of_birth', '')::DATE ELSE contact.date_of_birth END,
+        gender = CASE WHEN v_contact_data ? 'gender'
+          THEN NULLIF(BTRIM(v_contact_data->>'gender'), '') ELSE contact.gender END,
+        nickname = CASE WHEN v_contact_data ? 'nickname'
+          THEN NULLIF(BTRIM(v_contact_data->>'nickname'), '') ELSE contact.nickname END,
+        height_cm = CASE WHEN v_contact_data ? 'height_cm'
+          THEN NULLIF(v_contact_data->>'height_cm', '')::NUMERIC ELSE contact.height_cm END,
+        weight_kg = CASE WHEN v_contact_data ? 'weight_kg'
+          THEN NULLIF(v_contact_data->>'weight_kg', '')::NUMERIC ELSE contact.weight_kg END,
+        address_line1 = CASE WHEN v_contact_data ? 'address_line1'
+          THEN NULLIF(BTRIM(v_contact_data->>'address_line1'), '') ELSE contact.address_line1 END,
+        address_line2 = CASE WHEN v_contact_data ? 'address_line2'
+          THEN NULLIF(BTRIM(v_contact_data->>'address_line2'), '') ELSE contact.address_line2 END,
+        city = CASE WHEN v_contact_data ? 'city'
+          THEN NULLIF(BTRIM(v_contact_data->>'city'), '') ELSE contact.city END,
+        state = CASE WHEN v_contact_data ? 'state'
+          THEN NULLIF(BTRIM(v_contact_data->>'state'), '') ELSE contact.state END,
+        postal_code = CASE WHEN v_contact_data ? 'postal_code'
+          THEN NULLIF(BTRIM(v_contact_data->>'postal_code'), '') ELSE contact.postal_code END,
+        country = CASE WHEN v_contact_data ? 'country'
+          THEN NULLIF(BTRIM(v_contact_data->>'country'), '') ELSE contact.country END,
+        churn_risk = CASE WHEN v_contact_data ? 'churn_risk'
+          THEN (v_contact_data->>'churn_risk')::BOOLEAN ELSE contact.churn_risk END,
         assigned_to = CASE
           WHEN contact.received_via IS NULL
             OR contact.received_via IN ('manual', 'import')

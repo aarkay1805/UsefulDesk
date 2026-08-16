@@ -192,4 +192,47 @@ describe('member import group transaction client', () => {
       'imported',
     ]);
   });
+
+  it('omits unmapped null profile fields when updating an existing contact', async () => {
+    const [candidate] = candidates();
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        contact_id: 'contact-1',
+        membership_id: 'membership-1',
+        rows: [],
+      },
+      error: null,
+    });
+
+    await commitMemberImportGroups(
+      [
+        {
+          ...candidate,
+          existingMatch: {
+            contactId: 'contact-1',
+            isMember: false,
+            profileConflict: true,
+          },
+          resolutions: {
+            ...candidate.resolutions,
+            existingContact: 'use_csv',
+          },
+        },
+      ],
+      {
+        accountId: 'account-1',
+        rpc,
+        paidAt: (date) => date,
+      }
+    );
+
+    const payload = rpc.mock.calls[0][1].p_payload;
+    expect(payload.contact).toMatchObject({
+      id: 'contact-1',
+      name: 'Asha',
+      use_csv: true,
+    });
+    expect(payload.contact).not.toHaveProperty('email');
+    expect(payload.contact).not.toHaveProperty('address_line1');
+  });
 });

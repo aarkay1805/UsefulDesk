@@ -394,13 +394,7 @@ export function ImportMembersPreview({
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-xs">
-                  {candidate.serviceComponent?.intent.endDate ||
-                  candidate.built.membership?.end_date
-                    ? fmt.date(
-                        candidate.serviceComponent?.intent.endDate ??
-                          candidate.built.membership!.end_date
-                      )
-                    : '—'}
+                  <CandidateDates candidate={candidate} />
                 </TableCell>
                 <TableCell>
                   <CandidateStatus candidate={candidate} />
@@ -442,15 +436,9 @@ export function ImportMembersPreview({
               <dd className="text-foreground min-w-0 break-words">
                 <CandidateOffering candidate={candidate} />
               </dd>
-              <dt className="text-muted-foreground">Expiry</dt>
+              <dt className="text-muted-foreground">Dates</dt>
               <dd className="text-foreground">
-                {candidate.serviceComponent?.intent.endDate ||
-                candidate.built.membership?.end_date
-                  ? fmt.date(
-                      candidate.serviceComponent?.intent.endDate ??
-                        candidate.built.membership!.end_date
-                    )
-                  : '—'}
+                <CandidateDates candidate={candidate} />
               </dd>
             </dl>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -516,6 +504,8 @@ function groupTitle(group: IssueGroup) {
       return 'Correct service dates or price';
     case 'duplicate-service':
       return 'Resolve duplicate service purchase';
+    case 'purchase-total-mismatch':
+      return 'Correct purchase total';
     case 'payment-conflict':
       return 'Payment figures conflict';
     case 'missing-phone':
@@ -655,6 +645,29 @@ function GroupResolver({
 
   if (group.code === 'service-needs-resolution') {
     const sourceLabel = `${first.originalValues.serviceName || first.originalValues.offering || '(blank)'} · ${first.originalValues.serviceOption || '(no option)'}`;
+    const serviceChoices = catalogItems
+      .filter((item) => item.kind === 'service' && item.is_active)
+      .flatMap((item) =>
+        (item.catalog_options ?? [])
+          .filter(
+            (option) =>
+              option.is_active &&
+              option.duration_count !== null &&
+              option.duration_unit !== null
+          )
+          .flatMap((option) => {
+            const validTrainers = item.requires_trainer
+              ? trainers.filter(
+                  (trainer) =>
+                    trainer.is_active &&
+                    (option.trainer_rates ?? []).some(
+                      (rate) => rate.is_active && rate.trainer_id === trainer.id
+                    )
+                )
+              : [null];
+            return validTrainers.map((trainer) => ({ item, option, trainer }));
+          })
+      );
     return (
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)] sm:items-center">
         <div>
@@ -665,61 +678,135 @@ function GroupResolver({
             Only active service options and valid trainer rates are offered.
           </p>
         </div>
-        <Select<string>
-          value={null}
-          onValueChange={(value) => {
-            if (!value) return;
-            const [itemId, optionId, trainerId] = value.split('::');
-            onResolveGroupedService(
-              group.candidates.map((candidate) => candidate.sourceKey),
-              {
-                itemId,
-                optionId,
-                trainerId: trainerId === '-' ? null : trainerId,
-              }
-            );
-          }}
-        >
-          <SelectTrigger className="w-full" aria-label={`Map ${sourceLabel}`}>
-            <SelectValue placeholder="Choose service, option, and trainer" />
-          </SelectTrigger>
-          <SelectContent>
-            {catalogItems
-              .filter((item) => item.kind === 'service' && item.is_active)
-              .flatMap((item) =>
-                (item.catalog_options ?? [])
-                  .filter(
-                    (option) =>
-                      option.is_active &&
-                      option.duration_count !== null &&
-                      option.duration_unit !== null
-                  )
-                  .flatMap((option) => {
-                    const validTrainers = item.requires_trainer
-                      ? trainers.filter((trainer) =>
-                          (option.trainer_rates ?? []).some(
-                            (rate) =>
-                              rate.is_active && rate.trainer_id === trainer.id
-                          )
-                        )
-                      : [null];
-                    return validTrainers.map((trainer) => (
-                      <SelectItem
-                        key={`${item.id}::${option.id}::${trainer?.id ?? '-'}`}
-                        value={`${item.id}::${option.id}::${trainer?.id ?? '-'}`}
-                      >
-                        {item.name} ·{' '}
-                        {durationLabel(
-                          option.duration_count!,
-                          option.duration_unit!
-                        )}
-                        {trainer ? ` · ${trainer.display_name}` : ''}
-                      </SelectItem>
-                    ));
-                  })
-              )}
-          </SelectContent>
-        </Select>
+        {serviceChoices.length > 0 ? (
+          <Select<string>
+            value={null}
+            onValueChange={(value) => {
+              if (!value) return;
+              const [itemId, optionId, trainerId] = value.split('::');
+              onResolveGroupedService(
+                group.candidates.map((candidate) => candidate.sourceKey),
+                {
+                  itemId,
+                  optionId,
+                  trainerId: trainerId === '-' ? null : trainerId,
+                }
+              );
+            }}
+          >
+            <SelectTrigger className="w-full" aria-label={`Map ${sourceLabel}`}>
+              <SelectValue placeholder="Choose service, option, and trainer" />
+            </SelectTrigger>
+            <SelectContent>
+              {serviceChoices.map(({ item, option, trainer }) => (
+                <SelectItem
+                  key={`${item.id}::${option.id}::${trainer?.id ?? '-'}`}
+                  value={`${item.id}::${option.id}::${trainer?.id ?? '-'}`}
+                >
+                  {item.name} ·{' '}
+                  {durationLabel(option.duration_count!, option.duration_unit!)}
+                  {trainer ? ` · ${trainer.display_name}` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <p className="text-amber-foreground text-sm">
+            No active matching service rate is available. Configure it in
+            Settings → Products &amp; services, then reload this import.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (
+    group.code === 'service-values-invalid' ||
+    group.code === 'duplicate-service' ||
+    group.code === 'purchase-total-mismatch'
+  ) {
+    return (
+      <div className="space-y-3">
+        {group.candidates.map((candidate) => {
+          const prefix = `service-correction-${candidate.sourceKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+          const fields: {
+            key: keyof Pick<
+              MemberImportDraftValues,
+              'serviceStart' | 'serviceEnd' | 'serviceSoldPrice' | 'fee'
+            >;
+            label: string;
+            value: string | undefined;
+          }[] = [
+            {
+              key: 'serviceStart',
+              label: 'Service start',
+              value: candidate.draftValues.serviceStart,
+            },
+            {
+              key: 'serviceEnd',
+              label: 'Service expiry',
+              value: candidate.draftValues.serviceEnd,
+            },
+            {
+              key: 'serviceSoldPrice',
+              label: 'Service sold price',
+              value: candidate.draftValues.serviceSoldPrice,
+            },
+            {
+              key: 'fee',
+              label: 'Row total',
+              value: candidate.draftValues.fee,
+            },
+          ];
+          return (
+            <div
+              key={candidate.sourceKey}
+              className="border-border grid gap-3 rounded-lg border p-3 sm:grid-cols-2 lg:grid-cols-5"
+            >
+              <div className="sm:col-span-2 lg:col-span-1">
+                <p className="text-foreground text-sm font-medium">
+                  Source row {candidate.sourceRow}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {candidate.draftValues.serviceName || 'Service purchase'}
+                </p>
+              </div>
+              {fields.map((field) => (
+                <div key={field.key} className="space-y-1.5">
+                  <Label htmlFor={`${prefix}-${field.key}`}>
+                    {field.label}
+                  </Label>
+                  <Input
+                    id={`${prefix}-${field.key}`}
+                    defaultValue={field.value}
+                    inputMode={
+                      field.key === 'serviceSoldPrice' || field.key === 'fee'
+                        ? 'decimal'
+                        : undefined
+                    }
+                    onBlur={(event) =>
+                      onPatch(candidate.sourceKey, {
+                        [field.key]: event.currentTarget.value,
+                      })
+                    }
+                  />
+                </div>
+              ))}
+              <div className="sm:col-span-2 lg:col-span-5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    onSetDisposition(candidate.sourceKey, 'excluded')
+                  }
+                >
+                  Exclude source row {candidate.sourceRow}
+                </Button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -1040,6 +1127,7 @@ function CandidateOffering({
 }: {
   candidate: MemberImportCandidate;
 }) {
+  const { fmt } = useLocale();
   const service = candidate.serviceComponent?.intent;
   const membershipLabel = candidate.draftValues.planName
     ? [candidate.draftValues.planName, candidate.draftValues.pricingOption]
@@ -1066,8 +1154,26 @@ function CandidateOffering({
         {[membershipLabel, serviceLabel].filter(Boolean).join(' + ') ||
           'Choose offering'}
       </span>
+      {service && (
+        <span className="text-muted-foreground text-xs tabular-nums">
+          Sold for {fmt.money(service.soldAmount)}
+        </span>
+      )}
     </span>
   );
+}
+
+function CandidateDates({ candidate }: { candidate: MemberImportCandidate }) {
+  const { fmt } = useLocale();
+  const membershipEnd = candidate.built.membership?.end_date;
+  const service = candidate.serviceComponent?.intent;
+  const parts = [
+    membershipEnd ? `Membership to ${fmt.date(membershipEnd)}` : null,
+    service
+      ? `Service ${fmt.date(service.startDate)}–${fmt.date(service.endDate)}`
+      : null,
+  ].filter(Boolean);
+  return <>{parts.join(' · ') || '—'}</>;
 }
 
 function CandidateStatus({ candidate }: { candidate: MemberImportCandidate }) {

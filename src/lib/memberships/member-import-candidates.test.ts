@@ -178,6 +178,28 @@ describe('member import candidates', () => {
     });
   });
 
+  it('blocks a service-only row when its explicit fee is malformed', () => {
+    const [candidate] = build([
+      source(2, {
+        original: {
+          planName: '',
+          serviceName: 'Personal training',
+          serviceOption: '1 month',
+          serviceSoldPrice: '4000',
+          fee: 'not money',
+        },
+      }),
+    ]);
+
+    expect(candidate.isReady).toBe(false);
+    expect(candidate.issues).toContainEqual(
+      expect.objectContaining({
+        code: 'purchase-total-mismatch',
+        severity: 'blocking',
+      })
+    );
+  });
+
   it('groups compatible repeated service rows into one stable customer identity', () => {
     const rows = [
       source(2, {

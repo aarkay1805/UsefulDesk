@@ -14,6 +14,8 @@ UsefulDesk supports a branch-scoped, member-only catalogue alongside membership 
 - Trainer reassignment retains expiry and prorates the rate difference over remaining package days. A positive delta becomes a due adjustment invoice; a negative delta offsets that service’s outstanding lines and stores any remainder as non-expiring, branch/member-specific credit.
 - Members → Renewals has Memberships and Services sources. Service renewals use the current configured trainer rate. Manual and automatic reminders use the approved `gym_service_renewal_reminder` Utility template.
 - Business → Invoices and member billing reconcile generic invoices; Payments adds immutable purpose `sale`. Revenue category comes from invoice line kind, while payment purpose remains the collection-event axis.
+- All Members is a contact-backed customer directory: service-only customers remain searchable and actionable without a fake membership or Member ID, while membership, attendance, renewal, and AutoPay metrics remain membership-only. Standalone sales and service renewals accept the customer contact directly.
+- Members CSV/XLSX import supports membership-only, service-only, and combined rows. It resolves only active sellable service facts, preserves explicit historical sold price/expiry/cancelled state through one audited atomic transaction per customer, and uses stable idempotency keys for safe retry. Author-private, revisioned drafts resume across devices from a private source-file bucket and expire after 30 days.
 
 ## Authorization and audit
 
@@ -25,7 +27,7 @@ Admin+ manages catalogue, trainers, rates, and price overrides; every override r
 
 ## Explicit non-goals
 
-Payroll or trainer commission, PT session allowances/attendance, stock or fulfilment, walk-in sales, cash refunds, human invoice numbering, PDF/WhatsApp invoices, and GST documents.
+Payroll or trainer commission, PT session allowances/attendance, stock or fulfilment, walk-in sales, cash refunds, human invoice numbering, PDF/WhatsApp invoices, GST documents, merchandise import, and multiple numbered service-column families in one source row.
 
 ## Acceptance invariants
 

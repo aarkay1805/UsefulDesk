@@ -667,6 +667,17 @@ function rebuildCandidate(
   const serviceAmount = serviceComponent?.intent.soldAmount ?? 0;
   const purchaseTotal =
     explicitTotal ?? membershipConfiguredAmount + serviceAmount;
+  if (trim(values.fee) && explicitTotal === null && serviceComponent) {
+    issues.push(
+      issue(
+        'purchase-total-mismatch',
+        'blocking',
+        `purchase-total:${candidate.sourceKey}`,
+        'The row fee is not a valid non-negative amount.',
+        'Correct the row fee.'
+      )
+    );
+  }
   if (explicitTotal !== null && serviceComponent && !membershipSource) {
     if (Math.abs(explicitTotal - serviceAmount) > 0.01) {
       issues.push(

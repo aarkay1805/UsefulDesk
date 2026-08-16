@@ -263,7 +263,7 @@ export default function MembersPage() {
                 // Underline pinned to the row's bottom edge (overrides the
                 // master's -5px float) so it rests on the header divider —
                 // and never overflows into the scroll container.
-                className="flex-none px-0.5 pb-2 text-[0.9375rem] group-data-horizontal/tabs:after:bottom-0"
+                className="flex-none px-0.5 pb-2 text-sm group-data-horizontal/tabs:after:bottom-0"
               >
                 {VIEW_LABEL[v]}
               </TabsTrigger>

@@ -1,6 +1,6 @@
 # Cron endpoints — operator runbook
 
-Eight scheduled jobs keep the time-based features alive. None of them
+Nine scheduled jobs keep the time-based features alive. None of them
 run by themselves: each is a plain GET route that something external
 must ping on a schedule. This page is the map.
 
@@ -14,8 +14,9 @@ must ping on a schedule. This page is the map.
 | `/api/renewals/cron`                   | Sends separately configured membership and service renewal templates at each configured offset; service sends require a current sellable rate             | Auto renewal reminders            | hourly at :30 (sends after 09:00 in each account's timezone)          |
 | `/api/payment-installments/cron`       | Sends `gym_installment_reminder` while the second 40% of a joining checkout's full combined invoice remains due                                           | Joining payment installments      | hourly at :30 (7, 3, 1, and 0 days before the account-local deadline) |
 | `/api/payments/razorpay/recovery/cron` | Recovers owner-leased pending/failed/stale Razorpay events in bounded batches and performs the once-daily OAuth token-due scan                            | Razorpay webhook/OAuth durability | every 15 min                                                          |
+| `/api/members/import-draft/cleanup`    | Claims expired author-private import drafts, deletes their private source objects, and removes their metadata idempotently                                | Cross-device member import drafts | daily at 02:17 UTC                                                    |
 
-All eight use claim or compare-and-set gates so overlapping schedulers do not
+All nine use claim or compare-and-set gates so overlapping schedulers do not
 overwrite newer state. Delayed automations and public broadcasts remain
 at-least-once across the narrow crash window after an external step succeeds
 but before its completion is recorded. Deep dives:
@@ -76,7 +77,9 @@ for an external partial refund.
 
 Why not native Vercel Cron: the Hobby plan allows only 2 cron jobs at
 once-per-day granularity — useless for the 15-minute jobs. GitHub
-Actions is free, plan-independent, and can send the custom header.
+Actions is free, plan-independent, and can send the custom header. The one
+daily member-import draft cleanup is the deliberate exception and is declared
+in `vercel.json`; it uses Vercel's bearer `CRON_SECRET` authentication.
 
 ### Setup (one-time)
 
@@ -101,6 +104,7 @@ curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/v1/broadca
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/renewals/cron
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/payment-installments/cron
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/payments/razorpay/recovery/cron
+curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/members/import-draft/cleanup
 ```
 
 `401` → secret mismatch (Vercel env vs repo secret). `503` → env var

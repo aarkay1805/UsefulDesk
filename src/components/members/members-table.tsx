@@ -195,7 +195,8 @@ const FEE_STATUS_OPTIONS: { value: string; label: string }[] = [
 
 const CHURN_RISK_CELL_OPTIONS = CHURN_RISK_OPTIONS.map((option) => ({
   ...option,
-  color: option.value === 'yes' ? '#ef4444' : '#64748b',
+  color:
+    option.value === 'yes' ? 'var(--destructive)' : 'var(--muted-foreground)',
 }));
 
 interface MembersTablePrefs {

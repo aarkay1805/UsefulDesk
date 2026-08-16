@@ -8,6 +8,8 @@
 
 **Tech Stack:** Next.js 16 App Router Route Handlers, React 19, TypeScript, Vitest, Supabase Postgres/Auth/Storage/RLS, Tailwind v4, Base UI/shadcn primitives, XLSX workbook parsing.
 
+**Execution note:** The Supabase CLI generated `20260816122505_service_aware_resumable_member_import.sql`; grant/RLS hardening is isolated in the later sortable migration `20260816130000_harden_member_import_grants.sql`.
+
 ## Global Constraints
 
 - Work directly on `codex/member-import-resolution`; preserve every pre-existing uncommitted import change and never reset or discard it.
@@ -101,7 +103,7 @@ git commit -m "feat: resolve member import conflicts"
 
 **Files:**
 
-- Create: `supabase/migrations/20260816183000_service_aware_resumable_member_import.sql` (create first with the Supabase CLI, then use this exact sortable name)
+- Create: `supabase/migrations/20260816122505_service_aware_resumable_member_import.sql` (create first with the Supabase CLI, then use this exact sortable name)
 - Create: `src/lib/memberships/customer-directory.ts`
 - Create: `src/lib/memberships/customer-directory.test.ts`
 - Modify: `src/types/index.ts`
@@ -239,7 +241,7 @@ Expected: membership contact once, service-only contact once, multiple services 
 - [ ] **Step 6: Commit the customer directory**
 
 ```bash
-git add supabase/migrations/20260816183000_service_aware_resumable_member_import.sql src/lib/memberships/customer-directory.ts src/lib/memberships/customer-directory.test.ts src/lib/memberships/filters.ts src/lib/memberships/filters.test.ts src/lib/memberships/search.ts src/lib/memberships/search.test.ts src/types/index.ts src/components/members/membership-status-badge.tsx src/components/members/members-filters.tsx src/components/members/members-table.tsx src/components/members/members-table.test.tsx 'src/app/(dashboard)/members/page.tsx'
+git add supabase/migrations/20260816122505_service_aware_resumable_member_import.sql src/lib/memberships/customer-directory.ts src/lib/memberships/customer-directory.test.ts src/lib/memberships/filters.ts src/lib/memberships/filters.test.ts src/lib/memberships/search.ts src/lib/memberships/search.test.ts src/types/index.ts src/components/members/membership-status-badge.tsx src/components/members/members-filters.tsx src/components/members/members-table.tsx src/components/members/members-table.test.tsx 'src/app/(dashboard)/members/page.tsx'
 git commit -m "feat: list service customers in members"
 ```
 
@@ -259,7 +261,7 @@ git commit -m "feat: list service customers in members"
 - Create: `src/components/members/service-renewal-action-lists.test.tsx`
 - Modify: `src/app/api/member-checkouts/route.ts`
 - Modify: `src/app/api/member-checkouts/route.test.ts`
-- Modify: `supabase/migrations/20260816183000_service_aware_resumable_member_import.sql`
+- Modify: `supabase/migrations/20260816122505_service_aware_resumable_member_import.sql`
 - Modify: `src/app/(dashboard)/members/page.tsx`
 
 **Interfaces:**
@@ -337,7 +339,7 @@ Use `row.contact_id` directly for detail, reminder, follow-up, and checkout. If 
 
 ```bash
 npm test -- src/app/api/member-checkouts/route.test.ts src/components/members/product-service-sale-checkout.test.tsx src/components/members/product-service-sale-dialog.test.tsx src/components/members/member-detail-view.test.tsx src/components/members/service-renewal-action-lists.test.tsx
-git add supabase/migrations/20260816183000_service_aware_resumable_member_import.sql src/app/api/member-checkouts/route.ts src/app/api/member-checkouts/route.test.ts src/components/members/product-service-sale-checkout.tsx src/components/members/product-service-sale-checkout.test.tsx src/components/members/product-service-sale-dialog.tsx src/components/members/product-service-sale-dialog.test.tsx src/components/members/member-detail-view.tsx src/components/members/member-detail-view.test.tsx src/components/members/service-renewal-action-lists.tsx src/components/members/service-renewal-action-lists.test.tsx 'src/app/(dashboard)/members/page.tsx'
+git add supabase/migrations/20260816122505_service_aware_resumable_member_import.sql src/app/api/member-checkouts/route.ts src/app/api/member-checkouts/route.test.ts src/components/members/product-service-sale-checkout.tsx src/components/members/product-service-sale-checkout.test.tsx src/components/members/product-service-sale-dialog.tsx src/components/members/product-service-sale-dialog.test.tsx src/components/members/member-detail-view.tsx src/components/members/member-detail-view.test.tsx src/components/members/service-renewal-action-lists.tsx src/components/members/service-renewal-action-lists.test.tsx 'src/app/(dashboard)/members/page.tsx'
 git commit -m "feat: manage service-only customers"
 ```
 
@@ -347,7 +349,7 @@ git commit -m "feat: manage service-only customers"
 
 **Files:**
 
-- Modify: `supabase/migrations/20260816183000_service_aware_resumable_member_import.sql`
+- Modify: `supabase/migrations/20260816122505_service_aware_resumable_member_import.sql`
 - Create: `src/lib/memberships/import-draft.ts`
 - Create: `src/lib/memberships/import-draft.test.ts`
 - Create: `src/lib/memberships/import-draft-admin.ts`
@@ -419,7 +421,7 @@ Add SQL contract assertions that the table has RLS, the view is security-invoker
 - [ ] **Step 6: Commit private drafts**
 
 ```bash
-git add supabase/migrations/20260816183000_service_aware_resumable_member_import.sql src/lib/memberships/import-draft.ts src/lib/memberships/import-draft.test.ts src/lib/memberships/import-draft-admin.ts src/app/api/members/import-draft src/app/api/members/import-draft/cleanup next.config.ts vercel.json
+git add supabase/migrations/20260816122505_service_aware_resumable_member_import.sql src/lib/memberships/import-draft.ts src/lib/memberships/import-draft.test.ts src/lib/memberships/import-draft-admin.ts src/app/api/members/import-draft src/app/api/members/import-draft/cleanup next.config.ts vercel.json
 git commit -m "feat: persist private member import drafts"
 ```
 
@@ -622,7 +624,7 @@ git commit -m "feat: resolve imported services and trainers"
 
 **Files:**
 
-- Modify: `supabase/migrations/20260816183000_service_aware_resumable_member_import.sql`
+- Modify: `supabase/migrations/20260816122505_service_aware_resumable_member_import.sql`
 - Create: `src/lib/memberships/import-executor.ts`
 - Create: `src/lib/memberships/import-executor.test.ts`
 - Modify: `src/lib/memberships/import-commit.ts`
@@ -670,7 +672,7 @@ Read the generated migration and assert behaviorally meaningful clauses: securit
 
 ```bash
 npm test -- src/lib/memberships/import-executor.test.ts src/lib/memberships/import-commit.test.ts src/lib/memberships/member-import-schema-contract.test.ts
-git add supabase/migrations/20260816183000_service_aware_resumable_member_import.sql src/lib/memberships/import-executor.ts src/lib/memberships/import-executor.test.ts src/lib/memberships/import-commit.ts src/lib/memberships/import-commit.test.ts src/lib/memberships/member-import-schema-contract.test.ts
+git add supabase/migrations/20260816122505_service_aware_resumable_member_import.sql src/lib/memberships/import-executor.ts src/lib/memberships/import-executor.test.ts src/lib/memberships/import-commit.ts src/lib/memberships/import-commit.test.ts src/lib/memberships/member-import-schema-contract.test.ts
 git commit -m "feat: import customer purchases atomically"
 ```
 
@@ -742,7 +744,7 @@ git commit -m "feat: commit service-aware member imports"
 
 **Files:**
 
-- Modify if verification finds defects: `supabase/migrations/20260816183000_service_aware_resumable_member_import.sql`
+- Modify if verification finds defects: `supabase/migrations/20260816122505_service_aware_resumable_member_import.sql`
 
 **Interfaces:**
 
@@ -785,7 +787,7 @@ Run security and performance advisors through the connector. Fix missing FK/RLS 
 - [ ] **Step 5: Commit any verification repairs**
 
 ```bash
-git add supabase/migrations/20260816183000_service_aware_resumable_member_import.sql src/lib/memberships/member-import-schema-contract.test.ts
+git add supabase/migrations/20260816122505_service_aware_resumable_member_import.sql src/lib/memberships/member-import-schema-contract.test.ts
 git commit -m "fix: harden member import persistence"
 ```
 

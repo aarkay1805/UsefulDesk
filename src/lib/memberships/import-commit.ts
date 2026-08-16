@@ -1170,10 +1170,10 @@ export function serializeMemberImportReceiptCsv(
   ].join('\n');
 }
 
-/** Sample offered on Upload. It intentionally demonstrates broad migration
- * coverage while keeping every column optional except Phone and Plan. */
+/** Sample offered on Upload. It demonstrates membership, service-only, and
+ * combined purchases. Phone plus at least one offering is required. */
 export const MEMBER_TEMPLATE_CSV = [
-  'Name,Phone,Email,Plan,Billing option,Start date,Expiry,Status,Fee,Amount paid,Payment method,Payment date,Assigned to,Churn risk,Birthday,Gender,Height,Weight,City,State,Postal code,Notes,Tags',
-  'Asha Rao,+91 98765 43210,asha@example.com,Gold,Monthly,01/07/2026,,Active,"₹1,500","₹1,500",UPI,01/07/2026,Aakash,No,14/08/1993,Female,165 cm,58 kg,Pune,Maharashtra,411001,"Prefers morning classes","VIP, Morning"',
-  'Vikram Shah,+91 91234 56780,,Quarterly,,15 Jun 2026,14 Sep 2026,Active,4000,2000,Cash,15/06/2026,,Yes,22/02/1988,Male,"5\'10""",176 lb,Mumbai,Maharashtra,400001,"Old ID: GYM-204",At risk',
+  'Name,Phone,Email,Plan,Billing option,Start date,Expiry,Status,Service,Service option,Service trainer,Service start date,Service expiry,Service sold price,Service status,Fee,Amount paid,Payment method,Payment date,Assigned to,Churn risk,Birthday,Gender,Height,Weight,City,State,Postal code,Notes,Tags',
+  'Asha Rao,+91 98765 43210,asha@example.com,Gold,Monthly,01/07/2026,,Active,Personal training,1 month,Aakash,01/07/2026,01/08/2026,3500,Active,5000,5000,UPI,01/07/2026,Aakash,No,14/08/1993,Female,165 cm,58 kg,Pune,Maharashtra,411001,"Prefers morning classes","VIP, Morning"',
+  'Vikram Shah,+91 91234 56780,,,,,,,Personal training,Quarterly,Aakash,15/06/2026,15/09/2026,9000,Active,9000,4500,Cash,15/06/2026,,Yes,22/02/1988,Male,"5\'10""",176 lb,Mumbai,Maharashtra,400001,"Old ID: GYM-204",At risk',
 ].join('\n');

@@ -46,13 +46,20 @@ function errorMessage(error: unknown): string {
 
 function importedContact(candidate: MemberImportCandidate) {
   const profile = candidate.built.contact;
+  const mappedProfile = Object.fromEntries(
+    Object.entries(profile).filter(([, value]) => value !== null)
+  );
   return {
     id: candidate.existingMatch?.contactId ?? null,
     phone: candidate.draftValues.phone,
-    assigned_to: candidate.built.assignedTo,
-    churn_risk: candidate.built.churnRisk,
+    ...(candidate.built.assignedTo
+      ? { assigned_to: candidate.built.assignedTo }
+      : {}),
+    ...(candidate.built.churnRisk !== null
+      ? { churn_risk: candidate.built.churnRisk }
+      : {}),
     use_csv: candidate.resolutions.existingContact === 'use_csv',
-    ...profile,
+    ...mappedProfile,
   };
 }
 
