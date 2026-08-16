@@ -34,7 +34,7 @@ export function BranchSwitcher({ collapsed }: { collapsed: boolean }) {
       render={
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           aria-label={`Current branch: ${account.name}`}
           className={cn(
             'w-full justify-start',

@@ -452,7 +452,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
         {/* Main navigation */}
         <ScrollArea className="min-h-0 flex-1" scrollbarVisibility="hover">
-          <nav className="px-3 py-4">
+          <nav className="px-3 py-2">
             <ul className="flex flex-col gap-1">
               {/* Get Started sits above the regular nav while onboarding is
                     live for this account (admin+, not yet complete/dismissed).
@@ -489,7 +489,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               {primaryNavItems.map(renderNavItem)}
             </ul>
 
-            <Separator className="my-4" />
+            <Separator className="my-2" />
 
             <ul>
               <li>
@@ -566,7 +566,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               </li>
             </ul>
 
-            <Separator className="my-4" />
+            <Separator className="my-2" />
 
             <ul className="flex flex-col gap-1">
               {bottomNavItems.map((item) => {
