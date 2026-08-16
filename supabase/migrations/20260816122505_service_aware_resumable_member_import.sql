@@ -264,3 +264,279 @@ REVOKE ALL ON FUNCTION public.perform_contact_checkout(JSONB)
   FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.perform_contact_checkout(JSONB)
   TO authenticated;
+
+-- Private, author-owned import drafts. The original workbook lives in a
+-- private Storage bucket; normalized wizard state is revisioned here.
+CREATE TABLE IF NOT EXISTS public.member_import_drafts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
+  author_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  source_filename TEXT NOT NULL CHECK (LENGTH(BTRIM(source_filename)) > 0),
+  source_kind TEXT NOT NULL CHECK (source_kind IN ('csv', 'xlsx')),
+  source_size BIGINT NOT NULL CHECK (source_size > 0 AND source_size <= 10485760),
+  source_sha256 TEXT NOT NULL CHECK (source_sha256 ~ '^[0-9a-f]{64}$'),
+  object_path TEXT NOT NULL UNIQUE,
+  selected_worksheet TEXT,
+  wizard_step TEXT NOT NULL DEFAULT '1',
+  mapping JSONB NOT NULL DEFAULT '{}'::JSONB,
+  date_order TEXT NOT NULL DEFAULT 'DMY' CHECK (date_order IN ('DMY', 'MDY')),
+  recipe_metadata JSONB,
+  state JSONB NOT NULL DEFAULT '{}'::JSONB,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 days'),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cleanup')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_member_import_drafts_one_active_author
+  ON public.member_import_drafts(account_id, author_id)
+  WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_member_import_drafts_author
+  ON public.member_import_drafts(author_id, account_id);
+CREATE INDEX IF NOT EXISTS idx_member_import_drafts_expiry
+  ON public.member_import_drafts(expires_at, id)
+  WHERE status = 'active';
+
+DROP TRIGGER IF EXISTS set_updated_at ON public.member_import_drafts;
+CREATE TRIGGER set_updated_at
+  BEFORE UPDATE ON public.member_import_drafts
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.member_import_drafts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authors can read member import drafts"
+  ON public.member_import_drafts;
+CREATE POLICY "Authors can read member import drafts"
+  ON public.member_import_drafts FOR SELECT TO authenticated
+  USING (
+    author_id = (SELECT auth.uid())
+    AND public.is_account_member(account_id, 'agent')
+  );
+
+DROP POLICY IF EXISTS "Authors can create member import drafts"
+  ON public.member_import_drafts;
+CREATE POLICY "Authors can create member import drafts"
+  ON public.member_import_drafts FOR INSERT TO authenticated
+  WITH CHECK (
+    author_id = (SELECT auth.uid())
+    AND public.is_account_member(account_id, 'agent')
+  );
+
+DROP POLICY IF EXISTS "Authors can update member import drafts"
+  ON public.member_import_drafts;
+CREATE POLICY "Authors can update member import drafts"
+  ON public.member_import_drafts FOR UPDATE TO authenticated
+  USING (
+    author_id = (SELECT auth.uid())
+    AND public.is_account_member(account_id, 'agent')
+  )
+  WITH CHECK (
+    author_id = (SELECT auth.uid())
+    AND public.is_account_member(account_id, 'agent')
+  );
+
+DROP POLICY IF EXISTS "Authors can delete member import drafts"
+  ON public.member_import_drafts;
+CREATE POLICY "Authors can delete member import drafts"
+  ON public.member_import_drafts FOR DELETE TO authenticated
+  USING (
+    author_id = (SELECT auth.uid())
+    AND public.is_account_member(account_id, 'agent')
+  );
+
+CREATE OR REPLACE FUNCTION public.save_member_import_draft(
+  p_draft_id UUID,
+  p_expected_revision INTEGER,
+  p_state JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_row public.member_import_drafts%ROWTYPE;
+  v_current public.member_import_drafts%ROWTYPE;
+BEGIN
+  UPDATE public.member_import_drafts draft
+  SET
+    selected_worksheet = NULLIF(p_state->>'worksheet', ''),
+    wizard_step = COALESCE(NULLIF(p_state->>'step', ''), draft.wizard_step),
+    mapping = COALESCE(p_state->'mapping', '{}'::JSONB),
+    date_order = COALESCE(NULLIF(p_state->>'dateOrder', ''), draft.date_order),
+    recipe_metadata = p_state->'recipe',
+    state = p_state,
+    revision = draft.revision + 1,
+    saved_at = NOW(),
+    expires_at = NOW() + INTERVAL '30 days'
+  WHERE draft.id = p_draft_id
+    AND draft.author_id = (SELECT auth.uid())
+    AND public.is_account_member(draft.account_id, 'agent')
+    AND draft.status = 'active'
+    AND draft.expires_at > NOW()
+    AND draft.revision = p_expected_revision
+  RETURNING draft.* INTO v_row;
+
+  IF FOUND THEN
+    RETURN jsonb_build_object(
+      'ok', TRUE,
+      'revision', v_row.revision,
+      'saved_at', v_row.saved_at,
+      'expires_at', v_row.expires_at
+    );
+  END IF;
+
+  SELECT draft.* INTO v_current
+  FROM public.member_import_drafts draft
+  WHERE draft.id = p_draft_id
+    AND draft.author_id = (SELECT auth.uid())
+    AND public.is_account_member(draft.account_id, 'agent');
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', FALSE, 'code', 'draft_unavailable');
+  END IF;
+  IF v_current.status <> 'active' OR v_current.expires_at <= NOW() THEN
+    RETURN jsonb_build_object(
+      'ok', FALSE,
+      'code', 'draft_expired',
+      'revision', v_current.revision
+    );
+  END IF;
+  RETURN jsonb_build_object(
+    'ok', FALSE,
+    'code', 'draft_conflict',
+    'revision', v_current.revision
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.save_member_import_draft(UUID, INTEGER, JSONB)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.save_member_import_draft(UUID, INTEGER, JSONB)
+  TO authenticated;
+
+-- Claiming is service-only. Rows are marked before returning so concurrent
+-- cleanup workers never delete the same object.
+CREATE OR REPLACE FUNCTION public.claim_expired_member_import_drafts(
+  p_limit INTEGER DEFAULT 50
+)
+RETURNS SETOF public.member_import_drafts
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  RETURN QUERY
+  WITH claimed AS (
+    SELECT draft.id
+    FROM public.member_import_drafts draft
+    WHERE draft.status = 'active'
+      AND draft.expires_at <= NOW()
+    ORDER BY draft.expires_at, draft.id
+    FOR UPDATE SKIP LOCKED
+    LIMIT LEAST(GREATEST(p_limit, 1), 200)
+  )
+  UPDATE public.member_import_drafts draft
+  SET status = 'cleanup'
+  FROM claimed
+  WHERE draft.id = claimed.id
+  RETURNING draft.*;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.claim_expired_member_import_drafts(INTEGER)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_expired_member_import_drafts(INTEGER)
+  TO service_role;
+
+INSERT INTO storage.buckets (
+  id,
+  name,
+  public,
+  file_size_limit,
+  allowed_mime_types
+) VALUES (
+  'member-import-drafts',
+  'member-import-drafts',
+  FALSE,
+  10485760,
+  ARRAY[
+    'text/csv',
+    'application/csv',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ]
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = EXCLUDED.public,
+  file_size_limit = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+DROP POLICY IF EXISTS "Authors can read member import draft files"
+  ON storage.objects;
+CREATE POLICY "Authors can read member import draft files"
+  ON storage.objects FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'member-import-drafts'
+    AND storage.allow_any_operation(ARRAY[
+      'object.get_authenticated_info',
+      'object.get_authenticated'
+    ])
+    AND (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    AND (storage.foldername(name))[2] = (SELECT auth.uid())::TEXT
+    AND public.is_account_member(
+      ((storage.foldername(name))[1])::UUID,
+      'agent'
+    )
+  );
+
+DROP POLICY IF EXISTS "Authors can upload member import draft files"
+  ON storage.objects;
+CREATE POLICY "Authors can upload member import draft files"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'member-import-drafts'
+    AND (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    AND (storage.foldername(name))[2] = (SELECT auth.uid())::TEXT
+    AND public.is_account_member(
+      ((storage.foldername(name))[1])::UUID,
+      'agent'
+    )
+  );
+
+DROP POLICY IF EXISTS "Authors can update member import draft files"
+  ON storage.objects;
+CREATE POLICY "Authors can update member import draft files"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'member-import-drafts'
+    AND (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    AND (storage.foldername(name))[2] = (SELECT auth.uid())::TEXT
+    AND public.is_account_member(
+      ((storage.foldername(name))[1])::UUID,
+      'agent'
+    )
+  )
+  WITH CHECK (
+    bucket_id = 'member-import-drafts'
+    AND (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    AND (storage.foldername(name))[2] = (SELECT auth.uid())::TEXT
+    AND public.is_account_member(
+      ((storage.foldername(name))[1])::UUID,
+      'agent'
+    )
+  );
+
+DROP POLICY IF EXISTS "Authors can delete member import draft files"
+  ON storage.objects;
+CREATE POLICY "Authors can delete member import draft files"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'member-import-drafts'
+    AND (storage.foldername(name))[1] ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    AND (storage.foldername(name))[2] = (SELECT auth.uid())::TEXT
+    AND public.is_account_member(
+      ((storage.foldername(name))[1])::UUID,
+      'agent'
+    )
+  );

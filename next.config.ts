@@ -69,6 +69,9 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['127.0.0.1'],
+  experimental: {
+    proxyClientMaxBodySize: '12mb',
+  },
 
   /**
    * Cache-Control policy.

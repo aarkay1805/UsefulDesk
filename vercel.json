@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/members/import-draft/cleanup",
+      "schedule": "17 2 * * *"
+    }
+  ]
+}
