@@ -12,6 +12,8 @@ Shipped addition: **member-only Products & services with fixed or trainer-specif
 
 Engineering maintenance: **Renew membership now uses the established conversion-style split task model with member/current-term context, grouped membership details, checkbox-opted products/services using the Add purchase catalogue and quantity controls, payment, fixed chrome, and a scroll-contained responsive body; deselecting add-ons clears their invoice selections. Dialog and Sheet share one visible blur standard, including the supported nested-dialog parent blur, while lightweight popovers and menus remain unchanged**.
 
+Engineering maintenance: **mid-cycle Change plan again records its optional first manual collection in the same transaction: membership payment serialization stays on the already-locked billing period, the immutable linked invoice remains readable without exposing invoice UPDATE RLS, and generic invoice collection keeps its stronger trusted invoice lock**.
+
 Engineering maintenance: **Dashboard Renewals due uses the same renewal-chase predicate as its default seven-day Members → Renewals queue, so fixed-term and session-pack expiries no longer inflate the KPI**.
 
 Engineering maintenance: **Meta lead-ad deliveries now lease a durable event and atomically retain the contact, one enquiry note, and original new-contact state, so partial retries resume automation without reclassifying or duplicating the enquiry; goal tagging remains non-blocking enrichment**.
