@@ -107,8 +107,12 @@ function renderPreview(
   const props: React.ComponentProps<typeof ImportMembersPreview> = {
     candidates: rows,
     plans,
+    catalogItems: [],
+    trainers: [],
     onPatch: vi.fn(),
     onResolveGroupedPlan: vi.fn(),
+    onResolveGroupedOffering: vi.fn(),
+    onResolveGroupedService: vi.fn(),
     onResolvePayment: vi.fn(),
     onResolveExistingContact: vi.fn(),
     onSetDisposition: vi.fn(),

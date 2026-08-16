@@ -4,12 +4,23 @@ import {
   buildMembershipRow,
   parseImportDate,
   parseMoney,
+  parsePaymentMethod,
   type BuiltMemberRow,
   type MemberImportRow,
 } from '@/lib/memberships/import-commit';
 import { durationLabel, optionEndDate } from '@/lib/memberships/pricing';
+import {
+  buildImportedServiceIntent,
+  type ImportedServiceIntent,
+  type MemberImportServiceFacts,
+} from '@/lib/memberships/member-import-services';
 import { isValidE164 } from '@/lib/whatsapp/phone-utils';
-import type { MembershipPlan } from '@/types';
+import type {
+  CatalogItem,
+  MembershipPlan,
+  Trainer,
+  TrainerRate,
+} from '@/types';
 
 export type MemberImportIssueSeverity = 'blocking' | 'decision' | 'notice';
 export type MemberImportCandidateDisposition = 'included' | 'excluded';
@@ -60,6 +71,13 @@ export interface MemberImportCandidateIssue {
     | 'invalid-membership-values'
     | 'payment-conflict'
     | 'existing-contact'
+    | 'offering-needs-classification'
+    | 'service-needs-resolution'
+    | 'service-values-invalid'
+    | 'service-expiry-mismatch'
+    | 'trainer-ignored'
+    | 'duplicate-service'
+    | 'purchase-total-mismatch'
     | 'expiry-duration-mismatch'
     | 'membership-history'
     | 'summary-row'
@@ -74,8 +92,30 @@ export interface MemberImportCandidateIssue {
 
 export interface MemberImportCandidateResolutions {
   plan: { planId: string; pricingOptionId: string } | null;
+  offering?:
+    | { kind: 'membership'; planId: string; pricingOptionId: string }
+    | { kind: 'service'; itemId: string; optionId: string }
+    | null;
+  service?: {
+    itemId: string;
+    optionId: string;
+    trainerId: string | null;
+  } | null;
   payment: MemberImportPaymentResolution | null;
   existingContact: MemberImportExistingContactResolution | null;
+}
+
+export type MemberImportOutcomeKind =
+  'membership' | 'service' | 'membership_service' | 'none';
+
+export interface MemberImportMembershipComponent {
+  included: boolean;
+  exclusionReason: 'membership-history' | 'existing-member' | null;
+  membership: BuiltMemberRow['membership'];
+}
+
+export interface MemberImportServiceComponent {
+  intent: ImportedServiceIntent;
 }
 
 export interface MemberImportCandidate {
@@ -86,6 +126,13 @@ export interface MemberImportCandidate {
   draftValues: MemberImportDraftValues;
   existingMatch: MemberImportExistingMatch | null;
   built: BuiltMemberRow;
+  membershipComponent: MemberImportMembershipComponent | null;
+  serviceComponent: MemberImportServiceComponent | null;
+  outcomeKind: MemberImportOutcomeKind;
+  customerGroupKey: string;
+  customerIdempotencyKey: string;
+  purchaseIdempotencyKey: string;
+  purchaseTotal: number | null;
   issues: MemberImportCandidateIssue[];
   disposition: MemberImportCandidateDisposition;
   exclusionReason: MemberImportCandidateExclusionReason | null;
@@ -96,6 +143,9 @@ export interface MemberImportCandidate {
 
 export interface MemberImportCandidateContext {
   plans: MembershipPlan[];
+  catalogItems?: CatalogItem[];
+  trainers?: Trainer[];
+  trainerRates?: TrainerRate[];
   dateOrder: DateOrder;
   today: string;
   staff?: StaffRef[];
@@ -118,6 +168,10 @@ export interface MemberImportCandidateSummary {
   newContacts: number;
   attachedContacts: number;
   memberships: number;
+  uniqueCustomers: number;
+  services: number;
+  combinedInvoices: number;
+  serviceOnlyInvoices: number;
   payments: number;
   memberOnlyImports: number;
 }
@@ -137,6 +191,139 @@ function normalizeGroupValue(value: string | null | undefined): string {
   return trim(value)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-');
+}
+
+function deterministicUuid(value: string): string {
+  const seeds = [0x811c9dc5, 0x9e3779b9, 0x85ebca6b, 0xc2b2ae35];
+  const words = seeds.map((seed) => {
+    let hash = seed >>> 0;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash.toString(16).padStart(8, '0');
+  });
+  const chars = words.join('').split('');
+  chars[12] = '4';
+  chars[16] = ((Number.parseInt(chars[16], 16) & 0x3) | 0x8).toString(16);
+  const hex = chars.join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function hasMembershipSource(candidate: MemberImportCandidate): boolean {
+  return Boolean(
+    trim(candidate.draftValues.planName) ||
+    candidate.resolutions.offering?.kind === 'membership'
+  );
+}
+
+function hasServiceSource(candidate: MemberImportCandidate): boolean {
+  return Boolean(
+    trim(candidate.draftValues.serviceName) ||
+    candidate.resolutions.offering?.kind === 'service'
+  );
+}
+
+function serviceFacts(
+  context: MemberImportCandidateContext
+): MemberImportServiceFacts {
+  return {
+    catalogItems: context.catalogItems ?? [],
+    trainers: context.trainers ?? [],
+    trainerRates: context.trainerRates ?? [],
+  };
+}
+
+function inferOfferingResolution(
+  values: MemberImportDraftValues,
+  context: MemberImportCandidateContext
+): MemberImportCandidateResolutions['offering'] {
+  const offering = normalizeGroupValue(values.offering);
+  if (!offering) return null;
+  const plans = context.plans.filter(
+    (plan) =>
+      plan.is_active !== false && normalizeGroupValue(plan.name) === offering
+  );
+  const services = (context.catalogItems ?? []).filter(
+    (item) =>
+      item.kind === 'service' &&
+      item.is_active &&
+      normalizeGroupValue(item.name) === offering
+  );
+  if (plans.length === 1 && services.length === 0) {
+    let options = (plans[0].pricing_options ?? [])
+      .filter((option) => option.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const wantedOption = normalizeGroupValue(values.pricingOption);
+    if (wantedOption) {
+      options = options.filter(
+        (option) =>
+          normalizeGroupValue(
+            durationLabel(option.duration_count, option.duration_unit)
+          ) === wantedOption
+      );
+    }
+    if (options.length !== 1) return null;
+    return {
+      kind: 'membership',
+      planId: plans[0].id,
+      pricingOptionId: options[0].id,
+    };
+  }
+  if (services.length === 1 && plans.length === 0) {
+    let options = (services[0].catalog_options ?? [])
+      .filter((option) => option.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const wantedOption = normalizeGroupValue(values.serviceOption);
+    if (wantedOption) {
+      options = options.filter(
+        (option) =>
+          option.duration_count !== null &&
+          option.duration_unit !== null &&
+          normalizeGroupValue(
+            durationLabel(option.duration_count, option.duration_unit)
+          ) === wantedOption
+      );
+    }
+    if (options.length !== 1) return null;
+    return { kind: 'service', itemId: services[0].id, optionId: options[0].id };
+  }
+  return null;
+}
+
+function materializedDraft(
+  candidate: MemberImportCandidate,
+  context: MemberImportCandidateContext
+): MemberImportDraftValues {
+  const offering = candidate.resolutions.offering;
+  if (offering?.kind === 'membership') {
+    const planDraft = planResolutionDraft(context, offering);
+    return planDraft
+      ? { ...candidate.draftValues, ...planDraft }
+      : candidate.draftValues;
+  }
+  if (offering?.kind === 'service') {
+    const item = (context.catalogItems ?? []).find(
+      (candidateItem) => candidateItem.id === offering.itemId
+    );
+    const option = item?.catalog_options?.find(
+      (candidateOption) => candidateOption.id === offering.optionId
+    );
+    if (
+      !item ||
+      !option ||
+      option.duration_count === null ||
+      option.duration_unit === null
+    ) {
+      return candidate.draftValues;
+    }
+    return {
+      ...candidate.draftValues,
+      serviceName: item.name,
+      serviceOption: durationLabel(option.duration_count, option.duration_unit),
+    };
+  }
+  return candidate.draftValues;
 }
 
 function cloneDraft(values: MemberImportDraftValues): MemberImportDraftValues {
@@ -188,10 +375,17 @@ function membershipStart(
 function historyExclusions(
   candidates: MemberImportCandidate[],
   context: MemberImportCandidateContext
-): Map<string, MemberImportCandidateExclusionReason | null> {
+): {
+  rows: Map<string, MemberImportCandidateExclusionReason | null>;
+  memberships: Map<string, 'membership-history' | 'existing-member'>;
+} {
   const exclusions = new Map<
     string,
     MemberImportCandidateExclusionReason | null
+  >();
+  const membershipExclusions = new Map<
+    string,
+    'membership-history' | 'existing-member'
   >();
   const latestByLegacyId = new Map<
     string,
@@ -203,8 +397,13 @@ function historyExclusions(
       exclusions.set(candidate.sourceKey, 'summary-row');
       continue;
     }
+    if (!hasMembershipSource(candidate)) continue;
     if (candidate.existingMatch?.isMember) {
-      exclusions.set(candidate.sourceKey, 'existing-member');
+      if (hasServiceSource(candidate)) {
+        membershipExclusions.set(candidate.sourceKey, 'existing-member');
+      } else {
+        exclusions.set(candidate.sourceKey, 'existing-member');
+      }
       continue;
     }
     const legacyMemberId = trim(candidate.legacyMemberId);
@@ -229,10 +428,14 @@ function historyExclusions(
     const legacyMemberId = trim(candidate.legacyMemberId);
     const latest = legacyMemberId ? latestByLegacyId.get(legacyMemberId) : null;
     if (latest && latest.sourceKey !== candidate.sourceKey) {
-      exclusions.set(candidate.sourceKey, 'membership-history');
+      if (hasServiceSource(candidate)) {
+        membershipExclusions.set(candidate.sourceKey, 'membership-history');
+      } else {
+        exclusions.set(candidate.sourceKey, 'membership-history');
+      }
     }
   }
-  return exclusions;
+  return { rows: exclusions, memberships: membershipExclusions };
 }
 
 function planResolutionDraft(
@@ -287,10 +490,17 @@ function rebuildCandidate(
   candidate: MemberImportCandidate,
   context: MemberImportCandidateContext,
   exclusionReason: MemberImportCandidateExclusionReason | null,
-  sharedPhones: Set<string>
+  membershipExclusion: 'membership-history' | 'existing-member' | null,
+  customerGroup: { key: string; conflict: boolean }
 ): MemberImportCandidate {
-  const built = buildMembershipRow(
-    candidate.draftValues,
+  const values = materializedDraft(candidate, context);
+  const membershipSource = hasMembershipSource(candidate);
+  const serviceSource = hasServiceSource(candidate);
+  const membershipBuildValues = serviceSource
+    ? { ...values, amountPaid: '', feeStatus: '', paidAt: '' }
+    : values;
+  let built = buildMembershipRow(
+    membershipBuildValues,
     context.plans,
     context.dateOrder,
     context.today,
@@ -319,22 +529,36 @@ function rebuildCandidate(
         'Enter a valid international phone number.'
       )
     );
-  } else if (
-    candidate.disposition === 'included' &&
-    sharedPhones.has(phoneKey)
-  ) {
+  } else if (candidate.disposition === 'included' && customerGroup.conflict) {
     issues.push(
       issue(
         'shared-phone',
         'blocking',
         `shared-phone:${phoneKey}`,
-        'This phone is used by another included source row.',
-        'Keep one row included or give each member a different phone.'
+        'This phone has conflicting names or source member identities.',
+        'Correct the identity values or exclude the conflicting row.'
       )
     );
   }
 
-  if (built.errors.includes('unknown-plan')) {
+  if (
+    trim(values.offering) &&
+    !candidate.resolutions.offering &&
+    !trim(values.planName) &&
+    !trim(values.serviceName)
+  ) {
+    issues.push(
+      issue(
+        'offering-needs-classification',
+        'decision',
+        `offering:${normalizeGroupValue(values.offering)}`,
+        'Choose whether this source offering is a membership or service.',
+        'Select an active plan and billing option or service and option.'
+      )
+    );
+  }
+
+  if (membershipSource && built.errors.includes('unknown-plan')) {
     const planGroup = `plan:${normalizeGroupValue(candidate.draftValues.planName) || '(blank)'}:${normalizeGroupValue(candidate.draftValues.pricingOption) || '(blank)'}`;
     issues.push(
       issue(
@@ -346,7 +570,7 @@ function rebuildCandidate(
       )
     );
   }
-  if (built.errors.includes('no-pricing')) {
+  if (membershipSource && built.errors.includes('no-pricing')) {
     issues.push(
       issue(
         'pricing-option-needs-resolution',
@@ -358,6 +582,7 @@ function rebuildCandidate(
     );
   }
   if (
+    membershipSource &&
     built.errors.some(
       (error) => error !== 'unknown-plan' && error !== 'no-pricing'
     )
@@ -371,6 +596,153 @@ function rebuildCandidate(
         'Correct the membership values before importing.'
       )
     );
+  }
+
+  let serviceComponent: MemberImportServiceComponent | null = null;
+  if (serviceSource) {
+    const serviceResult = buildImportedServiceIntent(
+      {
+        serviceName: values.serviceName ?? values.offering ?? '',
+        serviceOption: values.serviceOption,
+        trainerName: values.serviceTrainer,
+        startDate: values.serviceStart,
+        fallbackStartDate: values.startDate,
+        endDate: values.serviceEnd,
+        soldPrice: values.serviceSoldPrice,
+        status: values.serviceStatus,
+        resolution:
+          candidate.resolutions.service ??
+          (candidate.resolutions.offering?.kind === 'service'
+            ? {
+                itemId: candidate.resolutions.offering.itemId,
+                optionId: candidate.resolutions.offering.optionId,
+                trainerId: null,
+              }
+            : undefined),
+      },
+      serviceFacts(context),
+      context
+    );
+    if (serviceResult.intent) {
+      serviceComponent = { intent: serviceResult.intent };
+    }
+    for (const serviceIssue of serviceResult.errors) {
+      issues.push(
+        issue(
+          serviceIssue.code === 'service-unresolved' ||
+            serviceIssue.code === 'service-option-unresolved' ||
+            serviceIssue.code === 'trainer-unresolved' ||
+            serviceIssue.code === 'trainer-required' ||
+            serviceIssue.code === 'trainer-rate-missing'
+            ? 'service-needs-resolution'
+            : 'service-values-invalid',
+          serviceIssue.code.includes('unresolved') ||
+            serviceIssue.code.includes('trainer')
+            ? 'decision'
+            : 'blocking',
+          `service:${normalizeGroupValue(values.serviceName ?? values.offering)}:${normalizeGroupValue(values.serviceOption)}:${normalizeGroupValue(values.serviceTrainer)}`,
+          serviceIssue.message,
+          'Choose active service facts or correct this source row.'
+        )
+      );
+    }
+    for (const notice of serviceResult.notices) {
+      issues.push(
+        issue(
+          notice.code === 'trainer-ignored'
+            ? 'trainer-ignored'
+            : 'service-expiry-mismatch',
+          'notice',
+          `${notice.code}:${candidate.sourceKey}`,
+          notice.message,
+          'Verify the imported service terms.',
+          true
+        )
+      );
+    }
+  }
+
+  const explicitTotal = trim(values.fee) ? parseMoney(values.fee ?? '') : null;
+  const membershipConfiguredAmount = built.membership?.fee_amount ?? 0;
+  const serviceAmount = serviceComponent?.intent.soldAmount ?? 0;
+  const purchaseTotal =
+    explicitTotal ?? membershipConfiguredAmount + serviceAmount;
+  if (explicitTotal !== null && serviceComponent && !membershipSource) {
+    if (Math.abs(explicitTotal - serviceAmount) > 0.01) {
+      issues.push(
+        issue(
+          'purchase-total-mismatch',
+          'blocking',
+          `purchase-total:${candidate.sourceKey}`,
+          'The row fee does not equal the resolved service sold price.',
+          'Correct the row fee or service sold price.'
+        )
+      );
+    }
+  }
+  if (explicitTotal !== null && serviceComponent && built.membership) {
+    const membershipAmount = explicitTotal - serviceAmount;
+    if (membershipAmount < 0) {
+      issues.push(
+        issue(
+          'purchase-total-mismatch',
+          'blocking',
+          `purchase-total:${candidate.sourceKey}`,
+          'The row fee is lower than the resolved service sold price.',
+          'Correct the combined row fee or service sold price.'
+        )
+      );
+    } else {
+      built = {
+        ...built,
+        membership: { ...built.membership, fee_amount: membershipAmount },
+      };
+    }
+  }
+
+  const amountPaid = parseMoney(values.amountPaid ?? '');
+  const paidOn = values.paidAt
+    ? parseImportDate(values.paidAt, context.dateOrder)
+    : null;
+  if (
+    amountPaid !== null &&
+    amountPaid > purchaseTotal &&
+    !paymentConflict(values)
+  ) {
+    issues.push(
+      issue(
+        'payment-conflict',
+        'decision',
+        `payment-conflict:${candidate.sourceKey}`,
+        'Amount paid is greater than this row’s resolved purchase total.',
+        'Correct the payment or import the purchase without a payment.'
+      )
+    );
+  }
+  built = {
+    ...built,
+    payment:
+      amountPaid !== null && amountPaid > 0
+        ? {
+            amount: amountPaid,
+            method: parsePaymentMethod(values.paymentMethod ?? ''),
+            paidOn:
+              paidOn ??
+              built.membership?.start_date ??
+              serviceComponent?.intent.startDate ??
+              context.today,
+          }
+        : null,
+  };
+
+  if (!membershipSource) {
+    built = {
+      ...built,
+      membership: null,
+      errors: [],
+    };
+  } else if (membershipExclusion) {
+    built = { ...built, membership: null };
   }
 
   const hasPaymentConflict = paymentConflict(candidate.draftValues);
@@ -424,6 +796,30 @@ function rebuildCandidate(
       )
     );
   }
+  if (membershipExclusion === 'membership-history') {
+    issues.push(
+      issue(
+        'membership-history',
+        'notice',
+        `membership-history:${candidate.legacyMemberId ?? candidate.sourceKey}`,
+        'The older membership component is excluded; this row’s service remains eligible.',
+        'Review the service purchase; no membership action is required.',
+        true
+      )
+    );
+  }
+  if (membershipExclusion === 'existing-member') {
+    issues.push(
+      issue(
+        'existing-member',
+        'notice',
+        `existing-member:${candidate.existingMatch?.contactId ?? candidate.sourceKey}`,
+        'The existing membership is kept; this row’s service remains eligible.',
+        'Review the service purchase; no membership action is required.',
+        true
+      )
+    );
+  }
   if (exclusionReason === 'summary-row') {
     issues.push(
       issue(
@@ -450,12 +846,37 @@ function rebuildCandidate(
   }
 
   const disposition = exclusionReason ? 'excluded' : candidate.disposition;
+  const membershipComponent = membershipSource
+    ? {
+        included: membershipExclusion === null && Boolean(built.membership),
+        exclusionReason: membershipExclusion,
+        membership: built.membership,
+      }
+    : null;
+  const outcomeKind: MemberImportOutcomeKind =
+    membershipComponent?.included && serviceComponent
+      ? 'membership_service'
+      : membershipComponent?.included
+        ? 'membership'
+        : serviceComponent
+          ? 'service'
+          : 'none';
   const ready =
     disposition === 'included' &&
     issues.every((item) => item.severity === 'notice' || item.resolved);
   return {
     ...candidate,
+    draftValues: values,
     built,
+    membershipComponent,
+    serviceComponent,
+    outcomeKind,
+    customerGroupKey: customerGroup.key,
+    customerIdempotencyKey: deterministicUuid(`customer:${customerGroup.key}`),
+    purchaseIdempotencyKey: deterministicUuid(
+      `purchase:${customerGroup.key}:${candidate.sourceKey}`
+    ),
+    purchaseTotal,
     issues,
     disposition,
     exclusionReason,
@@ -469,7 +890,7 @@ function recomputeMemberImportCandidates(
 ): MemberImportCandidate[] {
   const automaticExclusions = historyExclusions(candidates, context);
   const withExclusions = candidates.map((candidate) => {
-    const automatic = automaticExclusions.get(candidate.sourceKey);
+    const automatic = automaticExclusions.rows.get(candidate.sourceKey);
     const manual = candidate.exclusionReason === 'manual';
     return {
       ...candidate,
@@ -477,26 +898,81 @@ function recomputeMemberImportCandidates(
       exclusionReason: automatic ?? (manual ? 'manual' : null),
     };
   });
-  const phoneCounts = new Map<string, number>();
+  const rowsByPhone = new Map<string, MemberImportCandidate[]>();
   for (const candidate of withExclusions) {
     if (candidate.disposition !== 'included') continue;
     const key = normalizeKey(candidate.draftValues.phone);
-    if (key && isValidE164(key))
-      phoneCounts.set(key, (phoneCounts.get(key) ?? 0) + 1);
+    if (key && isValidE164(key)) {
+      rowsByPhone.set(key, [...(rowsByPhone.get(key) ?? []), candidate]);
+    }
   }
-  const sharedPhones = new Set(
-    [...phoneCounts.entries()]
-      .filter(([, count]) => count > 1)
-      .map(([phone]) => phone)
-  );
-  return withExclusions.map((candidate) =>
+  const customerGroups = new Map<string, { key: string; conflict: boolean }>();
+  for (const [phone, rows] of rowsByPhone) {
+    const legacyIds = new Set(
+      rows.map((row) => normalizeGroupValue(row.legacyMemberId)).filter(Boolean)
+    );
+    const names = new Set(
+      rows
+        .map((row) => normalizeGroupValue(row.draftValues.name))
+        .filter(Boolean)
+    );
+    const conflict = legacyIds.size > 1 || names.size > 1;
+    const legacyIdentity = [...legacyIds].sort()[0] ?? '';
+    const key = `phone:${phone}:legacy:${legacyIdentity || '-'}`;
+    for (const row of rows)
+      customerGroups.set(row.sourceKey, { key, conflict });
+  }
+  const rebuilt = withExclusions.map((candidate) =>
     rebuildCandidate(
       candidate,
       context,
       candidate.exclusionReason,
-      sharedPhones
+      automaticExclusions.memberships.get(candidate.sourceKey) ?? null,
+      customerGroups.get(candidate.sourceKey) ?? {
+        key: `source:${candidate.sourceKey}`,
+        conflict: false,
+      }
     )
   );
+  const servicePurchaseCounts = new Map<string, number>();
+  for (const candidate of rebuilt) {
+    if (candidate.disposition !== 'included' || !candidate.serviceComponent)
+      continue;
+    const service = candidate.serviceComponent.intent;
+    const key = [
+      candidate.customerGroupKey,
+      service.optionId,
+      service.startDate,
+      service.endDate,
+      service.soldAmount,
+      service.trainerId ?? '-',
+    ].join(':');
+    servicePurchaseCounts.set(key, (servicePurchaseCounts.get(key) ?? 0) + 1);
+  }
+  return rebuilt.map((candidate) => {
+    const service = candidate.serviceComponent?.intent;
+    if (!service || candidate.disposition !== 'included') return candidate;
+    const duplicateKey = [
+      candidate.customerGroupKey,
+      service.optionId,
+      service.startDate,
+      service.endDate,
+      service.soldAmount,
+      service.trainerId ?? '-',
+    ].join(':');
+    if ((servicePurchaseCounts.get(duplicateKey) ?? 0) < 2) return candidate;
+    const issues = [
+      ...candidate.issues,
+      issue(
+        'duplicate-service',
+        'blocking',
+        `duplicate-service:${duplicateKey}`,
+        'This is an exact duplicate of another included service purchase.',
+        'Exclude one row or correct the service terms so each purchase is distinct.'
+      ),
+    ];
+    return { ...candidate, issues, isReady: false };
+  });
 }
 
 /** Builds a persistent, editable candidate per source row; no row is dropped. */
@@ -505,43 +981,96 @@ export function buildMemberImportCandidates(
   context: MemberImportCandidateContext
 ): MemberImportCandidate[] {
   return recomputeMemberImportCandidates(
-    inputs.map((input) => ({
-      sourceKey: input.sourceKey,
-      sourceRow: input.sourceRow,
-      legacyMemberId: trim(input.legacyMemberId) || null,
-      originalValues: cloneDraft(input.originalValues),
-      draftValues: cloneDraft(input.originalValues),
-      existingMatch: input.existingMatch ?? null,
-      built: {
-        membership: null,
-        payment: null,
-        assignedTo: null,
-        churnRisk: null,
-        contact: {
-          name: null,
-          email: null,
-          company: null,
-          date_of_birth: null,
-          gender: null,
-          nickname: null,
-          height_cm: null,
-          weight_kg: null,
-          address_line1: null,
-          address_line2: null,
-          city: null,
-          state: null,
-          postal_code: null,
-          country: null,
+    inputs.map((input) => {
+      const draftValues = cloneDraft(input.originalValues);
+      return {
+        sourceKey: input.sourceKey,
+        sourceRow: input.sourceRow,
+        legacyMemberId: trim(input.legacyMemberId) || null,
+        originalValues: cloneDraft(input.originalValues),
+        draftValues,
+        existingMatch: input.existingMatch ?? null,
+        built: {
+          membership: null,
+          payment: null,
+          assignedTo: null,
+          churnRisk: null,
+          contact: {
+            name: null,
+            email: null,
+            company: null,
+            date_of_birth: null,
+            gender: null,
+            nickname: null,
+            height_cm: null,
+            weight_kg: null,
+            address_line1: null,
+            address_line2: null,
+            city: null,
+            state: null,
+            postal_code: null,
+            country: null,
+          },
+          errors: [],
+          warnings: [],
         },
-        errors: [],
-        warnings: [],
-      },
+        membershipComponent: null,
+        serviceComponent: null,
+        outcomeKind: 'none' as const,
+        customerGroupKey: `source:${input.sourceKey}`,
+        customerIdempotencyKey: deterministicUuid(
+          `customer:source:${input.sourceKey}`
+        ),
+        purchaseIdempotencyKey: deterministicUuid(
+          `purchase:source:${input.sourceKey}`
+        ),
+        purchaseTotal: null,
+        issues: [],
+        disposition: input.isSummaryRow
+          ? ('excluded' as const)
+          : ('included' as const),
+        exclusionReason: input.isSummaryRow ? ('summary-row' as const) : null,
+        resolutions: {
+          plan: null,
+          offering: inferOfferingResolution(draftValues, context),
+          service: null,
+          payment: null,
+          existingContact: null,
+        },
+        isReady: false,
+        receiptOutcome: input.receiptOutcome ?? null,
+      };
+    }),
+    context
+  );
+}
+
+/** Recomputes saved candidates from editable source facts and current account
+ * references. Persisted readiness is deliberately ignored on resume. */
+export function revalidateMemberImportCandidates(
+  candidates: MemberImportCandidate[],
+  context: MemberImportCandidateContext
+): MemberImportCandidate[] {
+  return recomputeMemberImportCandidates(
+    candidates.map((candidate) => ({
+      ...candidate,
+      originalValues: cloneDraft(candidate.originalValues),
+      draftValues: cloneDraft(candidate.draftValues),
+      membershipComponent: null,
+      serviceComponent: null,
+      outcomeKind: 'none',
+      purchaseTotal: null,
       issues: [],
-      disposition: input.isSummaryRow ? 'excluded' : 'included',
-      exclusionReason: input.isSummaryRow ? 'summary-row' : null,
-      resolutions: { plan: null, payment: null, existingContact: null },
       isReady: false,
-      receiptOutcome: input.receiptOutcome ?? null,
+      resolutions: {
+        plan: candidate.resolutions?.plan ?? null,
+        offering:
+          candidate.resolutions?.offering ??
+          inferOfferingResolution(candidate.draftValues, context),
+        service: candidate.resolutions?.service ?? null,
+        payment: candidate.resolutions?.payment ?? null,
+        existingContact: candidate.resolutions?.existingContact ?? null,
+      },
     })),
     context
   );
@@ -591,6 +1120,50 @@ export function resolveGroupedPlan(
             ...candidate,
             draftValues: { ...candidate.draftValues, ...draft },
             resolutions: { ...candidate.resolutions, plan: resolution },
+          }
+        : candidate
+    ),
+    context
+  );
+}
+
+export function resolveGroupedOffering(
+  candidates: MemberImportCandidate[],
+  sourceKeys: string[],
+  resolution: NonNullable<MemberImportCandidateResolutions['offering']>,
+  context: MemberImportCandidateContext
+): MemberImportCandidate[] {
+  const keys = new Set(sourceKeys);
+  return recomputeMemberImportCandidates(
+    candidates.map((candidate) =>
+      keys.has(candidate.sourceKey) && !automaticExclusion(candidate)
+        ? {
+            ...candidate,
+            resolutions: { ...candidate.resolutions, offering: resolution },
+          }
+        : candidate
+    ),
+    context
+  );
+}
+
+export function resolveGroupedService(
+  candidates: MemberImportCandidate[],
+  sourceKeys: string[],
+  resolution: {
+    itemId: string;
+    optionId: string;
+    trainerId: string | null;
+  },
+  context: MemberImportCandidateContext
+): MemberImportCandidate[] {
+  const keys = new Set(sourceKeys);
+  return recomputeMemberImportCandidates(
+    candidates.map((candidate) =>
+      keys.has(candidate.sourceKey) && !automaticExclusion(candidate)
+        ? {
+            ...candidate,
+            resolutions: { ...candidate.resolutions, service: resolution },
           }
         : candidate
     ),
@@ -710,8 +1283,20 @@ export function summarizeMemberImportCandidates(
     attachedContacts: included.filter((candidate) =>
       Boolean(candidate.existingMatch)
     ).length,
-    memberships: ready.filter((candidate) =>
-      Boolean(candidate.built.membership)
+    uniqueCustomers: new Set(
+      ready.map((candidate) => candidate.customerGroupKey)
+    ).size,
+    memberships: ready.filter(
+      (candidate) => candidate.membershipComponent?.included
+    ).length,
+    services: ready.filter((candidate) => candidate.serviceComponent).length,
+    combinedInvoices: ready.filter(
+      (candidate) =>
+        candidate.membershipComponent?.included && candidate.serviceComponent
+    ).length,
+    serviceOnlyInvoices: ready.filter(
+      (candidate) =>
+        !candidate.membershipComponent?.included && candidate.serviceComponent
     ).length,
     payments: ready.filter((candidate) => Boolean(candidate.built.payment))
       .length,
@@ -751,6 +1336,8 @@ export function searchMemberImportCandidates(
       candidate.draftValues.name,
       candidate.draftValues.phone,
       candidate.draftValues.planName,
+      candidate.draftValues.serviceName,
+      candidate.draftValues.offering,
     ]
       .filter(Boolean)
       .some((value) => value!.toLowerCase().includes(normalized))

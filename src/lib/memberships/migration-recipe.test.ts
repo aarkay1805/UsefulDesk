@@ -80,6 +80,23 @@ describe('member migration recipe', () => {
     ).toBe(false);
   });
 
+  it('classifies explicit membership and service headers separately', () => {
+    const recipe = suggestMemberMigrationRecipe([
+      'Phone',
+      'Package',
+      'Membership plan',
+      'Service',
+      'Service option',
+    ]);
+    expect(recipe.mappings).toMatchObject({
+      phone: 'Phone',
+      offering: 'Package',
+      membership_plan: 'Membership plan',
+      service: 'Service',
+      service_option: 'Service option',
+    });
+  });
+
   it('splits common plan families and terms deterministically', () => {
     expect(splitPlanDuration('FITNESS 12M')).toEqual({
       plan: 'FITNESS',

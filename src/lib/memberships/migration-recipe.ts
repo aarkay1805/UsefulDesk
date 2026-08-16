@@ -8,14 +8,25 @@ import { parseImportDate, parseMoney } from './import-commit';
 export const MIGRATION_TARGETS = [
   'phone',
   'name',
-  'plan',
-  'pricing_option',
+  'membership_plan',
+  'membership_option',
   'start_date',
   'end_date',
   'status',
   'fee_amount',
   'amount_paid',
   'notes',
+  'offering',
+  'service',
+  'service_option',
+  'service_trainer',
+  'service_start',
+  'service_end',
+  'service_sold_price',
+  'service_status',
+  // Kept so saved v1 AI recipes made before service-aware imports still validate.
+  'plan',
+  'pricing_option',
 ] as const;
 export type MigrationTarget = (typeof MIGRATION_TARGETS)[number];
 
@@ -75,14 +86,30 @@ export interface MigrationTransform {
 const HEADER_ALIASES: Record<MigrationTarget, string[]> = {
   phone: ['phone', 'contact', 'mobile', 'phone number'],
   name: ['name', 'member name', 'customer name'],
-  plan: ['plan', 'membership', 'package'],
-  pricing_option: ['pricing option', 'term', 'duration'],
+  membership_plan: ['membership plan', 'membership package', 'membership'],
+  membership_option: [
+    'membership option',
+    'billing option',
+    'membership duration',
+    'term',
+    'duration',
+  ],
   start_date: ['start date', 'joining date'],
   end_date: ['end date', 'expiry', 'expiry date'],
   status: ['status', 'membership status'],
   fee_amount: ['discounted amt', 'discounted amount', 'final fee', 'fee'],
   amount_paid: ['paid amp', 'paid amt', 'paid amount', 'amount paid'],
   notes: ['notes', 'remarks'],
+  offering: ['package', 'offering', 'plan or service', 'product or service'],
+  service: ['service', 'service name'],
+  service_option: ['service option', 'service package', 'service duration'],
+  service_trainer: ['trainer', 'service trainer', 'coach'],
+  service_start: ['service start', 'service start date'],
+  service_end: ['service end', 'service end date', 'service expiry'],
+  service_sold_price: ['service sold price', 'service price', 'sold price'],
+  service_status: ['service status'],
+  plan: [],
+  pricing_option: [],
 };
 
 function findHeader(headers: string[], aliases: string[]): string | null {
@@ -389,14 +416,22 @@ export function applyMemberMigrationRecipe(
       values.set('phone', '');
     }
     if (recipe.splitPlanDuration) {
-      const split = splitPlanDuration(values.get('plan') ?? '');
-      values.set('plan', split.plan);
-      if (split.option) values.set('pricing_option', split.option);
+      const membershipPlanTarget = recipe.mappings.membership_plan
+        ? 'membership_plan'
+        : 'plan';
+      const membershipOptionTarget = recipe.mappings.membership_plan
+        ? 'membership_option'
+        : 'pricing_option';
+      const split = splitPlanDuration(values.get(membershipPlanTarget) ?? '');
+      values.set(membershipPlanTarget, split.plan);
+      if (split.option) values.set(membershipOptionTarget, split.option);
     }
     const parsedStart = parseImportDate(values.get('start_date') ?? '');
     const parsedEnd = parseImportDate(values.get('end_date') ?? '');
+    const membershipOption =
+      values.get('membership_option') || values.get('pricing_option') || '';
     const durationEnd = parsedStart
-      ? expectedEndDate(parsedStart, values.get('pricing_option') ?? '')
+      ? expectedEndDate(parsedStart, membershipOption)
       : null;
     if (
       recipe.explicitEndDateWins &&

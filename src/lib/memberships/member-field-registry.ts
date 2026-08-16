@@ -18,6 +18,17 @@ export type MemberImportFieldKey =
   | 'name'
   | 'email'
   | 'company'
+  | 'offering'
+  | 'membership_plan'
+  | 'membership_option'
+  | 'service'
+  | 'service_option'
+  | 'service_trainer'
+  | 'service_start'
+  | 'service_end'
+  | 'service_sold_price'
+  | 'service_status'
+  /** Legacy saved-draft key; new mapping UI uses membership_plan. */
   | 'plan'
   | 'pricing_option'
   | 'start_date'
@@ -136,26 +147,30 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'organization',
     'employer',
   ]),
+  field('offering', 'Plan or service', 'member', [
+    'offering',
+    'package',
+    'package name',
+    'product or service',
+    'plan or service',
+  ]),
   field(
-    'plan',
-    'Plan',
+    'membership_plan',
+    'Membership plan',
     'member',
     [
       'plan',
       'plan name',
       'membership',
       'membership plan',
+      'membership package',
       'membership type',
-      'package',
-      'package name',
       'scheme',
-      'product',
-      'service',
       'subscription',
     ],
     true
   ),
-  field('pricing_option', 'Billing option', 'member', [
+  field('membership_option', 'Billing option', 'member', [
     'billing option',
     'billing cycle',
     'billing frequency',
@@ -165,6 +180,47 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'tenure',
     'frequency',
     'validity',
+  ]),
+  field('service', 'Service', 'member', [
+    'service',
+    'service name',
+    'class',
+    'class name',
+    'session service',
+  ]),
+  field('service_option', 'Service option', 'member', [
+    'service option',
+    'service duration',
+    'service validity',
+    'service package option',
+  ]),
+  field('service_trainer', 'Service trainer', 'member', [
+    'service trainer',
+    'trainer',
+    'coach',
+    'instructor',
+    'personal trainer',
+  ]),
+  field('service_start', 'Service start date', 'member', [
+    'service start',
+    'service start date',
+    'class start',
+  ]),
+  field('service_end', 'Service expiry', 'member', [
+    'service end',
+    'service end date',
+    'service expiry',
+    'service expiry date',
+  ]),
+  field('service_sold_price', 'Service sold price', 'payment', [
+    'service sold price',
+    'service price',
+    'sold price',
+    'package sold price',
+  ]),
+  field('service_status', 'Service status', 'member', [
+    'service status',
+    'class status',
   ]),
   field('start_date', 'Start date', 'member', [
     'start',
@@ -381,7 +437,16 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
     defaultWidth: 150,
     minWidth: 100,
     filterDim: 'plans',
-    importPolicy: { kind: 'fields', fields: ['plan', 'pricing_option'] },
+    importPolicy: {
+      kind: 'fields',
+      fields: [
+        'offering',
+        'membership_plan',
+        'membership_option',
+        'service',
+        'service_option',
+      ],
+    },
   },
   {
     key: 'expiry',
@@ -389,7 +454,10 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
     defaultWidth: 130,
     minWidth: 100,
     sortKey: 'end_date',
-    importPolicy: { kind: 'fields', fields: ['start_date', 'end_date'] },
+    importPolicy: {
+      kind: 'fields',
+      fields: ['start_date', 'end_date', 'service_start', 'service_end'],
+    },
   },
   {
     key: 'status',
@@ -399,7 +467,7 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
     filterDim: 'statuses',
     importPolicy: {
       kind: 'fields',
-      fields: ['status', 'freeze_date'],
+      fields: ['status', 'freeze_date', 'service_status'],
     },
   },
   {
@@ -407,7 +475,10 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
     label: 'Assigned to',
     defaultWidth: 170,
     minWidth: 130,
-    importPolicy: { kind: 'fields', fields: ['assigned_to'] },
+    importPolicy: {
+      kind: 'fields',
+      fields: ['assigned_to', 'service_trainer'],
+    },
   },
   {
     key: 'fee',
@@ -424,6 +495,7 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
         'fee_status',
         'payment_method',
         'paid_at',
+        'service_sold_price',
       ],
     },
   },

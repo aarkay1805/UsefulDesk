@@ -2,11 +2,18 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import type { MembershipPlan } from '@/types';
+import type {
+  CatalogItem,
+  CatalogOption,
+  MembershipPlan,
+  Trainer,
+  TrainerRate,
+} from '@/types';
 import {
   buildMemberImportCandidates,
   filterMemberImportCandidates,
   patchMemberImportCandidate,
+  revalidateMemberImportCandidates,
   resolveExistingContact,
   resolveGroupedPlan,
   resolvePaymentConflict,
@@ -61,6 +68,35 @@ const PLANS = [
   },
 ] as unknown as MembershipPlan[];
 
+const SERVICE_OPTION = {
+  id: 'pt-month',
+  account_id: 'account-1',
+  item_id: 'service-pt',
+  duration_count: 1,
+  duration_unit: 'month',
+  standard_price: 4_000,
+  is_active: true,
+  sort_order: 0,
+  created_at: '',
+  updated_at: '',
+} satisfies CatalogOption;
+
+const SERVICES = [
+  {
+    id: 'service-pt',
+    account_id: 'account-1',
+    kind: 'service',
+    name: 'Personal training',
+    description: null,
+    requires_trainer: false,
+    is_active: true,
+    created_by: 'user-1',
+    created_at: '',
+    updated_at: '',
+    catalog_options: [SERVICE_OPTION],
+  },
+] satisfies CatalogItem[];
+
 function source(
   sourceRow: number,
   patch: Partial<MemberImportCandidateInput> & {
@@ -87,15 +123,189 @@ function source(
   };
 }
 
-function build(rows: MemberImportCandidateInput[]) {
+function build(
+  rows: MemberImportCandidateInput[],
+  serviceFacts: {
+    catalogItems?: CatalogItem[];
+    trainers?: Trainer[];
+    trainerRates?: TrainerRate[];
+  } = {}
+) {
   return buildMemberImportCandidates(rows, {
     plans: PLANS,
+    catalogItems: serviceFacts.catalogItems ?? SERVICES,
+    trainers: serviceFacts.trainers ?? [],
+    trainerRates: serviceFacts.trainerRates ?? [],
     dateOrder: 'DMY',
     today: TODAY,
   });
 }
 
 describe('member import candidates', () => {
+  it('builds service-only and combined source rows without fabricating memberships', () => {
+    const candidates = build([
+      source(2, {
+        original: {
+          planName: '',
+          serviceName: 'Personal training',
+          serviceOption: '1 month',
+          serviceSoldPrice: '3500',
+          fee: '3500',
+          amountPaid: '3500',
+        },
+      }),
+      source(3, {
+        original: {
+          serviceName: 'Personal training',
+          serviceOption: '1 month',
+          fee: '5200',
+          amountPaid: '5200',
+        },
+      }),
+    ]);
+
+    expect(candidates[0]).toMatchObject({
+      outcomeKind: 'service',
+      membershipComponent: null,
+      serviceComponent: { intent: { soldAmount: 3500 } },
+      isReady: true,
+    });
+    expect(candidates[1]).toMatchObject({
+      outcomeKind: 'membership_service',
+      membershipComponent: { included: true },
+      serviceComponent: { intent: { soldAmount: 4000 } },
+      isReady: true,
+    });
+  });
+
+  it('groups compatible repeated service rows into one stable customer identity', () => {
+    const rows = [
+      source(2, {
+        legacyMemberId: 'M-1',
+        original: {
+          name: 'Asha',
+          phone: '+15550000022',
+          planName: '',
+          serviceName: 'Personal training',
+          serviceOption: '1 month',
+          serviceStart: '01/01/2026',
+          fee: '4000',
+          amountPaid: '4000',
+        },
+      }),
+      source(3, {
+        legacyMemberId: 'M-1',
+        original: {
+          name: 'Asha',
+          phone: '+15550000022',
+          planName: '',
+          serviceName: 'Personal training',
+          serviceOption: '1 month',
+          serviceStart: '01/03/2026',
+          fee: '4000',
+          amountPaid: '4000',
+        },
+      }),
+    ];
+    const first = build(rows);
+    const second = build(rows);
+
+    expect(first.every((candidate) => candidate.isReady)).toBe(true);
+    expect(
+      new Set(first.map((candidate) => candidate.customerGroupKey)).size
+    ).toBe(1);
+    expect(first[0].customerIdempotencyKey).toBe(
+      first[1].customerIdempotencyKey
+    );
+    expect(first.map((candidate) => candidate.purchaseIdempotencyKey)).toEqual(
+      second.map((candidate) => candidate.purchaseIdempotencyKey)
+    );
+    expect(first[0].purchaseIdempotencyKey).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+    );
+  });
+
+  it('blocks incompatible shared identities and exact duplicate service purchases', () => {
+    const conflicting = build([
+      source(2, {
+        legacyMemberId: 'M-1',
+        original: { name: 'Asha', phone: '+15550000022' },
+      }),
+      source(3, {
+        legacyMemberId: 'M-2',
+        original: { name: 'Ravi', phone: '+15550000022' },
+      }),
+    ]);
+    expect(
+      conflicting.every((candidate) =>
+        candidate.issues.some((item) => item.code === 'shared-phone')
+      )
+    ).toBe(true);
+
+    const duplicate = build([
+      source(4, {
+        legacyMemberId: 'M-3',
+        original: {
+          name: 'Meera',
+          phone: '+15550000044',
+          planName: '',
+          serviceName: 'Personal training',
+          serviceOption: '1 month',
+          serviceStart: '01/01/2026',
+          fee: '4000',
+          amountPaid: '4000',
+        },
+      }),
+      source(5, {
+        legacyMemberId: 'M-3',
+        original: {
+          name: 'Meera',
+          phone: '+15550000044',
+          planName: '',
+          serviceName: 'Personal training',
+          serviceOption: '1 month',
+          serviceStart: '01/01/2026',
+          fee: '4000',
+          amountPaid: '4000',
+        },
+      }),
+    ]);
+    expect(
+      duplicate.every((candidate) =>
+        candidate.issues.some((item) => item.code === 'duplicate-service')
+      )
+    ).toBe(true);
+  });
+
+  it('moves a saved candidate back to resolution when a service is archived', () => {
+    const saved = build([
+      source(2, {
+        original: {
+          planName: '',
+          serviceName: 'Personal training',
+          serviceOption: '1 month',
+          fee: '4000',
+          amountPaid: '4000',
+        },
+      }),
+    ]);
+    expect(saved[0].isReady).toBe(true);
+
+    const [resumed] = revalidateMemberImportCandidates(saved, {
+      plans: PLANS,
+      catalogItems: SERVICES.map((item) => ({ ...item, is_active: false })),
+      trainers: [],
+      trainerRates: [],
+      dateOrder: 'DMY',
+      today: TODAY,
+    });
+
+    expect(resumed.isReady).toBe(false);
+    expect(resumed.issues).toContainEqual(
+      expect.objectContaining({ code: 'service-needs-resolution' })
+    );
+  });
+
   it('keeps every source row while automatically excluding older history and summary rows', () => {
     const candidates = build([
       source(2, {

@@ -99,7 +99,7 @@ describe('member column mapping', () => {
     ).toEqual([
       'name',
       'phone',
-      'plan',
+      'membership_plan',
       'end_date',
       'date_of_birth',
       'amount_paid',
@@ -112,11 +112,23 @@ describe('member column mapping', () => {
     expect(autoMapMemberColumns(['Phone', 'Mobile', 'Package'])).toEqual([
       'phone',
       MEMBER_IGNORE_KEY,
-      'plan',
+      'offering',
     ]);
     expect(validateMemberMapping(['phone', 'plan']).ok).toBe(true);
     expect(validateMemberMapping(['phone', 'name']).ok).toBe(false);
     expect(validateMemberMapping(['phone', 'plan', 'plan']).ok).toBe(false);
+  });
+
+  it('maps explicit and ambiguous offering headers without forcing membership', () => {
+    expect(autoMapMemberColumns(['Package'])).toEqual(['offering']);
+    expect(autoMapMemberColumns(['Offering'])).toEqual(['offering']);
+    expect(autoMapMemberColumns(['Membership plan'])).toEqual([
+      'membership_plan',
+    ]);
+    expect(autoMapMemberColumns(['Service'])).toEqual(['service']);
+    expect(validateMemberMapping(['phone', 'service']).ok).toBe(true);
+    expect(validateMemberMapping(['phone', 'offering']).ok).toBe(true);
+    expect(validateMemberMapping(['phone']).ok).toBe(false);
   });
 });
 
@@ -339,6 +351,7 @@ describe('buildMembershipRow', () => {
 function commitCandidate(
   patch: Partial<MemberImportCandidate> = {}
 ): MemberImportCandidate {
+  const built = buildMembershipRow(memberRow(), PLANS, 'DMY', TODAY);
   return {
     sourceKey: 'sheet-1:2',
     sourceRow: 2,
@@ -355,7 +368,18 @@ function commitCandidate(
       payment: 'member_only',
       existingContact: null,
     },
-    built: buildMembershipRow(memberRow(), PLANS, 'DMY', TODAY),
+    built,
+    membershipComponent: {
+      included: true,
+      exclusionReason: null,
+      membership: built.membership,
+    },
+    serviceComponent: null,
+    outcomeKind: 'membership',
+    customerGroupKey: 'phone:15550000002:legacy:leg-002',
+    customerIdempotencyKey: '19058c37-e846-4f7e-86a4-b9e63307ed2d',
+    purchaseIdempotencyKey: 'db5990d1-476a-4078-b17c-c3a4b09a06cb',
+    purchaseTotal: 1200,
     receiptOutcome: null,
     ...patch,
   };
@@ -558,7 +582,13 @@ describe('candidate-aware member import commit', () => {
         source_row: 4,
         legacy_id: 'LEG-004',
         phone_suffix: '0123',
+        outcome_type: 'membership',
+        offering_name: 'Gold',
         disposition: 'excluded',
+        customer_outcome: 'not-processed',
+        membership_outcome: 'not-processed',
+        service_outcome: 'not-requested',
+        invoice_outcome: 'not-processed',
         member_outcome: 'not-processed',
         payment_outcome: 'not-processed',
         reason: 'candidate-excluded',
@@ -567,16 +597,22 @@ describe('candidate-aware member import commit', () => {
         source_row: 12,
         legacy_id: 'LEG,"12"',
         phone_suffix: '3210',
+        outcome_type: 'membership',
+        offering_name: 'Gold',
         disposition: 'partial',
+        customer_outcome: 'created',
+        membership_outcome: 'created',
+        service_outcome: 'not-requested',
+        invoice_outcome: 'created',
         member_outcome: 'created',
         payment_outcome: 'failed',
         reason: 'payment, provider said "retry"',
       },
     ]);
     expect(serializeMemberImportReceiptCsv(rows)).toBe(
-      'source_row,legacy_id,phone_suffix,disposition,member_outcome,payment_outcome,reason\n' +
-        '4,LEG-004,0123,excluded,not-processed,not-processed,candidate-excluded\n' +
-        '12,"LEG,""12""",3210,partial,created,failed,"payment, provider said ""retry"""'
+      'source_row,legacy_id,phone_suffix,outcome_type,offering_name,disposition,customer_outcome,membership_outcome,service_outcome,invoice_outcome,member_outcome,payment_outcome,reason\n' +
+        '4,LEG-004,0123,membership,Gold,excluded,not-processed,not-processed,not-requested,not-processed,not-processed,not-processed,candidate-excluded\n' +
+        '12,"LEG,""12""",3210,membership,Gold,partial,created,created,not-requested,created,created,failed,"payment, provider said ""retry"""'
     );
   });
 });

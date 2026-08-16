@@ -57,7 +57,7 @@ import {
   resolveImportTagIds,
   type ContactTagAssignment,
 } from '@/lib/contacts/resolve-import-tags';
-import { isUniqueViolation, normalizeKey } from '@/lib/contacts/dedupe';
+import { normalizeKey } from '@/lib/contacts/dedupe';
 import { downloadCsv } from '@/lib/csv/export';
 import { getErrorMessage } from '@/lib/errors';
 import { dateAtNoonInTz } from '@/lib/locale/format';
@@ -72,7 +72,6 @@ import {
   autoMapMemberColumns,
   buildMemberTargets,
   buildMemberImportReceiptRows,
-  commitMemberImportCandidates,
   MEMBER_IGNORE_KEY,
   MEMBER_TEMPLATE_CSV,
   serializeMemberImportReceiptCsv,
@@ -99,15 +98,25 @@ import {
 import {
   buildMemberImportCandidates,
   patchMemberImportCandidate,
+  revalidateMemberImportCandidates,
   resolveExistingContact,
+  resolveGroupedOffering,
   resolveGroupedPlan,
+  resolveGroupedService,
   resolvePaymentConflict,
   summarizeMemberImportCandidates,
   type MemberImportCandidate,
 } from '@/lib/memberships/member-import-candidates';
-import { setMembershipCancellation } from '@/lib/memberships/periods';
+import { commitMemberImportGroups } from '@/lib/memberships/member-import-transaction';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
+import type {
+  CatalogItem,
+  CatalogOption,
+  MembershipPlan,
+  Trainer,
+  TrainerRate,
+} from '@/types';
 
 type Step = 1 | 2 | 3 | 4;
 const SAMPLE_LIMIT = 3;
@@ -188,6 +197,10 @@ export function ImportMembersCsvDialog({
     useState<MemberMigrationRecipe | null>(null);
   const [dateOrder, setDateOrder] = useState<DateOrder>(accountDateOrder);
   const [customFields, setCustomFields] = useState<CustomFieldRef[]>([]);
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
+  const [trainers, setTrainers] = useState<Trainer[]>([]);
+  const [trainerRates, setTrainerRates] = useState<TrainerRate[]>([]);
+  const [serviceFactsLoading, setServiceFactsLoading] = useState(false);
   const [candidates, setCandidates] = useState<MemberImportCandidate[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [compliance, setCompliance] = useState(false);
@@ -250,6 +263,47 @@ export function ImportMembersCsvDialog({
     };
   }, [open, accountId, supabase]);
 
+  useEffect(() => {
+    if (!open || !accountId) return;
+    let cancelled = false;
+    void (async () => {
+      setServiceFactsLoading(true);
+      const [itemsResult, trainersResult] = await Promise.all([
+        supabase
+          .from('catalog_items')
+          .select('*, catalog_options(*, trainer_rates(*))')
+          .eq('account_id', accountId),
+        supabase.from('trainers').select('*').eq('account_id', accountId),
+      ]);
+      if (cancelled) return;
+      if (itemsResult.error || trainersResult.error) {
+        toast.error('Could not load services and trainers for import.');
+        setCatalogItems([]);
+        setTrainers([]);
+        setTrainerRates([]);
+      } else {
+        const items = (itemsResult.data ?? []) as (CatalogItem & {
+          catalog_options: (CatalogOption & {
+            trainer_rates?: TrainerRate[];
+          })[];
+        })[];
+        setCatalogItems(items);
+        setTrainers((trainersResult.data as Trainer[]) ?? []);
+        setTrainerRates(
+          items.flatMap((item) =>
+            (item.catalog_options ?? []).flatMap(
+              (option) => option.trainer_rates ?? []
+            )
+          )
+        );
+      }
+      setServiceFactsLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, accountId, supabase]);
+
   const targets = useMemo(
     () => buildMemberTargets(customFields),
     [customFields]
@@ -266,10 +320,6 @@ export function ImportMembersCsvDialog({
     [customFields]
   );
   const validation = useMemo(() => validateMemberMapping(mapping), [mapping]);
-  const mappedKeys = useMemo(
-    () => new Set(mapping.filter((key) => key !== MEMBER_IGNORE_KEY)),
-    [mapping]
-  );
   const samples = useMemo(() => {
     if (!raw) return [];
     return raw.headers.map((_, column) =>
@@ -295,8 +345,16 @@ export function ImportMembersCsvDialog({
   }, [raw, mapping, customFieldTypes]);
 
   const candidateContext = useMemo(
-    () => ({ plans, dateOrder, today: fmt.today(), staff }),
-    [dateOrder, fmt, plans, staff]
+    () => ({
+      plans,
+      catalogItems,
+      trainers,
+      trainerRates,
+      dateOrder,
+      today: fmt.today(),
+      staff,
+    }),
+    [catalogItems, dateOrder, fmt, plans, staff, trainerRates, trainers]
   );
   const candidateSummary = useMemo(
     () => summarizeMemberImportCandidates(candidates),
@@ -497,6 +555,106 @@ export function ImportMembersCsvDialog({
     setResult((state.receipt as ImportResult | null) ?? null);
   }
 
+  async function revalidateSavedDraftState(state: MemberImportDraftState) {
+    if (!accountId || !Array.isArray(state.candidates)) return;
+    const [
+      plansResult,
+      itemsResult,
+      trainersResult,
+      contactsResult,
+      membersResult,
+    ] = await Promise.all([
+      supabase
+        .from('membership_plans')
+        .select('*, pricing_options:plan_pricing_options(*)')
+        .eq('account_id', accountId),
+      supabase
+        .from('catalog_items')
+        .select('*, catalog_options(*, trainer_rates(*))')
+        .eq('account_id', accountId),
+      supabase.from('trainers').select('*').eq('account_id', accountId),
+      supabase
+        .from('contacts')
+        .select(
+          'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country'
+        )
+        .eq('account_id', accountId),
+      supabase
+        .from('memberships')
+        .select('contact_id')
+        .eq('account_id', accountId),
+    ]);
+    const loadError =
+      plansResult.error ??
+      itemsResult.error ??
+      trainersResult.error ??
+      contactsResult.error ??
+      membersResult.error;
+    if (loadError) throw loadError;
+
+    const freshPlans = (plansResult.data as MembershipPlan[]) ?? [];
+    const freshItems = (itemsResult.data ?? []) as (CatalogItem & {
+      catalog_options: (CatalogOption & { trainer_rates?: TrainerRate[] })[];
+    })[];
+    const freshTrainers = (trainersResult.data as Trainer[]) ?? [];
+    const freshRates = freshItems.flatMap((item) =>
+      (item.catalog_options ?? []).flatMap(
+        (option) => option.trainer_rates ?? []
+      )
+    );
+    const savedCandidates = state.candidates as MemberImportCandidate[];
+    const freshContext = {
+      plans: freshPlans,
+      catalogItems: freshItems,
+      trainers: freshTrainers,
+      trainerRates: freshRates,
+      dateOrder: state.dateOrder,
+      today: fmt.today(),
+      staff,
+    };
+    const preliminary = revalidateMemberImportCandidates(
+      savedCandidates,
+      freshContext
+    );
+    const contactsByPhone = new Map<string, Record<string, unknown>>();
+    for (const contact of contactsResult.data ?? []) {
+      const record = contact as Record<string, unknown>;
+      if (typeof record.phone_normalized === 'string') {
+        contactsByPhone.set(record.phone_normalized, record);
+      }
+    }
+    const memberContactIds = new Set(
+      (membersResult.data ?? []).map((membership) => membership.contact_id)
+    );
+    const withMatches = preliminary.map((candidate) => {
+      const contact = contactsByPhone.get(
+        normalizeKey(candidate.draftValues.phone)
+      );
+      if (!contact) return { ...candidate, existingMatch: null };
+      const contactId = String(contact.id);
+      const profileConflict = Object.entries(candidate.built.contact).some(
+        ([key, value]) =>
+          value !== null && String(contact[key] ?? '') !== String(value)
+      );
+      return {
+        ...candidate,
+        existingMatch: {
+          contactId,
+          isMember: memberContactIds.has(contactId),
+          receivedVia:
+            typeof contact.received_via === 'string'
+              ? contact.received_via
+              : null,
+          profileConflict,
+        },
+      };
+    });
+    setCatalogItems(freshItems);
+    setTrainers(freshTrainers);
+    setTrainerRates(freshRates);
+    setCandidates(revalidateMemberImportCandidates(withMatches, freshContext));
+  }
+
   async function processSelectedFile(
     selected: File,
     options: {
@@ -653,10 +811,12 @@ export function ImportMembersCsvDialog({
             ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             : 'text/csv',
       });
-      return await processSelectedFile(source, {
+      const restored = await processSelectedFile(source, {
         initializeDraft: false,
         restore: saved.state,
       });
+      if (restored) await revalidateSavedDraftState(saved.state);
+      return restored;
     } catch (error) {
       setResumeError(getErrorMessage(error, 'Could not resume saved import'));
       return false;
@@ -905,157 +1065,76 @@ export function ImportMembersCsvDialog({
         canCreateTags: canEditSettings,
       });
 
-      let statusFailed = 0;
-      let completedWork = 0;
-      const results = await commitMemberImportCandidates(candidates, {
-        createContact: async (candidate) => {
-          const built = candidate.built;
-          const { data, error } = await supabase
-            .from('contacts')
-            .insert({
-              user_id: user.id,
-              account_id: accountId,
-              phone: candidate.draftValues.phone,
-              assigned_to: built.assignedTo ?? user.id,
-              received_via: 'import' as const,
-              churn_risk: built.churnRisk ?? false,
-              ...built.contact,
-            })
-            .select('id')
-            .single();
-          if (error || !data?.id) {
-            throw new Error(
-              isUniqueViolation(error)
-                ? 'contact-already-exists'
-                : getErrorMessage(error, 'contact-create-failed')
-            );
-          }
-          return { contactId: data.id };
-        },
-        attachExistingContact: async (contactId, candidate) => {
-          if (candidate.resolutions.existingContact !== 'use_csv') return;
-          const built = candidate.built;
-          const patch: Record<string, string | number | boolean | null> = {};
-          const contactField = (
-            importKey: string,
-            dbKey: keyof typeof built.contact
-          ) => {
-            const value = built.contact[dbKey];
-            if (mappedKeys.has(importKey) && value !== null)
-              patch[dbKey] = value;
-          };
-          contactField('name', 'name');
-          contactField('email', 'email');
-          contactField('company', 'company');
-          contactField('date_of_birth', 'date_of_birth');
-          contactField('gender', 'gender');
-          contactField('nickname', 'nickname');
-          contactField('height_cm', 'height_cm');
-          contactField('weight_kg', 'weight_kg');
-          contactField('address_line1', 'address_line1');
-          contactField('address_line2', 'address_line2');
-          contactField('city', 'city');
-          contactField('state', 'state');
-          contactField('postal_code', 'postal_code');
-          contactField('country', 'country');
-          if (mappedKeys.has('churn_risk') && built.churnRisk !== null) {
-            patch.churn_risk = built.churnRisk;
-          }
-          // Automated lead ownership is immutable; preserve it when a CSV
-          // row happens to match an auto-captured contact.
-          if (
-            mappedKeys.has('assigned_to') &&
-            built.assignedTo &&
-            (!candidate.existingMatch?.receivedVia ||
-              candidate.existingMatch.receivedVia === 'manual' ||
-              candidate.existingMatch.receivedVia === 'import')
-          ) {
-            patch.assigned_to = built.assignedTo;
-          }
-          if (Object.keys(patch).length > 0) {
-            const { data, error } = await supabase
-              .from('contacts')
-              .update(patch)
-              .eq('id', contactId)
-              .eq('account_id', accountId)
-              .select('id');
-            if (error || !data?.length) {
-              throw new Error(getErrorMessage(error, 'contact-update-failed'));
-            }
-          }
-        },
-        createMembership: async (candidate, contactId) => {
-          const membership = candidate.built.membership!;
-          const deferCancellation =
-            membership.status === 'cancelled' && !!candidate.built.payment;
-          const membershipInsert = deferCancellation
-            ? { ...membership, status: 'active' as const, frozen_at: null }
-            : membership;
-          const { data, error } = await supabase
-            .from('memberships')
-            .insert({
-              account_id: accountId,
-              contact_id: contactId,
-              user_id: user.id,
-              is_trial: false,
-              ...membershipInsert,
-            })
-            .select('id')
-            .single();
-          if (error || !data?.id) {
-            throw new Error(
-              isUniqueViolation(error)
-                ? 'membership-already-exists'
-                : getErrorMessage(error, 'membership-create-failed')
-            );
-          }
-          completedWork++;
-          setImportProgress({
-            completed: completedWork,
-            total: Math.max(1, readyRows.length),
-            label: `Processed ${completedWork} of ${readyRows.length} members`,
-          });
-          return { membershipId: data.id };
-        },
-        recordPayment: async (candidate, membershipId) => {
-          const payment = candidate.built.payment!;
-          const membership = candidate.built.membership!;
-          const paidAt = (
-            dateAtNoonInTz(payment.paidOn, locale.timeZone) ?? new Date()
-          ).toISOString();
-          const { error: paymentError } = await supabase.rpc(
-            'record_joining_payment',
-            {
-              p_membership_id: membershipId,
-              p_period_end: membership.end_date,
-              p_amount: payment.amount,
-              p_method: payment.method,
-              p_paid_at: paidAt,
-              p_note: 'Imported payment',
-              p_receipt_path: null,
-              p_idempotency_key: crypto.randomUUID(),
-            }
-          );
-          if (membership.status === 'cancelled') {
-            const { error } = await setMembershipCancellation(
-              supabase,
-              membershipId,
-              true
-            );
-            if (error) statusFailed++;
-          }
-          if (paymentError) throw paymentError;
-        },
+      const transaction = await commitMemberImportGroups(candidates, {
+        accountId,
+        rpc: (functionName, args) => supabase.rpc(functionName, args),
+        paidAt: (date) =>
+          (dateAtNoonInTz(date, locale.timeZone) ?? new Date()).toISOString(),
+        onProgress: (completed, total, label) =>
+          setImportProgress({ completed, total, label }),
       });
+      const groupByKey = new Map(
+        transaction.groups.map((group) => [group.customerGroupKey, group])
+      );
+      const results = candidates.map((candidate) => {
+        if (candidate.disposition === 'excluded') {
+          return {
+            sourceRowIndex: candidate.sourceRow,
+            disposition: 'excluded' as const,
+            memberOutcome: 'not-processed' as const,
+            paymentOutcome: 'not-processed' as const,
+            reason: candidate.exclusionReason ?? 'Excluded by reviewer',
+            contactId: null,
+            membershipId: null,
+          };
+        }
+        if (!candidate.isReady) {
+          return {
+            sourceRowIndex: candidate.sourceRow,
+            disposition: 'unresolved' as const,
+            memberOutcome: 'not-processed' as const,
+            paymentOutcome: 'not-processed' as const,
+            reason: 'Resolve this row before importing',
+            contactId: null,
+            membershipId: null,
+          };
+        }
+        const group = groupByKey.get(candidate.customerGroupKey);
+        if (!group || group.status === 'failed') {
+          return {
+            sourceRowIndex: candidate.sourceRow,
+            disposition: 'failed' as const,
+            memberOutcome: 'failed' as const,
+            paymentOutcome: candidate.built.payment
+              ? ('failed' as const)
+              : ('not-requested' as const),
+            reason: group?.error ?? 'Customer transaction failed',
+            contactId: null,
+            membershipId: null,
+          };
+        }
+        return {
+          sourceRowIndex: candidate.sourceRow,
+          disposition: 'imported' as const,
+          memberOutcome: candidate.existingMatch
+            ? ('attached' as const)
+            : ('created' as const),
+          paymentOutcome: candidate.built.payment
+            ? ('recorded' as const)
+            : ('not-requested' as const),
+          reason: null,
+          contactId: group.contactId,
+          membershipId: candidate.membershipComponent?.included
+            ? group.membershipId
+            : null,
+        };
+      });
+      const statusFailed = 0;
 
       const candidateByRow = new Map(
         candidates.map((candidate) => [candidate.sourceRow, candidate])
       );
-      const persisted = results.filter(
-        (item) =>
-          item.contactId &&
-          (item.disposition === 'imported' || item.disposition === 'partial')
-      );
+      const persisted = results.filter((item) => item.contactId);
       const tagAssignments: ContactTagAssignment[] = persisted.flatMap(
         (item) => {
           const candidate = candidateByRow.get(item.sourceRowIndex);
@@ -1100,26 +1179,27 @@ export function ImportMembersCsvDialog({
       } catch {
         toast.warning('Members imported, but some tag assignments failed.');
       }
-      const imported = results.filter(
-        (item) => item.memberOutcome === 'created'
-      ).length;
-      const attached = results.filter(
-        (item) => item.memberOutcome === 'attached'
-      ).length;
-      const failed = results.filter(
-        (item) => item.memberOutcome === 'failed'
+      const successfulGroups = transaction.groups.filter(
+        (group) => group.status === 'imported'
+      );
+      const imported = successfulGroups.filter((group) => {
+        const source = candidates.find(
+          (candidate) => candidate.customerGroupKey === group.customerGroupKey
+        );
+        return !source?.existingMatch;
+      }).length;
+      const attached = successfulGroups.length - imported;
+      const failed = transaction.groups.filter(
+        (group) => group.status === 'failed'
       ).length;
       const payments = results.filter(
         (item) => item.paymentOutcome === 'recorded'
       ).length;
-      const paymentFailed = results.filter(
-        (item) => item.paymentOutcome === 'failed'
-      ).length;
+      // Financial failures roll back the whole customer group atomically.
+      const paymentFailed = 0;
       const skipped = results.filter(
         (item) =>
-          item.disposition === 'excluded' ||
-          item.disposition === 'unresolved' ||
-          item.disposition === 'invalid'
+          item.disposition === 'excluded' || item.disposition === 'unresolved'
       ).length;
       const nextResult: ImportResult = {
         imported,
@@ -1315,10 +1395,32 @@ export function ImportMembersCsvDialog({
                     <ImportMembersPreview
                       candidates={candidates}
                       plans={plans}
+                      catalogItems={catalogItems}
+                      trainers={trainers}
                       onPatch={patchCandidate}
                       onResolveGroupedPlan={(sourceKeys, resolution) =>
                         setCandidates((current) =>
                           resolveGroupedPlan(
+                            current,
+                            sourceKeys,
+                            resolution,
+                            candidateContext
+                          )
+                        )
+                      }
+                      onResolveGroupedOffering={(sourceKeys, resolution) =>
+                        setCandidates((current) =>
+                          resolveGroupedOffering(
+                            current,
+                            sourceKeys,
+                            resolution,
+                            candidateContext
+                          )
+                        )
+                      }
+                      onResolveGroupedService={(sourceKeys, resolution) =>
+                        setCandidates((current) =>
+                          resolveGroupedService(
                             current,
                             sourceKeys,
                             resolution,
@@ -1505,12 +1607,16 @@ export function ImportMembersCsvDialog({
                         !validation.ok ||
                         plansLoading ||
                         staffLoading ||
+                        serviceFactsLoading ||
                         loadingPreview ||
                         plans.length === 0
                       }
                       onClick={buildPreview}
                     >
-                      {(loadingPreview || plansLoading || staffLoading) && (
+                      {(loadingPreview ||
+                        plansLoading ||
+                        staffLoading ||
+                        serviceFactsLoading) && (
                         <Loader2 className="size-4 animate-spin" />
                       )}
                       Preview {raw?.rows.length ?? 0} row
@@ -1876,7 +1982,7 @@ function MappingStep({
     return [
       { options: [{ value: MEMBER_IGNORE_KEY, label: "Don't import" }] },
       make('Contact', ['standard']),
-      make('Membership', ['member', 'assignee']),
+      make('Membership & services', ['member', 'assignee']),
       make('Payments', ['payment']),
       make('Profile', ['profile']),
       make('Tags', ['tags']),
@@ -2059,19 +2165,20 @@ function ConfirmStep({
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard label="New contacts" value={summary.newContacts} />
-        <SummaryCard
-          label="Attached contacts"
-          value={summary.attachedContacts}
-        />
+        <SummaryCard label="Unique customers" value={summary.uniqueCustomers} />
         <SummaryCard label="Memberships" value={summary.memberships} />
-        <SummaryCard label="Payments" value={summary.payments} />
+        <SummaryCard label="Services" value={summary.services} />
         <SummaryCard
-          label="Member-only imports"
-          value={summary.memberOnlyImports}
+          label="Combined invoices"
+          value={summary.combinedInvoices}
         />
-        <SummaryCard label="Notices" value={summary.notices} />
+        <SummaryCard
+          label="Service-only invoices"
+          value={summary.serviceOnlyInvoices}
+        />
+        <SummaryCard label="Payments" value={summary.payments} />
         <SummaryCard label="Exclusions" value={summary.exclusions} />
+        <SummaryCard label="Unresolved rows" value={summary.needsResolution} />
       </div>
       <label className="border-border flex items-start gap-3 rounded-lg border p-4">
         <Checkbox
@@ -2108,7 +2215,7 @@ function ResultPanel({ result }: { result: ImportResult }) {
         </div>
         <div>
           <p className="text-foreground text-lg font-semibold">
-            {successful} member{successful === 1 ? '' : 's'} imported
+            {successful} customer{successful === 1 ? '' : 's'} imported
           </p>
           <p className="text-muted-foreground text-sm">
             The Members action lists are ready to use.
@@ -2116,8 +2223,8 @@ function ResultPanel({ result }: { result: ImportResult }) {
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard label="New members" value={result.imported} />
-        <SummaryCard label="Attached to contacts" value={result.attached} />
+        <SummaryCard label="New customers" value={result.imported} />
+        <SummaryCard label="Existing customers" value={result.attached} />
         <SummaryCard label="Payments recorded" value={result.payments} />
         <SummaryCard label="Skipped" value={result.skipped + result.invalid} />
       </div>
@@ -2127,9 +2234,7 @@ function ResultPanel({ result }: { result: ImportResult }) {
         <div className="border-border bg-background/40 text-amber-foreground flex items-start gap-2 rounded-lg border p-3 text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           <span>
-            {result.failed > 0 && `${result.failed} member rows failed. `}
-            {result.paymentFailed > 0 &&
-              `${result.paymentFailed} payment records failed; those members remain imported with fees due. `}
+            {result.failed > 0 && `${result.failed} customer groups failed. `}
             {result.statusFailed > 0 &&
               `${result.statusFailed} imported cancellations need their status corrected.`}
           </span>

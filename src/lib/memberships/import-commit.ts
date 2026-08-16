@@ -61,12 +61,33 @@ export function autoMapMemberColumns(
   headers: string[],
   customFields: CustomFieldRef[] = []
 ): string[] {
-  return autoMapColumns(headers, buildMemberTargets(customFields));
+  const mapped = autoMapColumns(headers, buildMemberTargets(customFields));
+  return headers.map((header, index) => {
+    const normalized = header
+      .trim()
+      .toLowerCase()
+      .replace(/[_./-]+/g, ' ')
+      .replace(/\s+/g, ' ');
+    if (normalized === 'package' || normalized === 'offering') {
+      return 'offering';
+    }
+    if (
+      normalized === 'membership plan' ||
+      normalized === 'membership package'
+    ) {
+      return 'membership_plan';
+    }
+    if (normalized === 'service' || normalized === 'service name') {
+      return 'service';
+    }
+    return mapped[index];
+  });
 }
 
 export interface MemberMappingValidation {
   phoneMapped: boolean;
   planMapped: boolean;
+  offeringMapped: boolean;
   duplicateTargets: string[];
   ok: boolean;
 }
@@ -75,10 +96,13 @@ export function validateMemberMapping(
   mapping: string[]
 ): MemberMappingValidation {
   const base = validateMapping(mapping);
-  const planMapped = mapping.includes('plan');
+  const planMapped = mapping.some((key) =>
+    ['plan', 'membership_plan', 'offering', 'service'].includes(key)
+  );
   return {
     phoneMapped: base.phoneMapped,
     planMapped,
+    offeringMapped: planMapped,
     duplicateTargets: base.duplicateTargets,
     ok: base.ok && planMapped,
   };
@@ -91,8 +115,16 @@ export interface MemberImportRow {
   name?: string;
   email?: string;
   company?: string;
+  offering?: string;
   planName?: string;
   pricingOption?: string;
+  serviceName?: string;
+  serviceOption?: string;
+  serviceTrainer?: string;
+  serviceStart?: string;
+  serviceEnd?: string;
+  serviceSoldPrice?: string;
+  serviceStatus?: string;
   startDate?: string;
   endDate?: string;
   status?: string;
@@ -145,6 +177,16 @@ const ROW_PROP: Record<
   name: 'name',
   email: 'email',
   company: 'company',
+  offering: 'offering',
+  membership_plan: 'planName',
+  membership_option: 'pricingOption',
+  service: 'serviceName',
+  service_option: 'serviceOption',
+  service_trainer: 'serviceTrainer',
+  service_start: 'serviceStart',
+  service_end: 'serviceEnd',
+  service_sold_price: 'serviceSoldPrice',
+  service_status: 'serviceStatus',
   plan: 'planName',
   pricing_option: 'pricingOption',
   start_date: 'startDate',
@@ -436,6 +478,7 @@ export function resolvePlan(
   planName: string,
   plans: MembershipPlan[]
 ): MembershipPlan | null {
+  plans = plans.filter((plan) => plan.is_active !== false);
   const query = normalizedWords(planName);
   if (!query) return null;
   const exact = plans.find((plan) => normalizedWords(plan.name) === query);
@@ -980,7 +1023,13 @@ export interface MemberImportReceiptRow {
   source_row: number;
   legacy_id: string;
   phone_suffix: string;
+  outcome_type: string;
+  offering_name: string;
   disposition: MemberImportDisposition;
+  customer_outcome: MemberImportMemberOutcome;
+  membership_outcome: string;
+  service_outcome: string;
+  invoice_outcome: string;
   member_outcome: MemberImportMemberOutcome;
   payment_outcome: MemberImportPaymentOutcome;
   reason: string;
@@ -1046,7 +1095,40 @@ export function buildMemberImportReceiptRows(
         source_row: candidate.sourceRow,
         legacy_id: candidate.legacyMemberId?.trim() ?? '',
         phone_suffix: phoneSuffix(candidate.draftValues.phone),
+        outcome_type: candidate.outcomeKind.replace('_', ' + '),
+        offering_name: [
+          candidate.membershipComponent?.included
+            ? candidate.draftValues.planName
+            : null,
+          candidate.serviceComponent?.intent.itemName,
+        ]
+          .filter(Boolean)
+          .join(' + '),
         disposition: result?.disposition ?? fallback.disposition,
+        customer_outcome: result?.memberOutcome ?? fallback.memberOutcome,
+        membership_outcome: candidate.membershipComponent?.included
+          ? result?.disposition === 'imported' ||
+            result?.disposition === 'partial'
+            ? 'created'
+            : result?.disposition === 'failed'
+              ? 'failed'
+              : 'not-processed'
+          : 'not-requested',
+        service_outcome: candidate.serviceComponent
+          ? result?.disposition === 'imported' ||
+            result?.disposition === 'partial'
+            ? 'created'
+            : result?.disposition === 'failed'
+              ? 'failed'
+              : 'not-processed'
+          : 'not-requested',
+        invoice_outcome:
+          result?.disposition === 'imported' ||
+          result?.disposition === 'partial'
+            ? 'created'
+            : result?.disposition === 'failed'
+              ? 'failed'
+              : 'not-processed',
         member_outcome: result?.memberOutcome ?? fallback.memberOutcome,
         payment_outcome: result?.paymentOutcome ?? fallback.paymentOutcome,
         reason: result?.reason ?? fallback.reason ?? '',
@@ -1067,7 +1149,13 @@ export function serializeMemberImportReceiptCsv(
     'source_row',
     'legacy_id',
     'phone_suffix',
+    'outcome_type',
+    'offering_name',
     'disposition',
+    'customer_outcome',
+    'membership_outcome',
+    'service_outcome',
+    'invoice_outcome',
     'member_outcome',
     'payment_outcome',
     'reason',

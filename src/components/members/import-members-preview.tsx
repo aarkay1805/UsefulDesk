@@ -48,12 +48,13 @@ import {
   type MemberImportCandidateFilter,
   type MemberImportDraftValues,
   type MemberImportExistingContactResolution,
+  type MemberImportCandidateResolutions,
   type MemberImportPaymentCorrection,
   type MemberImportPaymentResolution,
 } from '@/lib/memberships/member-import-candidates';
 import { parseMoney } from '@/lib/memberships/import-commit';
 import { durationLabel } from '@/lib/memberships/pricing';
-import type { MembershipPlan } from '@/types';
+import type { CatalogItem, MembershipPlan, Trainer } from '@/types';
 import { MemberIdentity } from './member-identity';
 
 const PAGE_SIZE = 50;
@@ -68,10 +69,24 @@ type EditingCell = {
 interface ImportMembersPreviewProps {
   candidates: MemberImportCandidate[];
   plans: MembershipPlan[];
+  catalogItems: CatalogItem[];
+  trainers: Trainer[];
   onPatch: (sourceKey: string, patch: CandidatePatch) => void;
   onResolveGroupedPlan: (
     sourceKeys: string[],
     resolution: { planId: string; pricingOptionId: string }
+  ) => void;
+  onResolveGroupedOffering: (
+    sourceKeys: string[],
+    resolution: NonNullable<MemberImportCandidateResolutions['offering']>
+  ) => void;
+  onResolveGroupedService: (
+    sourceKeys: string[],
+    resolution: {
+      itemId: string;
+      optionId: string;
+      trainerId: string | null;
+    }
   ) => void;
   onResolvePayment: (
     sourceKey: string,
@@ -117,8 +132,12 @@ function unresolvedGroups(candidates: MemberImportCandidate[]): IssueGroup[] {
 export function ImportMembersPreview({
   candidates,
   plans,
+  catalogItems,
+  trainers,
   onPatch,
   onResolveGroupedPlan,
+  onResolveGroupedOffering,
+  onResolveGroupedService,
   onResolvePayment,
   onResolveExistingContact,
   onSetDisposition,
@@ -181,7 +200,7 @@ export function ImportMembersPreview({
             setSearch(value);
             setPage(0);
           }}
-          placeholder="Search members or Member ID"
+          placeholder="Search customers or Member ID"
           aria-label="Search import candidates"
           containerClassName="w-full lg:w-[240px]"
         />
@@ -244,6 +263,8 @@ export function ImportMembersPreview({
                   <GroupResolver
                     group={group}
                     plans={plans}
+                    catalogItems={catalogItems}
+                    trainers={trainers}
                     manualPaymentKey={manualPaymentKey}
                     manualPayments={manualPayments}
                     onManualPaymentKey={setManualPaymentKey}
@@ -269,6 +290,8 @@ export function ImportMembersPreview({
                       }))
                     }
                     onResolveGroupedPlan={onResolveGroupedPlan}
+                    onResolveGroupedOffering={onResolveGroupedOffering}
+                    onResolveGroupedService={onResolveGroupedService}
                     onResolvePayment={onResolvePayment}
                     onResolveExistingContact={onResolveExistingContact}
                     onPatch={onPatch}
@@ -291,7 +314,7 @@ export function ImportMembersPreview({
               <TableHead className="w-56">Name</TableHead>
               <TableHead className="w-32">Member ID</TableHead>
               <TableHead className="w-44">Phone</TableHead>
-              <TableHead className="w-56">Plan</TableHead>
+              <TableHead className="w-56">Offering</TableHead>
               <TableHead className="w-28">Expiry</TableHead>
               <TableHead className="w-44">Import check</TableHead>
               <TableHead className="w-28">Actions</TableHead>
@@ -331,42 +354,52 @@ export function ImportMembersPreview({
                   />
                 </TableCell>
                 <TableCell className="p-0">
-                  <EditableCell
-                    editing={isEditing(candidate.sourceKey, 'plan', 'desktop')}
-                    saving={false}
-                    kind="select"
-                    value={candidate.built.membership?.plan_id ?? ''}
-                    options={plans.map((plan) => ({
-                      value: plan.id,
-                      label: plan.name,
-                    }))}
-                    display={
-                      <span className="text-foreground truncate text-sm">
-                        {candidate.draftValues.planName || 'Choose plan'}
-                      </span>
-                    }
-                    onStart={() =>
-                      startEditing(candidate.sourceKey, 'plan', 'desktop')
-                    }
-                    onCancel={() => setEditing(null)}
-                    onCommit={(planId) => {
-                      const plan = plans.find((item) => item.id === planId);
-                      const option = plan?.pricing_options?.find(
-                        (item) => item.is_active
-                      );
-                      if (plan && option) {
-                        onResolveGroupedPlan([candidate.sourceKey], {
-                          planId: plan.id,
-                          pricingOptionId: option.id,
-                        });
+                  {candidate.outcomeKind === 'membership' ? (
+                    <EditableCell
+                      editing={isEditing(
+                        candidate.sourceKey,
+                        'plan',
+                        'desktop'
+                      )}
+                      saving={false}
+                      kind="select"
+                      value={candidate.built.membership?.plan_id ?? ''}
+                      options={plans.map((plan) => ({
+                        value: plan.id,
+                        label: plan.name,
+                      }))}
+                      display={<CandidateOffering candidate={candidate} />}
+                      onStart={() =>
+                        startEditing(candidate.sourceKey, 'plan', 'desktop')
                       }
-                      setEditing(null);
-                    }}
-                  />
+                      onCancel={() => setEditing(null)}
+                      onCommit={(planId) => {
+                        const plan = plans.find((item) => item.id === planId);
+                        const option = plan?.pricing_options?.find(
+                          (item) => item.is_active
+                        );
+                        if (plan && option) {
+                          onResolveGroupedPlan([candidate.sourceKey], {
+                            planId: plan.id,
+                            pricingOptionId: option.id,
+                          });
+                        }
+                        setEditing(null);
+                      }}
+                    />
+                  ) : (
+                    <div className="px-3 py-2">
+                      <CandidateOffering candidate={candidate} />
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-xs">
-                  {candidate.built.membership?.end_date
-                    ? fmt.date(candidate.built.membership.end_date)
+                  {candidate.serviceComponent?.intent.endDate ||
+                  candidate.built.membership?.end_date
+                    ? fmt.date(
+                        candidate.serviceComponent?.intent.endDate ??
+                          candidate.built.membership!.end_date
+                      )
                     : '—'}
                 </TableCell>
                 <TableCell>
@@ -405,17 +438,18 @@ export function ImportMembersPreview({
               <CandidateStatus candidate={candidate} />
             </div>
             <dl className="grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
-              <dt className="text-muted-foreground">Plan</dt>
+              <dt className="text-muted-foreground">Offering</dt>
               <dd className="text-foreground min-w-0 break-words">
-                {candidate.draftValues.planName || 'Choose plan'}
-                {candidate.draftValues.pricingOption
-                  ? ` · ${candidate.draftValues.pricingOption}`
-                  : ''}
+                <CandidateOffering candidate={candidate} />
               </dd>
               <dt className="text-muted-foreground">Expiry</dt>
               <dd className="text-foreground">
-                {candidate.built.membership?.end_date
-                  ? fmt.date(candidate.built.membership.end_date)
+                {candidate.serviceComponent?.intent.endDate ||
+                candidate.built.membership?.end_date
+                  ? fmt.date(
+                      candidate.serviceComponent?.intent.endDate ??
+                        candidate.built.membership!.end_date
+                    )
                   : '—'}
               </dd>
             </dl>
@@ -474,6 +508,14 @@ function groupTitle(group: IssueGroup) {
     case 'plan-needs-resolution':
     case 'pricing-option-needs-resolution':
       return 'Match plan and billing option';
+    case 'offering-needs-classification':
+      return 'Classify plan or service';
+    case 'service-needs-resolution':
+      return 'Match service, option, and trainer';
+    case 'service-values-invalid':
+      return 'Correct service dates or price';
+    case 'duplicate-service':
+      return 'Resolve duplicate service purchase';
     case 'payment-conflict':
       return 'Payment figures conflict';
     case 'missing-phone':
@@ -490,11 +532,15 @@ function groupTitle(group: IssueGroup) {
 function GroupResolver({
   group,
   plans,
+  catalogItems,
+  trainers,
   manualPaymentKey,
   manualPayments,
   onManualPaymentKey,
   onManualPaymentChange,
   onResolveGroupedPlan,
+  onResolveGroupedOffering,
+  onResolveGroupedService,
   onResolvePayment,
   onResolveExistingContact,
   onPatch,
@@ -502,6 +548,8 @@ function GroupResolver({
 }: {
   group: IssueGroup;
   plans: MembershipPlan[];
+  catalogItems: CatalogItem[];
+  trainers: Trainer[];
   manualPaymentKey: string | null;
   manualPayments: Record<string, { paid: string; balance: string }>;
   onManualPaymentKey: (sourceKey: string | null) => void;
@@ -510,6 +558,8 @@ function GroupResolver({
     patch: Partial<{ paid: string; balance: string }>
   ) => void;
   onResolveGroupedPlan: ImportMembersPreviewProps['onResolveGroupedPlan'];
+  onResolveGroupedOffering: ImportMembersPreviewProps['onResolveGroupedOffering'];
+  onResolveGroupedService: ImportMembersPreviewProps['onResolveGroupedService'];
   onResolvePayment: ImportMembersPreviewProps['onResolvePayment'];
   onResolveExistingContact: ImportMembersPreviewProps['onResolveExistingContact'];
   onPatch: ImportMembersPreviewProps['onPatch'];
@@ -517,6 +567,162 @@ function GroupResolver({
 }) {
   const { fmt } = useLocale();
   const first = group.candidates[0];
+
+  if (group.code === 'offering-needs-classification') {
+    const sourceLabel = first.originalValues.offering || '(blank)';
+    return (
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)] sm:items-center">
+        <div>
+          <p className="text-foreground text-sm font-medium break-words">
+            {sourceLabel}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Applies to {group.candidates.length} source row
+            {group.candidates.length === 1 ? '' : 's'}.
+          </p>
+        </div>
+        <Select<string>
+          value={null}
+          onValueChange={(value) => {
+            if (!value) return;
+            const [kind, primaryId, optionId] = value.split('::');
+            const sourceKeys = group.candidates.map(
+              (candidate) => candidate.sourceKey
+            );
+            if (kind === 'membership') {
+              onResolveGroupedOffering(sourceKeys, {
+                kind: 'membership',
+                planId: primaryId,
+                pricingOptionId: optionId,
+              });
+            } else {
+              onResolveGroupedOffering(sourceKeys, {
+                kind: 'service',
+                itemId: primaryId,
+                optionId,
+              });
+            }
+          }}
+        >
+          <SelectTrigger
+            className="w-full"
+            aria-label={`Classify ${sourceLabel}`}
+          >
+            <SelectValue placeholder="Choose plan or service" />
+          </SelectTrigger>
+          <SelectContent>
+            {plans.flatMap((plan) =>
+              (plan.pricing_options ?? [])
+                .filter((option) => option.is_active)
+                .map((option) => (
+                  <SelectItem
+                    key={`membership::${plan.id}::${option.id}`}
+                    value={`membership::${plan.id}::${option.id}`}
+                  >
+                    Membership · {plan.name} ·{' '}
+                    {durationLabel(option.duration_count, option.duration_unit)}
+                  </SelectItem>
+                ))
+            )}
+            {catalogItems
+              .filter((item) => item.kind === 'service' && item.is_active)
+              .flatMap((item) =>
+                (item.catalog_options ?? [])
+                  .filter(
+                    (option) =>
+                      option.is_active &&
+                      option.duration_count !== null &&
+                      option.duration_unit !== null
+                  )
+                  .map((option) => (
+                    <SelectItem
+                      key={`service::${item.id}::${option.id}`}
+                      value={`service::${item.id}::${option.id}`}
+                    >
+                      Service · {item.name} ·{' '}
+                      {durationLabel(
+                        option.duration_count!,
+                        option.duration_unit!
+                      )}
+                    </SelectItem>
+                  ))
+              )}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
+  if (group.code === 'service-needs-resolution') {
+    const sourceLabel = `${first.originalValues.serviceName || first.originalValues.offering || '(blank)'} · ${first.originalValues.serviceOption || '(no option)'}`;
+    return (
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)] sm:items-center">
+        <div>
+          <p className="text-foreground text-sm font-medium break-words">
+            {sourceLabel}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Only active service options and valid trainer rates are offered.
+          </p>
+        </div>
+        <Select<string>
+          value={null}
+          onValueChange={(value) => {
+            if (!value) return;
+            const [itemId, optionId, trainerId] = value.split('::');
+            onResolveGroupedService(
+              group.candidates.map((candidate) => candidate.sourceKey),
+              {
+                itemId,
+                optionId,
+                trainerId: trainerId === '-' ? null : trainerId,
+              }
+            );
+          }}
+        >
+          <SelectTrigger className="w-full" aria-label={`Map ${sourceLabel}`}>
+            <SelectValue placeholder="Choose service, option, and trainer" />
+          </SelectTrigger>
+          <SelectContent>
+            {catalogItems
+              .filter((item) => item.kind === 'service' && item.is_active)
+              .flatMap((item) =>
+                (item.catalog_options ?? [])
+                  .filter(
+                    (option) =>
+                      option.is_active &&
+                      option.duration_count !== null &&
+                      option.duration_unit !== null
+                  )
+                  .flatMap((option) => {
+                    const validTrainers = item.requires_trainer
+                      ? trainers.filter((trainer) =>
+                          (option.trainer_rates ?? []).some(
+                            (rate) =>
+                              rate.is_active && rate.trainer_id === trainer.id
+                          )
+                        )
+                      : [null];
+                    return validTrainers.map((trainer) => (
+                      <SelectItem
+                        key={`${item.id}::${option.id}::${trainer?.id ?? '-'}`}
+                        value={`${item.id}::${option.id}::${trainer?.id ?? '-'}`}
+                      >
+                        {item.name} ·{' '}
+                        {durationLabel(
+                          option.duration_count!,
+                          option.duration_unit!
+                        )}
+                        {trainer ? ` · ${trainer.display_name}` : ''}
+                      </SelectItem>
+                    ));
+                  })
+              )}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
 
   if (
     group.code === 'plan-needs-resolution' ||
@@ -826,6 +1032,41 @@ function GroupResolver({
         ))}
       </div>
     </div>
+  );
+}
+
+function CandidateOffering({
+  candidate,
+}: {
+  candidate: MemberImportCandidate;
+}) {
+  const service = candidate.serviceComponent?.intent;
+  const membershipLabel = candidate.draftValues.planName
+    ? [candidate.draftValues.planName, candidate.draftValues.pricingOption]
+        .filter(Boolean)
+        .join(' · ')
+    : null;
+  const serviceLabel = service
+    ? [service.itemName, service.optionLabel, service.trainerName]
+        .filter(Boolean)
+        .join(' · ')
+    : candidate.draftValues.serviceName || null;
+  const badgeLabel =
+    candidate.outcomeKind === 'membership_service'
+      ? 'Membership + service'
+      : candidate.outcomeKind === 'service'
+        ? 'Service'
+        : candidate.outcomeKind === 'membership'
+          ? 'Membership'
+          : 'Unresolved';
+  return (
+    <span className="flex min-w-0 flex-col items-start gap-1">
+      <Badge variant="neutral">{badgeLabel}</Badge>
+      <span className="text-foreground truncate text-sm">
+        {[membershipLabel, serviceLabel].filter(Boolean).join(' + ') ||
+          'Choose offering'}
+      </span>
+    </span>
   );
 }
 

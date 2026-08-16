@@ -9,6 +9,13 @@ const sql = readFileSync(
   ),
   'utf8'
 );
+const hardeningSql = readFileSync(
+  resolve(
+    process.cwd(),
+    'supabase/migrations/20260816130000_harden_member_import_grants.sql'
+  ),
+  'utf8'
+);
 
 describe('service-aware resumable member import schema contract', () => {
   it('keeps the customer directory invoker-scoped and anonymous-free', () => {
@@ -30,6 +37,9 @@ describe('service-aware resumable member import schema contract', () => {
     expect(sql).toContain('idx_member_import_drafts_one_active_author');
     expect(sql).toContain('idx_member_import_drafts_author');
     expect(sql).toContain('idx_member_import_drafts_expiry');
+    expect(hardeningSql).toContain(
+      'REVOKE ALL ON public.member_import_drafts FROM PUBLIC, anon'
+    );
   });
 
   it('keeps the workbook bucket private and author-path scoped', () => {
@@ -50,5 +60,46 @@ describe('service-aware resumable member import schema contract', () => {
       /REVOKE ALL ON FUNCTION public\.claim_expired_member_import_drafts[\s\S]*FROM PUBLIC, anon, authenticated/
     );
     expect(sql).toContain('FOR UPDATE SKIP LOCKED');
+  });
+
+  it('commits one customer group atomically behind an agent-scoped idempotent RPC', () => {
+    expect(sql).toContain(
+      'CREATE TABLE IF NOT EXISTS public.member_import_runs'
+    );
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.perform_member_import_group(p_payload JSONB)'
+    );
+    expect(sql).toMatch(
+      /perform_member_import_group\(p_payload JSONB\)[\s\S]*SECURITY DEFINER[\s\S]*public\.is_account_member\(v_account_id, 'agent'\)/
+    );
+    expect(sql).toContain('UNIQUE (account_id, idempotency_key)');
+    expect(sql).toContain('Conflicting member import idempotency key');
+    expect(sql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.perform_member_import_group\(JSONB\)[\s\S]*FROM PUBLIC, anon/
+    );
+  });
+
+  it('revalidates active account-owned offerings and audits imported sold terms', () => {
+    expect(sql).toMatch(
+      /plan\.account_id = v_account_id[\s\S]*plan\.is_active/
+    );
+    expect(sql).toMatch(
+      /item\.account_id = v_account_id[\s\S]*item\.kind = 'service'[\s\S]*item\.is_active/
+    );
+    expect(sql).toContain("'Imported historical sold price'");
+    expect(sql).toContain('service_end <= service_start');
+    expect(sql).toContain('rate.is_active');
+  });
+
+  it('creates row payments against invoices without consuming member credit', () => {
+    const transaction = sql.slice(
+      sql.indexOf(
+        'CREATE OR REPLACE FUNCTION public.perform_member_import_group'
+      )
+    );
+    expect(transaction).toContain('INSERT INTO public.payments');
+    expect(transaction).toContain('invoice_id');
+    expect(transaction).not.toContain('apply_oldest_member_credit');
+    expect(transaction).toContain('Imported historical purchase');
   });
 });
