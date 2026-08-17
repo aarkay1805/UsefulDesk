@@ -39,7 +39,7 @@ export interface MemberImportExistingMatch {
   contactId: string;
   isMember: boolean;
   receivedVia?: string | null;
-  /** Set only when CSV profile values actually differ from this contact. */
+  /** Set only when imported profile values actually differ from this contact. */
   profileConflict?: boolean;
 }
 
@@ -515,8 +515,8 @@ function rebuildCandidate(
         'missing-phone',
         'blocking',
         `missing-phone:${candidate.sourceKey}`,
-        'A phone number is required.',
-        'Add a phone number or exclude this row.'
+        'Every member needs their own phone number.',
+        'Add one, or exclude the row.'
       )
     );
   } else if (!isValidE164(phoneKey)) {
@@ -525,8 +525,8 @@ function rebuildCandidate(
         'invalid-phone',
         'blocking',
         `invalid-phone:${candidate.sourceKey}`,
-        'The phone number is not valid.',
-        'Enter a valid international phone number.'
+        'This is not a valid phone number.',
+        'Re-enter it with the account country code, or exclude the row.'
       )
     );
   } else if (candidate.disposition === 'included' && customerGroup.conflict) {
@@ -535,8 +535,8 @@ function rebuildCandidate(
         'shared-phone',
         'blocking',
         `shared-phone:${phoneKey}`,
-        'This phone has conflicting names or source member identities.',
-        'Correct the identity values or exclude the conflicting row.'
+        'More than one member in this file uses this phone number.',
+        'Give each member their own number, or exclude the duplicate. UsefulDesk never merges these records.'
       )
     );
   }
@@ -552,8 +552,8 @@ function rebuildCandidate(
         'offering-needs-classification',
         'decision',
         `offering:${normalizeGroupValue(values.offering)}`,
-        'Choose whether this source offering is a membership or service.',
-        'Select an active plan and billing option or service and option.'
+        'This offering could be either a plan or a service.',
+        'Choose the active plan or service it should become.'
       )
     );
   }
@@ -565,8 +565,8 @@ function rebuildCandidate(
         'plan-needs-resolution',
         'decision',
         planGroup,
-        'The CSV plan does not match an active plan.',
-        'Choose the matching plan and billing option.'
+        'This plan name does not match an active plan.',
+        'Choose the plan and billing option to use instead.'
       )
     );
   }
@@ -576,8 +576,8 @@ function rebuildCandidate(
         'pricing-option-needs-resolution',
         'decision',
         `plan:${normalizeGroupValue(candidate.draftValues.planName) || '(blank)'}:${normalizeGroupValue(candidate.draftValues.pricingOption) || '(blank)'}`,
-        'The CSV billing option does not match the plan.',
-        'Choose the matching billing option.'
+        'This billing option does not belong to the chosen plan.',
+        'Choose the billing option to use instead.'
       )
     );
   }
@@ -592,8 +592,8 @@ function rebuildCandidate(
         'invalid-membership-values',
         'blocking',
         `membership-values:${candidate.sourceKey}`,
-        'One or more membership values are invalid.',
-        'Correct the membership values before importing.'
+        'Some membership values in this row cannot be read.',
+        'Correct them below, or exclude the row.'
       )
     );
   }
@@ -642,7 +642,7 @@ function rebuildCandidate(
             : 'blocking',
           `service:${normalizeGroupValue(values.serviceName ?? values.offering)}:${normalizeGroupValue(values.serviceOption)}:${normalizeGroupValue(values.serviceTrainer)}`,
           serviceIssue.message,
-          'Choose active service facts or correct this source row.'
+          'Choose an active service and option, or exclude the row.'
         )
       );
     }
@@ -655,7 +655,7 @@ function rebuildCandidate(
           'notice',
           `${notice.code}:${candidate.sourceKey}`,
           notice.message,
-          'Verify the imported service terms.',
+          'Check the imported service terms.',
           true
         )
       );
@@ -673,8 +673,8 @@ function rebuildCandidate(
         'purchase-total-mismatch',
         'blocking',
         `purchase-total:${candidate.sourceKey}`,
-        'The row fee is not a valid non-negative amount.',
-        'Correct the row fee.'
+        'The row total is not a valid amount.',
+        'Enter the amount this member was charged.'
       )
     );
   }
@@ -685,8 +685,8 @@ function rebuildCandidate(
           'purchase-total-mismatch',
           'blocking',
           `purchase-total:${candidate.sourceKey}`,
-          'The row fee does not equal the resolved service sold price.',
-          'Correct the row fee or service sold price.'
+          'The row total does not match the service price.',
+          'Correct the total, or the service sold price.'
         )
       );
     }
@@ -699,8 +699,8 @@ function rebuildCandidate(
           'purchase-total-mismatch',
           'blocking',
           `purchase-total:${candidate.sourceKey}`,
-          'The row fee is lower than the resolved service sold price.',
-          'Correct the combined row fee or service sold price.'
+          'The row total is less than the service price on its own.',
+          'Correct the total, or the service sold price.'
         )
       );
     } else {
@@ -725,8 +725,8 @@ function rebuildCandidate(
         'payment-conflict',
         'decision',
         `payment-conflict:${candidate.sourceKey}`,
-        'Amount paid is greater than this row’s resolved purchase total.',
-        'Correct the payment or import the purchase without a payment.'
+        'Paid is more than this row’s total.',
+        'Choose which figures to trust, or import without a payment.'
       )
     );
   }
@@ -763,8 +763,8 @@ function rebuildCandidate(
         'payment-conflict',
         'decision',
         `payment-conflict:${candidate.sourceKey}`,
-        'Paid, balance, and fee do not agree.',
-        'Choose which payment values to trust or correct them manually.'
+        'Paid, balance, and total do not add up.',
+        'Choose which figures to trust, or enter corrected ones.'
       )
     );
   }
@@ -779,8 +779,8 @@ function rebuildCandidate(
         'existing-contact',
         'decision',
         `existing-contact:${candidate.existingMatch.contactId}`,
-        'CSV profile values differ from an existing contact.',
-        'Keep the existing profile or use the CSV values.'
+        'This phone already belongs to a contact with different details.',
+        'Keep the saved details, or replace them with the ones in your file.'
       )
     );
   }
@@ -790,8 +790,8 @@ function rebuildCandidate(
         'expiry-duration-mismatch',
         'notice',
         `expiry-duration:${candidate.sourceKey}`,
-        'CSV expiry differs from the billing option; CSV expiry will be used.',
-        'Verify the imported expiry date.'
+        'The expiry in your file differs from the billing option. Your file’s date will be used.',
+        'Check the imported expiry date.'
       )
     );
   }

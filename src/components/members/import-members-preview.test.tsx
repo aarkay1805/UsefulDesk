@@ -157,16 +157,21 @@ describe('ImportMembersPreview conflict resolution', () => {
     );
 
     expect(
-      screen.getByRole('tab', { name: 'Issues 1', selected: true })
+      screen.getByRole('tab', {
+        name: 'Issues, 1 to resolve',
+        selected: true,
+      })
     ).toBeTruthy();
     expect(screen.getByRole('region', { name: 'Focused issue' })).toBeTruthy();
     expect(screen.queryByTestId('member-import-desktop')).toBeNull();
 
-    await user.click(screen.getByRole('tab', { name: 'Review rows 2' }));
+    await user.click(
+      screen.getByRole('tab', { name: 'Review rows, 2 in total' })
+    );
 
     expect(screen.getByTestId('member-import-desktop')).toBeTruthy();
     expect(
-      screen.getByRole('searchbox', { name: 'Search import candidates' })
+      screen.getByRole('searchbox', { name: 'Search import rows' })
     ).toBeTruthy();
   });
 
@@ -213,7 +218,7 @@ describe('ImportMembersPreview conflict resolution', () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        'Every included member needs their own valid phone number. Add one or exclude the row.'
+        'Every member needs their own phone number. Add one, or exclude the row.'
       )
     ).toBeTruthy();
 
@@ -230,7 +235,7 @@ describe('ImportMembersPreview conflict resolution', () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        'Give each member a unique phone number, or exclude the duplicate row. UsefulDesk won’t merge these records.'
+        'More than one member in this file uses this phone number. Give each member their own number, or exclude the duplicate. UsefulDesk never merges these records.'
       )
     ).toBeTruthy();
   });
@@ -297,7 +302,11 @@ describe('ImportMembersPreview conflict resolution', () => {
       { onResolvePayment }
     );
 
-    expect(screen.getByText('Payment figures conflict')).toBeTruthy();
+    // The queue names each issue kind above its instances, so the focused
+    // title is asserted as the heading rather than as page text.
+    expect(
+      screen.getByRole('heading', { name: 'Payment figures conflict' })
+    ).toBeTruthy();
     const paymentSelect = screen.getByRole('combobox', {
       name: 'Resolve payment for source row 2',
     });
@@ -315,6 +324,7 @@ describe('ImportMembersPreview conflict resolution', () => {
       name: 'Status for source row 2',
     });
     fireEvent.change(status, { target: { value: 'Active' } });
+    fireEvent.blur(status);
 
     expect(onPatch).toHaveBeenCalledWith('sheet:2', { status: 'Active' });
   });
@@ -365,8 +375,12 @@ describe('ImportMembersPreview conflict resolution', () => {
       { catalogItems: services, onPatch }
     );
 
-    expect(screen.getByText('Correct purchase total')).toBeTruthy();
-    const total = screen.getByRole('textbox', { name: 'Row total' });
+    expect(
+      screen.getByRole('heading', { name: 'Correct purchase total' })
+    ).toBeTruthy();
+    const total = screen.getByRole('textbox', {
+      name: 'Row total for source row 2',
+    });
     fireEvent.change(total, { target: { value: '4000' } });
     fireEvent.blur(total);
     expect(onPatch).toHaveBeenCalledWith('sheet:2', { fee: '4000' });

@@ -140,6 +140,10 @@ Shipped addition: **AI-assisted member migration that proposes a typed allowlist
 
 Engineering maintenance: **the Members import resolution workspace now uses compact dialog and preview spacing, one divider above grouped exceptions, and a frameless desktop candidate ledger so dense corrective work stays visible without changing import behavior or restyling shared UI masters**.
 
+Engineering maintenance: **the Members import Resolve issues step now renders every exception through two shared primitives instead of eight bespoke layouts, offers Exclude wherever the step promises it, reads each issue's why/what-next from the single authored copy in the candidate model rather than restating it in the UI, commits correction fields on blur so partial input cannot re-validate the whole file, and counts issue groups in its tab badge so it agrees with the focused-issue position; import behavior and shared UI masters are unchanged**.
+
+Engineering maintenance: **the Members import Resolve issues step now groups its queue under the issue kind so each entry identifies a record rather than repeating a title, leads the working pane with the issue itself, bounds long record lists so the instruction and the commit control stay on screen together, names the rows a group-wide mapping will change, and reads payment conflicts as a labelled figure set; import behavior and shared UI masters are unchanged**.
+
 Shipped addition: **member photo clipboard paste with concise dialog guidance and platform-standard Command+V / Control+V shortcuts feeding the existing validated square-crop preview and optimized WebP upload flow**.
 
 Shipped addition: **an instant avatar hover/focus quick view across every Members tab that enlarges the already-loaded member photo for fast visual identification and keeps the applicable Details, WhatsApp reminder, and Follow-up actions beside the member name and ID without a hover-time query**.

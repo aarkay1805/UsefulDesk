@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
   CheckCircle,
@@ -50,6 +50,7 @@ import {
 } from '@/lib/memberships/member-import-candidates';
 import { parseMoney } from '@/lib/memberships/import-commit';
 import { durationLabel } from '@/lib/memberships/pricing';
+import { cn } from '@/lib/utils';
 import type { CatalogItem, MembershipPlan, Trainer } from '@/types';
 import { MemberIdentity } from './member-identity';
 
@@ -62,6 +63,29 @@ type EditingCell = {
   surface: 'desktop' | 'mobile';
 } | null;
 type PreviewView = 'issues' | 'rows';
+type IssueCode = MemberImportCandidate['issues'][number]['code'];
+
+/**
+ * The one place a blocking issue is named. Everything else the operator
+ * reads — why it blocks and what to do next — is authored once per issue in
+ * `member-import-candidates`, so queue copy can never drift from the rule
+ * that produced it.
+ */
+const ISSUE_TITLES: Partial<Record<IssueCode, string>> = {
+  'missing-phone': 'Add missing phone number',
+  'invalid-phone': 'Correct invalid phone number',
+  'shared-phone': 'Phone number used by multiple members',
+  'plan-needs-resolution': 'Match plan and billing option',
+  'pricing-option-needs-resolution': 'Match plan and billing option',
+  'offering-needs-classification': 'Choose plan or service',
+  'service-needs-resolution': 'Match service, option, and trainer',
+  'service-values-invalid': 'Correct service dates or price',
+  'duplicate-service': 'Resolve duplicate service purchase',
+  'purchase-total-mismatch': 'Correct purchase total',
+  'payment-conflict': 'Payment figures conflict',
+  'existing-contact': 'Choose which contact details to keep',
+  'invalid-membership-values': 'Correct membership details',
+};
 
 interface ImportMembersPreviewProps {
   candidates: MemberImportCandidate[];
@@ -102,8 +126,32 @@ interface ImportMembersPreviewProps {
 
 interface IssueGroup {
   key: string;
-  code: MemberImportCandidate['issues'][number]['code'];
+  code: IssueCode;
+  title: string;
+  explanation: string;
+  nextAction: string;
   candidates: MemberImportCandidate[];
+}
+
+interface IssueQueueSection {
+  title: string;
+  groups: IssueGroup[];
+}
+
+/**
+ * The queue names each kind of problem once and lists its instances beneath.
+ * Without this, three separate missing-phone groups render three identical
+ * titles, and the row label alone (a member name, a raw phone, a plan string)
+ * never says what is wrong with it.
+ */
+function queueSections(groups: IssueGroup[]): IssueQueueSection[] {
+  const sections = new Map<string, IssueQueueSection>();
+  for (const group of groups) {
+    const existing = sections.get(group.title);
+    if (existing) existing.groups.push(group);
+    else sections.set(group.title, { title: group.title, groups: [group] });
+  }
+  return [...sections.values()];
 }
 
 function unresolvedGroups(candidates: MemberImportCandidate[]): IssueGroup[] {
@@ -118,6 +166,9 @@ function unresolvedGroups(candidates: MemberImportCandidate[]): IssueGroup[] {
         groups.set(issue.groupKey, {
           key: issue.groupKey,
           code: issue.code,
+          title: ISSUE_TITLES[issue.code] ?? 'Correct membership details',
+          explanation: issue.explanation,
+          nextAction: issue.nextAction,
           candidates: [candidate],
         });
       }
@@ -148,15 +199,12 @@ export function ImportMembersPreview({
     unresolvedGroups(candidates).length > 0 ? 'issues' : 'rows'
   );
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
-  const [manualPaymentKey, setManualPaymentKey] = useState<string | null>(null);
-  const [manualPayments, setManualPayments] = useState<
-    Record<string, { paid: string; balance: string }>
-  >({});
   const summary = useMemo(
     () => summarizeMemberImportCandidates(candidates),
     [candidates]
   );
   const groups = useMemo(() => unresolvedGroups(candidates), [candidates]);
+  const sections = useMemo(() => queueSections(groups), [groups]);
   const activeGroupIndex = Math.max(
     0,
     groups.findIndex((group) => group.key === selectedGroupKey)
@@ -197,32 +245,6 @@ export function ImportMembersPreview({
     );
   }
 
-  function resolveManualPaymentDraft(
-    group: IssueGroup,
-    sourceKey: string,
-    patch: Partial<{ paid: string; balance: string }>
-  ) {
-    setManualPayments((current) => ({
-      ...current,
-      [sourceKey]: {
-        paid:
-          patch.paid ??
-          current[sourceKey]?.paid ??
-          group.candidates.find(
-            (candidate) => candidate.sourceKey === sourceKey
-          )?.draftValues.amountPaid ??
-          '',
-        balance:
-          patch.balance ??
-          current[sourceKey]?.balance ??
-          group.candidates.find(
-            (candidate) => candidate.sourceKey === sourceKey
-          )?.draftValues.balance ??
-          '',
-      },
-    }));
-  }
-
   return (
     <Tabs
       value={activeView}
@@ -231,19 +253,23 @@ export function ImportMembersPreview({
     >
       <div className="border-border flex shrink-0 items-end gap-4 border-b px-1">
         <TabsList variant="line">
+          {/* Counts the queue this tab opens. The affected-member count is
+              already stated in the dialog description, and each issue states
+              its own row count, so the badge adds a number instead of
+              repeating one. */}
           <TabsTrigger
             value="issues"
             disabled={groups.length === 0}
-            aria-label={`Issues ${summary.needsResolution}`}
+            aria-label={`Issues, ${groups.length} to resolve`}
           >
             Issues
             <Badge variant="warning" size="count">
-              {summary.needsResolution}
+              {groups.length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger
             value="rows"
-            aria-label={`Review rows ${summary.source}`}
+            aria-label={`Review rows, ${summary.source} in total`}
           >
             Review rows
             <Badge variant="neutral" size="count">
@@ -251,7 +277,9 @@ export function ImportMembersPreview({
             </Badge>
           </TabsTrigger>
         </TabsList>
-        <p className="text-muted-foreground ml-auto pb-2 text-xs tabular-nums">
+        {/* Below sm the tab labels and their counts already fill the strip;
+            the same two totals stay reachable on the Review rows filters. */}
+        <p className="text-muted-foreground ml-auto hidden pb-2 text-xs whitespace-nowrap tabular-nums sm:block">
           {fmt.number(summary.ready)} ready · {fmt.number(summary.exclusions)}{' '}
           excluded
         </p>
@@ -259,124 +287,123 @@ export function ImportMembersPreview({
 
       {activeView === 'issues' && activeGroup ? (
         <TabsContent value="issues" className="min-h-0 overflow-hidden">
-          <div className="grid h-full min-h-0 md:grid-cols-[17rem_minmax(0,1fr)]">
+          <div className="grid h-full min-h-0 md:grid-cols-[18rem_minmax(0,1fr)]">
             <aside className="border-border hidden min-h-0 border-r md:flex md:flex-col">
-              <div className="border-border shrink-0 border-b px-4 py-3">
-                <h3 className="text-sm font-medium">Issue queue</h3>
-                <p className="text-muted-foreground text-xs">
-                  Work through one group at a time.
-                </p>
-              </div>
               <nav
                 aria-label="Issue queue"
-                className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2"
+                className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-3"
               >
-                {groups.map((group) => (
-                  <Button
-                    key={group.key}
-                    type="button"
-                    variant={
-                      group.key === activeGroup.key ? 'secondary' : 'ghost'
-                    }
-                    className="w-full justify-start"
-                    aria-pressed={group.key === activeGroup.key}
-                    onClick={() => setSelectedGroupKey(group.key)}
-                  >
-                    <AlertTriangle
-                      data-icon="inline-start"
-                      className="text-amber-foreground"
-                    />
-                    <span className="min-w-0 flex-1 truncate text-left">
-                      {groupQueueLabel(group)}
-                    </span>
-                    <Badge variant="neutral" size="count">
-                      {group.candidates.length}
-                    </Badge>
-                  </Button>
+                {sections.map((section) => (
+                  <div key={section.title} className="space-y-0.5">
+                    {/* The kind of problem is named once per cluster, so a row
+                        only has to carry the value that identifies it. */}
+                    <p className="bg-popover text-muted-foreground sticky top-0 z-10 px-2.5 pb-1.5 text-xs font-medium">
+                      {section.title}
+                    </p>
+                    {section.groups.map((group) => (
+                      <Button
+                        key={group.key}
+                        type="button"
+                        variant={
+                          group.key === activeGroup.key ? 'secondary' : 'ghost'
+                        }
+                        className="w-full justify-start"
+                        aria-pressed={group.key === activeGroup.key}
+                        onClick={() => setSelectedGroupKey(group.key)}
+                      >
+                        <span className="min-w-0 flex-1 truncate text-left">
+                          {groupQueueLabel(group)}
+                        </span>
+                        {group.candidates.length > 1 ? (
+                          <Badge variant="neutral" size="count">
+                            {group.candidates.length}
+                          </Badge>
+                        ) : null}
+                      </Button>
+                    ))}
+                  </div>
                 ))}
               </nav>
             </aside>
 
-            <div className="min-h-0 overflow-y-auto">
-              <div className="border-border p-3 md:hidden md:border-b-0">
-                <Select
-                  value={activeGroup.key}
-                  onValueChange={(value) => value && setSelectedGroupKey(value)}
+            <div className="flex min-h-0 min-w-0 flex-col">
+              {/* Without the queue rail, the picker and the pager are the same
+                  navigation and belong on one row above the work. */}
+              <div className="border-border flex shrink-0 items-center gap-2 border-b p-3 md:hidden">
+                <div className="min-w-0 flex-1">
+                  <Select
+                    value={activeGroup.key}
+                    onValueChange={(value) =>
+                      value && setSelectedGroupKey(value)
+                    }
+                  >
+                    <SelectTrigger className="w-full" aria-label="Choose issue">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groups.map((group) => (
+                        <SelectItem key={group.key} value={group.key}>
+                          {`${groupQueueLabel(group)} · ${group.title}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Previous issue"
+                  disabled={activeGroupIndex === 0}
+                  onClick={() =>
+                    setSelectedGroupKey(groups[activeGroupIndex - 1].key)
+                  }
                 >
-                  <SelectTrigger className="w-full" aria-label="Choose issue">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groups.map((group) => (
-                      <SelectItem key={group.key} value={group.key}>
-                        {groupQueueLabel(group)} · {group.candidates.length}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <ChevronLeft />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Next issue"
+                  disabled={activeGroupIndex === groups.length - 1}
+                  onClick={() =>
+                    setSelectedGroupKey(groups[activeGroupIndex + 1].key)
+                  }
+                >
+                  <ChevronRight />
+                </Button>
               </div>
 
-              <section
-                aria-label="Focused issue"
-                className="mx-auto max-w-3xl px-4 py-5 sm:px-6"
-              >
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground text-xs tabular-nums">
-                    Issue {activeGroupIndex + 1} of {groups.length}
-                  </span>
-                  <div className="flex gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      aria-label="Previous issue"
-                      disabled={activeGroupIndex === 0}
-                      onClick={() =>
-                        setSelectedGroupKey(groups[activeGroupIndex - 1].key)
-                      }
-                    >
-                      <ChevronLeft />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      aria-label="Next issue"
-                      disabled={activeGroupIndex === groups.length - 1}
-                      onClick={() =>
-                        setSelectedGroupKey(groups[activeGroupIndex + 1].key)
-                      }
-                    >
-                      <ChevronRight />
-                    </Button>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <section
+                  aria-label="Focused issue"
+                  className="max-w-3xl px-4 pt-5 pb-6 sm:px-6"
+                >
+                  <h3 className="text-base font-semibold">
+                    {activeGroup.title}
+                  </h3>
+                  <p className="text-muted-foreground mt-1.5 max-w-[70ch] text-sm">
+                    {activeGroup.explanation} {activeGroup.nextAction}
+                  </p>
+                  <div className="mt-5">
+                    <GroupResolver
+                      key={activeGroup.key}
+                      group={activeGroup}
+                      plans={plans}
+                      catalogItems={catalogItems}
+                      trainers={trainers}
+                      onResolveGroupedPlan={onResolveGroupedPlan}
+                      onResolveGroupedOffering={onResolveGroupedOffering}
+                      onResolveGroupedService={onResolveGroupedService}
+                      onResolvePayment={onResolvePayment}
+                      onResolveExistingContact={onResolveExistingContact}
+                      onPatch={onPatch}
+                      onSetDisposition={onSetDisposition}
+                    />
                   </div>
-                </div>
-                <h3 className="text-lg font-semibold">
-                  {groupTitle(activeGroup)}
-                </h3>
-                <div className="mt-3">
-                  <GroupResolver
-                    key={activeGroup.key}
-                    group={activeGroup}
-                    plans={plans}
-                    catalogItems={catalogItems}
-                    trainers={trainers}
-                    manualPaymentKey={manualPaymentKey}
-                    manualPayments={manualPayments}
-                    onManualPaymentKey={setManualPaymentKey}
-                    onManualPaymentChange={(sourceKey, patch) =>
-                      resolveManualPaymentDraft(activeGroup, sourceKey, patch)
-                    }
-                    onResolveGroupedPlan={onResolveGroupedPlan}
-                    onResolveGroupedOffering={onResolveGroupedOffering}
-                    onResolveGroupedService={onResolveGroupedService}
-                    onResolvePayment={onResolvePayment}
-                    onResolveExistingContact={onResolveExistingContact}
-                    onPatch={onPatch}
-                    onSetDisposition={onSetDisposition}
-                  />
-                </div>
-              </section>
+                </section>
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -393,7 +420,7 @@ export function ImportMembersPreview({
                   setPage(0);
                 }}
                 placeholder="Search customers or Member ID"
-                aria-label="Search import candidates"
+                aria-label="Search import rows"
                 containerClassName="w-full lg:w-[240px]"
               />
               <ChipGroup<MemberImportCandidateFilter>
@@ -404,7 +431,7 @@ export function ImportMembersPreview({
                   setFilter(values[0]);
                   setPage(0);
                 }}
-                aria-label="Import candidate filters"
+                aria-label="Import row filters"
               >
                 {(
                   [
@@ -433,7 +460,7 @@ export function ImportMembersPreview({
                     <TableHead className="w-44">Phone</TableHead>
                     <TableHead className="w-56">Offering</TableHead>
                     <TableHead className="w-28">Expiry</TableHead>
-                    <TableHead className="w-44">Import check</TableHead>
+                    <TableHead className="w-44">Status</TableHead>
                     <TableHead className="w-28">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -562,9 +589,7 @@ export function ImportMembersPreview({
                   <div className="flex items-start justify-between gap-3">
                     <MemberIdentity
                       name={candidate.draftValues.name || 'Unnamed member'}
-                      secondary={
-                        candidate.draftValues.phone || 'Phone required'
-                      }
+                      secondary={candidate.draftValues.phone || 'No phone'}
                       meta={`Source row ${candidate.sourceRow} · ${candidate.legacyMemberId || 'No Member ID'}`}
                     />
                     <CandidateStatus candidate={candidate} />
@@ -622,7 +647,7 @@ export function ImportMembersPreview({
 
             {visible.length === 0 ? (
               <div className="border-border text-muted-foreground rounded-xl border py-10 text-center text-sm">
-                No candidates match this view.
+                No rows match this view.
               </div>
             ) : null}
           </div>
@@ -630,36 +655,6 @@ export function ImportMembersPreview({
       ) : null}
     </Tabs>
   );
-}
-
-function groupTitle(group: IssueGroup) {
-  switch (group.code) {
-    case 'plan-needs-resolution':
-    case 'pricing-option-needs-resolution':
-      return 'Match plan and billing option';
-    case 'offering-needs-classification':
-      return 'Classify plan or service';
-    case 'service-needs-resolution':
-      return 'Match service, option, and trainer';
-    case 'service-values-invalid':
-      return 'Correct service dates or price';
-    case 'duplicate-service':
-      return 'Resolve duplicate service purchase';
-    case 'purchase-total-mismatch':
-      return 'Correct purchase total';
-    case 'payment-conflict':
-      return 'Payment figures conflict';
-    case 'missing-phone':
-      return 'Add missing phone number';
-    case 'invalid-phone':
-      return 'Correct invalid phone number';
-    case 'shared-phone':
-      return 'Phone number used by multiple members';
-    case 'existing-contact':
-      return 'Choose how to attach existing contacts';
-    default:
-      return 'Correct membership details';
-  }
 }
 
 function groupQueueLabel(group: IssueGroup) {
@@ -685,8 +680,204 @@ function groupQueueLabel(group: IssueGroup) {
     case 'existing-contact':
       return first.draftValues.name || first.draftValues.phone;
     default:
-      return groupTitle(group);
+      // The queue section already names the problem, so a row that falls
+      // through must identify the record instead of repeating the title.
+      return first.draftValues.name || `Source row ${first.sourceRow}`;
   }
+}
+
+function candidateName(candidate: MemberImportCandidate) {
+  return candidate.draftValues.name || 'Unnamed member';
+}
+
+/**
+ * One identity treatment for every row in the queue, so the same member reads
+ * identically whichever issue surfaced them.
+ */
+function CandidateIdentity({
+  candidate,
+}: {
+  candidate: MemberImportCandidate;
+}) {
+  return (
+    <MemberIdentity
+      name={candidateName(candidate)}
+      secondary={`Member ID ${candidate.legacyMemberId || 'not set'}`}
+      meta={`Source row ${candidate.sourceRow}`}
+    />
+  );
+}
+
+function ExcludeAction({
+  candidate,
+  onSetDisposition,
+}: {
+  candidate: MemberImportCandidate;
+  onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+}) {
+  const name = candidateName(candidate);
+  return (
+    <Button
+      type="button"
+      variant="link"
+      size="sm"
+      aria-label={`Exclude ${name}, source row ${candidate.sourceRow}`}
+      onClick={() => onSetDisposition(candidate.sourceKey, 'excluded')}
+    >
+      Exclude
+    </Button>
+  );
+}
+
+function ExcludeGroupAction({
+  group,
+  onSetDisposition,
+}: {
+  group: IssueGroup;
+  onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+}) {
+  const count = group.candidates.length;
+  return (
+    <Button
+      type="button"
+      variant="link"
+      size="sm"
+      onClick={() => {
+        for (const candidate of group.candidates) {
+          onSetDisposition(candidate.sourceKey, 'excluded');
+        }
+      }}
+    >
+      {count === 1 ? 'Exclude this row' : `Exclude these ${count} rows`}
+    </Button>
+  );
+}
+
+/**
+ * Every per-row resolver renders through this shell: identity, the control
+ * that fixes the row, and the same escape hatch. `stacked` gives the control
+ * the full width when it is a field grid rather than a single input.
+ */
+function IssueRows({
+  group,
+  onSetDisposition,
+  renderControl,
+  stacked = false,
+}: {
+  group: IssueGroup;
+  onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+  renderControl?: (candidate: MemberImportCandidate) => ReactNode;
+  stacked?: boolean;
+}) {
+  // A long group must not push its commit control past the fold: the record
+  // list takes the scroll so the instruction above and the action below it
+  // both stay on screen. Stacked rows are ~4x taller, so they get more room.
+  const bounded = group.candidates.length > 4;
+  return (
+    <ul
+      className={cn(
+        'border-border divide-border divide-y rounded-xl border',
+        bounded && 'overflow-y-auto',
+        bounded &&
+          (stacked ? 'max-h-[min(32rem,55vh)]' : 'max-h-[min(20rem,40vh)]')
+      )}
+    >
+      {group.candidates.map((candidate) => (
+        <li
+          key={candidate.sourceKey}
+          className={cn('p-3', stacked && 'space-y-3')}
+        >
+          {stacked ? (
+            <>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <CandidateIdentity candidate={candidate} />
+                <ExcludeAction
+                  candidate={candidate}
+                  onSetDisposition={onSetDisposition}
+                />
+              </div>
+              {renderControl?.(candidate)}
+            </>
+          ) : (
+            <div
+              className={cn(
+                'grid gap-3 sm:items-center',
+                renderControl
+                  ? 'sm:grid-cols-[minmax(0,1fr)_minmax(14rem,0.8fr)_auto]'
+                  : 'sm:grid-cols-[minmax(0,1fr)_auto]'
+              )}
+            >
+              <CandidateIdentity candidate={candidate} />
+              {renderControl?.(candidate)}
+              <ExcludeAction
+                candidate={candidate}
+                onSetDisposition={onSetDisposition}
+              />
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Every group-wide resolver renders through this shell: the source value that
+ * could not be matched, one choice that maps the whole group, and the same
+ * escape hatch.
+ */
+function GroupChoice({
+  group,
+  sourceLabel,
+  ariaLabel,
+  placeholder,
+  onValueChange,
+  onSetDisposition,
+  unavailable,
+  children,
+}: {
+  group: IssueGroup;
+  sourceLabel: string;
+  ariaLabel: string;
+  placeholder: string;
+  onValueChange: (value: string) => void;
+  onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+  unavailable?: ReactNode;
+  children?: ReactNode;
+}) {
+  const affected = group.candidates.map(candidateName);
+  const shown = affected.slice(0, 3).join(', ');
+  const remaining = affected.length - 3;
+  return (
+    <div className="space-y-3">
+      {/* One choice maps rows the operator cannot see here, so the container
+          and its caption name exactly who the mapping lands on. */}
+      <div className="border-border grid gap-3 rounded-xl border p-3 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)] sm:items-center">
+        <div className="min-w-0 space-y-1">
+          <p className="text-foreground text-sm font-medium break-words">
+            {sourceLabel}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Affects {affected.length} source row
+            {affected.length === 1 ? '' : 's'}: {shown}
+            {remaining > 0 ? ` +${remaining} more` : ''}
+          </p>
+        </div>
+        {unavailable ?? (
+          <Select<string>
+            value={null}
+            onValueChange={(value) => value && onValueChange(value)}
+          >
+            <SelectTrigger className="w-full" aria-label={ariaLabel}>
+              <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>{children}</SelectContent>
+          </Select>
+        )}
+      </div>
+      <ExcludeGroupAction group={group} onSetDisposition={onSetDisposition} />
+    </div>
+  );
 }
 
 function PhoneIssueResolver({
@@ -709,78 +900,34 @@ function PhoneIssueResolver({
   const changedCandidates = group.candidates.filter(
     (candidate) => drafts[candidate.sourceKey] !== candidate.draftValues.phone
   );
-  const explanation =
-    group.code === 'missing-phone'
-      ? 'Every included member needs their own valid phone number. Add one or exclude the row.'
-      : group.code === 'invalid-phone'
-        ? 'Enter a valid phone number using the account country code shown below, or exclude the row.'
-        : 'Give each member a unique phone number, or exclude the duplicate row. UsefulDesk won’t merge these records.';
 
   return (
     <div className="space-y-4">
-      <p className="text-muted-foreground max-w-[70ch] text-sm">
-        {explanation}
-      </p>
-      {group.code === 'shared-phone' ? (
-        <Badge variant="danger">
-          Shared phone · {group.candidates[0].draftValues.phone}
-        </Badge>
-      ) : null}
-
-      <div>
-        <div className="mb-2">
-          <h4 className="text-sm font-medium">Affected members</h4>
-          <p className="text-muted-foreground text-xs">
-            Edit the phone here; the full row ledger stays separate.
-          </p>
-        </div>
-        <div className="border-border divide-border divide-y rounded-xl border">
-          {group.candidates.map((candidate) => {
-            const name = candidate.draftValues.name || 'Unnamed member';
-            return (
-              <div
-                key={candidate.sourceKey}
-                className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,0.8fr)_auto] sm:items-center"
-              >
-                <MemberIdentity
-                  name={name}
-                  secondary={`Member ID ${candidate.legacyMemberId || 'not set'}`}
-                  meta={`Source row ${candidate.sourceRow}`}
-                />
-                <PhoneInput
-                  value={drafts[candidate.sourceKey] ?? ''}
-                  onValueChange={(phone) =>
-                    setDrafts((current) => ({
-                      ...current,
-                      [candidate.sourceKey]: phone,
-                    }))
-                  }
-                  aria-label={`Phone for ${name}`}
-                  aria-invalid={
-                    drafts[candidate.sourceKey] === candidate.draftValues.phone
-                  }
-                />
-                <Button
-                  type="button"
-                  variant="link"
-                  size="sm"
-                  aria-label={`Exclude ${name}, source row ${candidate.sourceRow}`}
-                  onClick={() =>
-                    onSetDisposition(candidate.sourceKey, 'excluded')
-                  }
-                >
-                  Exclude
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <IssueRows
+        group={group}
+        onSetDisposition={onSetDisposition}
+        renderControl={(candidate) => (
+          <PhoneInput
+            value={drafts[candidate.sourceKey] ?? ''}
+            onValueChange={(phone) =>
+              setDrafts((current) => ({
+                ...current,
+                [candidate.sourceKey]: phone,
+              }))
+            }
+            aria-label={`Phone for ${candidateName(candidate)}`}
+            aria-invalid={
+              group.code === 'invalid-phone' &&
+              drafts[candidate.sourceKey] === candidate.draftValues.phone
+            }
+          />
+        )}
+      />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-muted-foreground text-xs">
           {changedCandidates.length === 0
-            ? 'Change at least one phone number to resolve this issue.'
+            ? 'Edit a phone number to resolve this issue.'
             : `${changedCandidates.length} phone ${changedCandidates.length === 1 ? 'change' : 'changes'} ready to save.`}
         </p>
         <Button
@@ -801,15 +948,252 @@ function PhoneIssueResolver({
   );
 }
 
+function PaymentConflictResolver({
+  group,
+  onResolvePayment,
+  onSetDisposition,
+}: {
+  group: IssueGroup;
+  onResolvePayment: ImportMembersPreviewProps['onResolvePayment'];
+  onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+}) {
+  const { fmt } = useLocale();
+  const [manualKey, setManualKey] = useState<string | null>(null);
+  const [manualDrafts, setManualDrafts] = useState<
+    Record<string, { paid: string; balance: string }>
+  >({});
+
+  function draftFor(candidate: MemberImportCandidate) {
+    return (
+      manualDrafts[candidate.sourceKey] ?? {
+        paid: candidate.draftValues.amountPaid ?? '',
+        balance: candidate.draftValues.balance ?? '',
+      }
+    );
+  }
+
+  return (
+    <IssueRows
+      group={group}
+      onSetDisposition={onSetDisposition}
+      stacked
+      renderControl={(candidate) => {
+        const fee = parseMoney(candidate.draftValues.fee ?? '') ?? 0;
+        const paid = parseMoney(candidate.draftValues.amountPaid ?? '') ?? 0;
+        const balance = parseMoney(candidate.draftValues.balance ?? '') ?? 0;
+        const manual = draftFor(candidate);
+        return (
+          <div className="space-y-3">
+            {/* The four figures are the decision itself, so they read as a
+                labelled set rather than one muted run-on line. */}
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
+              {(
+                [
+                  ['Total', fee],
+                  ['Paid', paid],
+                  ['Balance', balance],
+                ] as const
+              ).map(([label, value]) => (
+                <div key={label}>
+                  <dt className="text-muted-foreground text-xs">{label}</dt>
+                  <dd className="text-foreground text-sm tabular-nums">
+                    {fmt.money(value)}
+                  </dd>
+                </div>
+              ))}
+              <div>
+                <dt className="text-muted-foreground text-xs">Off by</dt>
+                <dd className="text-amber-foreground text-sm tabular-nums">
+                  {fmt.money(fee - paid - balance)}
+                </dd>
+              </div>
+            </dl>
+            <Select
+              value={candidate.resolutions.payment}
+              onValueChange={(value) => {
+                if (!value) return;
+                if (value === 'manual') {
+                  setManualKey(candidate.sourceKey);
+                  return;
+                }
+                setManualKey(null);
+                onResolvePayment(
+                  candidate.sourceKey,
+                  value as MemberImportPaymentResolution
+                );
+              }}
+            >
+              <SelectTrigger
+                className="w-full sm:max-w-sm"
+                aria-label={`Resolve payment for source row ${candidate.sourceRow}`}
+              >
+                <SelectValue placeholder="Choose which figures to trust" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="trust_paid">
+                  Keep paid, recalculate the total
+                </SelectItem>
+                <SelectItem value="trust_balance">
+                  Keep balance, recalculate paid
+                </SelectItem>
+                <SelectItem value="member_only">
+                  Import without a payment
+                </SelectItem>
+                <SelectItem value="manual">Enter corrected figures</SelectItem>
+              </SelectContent>
+            </Select>
+            {manualKey === candidate.sourceKey && (
+              <div className="grid gap-3 sm:max-w-sm sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor={`paid-${candidate.sourceKey}`} size="sm">
+                    Corrected paid
+                  </Label>
+                  <Input
+                    id={`paid-${candidate.sourceKey}`}
+                    inputMode="decimal"
+                    value={manual.paid}
+                    onChange={(event) =>
+                      setManualDrafts((current) => ({
+                        ...current,
+                        [candidate.sourceKey]: {
+                          ...manual,
+                          paid: event.currentTarget.value,
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor={`balance-${candidate.sourceKey}`} size="sm">
+                    Corrected balance
+                  </Label>
+                  <Input
+                    id={`balance-${candidate.sourceKey}`}
+                    inputMode="decimal"
+                    value={manual.balance}
+                    onChange={(event) =>
+                      setManualDrafts((current) => ({
+                        ...current,
+                        [candidate.sourceKey]: {
+                          ...manual,
+                          balance: event.currentTarget.value,
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="sm:col-span-2 sm:justify-self-end"
+                  onClick={() => {
+                    onResolvePayment(candidate.sourceKey, 'manual', manual);
+                    setManualKey(null);
+                  }}
+                >
+                  Apply corrected figures
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+      }}
+    />
+  );
+}
+
+/**
+ * Corrections for the rows whose own values are unreadable. Every field
+ * commits on blur, so a half-typed date never re-runs validation for the
+ * whole file.
+ */
+function FieldCorrectionResolver({
+  group,
+  fields,
+  onPatch,
+  onSetDisposition,
+}: {
+  group: IssueGroup;
+  fields: {
+    key: keyof MemberImportDraftValues;
+    label: string;
+    inputMode?: 'decimal';
+  }[];
+  onPatch: ImportMembersPreviewProps['onPatch'];
+  onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+}) {
+  return (
+    <IssueRows
+      group={group}
+      onSetDisposition={onSetDisposition}
+      stacked
+      renderControl={(candidate) => (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {fields.map((field) => {
+            const id = `${field.key}-${candidate.sourceKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+            return (
+              <div key={field.key} className="min-w-0 space-y-1.5">
+                <Label htmlFor={id} size="sm">
+                  {field.label}
+                </Label>
+                <Input
+                  id={id}
+                  aria-label={`${field.label} for source row ${candidate.sourceRow}`}
+                  inputMode={field.inputMode}
+                  defaultValue={
+                    (candidate.draftValues[field.key] as string | undefined) ??
+                    ''
+                  }
+                  onBlur={(event) =>
+                    onPatch(candidate.sourceKey, {
+                      [field.key]: event.currentTarget.value,
+                    })
+                  }
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    />
+  );
+}
+
+const SERVICE_CORRECTION_FIELDS = [
+  { key: 'serviceStart', label: 'Service start' },
+  { key: 'serviceEnd', label: 'Service expiry' },
+  {
+    key: 'serviceSoldPrice',
+    label: 'Service sold price',
+    inputMode: 'decimal',
+  },
+  { key: 'fee', label: 'Row total', inputMode: 'decimal' },
+] as const satisfies readonly {
+  key: keyof MemberImportDraftValues;
+  label: string;
+  inputMode?: 'decimal';
+}[];
+
+const MEMBERSHIP_CORRECTION_FIELDS = [
+  { key: 'startDate', label: 'Start date' },
+  { key: 'endDate', label: 'Expiry' },
+  { key: 'status', label: 'Status' },
+  { key: 'freezeDate', label: 'Freeze date' },
+  { key: 'fee', label: 'Fee', inputMode: 'decimal' },
+  { key: 'amountPaid', label: 'Amount paid', inputMode: 'decimal' },
+  { key: 'paidAt', label: 'Payment date' },
+  { key: 'dateOfBirth', label: 'Date of birth' },
+] as const satisfies readonly {
+  key: keyof MemberImportDraftValues;
+  label: string;
+  inputMode?: 'decimal';
+}[];
+
 function GroupResolver({
   group,
   plans,
   catalogItems,
   trainers,
-  manualPaymentKey,
-  manualPayments,
-  onManualPaymentKey,
-  onManualPaymentChange,
   onResolveGroupedPlan,
   onResolveGroupedOffering,
   onResolveGroupedService,
@@ -822,13 +1206,6 @@ function GroupResolver({
   plans: MembershipPlan[];
   catalogItems: CatalogItem[];
   trainers: Trainer[];
-  manualPaymentKey: string | null;
-  manualPayments: Record<string, { paid: string; balance: string }>;
-  onManualPaymentKey: (sourceKey: string | null) => void;
-  onManualPaymentChange: (
-    sourceKey: string,
-    patch: Partial<{ paid: string; balance: string }>
-  ) => void;
   onResolveGroupedPlan: ImportMembersPreviewProps['onResolveGroupedPlan'];
   onResolveGroupedOffering: ImportMembersPreviewProps['onResolveGroupedOffering'];
   onResolveGroupedService: ImportMembersPreviewProps['onResolveGroupedService'];
@@ -837,8 +1214,8 @@ function GroupResolver({
   onPatch: ImportMembersPreviewProps['onPatch'];
   onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
 }) {
-  const { fmt } = useLocale();
   const first = group.candidates[0];
+  const sourceKeys = group.candidates.map((candidate) => candidate.sourceKey);
 
   if (
     group.code === 'missing-phone' ||
@@ -857,85 +1234,63 @@ function GroupResolver({
   if (group.code === 'offering-needs-classification') {
     const sourceLabel = first.originalValues.offering || '(blank)';
     return (
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)] sm:items-center">
-        <div>
-          <p className="text-foreground text-sm font-medium break-words">
-            {sourceLabel}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            Applies to {group.candidates.length} source row
-            {group.candidates.length === 1 ? '' : 's'}.
-          </p>
-        </div>
-        <Select<string>
-          value={null}
-          onValueChange={(value) => {
-            if (!value) return;
-            const [kind, primaryId, optionId] = value.split('::');
-            const sourceKeys = group.candidates.map(
-              (candidate) => candidate.sourceKey
-            );
-            if (kind === 'membership') {
-              onResolveGroupedOffering(sourceKeys, {
-                kind: 'membership',
-                planId: primaryId,
-                pricingOptionId: optionId,
-              });
-            } else {
-              onResolveGroupedOffering(sourceKeys, {
-                kind: 'service',
-                itemId: primaryId,
-                optionId,
-              });
-            }
-          }}
-        >
-          <SelectTrigger
-            className="w-full"
-            aria-label={`Classify ${sourceLabel}`}
-          >
-            <SelectValue placeholder="Choose plan or service" />
-          </SelectTrigger>
-          <SelectContent>
-            {plans.flatMap((plan) =>
-              (plan.pricing_options ?? [])
-                .filter((option) => option.is_active)
-                .map((option) => (
-                  <SelectItem
-                    key={`membership::${plan.id}::${option.id}`}
-                    value={`membership::${plan.id}::${option.id}`}
-                  >
-                    Membership · {plan.name} ·{' '}
-                    {durationLabel(option.duration_count, option.duration_unit)}
-                  </SelectItem>
-                ))
-            )}
-            {catalogItems
-              .filter((item) => item.kind === 'service' && item.is_active)
-              .flatMap((item) =>
-                (item.catalog_options ?? [])
-                  .filter(
-                    (option) =>
-                      option.is_active &&
-                      option.duration_count !== null &&
-                      option.duration_unit !== null
-                  )
-                  .map((option) => (
-                    <SelectItem
-                      key={`service::${item.id}::${option.id}`}
-                      value={`service::${item.id}::${option.id}`}
-                    >
-                      Service · {item.name} ·{' '}
-                      {durationLabel(
-                        option.duration_count!,
-                        option.duration_unit!
-                      )}
-                    </SelectItem>
-                  ))
-              )}
-          </SelectContent>
-        </Select>
-      </div>
+      <GroupChoice
+        group={group}
+        sourceLabel={sourceLabel}
+        ariaLabel={`Classify ${sourceLabel}`}
+        placeholder="Choose plan or service"
+        onSetDisposition={onSetDisposition}
+        onValueChange={(value) => {
+          const [kind, primaryId, optionId] = value.split('::');
+          if (kind === 'membership') {
+            onResolveGroupedOffering(sourceKeys, {
+              kind: 'membership',
+              planId: primaryId,
+              pricingOptionId: optionId,
+            });
+          } else {
+            onResolveGroupedOffering(sourceKeys, {
+              kind: 'service',
+              itemId: primaryId,
+              optionId,
+            });
+          }
+        }}
+      >
+        {plans.flatMap((plan) =>
+          (plan.pricing_options ?? [])
+            .filter((option) => option.is_active)
+            .map((option) => (
+              <SelectItem
+                key={`membership::${plan.id}::${option.id}`}
+                value={`membership::${plan.id}::${option.id}`}
+              >
+                Membership · {plan.name} ·{' '}
+                {durationLabel(option.duration_count, option.duration_unit)}
+              </SelectItem>
+            ))
+        )}
+        {catalogItems
+          .filter((item) => item.kind === 'service' && item.is_active)
+          .flatMap((item) =>
+            (item.catalog_options ?? [])
+              .filter(
+                (option) =>
+                  option.is_active &&
+                  option.duration_count !== null &&
+                  option.duration_unit !== null
+              )
+              .map((option) => (
+                <SelectItem
+                  key={`service::${item.id}::${option.id}`}
+                  value={`service::${item.id}::${option.id}`}
+                >
+                  Service · {item.name} ·{' '}
+                  {durationLabel(option.duration_count!, option.duration_unit!)}
+                </SelectItem>
+              ))
+          )}
+      </GroupChoice>
     );
   }
 
@@ -965,145 +1320,40 @@ function GroupResolver({
           })
       );
     return (
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)] sm:items-center">
-        <div>
-          <p className="text-foreground text-sm font-medium break-words">
-            {sourceLabel}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            Only active service options and valid trainer rates are offered.
-          </p>
-        </div>
-        {serviceChoices.length > 0 ? (
-          <Select<string>
-            value={null}
-            onValueChange={(value) => {
-              if (!value) return;
-              const [itemId, optionId, trainerId] = value.split('::');
-              onResolveGroupedService(
-                group.candidates.map((candidate) => candidate.sourceKey),
-                {
-                  itemId,
-                  optionId,
-                  trainerId: trainerId === '-' ? null : trainerId,
-                }
-              );
-            }}
+      <GroupChoice
+        group={group}
+        sourceLabel={sourceLabel}
+        ariaLabel={`Map ${sourceLabel}`}
+        placeholder="Choose service, option, and trainer"
+        onSetDisposition={onSetDisposition}
+        onValueChange={(value) => {
+          const [itemId, optionId, trainerId] = value.split('::');
+          onResolveGroupedService(sourceKeys, {
+            itemId,
+            optionId,
+            trainerId: trainerId === '-' ? null : trainerId,
+          });
+        }}
+        unavailable={
+          serviceChoices.length === 0 ? (
+            <p className="text-amber-foreground text-sm">
+              No active service option matches this row. Add one in Settings →
+              Products &amp; services, then reopen this import.
+            </p>
+          ) : undefined
+        }
+      >
+        {serviceChoices.map(({ item, option, trainer }) => (
+          <SelectItem
+            key={`${item.id}::${option.id}::${trainer?.id ?? '-'}`}
+            value={`${item.id}::${option.id}::${trainer?.id ?? '-'}`}
           >
-            <SelectTrigger className="w-full" aria-label={`Map ${sourceLabel}`}>
-              <SelectValue placeholder="Choose service, option, and trainer" />
-            </SelectTrigger>
-            <SelectContent>
-              {serviceChoices.map(({ item, option, trainer }) => (
-                <SelectItem
-                  key={`${item.id}::${option.id}::${trainer?.id ?? '-'}`}
-                  value={`${item.id}::${option.id}::${trainer?.id ?? '-'}`}
-                >
-                  {item.name} ·{' '}
-                  {durationLabel(option.duration_count!, option.duration_unit!)}
-                  {trainer ? ` · ${trainer.display_name}` : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <p className="text-amber-foreground text-sm">
-            No active matching service rate is available. Configure it in
-            Settings → Products &amp; services, then reload this import.
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  if (
-    group.code === 'service-values-invalid' ||
-    group.code === 'duplicate-service' ||
-    group.code === 'purchase-total-mismatch'
-  ) {
-    return (
-      <div className="space-y-3">
-        {group.candidates.map((candidate) => {
-          const prefix = `service-correction-${candidate.sourceKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
-          const fields: {
-            key: keyof Pick<
-              MemberImportDraftValues,
-              'serviceStart' | 'serviceEnd' | 'serviceSoldPrice' | 'fee'
-            >;
-            label: string;
-            value: string | undefined;
-          }[] = [
-            {
-              key: 'serviceStart',
-              label: 'Service start',
-              value: candidate.draftValues.serviceStart,
-            },
-            {
-              key: 'serviceEnd',
-              label: 'Service expiry',
-              value: candidate.draftValues.serviceEnd,
-            },
-            {
-              key: 'serviceSoldPrice',
-              label: 'Service sold price',
-              value: candidate.draftValues.serviceSoldPrice,
-            },
-            {
-              key: 'fee',
-              label: 'Row total',
-              value: candidate.draftValues.fee,
-            },
-          ];
-          return (
-            <div
-              key={candidate.sourceKey}
-              className="border-border grid gap-3 rounded-lg border p-3 sm:grid-cols-2 lg:grid-cols-5"
-            >
-              <div className="sm:col-span-2 lg:col-span-1">
-                <p className="text-foreground text-sm font-medium">
-                  Source row {candidate.sourceRow}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {candidate.draftValues.serviceName || 'Service purchase'}
-                </p>
-              </div>
-              {fields.map((field) => (
-                <div key={field.key} className="space-y-1.5">
-                  <Label htmlFor={`${prefix}-${field.key}`}>
-                    {field.label}
-                  </Label>
-                  <Input
-                    id={`${prefix}-${field.key}`}
-                    defaultValue={field.value}
-                    inputMode={
-                      field.key === 'serviceSoldPrice' || field.key === 'fee'
-                        ? 'decimal'
-                        : undefined
-                    }
-                    onBlur={(event) =>
-                      onPatch(candidate.sourceKey, {
-                        [field.key]: event.currentTarget.value,
-                      })
-                    }
-                  />
-                </div>
-              ))}
-              <div className="sm:col-span-2 lg:col-span-5">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    onSetDisposition(candidate.sourceKey, 'excluded')
-                  }
-                >
-                  Exclude source row {candidate.sourceRow}
-                </Button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            {item.name} ·{' '}
+            {durationLabel(option.duration_count!, option.duration_unit!)}
+            {trainer ? ` · ${trainer.display_name}` : ''}
+          </SelectItem>
+        ))}
+      </GroupChoice>
     );
   }
 
@@ -1113,309 +1363,103 @@ function GroupResolver({
   ) {
     const sourceLabel = `${first.originalValues.planName || '(blank)'} · ${first.originalValues.pricingOption || '(no billing option)'}`;
     return (
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)] sm:items-center">
-        <div>
-          <p className="text-foreground text-sm font-medium break-words">
-            {sourceLabel}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            Applies to {group.candidates.length} source row
-            {group.candidates.length === 1 ? '' : 's'}.
-          </p>
-        </div>
-        <Select<string>
-          value={null}
-          onValueChange={(value) => {
-            if (!value) return;
-            const [planId, pricingOptionId] = value.split('::');
-            onResolveGroupedPlan(
-              group.candidates.map((candidate) => candidate.sourceKey),
-              { planId, pricingOptionId }
-            );
-          }}
-        >
-          <SelectTrigger className="w-full" aria-label={`Map ${sourceLabel}`}>
-            <SelectValue placeholder="Choose plan and billing option" />
-          </SelectTrigger>
-          <SelectContent>
-            {plans.flatMap((plan) =>
-              (plan.pricing_options ?? [])
-                .filter((option) => option.is_active)
-                .map((option) => (
-                  <SelectItem
-                    key={`${plan.id}::${option.id}`}
-                    value={`${plan.id}::${option.id}`}
-                  >
-                    {plan.name} ·{' '}
-                    {durationLabel(option.duration_count, option.duration_unit)}
-                  </SelectItem>
-                ))
-            )}
-          </SelectContent>
-        </Select>
-      </div>
+      <GroupChoice
+        group={group}
+        sourceLabel={sourceLabel}
+        ariaLabel={`Map ${sourceLabel}`}
+        placeholder="Choose plan and billing option"
+        onSetDisposition={onSetDisposition}
+        onValueChange={(value) => {
+          const [planId, pricingOptionId] = value.split('::');
+          onResolveGroupedPlan(sourceKeys, { planId, pricingOptionId });
+        }}
+      >
+        {plans.flatMap((plan) =>
+          (plan.pricing_options ?? [])
+            .filter((option) => option.is_active)
+            .map((option) => (
+              <SelectItem
+                key={`${plan.id}::${option.id}`}
+                value={`${plan.id}::${option.id}`}
+              >
+                {plan.name} ·{' '}
+                {durationLabel(option.duration_count, option.duration_unit)}
+              </SelectItem>
+            ))
+        )}
+      </GroupChoice>
+    );
+  }
+
+  if (
+    group.code === 'service-values-invalid' ||
+    group.code === 'duplicate-service' ||
+    group.code === 'purchase-total-mismatch'
+  ) {
+    return (
+      <FieldCorrectionResolver
+        group={group}
+        fields={[...SERVICE_CORRECTION_FIELDS]}
+        onPatch={onPatch}
+        onSetDisposition={onSetDisposition}
+      />
+    );
+  }
+
+  if (group.code === 'invalid-membership-values') {
+    return (
+      <FieldCorrectionResolver
+        group={group}
+        fields={[...MEMBERSHIP_CORRECTION_FIELDS]}
+        onPatch={onPatch}
+        onSetDisposition={onSetDisposition}
+      />
     );
   }
 
   if (group.code === 'payment-conflict') {
     return (
-      <div className="space-y-4">
-        {group.candidates.map((candidate) => {
-          const fee = parseMoney(candidate.draftValues.fee ?? '') ?? 0;
-          const paid = parseMoney(candidate.draftValues.amountPaid ?? '') ?? 0;
-          const balance = parseMoney(candidate.draftValues.balance ?? '') ?? 0;
-          const difference = fee - paid - balance;
-          const manual = manualPayments[candidate.sourceKey] ?? {
-            paid: candidate.draftValues.amountPaid ?? '',
-            balance: candidate.draftValues.balance ?? '',
-          };
-          return (
-            <div
-              key={candidate.sourceKey}
-              className="border-border grid gap-3 rounded-lg border p-3 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,0.8fr)] lg:items-start"
-            >
-              <div>
-                <p className="text-foreground text-sm font-medium">
-                  {candidate.draftValues.name || 'Unnamed member'} · source row{' '}
-                  {candidate.sourceRow}
-                </p>
-                <p className="text-muted-foreground mt-1 text-xs tabular-nums">
-                  Fee {fmt.money(fee)} · Paid {fmt.money(paid)} · Balance{' '}
-                  {fmt.money(balance)} · Difference {fmt.money(difference)}
-                </p>
-              </div>
-              <div className="space-y-3">
-                <Select
-                  value={candidate.resolutions.payment}
-                  onValueChange={(value) => {
-                    if (!value) return;
-                    if (value === 'manual') {
-                      onManualPaymentKey(candidate.sourceKey);
-                      return;
-                    }
-                    onManualPaymentKey(null);
-                    onResolvePayment(
-                      candidate.sourceKey,
-                      value as MemberImportPaymentResolution
-                    );
-                  }}
-                >
-                  <SelectTrigger
-                    className="w-full"
-                    aria-label={`Resolve payment for source row ${candidate.sourceRow}`}
-                  >
-                    <SelectValue placeholder="Choose payment handling" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="trust_paid">Trust paid</SelectItem>
-                    <SelectItem value="trust_balance">Trust balance</SelectItem>
-                    <SelectItem value="member_only">
-                      Import member without payment
-                    </SelectItem>
-                    <SelectItem value="manual">
-                      Enter corrected values
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                {manualPaymentKey === candidate.sourceKey && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor={`paid-${candidate.sourceKey}`} size="sm">
-                        Corrected paid
-                      </Label>
-                      <Input
-                        id={`paid-${candidate.sourceKey}`}
-                        inputMode="decimal"
-                        value={manual.paid}
-                        onChange={(event) =>
-                          onManualPaymentChange(candidate.sourceKey, {
-                            paid: event.currentTarget.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label
-                        htmlFor={`balance-${candidate.sourceKey}`}
-                        size="sm"
-                      >
-                        Corrected balance
-                      </Label>
-                      <Input
-                        id={`balance-${candidate.sourceKey}`}
-                        inputMode="decimal"
-                        value={manual.balance}
-                        onChange={(event) =>
-                          onManualPaymentChange(candidate.sourceKey, {
-                            balance: event.currentTarget.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="sm:col-span-2 sm:justify-self-end"
-                      onClick={() => {
-                        onResolvePayment(candidate.sourceKey, 'manual', manual);
-                        onManualPaymentKey(null);
-                      }}
-                    >
-                      Apply corrected values
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <PaymentConflictResolver
+        group={group}
+        onResolvePayment={onResolvePayment}
+        onSetDisposition={onSetDisposition}
+      />
     );
   }
 
   if (group.code === 'existing-contact') {
     return (
-      <div className="space-y-3">
-        {group.candidates.map((candidate) => (
-          <div
-            key={candidate.sourceKey}
-            className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_15rem] sm:items-center"
+      <IssueRows
+        group={group}
+        onSetDisposition={onSetDisposition}
+        renderControl={(candidate) => (
+          <Select
+            value={candidate.resolutions.existingContact}
+            onValueChange={(value) =>
+              value &&
+              onResolveExistingContact(
+                candidate.sourceKey,
+                value as MemberImportExistingContactResolution
+              )
+            }
           >
-            <p className="text-foreground text-sm">
-              {candidate.draftValues.name || 'Unnamed member'} · source row{' '}
-              {candidate.sourceRow}
-            </p>
-            <Select
-              value={candidate.resolutions.existingContact}
-              onValueChange={(value) =>
-                value &&
-                onResolveExistingContact(
-                  candidate.sourceKey,
-                  value as MemberImportExistingContactResolution
-                )
-              }
+            <SelectTrigger
+              className="w-full"
+              aria-label={`Resolve existing contact for source row ${candidate.sourceRow}`}
             >
-              <SelectTrigger
-                className="w-full"
-                aria-label={`Resolve existing contact for source row ${candidate.sourceRow}`}
-              >
-                <SelectValue placeholder="Choose contact values" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="keep_existing">Keep existing</SelectItem>
-                <SelectItem value="use_csv">Use CSV values</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        ))}
-      </div>
+              <SelectValue placeholder="Choose which details to keep" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="keep_existing">Keep saved details</SelectItem>
+              <SelectItem value="use_csv">Use details from your file</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+      />
     );
   }
 
-  if (group.code === 'invalid-membership-values') {
-    const fields: {
-      key: keyof Pick<
-        MemberImportDraftValues,
-        | 'startDate'
-        | 'endDate'
-        | 'status'
-        | 'freezeDate'
-        | 'fee'
-        | 'amountPaid'
-        | 'paidAt'
-        | 'dateOfBirth'
-      >;
-      label: string;
-      inputMode?: 'decimal';
-    }[] = [
-      { key: 'startDate', label: 'Start date' },
-      { key: 'endDate', label: 'Expiry' },
-      { key: 'status', label: 'Status' },
-      { key: 'freezeDate', label: 'Freeze date' },
-      { key: 'fee', label: 'Fee', inputMode: 'decimal' },
-      { key: 'amountPaid', label: 'Amount paid', inputMode: 'decimal' },
-      { key: 'paidAt', label: 'Payment date' },
-      { key: 'dateOfBirth', label: 'Date of birth' },
-    ];
-    return (
-      <div className="space-y-3">
-        {group.candidates.map((candidate) => (
-          <div
-            key={candidate.sourceKey}
-            className="border-border space-y-3 rounded-lg border p-3"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-foreground text-sm font-medium">
-                  {candidate.draftValues.name || 'Unnamed member'} · source row{' '}
-                  {candidate.sourceRow}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  Correct invalid dates, status, or amounts. Changes are checked
-                  immediately.
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  onSetDisposition(candidate.sourceKey, 'excluded')
-                }
-              >
-                Exclude source row {candidate.sourceRow}
-              </Button>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {fields.map((field) => {
-                const id = `${field.key}-${candidate.sourceKey}`;
-                return (
-                  <div key={field.key} className="min-w-0 space-y-1.5">
-                    <Label htmlFor={id} size="sm">
-                      {field.label}
-                    </Label>
-                    <Input
-                      id={id}
-                      aria-label={`${field.label} for source row ${candidate.sourceRow}`}
-                      inputMode={field.inputMode}
-                      value={candidate.draftValues[field.key] ?? ''}
-                      onChange={(event) =>
-                        onPatch(candidate.sourceKey, {
-                          [field.key]: event.currentTarget.value,
-                        })
-                      }
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      <p className="text-muted-foreground text-sm">
-        Edit the affected rows below, or explicitly exclude a row from this
-        import.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {group.candidates.map((candidate) => (
-          <Button
-            key={candidate.sourceKey}
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => onSetDisposition(candidate.sourceKey, 'excluded')}
-          >
-            Exclude source row {candidate.sourceRow}
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
+  return <IssueRows group={group} onSetDisposition={onSetDisposition} />;
 }
 
 function CandidateOffering({
@@ -1548,7 +1592,7 @@ function Pagination({
   return (
     <div className="border-border flex items-center justify-between gap-3 border-t px-3 py-2">
       <p className="text-muted-foreground text-xs">
-        {total} candidate{total === 1 ? '' : 's'}
+        {total} row{total === 1 ? '' : 's'}
       </p>
       <div className="flex items-center gap-1">
         <Button

@@ -1247,7 +1247,7 @@ export function ImportMembersCsvDialog({
   const descriptions: Record<Step, string> = {
     1: 'Upload a CSV or Excel workbook of members to begin.',
     2: 'Map your file columns to member fields.',
-    3: 'Resolve every blocking issue or explicitly exclude the row.',
+    3: 'Fix each issue, or exclude the rows it affects.',
     4: 'Review the exact source equation and confirm.',
   };
   const currentDescription =
