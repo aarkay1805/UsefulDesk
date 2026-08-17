@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
   CheckCircle,
@@ -27,7 +27,6 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -41,6 +40,7 @@ import {
   summarizeMemberImportCandidates,
   type MemberImportCandidate,
   type MemberImportCandidateDisposition,
+  type MemberImportCandidateExclusionReason,
   type MemberImportCandidateFilter,
   type MemberImportDraftValues,
   type MemberImportExistingContactResolution,
@@ -191,6 +191,7 @@ export function ImportMembersPreview({
   onSetDisposition,
 }: ImportMembersPreviewProps) {
   const { fmt } = useLocale();
+  const sectionId = useId();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<MemberImportCandidateFilter>('all');
   const [page, setPage] = useState(0);
@@ -291,36 +292,65 @@ export function ImportMembersPreview({
             <aside className="border-border hidden min-h-0 border-r md:flex md:flex-col">
               <nav
                 aria-label="Issue queue"
-                className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-3"
+                className="divide-border min-h-0 flex-1 divide-y overflow-y-auto px-2 pb-2"
               >
-                {sections.map((section) => (
-                  <div key={section.title} className="space-y-0.5">
+                {sections.map((section, index) => (
+                  <div
+                    key={section.title}
+                    role="group"
+                    aria-labelledby={`${sectionId}-${index}`}
+                    /* No padding above the heading: a sticky element cannot
+                       rise above its parent's content box, so top padding here
+                       would park the pinned heading below the scrollport edge
+                       and let rows slide visibly through the gap. The heading
+                       owns its own top space instead. */
+                    className="pb-2"
+                  >
                     {/* The kind of problem is named once per cluster, so a row
-                        only has to carry the value that identifies it. */}
-                    <p className="bg-popover text-muted-foreground sticky top-0 z-10 px-2.5 pb-1.5 text-xs font-medium">
+                        only has to carry the value that identifies it. The
+                        heading and the rows it names both sit in the quiet
+                        text role, so the heading earns its own register —
+                        smaller, heavier, wider-tracked, held above a rule, and
+                        set closer to its own rows than to the cluster above.
+                        Without that it reads as a fourth, unclickable row. */}
+                    <p
+                      id={`${sectionId}-${index}`}
+                      className="bg-popover text-muted-foreground sticky top-0 z-10 px-2.5 pt-3 pb-2 text-xs font-semibold tracking-wide"
+                    >
                       {section.title}
                     </p>
-                    {section.groups.map((group) => (
-                      <Button
-                        key={group.key}
-                        type="button"
-                        variant={
-                          group.key === activeGroup.key ? 'secondary' : 'ghost'
-                        }
-                        className="w-full justify-start"
-                        aria-pressed={group.key === activeGroup.key}
-                        onClick={() => setSelectedGroupKey(group.key)}
-                      >
-                        <span className="min-w-0 flex-1 truncate text-left">
-                          {groupQueueLabel(group)}
-                        </span>
-                        {group.candidates.length > 1 ? (
-                          <Badge variant="neutral" size="count">
-                            {group.candidates.length}
-                          </Badge>
-                        ) : null}
-                      </Button>
-                    ))}
+                    <div className="space-y-0.5">
+                      {section.groups.map((group) => (
+                        <Button
+                          key={group.key}
+                          type="button"
+                          variant={
+                            group.key === activeGroup.key ? 'secondary' : 'ghost'
+                          }
+                          /* A queue row carries a value the operator matches
+                             against their file — a plan name, a phone number —
+                             so it reads in the ink role like the same list
+                             does in the mobile Select. Ghost's muted default
+                             put it in the very role the section heading uses,
+                             which is what made the two indistinguishable. */
+                          className={cn(
+                            'w-full justify-start',
+                            group.key !== activeGroup.key && 'text-foreground'
+                          )}
+                          aria-pressed={group.key === activeGroup.key}
+                          onClick={() => setSelectedGroupKey(group.key)}
+                        >
+                          <span className="min-w-0 flex-1 truncate text-left">
+                            {groupQueueLabel(group)}
+                          </span>
+                          {group.candidates.length > 1 ? (
+                            <Badge variant="neutral" size="count">
+                              {group.candidates.length}
+                            </Badge>
+                          ) : null}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </nav>
@@ -448,208 +478,283 @@ export function ImportMembersPreview({
               </ChipGroup>
             </div>
 
-            <div
-              data-testid="member-import-desktop"
-              className="border-border hidden min-h-0 flex-1 overflow-auto border-t md:block"
-            >
-              <Table className="min-w-[980px] table-fixed">
-                <TableHeader className="bg-background sticky top-0 z-10">
-                  <TableRow>
-                    <TableHead className="w-56">Name</TableHead>
-                    <TableHead className="w-32">Member ID</TableHead>
-                    <TableHead className="w-44">Phone</TableHead>
-                    <TableHead className="w-56">Offering</TableHead>
-                    <TableHead className="w-28">Expiry</TableHead>
-                    <TableHead className="w-44">Status</TableHead>
-                    <TableHead className="w-28">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paged.map((candidate) => (
-                    <TableRow key={candidate.sourceKey}>
-                      <TableCell>
-                        <MemberIdentity
-                          name={candidate.draftValues.name || 'Unnamed member'}
-                          secondary={`Source row ${candidate.sourceRow}`}
-                        />
-                      </TableCell>
-                      <TableCell className="text-muted-foreground truncate text-xs">
-                        {candidate.legacyMemberId || '—'}
-                      </TableCell>
-                      <TableCell className="p-0">
-                        <EditableCell
-                          editing={isEditing(
-                            candidate.sourceKey,
-                            'phone',
-                            'desktop'
-                          )}
-                          saving={false}
-                          kind="phone"
-                          value={candidate.draftValues.phone}
-                          display={
-                            <span className="text-foreground truncate text-sm">
-                              {candidate.draftValues.phone || 'Add phone'}
-                            </span>
-                          }
-                          onStart={() =>
-                            startEditing(
-                              candidate.sourceKey,
-                              'phone',
-                              'desktop'
-                            )
-                          }
-                          onCancel={() => setEditing(null)}
-                          onCommit={(phone) => {
-                            onPatch(candidate.sourceKey, { phone });
-                            setEditing(null);
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell className="p-0">
-                        {candidate.outcomeKind === 'membership' ? (
-                          <EditableCell
-                            editing={isEditing(
-                              candidate.sourceKey,
-                              'plan',
-                              'desktop'
-                            )}
-                            saving={false}
-                            kind="select"
-                            value={candidate.built.membership?.plan_id ?? ''}
-                            options={plans.map((plan) => ({
-                              value: plan.id,
-                              label: plan.name,
-                            }))}
-                            display={
-                              <CandidateOffering candidate={candidate} />
+            {visible.length === 0 ? (
+              <EmptyRows
+                filtered={search.trim().length > 0 || filter !== 'all'}
+                onReset={() => {
+                  setSearch('');
+                  setFilter('all');
+                  setPage(0);
+                }}
+              />
+            ) : (
+              <>
+                <div
+                  data-testid="member-import-desktop"
+                  className="border-border hidden min-h-0 flex-1 flex-col overflow-hidden rounded-xl border md:flex"
+                >
+                  {/* One scroll box owns both axes. `Table` wraps its own
+                      `overflow-x-auto` container, and nesting that inside a
+                      vertical scroller detaches `sticky` from the box that
+                      actually scrolls — the header slides away and the
+                      horizontal scrollbar parks below the last row. */}
+                  <div className="min-h-0 flex-1 overflow-auto">
+                    {/* Declared widths sum to the min-width, so `table-fixed`
+                        hands every column exactly what it was given instead
+                        of scaling them down into each other. */}
+                    <table className="w-full min-w-[1152px] table-fixed caption-bottom text-sm">
+                      <TableHeader className="bg-popover sticky top-0 z-10">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="w-52">Name</TableHead>
+                          <TableHead className="w-24">Member ID</TableHead>
+                          <TableHead className="w-40">Phone</TableHead>
+                          <TableHead className="w-56">Offering</TableHead>
+                          <TableHead className="w-24 text-right">Fee</TableHead>
+                          <TableHead className="w-28">Expiry</TableHead>
+                          <TableHead className="w-40">Status</TableHead>
+                          <TableHead className="w-24 text-right">
+                            Actions
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paged.map((candidate) => (
+                          <TableRow key={candidate.sourceKey}>
+                            <TableCell>
+                              <MemberIdentity
+                                name={
+                                  candidate.draftValues.name || 'Unnamed member'
+                                }
+                                secondary={`Source row ${candidate.sourceRow}`}
+                              />
+                            </TableCell>
+                            <TableCell
+                              className="text-muted-foreground truncate text-xs"
+                              title={candidate.legacyMemberId || undefined}
+                            >
+                              {candidate.legacyMemberId || '—'}
+                            </TableCell>
+                            <TableCell className="p-0">
+                              <EditableCell
+                                editing={isEditing(
+                                  candidate.sourceKey,
+                                  'phone',
+                                  'desktop'
+                                )}
+                                saving={false}
+                                kind="phone"
+                                value={candidate.draftValues.phone}
+                                display={
+                                  <span className="text-foreground truncate text-sm">
+                                    {candidate.draftValues.phone || 'Add phone'}
+                                  </span>
+                                }
+                                onStart={() =>
+                                  startEditing(
+                                    candidate.sourceKey,
+                                    'phone',
+                                    'desktop'
+                                  )
+                                }
+                                onCancel={() => setEditing(null)}
+                                onCommit={(phone) => {
+                                  onPatch(candidate.sourceKey, { phone });
+                                  setEditing(null);
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell className="p-0">
+                              {candidate.outcomeKind === 'membership' ? (
+                                <EditableCell
+                                  editing={isEditing(
+                                    candidate.sourceKey,
+                                    'plan',
+                                    'desktop'
+                                  )}
+                                  saving={false}
+                                  kind="select"
+                                  value={
+                                    candidate.built.membership?.plan_id ?? ''
+                                  }
+                                  options={plans.map((plan) => ({
+                                    value: plan.id,
+                                    label: plan.name,
+                                  }))}
+                                  display={
+                                    <CandidateOffering candidate={candidate} />
+                                  }
+                                  onStart={() =>
+                                    startEditing(
+                                      candidate.sourceKey,
+                                      'plan',
+                                      'desktop'
+                                    )
+                                  }
+                                  onCancel={() => setEditing(null)}
+                                  onCommit={(planId) => {
+                                    const plan = plans.find(
+                                      (item) => item.id === planId
+                                    );
+                                    const option = plan?.pricing_options?.find(
+                                      (item) => item.is_active
+                                    );
+                                    if (plan && option) {
+                                      onResolveGroupedPlan(
+                                        [candidate.sourceKey],
+                                        {
+                                          planId: plan.id,
+                                          pricingOptionId: option.id,
+                                        }
+                                      );
+                                    }
+                                    setEditing(null);
+                                  }}
+                                />
+                              ) : (
+                                // Matches EditableCell's own 36px slot and px-2
+                                // inset, so a row that cannot be edited still
+                                // starts its offering on the same vertical line.
+                                <div className="flex h-9 items-center px-4.5">
+                                  <CandidateOffering candidate={candidate} />
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <CandidateFee candidate={candidate} />
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-xs">
+                              <CandidateDates candidate={candidate} />
+                            </TableCell>
+                            <TableCell>
+                              <CandidateStatus candidate={candidate} />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <DispositionAction
+                                candidate={candidate}
+                                onSetDisposition={onSetDisposition}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </table>
+                  </div>
+                  {/* Outside the scroll box: the pager belongs to the frame, not
+                  to the rows it pages through. */}
+                  <Pagination
+                    page={safePage}
+                    pageCount={pageCount}
+                    total={visible.length}
+                    onPageChange={setPage}
+                  />
+                </div>
+
+                <div
+                  className="flex min-h-0 flex-1 flex-col md:hidden"
+                  data-testid="member-import-mobile"
+                >
+                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-3">
+                    {paged.map((candidate) => (
+                      <article
+                        key={candidate.sourceKey}
+                        className="border-border bg-muted/30 space-y-3 rounded-xl border p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <MemberIdentity
+                            name={
+                              candidate.draftValues.name || 'Unnamed member'
                             }
-                            onStart={() =>
+                            secondary={
+                              candidate.draftValues.phone || 'No phone'
+                            }
+                            meta={
+                              <div className="text-muted-foreground truncate text-xs">
+                                {`Source row ${candidate.sourceRow} · ${candidate.legacyMemberId || 'No Member ID'}`}
+                              </div>
+                            }
+                          />
+                          <CandidateStatus candidate={candidate} />
+                        </div>
+                        {/* Stacked rather than a label column: the offering is the
+                      longest value on the card and needs the full width to
+                      wrap instead of forcing the list to scroll sideways. */}
+                        <dl className="space-y-2 text-sm">
+                          <div className="min-w-0">
+                            <dt className="text-muted-foreground text-xs">
+                              Offering
+                            </dt>
+                            <dd className="text-foreground mt-0.5 min-w-0">
+                              <CandidateOffering candidate={candidate} wrap />
+                            </dd>
+                          </div>
+                          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+                            <div className="min-w-0">
+                              <dt className="text-muted-foreground text-xs">
+                                Fee
+                              </dt>
+                              <dd className="text-foreground mt-0.5">
+                                <CandidateFee candidate={candidate} />
+                              </dd>
+                            </div>
+                            <div className="min-w-0">
+                              <dt className="text-muted-foreground text-xs">
+                                Expiry
+                              </dt>
+                              <dd className="text-foreground mt-0.5 text-xs">
+                                <CandidateDates candidate={candidate} />
+                              </dd>
+                            </div>
+                          </div>
+                        </dl>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
                               startEditing(
                                 candidate.sourceKey,
-                                'plan',
-                                'desktop'
+                                'phone',
+                                'mobile'
                               )
                             }
+                          >
+                            {candidate.draftValues.phone
+                              ? 'Edit phone'
+                              : 'Add phone'}
+                          </Button>
+                          <DispositionAction
+                            candidate={candidate}
+                            onSetDisposition={onSetDisposition}
+                          />
+                        </div>
+                        {isEditing(candidate.sourceKey, 'phone', 'mobile') && (
+                          <EditableCell
+                            editing
+                            saving={false}
+                            kind="phone"
+                            value={candidate.draftValues.phone}
+                            display={null}
+                            onStart={() => undefined}
                             onCancel={() => setEditing(null)}
-                            onCommit={(planId) => {
-                              const plan = plans.find(
-                                (item) => item.id === planId
-                              );
-                              const option = plan?.pricing_options?.find(
-                                (item) => item.is_active
-                              );
-                              if (plan && option) {
-                                onResolveGroupedPlan([candidate.sourceKey], {
-                                  planId: plan.id,
-                                  pricingOptionId: option.id,
-                                });
-                              }
+                            onCommit={(phone) => {
+                              onPatch(candidate.sourceKey, { phone });
                               setEditing(null);
                             }}
                           />
-                        ) : (
-                          <div className="px-3 py-2">
-                            <CandidateOffering candidate={candidate} />
-                          </div>
                         )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-xs">
-                        <CandidateDates candidate={candidate} />
-                      </TableCell>
-                      <TableCell>
-                        <CandidateStatus candidate={candidate} />
-                      </TableCell>
-                      <TableCell>
-                        <DispositionAction
-                          candidate={candidate}
-                          onSetDisposition={onSetDisposition}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <Pagination
-                page={safePage}
-                pageCount={pageCount}
-                total={visible.length}
-                onPageChange={setPage}
-              />
-            </div>
-
-            <div
-              className="min-h-0 flex-1 space-y-3 overflow-y-auto md:hidden"
-              data-testid="member-import-mobile"
-            >
-              {paged.map((candidate) => (
-                <article
-                  key={candidate.sourceKey}
-                  className="border-border bg-background/40 space-y-3 rounded-xl border p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <MemberIdentity
-                      name={candidate.draftValues.name || 'Unnamed member'}
-                      secondary={candidate.draftValues.phone || 'No phone'}
-                      meta={`Source row ${candidate.sourceRow} · ${candidate.legacyMemberId || 'No Member ID'}`}
-                    />
-                    <CandidateStatus candidate={candidate} />
+                      </article>
+                    ))}
                   </div>
-                  <dl className="grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
-                    <dt className="text-muted-foreground">Offering</dt>
-                    <dd className="text-foreground min-w-0 break-words">
-                      <CandidateOffering candidate={candidate} />
-                    </dd>
-                    <dt className="text-muted-foreground">Dates</dt>
-                    <dd className="text-foreground">
-                      <CandidateDates candidate={candidate} />
-                    </dd>
-                  </dl>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        startEditing(candidate.sourceKey, 'phone', 'mobile')
-                      }
-                    >
-                      {candidate.draftValues.phone ? 'Edit phone' : 'Add phone'}
-                    </Button>
-                    <DispositionAction
-                      candidate={candidate}
-                      onSetDisposition={onSetDisposition}
-                    />
-                  </div>
-                  {isEditing(candidate.sourceKey, 'phone', 'mobile') && (
-                    <EditableCell
-                      editing
-                      saving={false}
-                      kind="phone"
-                      value={candidate.draftValues.phone}
-                      display={null}
-                      onStart={() => undefined}
-                      onCancel={() => setEditing(null)}
-                      onCommit={(phone) => {
-                        onPatch(candidate.sourceKey, { phone });
-                        setEditing(null);
-                      }}
-                    />
-                  )}
-                </article>
-              ))}
-              <Pagination
-                page={safePage}
-                pageCount={pageCount}
-                total={visible.length}
-                onPageChange={setPage}
-              />
-            </div>
-
-            {visible.length === 0 ? (
-              <div className="border-border text-muted-foreground rounded-xl border py-10 text-center text-sm">
-                No rows match this view.
-              </div>
-            ) : null}
+                  <Pagination
+                    page={safePage}
+                    pageCount={pageCount}
+                    total={visible.length}
+                    onPageChange={setPage}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </TabsContent>
       ) : null}
@@ -1451,7 +1556,9 @@ function GroupResolver({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="keep_existing">Keep saved details</SelectItem>
-              <SelectItem value="use_csv">Use details from your file</SelectItem>
+              <SelectItem value="use_csv">
+                Use details from your file
+              </SelectItem>
             </SelectContent>
           </Select>
         )}
@@ -1462,12 +1569,20 @@ function GroupResolver({
   return <IssueRows group={group} onSetDisposition={onSetDisposition} />;
 }
 
+/**
+ * What this row will create. The kind badge is shown only when the row is
+ * NOT a plain membership: twenty identical "Membership" pills teach nothing,
+ * while a service or a combined purchase is exactly what an operator has to
+ * catch before committing. `wrap` gives the phone card its full width; the
+ * table cell truncates to one line so it fits the inline editor's box.
+ */
 function CandidateOffering({
   candidate,
+  wrap = false,
 }: {
   candidate: MemberImportCandidate;
+  wrap?: boolean;
 }) {
-  const { fmt } = useLocale();
   const service = candidate.serviceComponent?.intent;
   const membershipLabel = candidate.draftValues.planName
     ? [candidate.draftValues.planName, candidate.draftValues.pricingOption]
@@ -1479,48 +1594,106 @@ function CandidateOffering({
         .filter(Boolean)
         .join(' · ')
     : candidate.draftValues.serviceName || null;
-  const badgeLabel =
+  const label = [membershipLabel, serviceLabel].filter(Boolean).join(' + ');
+  // A row that carries an offering the catalog could not match is the one
+  // an operator must act on; a row that simply has none is a state, not a
+  // failure, so only the first earns the warning tint.
+  const unmatched = candidate.outcomeKind === 'none' && label.length > 0;
+  const exception =
     candidate.outcomeKind === 'membership_service'
       ? 'Membership + service'
       : candidate.outcomeKind === 'service'
         ? 'Service'
-        : candidate.outcomeKind === 'membership'
-          ? 'Membership'
-          : 'Unresolved';
+        : unmatched
+          ? 'Unmatched'
+          : null;
   return (
-    <span className="flex min-w-0 flex-col items-start gap-1">
-      <Badge variant="neutral">{badgeLabel}</Badge>
-      <span className="text-foreground truncate text-sm">
-        {[membershipLabel, serviceLabel].filter(Boolean).join(' + ') ||
-          'Choose offering'}
-      </span>
-      {service && (
-        <span className="text-muted-foreground text-xs tabular-nums">
-          Sold for {fmt.money(service.soldAmount)}
-        </span>
+    <span
+      className={cn(
+        'flex min-w-0 items-center gap-2',
+        wrap && 'flex-wrap items-baseline'
       )}
+    >
+      {exception ? (
+        <Badge variant={unmatched ? 'warning' : 'neutral'} className="shrink-0">
+          {exception}
+        </Badge>
+      ) : null}
+      <span
+        className={cn(
+          'min-w-0 text-sm',
+          wrap ? 'break-words' : 'flex-1 truncate',
+          label ? 'text-foreground' : 'text-muted-foreground'
+        )}
+        title={wrap ? undefined : label || undefined}
+      >
+        {label || 'No offering'}
+      </span>
     </span>
   );
 }
 
+/** The amount this row was sold for — the membership fee plus any service. */
+function CandidateFee({ candidate }: { candidate: MemberImportCandidate }) {
+  const { fmt } = useLocale();
+  if (candidate.purchaseTotal === null) {
+    return <span className="text-muted-foreground text-xs">—</span>;
+  }
+  return (
+    <span className="text-sm tabular-nums">
+      {fmt.money(candidate.purchaseTotal)}
+    </span>
+  );
+}
+
+/**
+ * The column is called Expiry, so the cell states the date rather than
+ * restating the column. A combined purchase adds its service end beneath;
+ * a service-only row promotes that date to the primary line.
+ */
 function CandidateDates({ candidate }: { candidate: MemberImportCandidate }) {
   const { fmt } = useLocale();
   const membershipEnd = candidate.built.membership?.end_date;
-  const service = candidate.serviceComponent?.intent;
-  const parts = [
-    membershipEnd ? `Membership to ${fmt.date(membershipEnd)}` : null,
-    service
-      ? `Service ${fmt.date(service.startDate)}–${fmt.date(service.endDate)}`
-      : null,
-  ].filter(Boolean);
-  return <>{parts.join(' · ') || '—'}</>;
+  const serviceEnd = candidate.serviceComponent?.intent.endDate;
+  const primary = membershipEnd ?? serviceEnd;
+  if (!primary) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate tabular-nums">{fmt.date(primary)}</span>
+      {membershipEnd && serviceEnd ? (
+        <span className="truncate tabular-nums">
+          Service to {fmt.dateShort(serviceEnd)}
+        </span>
+      ) : null}
+    </span>
+  );
 }
+
+/**
+ * Why an automatic exclusion happened, in the domain's own words. `manual` is
+ * deliberately absent: the operator excluded that row and needs no reminder.
+ */
+const AUTOMATIC_EXCLUSION_LABELS: Partial<
+  Record<MemberImportCandidateExclusionReason, string>
+> = {
+  'membership-history': 'Older membership',
+  'summary-row': 'Summary row',
+  'existing-member': 'Already a member',
+};
 
 function CandidateStatus({ candidate }: { candidate: MemberImportCandidate }) {
   if (candidate.disposition === 'excluded') {
+    const reason = candidate.exclusionReason
+      ? AUTOMATIC_EXCLUSION_LABELS[candidate.exclusionReason]
+      : null;
     return (
-      <span className="text-muted-foreground inline-flex items-center gap-1.5 text-xs">
-        <XCircle className="size-3.5" /> Excluded
+      <span className="text-muted-foreground flex min-w-0 flex-col text-xs">
+        <span className="inline-flex items-center gap-1.5">
+          <XCircle className="size-3.5 shrink-0" /> Excluded
+        </span>
+        {/* An automatic exclusion cannot be toggled, so the row has to say
+            why it is out — otherwise the disabled action is the only clue. */}
+        {reason ? <span className="truncate pl-5">{reason}</span> : null}
       </span>
     );
   }
@@ -1530,15 +1703,15 @@ function CandidateStatus({ candidate }: { candidate: MemberImportCandidate }) {
     ).length;
     return (
       <span className="text-emerald-foreground inline-flex items-center gap-1.5 text-xs">
-        <CheckCircle className="size-3.5" /> Ready
+        <CheckCircle className="size-3.5 shrink-0" /> Ready
         {noticeCount > 0 &&
           ` · ${noticeCount} notice${noticeCount === 1 ? '' : 's'}`}
       </span>
     );
   }
   return (
-    <span className="text-amber-foreground inline-flex items-start gap-1.5 text-xs">
-      <AlertTriangle className="mt-px size-3.5 shrink-0" /> Needs resolution
+    <span className="text-amber-foreground inline-flex items-center gap-1.5 text-xs">
+      <AlertTriangle className="size-3.5 shrink-0" /> Needs resolution
     </span>
   );
 }
@@ -1554,27 +1727,62 @@ function DispositionAction({
     candidate.exclusionReason === 'membership-history' ||
     candidate.exclusionReason === 'summary-row' ||
     candidate.exclusionReason === 'existing-member';
+  const name = candidateName(candidate);
   if (automatic) {
     return (
       <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-        <Info className="size-3.5" /> Automatic
+        <Info className="size-3.5 shrink-0" /> Automatic
       </span>
     );
   }
+  const included = candidate.disposition === 'included';
   return (
     <Button
       type="button"
       size="sm"
-      variant="link"
+      variant="ghost"
+      aria-label={`${included ? 'Exclude' : 'Include'} ${name}, source row ${candidate.sourceRow}`}
       onClick={() =>
         onSetDisposition(
           candidate.sourceKey,
-          candidate.disposition === 'included' ? 'excluded' : 'included'
+          included ? 'excluded' : 'included'
         )
       }
     >
-      {candidate.disposition === 'included' ? 'Exclude' : 'Include'}
+      {included ? 'Exclude' : 'Include'}
     </Button>
+  );
+}
+
+/**
+ * Shared by the table and the phone card so one filter state cannot show two
+ * different dead ends. The reset is the recovery: a filtered-away ledger with
+ * no way back is the state operators actually get stuck in.
+ */
+function EmptyRows({
+  filtered,
+  onReset,
+}: {
+  filtered: boolean;
+  onReset: () => void;
+}) {
+  return (
+    // Top-weighted on a phone, where the frame is tall enough that a centred
+    // message lands well below the fold; centred once the table surface takes
+    // over and the frame is short.
+    <div className="border-border flex min-h-0 flex-1 flex-col items-center justify-start gap-3 rounded-xl border px-6 pt-16 pb-12 text-center md:justify-center md:pt-12">
+      <p className="text-sm font-medium">No rows match this view</p>
+      <p className="text-muted-foreground max-w-sm text-sm">
+        {filtered
+          ? 'Every row is hidden by the current search or filter.'
+          : 'This import has no rows to review.'}
+      </p>
+      {filtered ? (
+        <Button type="button" variant="outline" size="sm" onClick={onReset}>
+          Show all rows
+        </Button>
+      ) : null}
+    </div>
   );
 }
 
@@ -1589,36 +1797,41 @@ function Pagination({
   total: number;
   onPageChange: (page: number) => void;
 }) {
+  const { fmt } = useLocale();
   return (
-    <div className="border-border flex items-center justify-between gap-3 border-t px-3 py-2">
-      <p className="text-muted-foreground text-xs">
-        {total} row{total === 1 ? '' : 's'}
+    <div className="border-border flex h-11 shrink-0 items-center justify-between gap-3 border-t px-3">
+      <p className="text-muted-foreground text-xs tabular-nums">
+        {fmt.number(total)} row{total === 1 ? '' : 's'}
       </p>
-      <div className="flex items-center gap-1">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          disabled={page === 0}
-          aria-label="Previous page"
-          onClick={() => onPageChange(page - 1)}
-        >
-          <ChevronLeft className="size-4" />
-        </Button>
-        <span className="text-muted-foreground px-2 text-xs">
-          Page {page + 1} of {pageCount}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          disabled={page >= pageCount - 1}
-          aria-label="Next page"
-          onClick={() => onPageChange(page + 1)}
-        >
-          <ChevronRight className="size-4" />
-        </Button>
-      </div>
+      {/* A single page needs no pager: two dead arrows and "Page 1 of 1"
+          are chrome that says nothing. */}
+      {pageCount > 1 ? (
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            disabled={page === 0}
+            aria-label="Previous page"
+            onClick={() => onPageChange(page - 1)}
+          >
+            <ChevronLeft className="size-4" />
+          </Button>
+          <span className="text-muted-foreground px-2 text-xs tabular-nums">
+            Page {page + 1} of {pageCount}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            disabled={page >= pageCount - 1}
+            aria-label="Next page"
+            onClick={() => onPageChange(page + 1)}
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -329,7 +329,7 @@ describe('ImportMembersPreview conflict resolution', () => {
     expect(onPatch).toHaveBeenCalledWith('sheet:2', { status: 'Active' });
   });
 
-  it('shows service outcome, sold price, and independent dates', () => {
+  it('shows service outcome, fee, and its own expiry date', () => {
     renderPreview(
       candidates(
         [
@@ -349,12 +349,11 @@ describe('ImportMembersPreview conflict resolution', () => {
 
     const desktop = screen.getByTestId('member-import-desktop');
     expect(within(desktop).getByText('Service')).toBeTruthy();
-    expect(within(desktop).getByText('Sold for $3500')).toBeTruthy();
-    expect(
-      within(desktop).getByText('Service 2026-08-01–2026-09-01', {
-        exact: false,
-      })
-    ).toBeTruthy();
+    // The sold price reads from the Fee column, and a service-only row
+    // promotes its own end date into Expiry rather than borrowing a
+    // membership's.
+    expect(within(desktop).getByText('$3500')).toBeTruthy();
+    expect(within(desktop).getByText('2026-09-01')).toBeTruthy();
   });
 
   it('offers labelled corrections for an invalid service purchase total', () => {
