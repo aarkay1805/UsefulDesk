@@ -11,17 +11,12 @@ import {
 } from 'lucide-react';
 
 import { EditableCell } from '@/components/leads/editable-cell';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { SearchInput } from '@/components/ui/search-input';
 import {
   Select,
@@ -30,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -65,6 +61,7 @@ type EditingCell = {
   key: string;
   surface: 'desktop' | 'mobile';
 } | null;
+type PreviewView = 'issues' | 'rows';
 
 interface ImportMembersPreviewProps {
   candidates: MemberImportCandidate[];
@@ -147,16 +144,25 @@ export function ImportMembersPreview({
   const [filter, setFilter] = useState<MemberImportCandidateFilter>('all');
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<EditingCell>(null);
+  const [view, setView] = useState<PreviewView>(() =>
+    unresolvedGroups(candidates).length > 0 ? 'issues' : 'rows'
+  );
+  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
   const [manualPaymentKey, setManualPaymentKey] = useState<string | null>(null);
   const [manualPayments, setManualPayments] = useState<
     Record<string, { paid: string; balance: string }>
   >({});
-
   const summary = useMemo(
     () => summarizeMemberImportCandidates(candidates),
     [candidates]
   );
   const groups = useMemo(() => unresolvedGroups(candidates), [candidates]);
+  const activeGroupIndex = Math.max(
+    0,
+    groups.findIndex((group) => group.key === selectedGroupKey)
+  );
+  const activeGroup = groups[activeGroupIndex] ?? null;
+  const activeView: PreviewView = groups.length === 0 ? 'rows' : view;
   const visible = useMemo(() => {
     const searched = searchMemberImportCandidates(candidates, search);
     return filterMemberImportCandidates(searched, filter);
@@ -191,77 +197,167 @@ export function ImportMembersPreview({
     );
   }
 
+  function resolveManualPaymentDraft(
+    group: IssueGroup,
+    sourceKey: string,
+    patch: Partial<{ paid: string; balance: string }>
+  ) {
+    setManualPayments((current) => ({
+      ...current,
+      [sourceKey]: {
+        paid:
+          patch.paid ??
+          current[sourceKey]?.paid ??
+          group.candidates.find(
+            (candidate) => candidate.sourceKey === sourceKey
+          )?.draftValues.amountPaid ??
+          '',
+        balance:
+          patch.balance ??
+          current[sourceKey]?.balance ??
+          group.candidates.find(
+            (candidate) => candidate.sourceKey === sourceKey
+          )?.draftValues.balance ??
+          '',
+      },
+    }));
+  }
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <SearchInput
-          value={search}
-          onValueChange={(value) => {
-            setSearch(value);
-            setPage(0);
-          }}
-          placeholder="Search customers or Member ID"
-          aria-label="Search import candidates"
-          containerClassName="w-full lg:w-[240px]"
-        />
-        <ChipGroup<MemberImportCandidateFilter>
-          selectionMode="single"
-          value={[filter]}
-          onValueChange={(values) => {
-            if (!values[0]) return;
-            setFilter(values[0]);
-            setPage(0);
-          }}
-          aria-label="Import candidate filters"
-        >
-          {(
-            [
-              ['all', 'All'],
-              ['needs-resolution', 'Needs resolution'],
-              ['ready', 'Ready'],
-              ['excluded', 'Excluded'],
-            ] as const
-          ).map(([value, label]) => (
-            <Chip key={value} value={value}>
-              {label} <ChipCount count={counts[value]} />
-            </Chip>
-          ))}
-        </ChipGroup>
+    <Tabs
+      value={activeView}
+      onValueChange={(value) => value && setView(value as PreviewView)}
+      className="h-full min-h-0 gap-0"
+    >
+      <div className="border-border flex shrink-0 items-end gap-4 border-b px-1">
+        <TabsList variant="line">
+          <TabsTrigger
+            value="issues"
+            disabled={groups.length === 0}
+            aria-label={`Issues ${summary.needsResolution}`}
+          >
+            Issues
+            <Badge variant="warning" size="count">
+              {summary.needsResolution}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger
+            value="rows"
+            aria-label={`Review rows ${summary.source}`}
+          >
+            Review rows
+            <Badge variant="neutral" size="count">
+              {summary.source}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+        <p className="text-muted-foreground ml-auto pb-2 text-xs tabular-nums">
+          {fmt.number(summary.ready)} ready · {fmt.number(summary.exclusions)}{' '}
+          excluded
+        </p>
       </div>
 
-      {groups.length > 0 && (
-        <section aria-labelledby="member-import-resolutions-heading">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <div>
-              <h3
-                id="member-import-resolutions-heading"
-                className="text-foreground text-sm font-medium"
+      {activeView === 'issues' && activeGroup ? (
+        <TabsContent value="issues" className="min-h-0 overflow-hidden">
+          <div className="grid h-full min-h-0 md:grid-cols-[17rem_minmax(0,1fr)]">
+            <aside className="border-border hidden min-h-0 border-r md:flex md:flex-col">
+              <div className="border-border shrink-0 border-b px-4 py-3">
+                <h3 className="text-sm font-medium">Issue queue</h3>
+                <p className="text-muted-foreground text-xs">
+                  Work through one group at a time.
+                </p>
+              </div>
+              <nav
+                aria-label="Issue queue"
+                className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2"
               >
-                Grouped resolutions
-              </h3>
-              <p className="text-muted-foreground text-xs">
-                Resolve a source pattern once, then review individual rows.
-              </p>
-            </div>
-            <Badge variant="warning">
-              {fmt.number(summary.needsResolution)} need resolution
-            </Badge>
-          </div>
-          <Accordion multiple defaultValue={groups.map((group) => group.key)}>
-            {groups.map((group) => (
-              <AccordionItem key={group.key} value={group.key}>
-                <AccordionTrigger>
-                  <span className="flex min-w-0 items-center gap-2">
-                    <AlertTriangle className="text-amber-foreground size-4 shrink-0" />
-                    <span className="truncate">{groupTitle(group)}</span>
+                {groups.map((group) => (
+                  <Button
+                    key={group.key}
+                    type="button"
+                    variant={
+                      group.key === activeGroup.key ? 'secondary' : 'ghost'
+                    }
+                    className="w-full justify-start"
+                    aria-pressed={group.key === activeGroup.key}
+                    onClick={() => setSelectedGroupKey(group.key)}
+                  >
+                    <AlertTriangle
+                      data-icon="inline-start"
+                      className="text-amber-foreground"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-left">
+                      {groupQueueLabel(group)}
+                    </span>
                     <Badge variant="neutral" size="count">
                       {group.candidates.length}
                     </Badge>
+                  </Button>
+                ))}
+              </nav>
+            </aside>
+
+            <div className="min-h-0 overflow-y-auto">
+              <div className="border-border p-3 md:hidden md:border-b-0">
+                <Select
+                  value={activeGroup.key}
+                  onValueChange={(value) => value && setSelectedGroupKey(value)}
+                >
+                  <SelectTrigger className="w-full" aria-label="Choose issue">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups.map((group) => (
+                      <SelectItem key={group.key} value={group.key}>
+                        {groupQueueLabel(group)} · {group.candidates.length}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <section
+                aria-label="Focused issue"
+                className="mx-auto max-w-3xl px-4 py-5 sm:px-6"
+              >
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground text-xs tabular-nums">
+                    Issue {activeGroupIndex + 1} of {groups.length}
                   </span>
-                </AccordionTrigger>
-                <AccordionContent>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label="Previous issue"
+                      disabled={activeGroupIndex === 0}
+                      onClick={() =>
+                        setSelectedGroupKey(groups[activeGroupIndex - 1].key)
+                      }
+                    >
+                      <ChevronLeft />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label="Next issue"
+                      disabled={activeGroupIndex === groups.length - 1}
+                      onClick={() =>
+                        setSelectedGroupKey(groups[activeGroupIndex + 1].key)
+                      }
+                    >
+                      <ChevronRight />
+                    </Button>
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold">
+                  {groupTitle(activeGroup)}
+                </h3>
+                <div className="mt-3">
                   <GroupResolver
-                    group={group}
+                    key={activeGroup.key}
+                    group={activeGroup}
                     plans={plans}
                     catalogItems={catalogItems}
                     trainers={trainers}
@@ -269,25 +365,7 @@ export function ImportMembersPreview({
                     manualPayments={manualPayments}
                     onManualPaymentKey={setManualPaymentKey}
                     onManualPaymentChange={(sourceKey, patch) =>
-                      setManualPayments((current) => ({
-                        ...current,
-                        [sourceKey]: {
-                          paid:
-                            patch.paid ??
-                            current[sourceKey]?.paid ??
-                            group.candidates.find(
-                              (candidate) => candidate.sourceKey === sourceKey
-                            )?.draftValues.amountPaid ??
-                            '',
-                          balance:
-                            patch.balance ??
-                            current[sourceKey]?.balance ??
-                            group.candidates.find(
-                              (candidate) => candidate.sourceKey === sourceKey
-                            )?.draftValues.balance ??
-                            '',
-                        },
-                      }))
+                      resolveManualPaymentDraft(activeGroup, sourceKey, patch)
                     }
                     onResolveGroupedPlan={onResolveGroupedPlan}
                     onResolveGroupedOffering={onResolveGroupedOffering}
@@ -297,197 +375,260 @@ export function ImportMembersPreview({
                     onPatch={onPatch}
                     onSetDisposition={onSetDisposition}
                   />
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </section>
-      )}
+                </div>
+              </section>
+            </div>
+          </div>
+        </TabsContent>
+      ) : null}
 
-      <div
-        data-testid="member-import-desktop"
-        className="border-border ring-border/50 hidden min-h-0 flex-1 overflow-auto rounded-xl border ring-1 md:block"
-      >
-        <Table className="min-w-[980px] table-fixed">
-          <TableHeader className="bg-background sticky top-0 z-10">
-            <TableRow>
-              <TableHead className="w-56">Name</TableHead>
-              <TableHead className="w-32">Member ID</TableHead>
-              <TableHead className="w-44">Phone</TableHead>
-              <TableHead className="w-56">Offering</TableHead>
-              <TableHead className="w-28">Expiry</TableHead>
-              <TableHead className="w-44">Import check</TableHead>
-              <TableHead className="w-28">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paged.map((candidate) => (
-              <TableRow key={candidate.sourceKey}>
-                <TableCell>
-                  <MemberIdentity
-                    name={candidate.draftValues.name || 'Unnamed member'}
-                    secondary={`Source row ${candidate.sourceRow}`}
-                  />
-                </TableCell>
-                <TableCell className="text-muted-foreground truncate text-xs">
-                  {candidate.legacyMemberId || '—'}
-                </TableCell>
-                <TableCell className="p-0">
-                  <EditableCell
-                    editing={isEditing(candidate.sourceKey, 'phone', 'desktop')}
-                    saving={false}
-                    kind="phone"
-                    value={candidate.draftValues.phone}
-                    display={
-                      <span className="text-foreground truncate text-sm">
-                        {candidate.draftValues.phone || 'Add phone'}
-                      </span>
-                    }
-                    onStart={() =>
-                      startEditing(candidate.sourceKey, 'phone', 'desktop')
-                    }
-                    onCancel={() => setEditing(null)}
-                    onCommit={(phone) => {
-                      onPatch(candidate.sourceKey, { phone });
-                      setEditing(null);
-                    }}
-                  />
-                </TableCell>
-                <TableCell className="p-0">
-                  {candidate.outcomeKind === 'membership' ? (
-                    <EditableCell
-                      editing={isEditing(
-                        candidate.sourceKey,
-                        'plan',
-                        'desktop'
-                      )}
-                      saving={false}
-                      kind="select"
-                      value={candidate.built.membership?.plan_id ?? ''}
-                      options={plans.map((plan) => ({
-                        value: plan.id,
-                        label: plan.name,
-                      }))}
-                      display={<CandidateOffering candidate={candidate} />}
-                      onStart={() =>
-                        startEditing(candidate.sourceKey, 'plan', 'desktop')
+      {activeView === 'rows' ? (
+        <TabsContent value="rows" className="min-h-0 overflow-hidden">
+          <div className="flex h-full min-h-0 flex-col gap-3 pt-3">
+            <div className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center">
+              <SearchInput
+                value={search}
+                onValueChange={(value) => {
+                  setSearch(value);
+                  setPage(0);
+                }}
+                placeholder="Search customers or Member ID"
+                aria-label="Search import candidates"
+                containerClassName="w-full lg:w-[240px]"
+              />
+              <ChipGroup<MemberImportCandidateFilter>
+                selectionMode="single"
+                value={[filter]}
+                onValueChange={(values) => {
+                  if (!values[0]) return;
+                  setFilter(values[0]);
+                  setPage(0);
+                }}
+                aria-label="Import candidate filters"
+              >
+                {(
+                  [
+                    ['all', 'All'],
+                    ['needs-resolution', 'Needs resolution'],
+                    ['ready', 'Ready'],
+                    ['excluded', 'Excluded'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Chip key={value} value={value}>
+                    {label} <ChipCount count={counts[value]} />
+                  </Chip>
+                ))}
+              </ChipGroup>
+            </div>
+
+            <div
+              data-testid="member-import-desktop"
+              className="border-border hidden min-h-0 flex-1 overflow-auto border-t md:block"
+            >
+              <Table className="min-w-[980px] table-fixed">
+                <TableHeader className="bg-background sticky top-0 z-10">
+                  <TableRow>
+                    <TableHead className="w-56">Name</TableHead>
+                    <TableHead className="w-32">Member ID</TableHead>
+                    <TableHead className="w-44">Phone</TableHead>
+                    <TableHead className="w-56">Offering</TableHead>
+                    <TableHead className="w-28">Expiry</TableHead>
+                    <TableHead className="w-44">Import check</TableHead>
+                    <TableHead className="w-28">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paged.map((candidate) => (
+                    <TableRow key={candidate.sourceKey}>
+                      <TableCell>
+                        <MemberIdentity
+                          name={candidate.draftValues.name || 'Unnamed member'}
+                          secondary={`Source row ${candidate.sourceRow}`}
+                        />
+                      </TableCell>
+                      <TableCell className="text-muted-foreground truncate text-xs">
+                        {candidate.legacyMemberId || '—'}
+                      </TableCell>
+                      <TableCell className="p-0">
+                        <EditableCell
+                          editing={isEditing(
+                            candidate.sourceKey,
+                            'phone',
+                            'desktop'
+                          )}
+                          saving={false}
+                          kind="phone"
+                          value={candidate.draftValues.phone}
+                          display={
+                            <span className="text-foreground truncate text-sm">
+                              {candidate.draftValues.phone || 'Add phone'}
+                            </span>
+                          }
+                          onStart={() =>
+                            startEditing(
+                              candidate.sourceKey,
+                              'phone',
+                              'desktop'
+                            )
+                          }
+                          onCancel={() => setEditing(null)}
+                          onCommit={(phone) => {
+                            onPatch(candidate.sourceKey, { phone });
+                            setEditing(null);
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell className="p-0">
+                        {candidate.outcomeKind === 'membership' ? (
+                          <EditableCell
+                            editing={isEditing(
+                              candidate.sourceKey,
+                              'plan',
+                              'desktop'
+                            )}
+                            saving={false}
+                            kind="select"
+                            value={candidate.built.membership?.plan_id ?? ''}
+                            options={plans.map((plan) => ({
+                              value: plan.id,
+                              label: plan.name,
+                            }))}
+                            display={
+                              <CandidateOffering candidate={candidate} />
+                            }
+                            onStart={() =>
+                              startEditing(
+                                candidate.sourceKey,
+                                'plan',
+                                'desktop'
+                              )
+                            }
+                            onCancel={() => setEditing(null)}
+                            onCommit={(planId) => {
+                              const plan = plans.find(
+                                (item) => item.id === planId
+                              );
+                              const option = plan?.pricing_options?.find(
+                                (item) => item.is_active
+                              );
+                              if (plan && option) {
+                                onResolveGroupedPlan([candidate.sourceKey], {
+                                  planId: plan.id,
+                                  pricingOptionId: option.id,
+                                });
+                              }
+                              setEditing(null);
+                            }}
+                          />
+                        ) : (
+                          <div className="px-3 py-2">
+                            <CandidateOffering candidate={candidate} />
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">
+                        <CandidateDates candidate={candidate} />
+                      </TableCell>
+                      <TableCell>
+                        <CandidateStatus candidate={candidate} />
+                      </TableCell>
+                      <TableCell>
+                        <DispositionAction
+                          candidate={candidate}
+                          onSetDisposition={onSetDisposition}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <Pagination
+                page={safePage}
+                pageCount={pageCount}
+                total={visible.length}
+                onPageChange={setPage}
+              />
+            </div>
+
+            <div
+              className="min-h-0 flex-1 space-y-3 overflow-y-auto md:hidden"
+              data-testid="member-import-mobile"
+            >
+              {paged.map((candidate) => (
+                <article
+                  key={candidate.sourceKey}
+                  className="border-border bg-background/40 space-y-3 rounded-xl border p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <MemberIdentity
+                      name={candidate.draftValues.name || 'Unnamed member'}
+                      secondary={
+                        candidate.draftValues.phone || 'Phone required'
                       }
+                      meta={`Source row ${candidate.sourceRow} · ${candidate.legacyMemberId || 'No Member ID'}`}
+                    />
+                    <CandidateStatus candidate={candidate} />
+                  </div>
+                  <dl className="grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
+                    <dt className="text-muted-foreground">Offering</dt>
+                    <dd className="text-foreground min-w-0 break-words">
+                      <CandidateOffering candidate={candidate} />
+                    </dd>
+                    <dt className="text-muted-foreground">Dates</dt>
+                    <dd className="text-foreground">
+                      <CandidateDates candidate={candidate} />
+                    </dd>
+                  </dl>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        startEditing(candidate.sourceKey, 'phone', 'mobile')
+                      }
+                    >
+                      {candidate.draftValues.phone ? 'Edit phone' : 'Add phone'}
+                    </Button>
+                    <DispositionAction
+                      candidate={candidate}
+                      onSetDisposition={onSetDisposition}
+                    />
+                  </div>
+                  {isEditing(candidate.sourceKey, 'phone', 'mobile') && (
+                    <EditableCell
+                      editing
+                      saving={false}
+                      kind="phone"
+                      value={candidate.draftValues.phone}
+                      display={null}
+                      onStart={() => undefined}
                       onCancel={() => setEditing(null)}
-                      onCommit={(planId) => {
-                        const plan = plans.find((item) => item.id === planId);
-                        const option = plan?.pricing_options?.find(
-                          (item) => item.is_active
-                        );
-                        if (plan && option) {
-                          onResolveGroupedPlan([candidate.sourceKey], {
-                            planId: plan.id,
-                            pricingOptionId: option.id,
-                          });
-                        }
+                      onCommit={(phone) => {
+                        onPatch(candidate.sourceKey, { phone });
                         setEditing(null);
                       }}
                     />
-                  ) : (
-                    <div className="px-3 py-2">
-                      <CandidateOffering candidate={candidate} />
-                    </div>
                   )}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-xs">
-                  <CandidateDates candidate={candidate} />
-                </TableCell>
-                <TableCell>
-                  <CandidateStatus candidate={candidate} />
-                </TableCell>
-                <TableCell>
-                  <DispositionAction
-                    candidate={candidate}
-                    onSetDisposition={onSetDisposition}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <Pagination
-          page={safePage}
-          pageCount={pageCount}
-          total={visible.length}
-          onPageChange={setPage}
-        />
-      </div>
-
-      <div className="space-y-3 md:hidden" data-testid="member-import-mobile">
-        {paged.map((candidate) => (
-          <article
-            key={candidate.sourceKey}
-            className="border-border bg-background/40 space-y-3 rounded-xl border p-4"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <MemberIdentity
-                name={candidate.draftValues.name || 'Unnamed member'}
-                secondary={candidate.draftValues.phone || 'Phone required'}
-                meta={`Source row ${candidate.sourceRow} · ${candidate.legacyMemberId || 'No Member ID'}`}
-              />
-              <CandidateStatus candidate={candidate} />
-            </div>
-            <dl className="grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
-              <dt className="text-muted-foreground">Offering</dt>
-              <dd className="text-foreground min-w-0 break-words">
-                <CandidateOffering candidate={candidate} />
-              </dd>
-              <dt className="text-muted-foreground">Dates</dt>
-              <dd className="text-foreground">
-                <CandidateDates candidate={candidate} />
-              </dd>
-            </dl>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  startEditing(candidate.sourceKey, 'phone', 'mobile')
-                }
-              >
-                {candidate.draftValues.phone ? 'Edit phone' : 'Add phone'}
-              </Button>
-              <DispositionAction
-                candidate={candidate}
-                onSetDisposition={onSetDisposition}
+                </article>
+              ))}
+              <Pagination
+                page={safePage}
+                pageCount={pageCount}
+                total={visible.length}
+                onPageChange={setPage}
               />
             </div>
-            {isEditing(candidate.sourceKey, 'phone', 'mobile') && (
-              <EditableCell
-                editing
-                saving={false}
-                kind="phone"
-                value={candidate.draftValues.phone}
-                display={null}
-                onStart={() => undefined}
-                onCancel={() => setEditing(null)}
-                onCommit={(phone) => {
-                  onPatch(candidate.sourceKey, { phone });
-                  setEditing(null);
-                }}
-              />
-            )}
-          </article>
-        ))}
-        <Pagination
-          page={safePage}
-          pageCount={pageCount}
-          total={visible.length}
-          onPageChange={setPage}
-        />
-      </div>
 
-      {visible.length === 0 && (
-        <div className="border-border text-muted-foreground rounded-xl border py-10 text-center text-sm">
-          No candidates match this view.
-        </div>
-      )}
-    </div>
+            {visible.length === 0 ? (
+              <div className="border-border text-muted-foreground rounded-xl border py-10 text-center text-sm">
+                No candidates match this view.
+              </div>
+            ) : null}
+          </div>
+        </TabsContent>
+      ) : null}
+    </Tabs>
   );
 }
 
@@ -509,14 +650,155 @@ function groupTitle(group: IssueGroup) {
     case 'payment-conflict':
       return 'Payment figures conflict';
     case 'missing-phone':
+      return 'Add missing phone number';
     case 'invalid-phone':
+      return 'Correct invalid phone number';
     case 'shared-phone':
-      return 'Repair phone numbers';
+      return 'Phone number used by multiple members';
     case 'existing-contact':
       return 'Choose how to attach existing contacts';
     default:
       return 'Correct membership details';
   }
+}
+
+function groupQueueLabel(group: IssueGroup) {
+  const first = group.candidates[0];
+  switch (group.code) {
+    case 'plan-needs-resolution':
+    case 'pricing-option-needs-resolution':
+      return `${first.originalValues.planName || '(blank plan)'} · ${first.originalValues.pricingOption || 'No billing option'}`;
+    case 'offering-needs-classification':
+      return first.originalValues.offering || 'Unclassified offering';
+    case 'service-needs-resolution':
+      return `${first.originalValues.serviceName || first.originalValues.offering || 'Unknown service'} · ${first.originalValues.serviceOption || 'No option'}`;
+    case 'missing-phone':
+      return first.draftValues.name || `Source row ${first.sourceRow}`;
+    case 'invalid-phone':
+    case 'shared-phone':
+      return (
+        first.draftValues.phone || first.originalValues.phone || 'Phone issue'
+      );
+    case 'payment-conflict':
+    case 'purchase-total-mismatch':
+      return first.draftValues.name || `Source row ${first.sourceRow}`;
+    case 'existing-contact':
+      return first.draftValues.name || first.draftValues.phone;
+    default:
+      return groupTitle(group);
+  }
+}
+
+function PhoneIssueResolver({
+  group,
+  onPatch,
+  onSetDisposition,
+}: {
+  group: IssueGroup;
+  onPatch: ImportMembersPreviewProps['onPatch'];
+  onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+}) {
+  const [drafts, setDrafts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      group.candidates.map((candidate) => [
+        candidate.sourceKey,
+        candidate.draftValues.phone,
+      ])
+    )
+  );
+  const changedCandidates = group.candidates.filter(
+    (candidate) => drafts[candidate.sourceKey] !== candidate.draftValues.phone
+  );
+  const explanation =
+    group.code === 'missing-phone'
+      ? 'Every included member needs their own valid phone number. Add one or exclude the row.'
+      : group.code === 'invalid-phone'
+        ? 'Enter a valid phone number using the account country code shown below, or exclude the row.'
+        : 'Give each member a unique phone number, or exclude the duplicate row. UsefulDesk won’t merge these records.';
+
+  return (
+    <div className="space-y-4">
+      <p className="text-muted-foreground max-w-[70ch] text-sm">
+        {explanation}
+      </p>
+      {group.code === 'shared-phone' ? (
+        <Badge variant="danger">
+          Shared phone · {group.candidates[0].draftValues.phone}
+        </Badge>
+      ) : null}
+
+      <div>
+        <div className="mb-2">
+          <h4 className="text-sm font-medium">Affected members</h4>
+          <p className="text-muted-foreground text-xs">
+            Edit the phone here; the full row ledger stays separate.
+          </p>
+        </div>
+        <div className="border-border divide-border divide-y rounded-xl border">
+          {group.candidates.map((candidate) => {
+            const name = candidate.draftValues.name || 'Unnamed member';
+            return (
+              <div
+                key={candidate.sourceKey}
+                className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,0.8fr)_auto] sm:items-center"
+              >
+                <MemberIdentity
+                  name={name}
+                  secondary={`Member ID ${candidate.legacyMemberId || 'not set'}`}
+                  meta={`Source row ${candidate.sourceRow}`}
+                />
+                <PhoneInput
+                  value={drafts[candidate.sourceKey] ?? ''}
+                  onValueChange={(phone) =>
+                    setDrafts((current) => ({
+                      ...current,
+                      [candidate.sourceKey]: phone,
+                    }))
+                  }
+                  aria-label={`Phone for ${name}`}
+                  aria-invalid={
+                    drafts[candidate.sourceKey] === candidate.draftValues.phone
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  aria-label={`Exclude ${name}, source row ${candidate.sourceRow}`}
+                  onClick={() =>
+                    onSetDisposition(candidate.sourceKey, 'excluded')
+                  }
+                >
+                  Exclude
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-muted-foreground text-xs">
+          {changedCandidates.length === 0
+            ? 'Change at least one phone number to resolve this issue.'
+            : `${changedCandidates.length} phone ${changedCandidates.length === 1 ? 'change' : 'changes'} ready to save.`}
+        </p>
+        <Button
+          type="button"
+          disabled={changedCandidates.length === 0}
+          onClick={() => {
+            for (const candidate of changedCandidates) {
+              onPatch(candidate.sourceKey, {
+                phone: drafts[candidate.sourceKey],
+              });
+            }
+          }}
+        >
+          Save &amp; resolve
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function GroupResolver({
@@ -557,6 +839,20 @@ function GroupResolver({
 }) {
   const { fmt } = useLocale();
   const first = group.candidates[0];
+
+  if (
+    group.code === 'missing-phone' ||
+    group.code === 'invalid-phone' ||
+    group.code === 'shared-phone'
+  ) {
+    return (
+      <PhoneIssueResolver
+        group={group}
+        onPatch={onPatch}
+        onSetDisposition={onSetDisposition}
+      />
+    );
+  }
 
   if (group.code === 'offering-needs-classification') {
     const sourceLabel = first.originalValues.offering || '(blank)';

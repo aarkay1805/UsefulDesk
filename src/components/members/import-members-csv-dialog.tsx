@@ -1250,6 +1250,12 @@ export function ImportMembersCsvDialog({
     3: 'Resolve every blocking issue or explicitly exclude the row.',
     4: 'Review the exact source equation and confirm.',
   };
+  const currentDescription =
+    step === 3
+      ? candidateSummary.needsResolution > 0
+        ? `${candidateSummary.needsResolution} member${candidateSummary.needsResolution === 1 ? '' : 's'} need attention before you can continue.`
+        : 'All included members are ready to review.'
+      : descriptions[step];
   const draftStatusLabel =
     draftManager.saveState === 'saving'
       ? 'Saving…'
@@ -1271,7 +1277,7 @@ export function ImportMembersCsvDialog({
             <DialogHeader className="gap-1.5">
               <DialogTitle size="lg">Import Members</DialogTitle>
               <DialogDescription>
-                {result ? 'Import complete.' : descriptions[step]}
+                {result ? 'Import complete.' : currentDescription}
               </DialogDescription>
             </DialogHeader>
             <StepIndicator step={result ? 4 : step} />
@@ -1310,7 +1316,7 @@ export function ImportMembersCsvDialog({
             aria-label={
               !result && step === 3 ? 'Resolve issues content' : undefined
             }
-            className="min-h-0 flex-1 overflow-y-auto px-6 py-5"
+            className="min-h-0 flex-1 overflow-y-auto px-5 py-3"
           >
             {result ? (
               <ResultPanel result={result} />
@@ -1322,7 +1328,7 @@ export function ImportMembersCsvDialog({
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.13, ease: 'easeOut' }}
-                  className="min-h-0"
+                  className={cn('min-h-0', step === 3 && 'h-full')}
                 >
                   {step === 1 && (
                     <div className="space-y-3">

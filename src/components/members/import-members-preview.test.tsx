@@ -150,17 +150,118 @@ function renderPreview(
 }
 
 describe('ImportMembersPreview conflict resolution', () => {
-  it('keeps a missing-phone candidate visible and opens its inline phone editor', async () => {
+  it('focuses the issue queue and reveals the row ledger only on request', async () => {
     const user = userEvent.setup();
-    renderPreview(candidates([input(2, { phone: '' })]));
-
-    const desktop = screen.getByTestId('member-import-desktop');
-    expect(within(desktop).getByText('Member 2')).toBeTruthy();
-    await user.click(
-      within(desktop).getByRole('button', { name: 'Add phone' })
+    renderPreview(
+      candidates([input(2, { phone: '' }), input(3, { name: 'Ready member' })])
     );
 
-    expect(document.activeElement).toBe(within(desktop).getByRole('textbox'));
+    expect(
+      screen.getByRole('tab', { name: 'Issues 1', selected: true })
+    ).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Focused issue' })).toBeTruthy();
+    expect(screen.queryByTestId('member-import-desktop')).toBeNull();
+
+    await user.click(screen.getByRole('tab', { name: 'Review rows 2' }));
+
+    expect(screen.getByTestId('member-import-desktop')).toBeTruthy();
+    expect(
+      screen.getByRole('searchbox', { name: 'Search import candidates' })
+    ).toBeTruthy();
+  });
+
+  it('repairs a phone conflict inline without jumping to the row ledger', async () => {
+    const user = userEvent.setup();
+    const onPatch = vi.fn();
+    renderPreview(
+      candidates([
+        input(2, { phone: '+15550000044', name: 'Asha Rao' }),
+        input(3, { phone: '+15550000044', name: 'Neha Rao' }),
+      ]),
+      { onPatch }
+    );
+
+    const focusedIssue = screen.getByRole('region', { name: 'Focused issue' });
+    const phones = within(focusedIssue).getAllByRole('textbox');
+    expect(phones).toHaveLength(2);
+
+    await user.clear(phones[1]);
+    await user.type(phones[1], '5550000055');
+    await user.click(
+      within(focusedIssue).getByRole('button', { name: 'Save & resolve' })
+    );
+
+    expect(onPatch).toHaveBeenCalledWith('sheet:3', {
+      phone: '+15550000055',
+    });
+    expect(screen.queryByTestId('member-import-desktop')).toBeNull();
+  });
+
+  it('explains each phone issue as the operator advances the queue', async () => {
+    const user = userEvent.setup();
+    renderPreview(
+      candidates([
+        input(2, { phone: '' }),
+        input(3, { phone: 'not-a-phone' }),
+        input(4, { phone: '+15550000044', name: 'Asha Rao' }),
+        input(5, { phone: '+15550000044', name: 'Neha Rao' }),
+      ])
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Add missing phone number' })
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Every included member needs their own valid phone number. Add one or exclude the row.'
+      )
+    ).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Next issue' }));
+    expect(
+      screen.getByRole('heading', { name: 'Correct invalid phone number' })
+    ).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Next issue' }));
+    expect(
+      screen.getByRole('heading', {
+        name: 'Phone number used by multiple members',
+      })
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Give each member a unique phone number, or exclude the duplicate row. UsefulDesk won’t merge these records.'
+      )
+    ).toBeTruthy();
+  });
+
+  it('keeps a correction directly accessible when its row is beyond the first ledger page', () => {
+    const rows = Array.from({ length: 51 }, (_, index) => input(index + 2));
+    rows[50] = input(52, { phone: '' });
+    renderPreview(candidates(rows));
+
+    const focusedIssue = screen.getByRole('region', { name: 'Focused issue' });
+    expect(within(focusedIssue).getByText('Member 52')).toBeTruthy();
+    expect(
+      within(focusedIssue).getByRole('textbox', {
+        name: 'Phone for Member 52',
+      })
+    ).toBeTruthy();
+    expect(screen.queryByTestId('member-import-desktop')).toBeNull();
+  });
+
+  it('keeps a missing-phone editor visible and saves its correction inline', async () => {
+    const user = userEvent.setup();
+    const onPatch = vi.fn();
+    renderPreview(candidates([input(2, { phone: '' })]), { onPatch });
+
+    const phone = screen.getByRole('textbox', { name: 'Phone for Member 2' });
+    await user.type(phone, '5550000099');
+    await user.click(screen.getByRole('button', { name: 'Save & resolve' }));
+
+    expect(onPatch).toHaveBeenCalledWith('sheet:2', {
+      phone: '+15550000099',
+    });
   });
 
   it('applies one canonical plan and billing option to every row in a conflict group', async () => {
@@ -269,5 +370,12 @@ describe('ImportMembersPreview conflict resolution', () => {
     fireEvent.change(total, { target: { value: '4000' } });
     fireEvent.blur(total);
     expect(onPatch).toHaveBeenCalledWith('sheet:2', { fee: '4000' });
+  });
+
+  it('provides a compact issue picker when the desktop queue is unavailable', () => {
+    renderPreview(candidates([input(2, { phone: '' })]));
+
+    expect(screen.getByRole('combobox', { name: 'Choose issue' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Focused issue' })).toBeTruthy();
   });
 });
