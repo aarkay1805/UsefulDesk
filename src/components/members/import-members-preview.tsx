@@ -85,6 +85,7 @@ const ISSUE_TITLES: Partial<Record<IssueCode, string>> = {
   'payment-conflict': 'Payment figures conflict',
   'existing-contact': 'Choose which contact details to keep',
   'invalid-membership-values': 'Correct membership details',
+  'expiry-not-after-start': 'Correct membership dates',
   'trainer-unmatched': 'Trainer not found',
 };
 
@@ -326,7 +327,9 @@ export function ImportMembersPreview({
                           key={group.key}
                           type="button"
                           variant={
-                            group.key === activeGroup.key ? 'secondary' : 'ghost'
+                            group.key === activeGroup.key
+                              ? 'secondary'
+                              : 'ghost'
                           }
                           /* A queue row carries a value the operator matches
                              against their file — a plan name, a phone number —
@@ -1512,7 +1515,10 @@ function GroupResolver({
     );
   }
 
-  if (group.code === 'invalid-membership-values') {
+  if (
+    group.code === 'invalid-membership-values' ||
+    group.code === 'expiry-not-after-start'
+  ) {
     return (
       <FieldCorrectionResolver
         group={group}

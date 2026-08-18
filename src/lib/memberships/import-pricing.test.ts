@@ -7,6 +7,7 @@ import {
   resolveImportedPricing,
   type MemberImportRow,
 } from './import-commit';
+import { buildMemberImportCandidates } from './member-import-candidates';
 import {
   MEMBER_IMPORT_FIELDS,
   MEMBER_IMPORT_GROUP_ORDER,
@@ -394,5 +395,131 @@ describe('members table column contract', () => {
     expect(owner.get('assigned_to')).toBe('assignee');
     expect(owner.get('membership_trainer')).toBe('trainer');
     expect(owner.get('service_trainer')).toBe('assignee');
+  });
+});
+
+describe('membership date range', () => {
+  it('imports a same-day row as the one-day membership it really is', () => {
+    // Per-session and day-pass rows repeat one date in both columns because
+    // the source cannot express a duration. 12 rows in the reference file.
+    const built = buildMembershipRow(
+      row({ startDate: '01/06/2026', endDate: '01/06/2026' }),
+      PLANS,
+      'DMY',
+      TODAY
+    );
+    expect(built.errors).toEqual([]);
+    expect(built.membership).toMatchObject({
+      start_date: '2026-06-01',
+      end_date: '2026-06-02',
+    });
+  });
+
+  it('still blocks an expiry that precedes its start', () => {
+    // perform_member_import_group raises "Membership expiry must be after
+    // start", and a customer group is one transaction — so a row the preview
+    // calls ready but the database rejects aborts every row for that member.
+    const built = buildMembershipRow(
+      row({ startDate: '01/06/2026', endDate: '31/05/2026' }),
+      PLANS,
+      'DMY',
+      TODAY
+    );
+    expect(built.errors).toContain('expiry-not-after-start');
+  });
+
+  it('accepts a one-day membership, which is what a day pass really is', () => {
+    const built = buildMembershipRow(
+      row({ startDate: '01/06/2026', endDate: '02/06/2026' }),
+      PLANS,
+      'DMY',
+      TODAY
+    );
+    expect(built.errors).toEqual([]);
+    expect(built.membership).toMatchObject({
+      start_date: '2026-06-01',
+      end_date: '2026-06-02',
+    });
+  });
+
+  it('leaves a derived expiry alone', () => {
+    // No explicit end date: the option term supplies it, and a 1-month term
+    // is never same-day, so the new guard must not fire.
+    const built = buildMembershipRow(
+      row({ startDate: '01/06/2026' }),
+      PLANS,
+      'DMY',
+      TODAY
+    );
+    expect(built.errors).toEqual([]);
+    expect(built.membership?.end_date).toBe('2026-07-01');
+  });
+});
+
+describe('same-day rows and the duration notice', () => {
+  const SESSION = [
+    {
+      id: 'p-day',
+      name: 'Single Session',
+      plan_type: 'non_recurring',
+      is_active: true,
+      pricing_options: [
+        {
+          id: 'o-day',
+          plan_id: 'p-day',
+          duration_count: 1,
+          duration_unit: 'day',
+          price: 2000,
+          setup_fee: 0,
+          is_active: true,
+          sort_order: 0,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      ],
+    },
+  ] as unknown as MembershipPlan[];
+
+  function issuesFor(
+    plans: MembershipPlan[],
+    values: Partial<MemberImportRow>
+  ) {
+    const [candidate] = buildMemberImportCandidates(
+      [
+        {
+          sourceKey: 'csv:2',
+          sourceRow: 2,
+          originalValues: { ...row(), ...values },
+        },
+      ],
+      { plans, dateOrder: 'DMY', today: TODAY }
+    );
+    return {
+      codes: candidate.issues.map((issue) => issue.code),
+      membership: candidate.built.membership,
+    };
+  }
+
+  it('stays quiet when a one-day plan really is one day', () => {
+    const { codes, membership } = issuesFor(SESSION, {
+      planName: 'Single Session',
+      pricingOption: '1 day',
+      startDate: '15/08/2026',
+      endDate: '15/08/2026',
+      fee: '2000',
+    });
+    expect(membership?.end_date).toBe('2026-08-16');
+    expect(codes).not.toContain('expiry-duration-mismatch');
+  });
+
+  it('still flags a six-month plan recorded as a single day', () => {
+    // Almost certainly a source data-entry error, and the row that most
+    // deserves a human look — so it must not be lost among per-session rows.
+    const { codes, membership } = issuesFor(PLANS, {
+      startDate: '01/06/2026',
+      endDate: '01/06/2026',
+      fee: '1500',
+    });
+    expect(membership?.end_date).toBe('2026-06-02');
+    expect(codes).toContain('expiry-duration-mismatch');
   });
 });

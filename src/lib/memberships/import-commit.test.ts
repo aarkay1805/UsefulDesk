@@ -542,6 +542,57 @@ describe('candidate-aware member import commit', () => {
     );
   });
 
+  it('leaves a committed row reason blank instead of stamping a failure', () => {
+    // A committed row reports reason: null. `??` used to fall through to the
+    // not-committed fallback, so every imported row in a real receipt read
+    // "candidate-not-committed" beside outcomes that all said created.
+    const rows = buildMemberImportReceiptRows(
+      [
+        commitCandidate({
+          sourceRow: 2,
+          legacyMemberId: '279',
+          originalValues: memberRow({ phone: '+919988883715' }),
+          draftValues: memberRow({ phone: '+919988883715' }),
+        }),
+      ],
+      [
+        {
+          sourceRowIndex: 2,
+          disposition: 'imported',
+          memberOutcome: 'created',
+          paymentOutcome: 'recorded',
+          reason: null,
+          contactId: 'contact-2',
+          membershipId: 'membership-2',
+        },
+      ]
+    );
+    expect(rows[0]).toMatchObject({
+      disposition: 'imported',
+      customer_outcome: 'created',
+      payment_outcome: 'recorded',
+      reason: '',
+    });
+  });
+
+  it('still explains a row that never reached the commit boundary', () => {
+    const rows = buildMemberImportReceiptRows(
+      [
+        commitCandidate({
+          sourceRow: 9,
+          originalValues: memberRow({ phone: '+919888790808' }),
+          draftValues: memberRow({ phone: '+919888790808' }),
+          isReady: false,
+        }),
+      ],
+      []
+    );
+    expect(rows[0]).toMatchObject({
+      disposition: 'unresolved',
+      reason: 'candidate-unresolved',
+    });
+  });
+
   it('builds ordered, redacted receipt rows and escapes the CSV safely', () => {
     const candidates = [
       commitCandidate({

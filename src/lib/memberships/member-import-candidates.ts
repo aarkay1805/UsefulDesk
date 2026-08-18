@@ -80,6 +80,7 @@ export interface MemberImportCandidateIssue {
     | 'pricing-option-needs-resolution'
     | 'invalid-membership-values'
     | 'pricing-mismatch'
+    | 'expiry-not-after-start'
     | 'payment-conflict'
     | 'existing-contact'
     | 'offering-needs-classification'
@@ -493,9 +494,15 @@ function expiryMismatch(
   const option = plan?.pricing_options?.find(
     (item) => item.id === membership.pricing_option_id
   );
-  return option
-    ? optionEndDate(membership.start_date, option) !== explicitEnd
-    : false;
+  if (!option) return false;
+  // A same-day source row was read as a one-day membership, so judge the term
+  // against what was actually stored rather than the date the source had no
+  // way to express. Without this every correctly handled per-session row
+  // carries a mismatch notice, and the genuinely odd rows — a six-month plan
+  // recorded as starting and ending on one day — stop standing out.
+  const comparable =
+    explicitEnd === membership.start_date ? membership.end_date : explicitEnd;
+  return optionEndDate(membership.start_date, option) !== comparable;
 }
 
 function rebuildCandidate(
@@ -606,6 +613,17 @@ function rebuildCandidate(
       )
     );
   }
+  if (membershipSource && built.errors.includes('expiry-not-after-start')) {
+    issues.push(
+      issue(
+        'expiry-not-after-start',
+        'blocking',
+        `expiry-range:${candidate.sourceKey}`,
+        'Expiry is not after the start date, so this membership covers no time.',
+        'Set an expiry at least a day after the start — a per-session row usually means the next day — or exclude it.'
+      )
+    );
+  }
   if (membershipSource && built.errors.includes('pricing-mismatch')) {
     issues.push(
       issue(
@@ -623,7 +641,8 @@ function rebuildCandidate(
       (error) =>
         error !== 'unknown-plan' &&
         error !== 'no-pricing' &&
-        error !== 'pricing-mismatch'
+        error !== 'pricing-mismatch' &&
+        error !== 'expiry-not-after-start'
     )
   ) {
     issues.push(

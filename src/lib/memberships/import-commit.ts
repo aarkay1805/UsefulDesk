@@ -30,6 +30,7 @@ import {
   durationLabel,
   optionEndDate,
 } from '@/lib/memberships/pricing';
+import { addDuration } from '@/lib/memberships/expiry';
 import { isValidE164 } from '@/lib/whatsapp/phone-utils';
 import type { MembershipPlan, PaymentMethod, PlanPricingOption } from '@/types';
 import type { MemberImportCandidate } from './member-import-candidates';
@@ -889,6 +890,7 @@ export type MemberRowError =
   | 'bad-fee'
   | 'bad-discount'
   | 'pricing-mismatch'
+  | 'expiry-not-after-start'
   | 'bad-payment'
   | 'payment-exceeds-fee'
   | 'unknown-status'
@@ -991,8 +993,23 @@ export function buildMembershipRow(
 
   const parsedStatus = parseMembershipStatus(row.status ?? '');
   if (!parsedStatus.matched) errors.push('unknown-status');
-  const end =
+  const derivedEnd =
     explicitEnd ?? (start && pricing ? optionEndDate(start, pricing) : null);
+  // A legacy per-session or day-pass row repeats one date in both columns:
+  // the source has no way to say "one day", so this is a shape, not an error.
+  // Import it as a one-day membership. When the plan term disagrees, the
+  // existing expiry-duration-mismatch notice still surfaces it.
+  const end =
+    start && explicitEnd && explicitEnd === start
+      ? addDuration(start, 1, 'day')
+      : derivedEnd;
+  // An expiry that genuinely precedes its start stays blocking, and mirrors
+  // `perform_member_import_group`'s own guard: a customer group commits as
+  // one transaction, so a row the preview calls ready but the database
+  // rejects would abort every other row for that member.
+  if (start && end && end <= start) {
+    errors.push('expiry-not-after-start');
+  }
   if (parsedStatus.expired && end && end >= today) {
     errors.push('expired-needs-expiry');
   }
@@ -1394,7 +1411,10 @@ export function buildMemberImportReceiptRows(
               : 'not-processed',
         member_outcome: result?.memberOutcome ?? fallback.memberOutcome,
         payment_outcome: result?.paymentOutcome ?? fallback.paymentOutcome,
-        reason: result?.reason ?? fallback.reason ?? '',
+        // A committed row reports `reason: null`, so `??` would fall through
+        // to the fallback and stamp every success with a failure reason.
+        // The fallback only applies when the row produced no result at all.
+        reason: result ? (result.reason ?? '') : (fallback.reason ?? ''),
       };
     });
 }
