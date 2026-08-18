@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertTriangle,
+  ArrowLeftRight,
   CheckCircle,
   Download,
   FileText,
@@ -320,6 +321,30 @@ export function ImportMembersCsvDialog({
     [customFields]
   );
   const validation = useMemo(() => validateMemberMapping(mapping), [mapping]);
+  const duplicateKeys = useMemo(
+    () => new Set(validation.duplicateTargets),
+    [validation.duplicateTargets]
+  );
+  // One sentence next to the blocked button instead of a stack of rules.
+  const mappingIssue = useMemo(() => {
+    if (validation.ok) return null;
+    const missing: string[] = [];
+    if (!validation.phoneMapped) missing.push('Phone');
+    if (!validation.planMapped) missing.push('Plan');
+    const parts: string[] = [];
+    if (missing.length > 0) {
+      parts.push(`Map a column to ${missing.join(' and ')}.`);
+    }
+    if (validation.duplicateTargets.length > 0) {
+      const labels = validation.duplicateTargets.map(
+        (key) => targetByKey.get(key)?.label ?? key
+      );
+      parts.push(
+        `${labels.join(', ')} ${labels.length === 1 ? 'is' : 'are'} mapped to more than one column.`
+      );
+    }
+    return parts.join(' ');
+  }, [validation, targetByKey]);
   const samples = useMemo(() => {
     if (!raw) return [];
     return raw.headers.map((_, column) =>
@@ -527,10 +552,13 @@ export function ImportMembersCsvDialog({
     }
   }
 
-  function useManualMapping() {
-    if (!sourceRaw) return;
-    setRaw(sourceRaw);
-    setMapping(autoMapMemberColumns(sourceRaw.headers, customFields));
+  // Single bulk action behind the mapping table's "Auto map": re-derive every
+  // column from its header name, which necessarily discards a suggested recipe.
+  function remapFromColumnNames() {
+    const source = sourceRaw ?? raw;
+    if (!source) return;
+    setRaw(source);
+    setMapping(autoMapMemberColumns(source.headers, customFields));
     setSuggestedRecipe(null);
     setCandidates([]);
   }
@@ -1353,49 +1381,29 @@ export function ImportMembersCsvDialog({
                     </div>
                   )}
                   {step === 2 && raw && (
-                    <div className="space-y-5">
-                      {suggestedRecipe && (
-                        <div className="border-border bg-muted/20 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
-                          <p className="text-muted-foreground text-sm">
-                            Safe local mapping is active. You remain in control
-                            of every field below.
-                          </p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={useManualMapping}
-                          >
-                            Use manual mapping
-                          </Button>
-                        </div>
-                      )}
-                      <MappingStep
-                        raw={raw}
-                        targets={targets}
-                        targetByKey={targetByKey}
-                        mapping={mapping}
-                        samples={samples}
-                        ambiguousDateCols={ambiguousDateCols}
-                        dateOrder={dateOrder}
-                        canCreateFields={canEditSettings}
-                        onSetColumn={setColumn}
-                        onToggleDateOrder={() =>
-                          setDateOrder((value) =>
-                            value === 'DMY' ? 'MDY' : 'DMY'
-                          )
-                        }
-                        onAutoMap={() =>
-                          setMapping(
-                            autoMapMemberColumns(raw.headers, customFields)
-                          )
-                        }
-                        onReset={() =>
-                          setMapping(raw.headers.map(() => MEMBER_IGNORE_KEY))
-                        }
-                        onRequestCreateField={requestCreateField}
-                      />
-                    </div>
+                    <MappingStep
+                      raw={raw}
+                      targets={targets}
+                      targetByKey={targetByKey}
+                      mapping={mapping}
+                      samples={samples}
+                      duplicateKeys={duplicateKeys}
+                      ambiguousDateCols={ambiguousDateCols}
+                      dateOrder={dateOrder}
+                      phoneDialCode={locale.phoneCountryCode}
+                      canCreateFields={canEditSettings}
+                      onSetColumn={setColumn}
+                      onToggleDateOrder={() =>
+                        setDateOrder((value) =>
+                          value === 'DMY' ? 'MDY' : 'DMY'
+                        )
+                      }
+                      onAutoMap={remapFromColumnNames}
+                      onReset={() =>
+                        setMapping(raw.headers.map(() => MEMBER_IGNORE_KEY))
+                      }
+                      onRequestCreateField={requestCreateField}
+                    />
                   )}
                   {step === 3 && (
                     <ImportMembersPreview
@@ -1535,25 +1543,8 @@ export function ImportMembersCsvDialog({
                   <Download className="size-4" /> Sample CSV
                 </Button>
               )}
-              {step === 2 && !result && !validation.ok && (
-                <div className="flex flex-col gap-0.5">
-                  {!validation.phoneMapped && (
-                    <ValidationMessage>
-                      Map one column to Phone.
-                    </ValidationMessage>
-                  )}
-                  {!validation.planMapped && (
-                    <ValidationMessage>
-                      Map one column to Plan.
-                    </ValidationMessage>
-                  )}
-                  {validation.duplicateTargets.length > 0 && (
-                    <ValidationMessage>
-                      Each field can be mapped once. Duplicated:{' '}
-                      {validation.duplicateTargets.join(', ')}.
-                    </ValidationMessage>
-                  )}
-                </div>
+              {step === 2 && !result && mappingIssue && (
+                <ValidationMessage>{mappingIssue}</ValidationMessage>
               )}
             </div>
 
@@ -1951,8 +1942,10 @@ function MappingStep({
   targetByKey,
   mapping,
   samples,
+  duplicateKeys,
   ambiguousDateCols,
   dateOrder,
+  phoneDialCode,
   canCreateFields,
   onSetColumn,
   onToggleDateOrder,
@@ -1965,8 +1958,10 @@ function MappingStep({
   targetByKey: Map<string, TargetField>;
   mapping: string[];
   samples: string[][];
+  duplicateKeys: Set<string>;
   ambiguousDateCols: Set<number>;
   dateOrder: DateOrder;
+  phoneDialCode: string;
   canCreateFields: boolean;
   onSetColumn: (column: number, key: string) => void;
   onToggleDateOrder: () => void;
@@ -1996,13 +1991,87 @@ function MappingStep({
     ].filter((group) => group.options.length > 0);
   }, [targets]);
   const unmapped = mapping.filter((key) => key === MEMBER_IGNORE_KEY).length;
+  const hasAmbiguousDates = ambiguousDateCols.size > 0;
+  const rows = raw.headers.map((header, column) => {
+    const key = mapping[column] ?? MEMBER_IGNORE_KEY;
+    return {
+      column,
+      header,
+      sample: samples[column]?.join(' · ') || '—',
+      key,
+      isMapped: key !== MEMBER_IGNORE_KEY,
+      isDuplicate: duplicateKeys.has(key),
+    };
+  });
+
+  // Plain render helper, not a nested component: keeps one picker definition
+  // for the table and the stacked layout without remounting on every render.
+  function renderPicker(row: (typeof rows)[number]) {
+    return (
+      <>
+        <Combobox
+          groups={groups}
+          value={row.key}
+          onSelect={(value) => onSetColumn(row.column, value)}
+          searchPlaceholder="Search fields…"
+          footer={
+            canCreateFields
+              ? {
+                  label: 'Create new field…',
+                  onSelect: () => onRequestCreateField(row.column),
+                }
+              : null
+          }
+          className={cn('text-xs', row.isDuplicate && 'border-destructive')}
+          contentClassName="w-64"
+        >
+          {/* Muted "Don't import" is the row's status; no status column needed. */}
+          <span
+            className={cn('truncate', !row.isMapped && 'text-muted-foreground')}
+          >
+            {row.isMapped
+              ? (targetByKey.get(row.key)?.label ?? row.key)
+              : "Don't import"}
+          </span>
+        </Combobox>
+        {row.key === 'phone' && (
+          <p className="text-muted-foreground mt-1 text-xs">
+            Existing members are matched on this column. Local numbers get{' '}
+            {phoneDialCode}.
+          </p>
+        )}
+      </>
+    );
+  }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-muted-foreground text-xs font-semibold tracking-[0.14em] uppercase">
-          Column mapping
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-muted-foreground text-xs">
+            {unmapped === 0
+              ? `All ${mapping.length} columns mapped`
+              : `${mapping.length - unmapped} mapped · ${unmapped} skipped`}
+          </p>
+          {/* One control for one global setting, not one per ambiguous column. */}
+          {hasAmbiguousDates && (
+            <Button
+              type="button"
+              variant="pill"
+              size="sm"
+              onClick={onToggleDateOrder}
+              aria-label={`Dates read as ${
+                dateOrder === 'DMY' ? 'day then month' : 'month then day'
+              }. Switch.`}
+            >
+              <span className="text-foreground font-mono">
+                {dateOrder === 'DMY' ? 'DD/MM' : 'MM/DD'}
+              </span>
+              {dateOrder === 'DMY' ? '02/07 = 2 July' : '02/07 = Feb 7'}
+              <ArrowLeftRight />
+            </Button>
+          )}
+        </div>
         <div className="flex gap-1.5">
           <Button type="button" size="sm" variant="outline" onClick={onAutoMap}>
             <Wand2 className="size-3.5" /> Auto map
@@ -2013,111 +2082,62 @@ function MappingStep({
         </div>
       </div>
 
-      <div className="border-border ring-border/50 overflow-hidden rounded-xl border ring-1">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[42rem] table-fixed text-xs">
-            <thead>
-              <tr className="border-border bg-background/60 border-b">
-                <th className="text-muted-foreground w-[18%] px-3 py-2 text-left font-medium">
-                  File column
-                </th>
-                <th className="text-muted-foreground w-[25%] px-3 py-2 text-left font-medium">
-                  Sample data
-                </th>
-                <th className="text-muted-foreground w-[42%] px-3 py-2 text-left font-medium">
-                  Member field
-                </th>
-                <th className="text-muted-foreground w-[15%] px-3 py-2 text-left font-medium">
-                  Status
-                </th>
+      <div className="border-border overflow-hidden rounded-xl border">
+        {/* Phone: one question per column, stacked. No sideways scroll to
+            reach the picker, which is the only control on this step. */}
+        <ul className="divide-border/70 divide-y sm:hidden">
+          {rows.map((row) => (
+            <li key={row.column} className="space-y-1.5 px-3 py-3">
+              <p className="text-foreground truncate text-xs font-medium">
+                {row.header || (
+                  <span className="text-muted-foreground italic">
+                    (unnamed)
+                  </span>
+                )}
+              </p>
+              <p className="text-muted-foreground truncate font-mono text-xs">
+                {row.sample}
+              </p>
+              {renderPicker(row)}
+            </li>
+          ))}
+        </ul>
+
+        <table className="hidden w-full table-fixed text-xs sm:table">
+          <thead>
+            <tr className="border-border bg-muted/40 border-b">
+              <th className="text-muted-foreground w-[26%] px-3 py-2 text-left font-medium">
+                File column
+              </th>
+              <th className="text-muted-foreground w-[32%] px-3 py-2 text-left font-medium">
+                Sample data
+              </th>
+              <th className="text-muted-foreground w-[42%] px-3 py-2 text-left font-medium">
+                Member field
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-border/70 divide-y">
+            {rows.map((row) => (
+              <tr key={row.column} className="hover:bg-muted/30">
+                <td className="text-foreground truncate px-3 py-2 font-medium">
+                  {row.header || (
+                    <span className="text-muted-foreground italic">
+                      (unnamed)
+                    </span>
+                  )}
+                </td>
+                <td className="text-muted-foreground px-3 py-2">
+                  <span className="block truncate font-mono text-xs">
+                    {row.sample}
+                  </span>
+                </td>
+                <td className="px-3 py-2">{renderPicker(row)}</td>
               </tr>
-            </thead>
-            <tbody className="divide-border/70 divide-y">
-              {raw.headers.map((header, column) => {
-                const key = mapping[column] ?? MEMBER_IGNORE_KEY;
-                const isMapped = key !== MEMBER_IGNORE_KEY;
-                return (
-                  <tr key={column} className="bg-popover/40">
-                    <td className="text-foreground truncate px-3 py-2 font-medium">
-                      {header || (
-                        <span className="text-muted-foreground italic">
-                          (unnamed)
-                        </span>
-                      )}
-                    </td>
-                    <td className="text-muted-foreground px-3 py-2">
-                      <span className="block truncate font-mono text-xs">
-                        {samples[column]?.join(' · ') || '—'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <Combobox
-                        groups={groups}
-                        value={key}
-                        onSelect={(value) => onSetColumn(column, value)}
-                        searchPlaceholder="Search fields…"
-                        footer={
-                          canCreateFields
-                            ? {
-                                label: 'Create new field…',
-                                onSelect: () => onRequestCreateField(column),
-                              }
-                            : null
-                        }
-                        className="min-w-[12rem] text-xs"
-                        contentClassName="w-64"
-                      >
-                        <span className="truncate">
-                          {isMapped
-                            ? (targetByKey.get(key)?.label ?? key)
-                            : "Don't import"}
-                        </span>
-                      </Combobox>
-                      {key === 'phone' && (
-                        <p className="text-muted-foreground mt-1 max-w-[25rem] text-xs leading-snug">
-                          Members are matched by phone; local numbers are
-                          qualified with the account&apos;s country code.
-                        </p>
-                      )}
-                      {ambiguousDateCols.has(column) && (
-                        <button
-                          type="button"
-                          onClick={onToggleDateOrder}
-                          title="Toggle day/month order"
-                          className="bg-primary/10 text-primary-text hover:bg-primary/20 mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold"
-                        >
-                          {dateOrder === 'DMY' ? 'DD/MM' : 'MM/DD'} ▾
-                          <span className="text-muted-foreground font-sans font-normal">
-                            {dateOrder === 'DMY'
-                              ? '02/07 = 2 July'
-                              : '02/07 = Feb 7'}
-                          </span>
-                        </button>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {isMapped ? (
-                        <span className="text-emerald-foreground inline-flex items-center gap-1 text-xs font-medium">
-                          <CheckCircle className="size-3.5" /> Mapped
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">
-                          Skipped
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <p className="text-muted-foreground text-xs">
-        {unmapped === 0
-          ? `All ${mapping.length} columns mapped`
-          : `${unmapped} column${unmapped === 1 ? '' : 's'} won’t be imported`}
-      </p>
     </div>
   );
 }

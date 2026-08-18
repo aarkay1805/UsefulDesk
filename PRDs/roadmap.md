@@ -144,6 +144,8 @@ Engineering maintenance: **the Members import Resolve issues step now renders ev
 
 Engineering maintenance: **the Members import Resolve issues step now groups its queue under the issue kind so each entry identifies a record rather than repeating a title, leads the working pane with the issue itself, bounds long record lists so the instruction and the commit control stay on screen together, names the rows a group-wide mapping will change, and reads payment conflicts as a labelled figure set; import behavior and shared UI masters are unchanged**.
 
+Engineering maintenance: **the Members import Map columns step was distilled to the one question it asks per column: the redundant Status column, the eyebrow, and the reassurance banner are gone, the mapping suggestion's escape hatch merged into Auto map, the per-column day/month toggles collapsed into one file-level control, blocking rules read as a single sentence beside the blocked button with duplicated fields outlined in the table, and phones stack the picker full width instead of hiding it behind sideways scroll; mapping behavior and shared UI masters are unchanged**.
+
 Shipped addition: **member photo clipboard paste with concise dialog guidance and platform-standard Command+V / Control+V shortcuts feeding the existing validated square-crop preview and optimized WebP upload flow**.
 
 Shipped addition: **an instant avatar hover/focus quick view across every Members tab that enlarges the already-loaded member photo for fast visual identification and keeps the applicable Details, WhatsApp reminder, and Follow-up actions beside the member name and ID without a hover-time query**.
