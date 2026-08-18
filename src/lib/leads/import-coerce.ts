@@ -326,6 +326,16 @@ const RAW_OF: Record<FixableField, (r: PreviewRow) => string | undefined> = {
   assignee: (r) => r.base.assignedTo,
 };
 
+/**
+ * Composite-key delimiter for the group-by below, written as an escape rather
+ * than a literal control character: a literal one makes the whole file read as
+ * binary data, and `grep`/`rg` then silently report zero matches for every
+ * symbol in it. Collision-safety does not rest on the character —
+ * `FIXABLE_FIELDS` is prefix-free, so `field + sep + raw` is injective even
+ * when a cell contains the separator; U+001F just keeps keys readable.
+ */
+const VALUE_KEY_SEP = '\u001F';
+
 /** Distinct still-unmatched values per field, with row counts. */
 export function unmatchedValues(rows: PreviewRow[]): UnmatchedValue[] {
   const counts = new Map<string, UnmatchedValue>();
@@ -334,7 +344,7 @@ export function unmatchedValues(rows: PreviewRow[]): UnmatchedValue[] {
       if (!row.unmatched.has(field)) continue;
       const raw = (RAW_OF[field](row) ?? '').trim();
       if (!raw) continue;
-      const key = `${field} ${raw.toLowerCase()}`;
+      const key = `${field}${VALUE_KEY_SEP}${raw.toLowerCase()}`;
       const entry = counts.get(key);
       if (entry) entry.count++;
       else counts.set(key, { field, raw, count: 1 });

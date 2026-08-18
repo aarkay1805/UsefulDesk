@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   applyValueFix,
@@ -287,5 +289,68 @@ describe('assignee as a fixable value', () => {
     expect(direct[2].assignedTo).toBe('u2');
     expect(direct[2].pendingInvitationId).toBeNull();
     expect(direct[2].pendingAssigneeName).toBeNull();
+  });
+});
+
+describe('unmatchedValues grouping key', () => {
+  function preview(rows: MappedRow[]): PreviewRow[] {
+    return buildPreviewRows({
+      statusOptions: STATUSES,
+      sourceOptions: SOURCES,
+      genderOptions: GENDERS,
+      // Empty roster so every assignee cell flags unmatched.
+      staff: [],
+      existingKeys: new Set(),
+      rows,
+    });
+  }
+
+  it('keeps identical raw text under different fields separate', () => {
+    const grouped = unmatchedValues(
+      preview([
+        row({
+          phone: '1',
+          leadStatus: 'Ongoing',
+          source: 'Ongoing',
+          assignedTo: 'Ongoing',
+        }),
+      ]),
+    );
+    expect(grouped.map((v) => v.field).sort()).toEqual([
+      'assignee',
+      'source',
+      'status',
+    ]);
+    expect(new Set(grouped.map((v) => v.raw))).toEqual(new Set(['Ongoing']));
+  });
+
+  it('groups raw cells that embed the separator or a field name', () => {
+    // Adversarial cell text: the separator itself, plus a bare field name.
+    // The key is `field + sep + raw` and FIXABLE_FIELDS is prefix-free, so
+    // these stay distinct however the separator is spelled.
+    const weird = 'status\u001Fsource';
+    const grouped = unmatchedValues(
+      preview([
+        row({ phone: '1', source: weird }),
+        row({ phone: '2', source: weird }),
+        row({ phone: '3', source: 'source' }),
+      ]),
+    ).filter((v) => v.field === 'source');
+    expect(grouped).toHaveLength(2);
+    expect(grouped.find((v) => v.raw === weird)?.count).toBe(2);
+    expect(grouped.find((v) => v.raw === 'source')?.count).toBe(1);
+  });
+
+  it('spells the separator as an escape, keeping the source greppable', () => {
+    // A literal control byte (this module once held a NUL) makes the file
+    // register as binary data, so `grep`/`rg` without `-a` silently return
+    // zero matches for every symbol defined in it.
+    const bytes = readFileSync(
+      fileURLToPath(new URL('./import-coerce.ts', import.meta.url)),
+    );
+    const control = [...bytes].filter(
+      (b) => b < 9 || (b > 10 && b < 32 && b !== 13),
+    );
+    expect(control).toEqual([]);
   });
 });
