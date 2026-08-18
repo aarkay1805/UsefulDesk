@@ -85,6 +85,7 @@ const ISSUE_TITLES: Partial<Record<IssueCode, string>> = {
   'payment-conflict': 'Payment figures conflict',
   'existing-contact': 'Choose which contact details to keep',
   'invalid-membership-values': 'Correct membership details',
+  'trainer-unmatched': 'Trainer not found',
 };
 
 interface ImportMembersPreviewProps {

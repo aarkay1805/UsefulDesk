@@ -2,19 +2,24 @@ import {
   normalizeImportHeader,
   type RawCsv,
 } from '@/lib/contacts/field-mapping';
-import { normalizeKey } from '@/lib/contacts/dedupe';
 import { parseImportDate, parseMoney } from './import-commit';
 
 export const MIGRATION_TARGETS = [
   'phone',
   'name',
+  'legacy_member_id',
   'membership_plan',
   'membership_option',
+  'membership_trainer',
   'start_date',
   'end_date',
   'status',
+  'membership_list_price',
+  'membership_discount_amount',
+  'membership_discount_percent',
   'fee_amount',
   'amount_paid',
+  'amount_due',
   'notes',
   'offering',
   'service',
@@ -22,6 +27,9 @@ export const MIGRATION_TARGETS = [
   'service_trainer',
   'service_start',
   'service_end',
+  'service_list_price',
+  'service_discount_amount',
+  'service_discount_percent',
   'service_sold_price',
   'service_status',
   // Kept so saved v1 AI recipes made before service-aware imports still validate.
@@ -55,38 +63,12 @@ export interface MemberMigrationRecipe {
   questions: string[];
 }
 
-export interface MigrationIssue {
-  code:
-    | 'shared-phone'
-    | 'missing-phone'
-    | 'payment-mismatch'
-    | 'overpayment'
-    | 'duration-mismatch';
-  severity: 'review' | 'warning';
-  rowIndex: number;
-  sourceId: string;
-  message: string;
-  nextAction: string;
-}
-
-export interface MigrationIssueSummary {
-  expiryDatesKept: number;
-  missingPhones: number;
-  sharedPhones: number;
-  paymentsSkipped: number;
-}
-
-export interface MigrationTransform {
-  raw: RawCsv;
-  mapping: string[];
-  issues: MigrationIssue[];
-  counts: { ready: number; needsReview: number; excluded: number };
-}
-
 const HEADER_ALIASES: Record<MigrationTarget, string[]> = {
   phone: ['phone', 'contact', 'mobile', 'phone number'],
   name: ['name', 'member name', 'customer name'],
+  legacy_member_id: ['member id', 'customer id', 'legacy id', 'member no'],
   membership_plan: ['membership plan', 'membership package', 'membership'],
+  membership_trainer: ['trainer', 'coach', 'personal trainer'],
   membership_option: [
     'membership option',
     'billing option',
@@ -97,15 +79,33 @@ const HEADER_ALIASES: Record<MigrationTarget, string[]> = {
   start_date: ['start date', 'joining date'],
   end_date: ['end date', 'expiry', 'expiry date'],
   status: ['status', 'membership status'],
+  membership_list_price: [
+    'actual amt',
+    'actual amount',
+    'list price',
+    'gross amount',
+    'mrp',
+  ],
+  membership_discount_amount: [
+    'discount',
+    'discount amt',
+    'discount amount',
+    'concession',
+  ],
+  membership_discount_percent: ['discount percent', 'discount percentage'],
   fee_amount: ['discounted amt', 'discounted amount', 'final fee', 'fee'],
   amount_paid: ['paid amp', 'paid amt', 'paid amount', 'amount paid'],
+  amount_due: ['balance', 'amount due', 'due amount', 'outstanding'],
   notes: ['notes', 'remarks'],
   offering: ['package', 'offering', 'plan or service', 'product or service'],
   service: ['service', 'service name'],
   service_option: ['service option', 'service package', 'service duration'],
-  service_trainer: ['trainer', 'service trainer', 'coach'],
+  service_trainer: ['service trainer', 'service coach'],
   service_start: ['service start', 'service start date'],
   service_end: ['service end', 'service end date', 'service expiry'],
+  service_list_price: ['service list price', 'service actual amount'],
+  service_discount_amount: ['service discount', 'service discount amount'],
+  service_discount_percent: ['service discount percent'],
   service_sold_price: ['service sold price', 'service price', 'sold price'],
   service_status: ['service status'],
   plan: [],
@@ -127,11 +127,10 @@ export function suggestMemberMigrationRecipe(
     const header = findHeader(headers, HEADER_ALIASES[target]);
     if (header) mappings[target] = header;
   }
-  const identityColumn = findHeader(headers, [
-    'member id',
-    'customer id',
-    'legacy id',
-  ]);
+  const identityColumn =
+    mappings.legacy_member_id ??
+    findHeader(headers, ['member id', 'customer id', 'legacy id']);
+  if (identityColumn) mappings.legacy_member_id = identityColumn;
   return {
     version: 1,
     mappings,
@@ -141,15 +140,14 @@ export function suggestMemberMigrationRecipe(
     statusRules: { inactiveWithPastEndDate: 'expired', cancelled: 'cancelled' },
     splitPlanDuration: true,
     explicitEndDateWins: true,
+    // `money` stays for saved v1 recipes, but every column it names is also
+    // a visible mapping now: a column the owner sees as "Don't import" must
+    // never quietly steer the import.
     money: {
-      listPriceColumn: findHeader(headers, [
-        'actual amt',
-        'actual amount',
-        'list price',
-      ]),
+      listPriceColumn: mappings.membership_list_price ?? null,
       feeColumn: mappings.fee_amount ?? null,
       paidColumn: mappings.amount_paid ?? null,
-      balanceColumn: findHeader(headers, ['balance', 'amount due']),
+      balanceColumn: mappings.amount_due ?? null,
     },
     legacyId: identityColumn ? 'notes' : 'exclude',
     confidence: 0.75,
@@ -295,225 +293,6 @@ export function normalizeMemberMigrationStatus(
     ? parseImportDate(explicitEndDate, dateOrder)
     : null;
   return end && end < today ? 'expired' : 'cancelled';
-}
-
-function countAffectedRows(
-  issues: MigrationIssue[],
-  codes: MigrationIssue['code'][]
-): number {
-  const wanted = new Set(codes);
-  return new Set(
-    issues
-      .filter((issue) => wanted.has(issue.code))
-      .map((issue) => issue.rowIndex)
-  ).size;
-}
-
-export function summarizeMigrationIssues(
-  issues: MigrationIssue[]
-): MigrationIssueSummary {
-  return {
-    expiryDatesKept: countAffectedRows(issues, ['duration-mismatch']),
-    missingPhones: countAffectedRows(issues, ['missing-phone']),
-    sharedPhones: countAffectedRows(issues, ['shared-phone']),
-    paymentsSkipped: countAffectedRows(issues, [
-      'payment-mismatch',
-      'overpayment',
-    ]),
-  };
-}
-
-function expectedEndDate(start: string, option: string): string | null {
-  const match = /^(\d+)\s+(month|year|day)$/.exec(option);
-  if (!match) return null;
-  const parsed = /^(\d{4})-(\d{2})-(\d{2})$/.exec(start);
-  if (!parsed) return null;
-  const date = new Date(
-    Date.UTC(Number(parsed[1]), Number(parsed[2]) - 1, Number(parsed[3]))
-  );
-  const count = Number(match[1]);
-  if (match[2] === 'month') date.setUTCMonth(date.getUTCMonth() + count);
-  if (match[2] === 'year') date.setUTCFullYear(date.getUTCFullYear() + count);
-  if (match[2] === 'day') date.setUTCDate(date.getUTCDate() + count);
-  // Source periods usually use inclusive end dates.
-  date.setUTCDate(date.getUTCDate() - 1);
-  return date.toISOString().slice(0, 10);
-}
-
-export function applyMemberMigrationRecipe(
-  source: RawCsv,
-  recipe: MemberMigrationRecipe,
-  options: { today: string; dialCode: string }
-): MigrationTransform {
-  const index = new Map(source.headers.map((header, i) => [header, i]));
-  const cell = (row: string[], header: string | null | undefined) =>
-    header ? (row[index.get(header) ?? -1] ?? '').trim() : '';
-  let excluded = 0;
-  let rows = source.rows.filter((row) => {
-    const summary =
-      recipe.excludeSummaryRows &&
-      row.some((value) => /^number of records\s*:/i.test(value.trim()));
-    if (summary) excluded++;
-    return !summary;
-  });
-  // Identity conflicts must be learned from the whole source, before older
-  // history is excluded. Otherwise a shared phone present only on an older
-  // row could make two distinct source members look safe after grouping.
-  const phoneOwners = new Map<string, Set<string>>();
-  for (const row of rows) {
-    const id = cell(row, recipe.identityColumn) || 'row';
-    const phone = normalizeKey(cell(row, recipe.mappings.phone));
-    if (!phone) continue;
-    const owners = phoneOwners.get(phone) ?? new Set<string>();
-    owners.add(id);
-    phoneOwners.set(phone, owners);
-  }
-  if (recipe.identityColumn && recipe.latestByDateColumn) {
-    const beforeGrouping = rows.length;
-    const latest = new Map<string, { row: string[]; date: string }>();
-    const passthrough: string[][] = [];
-    for (const row of rows) {
-      const id = cell(row, recipe.identityColumn);
-      if (!id) {
-        passthrough.push(row);
-        continue;
-      }
-      const date = parseImportDate(cell(row, recipe.latestByDateColumn)) ?? '';
-      const current = latest.get(id);
-      if (!current || date > current.date) latest.set(id, { row, date });
-    }
-    rows = [...latest.values()].map((item) => item.row).concat(passthrough);
-    excluded += beforeGrouping - rows.length;
-  }
-
-  const issues: MigrationIssue[] = [];
-  const outputHeaders = [...MIGRATION_TARGETS.map(String)];
-  const outputRows = rows.map((row, rowIndex) => {
-    const id = cell(row, recipe.identityColumn) || 'Unknown';
-    const values = new Map<MigrationTarget, string>();
-    for (const target of MIGRATION_TARGETS)
-      values.set(target, cell(row, recipe.mappings[target]));
-    const phone = normalizeKey(values.get('phone') ?? '');
-    if (!phone) {
-      issues.push({
-        code: 'missing-phone',
-        severity: 'review',
-        rowIndex,
-        sourceId: id,
-        message: 'No usable phone number.',
-        nextAction: 'Add a phone number or exclude this member.',
-      });
-    } else if ((phoneOwners.get(phone)?.size ?? 0) > 1) {
-      issues.push({
-        code: 'shared-phone',
-        severity: 'review',
-        rowIndex,
-        sourceId: id,
-        message: 'This phone is shared by different source Member IDs.',
-        nextAction:
-          'Choose the correct phone for each member; they will not be merged.',
-      });
-      values.set('phone', '');
-    }
-    if (recipe.splitPlanDuration) {
-      const membershipPlanTarget = recipe.mappings.membership_plan
-        ? 'membership_plan'
-        : 'plan';
-      const membershipOptionTarget = recipe.mappings.membership_plan
-        ? 'membership_option'
-        : 'pricing_option';
-      const split = splitPlanDuration(values.get(membershipPlanTarget) ?? '');
-      values.set(membershipPlanTarget, split.plan);
-      if (split.option) values.set(membershipOptionTarget, split.option);
-    }
-    const parsedStart = parseImportDate(values.get('start_date') ?? '');
-    const parsedEnd = parseImportDate(values.get('end_date') ?? '');
-    const membershipOption =
-      values.get('membership_option') || values.get('pricing_option') || '';
-    const durationEnd = parsedStart
-      ? expectedEndDate(parsedStart, membershipOption)
-      : null;
-    if (
-      recipe.explicitEndDateWins &&
-      parsedEnd &&
-      durationEnd &&
-      parsedEnd !== durationEnd
-    ) {
-      issues.push({
-        code: 'duration-mismatch',
-        severity: 'warning',
-        rowIndex,
-        sourceId: id,
-        message: `Explicit end date ${parsedEnd} differs from the plan term (${durationEnd}).`,
-        nextAction: 'The explicit end date will win; verify it in preview.',
-      });
-    }
-    values.set(
-      'status',
-      normalizeMemberMigrationStatus(
-        values.get('status'),
-        values.get('end_date'),
-        'DMY',
-        options.today
-      )
-    );
-    const fee = parseMoney(cell(row, recipe.money.feeColumn));
-    const paid = parseMoney(cell(row, recipe.money.paidColumn));
-    const balance = parseMoney(cell(row, recipe.money.balanceColumn));
-    if (fee !== null && paid !== null && paid > fee) {
-      issues.push({
-        code: 'overpayment',
-        severity: 'review',
-        rowIndex,
-        sourceId: id,
-        message: 'Amount paid is greater than the final fee.',
-        nextAction: 'Correct the amounts before recording a payment.',
-      });
-      values.set('amount_paid', '');
-    } else if (
-      fee !== null &&
-      paid !== null &&
-      balance !== null &&
-      Math.abs(paid + balance - fee) > 0.01
-    ) {
-      issues.push({
-        code: 'payment-mismatch',
-        severity: 'review',
-        rowIndex,
-        sourceId: id,
-        message: 'Paid + balance does not equal the final fee.',
-        nextAction:
-          'Verify the source amounts; no payment will be imported for this row.',
-      });
-      values.set('amount_paid', '');
-    }
-    values.set('fee_amount', fee === null ? '' : String(fee));
-    if (recipe.legacyId === 'notes' && recipe.identityColumn) {
-      const existing = values.get('notes');
-      values.set(
-        'notes',
-        [existing, `Legacy Member ID: ${id}`].filter(Boolean).join(' · ')
-      );
-    }
-    return outputHeaders.map(
-      (header) => values.get(header as MigrationTarget) ?? ''
-    );
-  });
-  const reviewRows = new Set(
-    issues
-      .filter((issue) => issue.severity === 'review')
-      .map((issue) => issue.rowIndex)
-  );
-  return {
-    raw: { headers: outputHeaders, rows: outputRows },
-    mapping: outputHeaders,
-    issues,
-    counts: {
-      ready: outputRows.length - reviewRows.size,
-      needsReview: reviewRows.size,
-      excluded,
-    },
-  };
 }
 
 export type MigrationValueFormat =

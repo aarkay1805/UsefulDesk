@@ -88,7 +88,12 @@ import {
   parseMemberImportWorkbook,
   type MemberImportSheet,
 } from '@/lib/memberships/import-workbook';
-import { MEMBER_IMPORT_FIELDS } from '@/lib/memberships/member-field-registry';
+import {
+  MEMBER_IMPORT_FIELDS,
+  MEMBER_IMPORT_GROUP_LABEL,
+  MEMBER_IMPORT_GROUP_ORDER,
+  type MemberImportGroup,
+} from '@/lib/memberships/member-field-registry';
 import {
   buildMigrationAnalysis,
   normalizeMemberMigrationStatus,
@@ -959,9 +964,14 @@ export function ImportMembersCsvDialog({
         header ? (row[headerIndex.get(header) ?? -1] ?? '').trim() : '';
       const inputs = mapped.rows.map((mappedRow, index) => {
         const source = raw.rows[index] ?? [];
+        // A mapped "Amount due" column is authoritative. The recipe's balance
+        // column stays only as a fallback for drafts saved before that field
+        // existed — a column shown as "Don't import" must never steer a row.
         const originalValues = {
           ...mappedRow,
-          balance: sourceCell(source, recipe.money.balanceColumn),
+          ...(mappedRow.amountDue?.trim()
+            ? {}
+            : { balance: sourceCell(source, recipe.money.balanceColumn) }),
         };
         if (recipe.splitPlanDuration && originalValues.planName) {
           const split = splitPlanDuration(originalValues.planName);
@@ -974,8 +984,10 @@ export function ImportMembersCsvDialog({
           dateOrder,
           fmt.today()
         );
-        const legacyMemberId = sourceCell(source, recipe.identityColumn);
-        if (recipe.legacyId === 'notes' && legacyMemberId) {
+        const legacyMemberId =
+          mappedRow.legacyMemberId?.trim() ||
+          sourceCell(source, recipe.identityColumn);
+        if (recipe.legacyId !== 'exclude' && legacyMemberId) {
           originalValues.notes = [
             originalValues.notes,
             `Legacy Member ID: ${legacyMemberId}`,
@@ -1969,25 +1981,34 @@ function MappingStep({
   onReset: () => void;
   onRequestCreateField: (column: number) => void;
 }) {
+  // Groups come from the field registry so membership and service each read
+  // as a complete, self-contained purchase; inside a group the short label is
+  // enough because the heading already supplies the context.
   const groups = useMemo<ComboboxGroup[]>(() => {
-    const make = (label: string, kinds: TargetField['kind'][]) => ({
-      label,
-      options: targets
-        .filter((target) => kinds.includes(target.kind))
-        .map((target) => ({
-          value: target.key,
-          label: target.label,
-          hint: target.required ? 'required' : undefined,
-        })),
-    });
+    const registered = new Set<string>(
+      MEMBER_IMPORT_FIELDS.map((item) => item.key)
+    );
+    const byGroup = new Map<MemberImportGroup, ComboboxGroup['options']>();
+    for (const item of MEMBER_IMPORT_FIELDS) {
+      byGroup.set(item.group, [
+        ...(byGroup.get(item.group) ?? []),
+        {
+          value: item.key,
+          label: item.groupLabel ?? item.label,
+          hint: item.required ? 'required' : undefined,
+        },
+      ]);
+    }
+    const custom = targets
+      .filter((target) => !registered.has(target.key))
+      .map((target) => ({ value: target.key, label: target.label }));
     return [
       { options: [{ value: MEMBER_IGNORE_KEY, label: "Don't import" }] },
-      make('Contact', ['standard']),
-      make('Membership & services', ['member', 'assignee']),
-      make('Payments', ['payment']),
-      make('Profile', ['profile']),
-      make('Tags', ['tags']),
-      make('Custom fields', ['custom']),
+      ...MEMBER_IMPORT_GROUP_ORDER.map((group) => ({
+        label: MEMBER_IMPORT_GROUP_LABEL[group],
+        options: byGroup.get(group) ?? [],
+      })),
+      { label: 'Custom fields', options: custom },
     ].filter((group) => group.options.length > 0);
   }, [targets]);
   const unmapped = mapping.filter((key) => key === MEMBER_IGNORE_KEY).length;

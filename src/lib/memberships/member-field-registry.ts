@@ -9,6 +9,7 @@ export type MemberColumnKey =
   | 'expiry'
   | 'status'
   | 'assignee'
+  | 'trainer'
   | 'fee'
   | 'churnRisk'
   | 'reminder';
@@ -18,14 +19,22 @@ export type MemberImportFieldKey =
   | 'name'
   | 'email'
   | 'company'
+  | 'legacy_member_id'
   | 'offering'
   | 'membership_plan'
   | 'membership_option'
+  | 'membership_trainer'
+  | 'membership_list_price'
+  | 'membership_discount_amount'
+  | 'membership_discount_percent'
   | 'service'
   | 'service_option'
   | 'service_trainer'
   | 'service_start'
   | 'service_end'
+  | 'service_list_price'
+  | 'service_discount_amount'
+  | 'service_discount_percent'
   | 'service_sold_price'
   | 'service_status'
   /** Legacy saved-draft key; new mapping UI uses membership_plan. */
@@ -38,6 +47,7 @@ export type MemberImportFieldKey =
   | 'assigned_to'
   | 'fee_amount'
   | 'amount_paid'
+  | 'amount_due'
   | 'fee_status'
   | 'payment_method'
   | 'paid_at'
@@ -56,10 +66,57 @@ export type MemberImportFieldKey =
   | 'notes'
   | 'tags';
 
+/**
+ * Mapping-picker groups. Membership and service each own a complete set of
+ * dates, status, and money fields, so a column such as "Start date" can never
+ * be ambiguous about which purchase it describes. Collection stays row-level:
+ * one CSV row is one invoice, so paid/due/method/date describe that invoice
+ * rather than an individual line.
+ */
+export type MemberImportGroup =
+  | 'contact'
+  | 'mixed'
+  | 'membership'
+  | 'service'
+  | 'payment'
+  | 'member'
+  | 'profile'
+  | 'tags';
+
+export const MEMBER_IMPORT_GROUP_LABEL: Record<MemberImportGroup, string> = {
+  contact: 'Contact',
+  mixed: 'Mixed column',
+  membership: 'Membership',
+  service: 'Service',
+  payment: 'Payment (this row)',
+  member: 'Member',
+  profile: 'Profile',
+  tags: 'Tags',
+};
+
+export const MEMBER_IMPORT_GROUP_ORDER: MemberImportGroup[] = [
+  'contact',
+  'mixed',
+  'membership',
+  'service',
+  'payment',
+  'member',
+  'profile',
+  'tags',
+];
+
 export interface MemberImportField {
   key: MemberImportFieldKey;
   label: string;
   kind: TargetKind;
+  /** Which mapping-picker section this field belongs to. */
+  group: MemberImportGroup;
+  /**
+   * Shown inside its group, where the group heading already supplies the
+   * context. `label` stays fully qualified because the closed picker and the
+   * preview render it without a heading, and the auto-mapper matches on it.
+   */
+  groupLabel?: string;
   required?: boolean;
   synonyms: string[];
 }
@@ -73,6 +130,12 @@ export interface MemberColumn {
   align?: 'right';
   sortKey?: string;
   filterDim?: MemberFilterDim;
+  /**
+   * Ships hidden until someone re-adds it from the column controls. Seeded
+   * once per layout version, so a later default change cannot silently
+   * override a layout the user has already arranged.
+   */
+  defaultHidden?: boolean;
   /**
    * Every data column declares how it participates in member migration.
    * `generated` and `action` are deliberate exceptions; everything else
@@ -88,21 +151,36 @@ const field = (
   key: MemberImportFieldKey,
   label: string,
   kind: TargetKind,
+  group: MemberImportGroup,
   synonyms: string[],
-  required = false
-): MemberImportField => ({ key, label, kind, synonyms, required });
+  extra: { required?: boolean; groupLabel?: string } = {}
+): MemberImportField => ({
+  key,
+  label,
+  kind,
+  group,
+  synonyms,
+  required: extra.required ?? false,
+  ...(extra.groupLabel ? { groupLabel: extra.groupLabel } : {}),
+});
 
 /**
  * Canonical member-import vocabulary. Header auto-mapping, the searchable
  * mapping picker, the sample file, and the commit engine all consume this
  * list. Aliases intentionally cover exports from Indian and international
  * gym products without tying UsefulDesk to any vendor.
+ *
+ * ORDER IS LOAD-BEARING. `autoMapColumns` walks this list and claims the
+ * first unused target whose label or synonym matches, so membership fields
+ * must precede their service twins: a bare "Start date" column belongs to
+ * the membership, and a service column has to say so.
  */
 export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
   field(
     'phone',
     'Phone',
     'standard',
+    'contact',
     [
       'phone',
       'mobile',
@@ -120,9 +198,9 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
       'msisdn',
       'primary phone',
     ],
-    true
+    { required: true }
   ),
-  field('name', 'Name', 'standard', [
+  field('name', 'Name', 'standard', 'contact', [
     'name',
     'full name',
     'member',
@@ -133,21 +211,21 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'client name',
     'first and last name',
   ]),
-  field('email', 'Email', 'standard', [
+  field('email', 'Email', 'standard', 'contact', [
     'email',
     'e mail',
     'email address',
     'mail',
     'primary email',
   ]),
-  field('company', 'Company', 'standard', [
+  field('company', 'Company', 'standard', 'contact', [
     'company',
     'business',
     'organisation',
     'organization',
     'employer',
   ]),
-  field('offering', 'Plan or service', 'member', [
+  field('offering', 'Plan or service', 'member', 'mixed', [
     'offering',
     'package',
     'package name',
@@ -158,6 +236,7 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'membership_plan',
     'Membership plan',
     'member',
+    'membership',
     [
       'plan',
       'plan name',
@@ -168,9 +247,9 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
       'scheme',
       'subscription',
     ],
-    true
+    { required: true, groupLabel: 'Plan' }
   ),
-  field('membership_option', 'Billing option', 'member', [
+  field('membership_option', 'Billing option', 'member', 'membership', [
     'billing option',
     'billing cycle',
     'billing frequency',
@@ -181,48 +260,19 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'frequency',
     'validity',
   ]),
-  field('service', 'Service', 'member', [
-    'service',
-    'service name',
-    'class',
-    'class name',
-    'session service',
-  ]),
-  field('service_option', 'Service option', 'member', [
-    'service option',
-    'service duration',
-    'service validity',
-    'service package option',
-  ]),
-  field('service_trainer', 'Service trainer', 'member', [
-    'service trainer',
+  // A bare "Trainer" column in a member export means the member's trainer,
+  // so this must precede `service_trainer`, which the auto-mapper would
+  // otherwise claim first and then drop on any row without a service.
+  field('membership_trainer', 'Trainer', 'member', 'membership', [
     'trainer',
     'coach',
     'instructor',
     'personal trainer',
+    'assigned trainer',
+    'member trainer',
+    'pt',
   ]),
-  field('service_start', 'Service start date', 'member', [
-    'service start',
-    'service start date',
-    'class start',
-  ]),
-  field('service_end', 'Service expiry', 'member', [
-    'service end',
-    'service end date',
-    'service expiry',
-    'service expiry date',
-  ]),
-  field('service_sold_price', 'Service sold price', 'payment', [
-    'service sold price',
-    'service price',
-    'sold price',
-    'package sold price',
-  ]),
-  field('service_status', 'Service status', 'member', [
-    'service status',
-    'class status',
-  ]),
-  field('start_date', 'Start date', 'member', [
+  field('start_date', 'Start date', 'member', 'membership', [
     'start',
     'start date',
     'joined',
@@ -236,7 +286,7 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'activation date',
     'from date',
   ]),
-  field('end_date', 'Expiry', 'member', [
+  field('end_date', 'Expiry', 'member', 'membership', [
     'end',
     'end date',
     'expiry',
@@ -253,36 +303,65 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'due date',
     'to date',
   ]),
-  field('status', 'Status', 'member', [
+  field('status', 'Status', 'member', 'membership', [
     'status',
     'member status',
     'membership status',
     'subscription status',
     'account status',
   ]),
-  field('freeze_date', 'Freeze date', 'member', [
+  field('freeze_date', 'Freeze date', 'member', 'membership', [
     'freeze date',
     'frozen date',
     'paused date',
     'hold date',
     'membership freeze date',
   ]),
-  field('assigned_to', 'Assigned to', 'member', [
-    'assigned to',
-    'assignee',
-    'owner',
-    'account owner',
-    'sales rep',
-    'representative',
-    'agent',
-    'trainer',
-    'coach',
-    'staff',
+  field('membership_list_price', 'List price', 'payment', 'membership', [
+    'list price',
+    'actual amt',
+    'actual amount',
+    'gross amount',
+    'gross fee',
+    'original price',
+    'original amount',
+    'before discount',
+    'mrp',
+    'rack rate',
+    'standard price',
+    'undiscounted amount',
   ]),
-  field('fee_amount', 'Fee', 'payment', [
+  field(
+    'membership_discount_amount',
+    'Discount amount',
+    'payment',
+    'membership',
+    [
+      'discount',
+      'discount amt',
+      'discount amount',
+      'discount value',
+      'concession',
+      'concession amount',
+      'rebate',
+      'waiver',
+      'waived amount',
+      'less',
+    ]
+  ),
+  field('membership_discount_percent', 'Discount %', 'payment', 'membership', [
+    'discount percent',
+    'discount percentage',
+    'discount pct',
+    'discount rate',
+    'percent discount',
+    'percentage discount',
+  ]),
+  field('fee_amount', 'Fee charged', 'payment', 'membership', [
     'fee',
     'fees',
     'fee amount',
+    'fee charged',
     'plan fee',
     'membership fee',
     'subscription fee',
@@ -290,11 +369,127 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'price',
     'total',
     'total fee',
+    'net amount',
+    'net fee',
+    'final fee',
+    'final amount',
+    'discounted amt',
+    'discounted amount',
+    'after discount',
     'invoice amount',
   ]),
-  field('amount_paid', 'Amount paid', 'payment', [
+  field('service', 'Service', 'member', 'service', [
+    'service',
+    'service name',
+    'class',
+    'class name',
+    'session service',
+  ]),
+  field(
+    'service_option',
+    'Service option',
+    'member',
+    'service',
+    [
+      'service option',
+      'service duration',
+      'service validity',
+      'service package option',
+    ],
+    { groupLabel: 'Option' }
+  ),
+  field(
+    'service_trainer',
+    'Service trainer',
+    'member',
+    'service',
+    ['service trainer', 'trainer', 'coach', 'instructor', 'personal trainer'],
+    { groupLabel: 'Trainer' }
+  ),
+  field(
+    'service_start',
+    'Service start date',
+    'member',
+    'service',
+    ['service start', 'service start date', 'class start'],
+    { groupLabel: 'Start date' }
+  ),
+  field(
+    'service_end',
+    'Service expiry',
+    'member',
+    'service',
+    [
+      'service end',
+      'service end date',
+      'service expiry',
+      'service expiry date',
+    ],
+    { groupLabel: 'Expiry' }
+  ),
+  field(
+    'service_status',
+    'Service status',
+    'member',
+    'service',
+    ['service status', 'class status'],
+    { groupLabel: 'Status' }
+  ),
+  field(
+    'service_list_price',
+    'Service list price',
+    'payment',
+    'service',
+    [
+      'service list price',
+      'service actual amount',
+      'service original price',
+      'service gross amount',
+      'service mrp',
+    ],
+    { groupLabel: 'List price' }
+  ),
+  field(
+    'service_discount_amount',
+    'Service discount amount',
+    'payment',
+    'service',
+    [
+      'service discount',
+      'service discount amount',
+      'service concession',
+      'service rebate',
+    ],
+    { groupLabel: 'Discount amount' }
+  ),
+  field(
+    'service_discount_percent',
+    'Service discount %',
+    'payment',
+    'service',
+    ['service discount percent', 'service discount percentage'],
+    { groupLabel: 'Discount %' }
+  ),
+  field(
+    'service_sold_price',
+    'Service price charged',
+    'payment',
+    'service',
+    [
+      'service sold price',
+      'service price',
+      'sold price',
+      'package sold price',
+      'service net amount',
+      'service final amount',
+    ],
+    { groupLabel: 'Price charged' }
+  ),
+  field('amount_paid', 'Amount paid', 'payment', 'payment', [
     'amount paid',
     'paid amount',
+    'paid amp',
+    'paid amt',
     'payment amount',
     'collected',
     'collected amount',
@@ -302,15 +497,20 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'total paid',
     'paid',
   ]),
-  field('fee_status', 'Fee status', 'payment', [
-    'fee status',
-    'payment status',
-    'invoice status',
-    'dues status',
-    'paid status',
-    'balance status',
+  field('amount_due', 'Amount due', 'payment', 'payment', [
+    'amount due',
+    'balance',
+    'balance amount',
+    'due amount',
+    'outstanding',
+    'outstanding amount',
+    'pending amount',
+    'pending payment',
+    'remaining amount',
+    'arrears',
+    'unpaid amount',
   ]),
-  field('payment_method', 'Payment method', 'payment', [
+  field('payment_method', 'Payment method', 'payment', 'payment', [
     'payment method',
     'payment mode',
     'mode of payment',
@@ -318,7 +518,7 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'tender',
     'collection method',
   ]),
-  field('paid_at', 'Payment date', 'payment', [
+  field('paid_at', 'Payment date', 'payment', 'payment', [
     'payment date',
     'paid date',
     'paid on',
@@ -327,56 +527,101 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'last payment date',
     'receipt date',
   ]),
-  field('churn_risk', 'Churn risk', 'member', [
+  field('fee_status', 'Fee status', 'payment', 'payment', [
+    'fee status',
+    'payment status',
+    'invoice status',
+    'dues status',
+    'paid status',
+    'balance status',
+  ]),
+  field('legacy_member_id', 'Member ID (old system)', 'member', 'member', [
+    'member id',
+    'membership id',
+    'customer id',
+    'client id',
+    'legacy id',
+    'legacy member id',
+    'old member id',
+    'old id',
+    'member no',
+    'member number',
+    'member code',
+    'registration no',
+    'reg no',
+  ]),
+  field('assigned_to', 'Assigned to', 'member', 'member', [
+    'assigned to',
+    'assignee',
+    'owner',
+    'account owner',
+    'sales rep',
+    'representative',
+    'agent',
+    'staff',
+  ]),
+  field('churn_risk', 'Churn risk', 'member', 'member', [
     'churn risk',
     'at risk',
     'risk',
     'retention risk',
     'likely to churn',
   ]),
-  field('date_of_birth', 'Birthday', 'profile', [
+  field('notes', 'Notes', 'member', 'member', [
+    'notes',
+    'note',
+    'remarks',
+    'comments',
+    'member notes',
+    'special instructions',
+  ]),
+  field('date_of_birth', 'Birthday', 'profile', 'profile', [
     'birthday',
     'birth date',
     'date of birth',
     'dob',
     'd o b',
   ]),
-  field('gender', 'Gender', 'profile', ['gender', 'sex']),
-  field('nickname', 'Nickname', 'profile', [
+  field('gender', 'Gender', 'profile', 'profile', ['gender', 'sex']),
+  field('nickname', 'Nickname', 'profile', 'profile', [
     'nickname',
     'preferred name',
     'display name',
   ]),
-  field('height_cm', 'Height', 'profile', [
+  field('height_cm', 'Height', 'profile', 'profile', [
     'height',
     'height cm',
     'height in cm',
     'height centimetres',
     'height centimeters',
   ]),
-  field('weight_kg', 'Weight', 'profile', [
+  field('weight_kg', 'Weight', 'profile', 'profile', [
     'weight',
     'weight kg',
     'weight in kg',
     'weight kilograms',
   ]),
-  field('address_line1', 'Address line 1', 'profile', [
+  field('address_line1', 'Address line 1', 'profile', 'profile', [
     'address',
     'address line 1',
     'street',
     'street address',
     'home address',
   ]),
-  field('address_line2', 'Address line 2', 'profile', [
+  field('address_line2', 'Address line 2', 'profile', 'profile', [
     'address line 2',
     'address 2',
     'area',
     'locality',
     'landmark',
   ]),
-  field('city', 'City', 'profile', ['city', 'town', 'district']),
-  field('state', 'State', 'profile', ['state', 'province', 'region']),
-  field('postal_code', 'Postal code', 'profile', [
+  field('city', 'City', 'profile', 'profile', ['city', 'town', 'district']),
+  field('state', 'State', 'profile', 'profile', [
+    'state',
+    'province',
+    'region',
+  ]),
+  field('postal_code', 'Postal code', 'profile', 'profile', [
     'postal code',
     'postcode',
     'post code',
@@ -386,16 +631,8 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'zip',
     'zip code',
   ]),
-  field('country', 'Country', 'profile', ['country', 'nation']),
-  field('notes', 'Notes', 'member', [
-    'notes',
-    'note',
-    'remarks',
-    'comments',
-    'member notes',
-    'special instructions',
-  ]),
-  field('tags', 'Tags', 'tags', [
+  field('country', 'Country', 'profile', 'profile', ['country', 'nation']),
+  field('tags', 'Tags', 'tags', 'tags', [
     'tags',
     'tag',
     'labels',
@@ -418,7 +655,10 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
     minWidth: 150,
     required: true,
     sortKey: 'name',
-    importPolicy: { kind: 'fields', fields: ['name', 'phone', 'email'] },
+    importPolicy: {
+      kind: 'fields',
+      fields: ['name', 'phone', 'email', 'legacy_member_id'],
+    },
   },
   {
     key: 'memberId',
@@ -471,14 +711,25 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
     },
   },
   {
+    // The staff owner, which always costs a login seat. Superseded on this
+    // table by Trainer, but kept re-addable: its cell is also where a pending
+    // lead-assignment request and its Withdraw control surface.
     key: 'assignee',
     label: 'Assigned to',
     defaultWidth: 170,
     minWidth: 130,
+    defaultHidden: true,
     importPolicy: {
       kind: 'fields',
       fields: ['assigned_to', 'service_trainer'],
     },
+  },
+  {
+    key: 'trainer',
+    label: 'Trainer',
+    defaultWidth: 170,
+    minWidth: 130,
+    importPolicy: { kind: 'fields', fields: ['membership_trainer'] },
   },
   {
     key: 'fee',
@@ -490,12 +741,19 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
     importPolicy: {
       kind: 'fields',
       fields: [
+        'membership_list_price',
+        'membership_discount_amount',
+        'membership_discount_percent',
         'fee_amount',
+        'service_list_price',
+        'service_discount_amount',
+        'service_discount_percent',
+        'service_sold_price',
         'amount_paid',
+        'amount_due',
         'fee_status',
         'payment_method',
         'paid_at',
-        'service_sold_price',
       ],
     },
   },

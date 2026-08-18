@@ -1,5 +1,8 @@
 import { parseMoney } from './import-commit';
-import type { MemberImportCandidate } from './member-import-candidates';
+import {
+  effectiveBalance,
+  type MemberImportCandidate,
+} from './member-import-candidates';
 
 interface RpcResult {
   data: unknown;
@@ -77,12 +80,16 @@ function importedRow(
           status: candidate.built.membership.status,
           frozen_at: candidate.built.membership.frozen_at,
           fee_amount: candidate.built.membership.fee_amount,
+          list_price: candidate.built.membership.list_price,
+          discount_type: candidate.built.membership.discount_type,
+          discount_value: candidate.built.membership.discount_value,
+          discount_amount: candidate.built.membership.discount_amount,
           notes: candidate.built.membership.notes,
         }
       : null;
   const service = candidate.serviceComponent?.intent;
   const payment = candidate.built.payment;
-  const balance = parseMoney(candidate.draftValues.balance ?? '');
+  const balance = parseMoney(effectiveBalance(candidate.draftValues) ?? '');
   return {
     source_key: candidate.sourceKey,
     source_row: candidate.sourceRow,
@@ -101,6 +108,8 @@ function importedRow(
           start_date: service.startDate,
           end_date: service.endDate,
           sold_amount: service.soldAmount,
+          list_amount: service.listAmount,
+          discount_amount: service.discountAmount,
           status: service.status === 'cancelled' ? 'cancelled' : 'active',
           explicit_price: service.explicitPrice,
           explicit_end_date: service.explicitEndDate,

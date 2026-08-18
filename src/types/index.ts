@@ -149,6 +149,10 @@ export interface Contact {
   country?: string | null;
   /** Staff owner of this lead (auth user id — see migration 047). */
   assigned_to?: string | null;
+  /** The member's trainer as a gym identity (`trainers`), not a platform
+   *  user. Unlike `assigned_to` this needs no login seat. Migration
+   *  20260818090000. */
+  trainer_id?: string | null;
   /** Parked owner = a not-yet-joined teammate (pending invite, migration
    *  049). When set, the lead reads "Invite pending · pending_assignee_name";
    *  assigned_to stays the importer as fallback. Cleared when the invitee

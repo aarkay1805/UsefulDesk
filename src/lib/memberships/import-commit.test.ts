@@ -254,6 +254,10 @@ describe('buildMembershipRow', () => {
       status: 'active',
       frozen_at: null,
       fee_amount: 1500,
+      list_price: 1500,
+      discount_type: null,
+      discount_value: null,
+      discount_amount: 0,
       notes: null,
     });
     expect(built.payment).toBeNull();

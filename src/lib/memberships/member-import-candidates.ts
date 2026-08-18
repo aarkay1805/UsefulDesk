@@ -31,8 +31,18 @@ export type MemberImportPaymentResolution =
 export type MemberImportExistingContactResolution = 'keep_existing' | 'use_csv';
 
 export interface MemberImportDraftValues extends MemberImportRow {
-  /** Source balance is migration-only input; payments never persist it. */
+  /**
+   * Reconciliation-only balance. A resolve-step correction writes here and
+   * outranks the mapped `amountDue` column; payments never persist either.
+   */
   balance?: string;
+}
+
+/** Mapped "Amount due", unless the reviewer corrected it during resolve. */
+export function effectiveBalance(
+  values: MemberImportDraftValues
+): string | undefined {
+  return values.balance ?? values.amountDue;
 }
 
 export interface MemberImportExistingMatch {
@@ -69,6 +79,7 @@ export interface MemberImportCandidateIssue {
     | 'plan-needs-resolution'
     | 'pricing-option-needs-resolution'
     | 'invalid-membership-values'
+    | 'pricing-mismatch'
     | 'payment-conflict'
     | 'existing-contact'
     | 'offering-needs-classification'
@@ -76,6 +87,7 @@ export interface MemberImportCandidateIssue {
     | 'service-values-invalid'
     | 'service-expiry-mismatch'
     | 'trainer-ignored'
+    | 'trainer-unmatched'
     | 'duplicate-service'
     | 'purchase-total-mismatch'
     | 'expiry-duration-mismatch'
@@ -459,7 +471,7 @@ function planResolutionDraft(
 function paymentConflict(values: MemberImportDraftValues): boolean {
   const fee = parseMoney(values.fee ?? '');
   const paid = parseMoney(values.amountPaid ?? '');
-  const balance = parseMoney(values.balance ?? '');
+  const balance = parseMoney(effectiveBalance(values) ?? '');
   if (fee === null || (paid === null && balance === null)) return false;
   if (paid !== null && paid > fee) return true;
   return (
@@ -504,7 +516,8 @@ function rebuildCandidate(
     context.plans,
     context.dateOrder,
     context.today,
-    context.staff
+    context.staff,
+    context.trainers
   );
   const issues: MemberImportCandidateIssue[] = [];
   const phone = trim(candidate.draftValues.phone);
@@ -581,10 +594,36 @@ function rebuildCandidate(
       )
     );
   }
+  if (built.warnings.includes('unknown-trainer')) {
+    issues.push(
+      issue(
+        'trainer-unmatched',
+        'notice',
+        `trainer:${normalizeGroupValue(values.membershipTrainer)}`,
+        `“${trim(values.membershipTrainer)}” is not an active trainer, so these members import without one.`,
+        'Add the trainer in Settings → Products & services, then re-import, or set it on the member later.',
+        true
+      )
+    );
+  }
+  if (membershipSource && built.errors.includes('pricing-mismatch')) {
+    issues.push(
+      issue(
+        'pricing-mismatch',
+        'blocking',
+        `pricing:${candidate.sourceKey}`,
+        'List price, discount, and fee charged do not add up.',
+        'Correct one of the three amounts, or leave the discount columns unmapped.'
+      )
+    );
+  }
   if (
     membershipSource &&
     built.errors.some(
-      (error) => error !== 'unknown-plan' && error !== 'no-pricing'
+      (error) =>
+        error !== 'unknown-plan' &&
+        error !== 'no-pricing' &&
+        error !== 'pricing-mismatch'
     )
   ) {
     issues.push(
@@ -608,6 +647,9 @@ function rebuildCandidate(
         startDate: values.serviceStart,
         fallbackStartDate: values.startDate,
         endDate: values.serviceEnd,
+        listPrice: values.serviceListPrice,
+        discountAmount: values.serviceDiscountAmount,
+        discountPercent: values.serviceDiscountPercent,
         soldPrice: values.serviceSoldPrice,
         status: values.serviceStatus,
         resolution:
@@ -1021,6 +1063,7 @@ export function buildMemberImportCandidates(
             state: null,
             postal_code: null,
             country: null,
+            trainer_id: null,
           },
           errors: [],
           warnings: [],
@@ -1198,7 +1241,7 @@ export function resolvePaymentConflict(
         correction?.paid ?? candidate.draftValues.amountPaid ?? ''
       );
       const balance = parseMoney(
-        correction?.balance ?? candidate.draftValues.balance ?? ''
+        correction?.balance ?? effectiveBalance(candidate.draftValues) ?? ''
       );
       let draftValues = { ...candidate.draftValues };
       if (resolution === 'manual') {

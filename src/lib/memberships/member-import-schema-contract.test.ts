@@ -106,3 +106,76 @@ describe('service-aware resumable member import schema contract', () => {
     expect(transaction).toContain('Imported historical purchase');
   });
 });
+
+const discountSql = readFileSync(
+  resolve(
+    process.cwd(),
+    'supabase/migrations/20260818090000_import_pricing_and_member_trainer.sql'
+  ),
+  'utf8'
+);
+
+describe('imported discount schema contract', () => {
+  it('keeps the import RPC security-definer and agent-gated', () => {
+    expect(discountSql).toContain(
+      'CREATE OR REPLACE FUNCTION public.perform_member_import_group(p_payload JSONB)'
+    );
+    expect(discountSql).toMatch(
+      /SECURITY DEFINER[\s\S]*public\.is_account_member\(v_account_id, 'agent'\)/
+    );
+    expect(discountSql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.perform_member_import_group\(JSONB\)[\s\S]*FROM PUBLIC, anon/
+    );
+  });
+
+  it('writes the discount through the conversion columns the triggers copy', () => {
+    // create_initial_membership_period copies memberships.conversion_* onto
+    // the period, and ensure_membership_period_invoice derives the line's
+    // list_amount from it. Writing these four is the whole integration.
+    expect(discountSql).toContain('conversion_list_price');
+    expect(discountSql).toContain('conversion_discount_type');
+    expect(discountSql).toContain('conversion_discount_value');
+    expect(discountSql).toContain('conversion_discount_amount');
+  });
+
+  it('re-derives the imported discount instead of trusting the browser', () => {
+    expect(discountSql).toContain(
+      'Imported list price, discount, and fee do not reconcile'
+    );
+    expect(discountSql).toContain(
+      'Imported discount cannot exceed the list price'
+    );
+    expect(discountSql).toContain(
+      'Imported percentage discount does not reconcile'
+    );
+    expect(discountSql).toMatch(
+      /ROUND\(v_list_price \* v_discount_value \/ 100, 2\)/
+    );
+  });
+
+  it('refuses a service list price below the price actually charged', () => {
+    expect(discountSql).toContain(
+      'Service list price is below the price charged'
+    );
+  });
+
+  it('scopes the member trainer to its own branch without a login seat', () => {
+    // assigned_to is FK -> auth.users and needs a seat; trainer_id points at
+    // the gym identity, whose linked_user_id stays optional.
+    expect(discountSql).toContain('ADD COLUMN IF NOT EXISTS trainer_id UUID');
+    expect(discountSql).toMatch(
+      /FOREIGN KEY \(account_id, trainer_id\)[\s\S]*REFERENCES public\.trainers\(account_id, id\)[\s\S]*ON DELETE SET NULL \(trainer_id\)/
+    );
+    expect(discountSql).toContain('idx_contacts_trainer');
+  });
+
+  it('still reconciles paid, balance, and total per row', () => {
+    expect(discountSql).toContain(
+      'Paid, balance, and purchase total do not reconcile'
+    );
+    expect(discountSql).toContain(
+      'Purchase total does not match imported invoice lines'
+    );
+    expect(discountSql).not.toContain('apply_oldest_member_credit');
+  });
+});

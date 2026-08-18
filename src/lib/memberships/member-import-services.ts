@@ -7,7 +7,7 @@ import type {
   Trainer,
   TrainerRate,
 } from '@/types';
-import { parseImportDate, parseMoney } from './import-commit';
+import { parseImportDate, resolveImportedPricing } from './import-commit';
 
 export interface MemberImportServiceFacts {
   catalogItems: CatalogItem[];
@@ -22,6 +22,9 @@ export interface MemberImportServiceInput {
   startDate?: string;
   fallbackStartDate?: string;
   endDate?: string;
+  listPrice?: string;
+  discountAmount?: string;
+  discountPercent?: string;
   soldPrice?: string;
   status?: string;
   resolution?: {
@@ -41,6 +44,7 @@ export type MemberImportServiceIssueCode =
   | 'service-end-invalid'
   | 'service-date-range-invalid'
   | 'service-price-invalid'
+  | 'service-pricing-mismatch'
   | 'service-price-unavailable';
 
 export type MemberImportServiceNoticeCode =
@@ -66,6 +70,10 @@ export interface ImportedServiceIntent {
   startDate: string;
   endDate: string;
   soldAmount: number;
+  listAmount: number;
+  discountType: 'amount' | 'percentage' | null;
+  discountValue: number | null;
+  discountAmount: number;
   configuredAmount: number | null;
   status: MemberServiceStatus;
   requiresTrainer: boolean;
@@ -270,23 +278,48 @@ export function buildImportedServiceIntent(
     });
   }
 
-  const explicitPrice = Boolean(input.soldPrice?.trim());
-  const soldAmount = explicitPrice
-    ? parseMoney(input.soldPrice ?? '')
-    : configuredAmount;
-  if (explicitPrice && (soldAmount === null || soldAmount < 0)) {
-    errors.push({
-      code: 'service-price-invalid',
-      message: 'Enter a valid non-negative sold price.',
-    });
-  } else if (soldAmount === null || soldAmount < 0) {
+  // Any pricing column in the file means the sold terms are historical facts
+  // rather than today's catalogue price, so they are audited as an override.
+  const explicitPrice = Boolean(
+    input.soldPrice?.trim() ||
+    input.listPrice?.trim() ||
+    input.discountAmount?.trim() ||
+    input.discountPercent?.trim()
+  );
+  const resolvedPricing = resolveImportedPricing({
+    listPrice: input.listPrice,
+    discountAmount: input.discountAmount,
+    discountPercent: input.discountPercent,
+    charged: input.soldPrice,
+    fallbackCharged: configuredAmount,
+  });
+  for (const code of resolvedPricing.errors) {
+    if (code === 'pricing-mismatch' || code === 'discount-exceeds-list') {
+      errors.push({
+        code: 'service-pricing-mismatch',
+        message:
+          'Service list price, discount, and price charged do not add up.',
+      });
+    } else {
+      errors.push({
+        code: 'service-price-invalid',
+        message: 'Enter valid non-negative service amounts.',
+      });
+    }
+  }
+  const pricing = resolvedPricing.pricing;
+  if (
+    !explicitPrice &&
+    pricing === null &&
+    resolvedPricing.errors.length === 0
+  ) {
     errors.push({
       code: 'service-price-unavailable',
       message: 'Configure an active price for this service option.',
     });
   }
 
-  if (errors.length > 0 || !startDate || !endDate || soldAmount === null) {
+  if (errors.length > 0 || !startDate || !endDate || !pricing) {
     return { intent: null, errors, notices };
   }
   return {
@@ -299,7 +332,11 @@ export function buildImportedServiceIntent(
       trainerName: selectedTrainer?.display_name ?? null,
       startDate,
       endDate,
-      soldAmount,
+      soldAmount: pricing.charged,
+      listAmount: pricing.listPrice,
+      discountType: pricing.discountType,
+      discountValue: pricing.discountValue,
+      discountAmount: pricing.discountAmount,
       configuredAmount,
       status: serviceStatus(input.status, startDate, endDate, context.today),
       requiresTrainer: item.requires_trainer,

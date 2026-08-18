@@ -56,12 +56,29 @@ export function buildMemberTargets(
   ];
 }
 
+/**
+ * Header normalization strips punctuation, so "Discount %" and "Discount"
+ * collapse to the same token and a percentage column would claim the flat
+ * amount target. Disambiguate before matching rather than after, so the
+ * mapper's one-target-per-column bookkeeping stays correct.
+ */
+const PERCENT_MARK = /%|\bpercent\b|\bpct\b/i;
+const DISCOUNT_WORD = /discount|concession|rebate/i;
+
 /** Intelligent, punctuation/case/camelCase-insensitive member header map. */
 export function autoMapMemberColumns(
   headers: string[],
   customFields: CustomFieldRef[] = []
 ): string[] {
-  const mapped = autoMapColumns(headers, buildMemberTargets(customFields));
+  const disambiguated = headers.map((header) =>
+    PERCENT_MARK.test(header) && DISCOUNT_WORD.test(header)
+      ? `${header} percent`
+      : header
+  );
+  const mapped = autoMapColumns(
+    disambiguated,
+    buildMemberTargets(customFields)
+  );
   return headers.map((header, index) => {
     const normalized = header
       .trim()
@@ -118,11 +135,18 @@ export interface MemberImportRow {
   offering?: string;
   planName?: string;
   pricingOption?: string;
+  membershipTrainer?: string;
+  listPrice?: string;
+  discountAmount?: string;
+  discountPercent?: string;
   serviceName?: string;
   serviceOption?: string;
   serviceTrainer?: string;
   serviceStart?: string;
   serviceEnd?: string;
+  serviceListPrice?: string;
+  serviceDiscountAmount?: string;
+  serviceDiscountPercent?: string;
   serviceSoldPrice?: string;
   serviceStatus?: string;
   startDate?: string;
@@ -132,10 +156,12 @@ export interface MemberImportRow {
   assignedTo?: string;
   fee?: string;
   amountPaid?: string;
+  amountDue?: string;
   feeStatus?: string;
   paymentMethod?: string;
   paidAt?: string;
   churnRisk?: string;
+  legacyMemberId?: string;
   dateOfBirth?: string;
   gender?: string;
   nickname?: string;
@@ -180,11 +206,18 @@ const ROW_PROP: Record<
   offering: 'offering',
   membership_plan: 'planName',
   membership_option: 'pricingOption',
+  membership_trainer: 'membershipTrainer',
+  membership_list_price: 'listPrice',
+  membership_discount_amount: 'discountAmount',
+  membership_discount_percent: 'discountPercent',
   service: 'serviceName',
   service_option: 'serviceOption',
   service_trainer: 'serviceTrainer',
   service_start: 'serviceStart',
   service_end: 'serviceEnd',
+  service_list_price: 'serviceListPrice',
+  service_discount_amount: 'serviceDiscountAmount',
+  service_discount_percent: 'serviceDiscountPercent',
   service_sold_price: 'serviceSoldPrice',
   service_status: 'serviceStatus',
   plan: 'planName',
@@ -196,10 +229,12 @@ const ROW_PROP: Record<
   assigned_to: 'assignedTo',
   fee_amount: 'fee',
   amount_paid: 'amountPaid',
+  amount_due: 'amountDue',
   fee_status: 'feeStatus',
   payment_method: 'paymentMethod',
   paid_at: 'paidAt',
   churn_risk: 'churnRisk',
+  legacy_member_id: 'legacyMemberId',
   date_of_birth: 'dateOfBirth',
   gender: 'gender',
   nickname: 'nickname',
@@ -641,6 +676,191 @@ export function parseWeightKg(value: string): number | null {
   return kg > 0 && kg <= 500 ? Math.round(kg * 10) / 10 : null;
 }
 
+/**
+ * Money is compared and derived in integer paise. Postgres stores these as
+ * exact NUMERIC and the discount CHECK constraints recompute
+ * `ROUND(list * value / 100, 2)`, so float drift here would be rejected at
+ * the database boundary rather than merely look untidy.
+ */
+const toPaise = (value: number): number => Math.round(value * 100);
+const fromPaise = (paise: number): number => paise / 100;
+/** Half-up, matching Postgres ROUND on positive NUMERIC. */
+const percentPaise = (listPaise: number, hundredths: number): number =>
+  Math.floor((listPaise * hundredths) / 10000 + 0.5);
+
+export interface ImportedPricing {
+  /** Price before any discount. Equals `charged` when nothing was given. */
+  listPrice: number;
+  discountType: 'amount' | 'percentage' | null;
+  discountValue: number | null;
+  discountAmount: number;
+  /** What the customer was actually billed. */
+  charged: number;
+}
+
+export type ImportedPricingError =
+  | 'bad-list-price'
+  | 'bad-discount'
+  | 'bad-charged'
+  | 'discount-exceeds-list'
+  | 'pricing-mismatch';
+
+/**
+ * Solve `listPaise` so that a percentage discount reconciles to the charged
+ * amount exactly. A percentage of an arbitrary price rarely lands on a whole
+ * paise, so the list price is nudged until it does; a percentage that cannot
+ * be expressed exactly returns null and the caller records a flat amount
+ * instead. Money stays exact either way — only the label changes.
+ */
+function listFromChargedPercent(
+  chargedPaise: number,
+  hundredths: number
+): number | null {
+  if (hundredths >= 10000) return null;
+  let listPaise = Math.round((chargedPaise * 10000) / (10000 - hundredths));
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const discount = percentPaise(listPaise, hundredths);
+    if (listPaise - discount === chargedPaise) return listPaise;
+    listPaise = chargedPaise + discount;
+  }
+  return null;
+}
+
+/**
+ * Resolve one purchase's list price, discount, and charged amount from
+ * whichever columns a gym export happens to carry.
+ *
+ * List - discount = charged. Give any two and the third is derived; give all
+ * three and they must reconcile. The common Indian-gym export supplies an
+ * "actual" and a "discounted" column with no discount column at all, so the
+ * discount is derived from that pair rather than being lost.
+ */
+export function resolveImportedPricing(input: {
+  listPrice?: string;
+  discountAmount?: string;
+  discountPercent?: string;
+  charged?: string;
+  /** Configured plan/option price, used when the file omits the charge. */
+  fallbackCharged?: number | null;
+}): { pricing: ImportedPricing | null; errors: ImportedPricingError[] } {
+  const errors: ImportedPricingError[] = [];
+  const read = (
+    raw: string | undefined,
+    code: ImportedPricingError
+  ): number | null => {
+    if (!raw?.trim()) return null;
+    const parsed = parseMoney(raw);
+    if (parsed === null) {
+      errors.push(code);
+      return null;
+    }
+    return parsed;
+  };
+
+  const listGiven = read(input.listPrice, 'bad-list-price');
+  const amountGiven = read(input.discountAmount, 'bad-discount');
+  const percentGiven = read(input.discountPercent, 'bad-discount');
+  const chargedGiven = read(input.charged, 'bad-charged');
+  if (percentGiven !== null && (percentGiven <= 0 || percentGiven > 100)) {
+    errors.push('bad-discount');
+  }
+  if (amountGiven !== null && percentGiven !== null) {
+    errors.push('bad-discount');
+  }
+  if (errors.length > 0) return { pricing: null, errors };
+
+  const chargedInput = chargedGiven ?? input.fallbackCharged ?? null;
+  const chargedPaise = chargedInput === null ? null : toPaise(chargedInput);
+  let listPaise = listGiven === null ? null : toPaise(listGiven);
+  let discountType: ImportedPricing['discountType'] = null;
+  let discountValue: number | null = null;
+  let discountPaise = 0;
+
+  if (percentGiven !== null) {
+    const hundredths = Math.round(percentGiven * 100);
+    if (listPaise === null && chargedPaise !== null) {
+      listPaise = listFromChargedPercent(chargedPaise, hundredths);
+    }
+    if (listPaise === null) {
+      // An inexact percentage: keep the money and record a flat discount.
+      if (chargedPaise === null) return { pricing: null, errors };
+      listPaise = Math.round((chargedPaise * 10000) / (10000 - hundredths));
+      discountPaise = listPaise - chargedPaise;
+      discountType = 'amount';
+      discountValue = fromPaise(discountPaise);
+    } else {
+      discountPaise = percentPaise(listPaise, hundredths);
+      discountType = 'percentage';
+      discountValue = hundredths / 100;
+    }
+  } else if (amountGiven !== null) {
+    discountPaise = toPaise(amountGiven);
+    discountType = 'amount';
+    discountValue = fromPaise(discountPaise);
+    if (listPaise === null && chargedPaise !== null) {
+      listPaise = chargedPaise + discountPaise;
+    }
+  } else if (
+    listPaise !== null &&
+    chargedPaise !== null &&
+    listPaise > chargedPaise
+  ) {
+    // The "actual amount / discounted amount" pair every legacy gym export
+    // carries. Without this the whole discount would vanish on import.
+    discountPaise = listPaise - chargedPaise;
+    discountType = 'amount';
+    discountValue = fromPaise(discountPaise);
+  }
+
+  const finalChargedPaise =
+    chargedPaise ?? (listPaise === null ? null : listPaise - discountPaise);
+  if (finalChargedPaise === null) return { pricing: null, errors };
+  if (finalChargedPaise < 0) errors.push('bad-charged');
+  const finalListPaise = listPaise ?? finalChargedPaise + discountPaise;
+  if (discountPaise > finalListPaise) errors.push('discount-exceeds-list');
+  if (finalListPaise - discountPaise !== finalChargedPaise) {
+    errors.push('pricing-mismatch');
+  }
+  if (errors.length > 0) return { pricing: null, errors };
+
+  const discounted = discountPaise > 0;
+  return {
+    pricing: {
+      listPrice: fromPaise(finalListPaise),
+      discountType: discounted ? discountType : null,
+      discountValue: discounted ? discountValue : null,
+      discountAmount: fromPaise(discountPaise),
+      charged: fromPaise(finalChargedPaise),
+    },
+    errors,
+  };
+}
+
+/**
+ * Resolve a source trainer cell against the active trainer roster, mirroring
+ * `coerceAssignee`'s exact-then-unambiguous-prefix tiers. Unlike an assignee,
+ * a trainer needs no login seat, so a small gym's "Mohit" resolves without
+ * anyone being invited to the platform.
+ */
+export function coerceTrainer(
+  raw: string,
+  trainers: { id: string; display_name: string; is_active: boolean }[]
+): string | null {
+  const query = raw.trim().toLowerCase();
+  if (!query) return null;
+  const active = trainers.filter((trainer) => trainer.is_active);
+  const exact = active.filter(
+    (trainer) => trainer.display_name.trim().toLowerCase() === query
+  );
+  if (exact.length === 1) return exact[0].id;
+  if (exact.length > 1) return null;
+  const prefix = active.filter((trainer) => {
+    const name = trainer.display_name.trim().toLowerCase();
+    return name.startsWith(query) || name.split(/\s+/)[0] === query;
+  });
+  return prefix.length === 1 ? prefix[0].id : null;
+}
+
 export interface BuiltMembership {
   plan_id: string;
   pricing_option_id: string;
@@ -649,6 +869,10 @@ export interface BuiltMembership {
   status: StoredImportStatus;
   frozen_at: string | null;
   fee_amount: number;
+  list_price: number;
+  discount_type: 'amount' | 'percentage' | null;
+  discount_value: number | null;
+  discount_amount: number;
   notes: string | null;
 }
 
@@ -663,6 +887,8 @@ export type MemberRowError =
   | 'no-pricing'
   | 'bad-date'
   | 'bad-fee'
+  | 'bad-discount'
+  | 'pricing-mismatch'
   | 'bad-payment'
   | 'payment-exceeds-fee'
   | 'unknown-status'
@@ -688,10 +914,14 @@ export interface BuiltMemberRow {
     state: string | null;
     postal_code: string | null;
     country: string | null;
+    trainer_id: string | null;
   };
   errors: MemberRowError[];
   warnings: (
-    'unknown-assignee' | 'unknown-churn-risk' | 'invalid-profile-value'
+    | 'unknown-assignee'
+    | 'unknown-trainer'
+    | 'unknown-churn-risk'
+    | 'invalid-profile-value'
   )[];
 }
 
@@ -703,7 +933,8 @@ export function buildMembershipRow(
   plans: MembershipPlan[],
   order: DateOrder,
   today: string,
-  staff: StaffRef[] = []
+  staff: StaffRef[] = [],
+  trainers: { id: string; display_name: string; is_active: boolean }[] = []
 ): BuiltMemberRow {
   const errors: MemberRowError[] = [];
   const warnings: BuiltMemberRow['warnings'] = [];
@@ -733,9 +964,23 @@ export function buildMembershipRow(
     errors.push('bad-date');
   }
 
-  const fee = row.fee ? parseMoney(row.fee) : null;
-  if (row.fee && fee === null) errors.push('bad-fee');
-  const feeAmount = fee ?? (pricing ? Number(pricing.price) : 0);
+  const resolvedPricing = resolveImportedPricing({
+    listPrice: row.listPrice,
+    discountAmount: row.discountAmount,
+    discountPercent: row.discountPercent,
+    charged: row.fee,
+    fallbackCharged: pricing ? Number(pricing.price) : 0,
+  });
+  for (const code of resolvedPricing.errors) {
+    if (code === 'pricing-mismatch' || code === 'discount-exceeds-list') {
+      if (!errors.includes('pricing-mismatch')) errors.push('pricing-mismatch');
+    } else if (code === 'bad-charged') {
+      if (!errors.includes('bad-fee')) errors.push('bad-fee');
+    } else if (!errors.includes('bad-discount')) {
+      errors.push('bad-discount');
+    }
+  }
+  const feeAmount = resolvedPricing.pricing?.charged ?? 0;
 
   let amountPaid = row.amountPaid ? parseMoney(row.amountPaid) : null;
   if (row.amountPaid && amountPaid === null) errors.push('bad-payment');
@@ -756,6 +1001,12 @@ export function buildMembershipRow(
   if (row.assignedTo?.trim()) {
     assignedTo = coerceAssignee(row.assignedTo, staff);
     if (!assignedTo) warnings.push('unknown-assignee');
+  }
+
+  let trainerId: string | null = null;
+  if (row.membershipTrainer?.trim()) {
+    trainerId = coerceTrainer(row.membershipTrainer, trainers);
+    if (!trainerId) warnings.push('unknown-trainer');
   }
 
   const churnRisk = row.churnRisk ? parseBoolean(row.churnRisk) : null;
@@ -782,9 +1033,17 @@ export function buildMembershipRow(
     state: row.state?.trim() || null,
     postal_code: row.postalCode?.trim() || null,
     country: row.country?.trim() || null,
+    trainer_id: trainerId,
   };
 
-  if (errors.length > 0 || !plan || !pricing || !start || !end) {
+  if (
+    errors.length > 0 ||
+    !plan ||
+    !pricing ||
+    !start ||
+    !end ||
+    !resolvedPricing.pricing
+  ) {
     return {
       membership: null,
       payment: null,
@@ -806,6 +1065,10 @@ export function buildMembershipRow(
       frozen_at:
         parsedStatus.status === 'frozen' ? (freezeDate ?? today) : null,
       fee_amount: feeAmount,
+      list_price: resolvedPricing.pricing.listPrice,
+      discount_type: resolvedPricing.pricing.discountType,
+      discount_value: resolvedPricing.pricing.discountValue,
+      discount_amount: resolvedPricing.pricing.discountAmount,
       notes: row.notes?.trim() || null,
     },
     payment:

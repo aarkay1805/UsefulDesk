@@ -199,6 +199,18 @@ const CHURN_RISK_CELL_OPTIONS = CHURN_RISK_OPTIONS.map((option) => ({
     option.value === 'yes' ? 'var(--destructive)' : 'var(--muted-foreground)',
 }));
 
+/**
+ * Bumped whenever a column's DEFAULT visibility changes. Stored prefs always
+ * carry an explicit `hidden` array, so "never customised" is otherwise
+ * indistinguishable from "deliberately shown"; the version lets a new
+ * `defaultHidden` seed apply exactly once and then defer to the user.
+ */
+const LAYOUT_VERSION = 2;
+
+const DEFAULT_HIDDEN_COLUMNS = MEMBER_COLUMNS.filter(
+  (column) => column.defaultHidden
+).map((column) => column.key);
+
 interface MembersTablePrefs {
   pageSize: number;
   sort: SortState | null;
@@ -208,15 +220,18 @@ interface MembersTablePrefs {
   widths: Record<string, number>;
   /** The required Name column is the table's only freezable column. */
   nameFrozen: boolean;
+  /** Absent on layouts saved before default visibility was versioned. */
+  layoutVersion?: number;
 }
 
 const DEFAULT_PREFS: MembersTablePrefs = {
   pageSize: PAGE_SIZE,
   sort: null,
   order: [],
-  hidden: [],
+  hidden: DEFAULT_HIDDEN_COLUMNS,
   widths: {},
   nameFrozen: false,
+  layoutVersion: LAYOUT_VERSION,
 };
 
 // Debounce a rapidly-changing value (e.g. the search input) so the fetch
@@ -312,9 +327,35 @@ export function MembersTable({
   // dropdown choice, and a visible save state.
   const [editingCell, setEditingCell] = useState<{
     id: string;
-    key: 'assignee' | 'churnRisk';
+    key: 'assignee' | 'trainer' | 'churnRisk';
   } | null>(null);
   const [savingCell, setSavingCell] = useState(false);
+  // Active trainer roster for the Trainer cell. Unlike the staff roster this
+  // needs no login seat, so it lists gym identities rather than teammates.
+  const [trainers, setTrainers] = useState<
+    { id: string; display_name: string }[]
+  >([]);
+  useEffect(() => {
+    if (!accountId) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('trainers')
+        .select('id, display_name')
+        .eq('is_active', true)
+        .order('display_name');
+      if (cancelled) return;
+      setTrainers((data as { id: string; display_name: string }[]) ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, supabase]);
+  const trainerNameById = useMemo(
+    () =>
+      new Map(trainers.map((trainer) => [trainer.id, trainer.display_name])),
+    [trainers]
+  );
 
   // Pending assignment approvals use the same contacts-level workflow as
   // Leads. A member is backed by a contact, so requests are keyed by the
@@ -400,14 +441,23 @@ export function MembersTable({
     return merged;
   }, [prefs.order]);
 
+  // Seed applied in render rather than an effect: `set-state-in-effect` is
+  // enforced, and any column-visibility edit stamps the current version, so
+  // the seed stops the moment the user expresses a preference.
+  const hiddenKeys = useMemo(() => {
+    const keys = new Set(prefs.hidden);
+    if ((prefs.layoutVersion ?? 1) < LAYOUT_VERSION) {
+      for (const key of DEFAULT_HIDDEN_COLUMNS) keys.add(key);
+    }
+    return keys;
+  }, [prefs.hidden, prefs.layoutVersion]);
+
   const visibleColumns = useMemo(
     () =>
       orderedKeys
         .map((k) => MEMBER_COLUMN_BY_KEY[k])
-        .filter(
-          (c): c is MemberColumn => Boolean(c) && !prefs.hidden.includes(c.key)
-        ),
-    [orderedKeys, prefs.hidden]
+        .filter((c): c is MemberColumn => Boolean(c) && !hiddenKeys.has(c.key)),
+    [orderedKeys, hiddenKeys]
   );
 
   // Live width while dragging a resize grip (transient — commits on release).
@@ -447,15 +497,19 @@ export function MembersTable({
   function hideColumn(key: string) {
     setPrefs((p) => ({
       ...p,
-      hidden: p.hidden.includes(key) ? p.hidden : [...p.hidden, key],
+      layoutVersion: LAYOUT_VERSION,
+      hidden: [...hiddenKeys].includes(key)
+        ? [...hiddenKeys]
+        : [...hiddenKeys, key],
     }));
   }
   function toggleColumnVisible(key: string) {
     setPrefs((p) => ({
       ...p,
-      hidden: p.hidden.includes(key)
-        ? p.hidden.filter((k) => k !== key)
-        : [...p.hidden, key],
+      layoutVersion: LAYOUT_VERSION,
+      hidden: hiddenKeys.has(key)
+        ? [...hiddenKeys].filter((k) => k !== key)
+        : [...hiddenKeys, key],
     }));
   }
 
@@ -577,6 +631,44 @@ export function MembersTable({
             : row
         )
       );
+    } finally {
+      setSavingCell(false);
+      setEditingCell(null);
+    }
+  }
+
+  async function commitTrainer(
+    customer: NormalizedMemberCustomerDirectoryRow,
+    rawValue: string
+  ) {
+    const contact = customer.contact;
+    if (!contact) return;
+    const target = rawValue || null;
+    if (target === (contact.trainer_id ?? null)) {
+      setEditingCell(null);
+      return;
+    }
+    setSavingCell(true);
+    try {
+      // RLS-blocked updates return no error and zero rows, so the select is
+      // the only proof the write landed.
+      const { data, error } = await supabase
+        .from('contacts')
+        .update({ trainer_id: target })
+        .eq('id', contact.id)
+        .select('id');
+      if (error || !data || data.length === 0) {
+        toast.error(getErrorMessage(error, 'Could not update the trainer'));
+        return;
+      }
+      setRows((current) =>
+        current.map((row) =>
+          row.contact_id === customer.contact_id && row.contact
+            ? { ...row, contact: { ...row.contact, trainer_id: target } }
+            : row
+        )
+      );
+      toast.success(target ? 'Trainer updated' : 'Trainer cleared');
     } finally {
       setSavingCell(false);
       setEditingCell(null);
@@ -902,6 +994,19 @@ export function MembersTable({
       }
       case 'assignee':
         return renderAssignee(customer);
+      case 'trainer': {
+        const trainerId = customer.contact?.trainer_id ?? null;
+        if (!trainerId) {
+          return (
+            <span className="text-muted-foreground text-sm">No trainer</span>
+          );
+        }
+        return (
+          <span className="truncate text-sm">
+            {trainerNameById.get(trainerId) ?? 'Trainer'}
+          </span>
+        );
+      }
       case 'fee':
         if (!m) {
           return (
@@ -1655,6 +1760,7 @@ export function MembersTable({
                               prefs.nameFrozen &&
                               'bg-card group-hover:bg-card-2 z-10',
                             (col.key === 'assignee' ||
+                              col.key === 'trainer' ||
                               col.key === 'churnRisk') &&
                               canEdit &&
                               'p-0',
@@ -1685,6 +1791,34 @@ export function MembersTable({
                               }
                               onCommit={(value) =>
                                 void commitAssignee(customer, value)
+                              }
+                              onCancel={() => setEditingCell(null)}
+                            />
+                          ) : col.key === 'trainer' && canEdit ? (
+                            <EditableCell
+                              editing={
+                                editingCell?.id === customer.contact_id &&
+                                editingCell.key === 'trainer'
+                              }
+                              saving={savingCell}
+                              kind="select"
+                              value={customer.contact?.trainer_id ?? ''}
+                              options={[
+                                { value: '', label: 'No trainer' },
+                                ...trainers.map((trainer) => ({
+                                  value: trainer.id,
+                                  label: trainer.display_name,
+                                })),
+                              ]}
+                              display={renderCell(col.key, customer)}
+                              onStart={() =>
+                                setEditingCell({
+                                  id: customer.contact_id,
+                                  key: 'trainer',
+                                })
+                              }
+                              onCommit={(value) =>
+                                void commitTrainer(customer, value)
                               }
                               onCancel={() => setEditingCell(null)}
                             />
