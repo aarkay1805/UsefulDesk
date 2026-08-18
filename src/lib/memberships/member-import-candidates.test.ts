@@ -129,6 +129,7 @@ function build(
     catalogItems?: CatalogItem[];
     trainers?: Trainer[];
     trainerRates?: TrainerRate[];
+    staff?: { user_id: string; full_name: string }[];
   } = {}
 ) {
   return buildMemberImportCandidates(rows, {
@@ -136,10 +137,103 @@ function build(
     catalogItems: serviceFacts.catalogItems ?? SERVICES,
     trainers: serviceFacts.trainers ?? [],
     trainerRates: serviceFacts.trainerRates ?? [],
+    staff: serviceFacts.staff ?? [],
     dateOrder: 'DMY',
     today: TODAY,
   });
 }
+
+// Every `built.warnings` code needs a consumer, or the value it describes is
+// dropped without the operator ever seeing it. These lock that contract in.
+describe('warnings reach the operator as notices', () => {
+  it('surfaces an unmatched assignee instead of dropping the name', () => {
+    const [candidate] = build(
+      [source(2, { original: { assignedTo: 'Ravi Kumar' } })],
+      { staff: [{ user_id: 'u-1', full_name: 'Priya Nair' }] }
+    );
+
+    expect(candidate.issues).toContainEqual(
+      expect.objectContaining({
+        code: 'assignee-unmatched',
+        severity: 'notice',
+      })
+    );
+    // A notice must never stop the row importing.
+    expect(candidate.isReady).toBe(true);
+  });
+
+  it('stays quiet when the assignee resolves to a teammate', () => {
+    const [candidate] = build(
+      [source(2, { original: { assignedTo: 'Priya Nair' } })],
+      { staff: [{ user_id: 'u-1', full_name: 'Priya Nair' }] }
+    );
+
+    expect(
+      candidate.issues.some((item) => item.code === 'assignee-unmatched')
+    ).toBe(false);
+  });
+
+  it('surfaces an unreadable churn risk value', () => {
+    const [candidate] = build([
+      source(2, { original: { churnRisk: 'maybe' } }),
+    ]);
+
+    expect(candidate.issues).toContainEqual(
+      expect.objectContaining({
+        code: 'churn-risk-unmatched',
+        severity: 'notice',
+      })
+    );
+    expect(candidate.isReady).toBe(true);
+  });
+
+  it('surfaces an unreadable height or weight', () => {
+    const [candidate] = build([
+      source(2, { original: { height: 'tall', weight: '' } }),
+    ]);
+
+    expect(candidate.issues).toContainEqual(
+      expect.objectContaining({
+        code: 'profile-value-invalid',
+        severity: 'notice',
+      })
+    );
+    expect(candidate.isReady).toBe(true);
+  });
+
+  // A cancelled row's period is voided at commit, so its unpaid balance is
+  // written off. The row still imports — the notice is what makes the money
+  // leaving visible before the operator commits.
+  it('warns that a cancelled member with a balance loses it on import', () => {
+    const [candidate] = build([
+      source(2, {
+        original: { status: 'cancelled', fee: '7000', amountPaid: '0' },
+      }),
+    ]);
+
+    expect(candidate.issues).toContainEqual(
+      expect.objectContaining({
+        code: 'cancelled-dues-written-off',
+        severity: 'notice',
+      })
+    );
+    expect(candidate.isReady).toBe(true);
+  });
+
+  it('stays quiet when a cancelled member owes nothing', () => {
+    const [candidate] = build([
+      source(2, {
+        original: { status: 'cancelled', fee: '7000', amountPaid: '7000' },
+      }),
+    ]);
+
+    expect(
+      candidate.issues.some(
+        (item) => item.code === 'cancelled-dues-written-off'
+      )
+    ).toBe(false);
+  });
+});
 
 describe('member import candidates', () => {
   it('builds service-only and combined source rows without fabricating memberships', () => {

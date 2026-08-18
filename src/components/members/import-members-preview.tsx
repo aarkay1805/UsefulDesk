@@ -87,6 +87,10 @@ const ISSUE_TITLES: Partial<Record<IssueCode, string>> = {
   'invalid-membership-values': 'Correct membership details',
   'expiry-not-after-start': 'Correct membership dates',
   'trainer-unmatched': 'Trainer not found',
+  'assignee-unmatched': 'Teammate not found',
+  'churn-risk-unmatched': 'Churn risk not recognised',
+  'profile-value-invalid': 'Height or weight not readable',
+  'cancelled-dues-written-off': 'Cancelled member has unpaid balance',
 };
 
 interface ImportMembersPreviewProps {

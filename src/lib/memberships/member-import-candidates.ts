@@ -89,6 +89,10 @@ export interface MemberImportCandidateIssue {
     | 'service-expiry-mismatch'
     | 'trainer-ignored'
     | 'trainer-unmatched'
+    | 'assignee-unmatched'
+    | 'churn-risk-unmatched'
+    | 'profile-value-invalid'
+    | 'cancelled-dues-written-off'
     | 'duplicate-service'
     | 'purchase-total-mismatch'
     | 'expiry-duration-mismatch'
@@ -609,6 +613,60 @@ function rebuildCandidate(
         `trainer:${normalizeGroupValue(values.membershipTrainer)}`,
         `“${trim(values.membershipTrainer)}” is not an active trainer, so these members import without one.`,
         'Add the trainer in Settings → Products & services, then re-import, or set it on the member later.',
+        true
+      )
+    );
+  }
+  // Every other `built.warnings` code needs a consumer for the same reason
+  // the trainer one does: a warning nobody renders is a value dropped in
+  // silence, which is exactly how the unmatched assignee went unnoticed.
+  if (built.warnings.includes('unknown-assignee')) {
+    issues.push(
+      issue(
+        'assignee-unmatched',
+        'notice',
+        `assignee:${normalizeGroupValue(values.assignedTo)}`,
+        `“${trim(values.assignedTo)}” is not a teammate on this account, so a new member is assigned to whoever runs the import instead.`,
+        'Invite them from Settings → Members, then re-import, or reassign the member later.',
+        true
+      )
+    );
+  }
+  if (built.warnings.includes('unknown-churn-risk')) {
+    issues.push(
+      issue(
+        'churn-risk-unmatched',
+        'notice',
+        `churn-risk:${normalizeGroupValue(values.churnRisk)}`,
+        `“${trim(values.churnRisk)}” could not be read as yes or no, so these members import without a churn risk.`,
+        'Use yes/no, true/false, 1/0, or high/low in the source column, or set churn risk on the member later.',
+        true
+      )
+    );
+  }
+  if (built.warnings.includes('invalid-profile-value')) {
+    issues.push(
+      issue(
+        'profile-value-invalid',
+        'notice',
+        'profile-value',
+        'Height or weight could not be read, so these members import without it.',
+        'Use a value like 175 cm or 5\'9" for height and 70 kg for weight, then re-import, or set it on the member later.',
+        true
+      )
+    );
+  }
+  // An INACTIVE row with a future expiry maps to `cancelled`, whose current
+  // period is voided on commit. The money disappearing is the point of the
+  // notice: the row still imports, but never without saying so.
+  if (built.warnings.includes('cancelled-dues-written-off')) {
+    issues.push(
+      issue(
+        'cancelled-dues-written-off',
+        'notice',
+        'cancelled-dues',
+        'This membership is cancelled with an unpaid balance, so the balance is written off on import.',
+        'Exclude the row if the balance is still collectible, or import to clear it.',
         true
       )
     );

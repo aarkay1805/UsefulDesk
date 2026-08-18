@@ -924,6 +924,7 @@ export interface BuiltMemberRow {
     | 'unknown-trainer'
     | 'unknown-churn-risk'
     | 'invalid-profile-value'
+    | 'cancelled-dues-written-off'
   )[];
 }
 
@@ -993,6 +994,17 @@ export function buildMembershipRow(
 
   const parsedStatus = parseMembershipStatus(row.status ?? '');
   if (!parsedStatus.matched) errors.push('unknown-status');
+  // A cancelled membership has its current period voided by
+  // `set_membership_cancellation`, so an unpaid balance is written off on
+  // import. Right for a real cancellation, lossy for a migration — the row
+  // still imports, but the write-off must never be silent. Compared in whole
+  // paise so 2dp float drift cannot invent a balance.
+  if (
+    parsedStatus.status === 'cancelled' &&
+    Math.round((feeAmount - (amountPaid ?? 0)) * 100) > 0
+  ) {
+    warnings.push('cancelled-dues-written-off');
+  }
   const derivedEnd =
     explicitEnd ?? (start && pricing ? optionEndDate(start, pricing) : null);
   // A legacy per-session or day-pass row repeats one date in both columns:

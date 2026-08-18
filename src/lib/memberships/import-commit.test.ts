@@ -242,6 +242,65 @@ describe('plan resolution', () => {
   });
 });
 
+describe('cancelled membership dues', () => {
+  // `set_membership_cancellation` voids the current period, so an unpaid
+  // balance on a cancelled row is erased at commit. The row still imports;
+  // the warning is what stops the write-off being silent.
+  it('warns when a cancelled membership still carries a balance', () => {
+    const built = buildMembershipRow(
+      memberRow({ status: 'cancelled', fee: '7000', amountPaid: '0' }),
+      PLANS,
+      'DMY',
+      TODAY
+    );
+    expect(built.membership?.status).toBe('cancelled');
+    expect(built.warnings).toContain('cancelled-dues-written-off');
+    expect(built.errors).toEqual([]);
+  });
+
+  it('warns when a cancelled membership is only part paid', () => {
+    const built = buildMembershipRow(
+      memberRow({ status: 'cancelled', fee: '4000', amountPaid: '1500' }),
+      PLANS,
+      'DMY',
+      TODAY
+    );
+    expect(built.warnings).toContain('cancelled-dues-written-off');
+  });
+
+  it('stays quiet when a cancelled membership is settled', () => {
+    const built = buildMembershipRow(
+      memberRow({ status: 'cancelled', fee: '4000', feeStatus: 'paid' }),
+      PLANS,
+      'DMY',
+      TODAY
+    );
+    expect(built.warnings).not.toContain('cancelled-dues-written-off');
+  });
+
+  it('stays quiet when an unpaid membership is not cancelled', () => {
+    const built = buildMembershipRow(
+      memberRow({ status: 'active', fee: '7000', amountPaid: '0' }),
+      PLANS,
+      'DMY',
+      TODAY
+    );
+    expect(built.warnings).not.toContain('cancelled-dues-written-off');
+  });
+
+  // The balance is compared in whole paise, so two-decimal arithmetic cannot
+  // leave a fraction behind and invent a write-off that is not there.
+  it('does not invent a balance from float drift', () => {
+    const built = buildMembershipRow(
+      memberRow({ status: 'cancelled', fee: '1500.10', amountPaid: '1500.10' }),
+      PLANS,
+      'DMY',
+      TODAY
+    );
+    expect(built.warnings).not.toContain('cancelled-dues-written-off');
+  });
+});
+
 describe('buildMembershipRow', () => {
   it('derives dates and fee from the chosen option without setup fee', () => {
     const built = buildMembershipRow(memberRow(), PLANS, 'DMY', TODAY);
