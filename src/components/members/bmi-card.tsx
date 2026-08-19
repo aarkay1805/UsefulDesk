@@ -1,27 +1,27 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { Activity, Pencil, Ruler } from "lucide-react";
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Activity, Pencil, Ruler } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from '@/lib/supabase/client';
 import {
   computeBmi,
   cmToFeetInches,
   feetInchesToCm,
   kgToLb,
   lbToKg,
-} from "@/lib/bmi/bmi";
+} from '@/lib/bmi/bmi';
 import {
   Card,
   CardHeader,
   CardTitle,
   CardAction,
   CardContent,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { BmiGauge } from "./bmi-gauge";
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { BmiGauge } from './bmi-gauge';
 
 interface BmiCardProps {
   contactId: string;
@@ -61,7 +61,7 @@ export function BmiCard({
   onSaved,
 }: BmiCardProps) {
   const supabase = createClient();
-  const imperial = measurementSystem === "imperial";
+  const imperial = measurementSystem === 'imperial';
 
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -69,11 +69,11 @@ export function BmiCard({
   // Draft inputs — seeded from the stored metric values, in the
   // account's own units.
   const seededFi = heightCm ? cmToFeetInches(heightCm) : { feet: 0, inches: 0 };
-  const [cm, setCm] = useState(heightCm ? String(heightCm) : "");
-  const [feet, setFeet] = useState(heightCm ? String(seededFi.feet) : "");
-  const [inches, setInches] = useState(heightCm ? String(seededFi.inches) : "");
-  const [kg, setKg] = useState(weightKg ? String(weightKg) : "");
-  const [lb, setLb] = useState(weightKg ? String(kgToLb(weightKg)) : "");
+  const [cm, setCm] = useState(heightCm ? String(heightCm) : '');
+  const [feet, setFeet] = useState(heightCm ? String(seededFi.feet) : '');
+  const [inches, setInches] = useState(heightCm ? String(seededFi.inches) : '');
+  const [kg, setKg] = useState(weightKg ? String(weightKg) : '');
+  const [lb, setLb] = useState(weightKg ? String(kgToLb(weightKg)) : '');
 
   const bmi = computeBmi(heightCm, weightKg);
   const hasData = bmi !== null;
@@ -81,11 +81,11 @@ export function BmiCard({
   function startEdit() {
     // Re-seed drafts from the latest stored values.
     const fi = heightCm ? cmToFeetInches(heightCm) : { feet: 0, inches: 0 };
-    setCm(heightCm ? String(heightCm) : "");
-    setFeet(heightCm ? String(fi.feet) : "");
-    setInches(heightCm ? String(fi.inches) : "");
-    setKg(weightKg ? String(weightKg) : "");
-    setLb(weightKg ? String(kgToLb(weightKg)) : "");
+    setCm(heightCm ? String(heightCm) : '');
+    setFeet(heightCm ? String(fi.feet) : '');
+    setInches(heightCm ? String(fi.inches) : '');
+    setKg(weightKg ? String(weightKg) : '');
+    setLb(weightKg ? String(kgToLb(weightKg)) : '');
     setEditing(true);
   }
 
@@ -111,17 +111,17 @@ export function BmiCard({
     // Chain .select — an RLS-blocked update returns zero rows, no error
     // (silent-write rule), so treat an empty result as failure.
     const { data, error } = await supabase
-      .from("contacts")
+      .from('contacts')
       .update({ height_cm: nextHeight, weight_kg: nextWeight })
-      .eq("id", contactId)
-      .select("id");
+      .eq('id', contactId)
+      .select('id');
     setBusy(false);
 
     if (error) return toast.error(error.message);
     if (!data || data.length === 0)
       return toast.error("You don't have permission to update measurements.");
 
-    toast.success("Measurements saved");
+    toast.success('Measurements saved');
     setEditing(false);
     onSaved();
   }
@@ -143,7 +143,7 @@ export function BmiCard({
           <div className="flex flex-col gap-3">
             {/* Height */}
             <div className="flex flex-col gap-1.5">
-              <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <label className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
                 <Ruler className="size-3.5" /> Height
               </label>
               {imperial ? (
@@ -175,14 +175,14 @@ export function BmiCard({
                     placeholder="cm"
                     aria-label="Height in centimetres"
                   />
-                  <span className="text-sm text-muted-foreground">cm</span>
+                  <span className="text-muted-foreground text-sm">cm</span>
                 </div>
               )}
             </div>
 
             {/* Weight */}
             <div className="flex flex-col gap-1.5">
-              <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <label className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
                 <Activity className="size-3.5" /> Weight
               </label>
               <div className="flex items-center gap-2">
@@ -193,11 +193,13 @@ export function BmiCard({
                   onChange={(e) =>
                     imperial ? setLb(e.target.value) : setKg(e.target.value)
                   }
-                  placeholder={imperial ? "lb" : "kg"}
-                  aria-label={imperial ? "Weight in pounds" : "Weight in kilograms"}
+                  placeholder={imperial ? 'lb' : 'kg'}
+                  aria-label={
+                    imperial ? 'Weight in pounds' : 'Weight in kilograms'
+                  }
                 />
-                <span className="text-sm text-muted-foreground">
-                  {imperial ? "lb" : "kg"}
+                <span className="text-muted-foreground text-sm">
+                  {imperial ? 'lb' : 'kg'}
                 </span>
               </div>
             </div>
@@ -219,15 +221,15 @@ export function BmiCard({
         ) : hasData ? (
           <div className="flex flex-col gap-3">
             <BmiGauge bmi={bmi} />
-            <dl className="grid grid-cols-2 gap-3 border-t border-border pt-3">
+            <dl className="border-border grid grid-cols-2 gap-3 border-t pt-3">
               <div>
-                <dt className="text-xs text-muted-foreground">Height</dt>
+                <dt className="text-muted-foreground text-xs">Height</dt>
                 <dd className="mt-0.5 text-sm font-medium">
                   {formatHeight(heightCm!, imperial)}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-muted-foreground">Weight</dt>
+                <dt className="text-muted-foreground text-xs">Weight</dt>
                 <dd className="mt-0.5 text-sm font-medium">
                   {formatWeight(weightKg!, imperial)}
                 </dd>
@@ -236,7 +238,7 @@ export function BmiCard({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 py-2 text-center">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               No measurements yet — add height and weight to calculate BMI.
             </p>
             {canEdit && (

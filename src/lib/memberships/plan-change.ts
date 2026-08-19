@@ -19,7 +19,7 @@
  * (migration 061); this module only quotes the numbers for it.
  */
 
-import { daysBetween } from "./expiry";
+import { daysBetween } from './expiry';
 
 export interface PlanChangeQuote {
   /** Length of the current cycle in days. */
@@ -72,7 +72,11 @@ export function planChangeQuote(args: {
   const totalDays = daysBetween(args.periodStart, args.periodEnd);
   const rawUsed = daysBetween(args.periodStart, args.switchDate);
 
-  if (!Number.isFinite(totalDays) || totalDays <= 0 || !Number.isFinite(rawUsed)) {
+  if (
+    !Number.isFinite(totalDays) ||
+    totalDays <= 0 ||
+    !Number.isFinite(rawUsed)
+  ) {
     return {
       totalDays: 0,
       usedDays: 0,

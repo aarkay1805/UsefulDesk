@@ -61,10 +61,9 @@ export function useTablePrefs<T extends object>(
       ? `${CACHE_PREFIX}${accountId}:${userId}:${viewKey}`
       : null;
 
-  const sendUpsert = useCallback((p: NonNullable<typeof pendingRef.current>) => {
-    void supabaseRef
-      .current!.from('table_preferences')
-      .upsert(
+  const sendUpsert = useCallback(
+    (p: NonNullable<typeof pendingRef.current>) => {
+      void supabaseRef.current!.from('table_preferences').upsert(
         {
           account_id: p.accountId,
           user_id: p.userId,
@@ -73,7 +72,9 @@ export function useTablePrefs<T extends object>(
         },
         { onConflict: 'account_id,user_id,view_key' }
       );
-  }, []);
+    },
+    []
+  );
 
   // ---- Load: cache first (instant), then DB (authoritative) --------------
   useEffect(() => {
@@ -149,9 +150,7 @@ export function useTablePrefs<T extends object>(
     (next: T | ((prev: T) => T)) => {
       setValue((prev) => {
         const resolved =
-          typeof next === 'function'
-            ? (next as (p: T) => T)(prev)
-            : next;
+          typeof next === 'function' ? (next as (p: T) => T)(prev) : next;
         dirtyRef.current = true;
         if (cacheKey) {
           try {

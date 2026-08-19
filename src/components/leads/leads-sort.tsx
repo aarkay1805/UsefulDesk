@@ -44,15 +44,15 @@ export function LeadsSort({ value, onChange, columns }: LeadsSortProps) {
         Sort
       </PopoverTrigger>
       <PopoverContent align="end" className="w-60 p-0">
-        <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-          <span className="text-sm font-semibold text-popover-foreground">
+        <div className="border-border flex items-center justify-between border-b px-3 py-2.5">
+          <span className="text-popover-foreground text-sm font-semibold">
             Sort by
           </span>
           {value && (
             <button
               type="button"
               onClick={() => onChange(null)}
-              className="cursor-pointer text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline-offset-4 hover:underline"
             >
               Clear
             </button>
@@ -67,16 +67,16 @@ export function LeadsSort({ value, onChange, columns }: LeadsSortProps) {
                 type="button"
                 onClick={() => pick(c.key)}
                 className={cn(
-                  'flex w-full cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted',
+                  'hover:bg-muted flex w-full cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm',
                   isActive ? 'text-foreground' : 'text-popover-foreground'
                 )}
               >
                 <span className="truncate">{c.label}</span>
                 {isActive &&
                   (value.dir === 'asc' ? (
-                    <ArrowUp className="size-3.5 shrink-0 text-primary-text" />
+                    <ArrowUp className="text-primary-text size-3.5 shrink-0" />
                   ) : (
-                    <ArrowDown className="size-3.5 shrink-0 text-primary-text" />
+                    <ArrowDown className="text-primary-text size-3.5 shrink-0" />
                   ))}
               </button>
             );

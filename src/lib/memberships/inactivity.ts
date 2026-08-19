@@ -9,9 +9,9 @@
  * first (see ./expiry) — an 11:30pm visit yesterday is "1 day ago" for
  * a UTC+5:30 owner, not a fraction of a day.
  */
-import { istToday, daysBetween } from "./expiry";
-import { INACTIVE_DAYS } from "./stats";
-import type { MemberActivity } from "@/types";
+import { istToday, daysBetween } from './expiry';
+import { INACTIVE_DAYS } from './stats';
+import type { MemberActivity } from '@/types';
 
 export interface InactivityBuckets {
   /** Stalest first (longest since last visit). */
@@ -28,7 +28,7 @@ export function istDayOf(instant: string): string {
 /** Whole IST days since the member's last visit; null if never visited. */
 export function daysSinceVisit(
   row: MemberActivity,
-  today: string = istToday(),
+  today: string = istToday()
 ): number | null {
   if (!row.last_visit_at) return null;
   return daysBetween(istDayOf(row.last_visit_at), today);
@@ -42,7 +42,7 @@ export function daysSinceVisit(
 export function partitionInactivity(
   rows: MemberActivity[],
   today: string = istToday(),
-  inactiveDays: number = INACTIVE_DAYS,
+  inactiveDays: number = INACTIVE_DAYS
 ): InactivityBuckets {
   const inactive: MemberActivity[] = [];
   const neverVisited: MemberActivity[] = [];
@@ -54,7 +54,7 @@ export function partitionInactivity(
   }
 
   inactive.sort((a, b) =>
-    (a.last_visit_at ?? "").localeCompare(b.last_visit_at ?? ""),
+    (a.last_visit_at ?? '').localeCompare(b.last_visit_at ?? '')
   );
   neverVisited.sort((a, b) => a.start_date.localeCompare(b.start_date));
 

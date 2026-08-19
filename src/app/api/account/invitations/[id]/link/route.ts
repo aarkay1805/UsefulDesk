@@ -18,31 +18,31 @@
 // by copying a new link.
 // ============================================================
 
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 
-import { requireRole, toErrorResponse } from "@/lib/auth/account";
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
   generateInviteToken,
   inviteExpiresAt,
   inviteUrl,
   resolveInviteBaseUrl,
-} from "@/lib/auth/invitations";
+} from '@/lib/auth/invitations';
 import {
   checkRateLimit,
   rateLimitResponse,
   RATE_LIMITS,
-} from "@/lib/rate-limit";
+} from '@/lib/rate-limit';
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const ctx = await requireRole("admin");
+    const ctx = await requireRole('admin');
 
     const limit = checkRateLimit(
       `admin:inviteLink:${ctx.userId}`,
-      RATE_LIMITS.adminAction,
+      RATE_LIMITS.adminAction
     );
     if (!limit.success) return rateLimitResponse(limit);
 
@@ -52,17 +52,17 @@ export async function POST(
     // account and to preserve a deliberately-long expiry. RLS scopes
     // the SELECT to the caller's account.
     const { data: existing } = await ctx.supabase
-      .from("account_invitations")
-      .select("id, full_name, role, expires_at, accepted_at")
-      .eq("id", id)
+      .from('account_invitations')
+      .select('id, full_name, role, expires_at, accepted_at')
+      .eq('id', id)
       .maybeSingle();
 
     if (!existing || existing.accepted_at) {
       // Missing / not-yours (RLS) / already redeemed → 404 either way
       // (don't leak which).
       return NextResponse.json(
-        { error: "Invitation not found" },
-        { status: 404 },
+        { error: 'Invitation not found' },
+        { status: 404 }
       );
     }
 
@@ -70,28 +70,28 @@ export async function POST(
     const freshExpiry = new Date(
       Math.max(
         new Date(existing.expires_at).getTime(),
-        inviteExpiresAt(undefined).getTime(),
-      ),
+        inviteExpiresAt(undefined).getTime()
+      )
     );
 
     const { token, hash } = generateInviteToken();
 
     const { data, error } = await ctx.supabase
-      .from("account_invitations")
+      .from('account_invitations')
       .update({ token_hash: hash, expires_at: freshExpiry.toISOString() })
-      .eq("id", id)
-      .is("accepted_at", null)
-      .select("id, full_name, role, expires_at")
+      .eq('id', id)
+      .is('accepted_at', null)
+      .select('id, full_name, role, expires_at')
       .single();
 
     if (error || !data) {
       console.error(
-        "[POST /api/account/invitations/[id]/link] update error:",
-        error,
+        '[POST /api/account/invitations/[id]/link] update error:',
+        error
       );
       return NextResponse.json(
-        { error: "Failed to generate link" },
-        { status: 500 },
+        { error: 'Failed to generate link' },
+        { status: 500 }
       );
     }
 

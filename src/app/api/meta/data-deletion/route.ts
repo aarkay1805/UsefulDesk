@@ -31,97 +31,97 @@
 //   https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback
 // ============================================================
 
-import { NextResponse } from 'next/server'
-import crypto from 'node:crypto'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { parseSignedRequest } from '@/lib/meta/signed-request'
+import { NextResponse } from 'next/server';
+import crypto from 'node:crypto';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { parseSignedRequest } from '@/lib/meta/signed-request';
 
 // The webhook demux and this callback both run on serverless
 // platforms; keep this a Node runtime so `node:crypto` is available.
-export const runtime = 'nodejs'
+export const runtime = 'nodejs';
 
 function statusBaseUrl(request: Request): string {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, '')
-  if (configured) return configured
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, '');
+  if (configured) return configured;
   // Fall back to the request origin when SITE_URL isn't pinned.
   try {
-    return new URL(request.url).origin
+    return new URL(request.url).origin;
   } catch {
-    return ''
+    return '';
   }
 }
 
 export async function POST(request: Request) {
-  const appSecret = process.env.META_APP_SECRET
+  const appSecret = process.env.META_APP_SECRET;
   if (!appSecret) {
     // Fail closed: without the secret we cannot verify anything, so we
     // must not hand back a confirmation for an unverified request.
     console.error(
-      '[data-deletion] META_APP_SECRET is not set — cannot verify signed_request.',
-    )
+      '[data-deletion] META_APP_SECRET is not set — cannot verify signed_request.'
+    );
     return NextResponse.json(
       { error: 'Server is not configured for data deletion requests.' },
-      { status: 500 },
-    )
+      { status: 500 }
+    );
   }
 
   // Meta sends application/x-www-form-urlencoded. Be lenient and also
   // accept a JSON body (some test tools post JSON).
-  let signedRequest: string | null = null
+  let signedRequest: string | null = null;
   try {
-    const contentType = request.headers.get('content-type') ?? ''
+    const contentType = request.headers.get('content-type') ?? '';
     if (contentType.includes('application/json')) {
       const body = (await request.json().catch(() => null)) as {
-        signed_request?: unknown
-      } | null
+        signed_request?: unknown;
+      } | null;
       signedRequest =
-        typeof body?.signed_request === 'string' ? body.signed_request : null
+        typeof body?.signed_request === 'string' ? body.signed_request : null;
     } else {
-      const form = await request.formData()
-      const value = form.get('signed_request')
-      signedRequest = typeof value === 'string' ? value : null
+      const form = await request.formData();
+      const value = form.get('signed_request');
+      signedRequest = typeof value === 'string' ? value : null;
     }
   } catch {
-    signedRequest = null
+    signedRequest = null;
   }
 
-  const payload = parseSignedRequest(signedRequest, appSecret)
+  const payload = parseSignedRequest(signedRequest, appSecret);
   if (!payload) {
     // Invalid or unsigned — do not issue a confirmation code.
     return NextResponse.json(
       { error: 'Invalid signed_request.' },
-      { status: 400 },
-    )
+      { status: 400 }
+    );
   }
 
-  const confirmationCode = crypto.randomBytes(16).toString('hex')
+  const confirmationCode = crypto.randomBytes(16).toString('hex');
 
   const admin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  )
+    { auth: { persistSession: false } }
+  );
 
   const { error } = await admin.from('data_deletion_requests').insert({
     source: 'meta_callback',
     meta_user_id: payload.user_id,
     confirmation_code: confirmationCode,
     status: 'received',
-  })
+  });
 
   if (error) {
     // If we can't record it, return 500 so Meta retries rather than
     // handing the user a code that resolves to nothing.
-    console.error('[data-deletion] failed to record request:', error)
+    console.error('[data-deletion] failed to record request:', error);
     return NextResponse.json(
       { error: 'Could not record the deletion request.' },
-      { status: 500 },
-    )
+      { status: 500 }
+    );
   }
 
-  const base = statusBaseUrl(request)
+  const base = statusBaseUrl(request);
   return NextResponse.json({
     url: `${base}/data-deletion?code=${confirmationCode}`,
     confirmation_code: confirmationCode,
-  })
+  });
 }

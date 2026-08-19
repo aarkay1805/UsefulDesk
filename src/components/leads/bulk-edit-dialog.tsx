@@ -241,12 +241,19 @@ export function BulkEditDialog({
         <div className="space-y-4 py-2">
           {/* Step 1 — pick the property to update. */}
           <div className="space-y-2">
-            <Label className="text-popover-foreground">Property to update</Label>
+            <Label className="text-popover-foreground">
+              Property to update
+            </Label>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<button type="button" className={TRIGGER_CLASS} />}
               >
-                <span className={cn('truncate', !property && 'text-muted-foreground')}>
+                <span
+                  className={cn(
+                    'truncate',
+                    !property && 'text-muted-foreground'
+                  )}
+                >
                   {property ? property.label : 'Select a property to edit'}
                 </span>
                 <ChevronDown className="text-muted-foreground size-4 shrink-0" />
@@ -283,7 +290,9 @@ export function BulkEditDialog({
           {/* Step 2 — set the new value (editor matched to the property). */}
           {property && (
             <div className="space-y-2">
-              <Label className="text-popover-foreground">{property.label}</Label>
+              <Label className="text-popover-foreground">
+                {property.label}
+              </Label>
               <ValueEditor
                 property={property}
                 value={value}

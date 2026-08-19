@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { AnimatePresence, motion, type HTMLMotionProps } from "motion/react";
-import type { ReactNode } from "react";
+import { AnimatePresence, motion, type HTMLMotionProps } from 'motion/react';
+import type { ReactNode } from 'react';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 // Snappy, not floaty — the house spring for list add/remove + reflow.
 const LIST_SPRING = {
-  type: "spring",
+  type: 'spring',
   stiffness: 500,
   damping: 40,
   mass: 0.6,
@@ -37,7 +37,7 @@ export function MotionListItem({
   children,
   className,
   ...props
-}: HTMLMotionProps<"div"> & { children: ReactNode }) {
+}: HTMLMotionProps<'div'> & { children: ReactNode }) {
   return (
     <motion.div
       layout

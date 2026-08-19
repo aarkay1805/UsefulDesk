@@ -17,15 +17,15 @@
  * (IST day boundaries, offset sanitising) is covered by tests.
  */
 
-import { istAddDays, istToday } from "./expiry";
-import type { MembershipStatus } from "@/types";
+import { istAddDays, istToday } from './expiry';
+import type { MembershipStatus } from '@/types';
 
 /**
  * The Utility template a gym creates + submits in Settings → Templates.
  * Lives here (server-safe) rather than in the client button so both the
  * manual send and the cron can import it without pulling client code.
  */
-export const RENEWAL_TEMPLATE_NAME = "gym_renewal_reminder";
+export const RENEWAL_TEMPLATE_NAME = 'gym_renewal_reminder';
 
 /** Hard ceiling on configured offsets — guards the settings UI + cron
  *  against a pathological array blowing up the per-run query count. */
@@ -55,7 +55,7 @@ export const REMINDER_SEND_HOUR_LOCAL = 9;
 export function normalizeDaysBefore(input: unknown): number[] {
   if (!Array.isArray(input)) return [];
   const cleaned = input
-    .map((n) => (typeof n === "number" ? Math.trunc(n) : Number.NaN))
+    .map((n) => (typeof n === 'number' ? Math.trunc(n) : Number.NaN))
     .filter((n) => Number.isInteger(n) && n >= 0 && n <= MAX_DAYS_BEFORE);
   // Sorted ascending (soonest reminders first) + unique.
   const unique = Array.from(new Set(cleaned)).sort((a, b) => a - b);
@@ -69,7 +69,7 @@ export function normalizeDaysBefore(input: unknown): number[] {
  * wouldn't be expired anyway.
  */
 export function isRemindableStatus(status: MembershipStatus): boolean {
-  return status === "active";
+  return status === 'active';
 }
 
 export interface ReminderTarget {
@@ -88,7 +88,7 @@ export interface ReminderTarget {
  */
 export function targetEndDates(
   daysBefore: unknown,
-  today: string = istToday(),
+  today: string = istToday()
 ): ReminderTarget[] {
   return normalizeDaysBefore(daysBefore).map((d) => ({
     daysBefore: d,

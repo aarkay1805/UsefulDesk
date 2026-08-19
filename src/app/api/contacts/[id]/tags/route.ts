@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import {
-  requireOperationalAccess,
-  toErrorResponse,
-} from '@/lib/auth/account';
+import { requireOperationalAccess, toErrorResponse } from '@/lib/auth/account';
 import { addContactTagAndDispatch } from '@/lib/contacts/tag-events';
 import {
   ContactTagWriteError,

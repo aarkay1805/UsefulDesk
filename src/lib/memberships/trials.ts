@@ -11,19 +11,20 @@
  * null) is the win-back list — the lead you nearly lost.
  */
 
-import { daysUntil, istToday } from "./expiry";
-import type { Membership } from "@/types";
+import { daysUntil, istToday } from './expiry';
+import type { Membership } from '@/types';
 
 /** How many days out a trial counts as "ending this week". */
 export const TRIAL_SOON_DAYS = 7;
 
-export type TrialBucket = "ending_today" | "ending_soon" | "expired_unconverted";
+export type TrialBucket =
+  'ending_today' | 'ending_soon' | 'expired_unconverted';
 
 /** Fixed display order + label for the three trial buckets. */
 export const TRIAL_BUCKETS: { key: TrialBucket; label: string }[] = [
-  { key: "ending_today", label: "Ending today" },
-  { key: "ending_soon", label: "Ending this week" },
-  { key: "expired_unconverted", label: "Expired — not converted" },
+  { key: 'ending_today', label: 'Ending today' },
+  { key: 'ending_soon', label: 'Ending this week' },
+  { key: 'expired_unconverted', label: 'Expired — not converted' },
 ];
 
 /**
@@ -38,13 +39,13 @@ export const TRIAL_BUCKETS: { key: TrialBucket; label: string }[] = [
  */
 export function trialBucket(
   endDate: string,
-  today: string = istToday(),
+  today: string = istToday()
 ): TrialBucket | null {
   const d = daysUntil(endDate, today);
   if (Number.isNaN(d)) return null;
-  if (d < 0) return "expired_unconverted";
-  if (d === 0) return "ending_today";
-  if (d <= TRIAL_SOON_DAYS) return "ending_soon";
+  if (d < 0) return 'expired_unconverted';
+  if (d === 0) return 'ending_today';
+  if (d <= TRIAL_SOON_DAYS) return 'ending_soon';
   return null;
 }
 
@@ -64,7 +65,7 @@ export interface PartitionedTrials {
  */
 export function partitionTrials(
   memberships: Membership[],
-  today: string = istToday(),
+  today: string = istToday()
 ): PartitionedTrials {
   const out: PartitionedTrials = {
     ending_today: [],
@@ -74,7 +75,7 @@ export function partitionTrials(
   for (const m of memberships) {
     if (!m.is_trial) continue;
     if (m.converted_at) continue;
-    if (m.status === "cancelled") continue;
+    if (m.status === 'cancelled') continue;
     const bucket = trialBucket(m.end_date, today);
     if (bucket) out[bucket].push(m);
   }

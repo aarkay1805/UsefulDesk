@@ -152,9 +152,7 @@ describe('rowsForLeadAccountabilityView', () => {
     );
 
     expect(
-      rowsForLeadAccountabilityView(rows, 'followups').map(
-        (row) => row.lead.id
-      )
+      rowsForLeadAccountabilityView(rows, 'followups').map((row) => row.lead.id)
     ).toEqual(['1']);
   });
 

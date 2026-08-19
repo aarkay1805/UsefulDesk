@@ -205,7 +205,7 @@ export default function CaptureFormPage() {
 
   if (!peek) {
     return (
-      <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="text-muted-foreground flex items-center gap-2">
         <Loader2 className="size-4 animate-spin" />
         <span className="text-sm">Loading…</span>
       </div>
@@ -216,7 +216,7 @@ export default function CaptureFormPage() {
     return (
       <Card className="w-full max-w-md">
         <CardHeader className="items-center text-center">
-          <Link2Off className="size-8 text-muted-foreground" />
+          <Link2Off className="text-muted-foreground size-8" />
           <CardTitle>This form isn’t available</CardTitle>
           <CardDescription>
             {peek.reason === 'revoked'
@@ -232,7 +232,7 @@ export default function CaptureFormPage() {
     return (
       <Card className="w-full max-w-md">
         <CardHeader className="items-center text-center">
-          <CheckCircle2 className="size-8 text-success" />
+          <CheckCircle2 className="text-success size-8" />
           <CardTitle>Thanks — we’ve got your details</CardTitle>
           <CardDescription>
             {peek.gym_name} will get in touch with you shortly on WhatsApp.
@@ -252,7 +252,9 @@ export default function CaptureFormPage() {
       )}
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>{peek.headline || `Enquire at ${peek.gym_name}`}</CardTitle>
+          <CardTitle>
+            {peek.headline || `Enquire at ${peek.gym_name}`}
+          </CardTitle>
           <CardDescription>
             {peek.intro ||
               'Leave your details and we’ll get back to you on WhatsApp.'}
@@ -270,7 +272,7 @@ export default function CaptureFormPage() {
                 aria-invalid={errors.includes('name_required')}
               />
               {errorFor('name_required') && (
-                <p className="text-xs text-destructive">
+                <p className="text-destructive text-xs">
                   {errorFor('name_required')}
                 </p>
               )}
@@ -290,7 +292,7 @@ export default function CaptureFormPage() {
                 }
               />
               {(errorFor('phone_required') || errorFor('phone_invalid')) && (
-                <p className="text-xs text-destructive">
+                <p className="text-destructive text-xs">
                   {errorFor('phone_required') ?? errorFor('phone_invalid')}
                 </p>
               )}
@@ -309,7 +311,7 @@ export default function CaptureFormPage() {
                 aria-invalid={errors.includes('email_invalid')}
               />
               {errorFor('email_invalid') && (
-                <p className="text-xs text-destructive">
+                <p className="text-destructive text-xs">
                   {errorFor('email_invalid')}
                 </p>
               )}
@@ -317,9 +319,13 @@ export default function CaptureFormPage() {
 
             <div className="space-y-2">
               <Label htmlFor="cf-goal">
-                Your goal <span className="text-muted-foreground">(optional)</span>
+                Your goal{' '}
+                <span className="text-muted-foreground">(optional)</span>
               </Label>
-              <Select value={goal || undefined} onValueChange={(v) => v && setGoal(v)}>
+              <Select
+                value={goal || undefined}
+                onValueChange={(v) => v && setGoal(v)}
+              >
                 <SelectTrigger id="cf-goal" className="w-full">
                   <SelectValue placeholder="Pick a goal" />
                 </SelectTrigger>
@@ -380,13 +386,13 @@ export default function CaptureFormPage() {
               />
               <Label
                 htmlFor="cf-consent"
-                className="text-sm font-normal leading-snug text-muted-foreground"
+                className="text-muted-foreground text-sm leading-snug font-normal"
               >
                 {peek.consent_text}
               </Label>
             </div>
             {errorFor('consent_required') && (
-              <p className="text-xs text-destructive">
+              <p className="text-destructive text-xs">
                 {errorFor('consent_required')}
               </p>
             )}

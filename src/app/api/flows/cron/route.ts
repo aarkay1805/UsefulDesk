@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server'
-import { cronSecretConfigured, isAuthorizedCronRequest } from '@/lib/cron/auth'
-import { supabaseAdmin } from '@/lib/flows/admin-client'
-import { resolveFallbackPolicy } from '@/lib/flows/fallback'
+import { NextResponse } from 'next/server';
+import { cronSecretConfigured, isAuthorizedCronRequest } from '@/lib/cron/auth';
+import { supabaseAdmin } from '@/lib/flows/admin-client';
+import { resolveFallbackPolicy } from '@/lib/flows/fallback';
 
 /**
  * Sweep abandoned active flow runs.
@@ -28,14 +28,14 @@ import { resolveFallbackPolicy } from '@/lib/flows/fallback'
  */
 export async function GET(request: Request) {
   if (!cronSecretConfigured()) {
-    return NextResponse.json({ error: 'cron not configured' }, { status: 503 })
+    return NextResponse.json({ error: 'cron not configured' }, { status: 503 });
   }
   if (!isAuthorizedCronRequest(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const admin = supabaseAdmin()
-  const now = new Date()
+  const admin = supabaseAdmin();
+  const now = new Date();
 
   // Pull all currently-active runs along with their parent flow's
   // fallback_policy. Joined in one query — the small set of active
@@ -43,32 +43,33 @@ export async function GET(request: Request) {
   const { data: runs, error } = await admin
     .from('flow_runs')
     .select(
-      'id, flow_id, user_id, contact_id, last_advanced_at, flows ( fallback_policy )',
+      'id, flow_id, user_id, contact_id, last_advanced_at, flows ( fallback_policy )'
     )
-    .eq('status', 'active')
+    .eq('status', 'active');
 
   if (error) {
-    console.error('[flows-cron] active-run scan failed:', error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[flows-cron] active-run scan failed:', error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  if (!runs?.length) return NextResponse.json({ swept: 0 })
+  if (!runs?.length) return NextResponse.json({ swept: 0 });
 
   type Row = {
-    id: string
-    flow_id: string
-    user_id: string
-    contact_id: string | null
-    last_advanced_at: string
-    flows: { fallback_policy: unknown } | { fallback_policy: unknown }[] | null
-  }
+    id: string;
+    flow_id: string;
+    user_id: string;
+    contact_id: string | null;
+    last_advanced_at: string;
+    flows: { fallback_policy: unknown } | { fallback_policy: unknown }[] | null;
+  };
 
-  let swept = 0
+  let swept = 0;
   for (const r of runs as Row[]) {
-    const flowsField = Array.isArray(r.flows) ? r.flows[0] : r.flows
-    const policy = resolveFallbackPolicy(flowsField?.fallback_policy ?? null)
-    const lastAdvanced = new Date(r.last_advanced_at)
-    const ageHours = (now.getTime() - lastAdvanced.getTime()) / (1000 * 60 * 60)
-    if (ageHours < policy.on_timeout_hours) continue
+    const flowsField = Array.isArray(r.flows) ? r.flows[0] : r.flows;
+    const policy = resolveFallbackPolicy(flowsField?.fallback_policy ?? null);
+    const lastAdvanced = new Date(r.last_advanced_at);
+    const ageHours =
+      (now.getTime() - lastAdvanced.getTime()) / (1000 * 60 * 60);
+    if (ageHours < policy.on_timeout_hours) continue;
 
     // Mark timed_out only if this is still the exact active snapshot we
     // classified as stale. A concurrent inbound can keep the run active while
@@ -83,7 +84,7 @@ export async function GET(request: Request) {
       .eq('id', r.id)
       .eq('status', 'active')
       .eq('last_advanced_at', r.last_advanced_at)
-      .select('id')
+      .select('id');
 
     if (Array.isArray(updated) && updated.length > 0) {
       await admin.from('flow_run_events').insert({
@@ -93,10 +94,10 @@ export async function GET(request: Request) {
           age_hours: Math.round(ageHours * 10) / 10,
           policy_hours: policy.on_timeout_hours,
         },
-      })
-      swept += 1
+      });
+      swept += 1;
     }
   }
 
-  return NextResponse.json({ swept })
+  return NextResponse.json({ swept });
 }

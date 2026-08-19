@@ -1,20 +1,20 @@
-import { supabaseAdmin } from './admin-client'
-import { loadAiConfig } from './config'
-import { buildConversationContext } from './context'
-import { retrieveKnowledge } from './knowledge'
-import { generateReply } from './generate'
-import { buildSystemPrompt } from './defaults'
-import { latestUserMessage } from './query'
-import { engineSendText } from '@/lib/flows/meta-send'
+import { supabaseAdmin } from './admin-client';
+import { loadAiConfig } from './config';
+import { buildConversationContext } from './context';
+import { retrieveKnowledge } from './knowledge';
+import { generateReply } from './generate';
+import { buildSystemPrompt } from './defaults';
+import { latestUserMessage } from './query';
+import { engineSendText } from '@/lib/flows/meta-send';
 
 interface DispatchArgs {
   /** Tenancy key — drives config, contact, and whatsapp_config lookups. */
-  accountId: string
-  conversationId: string
-  contactId: string
+  accountId: string;
+  conversationId: string;
+  contactId: string;
   /** The account's WhatsApp config owner, used for the outbound send's
    *  audit columns (mirrors how the flow runner passes it through). */
-  configOwnerUserId: string
+  configOwnerUserId: string;
 }
 
 /**
@@ -37,15 +37,15 @@ interface DispatchArgs {
  * window check is needed.
  */
 export async function dispatchInboundToAiReply(
-  args: DispatchArgs,
+  args: DispatchArgs
 ): Promise<void> {
-  const { accountId, conversationId, contactId, configOwnerUserId } = args
+  const { accountId, conversationId, contactId, configOwnerUserId } = args;
 
   try {
-    const db = supabaseAdmin()
+    const db = supabaseAdmin();
 
-    const config = await loadAiConfig(db, accountId)
-    if (!config || !config.autoReplyEnabled) return
+    const config = await loadAiConfig(db, accountId);
+    if (!config || !config.autoReplyEnabled) return;
 
     // Deterministic, user-configured responders win over the LLM — the
     // caller already excludes messages a Flow consumed. Message-level
@@ -61,43 +61,43 @@ export async function dispatchInboundToAiReply(
       .eq('account_id', accountId)
       .eq('is_active', true)
       .in('trigger_type', ['new_message_received', 'keyword_match'])
-      .limit(1)
-    if (autoResponders && autoResponders.length > 0) return
+      .limit(1);
+    if (autoResponders && autoResponders.length > 0) return;
 
     const { data: conv, error: convErr } = await db
       .from('conversations')
       .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count')
       .eq('id', conversationId)
-      .maybeSingle()
-    if (convErr || !conv) return
-    if (conv.assigned_agent_id) return // a human owns this thread
-    if (conv.ai_autoreply_disabled) return // handed off / turned off here
+      .maybeSingle();
+    if (convErr || !conv) return;
+    if (conv.assigned_agent_id) return; // a human owns this thread
+    if (conv.ai_autoreply_disabled) return; // handed off / turned off here
     // Cheap early-out; the authoritative cap check is the atomic claim
     // below (this read can race a concurrent inbound).
-    if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) return
+    if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) return;
 
-    const messages = await buildConversationContext(db, conversationId)
-    if (messages.length === 0) return
+    const messages = await buildConversationContext(db, conversationId);
+    if (messages.length === 0) return;
 
     // Ground the reply in the account's knowledge base (best-effort).
     const knowledge = await retrieveKnowledge(
       db,
       accountId,
       config,
-      latestUserMessage(messages),
-    )
+      latestUserMessage(messages)
+    );
 
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
-    })
+    });
 
     const { text, handoff } = await generateReply({
       config,
       systemPrompt,
       messages,
-    })
+    });
 
     if (handoff || !text) {
       // The model can't (or shouldn't) answer — stop auto-replying on
@@ -106,8 +106,8 @@ export async function dispatchInboundToAiReply(
       await db
         .from('conversations')
         .update({ ai_autoreply_disabled: true })
-        .eq('id', conversationId)
-      return
+        .eq('id', conversationId);
+      return;
     }
 
     // Atomically claim a reply slot: the cap check + increment happen in
@@ -120,9 +120,9 @@ export async function dispatchInboundToAiReply(
       {
         conversation_id: conversationId,
         max_replies: config.autoReplyMaxPerConversation,
-      },
-    )
-    if (claimErr || claimed !== true) return
+      }
+    );
+    if (claimErr || claimed !== true) return;
 
     await engineSendText({
       accountId,
@@ -130,8 +130,8 @@ export async function dispatchInboundToAiReply(
       conversationId,
       contactId,
       text,
-    })
+    });
   } catch (err) {
-    console.error('[ai auto-reply] dispatch failed:', err)
+    console.error('[ai auto-reply] dispatch failed:', err);
   }
 }

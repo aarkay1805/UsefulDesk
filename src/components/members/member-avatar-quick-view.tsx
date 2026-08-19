@@ -1,26 +1,26 @@
-"use client";
+'use client';
 
-import { Eye } from "lucide-react";
+import { Eye } from 'lucide-react';
 
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { UserAvatar } from "@/components/ui/user-avatar";
-import { FollowUpButton } from "@/components/follow-ups/follow-up-button";
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { UserAvatar } from '@/components/ui/user-avatar';
+import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
 import {
   SendReminderButton,
   type ReminderReadiness,
-} from "@/components/members/send-reminder-button";
-import { branchHref } from "@/lib/auth/branch-context";
-import type { Membership } from "@/types";
+} from '@/components/members/send-reminder-button';
+import { branchHref } from '@/lib/auth/branch-context';
+import type { Membership } from '@/types';
 
 type MembersView =
-  | "renewals"
-  | "followups"
-  | "trials"
-  | "payments"
-  | "retention"
-  | "all"
-  | "attendance";
+  | 'renewals'
+  | 'followups'
+  | 'trials'
+  | 'payments'
+  | 'retention'
+  | 'all'
+  | 'attendance';
 
 interface MemberAvatarQuickViewProps {
   membership: Membership;
@@ -31,8 +31,7 @@ interface MemberAvatarQuickViewProps {
   onReminderSent?: () => void;
 }
 
-interface BuildMemberAvatarPreviewOptions
-  extends MemberAvatarQuickViewProps {
+interface BuildMemberAvatarPreviewOptions extends MemberAvatarQuickViewProps {
   accountId: string | null;
   view: MembersView;
 }
@@ -45,7 +44,7 @@ function MemberAvatarQuickView({
   onFollowUp,
   onReminderSent,
 }: MemberAvatarQuickViewProps) {
-  const name = membership.contact?.name?.trim() || "Unnamed";
+  const name = membership.contact?.name?.trim() || 'Unnamed';
 
   return (
     <div
@@ -64,7 +63,7 @@ function MemberAvatarQuickView({
             {name}
           </p>
           <p className="text-muted-foreground text-xs">
-            Member ID{" "}
+            Member ID{' '}
             <span className="font-mono tabular-nums">
               {membership.member_number}
             </span>
@@ -83,10 +82,7 @@ function MemberAvatarQuickView({
           onSent={onReminderSent}
         />
         {onFollowUp ? (
-          <FollowUpButton
-            canAct={canFollowUp}
-            onClick={onFollowUp}
-          />
+          <FollowUpButton canAct={canFollowUp} onClick={onFollowUp} />
         ) : null}
       </div>
     </div>

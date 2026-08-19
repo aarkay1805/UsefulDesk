@@ -1,19 +1,23 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { getErrorMessage } from "@/lib/errors";
-import { useLocale } from "@/hooks/use-locale";
-import { istAddDays } from "@/lib/memberships/expiry";
-import { planChangeQuote } from "@/lib/memberships/plan-change";
-import { changeMembershipPlan } from "@/lib/memberships/periods";
-import { optionEndDate, renewalFee } from "@/lib/memberships/pricing";
-import type { Membership, MembershipPeriodInvoice, PaymentMethod } from "@/types";
-import { useMembershipPlans } from "./use-membership-plans";
-import { PlanOptionPicker } from "./plan-option-picker";
+import { createClient } from '@/lib/supabase/client';
+import { getErrorMessage } from '@/lib/errors';
+import { useLocale } from '@/hooks/use-locale';
+import { istAddDays } from '@/lib/memberships/expiry';
+import { planChangeQuote } from '@/lib/memberships/plan-change';
+import { changeMembershipPlan } from '@/lib/memberships/periods';
+import { optionEndDate, renewalFee } from '@/lib/memberships/pricing';
+import type {
+  Membership,
+  MembershipPeriodInvoice,
+  PaymentMethod,
+} from '@/types';
+import { useMembershipPlans } from './use-membership-plans';
+import { PlanOptionPicker } from './plan-option-picker';
 import {
   Dialog,
   DialogContent,
@@ -21,25 +25,25 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
-  { value: "cash", label: "Cash" },
-  { value: "upi", label: "UPI" },
-  { value: "card", label: "Card" },
-  { value: "bank", label: "Bank transfer" },
-  { value: "other", label: "Other" },
+  { value: 'cash', label: 'Cash' },
+  { value: 'upi', label: 'UPI' },
+  { value: 'card', label: 'Card' },
+  { value: 'bank', label: 'Bank transfer' },
+  { value: 'other', label: 'Other' },
 ];
 
 interface ChangePlanDialogProps {
@@ -72,27 +76,32 @@ export function ChangePlanDialog({
   // pointer as the pre-057 fallback (no period row = nothing collected).
   const cycleStart = currentInvoice?.period_start ?? membership.start_date;
   const cycleEnd = currentInvoice?.period_end ?? membership.end_date;
-  const cycleFee = Number(currentInvoice?.fee_amount ?? membership.fee_amount ?? 0);
+  const cycleFee = Number(
+    currentInvoice?.fee_amount ?? membership.fee_amount ?? 0
+  );
   const cyclePaid = Number(currentInvoice?.amount_paid ?? 0);
 
-  const [planId, setPlanId] = useState("");
+  const [planId, setPlanId] = useState('');
   const [optionId, setOptionId] = useState<string | null>(null);
   const [switchDate, setSwitchDate] = useState(fmt.today());
-  const [feeAmount, setFeeAmount] = useState("");
+  const [feeAmount, setFeeAmount] = useState('');
   // Until staff type a fee themselves it follows the quote (plan price
   // minus credit), so changing the plan or date re-seeds it.
   const [feeTouched, setFeeTouched] = useState(false);
   const [collectPayment, setCollectPayment] = useState(true);
-  const [collectAmount, setCollectAmount] = useState("");
+  const [collectAmount, setCollectAmount] = useState('');
   const [collectTouched, setCollectTouched] = useState(false);
-  const [method, setMethod] = useState<PaymentMethod>("cash");
+  const [method, setMethod] = useState<PaymentMethod>('cash');
   const [saving, setSaving] = useState(false);
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey, setIdempotencyKey] = useState(() =>
+    crypto.randomUUID()
+  );
 
   const selectedPlan = plans.find((p) => p.id === planId);
   const selectedOption =
-    selectedPlan?.pricing_options?.find((o) => o.id === optionId && o.is_active) ??
-    null;
+    selectedPlan?.pricing_options?.find(
+      (o) => o.id === optionId && o.is_active
+    ) ?? null;
 
   // The truncated old cycle must keep at least one day, so the earliest
   // switch is the day after it starts.
@@ -110,9 +119,12 @@ export function ChangePlanDialog({
         newPlanPrice: renewalFee(selectedOption),
       })
     : null;
-  const newEnd = selectedOption ? optionEndDate(switchDate, selectedOption) : null;
+  const newEnd = selectedOption
+    ? optionEndDate(switchDate, selectedOption)
+    : null;
   const netFee = quote ? quote.netFee : 0;
-  const effectiveFee = feeTouched && feeAmount !== "" ? Number(feeAmount) : netFee;
+  const effectiveFee =
+    feeTouched && feeAmount !== '' ? Number(feeAmount) : netFee;
 
   useEffect(() => {
     if (!open) return;
@@ -120,15 +132,15 @@ export function ChangePlanDialog({
     void (async () => {
       await Promise.resolve();
       if (cancelled) return;
-      setPlanId("");
+      setPlanId('');
       setOptionId(null);
       setSwitchDate(fmt.today() >= minSwitch ? fmt.today() : minSwitch);
-      setFeeAmount("");
+      setFeeAmount('');
       setFeeTouched(false);
       setCollectPayment(true);
-      setCollectAmount("");
+      setCollectAmount('');
       setCollectTouched(false);
-      setMethod("cash");
+      setMethod('cash');
       setIdempotencyKey(crypto.randomUUID());
     })();
     return () => {
@@ -157,21 +169,22 @@ export function ChangePlanDialog({
 
   async function handleChange() {
     if (!selectedPlan || !selectedOption || !newEnd || !quote) {
-      return toast.error("Pick the new plan and billing option");
+      return toast.error('Pick the new plan and billing option');
     }
-    const fee = feeAmount === "" ? quote.netFee : Number(feeAmount);
-    if (!Number.isFinite(fee) || fee < 0) return toast.error("Enter a valid fee");
+    const fee = feeAmount === '' ? quote.netFee : Number(feeAmount);
+    if (!Number.isFinite(fee) || fee < 0)
+      return toast.error('Enter a valid fee');
 
     const collected = collectPayment
-      ? collectAmount === ""
+      ? collectAmount === ''
         ? fee
         : Number(collectAmount)
       : 0;
     if (collectPayment && (!Number.isFinite(collected) || collected < 0)) {
-      return toast.error("Enter a valid amount");
+      return toast.error('Enter a valid amount');
     }
     if (collected > fee) {
-      return toast.error("Collected amount cannot exceed the fee");
+      return toast.error('Collected amount cannot exceed the fee');
     }
 
     setSaving(true);
@@ -189,11 +202,11 @@ export function ChangePlanDialog({
       });
       if (error) throw error;
 
-      toast.success("Plan changed");
+      toast.success('Plan changed');
       onOpenChange(false);
       onSaved();
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to change the plan"));
+      toast.error(getErrorMessage(err, 'Failed to change the plan'));
     } finally {
       setSaving(false);
     }
@@ -245,25 +258,27 @@ export function ChangePlanDialog({
                   <p>
                     <span className="text-muted-foreground">
                       Credit for {quote.remainingDays} unused day
-                      {quote.remainingDays === 1 ? "" : "s"}:{" "}
+                      {quote.remainingDays === 1 ? '' : 's'}:{' '}
                     </span>
-                    <span className="font-medium text-emerald-foreground tabular-nums">
+                    <span className="text-emerald-foreground font-medium tabular-nums">
                       {fmt.money(quote.credit)}
                     </span>
                   </p>
                   <p>
                     <span className="text-muted-foreground">To pay: </span>
                     <span className="text-foreground font-medium tabular-nums">
-                      {fmt.money(renewalFee(selectedOption))} − {fmt.money(quote.credit)} ={" "}
-                      {fmt.money(quote.netFee)}
+                      {fmt.money(renewalFee(selectedOption))} −{' '}
+                      {fmt.money(quote.credit)} = {fmt.money(quote.netFee)}
                     </span>
                   </p>
                   {quote.carryover > 0 && (
                     <p className="text-muted-foreground text-xs">
-                      The credit exceeds the new plan&apos;s price by{" "}
-                      <span className="tabular-nums">{fmt.money(quote.carryover)}</span> —
-                      the new cycle is fully covered; the remainder is not carried
-                      further.
+                      The credit exceeds the new plan&apos;s price by{' '}
+                      <span className="tabular-nums">
+                        {fmt.money(quote.carryover)}
+                      </span>{' '}
+                      — the new cycle is fully covered; the remainder is not
+                      carried further.
                     </p>
                   )}
                 </>
@@ -274,7 +289,9 @@ export function ChangePlanDialog({
               )}
               <p>
                 <span className="text-muted-foreground">New expiry: </span>
-                <span className="text-foreground font-medium">{fmt.date(newEnd)}</span>
+                <span className="text-foreground font-medium">
+                  {fmt.date(newEnd)}
+                </span>
               </p>
             </div>
           )}
@@ -318,7 +335,10 @@ export function ChangePlanDialog({
                   placeholder="Amount"
                   className="h-8"
                 />
-                <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod)}>
+                <Select
+                  value={method}
+                  onValueChange={(v) => setMethod(v as PaymentMethod)}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -341,7 +361,11 @@ export function ChangePlanDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button

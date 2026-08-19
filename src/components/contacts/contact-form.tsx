@@ -4,7 +4,13 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
-import type { Contact, LeadStatus, Tag, ContactTag, CustomField } from '@/types';
+import type {
+  Contact,
+  LeadStatus,
+  Tag,
+  ContactTag,
+  CustomField,
+} from '@/types';
 import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
 import { customFieldInputType } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
@@ -79,9 +85,10 @@ export function ContactForm({
   // hard-blocks the save; a fuzzy trunk-variant match only warns. The
   // DB unique index (migration 022) is the real backstop — this is the
   // friendly heads-up before we get there.
-  const [dupMatch, setDupMatch] = useState<
-    { contact: ExistingContact; exact: boolean } | null
-  >(null);
+  const [dupMatch, setDupMatch] = useState<{
+    contact: ExistingContact;
+    exact: boolean;
+  } | null>(null);
   const [checkingDup, setCheckingDup] = useState(false);
 
   const [tags, setTags] = useState<Tag[]>([]);
@@ -165,7 +172,7 @@ export function ContactForm({
       setDupMatch(
         existing
           ? { contact: existing, exact: isExactMatch(existing, value) }
-          : null,
+          : null
       );
     } finally {
       setCheckingDup(false);
@@ -203,7 +210,8 @@ export function ContactForm({
       } = await supabase.auth.getSession();
       const user = session?.user;
       if (!user) throw new Error('Not authenticated');
-      if (!accountId) throw new Error('Your profile is not linked to an account.');
+      if (!accountId)
+        throw new Error('Your profile is not linked to an account.');
 
       let contactId = contact?.id;
 
@@ -304,7 +312,7 @@ export function ContactForm({
           const existing = await findExistingContact(
             supabase,
             accountId,
-            phone.trim(),
+            phone.trim()
           );
           if (existing) setDupMatch({ contact: existing, exact: true });
         }
@@ -318,7 +326,7 @@ export function ContactForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md flex max-h-[calc(100vh-4rem)] flex-col gap-0 overflow-hidden p-0">
+      <DialogContent className="bg-popover border-border text-popover-foreground flex max-h-[calc(100vh-4rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
         <DialogHeader className="shrink-0 p-4 pb-2">
           <DialogTitle className="text-popover-foreground">
             {isEdit ? 'Edit Contact' : 'Add Contact'}
@@ -332,261 +340,267 @@ export function ContactForm({
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="cf-name" className="text-muted-foreground">
-              Name
-            </Label>
-            <Input
-              id="cf-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="John Doe"
-              className="border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cf-phone" className="text-muted-foreground">
-              Phone <span className="text-red-foreground">*</span>
-            </Label>
-            <PhoneInput
-              id="cf-phone"
-              value={phone}
-              onValueChange={(value) => {
-                setPhone(value);
-                if (dupMatch) setDupMatch(null);
-              }}
-              onBlur={checkDuplicate}
-              placeholder="98765 43210"
-              className="border-border text-foreground placeholder:text-muted-foreground"
-            />
-            {dupMatch ? (
-              <div
-                className={`flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs ${
-                  dupMatch.exact
-                    ? 'border-red-500/40 bg-red-500/10 text-red-foreground'
-                    : 'border-amber-500/40 bg-amber-500/10 text-amber-foreground'
-                }`}
-              >
-                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                <div className="space-y-1">
-                  <p>
-                    {dupMatch.exact
-                      ? 'A contact with this phone number already exists.'
-                      : 'A contact with a very similar number already exists.'}
-                  </p>
-                  {onViewExisting && (
-                    <button
-                      type="button"
-                      onClick={() => onViewExisting(dupMatch.contact.id)}
-                      className="font-medium underline underline-offset-2 hover:no-underline"
-                    >
-                      View {dupMatch.contact.name || dupMatch.contact.phone}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Country code is set in Settings → Regional settings
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cf-email" className="text-muted-foreground">
-              Email
-            </Label>
-            <Input
-              id="cf-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="john@example.com"
-              className="border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cf-company" className="text-muted-foreground">
-              Company
-            </Label>
-            <Input
-              id="cf-company"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              placeholder="Acme Inc."
-              className="border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cf-lead-status" className="text-muted-foreground">
-              Lead status
-            </Label>
-            {/* '' means the default 'new' status — modelled as the null item,
-                with the new-status label as the placeholder shown for it. */}
-            <Select
-              value={leadStatus || null}
-              onValueChange={(v) => setLeadStatus((v ?? '') as '' | LeadStatus)}
-            >
-              <SelectTrigger id="cf-lead-status" className="w-full">
-                <SelectValue
-                  placeholder={statuses.find((col) => col.key === 'new')?.label ?? 'New'}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {statuses.map((col) => (
-                  <SelectItem key={col.key} value={col.key === 'new' ? null : col.key}>
-                    {col.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="cf-source" className="text-muted-foreground">
-                Source
+              <Label htmlFor="cf-name" className="text-muted-foreground">
+                Name
               </Label>
-              <Select
-                value={source || null}
-                onValueChange={(v) => setSource(v ?? '')}
-              >
-                <SelectTrigger id="cf-source" className="w-full">
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={null}>—</SelectItem>
-                  {sources.map((o) => (
-                    <SelectItem key={o.key} value={o.key}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                id="cf-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="John Doe"
+                className="border-border text-foreground placeholder:text-muted-foreground"
+              />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="cf-gender" className="text-muted-foreground">
-                Gender
+              <Label htmlFor="cf-phone" className="text-muted-foreground">
+                Phone <span className="text-red-foreground">*</span>
               </Label>
-              <Select
-                value={gender || null}
-                onValueChange={(v) => setGender(v ?? '')}
-              >
-                <SelectTrigger id="cf-gender" className="w-full">
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={null}>—</SelectItem>
-                  {genders.map((o) => (
-                    <SelectItem key={o.key} value={o.key}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-muted-foreground">Tags</Label>
-            {loadingTags ? (
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Loader2 className="size-3 animate-spin" />
-                Loading tags...
-              </div>
-            ) : tags.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                No tags available. Create tags in Settings.
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {tags.map((tag) => {
-                  const selected = selectedTagIds.includes(tag.id);
-                  return (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      onClick={() => toggleTag(tag.id)}
-                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors cursor-pointer ${
-                        selected
-                          ? 'border-transparent bg-muted text-foreground'
-                          : 'border-border bg-transparent text-muted-foreground hover:bg-muted/50'
-                      }`}
-                    >
-                      {tag.name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {!loadingCustom && customFields.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">Custom Fields</Label>
-              <div className="space-y-2">
-                {customFields.map((field) => (
-                  <div key={field.id} className="space-y-1.5">
-                    <Label
-                      htmlFor={`cf-custom-${field.id}`}
-                      className="text-muted-foreground text-xs capitalize"
-                    >
-                      {field.field_name}
-                    </Label>
-                    {field.field_type === 'currency' ? (
-                      <CurrencyInput
-                        id={`cf-custom-${field.id}`}
-                        symbol={currencySymbol(defaultCurrency)}
-                        value={customValues[field.id] ?? ''}
-                        onChange={(e) =>
-                          setCustomValues((prev) => ({
-                            ...prev,
-                            [field.id]: e.target.value,
-                          }))
-                        }
-                        placeholder={`Enter ${field.field_name}...`}
-                        className="border-border text-foreground placeholder:text-muted-foreground"
-                      />
-                    ) : field.field_type === 'phone' ? (
-                      <PhoneInput
-                        id={`cf-custom-${field.id}`}
-                        value={customValues[field.id] ?? ''}
-                        onValueChange={(value) =>
-                          setCustomValues((prev) => ({
-                            ...prev,
-                            [field.id]: value,
-                          }))
-                        }
-                        placeholder={`Enter ${field.field_name}...`}
-                        className="border-border text-foreground placeholder:text-muted-foreground"
-                      />
-                    ) : (
-                      <Input
-                        id={`cf-custom-${field.id}`}
-                        type={customFieldInputType(field.field_type)}
-                        value={customValues[field.id] ?? ''}
-                        onChange={(e) =>
-                          setCustomValues((prev) => ({
-                            ...prev,
-                            [field.id]: e.target.value,
-                          }))
-                        }
-                        placeholder={`Enter ${field.field_name}...`}
-                        className="border-border text-foreground placeholder:text-muted-foreground"
-                      />
+              <PhoneInput
+                id="cf-phone"
+                value={phone}
+                onValueChange={(value) => {
+                  setPhone(value);
+                  if (dupMatch) setDupMatch(null);
+                }}
+                onBlur={checkDuplicate}
+                placeholder="98765 43210"
+                className="border-border text-foreground placeholder:text-muted-foreground"
+              />
+              {dupMatch ? (
+                <div
+                  className={`flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs ${
+                    dupMatch.exact
+                      ? 'text-red-foreground border-red-500/40 bg-red-500/10'
+                      : 'text-amber-foreground border-amber-500/40 bg-amber-500/10'
+                  }`}
+                >
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p>
+                      {dupMatch.exact
+                        ? 'A contact with this phone number already exists.'
+                        : 'A contact with a very similar number already exists.'}
+                    </p>
+                    {onViewExisting && (
+                      <button
+                        type="button"
+                        onClick={() => onViewExisting(dupMatch.contact.id)}
+                        className="font-medium underline underline-offset-2 hover:no-underline"
+                      >
+                        View {dupMatch.contact.name || dupMatch.contact.phone}
+                      </button>
                     )}
                   </div>
-                ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  Country code is set in Settings → Regional settings
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cf-email" className="text-muted-foreground">
+                Email
+              </Label>
+              <Input
+                id="cf-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="john@example.com"
+                className="border-border text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cf-company" className="text-muted-foreground">
+                Company
+              </Label>
+              <Input
+                id="cf-company"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder="Acme Inc."
+                className="border-border text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cf-lead-status" className="text-muted-foreground">
+                Lead status
+              </Label>
+              {/* '' means the default 'new' status — modelled as the null item,
+                with the new-status label as the placeholder shown for it. */}
+              <Select
+                value={leadStatus || null}
+                onValueChange={(v) =>
+                  setLeadStatus((v ?? '') as '' | LeadStatus)
+                }
+              >
+                <SelectTrigger id="cf-lead-status" className="w-full">
+                  <SelectValue
+                    placeholder={
+                      statuses.find((col) => col.key === 'new')?.label ?? 'New'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {statuses.map((col) => (
+                    <SelectItem
+                      key={col.key}
+                      value={col.key === 'new' ? null : col.key}
+                    >
+                      {col.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="cf-source" className="text-muted-foreground">
+                  Source
+                </Label>
+                <Select
+                  value={source || null}
+                  onValueChange={(v) => setSource(v ?? '')}
+                >
+                  <SelectTrigger id="cf-source" className="w-full">
+                    <SelectValue placeholder="—" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>—</SelectItem>
+                    {sources.map((o) => (
+                      <SelectItem key={o.key} value={o.key}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cf-gender" className="text-muted-foreground">
+                  Gender
+                </Label>
+                <Select
+                  value={gender || null}
+                  onValueChange={(v) => setGender(v ?? '')}
+                >
+                  <SelectTrigger id="cf-gender" className="w-full">
+                    <SelectValue placeholder="—" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>—</SelectItem>
+                    {genders.map((o) => (
+                      <SelectItem key={o.key} value={o.key}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          )}
 
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Tags</Label>
+              {loadingTags ? (
+                <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                  <Loader2 className="size-3 animate-spin" />
+                  Loading tags...
+                </div>
+              ) : tags.length === 0 ? (
+                <p className="text-muted-foreground text-xs">
+                  No tags available. Create tags in Settings.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.map((tag) => {
+                    const selected = selectedTagIds.includes(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => toggleTag(tag.id)}
+                        className={`inline-flex cursor-pointer items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                          selected
+                            ? 'bg-muted text-foreground border-transparent'
+                            : 'border-border text-muted-foreground hover:bg-muted/50 bg-transparent'
+                        }`}
+                      >
+                        {tag.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {!loadingCustom && customFields.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Custom Fields</Label>
+                <div className="space-y-2">
+                  {customFields.map((field) => (
+                    <div key={field.id} className="space-y-1.5">
+                      <Label
+                        htmlFor={`cf-custom-${field.id}`}
+                        className="text-muted-foreground text-xs capitalize"
+                      >
+                        {field.field_name}
+                      </Label>
+                      {field.field_type === 'currency' ? (
+                        <CurrencyInput
+                          id={`cf-custom-${field.id}`}
+                          symbol={currencySymbol(defaultCurrency)}
+                          value={customValues[field.id] ?? ''}
+                          onChange={(e) =>
+                            setCustomValues((prev) => ({
+                              ...prev,
+                              [field.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={`Enter ${field.field_name}...`}
+                          className="border-border text-foreground placeholder:text-muted-foreground"
+                        />
+                      ) : field.field_type === 'phone' ? (
+                        <PhoneInput
+                          id={`cf-custom-${field.id}`}
+                          value={customValues[field.id] ?? ''}
+                          onValueChange={(value) =>
+                            setCustomValues((prev) => ({
+                              ...prev,
+                              [field.id]: value,
+                            }))
+                          }
+                          placeholder={`Enter ${field.field_name}...`}
+                          className="border-border text-foreground placeholder:text-muted-foreground"
+                        />
+                      ) : (
+                        <Input
+                          id={`cf-custom-${field.id}`}
+                          type={customFieldInputType(field.field_type)}
+                          value={customValues[field.id] ?? ''}
+                          onChange={(e) =>
+                            setCustomValues((prev) => ({
+                              ...prev,
+                              [field.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={`Enter ${field.field_name}...`}
+                          className="border-border text-foreground placeholder:text-muted-foreground"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          <DialogFooter className="m-0 shrink-0 border-border">
+          <DialogFooter className="border-border m-0 shrink-0">
             <Button
               type="button"
               variant="outline"

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import { animate, useInView, useReducedMotion } from "motion/react";
+import { useEffect, useRef } from 'react';
+import { animate, useInView, useReducedMotion } from 'motion/react';
 
 /**
  * A number that counts up from 0 → `value` the first time it scrolls into

@@ -39,12 +39,14 @@ export function formatCustomFieldValue(
   value: string,
   type?: string,
   currency?: string,
-  localeTag?: string,
+  localeTag?: string
 ): string {
   switch (type) {
     case 'currency': {
       const n = Number(value);
-      return Number.isFinite(n) ? formatCurrency(n, currency, localeTag) : value;
+      return Number.isFinite(n)
+        ? formatCurrency(n, currency, localeTag)
+        : value;
     }
     case 'number': {
       const n = Number(value);

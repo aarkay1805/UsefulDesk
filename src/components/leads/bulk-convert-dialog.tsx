@@ -99,7 +99,10 @@ export function BulkConvertDialog({
         {o.setup_fee > 0 && (
           <span className="text-muted-foreground">
             {' '}
-            (+<span className="tabular-nums">{fmt.money(o.setup_fee)}</span> joining)
+            (+<span className="tabular-nums">
+              {fmt.money(o.setup_fee)}
+            </span>{' '}
+            joining)
           </span>
         )}
       </>
@@ -161,9 +164,7 @@ export function BulkConvertDialog({
       toast.success(parts.join(' · '));
     } else {
       toast.error(
-        skipped
-          ? 'Those leads are already members'
-          : 'Failed to convert leads'
+        skipped ? 'Those leads are already members' : 'Failed to convert leads'
       );
     }
 
@@ -195,7 +196,9 @@ export function BulkConvertDialog({
               <DropdownMenuTrigger
                 render={<button type="button" className={TRIGGER_CLASS} />}
               >
-                <span className={cn('truncate', !plan && 'text-muted-foreground')}>
+                <span
+                  className={cn('truncate', !plan && 'text-muted-foreground')}
+                >
                   {plan ? plan.name : 'Select a plan'}
                 </span>
                 <ChevronDown className="text-muted-foreground size-4 shrink-0" />
@@ -219,8 +222,16 @@ export function BulkConvertDialog({
                       {p.name}
                       {opts.length === 1 && (
                         <span className="text-muted-foreground">
-                          {' '}· {durationLabel(opts[0].duration_count, opts[0].duration_unit)} ·{' '}
-                          <span className="tabular-nums">{fmt.money(opts[0].price)}</span>
+                          {' '}
+                          ·{' '}
+                          {durationLabel(
+                            opts[0].duration_count,
+                            opts[0].duration_unit
+                          )}{' '}
+                          ·{' '}
+                          <span className="tabular-nums">
+                            {fmt.money(opts[0].price)}
+                          </span>
                         </span>
                       )}
                     </DropdownMenuItem>
@@ -248,7 +259,12 @@ export function BulkConvertDialog({
                 <DropdownMenuTrigger
                   render={<button type="button" className={TRIGGER_CLASS} />}
                 >
-                  <span className={cn('truncate', !option && 'text-muted-foreground')}>
+                  <span
+                    className={cn(
+                      'truncate',
+                      !option && 'text-muted-foreground'
+                    )}
+                  >
                     {option ? optionLabel(option) : 'Select a billing option'}
                   </span>
                   <ChevronDown className="text-muted-foreground size-4 shrink-0" />

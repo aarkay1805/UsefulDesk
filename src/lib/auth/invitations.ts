@@ -23,7 +23,7 @@
 // ('base64url')` lands at 43 characters; hex would be 64.
 // ============================================================
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes } from 'node:crypto';
 
 /** Default invite link lifetime if the caller doesn't specify. */
 export const DEFAULT_INVITE_EXPIRY_DAYS = 7;
@@ -45,7 +45,7 @@ export interface GeneratedToken {
  * `account_invitations.token_hash`.
  */
 export function generateInviteToken(): GeneratedToken {
-  const token = randomBytes(32).toString("base64url");
+  const token = randomBytes(32).toString('base64url');
   return { token, hash: hashInviteToken(token) };
 }
 
@@ -55,7 +55,7 @@ export function generateInviteToken(): GeneratedToken {
  * Pure function — same input always produces the same output.
  */
 export function hashInviteToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
+  return createHash('sha256').update(token).digest('hex');
 }
 
 /**
@@ -68,7 +68,7 @@ export function hashInviteToken(token: string): string {
  * without sweating slash hygiene).
  */
 export function inviteUrl(token: string, baseUrl: string): string {
-  const trimmed = baseUrl.replace(/\/+$/, "");
+  const trimmed = baseUrl.replace(/\/+$/, '');
   return `${trimmed}/join/${token}`;
 }
 
@@ -81,7 +81,7 @@ export function inviteUrl(token: string, baseUrl: string): string {
  */
 export function inviteExpiresAt(
   expiresInDays: number | undefined,
-  now: Date = new Date(),
+  now: Date = new Date()
 ): Date {
   const days = clampExpiryDays(expiresInDays);
   const ms = days * 24 * 60 * 60 * 1000;
@@ -121,7 +121,7 @@ function parseAllowedHosts(): readonly string[] | null {
   const raw = process.env.ALLOWED_INVITE_HOSTS?.trim();
   if (!raw) return null;
   const list = raw
-    .split(",")
+    .split(',')
     .map((h) => h.trim().toLowerCase())
     .filter(Boolean);
   return list.length > 0 ? list : null;
@@ -129,7 +129,7 @@ function parseAllowedHosts(): readonly string[] | null {
 
 function isHostAllowed(
   hostname: string,
-  allowList: readonly string[] | null,
+  allowList: readonly string[] | null
 ): boolean {
   if (!allowList) return true; // No allow-list → permissive (legacy behavior).
   return allowList.includes(hostname.toLowerCase());
@@ -138,37 +138,37 @@ function isHostAllowed(
 /** Derive the base URL to publish invite links under from a request. */
 export function resolveInviteBaseUrl(request: Request): string {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (explicit) return explicit.replace(/\/+$/, "");
+  if (explicit) return explicit.replace(/\/+$/, '');
 
   const allowList = parseAllowedHosts();
   const forwardedHost = request.headers
-    .get("x-forwarded-host")
-    ?.split(",")[0]
+    .get('x-forwarded-host')
+    ?.split(',')[0]
     ?.trim();
   const forwardedProto = request.headers
-    .get("x-forwarded-proto")
-    ?.split(",")[0]
+    .get('x-forwarded-proto')
+    ?.split(',')[0]
     ?.trim();
   if (forwardedHost && isHostAllowed(forwardedHost, allowList)) {
-    return `${forwardedProto || "https"}://${forwardedHost}`;
+    return `${forwardedProto || 'https'}://${forwardedHost}`;
   }
 
-  const host = request.headers.get("host")?.trim();
+  const host = request.headers.get('host')?.trim();
   if (host && isHostAllowed(host, allowList)) {
-    const reqProto = new URL(request.url).protocol.replace(":", "");
+    const reqProto = new URL(request.url).protocol.replace(':', '');
     return `${reqProto}://${host}`;
   }
 
   if (allowList && (forwardedHost || host)) {
-    console.warn("[invitations] rejected non-allow-listed host:", {
+    console.warn('[invitations] rejected non-allow-listed host:', {
       forwardedHost,
       host,
       allowList,
     });
   } else {
     console.warn(
-      "[invitations] could not derive base URL from request; falling back to marketing domain",
+      '[invitations] could not derive base URL from request; falling back to marketing domain'
     );
   }
-  return "https://wacrm.tech";
+  return 'https://wacrm.tech';
 }

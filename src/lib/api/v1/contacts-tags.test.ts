@@ -20,7 +20,8 @@ function fakeDb(currentTagIds: string[] = []) {
   const deleted: string[][] = [];
   const db = {
     from(table: string) {
-      if (table !== 'contact_tags') throw new Error(`unexpected table ${table}`);
+      if (table !== 'contact_tags')
+        throw new Error(`unexpected table ${table}`);
       const state = { operation: 'select', ids: [] as string[] };
       const result = () =>
         state.operation === 'select'

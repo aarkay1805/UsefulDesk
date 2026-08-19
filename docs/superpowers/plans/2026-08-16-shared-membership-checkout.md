@@ -27,6 +27,7 @@
 ### Task 1: Shared checkout draft and quote
 
 **Files:**
+
 - Create: `src/lib/memberships/checkout.ts`
 - Create: `src/lib/memberships/checkout.test.ts`
 - Modify: `src/types/index.ts:1199-1204,1360-1368`
@@ -34,10 +35,7 @@
 **Interfaces:**
 
 ```ts
-export type MembershipCheckoutMode =
-  | 'join'
-  | 'convert'
-  | 'membership_renewal';
+export type MembershipCheckoutMode = 'join' | 'convert' | 'membership_renewal';
 export type MembershipCollectionTiming = 'full' | 'installments';
 
 export interface MembershipCheckoutDraft {
@@ -177,10 +175,12 @@ git commit -m "feat: define shared membership checkout model"
 ### Task 2: Database-authoritative offers and collection
 
 **Files:**
+
 - Create: `supabase/migrations/20260816120000_shared_membership_checkout.sql`
 - Create: `supabase/tests/shared_membership_checkout_acceptance.sql`
 
 **Interfaces:**
+
 - Consumes: existing checkout RPCs, `renew_membership_transaction`, catalogue/credit helpers, installment table, and period offer columns.
 - Produces: revoked internal `quote_membership_checkout_offer(UUID,TEXT,UUID,UUID,DATE,TEXT,NUMERIC,INTEGER)` and revised checkout intent:
 
@@ -349,6 +349,7 @@ git commit -m "feat: enforce shared membership checkout transaction"
 ### Task 3: Canonical shared checkout panel
 
 **Files:**
+
 - Create: `src/components/members/membership-checkout-panel.tsx`
 - Create: `src/components/members/membership-checkout-panel.test.tsx`
 - Modify only if needed for accessibility/test surface: `src/components/members/products-services-picker.tsx:61-78`
@@ -374,9 +375,7 @@ export interface MembershipCheckoutPanelProps {
 
 ```tsx
 expect(
-  screen
-    .getAllByRole('heading', { level: 3 })
-    .map((node) => node.textContent)
+  screen.getAllByRole('heading', { level: 3 }).map((node) => node.textContent)
 ).toEqual([
   'Membership details',
   'Offer discount',
@@ -385,13 +384,9 @@ expect(
   'Collect payment now',
 ]);
 
-await user.click(
-  screen.getByRole('checkbox', { name: 'Products & services' })
-);
+await user.click(screen.getByRole('checkbox', { name: 'Products & services' }));
 expect(screen.getByTestId('catalogue-table')).toBeVisible();
-await user.click(
-  screen.getByRole('checkbox', { name: 'Products & services' })
-);
+await user.click(screen.getByRole('checkbox', { name: 'Products & services' }));
 expect(currentDraft().selections).toEqual([]);
 ```
 
@@ -414,9 +409,7 @@ Use `Checkbox` inside each header `Label`, and `Collapse` for Discount, Bonus mo
       <Checkbox
         id={`${idPrefix}-discount-enabled`}
         checked={value.discountKind !== null}
-        onCheckedChange={(checked) =>
-          updateDiscountEnabled(checked === true)
-        }
+        onCheckedChange={(checked) => updateDiscountEnabled(checked === true)}
       />
       Offer discount
     </Label>
@@ -448,19 +441,19 @@ git commit -m "feat: add shared membership checkout panel"
 ### Task 4: Integrate Add member and lead conversion
 
 **Files:**
+
 - Modify: `src/components/members/member-form.tsx:150-330,580-890,1180-1750`
 - Create: `src/components/members/member-form.checkout.test.tsx`
 
 - [x] **Step 1: Write failing host tests**
 
 ```tsx
-expect(
-  screen.getByTestId('shared-membership-checkout')
-).toHaveAttribute('data-mode', 'join');
-
-await user.click(
-  screen.getByRole('checkbox', { name: 'Collect payment now' })
+expect(screen.getByTestId('shared-membership-checkout')).toHaveAttribute(
+  'data-mode',
+  'join'
 );
+
+await user.click(screen.getByRole('checkbox', { name: 'Collect payment now' }));
 await user.click(
   screen.getByRole('button', { name: /add member|convert to member/i })
 );
@@ -526,6 +519,7 @@ git commit -m "refactor: share member creation checkout flow"
 ### Task 5: Integrate renewal and trial conversion
 
 **Files:**
+
 - Modify: `src/components/members/renew-membership-dialog.tsx:1-510`
 - Modify: `src/components/members/renew-membership-dialog.ui-contract.test.ts:1-60`
 - Create: `src/components/members/renew-membership-dialog.test.tsx`
@@ -584,6 +578,7 @@ git commit -m "refactor: share membership renewal checkout"
 ### Task 6: Harden API request validation
 
 **Files:**
+
 - Modify: `src/app/api/member-checkouts/route.ts:1-95`
 - Create: `src/app/api/member-checkouts/route.test.ts`
 - Modify: `src/types/index.ts:1199-1204,1360-1390`
@@ -638,8 +633,7 @@ if (
 ) {
   return NextResponse.json(
     {
-      error:
-        'Membership totals and expiry are calculated by UsefulDesk',
+      error: 'Membership totals and expiry are calculated by UsefulDesk',
     },
     { status: 400 }
   );
@@ -666,6 +660,7 @@ git commit -m "fix: validate membership checkout intent"
 ### Task 7: Full verification and documentation
 
 **Files:**
+
 - Modify: `docs/gym-domain.md`
 - Modify: `docs/changelog.md`
 - Modify: `PRDs/roadmap.md`

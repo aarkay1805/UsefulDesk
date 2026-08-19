@@ -1,31 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 import {
   broadcastStatusConfig,
   getBroadcastStatus,
   getRecipientStatus,
   recipientStatusConfig,
-} from "./broadcast-status";
+} from './broadcast-status';
 
-describe("getBroadcastStatus", () => {
-  it("returns the matching config for known statuses", () => {
-    expect(getBroadcastStatus("sending")).toBe(broadcastStatusConfig.sending);
-    expect(getBroadcastStatus("sent")).toBe(broadcastStatusConfig.sent);
-    expect(getBroadcastStatus("failed")).toBe(broadcastStatusConfig.failed);
+describe('getBroadcastStatus', () => {
+  it('returns the matching config for known statuses', () => {
+    expect(getBroadcastStatus('sending')).toBe(broadcastStatusConfig.sending);
+    expect(getBroadcastStatus('sent')).toBe(broadcastStatusConfig.sent);
+    expect(getBroadcastStatus('failed')).toBe(broadcastStatusConfig.failed);
   });
 
-  it("flags `sending` as a live/pulsing state", () => {
-    expect(getBroadcastStatus("sending").pulse).toBe(true);
-    expect(getBroadcastStatus("sent").pulse).toBeFalsy();
+  it('flags `sending` as a live/pulsing state', () => {
+    expect(getBroadcastStatus('sending').pulse).toBe(true);
+    expect(getBroadcastStatus('sent').pulse).toBeFalsy();
   });
 
-  it("falls back to draft on an unknown status string", () => {
-    expect(getBroadcastStatus("not-a-real-status")).toBe(
-      broadcastStatusConfig.draft,
+  it('falls back to draft on an unknown status string', () => {
+    expect(getBroadcastStatus('not-a-real-status')).toBe(
+      broadcastStatusConfig.draft
     );
-    expect(getBroadcastStatus("")).toBe(broadcastStatusConfig.draft);
+    expect(getBroadcastStatus('')).toBe(broadcastStatusConfig.draft);
   });
 
-  it("each variant is a fill-only class pair (bg tint + text)", () => {
+  it('each variant is a fill-only class pair (bg tint + text)', () => {
     // Accept both fixed-shade Tailwind names (bg-red-500/10) and
     // token-backed names without a shade number (bg-primary/10) since
     // the brand-accent statuses now ride the active color theme.
@@ -38,28 +38,30 @@ describe("getBroadcastStatus", () => {
     }
   });
 
-  it("uses shared foreground tokens for every status", () => {
+  it('uses shared foreground tokens for every status', () => {
     const variants = [
       ...Object.values(broadcastStatusConfig),
       ...Object.values(recipientStatusConfig),
     ];
 
     for (const variant of variants) {
-      expect(variant.classes).toMatch(/text-(?:[a-z]+-foreground|primary-text)/);
+      expect(variant.classes).toMatch(
+        /text-(?:[a-z]+-foreground|primary-text)/
+      );
       expect(variant.classes).not.toMatch(/text-[a-z]+-\d+/);
     }
   });
 });
 
-describe("getRecipientStatus", () => {
-  it("returns the matching config for known statuses", () => {
-    expect(getRecipientStatus("delivered")).toBe(
-      recipientStatusConfig.delivered,
+describe('getRecipientStatus', () => {
+  it('returns the matching config for known statuses', () => {
+    expect(getRecipientStatus('delivered')).toBe(
+      recipientStatusConfig.delivered
     );
-    expect(getRecipientStatus("read")).toBe(recipientStatusConfig.read);
+    expect(getRecipientStatus('read')).toBe(recipientStatusConfig.read);
   });
 
-  it("falls back to pending on an unknown status string", () => {
-    expect(getRecipientStatus("???")).toBe(recipientStatusConfig.pending);
+  it('falls back to pending on an unknown status string', () => {
+    expect(getRecipientStatus('???')).toBe(recipientStatusConfig.pending);
   });
 });

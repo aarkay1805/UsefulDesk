@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { AnimatePresence, motion } from "motion/react";
-import type { ReactNode } from "react";
+import { AnimatePresence, motion } from 'motion/react';
+import type { ReactNode } from 'react';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 /**
  * Size + fade collapse, driven by an `open` boolean. Mounts/unmounts its
@@ -26,18 +26,21 @@ export function Collapse({
   open,
   children,
   className,
-  axis = "height",
+  axis = 'height',
   duration = 0.28,
 }: {
   open: boolean;
   children: ReactNode;
   className?: string;
-  axis?: "height" | "width";
+  axis?: 'height' | 'width';
   duration?: number;
 }) {
-  const closed = axis === "width" ? { width: 0, opacity: 0 } : { height: 0, opacity: 0 };
+  const closed =
+    axis === 'width' ? { width: 0, opacity: 0 } : { height: 0, opacity: 0 };
   const openState =
-    axis === "width" ? { width: "auto", opacity: 1 } : { height: "auto", opacity: 1 };
+    axis === 'width'
+      ? { width: 'auto', opacity: 1 }
+      : { height: 'auto', opacity: 1 };
 
   return (
     <AnimatePresence initial={false}>
@@ -48,8 +51,8 @@ export function Collapse({
           animate={openState}
           exit={closed}
           transition={{ duration, ease: [0.4, 0, 0.2, 1] }}
-          style={{ overflow: "hidden" }}
-          className={cn("shrink-0", className)}
+          style={{ overflow: 'hidden' }}
+          className={cn('shrink-0', className)}
         >
           {children}
         </motion.div>

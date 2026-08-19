@@ -280,9 +280,7 @@ export function MembershipActionLists() {
                         />
                       </div>
                       <Badge variant="warning">
-                        {days === 0
-                          ? 'Expires today'
-                          : `Expires in ${days}d`}
+                        {days === 0 ? 'Expires today' : `Expires in ${days}d`}
                       </Badge>
                     </Link>
                   </li>

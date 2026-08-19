@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { IndianRupee } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { IndianRupee } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { useLocale } from "@/hooks/use-locale";
-import { buildUpiLink, upiAvailableFor } from "@/lib/payments/upi";
-import { Button } from "@/components/ui/button";
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { useLocale } from '@/hooks/use-locale';
+import { buildUpiLink, upiAvailableFor } from '@/lib/payments/upi';
+import { Button } from '@/components/ui/button';
 
 export interface UpiConfig {
   vpa: string | null;
@@ -30,9 +30,9 @@ export function useUpiConfig(): UpiConfig | null {
     let cancelled = false;
     (async () => {
       const { data } = await supabase
-        .from("accounts")
-        .select("upi_vpa, upi_payee_name")
-        .eq("id", accountId)
+        .from('accounts')
+        .select('upi_vpa, upi_payee_name')
+        .eq('id', accountId)
         .maybeSingle();
       if (cancelled) return;
       setConfig({
@@ -58,12 +58,12 @@ export function CopyUpiLinkButton({
   upi,
   amount,
   note,
-  size = "sm",
+  size = 'sm',
 }: {
   upi: UpiConfig | null;
   amount: number;
   note?: string;
-  size?: "sm" | "default";
+  size?: 'sm' | 'default';
 }) {
   const { locale } = useLocale();
   // UPI is INR-only — non-INR accounts never see the button.
@@ -77,12 +77,12 @@ export function CopyUpiLinkButton({
       note,
     });
     await navigator.clipboard.writeText(link);
-    toast.success("UPI payment link copied — paste it into the chat");
+    toast.success('UPI payment link copied — paste it into the chat');
   }
 
   return (
     <Button type="button" variant="outline" size={size} onClick={copy}>
-      <IndianRupee className={size === "sm" ? "size-3.5" : "size-4"} /> UPI link
+      <IndianRupee className={size === 'sm' ? 'size-3.5' : 'size-4'} /> UPI link
     </Button>
   );
 }

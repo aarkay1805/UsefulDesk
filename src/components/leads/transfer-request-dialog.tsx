@@ -53,20 +53,21 @@ export function TransferRequestDialog({
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
             Ownership of{' '}
-            <span className="text-foreground font-medium">{leadName}</span> moves
-            only after your teammate accepts. Until then you stay the owner.
+            <span className="text-foreground font-medium">{leadName}</span>{' '}
+            moves only after your teammate accepts. Until then you stay the
+            owner.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
-          <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+        <div className="border-border bg-muted/40 flex items-center gap-2 rounded-lg border px-3 py-2">
+          <ArrowRight className="text-muted-foreground size-4 shrink-0" />
           <UserAvatar
             name={targetName}
             src={targetAvatarUrl ?? null}
             className="size-6 shrink-0"
             fallbackClassName="text-[11px]"
           />
-          <span className="truncate text-sm font-medium text-foreground">
+          <span className="text-foreground truncate text-sm font-medium">
             {targetName}
           </span>
         </div>

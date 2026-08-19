@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { Check, ChevronDown, Plus, Search } from "lucide-react";
+import * as React from 'react';
+import { Check, ChevronDown, Plus, Search } from 'lucide-react';
 
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 // Master searchable-select: a Select-styled trigger opening a Popover
 // with a type-ahead filter over grouped options, and an optional pinned
@@ -53,9 +53,9 @@ export function Combobox({
   groups,
   value,
   onSelect,
-  placeholder = "Select…",
-  searchPlaceholder = "Search…",
-  emptyText = "No matches.",
+  placeholder = 'Select…',
+  searchPlaceholder = 'Search…',
+  emptyText = 'No matches.',
   footer,
   disabled,
   children,
@@ -63,7 +63,7 @@ export function Combobox({
   contentClassName,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
-  const [query, setQuery] = React.useState("");
+  const [query, setQuery] = React.useState('');
 
   const selected = React.useMemo(() => {
     for (const g of groups) {
@@ -79,9 +79,7 @@ export function Combobox({
     return groups
       .map((g) => ({
         ...g,
-        options: g.options.filter((o) =>
-          o.label.toLowerCase().includes(q),
-        ),
+        options: g.options.filter((o) => o.label.toLowerCase().includes(q)),
       }))
       .filter((g) => g.options.length > 0);
   }, [groups, query]);
@@ -90,7 +88,7 @@ export function Combobox({
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
-    if (next) setQuery("");
+    if (next) setQuery('');
   }
 
   function pick(v: string) {
@@ -107,16 +105,16 @@ export function Combobox({
             type="button"
             className={cn(
               // Mirrors SelectTrigger (size=sm) so the two read identically.
-              "flex h-8 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-input-border bg-transparent py-1.5 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30 dark:hover:bg-input/50",
-              className,
+              'border-input-border focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50 flex h-8 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border bg-transparent py-1.5 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-50',
+              className
             )}
           />
         }
       >
         <span
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-1.5 truncate text-left",
-            !children && !selected && "text-muted-foreground",
+            'flex min-w-0 flex-1 items-center gap-1.5 truncate text-left',
+            !children && !selected && 'text-muted-foreground'
           )}
         >
           {children ??
@@ -129,42 +127,42 @@ export function Combobox({
               placeholder
             ))}
         </span>
-        <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+        <ChevronDown className="text-muted-foreground size-4 shrink-0" />
       </PopoverTrigger>
 
       <PopoverContent
         align="start"
-        className={cn("w-64 gap-0 p-0", contentClassName)}
+        className={cn('w-64 gap-0 p-0', contentClassName)}
       >
-        <div className="flex items-center gap-2 border-b border-border px-2.5 py-2">
-          <Search className="size-3.5 shrink-0 text-muted-foreground" />
+        <div className="border-border flex items-center gap-2 border-b px-2.5 py-2">
+          <Search className="text-muted-foreground size-3.5 shrink-0" />
           <input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
               // Enter with exactly one visible option picks it.
-              if (e.key === "Enter" && visibleCount === 1) {
+              if (e.key === 'Enter' && visibleCount === 1) {
                 e.preventDefault();
                 const only = filtered[0]?.options[0];
                 if (only) pick(only.value);
               }
             }}
             placeholder={searchPlaceholder}
-            className="h-5 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+            className="text-foreground placeholder:text-muted-foreground h-5 w-full bg-transparent text-sm outline-none"
           />
         </div>
 
         <div className="max-h-64 overflow-y-auto p-1">
           {visibleCount === 0 && (
-            <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+            <p className="text-muted-foreground px-2 py-3 text-center text-xs">
               {emptyText}
             </p>
           )}
           {filtered.map((group, gi) => (
             <div key={group.label ?? gi}>
               {group.label && (
-                <p className="px-2 pt-2 pb-1 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                <p className="text-muted-foreground px-2 pt-2 pb-1 text-[10px] font-semibold tracking-[0.12em] uppercase">
                   {group.label}
                 </p>
               )}
@@ -173,17 +171,17 @@ export function Combobox({
                   key={o.value}
                   type="button"
                   onClick={() => pick(o.value)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-popover-foreground outline-none hover:bg-muted focus-visible:bg-muted"
+                  className="text-popover-foreground hover:bg-muted focus-visible:bg-muted flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none"
                 >
                   {o.icon}
                   <span className="min-w-0 flex-1 truncate">{o.label}</span>
                   {o.hint && (
-                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                    <span className="text-muted-foreground shrink-0 text-[11px]">
                       {o.hint}
                     </span>
                   )}
                   {o.value === value && (
-                    <Check className="size-3.5 shrink-0 text-primary-text" />
+                    <Check className="text-primary-text size-3.5 shrink-0" />
                   )}
                 </button>
               ))}
@@ -198,7 +196,7 @@ export function Combobox({
               setOpen(false);
               footer.onSelect();
             }}
-            className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-left text-sm font-medium text-primary-text outline-none hover:bg-muted focus-visible:bg-muted"
+            className="border-border text-primary-text hover:bg-muted focus-visible:bg-muted flex w-full items-center gap-2 border-t px-3 py-2 text-left text-sm font-medium outline-none"
           >
             <Plus className="size-3.5 shrink-0" />
             <span className="min-w-0 flex-1 truncate">{footer.label}</span>

@@ -1,11 +1,24 @@
-import {AbsoluteFill, Easing, Interactive, interpolate, useCurrentFrame} from "remotion";
-import {ArrowIcon, Brand, SceneBackground} from "../components";
+import {
+  AbsoluteFill,
+  Easing,
+  Interactive,
+  interpolate,
+  useCurrentFrame,
+} from "remotion";
+import { ArrowIcon, Brand, SceneBackground } from "../components";
 
 export const FinalScene: React.FC = () => {
   const frame = useCurrentFrame();
 
   return (
-    <AbsoluteFill style={{backgroundColor: "#0d0d14", overflow: "hidden", alignItems: "center", justifyContent: "center"}}>
+    <AbsoluteFill
+      style={{
+        backgroundColor: "#0d0d14",
+        overflow: "hidden",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
       <SceneBackground />
       <Interactive.Div
         name="Final content"
@@ -19,7 +32,11 @@ export const FinalScene: React.FC = () => {
           opacity: interpolate(frame, [0, 18, 104, 119], [0, 1, 1, 0], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: [Easing.bezier(0.16, 1, 0.3, 1), Easing.linear, Easing.bezier(0.7, 0, 0.84, 0)],
+            easing: [
+              Easing.bezier(0.16, 1, 0.3, 1),
+              Easing.linear,
+              Easing.bezier(0.7, 0, 0.84, 0),
+            ],
           }),
         }}
       >
@@ -79,7 +96,7 @@ export const FinalScene: React.FC = () => {
             scale: interpolate(frame, [42, 64], [0.86, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
-              easing: Easing.spring({damping: 180}),
+              easing: Easing.spring({ damping: 180 }),
               output: "perceptual-scale",
             }),
           }}

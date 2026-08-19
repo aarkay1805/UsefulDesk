@@ -1,68 +1,68 @@
-import { mergeProps } from "@base-ui/react/merge-props"
-import { useRender } from "@base-ui/react/use-render"
-import { cva, type VariantProps } from "class-variance-authority"
+import { mergeProps } from '@base-ui/react/merge-props';
+import { useRender } from '@base-ui/react/use-render';
+import { cva, type VariantProps } from 'class-variance-authority';
 
-import { resolveSemanticColorPreset } from "@/lib/semantic-colors"
-import { cn } from "@/lib/utils"
+import { resolveSemanticColorPreset } from '@/lib/semantic-colors';
+import { cn } from '@/lib/utils';
 
 const badgeVariants = cva(
-  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
+  'group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!',
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
+        default: 'bg-primary text-primary-foreground [a]:hover:bg-primary/80',
         secondary:
-          "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
+          'bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80',
         destructive:
-          "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
+          'bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20',
         outline:
-          "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
+          'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',
         ghost:
-          "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
-        link: "text-primary-text underline-offset-4 hover:underline",
+          'hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50',
+        link: 'text-primary-text underline-offset-4 hover:underline',
         // Tinted status pills — the canonical look for statuses across
         // the app (members renewals, leads, broadcasts, flows). Fill-only,
         // matching the upstream `destructive` recipe (tinted bg, no border).
         // Foreground tokens adapt toward the live page foreground, shared
         // with every other treatment of the same hue.
-        success: "bg-emerald-500/10 text-emerald-foreground",
-        danger: "bg-red-500/10 text-red-foreground",
-        warning: "bg-amber-500/10 text-amber-foreground",
-        info: "bg-sky-500/10 text-sky-foreground",
-        violet: "bg-violet-500/10 text-violet-foreground",
-        orange: "bg-orange-500/10 text-orange-foreground",
-        pink: "bg-pink-500/10 text-pink-foreground",
+        success: 'bg-emerald-500/10 text-emerald-foreground',
+        danger: 'bg-red-500/10 text-red-foreground',
+        warning: 'bg-amber-500/10 text-amber-foreground',
+        info: 'bg-sky-500/10 text-sky-foreground',
+        violet: 'bg-violet-500/10 text-violet-foreground',
+        orange: 'bg-orange-500/10 text-orange-foreground',
+        pink: 'bg-pink-500/10 text-pink-foreground',
         // Neutral slate pill (admin-made tags, counts): the fill-only
         // tint recipe in slate. Contextual containers such as a pressed
         // toolbar segment can promote it into their own colour family.
-        neutral: "bg-slate-500/10 text-slate-foreground",
+        neutral: 'bg-slate-500/10 text-slate-foreground',
         // Colour-free variant used internally when the `color` prop is
         // set: `.badge-tinted` (globals.css, components layer) supplies
         // bg + text, so the variant must not emit colour utilities —
         // they'd win the cascade and paint the pill solid primary.
-        tinted: "",
+        tinted: '',
       },
       size: {
-        default: "",
-        count: "h-auto rounded px-1.5 py-0 tabular-nums",
+        default: '',
+        count: 'h-auto rounded px-1.5 py-0 tabular-nums',
       },
     },
     defaultVariants: {
-      variant: "default",
-      size: "default",
+      variant: 'default',
+      size: 'default',
     },
   }
-)
+);
 
 function Badge({
   className,
-  variant = "default",
-  size = "default",
+  variant = 'default',
+  size = 'default',
   color,
   style,
   render,
   ...props
-}: useRender.ComponentProps<"span"> &
+}: useRender.ComponentProps<'span'> &
   VariantProps<typeof badgeVariants> & {
     /**
      * Hex colour from a DB-driven status. Known picker presets resolve to the
@@ -71,36 +71,37 @@ function Badge({
      * contrast-safe `.badge-tinted` fallback.
      */
     color?: string;
-}) {
-  const semanticPreset = resolveSemanticColorPreset(color)
-  const usesDynamicTint = Boolean(color && !semanticPreset)
+  }) {
+  const semanticPreset = resolveSemanticColorPreset(color);
+  const usesDynamicTint = Boolean(color && !semanticPreset);
 
   return useRender({
-    defaultTagName: "span",
-    props: mergeProps<"span">(
+    defaultTagName: 'span',
+    props: mergeProps<'span'>(
       {
         // Known stored presets route through the exact fixed variant. Only a
         // genuinely custom hex uses the colour-free dynamic recipe.
         className: cn(
           badgeVariants({
-            variant: semanticPreset?.badgeVariant ?? (color ? "tinted" : variant),
+            variant:
+              semanticPreset?.badgeVariant ?? (color ? 'tinted' : variant),
             size,
           }),
-          usesDynamicTint && "badge-tinted",
+          usesDynamicTint && 'badge-tinted',
           className
         ),
         style: usesDynamicTint
-          ? ({ "--badge-tint": color, ...style } as React.CSSProperties)
+          ? ({ '--badge-tint': color, ...style } as React.CSSProperties)
           : style,
       },
       props
     ),
     render,
     state: {
-      slot: "badge",
+      slot: 'badge',
       variant,
     },
-  })
+  });
 }
 
-export { Badge, badgeVariants }
+export { Badge, badgeVariants };

@@ -94,8 +94,8 @@ export function LeadsBoardView({
         prev.map((l) =>
           l.id === contactId
             ? { ...l, lead_status: status, updated_at: now }
-            : l,
-        ),
+            : l
+        )
       );
       // `.select('id')` turns an RLS-blocked write (silently zero rows) into
       // a visible failure, so the optimistic card can't stay in a column the
@@ -112,7 +112,7 @@ export function LeadsBoardView({
       }
       onStatusPersisted(contactId, status);
     },
-    [supabase, onStatusPersisted, leadsProp],
+    [supabase, onStatusPersisted, leadsProp]
   );
 
   return (

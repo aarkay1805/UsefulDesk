@@ -18,14 +18,14 @@
  *     period's payments can never diverge.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   InvoiceStatus,
   Membership,
   MembershipPeriodInvoice,
-} from "@/types";
-import { istToday } from "./expiry";
-import { optionEndDate, renewalFee } from "./pricing";
+} from '@/types';
+import { istToday } from './expiry';
+import { optionEndDate, renewalFee } from './pricing';
 
 /**
  * Money is rendered without minor units (`formatCurrency` — 0 fraction
@@ -51,21 +51,21 @@ export function isChargeableAmount(amount: number | string): boolean {
  * it is neither Paid (no money moved) nor Due (nothing is owed). An
  * over-paid stub (fee ≈ 0 but money collected) is Paid, not No charge.
  */
-export type InvoicePaymentState = "paid" | "due" | "no_charge";
+export type InvoicePaymentState = 'paid' | 'due' | 'no_charge';
 
 export function invoicePaymentState(
-  p: Pick<MembershipPeriodInvoice, "fee_amount" | "amount_paid" | "balance">,
+  p: Pick<MembershipPeriodInvoice, 'fee_amount' | 'amount_paid' | 'balance'>
 ): InvoicePaymentState {
   if (!isChargeableAmount(p.fee_amount) && !isChargeableAmount(p.amount_paid)) {
-    return "no_charge";
+    return 'no_charge';
   }
-  return isChargeableAmount(p.balance) ? "due" : "paid";
+  return isChargeableAmount(p.balance) ? 'due' : 'paid';
 }
 
 export const INVOICE_PAYMENT_LABEL: Record<InvoicePaymentState, string> = {
-  paid: "Paid",
-  due: "Due",
-  no_charge: "No charge",
+  paid: 'Paid',
+  due: 'Due',
+  no_charge: 'No charge',
 };
 
 /** Derive the invoice badge for a period. Void wins; then a cycle that
@@ -75,44 +75,44 @@ export const INVOICE_PAYMENT_LABEL: Record<InvoicePaymentState, string> = {
 export function periodStatus(
   p: Pick<
     MembershipPeriodInvoice,
-    "state" | "fee_amount" | "amount_paid" | "balance" | "period_start"
+    'state' | 'fee_amount' | 'amount_paid' | 'balance' | 'period_start'
   >,
-  today: string = istToday(),
+  today: string = istToday()
 ): InvoiceStatus {
-  if (p.state === "void") return "void";
+  if (p.state === 'void') return 'void';
   const pay = invoicePaymentState(p);
-  if (pay === "no_charge") return "no_charge";
-  if (pay === "paid") return "paid";
-  if (p.period_start > today) return "upcoming";
-  return "unpaid";
+  if (pay === 'no_charge') return 'no_charge';
+  if (pay === 'paid') return 'paid';
+  if (p.period_start > today) return 'upcoming';
+  return 'unpaid';
 }
 
 /** Whether an operational payment may be added to a persisted period. */
 export function isCollectiblePeriod(
-  p: Pick<MembershipPeriodInvoice, "state" | "balance"> | null,
-  membershipStatus: Membership["status"],
+  p: Pick<MembershipPeriodInvoice, 'state' | 'balance'> | null,
+  membershipStatus: Membership['status']
 ): boolean {
   return (
     !!p &&
-    p.state === "open" &&
-    membershipStatus !== "cancelled" &&
+    p.state === 'open' &&
+    membershipStatus !== 'cancelled' &&
     isChargeableAmount(p.balance)
   );
 }
 
 export const INVOICE_STATUS_LABEL: Record<InvoiceStatus, string> = {
-  paid: "Paid",
-  unpaid: "Unpaid",
-  upcoming: "Upcoming",
-  void: "Void",
-  no_charge: "No charge",
+  paid: 'Paid',
+  unpaid: 'Unpaid',
+  upcoming: 'Upcoming',
+  void: 'Void',
+  no_charge: 'No charge',
 };
 
 /**
  * The synthetic id prefix marking a projected (not-yet-persisted)
  * upcoming invoice, so the UI offers "Renew" instead of "Record" on it.
  */
-export const PROJECTED_INVOICE_PREFIX = "upcoming:";
+export const PROJECTED_INVOICE_PREFIX = 'upcoming:';
 
 export function isProjectedInvoice(id: string): boolean {
   return id.startsWith(PROJECTED_INVOICE_PREFIX);
@@ -134,22 +134,22 @@ export function isProjectedInvoice(id: string): boolean {
 export function projectNextInvoice(
   membership: Pick<
     Membership,
-    | "id"
-    | "account_id"
-    | "contact_id"
-    | "plan_id"
-    | "start_date"
-    | "end_date"
-    | "fee_amount"
-    | "status"
-    | "is_trial"
-    | "plan"
-    | "pricing_option"
+    | 'id'
+    | 'account_id'
+    | 'contact_id'
+    | 'plan_id'
+    | 'start_date'
+    | 'end_date'
+    | 'fee_amount'
+    | 'status'
+    | 'is_trial'
+    | 'plan'
+    | 'pricing_option'
   >,
-  today: string = istToday(),
+  today: string = istToday()
 ): MembershipPeriodInvoice | null {
   if (membership.is_trial) return null;
-  if (membership.status === "cancelled") return null;
+  if (membership.status === 'cancelled') return null;
   // An early renewal moves the membership pointer to a persisted future
   // cycle. That future period is already the one upcoming invoice; do not
   // fabricate another cycle after it.
@@ -158,7 +158,7 @@ export function projectNextInvoice(
   // after today), so the projected row is always genuinely Upcoming.
   if (membership.end_date <= today) return null;
   // Only a recurring plan has a next cycle to project.
-  if (membership.plan && membership.plan.plan_type !== "recurring") return null;
+  if (membership.plan && membership.plan.plan_type !== 'recurring') return null;
   const option = membership.pricing_option;
   if (!option) return null;
   const start = membership.end_date;
@@ -173,8 +173,8 @@ export function projectNextInvoice(
     period_start: start,
     period_end: end,
     fee_amount: fee,
-    state: "open",
-    created_at: "",
+    state: 'open',
+    created_at: '',
     amount_paid: 0,
     balance: fee,
   };
@@ -206,9 +206,9 @@ export async function editMembershipCycle(
     fee_amount: number;
     is_trial: boolean;
     notes: string | null;
-  },
+  }
 ) {
-  return supabase.rpc("edit_membership_cycle", {
+  return supabase.rpc('edit_membership_cycle', {
     p_membership_id: membershipId,
     p_plan_id: fields.plan_id,
     p_period_start: fields.period_start,
@@ -243,9 +243,9 @@ export async function changeMembershipPlan(
     collect_amount: number;
     method: string;
     idempotency_key: string;
-  },
+  }
 ) {
-  return supabase.rpc("change_membership_plan", {
+  return supabase.rpc('change_membership_plan', {
     p_membership_id: membershipId,
     p_plan_id: fields.plan_id,
     p_switch_date: fields.switch_date,
@@ -267,9 +267,9 @@ export async function changeMembershipPlan(
 export async function unfreezeMembership(
   supabase: SupabaseClient,
   membershipId: string,
-  newEndDate: string,
+  newEndDate: string
 ) {
-  return supabase.rpc("unfreeze_membership", {
+  return supabase.rpc('unfreeze_membership', {
     p_membership_id: membershipId,
     p_new_end_date: newEndDate,
   });
@@ -282,9 +282,9 @@ export async function unfreezeMembership(
 export async function setMembershipCancellation(
   supabase: SupabaseClient,
   membershipId: string,
-  cancelled: boolean,
+  cancelled: boolean
 ) {
-  return supabase.rpc("set_membership_cancellation", {
+  return supabase.rpc('set_membership_cancellation', {
     p_membership_id: membershipId,
     p_cancelled: cancelled,
   });

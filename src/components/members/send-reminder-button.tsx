@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { toast } from "sonner";
-import { Loader2, MessageCircle, Check, ArrowRight } from "lucide-react";
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { toast } from 'sonner';
+import { Loader2, MessageCircle, Check, ArrowRight } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { useLocale } from "@/hooks/use-locale";
-import type { LocaleFormatters } from "@/lib/locale/format";
-import type { Membership } from "@/types";
-import { Button } from "@/components/ui/button";
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { useLocale } from '@/hooks/use-locale';
+import type { LocaleFormatters } from '@/lib/locale/format';
+import type { Membership } from '@/types';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,8 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-} from "@/components/ui/dialog";
-import { RENEWAL_TEMPLATE_NAME } from "@/lib/memberships/renewal-reminders";
+} from '@/components/ui/dialog';
+import { RENEWAL_TEMPLATE_NAME } from '@/lib/memberships/renewal-reminders';
 
 // RENEWAL_TEMPLATE_NAME now lives in the server-safe lib so the cron can
 // share it; re-exported here to keep existing import sites working.
@@ -58,7 +58,7 @@ export function useReminderReadiness(): ReminderReadiness {
     ready: false,
     reason: null,
     resolution: null,
-    templateLanguage: "en_US",
+    templateLanguage: 'en_US',
   });
 
   useEffect(() => {
@@ -68,23 +68,27 @@ export function useReminderReadiness(): ReminderReadiness {
 
     (async () => {
       const [{ data: config }, { data: template }] = await Promise.all([
-        supabase.from("whatsapp_config").select("status").maybeSingle(),
+        supabase.from('whatsapp_config').select('status').maybeSingle(),
         supabase
-          .from("message_templates")
-          .select("language, status")
-          .eq("name", RENEWAL_TEMPLATE_NAME)
-          .eq("status", "APPROVED")
+          .from('message_templates')
+          .select('language, status')
+          .eq('name', RENEWAL_TEMPLATE_NAME)
+          .eq('status', 'APPROVED')
           .maybeSingle(),
       ]);
       if (cancelled) return;
 
-      if (!config || config.status !== "connected") {
+      if (!config || config.status !== 'connected') {
         setState({
           loading: false,
           ready: false,
-          reason: "WhatsApp isn't connected yet. Connect it to send renewal reminders.",
-          resolution: { label: "Connect WhatsApp", href: "/settings?tab=whatsapp" },
-          templateLanguage: "en_US",
+          reason:
+            "WhatsApp isn't connected yet. Connect it to send renewal reminders.",
+          resolution: {
+            label: 'Connect WhatsApp',
+            href: '/settings?tab=whatsapp',
+          },
+          templateLanguage: 'en_US',
         });
         return;
       }
@@ -93,8 +97,11 @@ export function useReminderReadiness(): ReminderReadiness {
           loading: false,
           ready: false,
           reason: `The "${RENEWAL_TEMPLATE_NAME}" template isn't approved yet. Create it and get Meta approval to send reminders.`,
-          resolution: { label: "Go to Templates", href: "/settings?tab=templates" },
-          templateLanguage: "en_US",
+          resolution: {
+            label: 'Go to Templates',
+            href: '/settings?tab=templates',
+          },
+          templateLanguage: 'en_US',
         });
         return;
       }
@@ -103,7 +110,7 @@ export function useReminderReadiness(): ReminderReadiness {
         ready: true,
         reason: null,
         resolution: null,
-        templateLanguage: template.language ?? "en_US",
+        templateLanguage: template.language ?? 'en_US',
       });
     })();
 
@@ -130,17 +137,17 @@ export async function sendRenewalReminder(
   // {{3}} expiry + {{4}} fee rendered the way the gym writes them
   // (locale settings, migration 055) — mirrors the cron's params.
   const params = [
-    membership.contact?.name?.trim() || "there",
-    membership.plan?.name || "membership",
+    membership.contact?.name?.trim() || 'there',
+    membership.plan?.name || 'membership',
     fmt.date(membership.end_date),
     fmt.money(membership.fee_amount),
   ];
-  const res = await fetch("/api/whatsapp/send", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const res = await fetch('/api/whatsapp/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contact_id: membership.contact_id,
-      message_type: "template",
+      message_type: 'template',
       template_name: RENEWAL_TEMPLATE_NAME,
       template_language: readiness.templateLanguage,
       template_message_params: { body: params },
@@ -149,7 +156,7 @@ export async function sendRenewalReminder(
   });
   const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(payload?.error || "Failed to send reminder");
+    throw new Error(payload?.error || 'Failed to send reminder');
   }
 }
 
@@ -158,9 +165,9 @@ interface SendReminderButtonProps {
   readiness: ReminderReadiness;
   /** Called after a reminder is successfully sent. */
   onSent?: () => void;
-  size?: "sm" | "default";
+  size?: 'sm' | 'default';
   /** Rows stay quiet; profile surfaces may give the same action an edge. */
-  variant?: "ghost" | "outline";
+  variant?: 'ghost' | 'outline';
 }
 
 /**
@@ -172,8 +179,8 @@ export function SendReminderButton({
   membership,
   readiness,
   onSent,
-  size = "sm",
-  variant = "ghost",
+  size = 'sm',
+  variant = 'ghost',
 }: SendReminderButtonProps) {
   const { fmt } = useLocale();
   const [sending, setSending] = useState(false);
@@ -217,10 +224,12 @@ export function SendReminderButton({
     try {
       await sendRenewalReminder(membership, readiness, fmt);
       setSent(true);
-      toast.success("Reminder sent on WhatsApp");
+      toast.success('Reminder sent on WhatsApp');
       onSent?.();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to send reminder");
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to send reminder'
+      );
     } finally {
       setSending(false);
     }
@@ -236,8 +245,8 @@ export function SendReminderButton({
         disabled={disabled}
         // Blocked buttons stay clickable so the reason dialog can open;
         // dim them so they still read as not-ready.
-        className={blocked && !sent ? "opacity-60" : undefined}
-        title={blockedReason ?? "Send a WhatsApp renewal reminder"}
+        className={blocked && !sent ? 'opacity-60' : undefined}
+        title={blockedReason ?? 'Send a WhatsApp renewal reminder'}
       >
         {sending ? (
           <Loader2 className="size-3.5 animate-spin" />
@@ -246,7 +255,7 @@ export function SendReminderButton({
         ) : (
           <MessageCircle className="size-3.5" />
         )}
-        {sent ? "Reminded" : "Remind"}
+        {sent ? 'Reminded' : 'Remind'}
       </Button>
 
       <Dialog open={blockerOpen} onOpenChange={setBlockerOpen}>
@@ -256,7 +265,9 @@ export function SendReminderButton({
             <DialogDescription>{blockedReason}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Close</DialogClose>
+            <DialogClose render={<Button variant="outline" />}>
+              Close
+            </DialogClose>
             {resolution && (
               <Button
                 render={<Link href={resolution.href} />}

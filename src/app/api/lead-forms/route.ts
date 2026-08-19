@@ -17,7 +17,11 @@ import { randomBytes } from 'crypto';
 import { NextResponse } from 'next/server';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+} from '@/lib/rate-limit';
 import { getClientIp } from '@/lib/security/client-ip';
 
 /** 32 CSPRNG bytes → 43 base64url chars. Same entropy as an invite
@@ -31,7 +35,10 @@ export async function POST(request: Request) {
     const { supabase, accountId, userId } = await requireRole('admin');
 
     const ip = getClientIp(request);
-    const limit = checkRateLimit(`leadform:${userId}:${ip}`, RATE_LIMITS.adminAction);
+    const limit = checkRateLimit(
+      `leadform:${userId}:${ip}`,
+      RATE_LIMITS.adminAction
+    );
     if (!limit.success) return rateLimitResponse(limit);
 
     let rotate = false;
@@ -50,7 +57,10 @@ export async function POST(request: Request) {
 
     if (readError) {
       console.error('[lead-forms] read error:', readError);
-      return NextResponse.json({ error: 'Failed to load form' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to load form' },
+        { status: 500 }
+      );
     }
 
     if (existing && !rotate) {
@@ -72,7 +82,10 @@ export async function POST(request: Request) {
 
       if (error || !rotated) {
         console.error('[lead-forms] rotate error:', error);
-        return NextResponse.json({ error: 'Failed to rotate link' }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Failed to rotate link' },
+          { status: 500 }
+        );
       }
       return NextResponse.json({ form: rotated });
     }
@@ -89,7 +102,10 @@ export async function POST(request: Request) {
 
     if (error || !created) {
       console.error('[lead-forms] create error:', error);
-      return NextResponse.json({ error: 'Failed to create form' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to create form' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ form: created }, { status: 201 });

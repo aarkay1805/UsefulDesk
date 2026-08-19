@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import * as React from "react";
+import * as React from 'react';
 
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 /** Intl instances are expensive to build; cache per locale tag. */
 const nfCache = new Map<string, Intl.NumberFormat>();
@@ -18,9 +18,9 @@ function grouper(locale: string): Intl.NumberFormat {
 
 /** Digits plus at most one decimal point — the raw value we store. */
 function sanitizeAmount(input: string): string {
-  const cleaned = input.replace(/[^0-9.]/g, "");
-  const [head, ...rest] = cleaned.split(".");
-  return rest.length > 0 ? `${head}.${rest.join("")}` : head;
+  const cleaned = input.replace(/[^0-9.]/g, '');
+  const [head, ...rest] = cleaned.split('.');
+  return rest.length > 0 ? `${head}.${rest.join('')}` : head;
 }
 
 /**
@@ -29,15 +29,15 @@ function sanitizeAmount(input: string): string {
  * "1,000.") so grouping never fights the keyboard.
  */
 function groupAmount(raw: string, locale: string): string {
-  if (raw === "") return "";
-  const dot = raw.indexOf(".");
+  if (raw === '') return '';
+  const dot = raw.indexOf('.');
   const int = dot === -1 ? raw : raw.slice(0, dot);
   const dec = dot === -1 ? null : raw.slice(dot + 1);
-  const grouped = int === "" ? "" : grouper(locale).format(Number(int));
+  const grouped = int === '' ? '' : grouper(locale).format(Number(int));
   return dec === null ? grouped : `${grouped}.${dec}`;
 }
 
-const countAmountChars = (s: string) => s.replace(/[^0-9.]/g, "").length;
+const countAmountChars = (s: string) => s.replace(/[^0-9.]/g, '').length;
 
 /** Caret offset in `formatted` that sits after `n` digits/decimal chars. */
 function caretAfterAmountChars(formatted: string, n: number): number {
@@ -77,7 +77,7 @@ function CurrencyInput({
   onValueChange,
   value,
   ...props
-}: Omit<React.ComponentProps<"input">, "onChange"> & {
+}: Omit<React.ComponentProps<'input'>, 'onChange'> & {
   symbol: string;
   /** BCP-47 tag — presence switches the field into grouped mode. */
   groupLocale?: string;
@@ -89,18 +89,18 @@ function CurrencyInput({
   // in its own divided compartment. Class-only so Tailwind can see every
   // variant.
   const adornment =
-    symbol.length <= 1 ? "w-9" : symbol.length === 2 ? "w-11" : "w-14";
+    symbol.length <= 1 ? 'w-9' : symbol.length === 2 ? 'w-11' : 'w-14';
   const pad =
-    symbol.length <= 1 ? "pl-11" : symbol.length === 2 ? "pl-13" : "pl-16";
+    symbol.length <= 1 ? 'pl-11' : symbol.length === 2 ? 'pl-13' : 'pl-16';
 
   const grouped = !!groupLocale;
-  const raw = value == null ? "" : String(value);
+  const raw = value == null ? '' : String(value);
 
   // Rewrite the DOM value to the grouped form in place and restore the
   // caret, then report the raw value up. React re-renders with the same
   // string, so it won't touch (or reset) the caret.
   const handleGroupedChange: React.ChangeEventHandler<HTMLInputElement> = (
-    e,
+    e
   ) => {
     const el = e.currentTarget;
     const caret = el.selectionStart ?? el.value.length;
@@ -118,7 +118,7 @@ function CurrencyInput({
       <span
         aria-hidden
         className={cn(
-          "text-muted-foreground border-border pointer-events-none absolute inset-y-px left-px z-10 flex items-center justify-center border-r text-sm",
+          'text-muted-foreground border-border pointer-events-none absolute inset-y-px left-px z-10 flex items-center justify-center border-r text-sm',
           adornment
         )}
       >
@@ -134,7 +134,12 @@ function CurrencyInput({
           className={cn(pad, className)}
         />
       ) : (
-        <Input type="number" value={value} {...props} className={cn(pad, className)} />
+        <Input
+          type="number"
+          value={value}
+          {...props}
+          className={cn(pad, className)}
+        />
       )}
     </div>
   );

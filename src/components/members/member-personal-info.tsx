@@ -1,30 +1,30 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
-import { createClient } from "@/lib/supabase/client";
-import { GENDER_OPTIONS } from "@/lib/leads/attributes";
-import type { Contact } from "@/types";
+import { createClient } from '@/lib/supabase/client';
+import { GENDER_OPTIONS } from '@/lib/leads/attributes';
+import type { Contact } from '@/types';
 import {
   Card,
   CardHeader,
   CardTitle,
   CardAction,
   CardContent,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { PhoneInput } from "@/components/ui/phone-input";
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { PhoneInput } from '@/components/ui/phone-input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 
 interface MemberPersonalInfoProps {
   contact: Contact;
@@ -52,18 +52,18 @@ type Draft = {
 
 function toDraft(c: Contact): Draft {
   return {
-    name: c.name ?? "",
-    nickname: c.nickname ?? "",
-    email: c.email ?? "",
-    phone: c.phone ?? "",
-    gender: c.gender ?? "",
-    date_of_birth: c.date_of_birth ?? "",
-    address_line1: c.address_line1 ?? "",
-    address_line2: c.address_line2 ?? "",
-    city: c.city ?? "",
-    state: c.state ?? "",
-    postal_code: c.postal_code ?? "",
-    country: c.country ?? "",
+    name: c.name ?? '',
+    nickname: c.nickname ?? '',
+    email: c.email ?? '',
+    phone: c.phone ?? '',
+    gender: c.gender ?? '',
+    date_of_birth: c.date_of_birth ?? '',
+    address_line1: c.address_line1 ?? '',
+    address_line2: c.address_line2 ?? '',
+    city: c.city ?? '',
+    state: c.state ?? '',
+    postal_code: c.postal_code ?? '',
+    country: c.country ?? '',
   };
 }
 
@@ -73,7 +73,7 @@ function Field({
   value,
   onChange,
   disabled,
-  type = "text",
+  type = 'text',
   placeholder,
 }: {
   label: string;
@@ -85,15 +85,15 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      {type === "date" ? (
+      <Label className="text-muted-foreground text-xs">{label}</Label>
+      {type === 'date' ? (
         <DatePicker
           value={value}
           onChange={onChange}
           disabled={disabled}
           placeholder={placeholder}
         />
-      ) : type === "tel" ? (
+      ) : type === 'tel' ? (
         <PhoneInput
           value={value}
           onValueChange={onChange}
@@ -130,8 +130,11 @@ export function MemberPersonalInfo({
   const [busy, setBusy] = useState(false);
 
   const dirty = useMemo(
-    () => (Object.keys(initial) as (keyof Draft)[]).some((k) => draft[k] !== initial[k]),
-    [draft, initial],
+    () =>
+      (Object.keys(initial) as (keyof Draft)[]).some(
+        (k) => draft[k] !== initial[k]
+      ),
+    [draft, initial]
   );
 
   const set = (k: keyof Draft) => (v: string) =>
@@ -143,20 +146,20 @@ export function MemberPersonalInfo({
     const payload = Object.fromEntries(
       (Object.keys(draft) as (keyof Draft)[]).map((k) => [
         k,
-        draft[k].trim() === "" ? null : draft[k].trim(),
-      ]),
+        draft[k].trim() === '' ? null : draft[k].trim(),
+      ])
     );
     const { data, error } = await supabase
-      .from("contacts")
+      .from('contacts')
       .update(payload)
-      .eq("id", contact.id)
-      .select("id");
+      .eq('id', contact.id)
+      .select('id');
     setBusy(false);
 
     if (error) return toast.error(error.message);
     if (!data || data.length === 0)
       return toast.error("You don't have permission to edit this member.");
-    toast.success("Details saved");
+    toast.success('Details saved');
     onSaved();
   }
 
@@ -174,17 +177,45 @@ export function MemberPersonalInfo({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="Name" value={draft.name} onChange={set("name")} disabled={!canEdit} />
-          <Field label="Nickname" value={draft.nickname} onChange={set("nickname")} disabled={!canEdit} />
-          <Field label="Birthday" type="date" value={draft.date_of_birth} onChange={set("date_of_birth")} disabled={!canEdit} />
-          <Field label="Email" type="email" value={draft.email} onChange={set("email")} disabled={!canEdit} />
-          <Field label="Phone" type="tel" value={draft.phone} onChange={set("phone")} disabled={!canEdit} />
+          <Field
+            label="Name"
+            value={draft.name}
+            onChange={set('name')}
+            disabled={!canEdit}
+          />
+          <Field
+            label="Nickname"
+            value={draft.nickname}
+            onChange={set('nickname')}
+            disabled={!canEdit}
+          />
+          <Field
+            label="Birthday"
+            type="date"
+            value={draft.date_of_birth}
+            onChange={set('date_of_birth')}
+            disabled={!canEdit}
+          />
+          <Field
+            label="Email"
+            type="email"
+            value={draft.email}
+            onChange={set('email')}
+            disabled={!canEdit}
+          />
+          <Field
+            label="Phone"
+            type="tel"
+            value={draft.phone}
+            onChange={set('phone')}
+            disabled={!canEdit}
+          />
           {/* Gender — reuses GENDER_OPTIONS (same values as leads). */}
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-muted-foreground">Gender</Label>
+            <Label className="text-muted-foreground text-xs">Gender</Label>
             <Select
               value={draft.gender || undefined}
-              onValueChange={(v) => set("gender")(v ?? "")}
+              onValueChange={(v) => set('gender')(v ?? '')}
               disabled={!canEdit}
             >
               <SelectTrigger size="sm" className="w-full">
@@ -202,14 +233,44 @@ export function MemberPersonalInfo({
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-xs font-medium text-muted-foreground">Address</p>
+          <p className="text-muted-foreground text-xs font-medium">Address</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="Address line 1" value={draft.address_line1} onChange={set("address_line1")} disabled={!canEdit} />
-            <Field label="Address line 2" value={draft.address_line2} onChange={set("address_line2")} disabled={!canEdit} />
-            <Field label="City" value={draft.city} onChange={set("city")} disabled={!canEdit} />
-            <Field label="State / Province" value={draft.state} onChange={set("state")} disabled={!canEdit} />
-            <Field label="Zip / Postal code" value={draft.postal_code} onChange={set("postal_code")} disabled={!canEdit} />
-            <Field label="Country" value={draft.country} onChange={set("country")} disabled={!canEdit} />
+            <Field
+              label="Address line 1"
+              value={draft.address_line1}
+              onChange={set('address_line1')}
+              disabled={!canEdit}
+            />
+            <Field
+              label="Address line 2"
+              value={draft.address_line2}
+              onChange={set('address_line2')}
+              disabled={!canEdit}
+            />
+            <Field
+              label="City"
+              value={draft.city}
+              onChange={set('city')}
+              disabled={!canEdit}
+            />
+            <Field
+              label="State / Province"
+              value={draft.state}
+              onChange={set('state')}
+              disabled={!canEdit}
+            />
+            <Field
+              label="Zip / Postal code"
+              value={draft.postal_code}
+              onChange={set('postal_code')}
+              disabled={!canEdit}
+            />
+            <Field
+              label="Country"
+              value={draft.country}
+              onChange={set('country')}
+              disabled={!canEdit}
+            />
           </div>
         </div>
       </CardContent>

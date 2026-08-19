@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
-import { cn } from "@/lib/utils";
-import type { Message, MessageReaction, MessageReferral } from "@/types";
+import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
+import type { Message, MessageReaction, MessageReferral } from '@/types';
 import {
   Clock,
   Check,
@@ -16,16 +16,16 @@ import {
   CornerDownLeft,
   ExternalLink,
   Megaphone,
-} from "lucide-react";
-import { useLocale } from "@/hooks/use-locale";
-import { ReplyQuote } from "./reply-quote";
-import { MessageReactions } from "./message-reactions";
-import { Badge } from "@/components/ui/badge";
-import { SourceIcon } from "@/components/leads/source-icon";
+} from 'lucide-react';
+import { useLocale } from '@/hooks/use-locale';
+import { ReplyQuote } from './reply-quote';
+import { MessageReactions } from './message-reactions';
+import { Badge } from '@/components/ui/badge';
+import { SourceIcon } from '@/components/leads/source-icon';
 import {
   referralDisplayLabel,
   referralSourceHref,
-} from "@/lib/whatsapp/referral";
+} from '@/lib/whatsapp/referral';
 
 interface MessageBubbleProps {
   message: Message;
@@ -43,18 +43,43 @@ interface MessageBubbleProps {
 // fixed grey/blue/red ticks fell below 3:1 on several accents. "Read"
 // is full-strength vs the dimmed pending tier, and every state carries
 // an aria-label so the meaning never rides on colour alone (WCAG 1.4.1).
-function StatusIcon({ status }: { status: Message["status"] }) {
+function StatusIcon({ status }: { status: Message['status'] }) {
   switch (status) {
-    case "sending":
-      return <Clock aria-label="Sending" className="h-3 w-3 text-primary-foreground/70" />;
-    case "sent":
-      return <Check aria-label="Sent" className="h-3 w-3 text-primary-foreground/70" />;
-    case "delivered":
-      return <CheckCheck aria-label="Delivered" className="h-3 w-3 text-primary-foreground/70" />;
-    case "read":
-      return <CheckCheck aria-label="Read" className="h-3 w-3 text-primary-foreground" />;
-    case "failed":
-      return <XCircle aria-label="Failed to send" className="h-3 w-3 text-primary-foreground" />;
+    case 'sending':
+      return (
+        <Clock
+          aria-label="Sending"
+          className="text-primary-foreground/70 h-3 w-3"
+        />
+      );
+    case 'sent':
+      return (
+        <Check
+          aria-label="Sent"
+          className="text-primary-foreground/70 h-3 w-3"
+        />
+      );
+    case 'delivered':
+      return (
+        <CheckCheck
+          aria-label="Delivered"
+          className="text-primary-foreground/70 h-3 w-3"
+        />
+      );
+    case 'read':
+      return (
+        <CheckCheck
+          aria-label="Read"
+          className="text-primary-foreground h-3 w-3"
+        />
+      );
+    case 'failed':
+      return (
+        <XCircle
+          aria-label="Failed to send"
+          className="text-primary-foreground h-3 w-3"
+        />
+      );
     default:
       return null;
   }
@@ -62,8 +87,8 @@ function StatusIcon({ status }: { status: Message["status"] }) {
 
 function MediaUnavailable({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-      <ImageOff className="h-4 w-4 shrink-0 text-muted-foreground" />
+    <div className="bg-muted/40 text-muted-foreground flex items-center gap-2 rounded-lg px-3 py-2 text-xs">
+      <ImageOff className="text-muted-foreground h-4 w-4 shrink-0" />
       <span>{label} unavailable</span>
     </div>
   );
@@ -78,10 +103,10 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
     if (!url) return;
 
     // Proxy URLs need auth fetch to create blob URL
-    if (url.startsWith("/api/whatsapp/media/")) {
+    if (url.startsWith('/api/whatsapp/media/')) {
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error("Failed to load media");
+        if (!res.ok) throw new Error('Failed to load media');
         const blob = await res.blob();
         const blobUrl = URL.createObjectURL(blob);
         setSrc(blobUrl);
@@ -104,7 +129,7 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
     })();
     return () => {
       cancelled = true;
-      if (src?.startsWith("blob:")) {
+      if (src?.startsWith('blob:')) {
         URL.revokeObjectURL(src);
       }
     };
@@ -113,23 +138,23 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
 
   if (error) {
     return (
-      <div className="flex h-40 w-60 items-center justify-center rounded-lg bg-muted">
-        <ImageOff className="h-8 w-8 text-muted-foreground" />
+      <div className="bg-muted flex h-40 w-60 items-center justify-center rounded-lg">
+        <ImageOff className="text-muted-foreground h-8 w-8" />
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="flex h-40 w-60 items-center justify-center rounded-lg bg-muted">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="bg-muted flex h-40 w-60 items-center justify-center rounded-lg">
+        <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
       </div>
     );
   }
 
   return (
     <Image
-      src={src ?? ""}
+      src={src ?? ''}
       alt={alt}
       width={240}
       height={256}
@@ -146,7 +171,7 @@ function ReferralContext({ referral }: { referral: MessageReferral }) {
   const sourceKey = referral.source_platform;
 
   return (
-    <div className="mb-2 max-w-60 space-y-1.5 border-b border-border/50 pb-2">
+    <div className="border-border/50 mb-2 max-w-60 space-y-1.5 border-b pb-2">
       <Badge variant="neutral">
         {sourceKey ? (
           <SourceIcon source={sourceKey} label={label} />
@@ -159,7 +184,7 @@ function ReferralContext({ referral }: { referral: MessageReferral }) {
         <p className="text-xs font-medium">{referral.headline}</p>
       )}
       {referral.body && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">
+        <p className="text-muted-foreground line-clamp-2 text-xs">
           {referral.body}
         </p>
       )}
@@ -168,7 +193,7 @@ function ReferralContext({ referral }: { referral: MessageReferral }) {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-primary-text hover:underline"
+          className="text-primary-text inline-flex items-center gap-1 text-xs hover:underline"
         >
           View source
           <ExternalLink className="size-3" aria-hidden />
@@ -180,14 +205,14 @@ function ReferralContext({ referral }: { referral: MessageReferral }) {
 
 function MessageContent({ message }: { message: Message }) {
   switch (message.content_type) {
-    case "text":
+    case 'text':
       return (
-        <p className="whitespace-pre-wrap break-words text-sm">
+        <p className="text-sm break-words whitespace-pre-wrap">
           {message.content_text}
         </p>
       );
 
-    case "image":
+    case 'image':
       return (
         <div>
           {message.media_url ? (
@@ -196,14 +221,14 @@ function MessageContent({ message }: { message: Message }) {
             <MediaUnavailable label="Image" />
           )}
           {message.content_text && (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+            <p className="mt-1 text-sm break-words whitespace-pre-wrap">
               {message.content_text}
             </p>
           )}
         </div>
       );
 
-    case "video":
+    case 'video':
       return (
         <div>
           {message.media_url ? (
@@ -216,14 +241,14 @@ function MessageContent({ message }: { message: Message }) {
             <MediaUnavailable label="Video" />
           )}
           {message.content_text && (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+            <p className="mt-1 text-sm break-words whitespace-pre-wrap">
               {message.content_text}
             </p>
           )}
         </div>
       );
 
-    case "audio":
+    case 'audio':
       return (
         <div>
           {message.media_url ? (
@@ -234,48 +259,46 @@ function MessageContent({ message }: { message: Message }) {
         </div>
       );
 
-    case "document":
+    case 'document':
       if (!message.media_url) {
-        return <MediaUnavailable label={message.content_text || "Document"} />;
+        return <MediaUnavailable label={message.content_text || 'Document'} />;
       }
       return (
         <a
           href={message.media_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm hover:bg-muted"
+          className="bg-muted/50 hover:bg-muted flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
         >
-          <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
-          <span className="truncate">
-            {message.content_text || "Document"}
-          </span>
+          <FileText className="text-muted-foreground h-5 w-5 shrink-0" />
+          <span className="truncate">{message.content_text || 'Document'}</span>
         </a>
       );
 
-    case "template":
+    case 'template':
       return (
         <div>
-          <span className="mb-1 inline-flex items-center gap-1 rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary-text">
+          <span className="bg-primary/20 text-primary-text mb-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium">
             <LayoutTemplate className="h-3 w-3" />
             Template
           </span>
           {message.content_text && (
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+            <p className="mt-1 text-sm break-words whitespace-pre-wrap">
               {message.content_text}
             </p>
           )}
         </div>
       );
 
-    case "location":
+    case 'location':
       return (
         <div className="flex items-center gap-2 text-sm">
-          <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span>{message.content_text || "Location shared"}</span>
+          <MapPin className="text-muted-foreground h-4 w-4 shrink-0" />
+          <span>{message.content_text || 'Location shared'}</span>
         </div>
       );
 
-    case "interactive": {
+    case 'interactive': {
       // Customer tapped a reply button or list row on a message the bot
       // sent. We show the tapped option's title (already in content_text,
       // set by parseMessageContent in the webhook) with a small affordance
@@ -283,12 +306,12 @@ function MessageContent({ message }: { message: Message }) {
       // tap rather than the customer typing the same words.
       return (
         <div className="flex flex-col gap-0.5">
-          <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <span className="text-muted-foreground inline-flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase">
             <CornerDownLeft className="h-3 w-3" />
             Button reply
           </span>
-          <p className="whitespace-pre-wrap break-words text-sm">
-            {message.content_text || "[Interactive reply]"}
+          <p className="text-sm break-words whitespace-pre-wrap">
+            {message.content_text || '[Interactive reply]'}
           </p>
         </div>
       );
@@ -296,8 +319,8 @@ function MessageContent({ message }: { message: Message }) {
 
     default:
       return (
-        <p className="whitespace-pre-wrap break-words text-sm">
-          {message.content_text || "[Unsupported message type]"}
+        <p className="text-sm break-words whitespace-pre-wrap">
+          {message.content_text || '[Unsupported message type]'}
         </p>
       );
   }
@@ -311,24 +334,20 @@ export function MessageBubble({
   onToggleReaction,
 }: MessageBubbleProps) {
   const { fmt } = useLocale();
-  const isAgent = message.sender_type === "agent" || message.sender_type === "bot";
+  const isAgent =
+    message.sender_type === 'agent' || message.sender_type === 'bot';
   const time = fmt.time(new Date(message.created_at));
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.
   return (
-    <div
-      className={cn(
-        "flex flex-col",
-        isAgent ? "items-end" : "items-start",
-      )}
-    >
+    <div className={cn('flex flex-col', isAgent ? 'items-end' : 'items-start')}>
       <div
         className={cn(
-          "relative rounded-2xl px-3 py-2",
+          'relative rounded-2xl px-3 py-2',
           isAgent
-            ? "rounded-br-md bg-primary text-primary-foreground"
-            : "rounded-bl-md bg-muted text-foreground",
+            ? 'bg-primary text-primary-foreground rounded-br-md'
+            : 'bg-muted text-foreground rounded-bl-md'
         )}
       >
         {reply && (
@@ -342,18 +361,18 @@ export function MessageBubble({
         <MessageContent message={message} />
         <div
           className={cn(
-            "mt-1 flex items-center gap-1",
-            isAgent ? "justify-end" : "justify-start",
+            'mt-1 flex items-center gap-1',
+            isAgent ? 'justify-end' : 'justify-start'
           )}
         >
           <span
             className={cn(
-              "text-[10px]",
+              'text-[10px]',
               // Outbound bubbles sit on the primary fill, so the
               // timestamp must read against that (not the neutral
               // foreground) — otherwise it goes low-contrast in light
               // mode. Inbound bubbles use the muted surface.
-              isAgent ? "text-primary-foreground/70" : "text-muted-foreground",
+              isAgent ? 'text-primary-foreground/70' : 'text-muted-foreground'
             )}
           >
             {time}

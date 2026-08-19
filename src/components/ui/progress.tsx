@@ -1,6 +1,6 @@
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
-interface ProgressProps extends React.ComponentProps<"div"> {
+interface ProgressProps extends React.ComponentProps<'div'> {
   /** Current value, clamped to [0, max]. */
   value: number;
   /** Upper bound the value is measured against. Defaults to 100. */
@@ -23,14 +23,14 @@ function Progress({ value, max = 100, className, ...props }: ProgressProps) {
       aria-valuemax={max}
       aria-valuenow={bounded}
       className={cn(
-        "h-1.5 w-full overflow-hidden rounded-full bg-muted",
-        className,
+        'bg-muted h-1.5 w-full overflow-hidden rounded-full',
+        className
       )}
       {...props}
     >
       <div
         data-slot="progress-fill"
-        className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
+        className="bg-primary h-full rounded-full transition-[width] duration-500 ease-out"
         style={{ width: `${percent}%` }}
       />
     </div>

@@ -1,6 +1,6 @@
-import {mkdirSync, writeFileSync} from "node:fs";
-import {dirname, resolve} from "node:path";
-import {fileURLToPath} from "node:url";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const sampleRate = 44100;
 const seconds = 21;
@@ -33,8 +33,12 @@ for (let i = 0; i < frames; i++) {
   let value = 0;
 
   chords[section].forEach((frequency, voice) => {
-    value += Math.sin(2 * Math.PI * frequency * time + voice * 0.7) * (0.025 / (voice + 1));
-    value += Math.sin(2 * Math.PI * frequency * 2 * time + voice * 0.4) * (0.006 / (voice + 1));
+    value +=
+      Math.sin(2 * Math.PI * frequency * time + voice * 0.7) *
+      (0.025 / (voice + 1));
+    value +=
+      Math.sin(2 * Math.PI * frequency * 2 * time + voice * 0.4) *
+      (0.006 / (voice + 1));
   });
 
   value *= envelope;
@@ -54,7 +58,10 @@ for (let i = 0; i < frames; i++) {
     }
   }
 
-  const masterFade = Math.min(smoothstep(time / 0.8), smoothstep((seconds - time) / 1.4));
+  const masterFade = Math.min(
+    smoothstep(time / 0.8),
+    smoothstep((seconds - time) / 1.4),
+  );
   const sample = Math.max(-1, Math.min(1, value * masterFade));
   const left = Math.round(sample * 32767);
   const right = Math.round(sample * 0.94 * 32767);
@@ -80,6 +87,6 @@ wav.writeUInt32LE(dataSize, 40);
 Buffer.from(pcm.buffer).copy(wav, 44);
 
 const output = resolve(root, "public", "usefuldesk-promo-bed.wav");
-mkdirSync(dirname(output), {recursive: true});
+mkdirSync(dirname(output), { recursive: true });
 writeFileSync(output, wav);
 console.log(output);

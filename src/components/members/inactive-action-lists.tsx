@@ -92,7 +92,9 @@ export function InactiveActionLists({
         .eq('is_trial', false)
         .gte('end_date', fmt.today());
       const activityRows = (data as MemberActivity[]) ?? [];
-      const contactIds = [...new Set(activityRows.map((row) => row.contact_id))];
+      const contactIds = [
+        ...new Set(activityRows.map((row) => row.contact_id)),
+      ];
       const { data: contacts } =
         contactIds.length > 0
           ? await supabase
@@ -250,9 +252,7 @@ function RetentionList({
                       readiness,
                       canFollowUp,
                       onSelect: () => onSelect(r.membership_id),
-                      onFollowUp: onAssign
-                        ? () => onAssign(r)
-                        : undefined,
+                      onFollowUp: onAssign ? () => onAssign(r) : undefined,
                     })}
                     meta={
                       <p className="text-muted-foreground truncate text-xs">

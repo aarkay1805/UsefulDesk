@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { MembershipPlan } from "@/types";
+import { useCallback, useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { MembershipPlan } from '@/types';
 
 /**
  * Load the account's membership plans (RLS scopes to the caller's
@@ -25,10 +25,12 @@ export function useMembershipPlans(activeOnly = true) {
       // pricing_options ride along (062) — a plan's price/duration live
       // there now; the plan's own price/duration_days are legacy-frozen.
       const base = supabase
-        .from("membership_plans")
-        .select("*, pricing_options:plan_pricing_options(*)")
-        .order("name", { ascending: true });
-      const { data } = activeOnly ? await base.eq("is_active", true) : await base;
+        .from('membership_plans')
+        .select('*, pricing_options:plan_pricing_options(*)')
+        .order('name', { ascending: true });
+      const { data } = activeOnly
+        ? await base.eq('is_active', true)
+        : await base;
       if (cancelled) return;
       const rows = ((data as MembershipPlan[]) ?? []).map((p) => ({
         ...p,
@@ -37,7 +39,7 @@ export function useMembershipPlans(activeOnly = true) {
           .sort(
             (a, b) =>
               a.sort_order - b.sort_order ||
-              a.created_at.localeCompare(b.created_at),
+              a.created_at.localeCompare(b.created_at)
           ),
       }));
       setPlans(rows);

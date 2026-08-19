@@ -46,7 +46,9 @@ function row(over: Partial<MappedRow>): MappedRow {
 
 describe('coerceOptionValue', () => {
   it('matches exact keys and case-insensitive labels', () => {
-    expect(coerceOptionValue('trial_booked', STATUSES).key).toBe('trial_booked');
+    expect(coerceOptionValue('trial_booked', STATUSES).key).toBe(
+      'trial_booked'
+    );
     expect(coerceOptionValue('TRIAL BOOKED', STATUSES)).toEqual({
       key: 'trial_booked',
       matched: true,
@@ -105,14 +107,15 @@ describe('coerceAssignee', () => {
 
 describe('detectFieldType', () => {
   it('detects dates, emails, numbers and urls', () => {
-    expect(detectFieldType('VISITED DATE', ['02/07/2026', '28/06/2026']).type)
-      .toBe('date');
+    expect(
+      detectFieldType('VISITED DATE', ['02/07/2026', '28/06/2026']).type
+    ).toBe('date');
     expect(detectFieldType('Mail', ['a@b.com', 'c@d.in']).type).toBe('email');
     expect(detectFieldType('Fee', ['1200', '1,500', '999.50']).type).toBe(
-      'number',
+      'number'
     );
     expect(detectFieldType('Site', ['https://x.com', 'www.y.in']).type).toBe(
-      'url',
+      'url'
     );
   });
 
@@ -215,7 +218,7 @@ describe('unmatchedValues + applyValueFix', () => {
       unmatchedRows(),
       'status',
       'Not Interested',
-      'lost',
+      'lost'
     );
     expect(fixed[0].leadStatus).toBe('lost');
     expect(fixed[1].leadStatus).toBe('lost');
@@ -251,7 +254,7 @@ describe('assignee as a fixable value', () => {
     const assignees = values.filter((v) => v.field === 'assignee');
     expect(assignees).toHaveLength(2);
     expect(assignees.find((v) => v.raw.toLowerCase() === 'aakash')?.count).toBe(
-      2,
+      2
     );
   });
 
@@ -275,7 +278,7 @@ describe('assignee as a fixable value', () => {
       assigneeRows(),
       'assignee',
       'Aakash',
-      `${PENDING_ASSIGNEE_PREFIX}inv-123`,
+      `${PENDING_ASSIGNEE_PREFIX}inv-123`
     );
     expect(fixed[0].assignedTo).toBeNull();
     expect(fixed[0].pendingInvitationId).toBe('inv-123');
@@ -314,7 +317,7 @@ describe('unmatchedValues grouping key', () => {
           source: 'Ongoing',
           assignedTo: 'Ongoing',
         }),
-      ]),
+      ])
     );
     expect(grouped.map((v) => v.field).sort()).toEqual([
       'assignee',
@@ -334,7 +337,7 @@ describe('unmatchedValues grouping key', () => {
         row({ phone: '1', source: weird }),
         row({ phone: '2', source: weird }),
         row({ phone: '3', source: 'source' }),
-      ]),
+      ])
     ).filter((v) => v.field === 'source');
     expect(grouped).toHaveLength(2);
     expect(grouped.find((v) => v.raw === weird)?.count).toBe(2);
@@ -346,10 +349,10 @@ describe('unmatchedValues grouping key', () => {
     // register as binary data, so `grep`/`rg` without `-a` silently return
     // zero matches for every symbol defined in it.
     const bytes = readFileSync(
-      fileURLToPath(new URL('./import-coerce.ts', import.meta.url)),
+      fileURLToPath(new URL('./import-coerce.ts', import.meta.url))
     );
     const control = [...bytes].filter(
-      (b) => b < 9 || (b > 10 && b < 32 && b !== 13),
+      (b) => b < 9 || (b > 10 && b < 32 && b !== 13)
     );
     expect(control).toEqual([]);
   });

@@ -36,19 +36,20 @@ We process this data to perform our contract with you (providing the service) an
 
 We share data with the following providers strictly to operate the service:
 
-| Subprocessor | Purpose | Data shared |
-|---|---|---|
-<<<<<<< HEAD
-| **Vercel** | Application hosting | All data in transit; operational logs |
-=======
+| Subprocessor  | Purpose             | Data shared                           |
+| ------------- | ------------------- | ------------------------------------- |
+| <<<<<<< HEAD  |
+| **Vercel**    | Application hosting | All data in transit; operational logs |
+| =======       |
 | **Hostinger** | Application hosting | All data in transit; operational logs |
->>>>>>> c0d9eb889fff39e43b9547471dc74f236e77cdd2
-| **Supabase** | Database, authentication, file storage | Contacts, messages, encrypted credentials, media |
-| **Meta Platforms (WhatsApp Business API)** | Sending and receiving WhatsApp messages | Phone numbers, message content, media |
-| **Razorpay** _(only if you enable payments)_ | UPI / card payment processing | Customer name, phone, email |
-| **OpenAI** _(only if you enable the AI assistant with your own key)_ | AI-drafted message replies | Recent conversation message text |
-| **Anthropic** _(only if you enable the AI assistant with your own key)_ | AI-drafted message replies | Recent conversation message text |
-| **Cloudflare** | Spam protection on public lead forms | Requester IP, CAPTCHA token |
+
+> > > > > > > c0d9eb889fff39e43b9547471dc74f236e77cdd2
+> > > > > > > | **Supabase** | Database, authentication, file storage | Contacts, messages, encrypted credentials, media |
+> > > > > > > | **Meta Platforms (WhatsApp Business API)** | Sending and receiving WhatsApp messages | Phone numbers, message content, media |
+> > > > > > > | **Razorpay** _(only if you enable payments)_ | UPI / card payment processing | Customer name, phone, email |
+> > > > > > > | **OpenAI** _(only if you enable the AI assistant with your own key)_ | AI-drafted message replies | Recent conversation message text |
+> > > > > > > | **Anthropic** _(only if you enable the AI assistant with your own key)_ | AI-drafted message replies | Recent conversation message text |
+> > > > > > > | **Cloudflare** | Spam protection on public lead forms | Requester IP, CAPTCHA token |
 
 If you configure outbound webhooks, message and contact data is also sent to the URL **you** specify; you are responsible for that destination.
 

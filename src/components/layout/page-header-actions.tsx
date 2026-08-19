@@ -56,7 +56,9 @@ export function PageHeaderActions({ children }: { children: React.ReactNode }) {
 
 /** Portals stable page-level context controls beside the route title. */
 export function PageHeaderLeading({ children }: { children: React.ReactNode }) {
-  return <HeaderSlot slotId={PAGE_HEADER_LEADING_SLOT_ID}>{children}</HeaderSlot>;
+  return (
+    <HeaderSlot slotId={PAGE_HEADER_LEADING_SLOT_ID}>{children}</HeaderSlot>
+  );
 }
 
 /** Portals a page's sub-navigation tab bar into the app bar's tab row,

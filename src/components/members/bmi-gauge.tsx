@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useReducedMotion } from "motion/react";
+import { useReducedMotion } from 'motion/react';
 import {
   BMI_ZONES,
   BMI_GAUGE_MAX,
@@ -8,14 +8,14 @@ import {
   bmiGaugeFraction,
   roundBmi,
   type BmiTone,
-} from "@/lib/bmi/bmi";
+} from '@/lib/bmi/bmi';
 
 // Vivid, theme-neutral zone colours (read on both light and dark).
 const TONE_HEX: Record<BmiTone, string> = {
-  info: "#3b82f6", // blue — underweight
-  success: "#22c55e", // green — normal
-  warning: "#f59e0b", // amber — overweight
-  danger: "#ef4444", // red — obese
+  info: '#3b82f6', // blue — underweight
+  success: '#22c55e', // green — normal
+  warning: '#f59e0b', // amber — overweight
+  danger: '#ef4444', // red — obese
 };
 
 // Gauge geometry, in viewBox units.
@@ -88,10 +88,10 @@ export function BmiGauge({ bmi }: BmiGaugeProps) {
           style={{
             transform: `rotate(${needleDeg}deg)`,
             transformOrigin: `${CX}px ${CY}px`,
-            transformBox: "view-box",
+            transformBox: 'view-box',
             transition: reduce
               ? undefined
-              : "transform 700ms cubic-bezier(0.34, 1.4, 0.64, 1)",
+              : 'transform 700ms cubic-bezier(0.34, 1.4, 0.64, 1)',
           }}
         >
           <path

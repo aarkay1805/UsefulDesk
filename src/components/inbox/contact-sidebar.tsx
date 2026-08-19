@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import type { Contact } from "@/types";
+import type { Contact } from '@/types';
 import {
   ContactDetailContent,
   type ContactQuickActionId,
-} from "@/components/contacts/contact-detail-content";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+} from '@/components/contacts/contact-detail-content';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 
 /**
  * Quick actions the inbox drops:
@@ -16,17 +16,17 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
  * /leads sheet fires.
  */
 const INBOX_ACTIONS: ContactQuickActionId[] = [
-  "convert",
-  "call",
-  "note",
-  "email",
+  'convert',
+  'call',
+  'note',
+  'email',
 ];
 
 // Details starts collapsed: 13 label/value rows in a 360px rail is a wall,
 // and the agent opened the inbox to talk, not to audit fields. One click
 // away, and Tags + Notes — the two they actually touch mid-conversation —
 // stay open.
-const INBOX_COLLAPSED_SECTIONS = ["details"];
+const INBOX_COLLAPSED_SECTIONS = ['details'];
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -49,14 +49,14 @@ interface ContactSidebarProps {
 export function ContactSidebar({ contact, onUpdated }: ContactSidebarProps) {
   if (!contact) {
     return (
-      <div className="flex h-full w-90 items-center justify-center border-l border-border bg-card">
-        <p className="text-sm text-muted-foreground">Select a conversation</p>
+      <div className="border-border bg-card flex h-full w-90 items-center justify-center border-l">
+        <p className="text-muted-foreground text-sm">Select a conversation</p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full w-90 flex-col border-l border-border bg-card">
+    <div className="border-border bg-card flex h-full w-90 flex-col border-l">
       <ContactDetailContent
         // Re-mount on contact switch so no state (open editor, note draft
         // focus) leaks from the previous conversation's contact.

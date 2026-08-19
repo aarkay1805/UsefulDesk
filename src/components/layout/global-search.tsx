@@ -1,28 +1,28 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Search, ChevronDown, Check } from "lucide-react";
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Search, ChevronDown, Check } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 // The searchable "modules" map to this app's real sections. Only the ones
 // in SEARCHABLE currently support the `?search=` query on their list page;
 // the rest just navigate to the section (search wiring comes later).
 const MODULES = [
-  { label: "All Modules", href: "/leads" },
-  { label: "Leads", href: "/leads" },
-  { label: "Inbox", href: "/inbox" },
-  { label: "Broadcasts", href: "/broadcasts" },
-  { label: "Automations", href: "/automations" },
+  { label: 'All Modules', href: '/leads' },
+  { label: 'Leads', href: '/leads' },
+  { label: 'Inbox', href: '/inbox' },
+  { label: 'Broadcasts', href: '/broadcasts' },
+  { label: 'Automations', href: '/automations' },
 ] as const;
 
-const SEARCHABLE = new Set<string>(["All Modules", "Leads"]);
+const SEARCHABLE = new Set<string>(['All Modules', 'Leads']);
 
 export function GlobalSearch() {
   const router = useRouter();
@@ -30,10 +30,10 @@ export function GlobalSearch() {
   // Collapsed by default (Zoho-style) — a compact button that expands into
   // the full search field with the module selector on click.
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [module, setModule] = useState<string>("All Modules");
+  const [query, setQuery] = useState('');
+  const [module, setModule] = useState<string>('All Modules');
   const [moduleOpen, setModuleOpen] = useState(false);
-  const [moduleFilter, setModuleFilter] = useState("");
+  const [moduleFilter, setModuleFilter] = useState('');
 
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,15 +56,15 @@ export function GlobalSearch() {
         setOpen(false);
       }
     }
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
   }, [open, moduleOpen]);
 
   function submit() {
     const q = query.trim();
     const target = MODULES.find((m) => m.label === module) ?? MODULES[0];
     if (SEARCHABLE.has(module)) {
-      router.push(`/leads${q ? `?search=${encodeURIComponent(q)}` : ""}`);
+      router.push(`/leads${q ? `?search=${encodeURIComponent(q)}` : ''}`);
     } else {
       router.push(target.href);
     }
@@ -77,7 +77,7 @@ export function GlobalSearch() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Search records"
-        className="flex w-full max-w-xs items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted"
+        className="border-border bg-muted/50 text-muted-foreground hover:bg-muted flex w-full max-w-xs items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors"
       >
         <Search className="size-4 shrink-0" />
         <span className="truncate">Search records</span>
@@ -92,7 +92,7 @@ export function GlobalSearch() {
   return (
     <div
       ref={containerRef}
-      className="flex w-full max-w-2xl items-center rounded-lg border border-ring bg-card shadow-sm ring-3 ring-ring/20"
+      className="border-ring bg-card ring-ring/20 flex w-full max-w-2xl items-center rounded-lg border shadow-sm ring-3"
     >
       {/* Module selector */}
       <Popover open={moduleOpen} onOpenChange={setModuleOpen}>
@@ -100,25 +100,25 @@ export function GlobalSearch() {
           render={
             <button
               type="button"
-              className="flex shrink-0 items-center gap-1 rounded-l-lg border-r border-border px-3 py-2 text-sm font-medium whitespace-nowrap text-foreground transition-colors hover:bg-muted"
+              className="border-border text-foreground hover:bg-muted flex shrink-0 items-center gap-1 rounded-l-lg border-r px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors"
             />
           }
         >
           {module}
-          <ChevronDown className="size-4 text-muted-foreground" />
+          <ChevronDown className="text-muted-foreground size-4" />
         </PopoverTrigger>
         <PopoverContent align="start" className="w-56 p-0">
-          <div className="border-b border-border p-2">
+          <div className="border-border border-b p-2">
             <Input
               value={moduleFilter}
               onChange={(e) => setModuleFilter(e.target.value)}
               placeholder="Search Modules"
-              className="h-8 bg-card"
+              className="bg-card h-8"
             />
           </div>
           <div className="max-h-64 overflow-y-auto py-1">
             {filteredModules.length === 0 ? (
-              <p className="px-3 py-4 text-center text-sm text-muted-foreground">
+              <p className="text-muted-foreground px-3 py-4 text-center text-sm">
                 No modules found.
               </p>
             ) : (
@@ -134,16 +134,16 @@ export function GlobalSearch() {
                       inputRef.current?.focus();
                     }}
                     className={cn(
-                      "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted/50",
+                      'hover:bg-muted/50 flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors',
                       active
-                        ? "font-medium text-primary-text"
-                        : "text-popover-foreground"
+                        ? 'text-primary-text font-medium'
+                        : 'text-popover-foreground'
                     )}
                   >
                     <Check
                       className={cn(
-                        "size-3.5 shrink-0",
-                        active ? "opacity-100" : "opacity-0"
+                        'size-3.5 shrink-0',
+                        active ? 'opacity-100' : 'opacity-0'
                       )}
                     />
                     <span className="truncate">{m.label}</span>
@@ -157,17 +157,17 @@ export function GlobalSearch() {
 
       {/* Query field */}
       <div className="relative flex-1">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-            if (e.key === "Escape") setOpen(false);
+            if (e.key === 'Enter') submit();
+            if (e.key === 'Escape') setOpen(false);
           }}
           placeholder="Search records..."
-          className="w-full rounded-r-lg bg-transparent py-2 pr-3 pl-9 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+          className="text-foreground placeholder:text-muted-foreground w-full rounded-r-lg bg-transparent py-2 pr-3 pl-9 text-sm focus:outline-none"
         />
       </div>
     </div>

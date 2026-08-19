@@ -356,9 +356,7 @@ function MetricResult({ metric }: { metric: LeadRatingMetric }) {
   return (
     <div className="shrink-0 text-right">
       <p className="text-foreground text-xs font-medium tabular-nums">
-        {metric.actual == null
-          ? 'Not ready'
-          : `${Math.round(metric.actual)}%`}
+        {metric.actual == null ? 'Not ready' : `${Math.round(metric.actual)}%`}
       </p>
       <p className="text-muted-foreground mt-0.5 text-[11px] tabular-nums">
         {metric.sample === 0

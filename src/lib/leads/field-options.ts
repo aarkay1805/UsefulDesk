@@ -42,7 +42,7 @@ export const DEFAULT_FIELD_OPTIONS: Record<LeadFieldKind, LeadFieldOption[]> = {
  */
 export function resolveFieldOptions(
   kind: LeadFieldKind,
-  rows: LeadFieldOption[] | null | undefined,
+  rows: LeadFieldOption[] | null | undefined
 ): LeadFieldOption[] {
   return rows && rows.length > 0 ? rows : DEFAULT_FIELD_OPTIONS[kind];
 }
@@ -70,7 +70,7 @@ export function statusColumns(statuses: LeadFieldOption[]): LeadColumn[] {
  */
 export function statusColumn(
   columns: LeadColumn[],
-  key: string | null | undefined,
+  key: string | null | undefined
 ): LeadColumn {
   const k = key ?? 'new';
   return (
@@ -85,7 +85,7 @@ export function statusColumn(
 /** Label for a stored source/gender value, falling back to the raw value. */
 export function optionLabel(
   options: LeadFieldOption[],
-  value: string | null | undefined,
+  value: string | null | undefined
 ): string {
   if (!value) return '—';
   return options.find((o) => o.key === value)?.label ?? value;

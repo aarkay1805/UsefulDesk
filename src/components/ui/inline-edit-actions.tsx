@@ -1,6 +1,6 @@
-import { Check, Loader2, X } from "lucide-react";
+import { Check, Loader2, X } from 'lucide-react';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 /**
  * The floating confirm/dismiss pair shown inside an active inline
@@ -23,7 +23,7 @@ function InlineEditActions({
   onDismiss: () => void;
 }) {
   const button =
-    "flex size-6 shrink-0 items-center justify-center rounded-full bg-card disabled:opacity-50 cursor-pointer";
+    'flex size-6 shrink-0 items-center justify-center rounded-full bg-card disabled:opacity-50 cursor-pointer';
   return (
     <div className="absolute top-1/2 right-2.5 z-10 flex -translate-y-1/2 items-center gap-0.5">
       <button
@@ -31,7 +31,7 @@ function InlineEditActions({
         onMouseDown={(e) => e.preventDefault()}
         onClick={onConfirm}
         disabled={saving}
-        className={cn(button, "text-primary-text hover:bg-primary/10")}
+        className={cn(button, 'text-primary-text hover:bg-primary/10')}
         aria-label="Save"
       >
         {saving ? (
@@ -45,7 +45,7 @@ function InlineEditActions({
         onMouseDown={(e) => e.preventDefault()}
         onClick={onDismiss}
         disabled={saving}
-        className={cn(button, "text-muted-foreground hover:bg-muted")}
+        className={cn(button, 'text-muted-foreground hover:bg-muted')}
         aria-label="Cancel"
       >
         <X className="size-4" />

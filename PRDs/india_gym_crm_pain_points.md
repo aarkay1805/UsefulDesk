@@ -23,16 +23,16 @@ For India, the opportunity is not just “another gym CRM.” The opportunity is
 
 ## Top unresolved pain points
 
-| Pain point | Frequency | Who feels it most | Business impact | Current workaround | Product opportunity |
-|---|---:|---|---|---|---|
-| App reliability and sync failures | Very high | Members, front desk, trainers, managers | Missed bookings, failed check-ins, reschedules, member frustration | Calls, desk booking, spreadsheets, manual fixes | Offline-safe actions, sync audit logs, failed-action inbox |
-| Too many clicks and heavy onboarding | High | Owners, managers, front desk | Poor adoption, slow rollout, training burden | Partial rollout, shadow spreadsheets, power-user dependency | “Simple mode” for boutiques and “advanced mode” for franchises |
-| Weak mobile workflows for staff | High | Trainers, front desk, floor managers | Slow floor ops, desk dependency, missed updates | Laptop at reception, WhatsApp to trainers, paper rosters | Role-based mobile apps for trainer, front desk, and owner |
-| Payment collection and reconciliation gaps | High | Owners, finance/admin, managers | Revenue leakage, delayed collections, awkward follow-ups | UPI outside the system, manual entry, Tally/Excel reconciliation | UPI AutoPay, payment links, retry logic, cash/UPI reconciliation |
-| Reports are broad but not actionable | Medium-high | Owners, ops heads, managers | Missed renewals, weak retention, poor capacity planning | Manual exports and spreadsheets | Daily ops reports: expiring, inactive, overdue, failed collections |
-| India-first communication is patched, not native | Medium-high | Boutique owners, local chains, managers | Renewal slippage, poor follow-up discipline | WhatsApp Broadcast, 1:1 messages, phone calls | Native WhatsApp templates, read status, payment links, member timeline |
-| Family, shared, and multi-location plans are weak | Medium | Franchises, premium gyms, family gyms | Duplicate profiles, desk workload, member friction | Manual transfers, duplicate accounts | Household account model and cross-location portability |
-| Support is too slow for live operations | High | Owners, managers, front desk | Operational downtime, loss of trust | Escalations, screenshots, manual retries | In-product incident capture, telemetry, India-hour support |
+| Pain point                                        |   Frequency | Who feels it most                       | Business impact                                                    | Current workaround                                               | Product opportunity                                                    |
+| ------------------------------------------------- | ----------: | --------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| App reliability and sync failures                 |   Very high | Members, front desk, trainers, managers | Missed bookings, failed check-ins, reschedules, member frustration | Calls, desk booking, spreadsheets, manual fixes                  | Offline-safe actions, sync audit logs, failed-action inbox             |
+| Too many clicks and heavy onboarding              |        High | Owners, managers, front desk            | Poor adoption, slow rollout, training burden                       | Partial rollout, shadow spreadsheets, power-user dependency      | “Simple mode” for boutiques and “advanced mode” for franchises         |
+| Weak mobile workflows for staff                   |        High | Trainers, front desk, floor managers    | Slow floor ops, desk dependency, missed updates                    | Laptop at reception, WhatsApp to trainers, paper rosters         | Role-based mobile apps for trainer, front desk, and owner              |
+| Payment collection and reconciliation gaps        |        High | Owners, finance/admin, managers         | Revenue leakage, delayed collections, awkward follow-ups           | UPI outside the system, manual entry, Tally/Excel reconciliation | UPI AutoPay, payment links, retry logic, cash/UPI reconciliation       |
+| Reports are broad but not actionable              | Medium-high | Owners, ops heads, managers             | Missed renewals, weak retention, poor capacity planning            | Manual exports and spreadsheets                                  | Daily ops reports: expiring, inactive, overdue, failed collections     |
+| India-first communication is patched, not native  | Medium-high | Boutique owners, local chains, managers | Renewal slippage, poor follow-up discipline                        | WhatsApp Broadcast, 1:1 messages, phone calls                    | Native WhatsApp templates, read status, payment links, member timeline |
+| Family, shared, and multi-location plans are weak |      Medium | Franchises, premium gyms, family gyms   | Duplicate profiles, desk workload, member friction                 | Manual transfers, duplicate accounts                             | Household account model and cross-location portability                 |
+| Support is too slow for live operations           |        High | Owners, managers, front desk            | Operational downtime, loss of trust                                | Escalations, screenshots, manual retries                         | In-product incident capture, telemetry, India-hour support             |
 
 ---
 
@@ -112,10 +112,10 @@ They do not want a complex implementation project.
 
 The product should have two operating layers:
 
-| Mode | Best for | UX principle |
-|---|---|---|
-| Boutique simple mode | Single-location gyms, yoga studios, boxing studios, pilates studios | Few steps, phone-first, no setup anxiety |
-| Franchise advanced mode | Multi-location gyms and fitness chains | Permissions, reports, transfers, audits, central control |
+| Mode                    | Best for                                                            | UX principle                                             |
+| ----------------------- | ------------------------------------------------------------------- | -------------------------------------------------------- |
+| Boutique simple mode    | Single-location gyms, yoga studios, boxing studios, pilates studios | Few steps, phone-first, no setup anxiety                 |
+| Franchise advanced mode | Multi-location gyms and fitness chains                              | Permissions, reports, transfers, audits, central control |
 
 A single UX with dozens of toggles will feel bloated. A simple first-run setup by gym type is more useful.
 
@@ -138,12 +138,12 @@ Common missing or weak workflows include:
 
 A strong India-first gym CRM should have role-based mobile surfaces:
 
-| Role | Mobile actions needed |
-|---|---|
-| Owner | Revenue at risk, renewals due, failed payments, inactive members, staff performance |
-| Front desk | Add member, collect fee, renew plan, mark attendance, freeze/hold, send WhatsApp |
-| Trainer | Today’s sessions, mark attended/no-show, notes, member history, follow-up task |
-| Sales staff | New lead, follow-up status, WhatsApp conversation, trial booked, converted/lost |
+| Role        | Mobile actions needed                                                               |
+| ----------- | ----------------------------------------------------------------------------------- |
+| Owner       | Revenue at risk, renewals due, failed payments, inactive members, staff performance |
+| Front desk  | Add member, collect fee, renew plan, mark attendance, freeze/hold, send WhatsApp    |
+| Trainer     | Today’s sessions, mark attended/no-show, notes, member history, follow-up task      |
+| Sales staff | New lead, follow-up status, WhatsApp conversation, trial booked, converted/lost     |
 
 ---
 
@@ -192,17 +192,17 @@ Useful reports for Indian gyms are not just dashboards. They are operating lists
 
 ### Reports that matter
 
-| Report | Why it matters |
-|---|---|
-| Members expiring in 7 days | Renewal follow-up |
-| Expired but still attending | Revenue leakage |
-| Paid but not attending | Churn risk |
-| Trial taken but not converted | Sales follow-up |
-| Inactive for 10+ days | Retention trigger |
-| Failed payment / failed mandate | Collection recovery |
-| Trainer utilization | Staff productivity |
-| No-show members | Capacity and engagement |
-| High-value members at risk | Retention priority |
+| Report                          | Why it matters          |
+| ------------------------------- | ----------------------- |
+| Members expiring in 7 days      | Renewal follow-up       |
+| Expired but still attending     | Revenue leakage         |
+| Paid but not attending          | Churn risk              |
+| Trial taken but not converted   | Sales follow-up         |
+| Inactive for 10+ days           | Retention trigger       |
+| Failed payment / failed mandate | Collection recovery     |
+| Trainer utilization             | Staff productivity      |
+| No-show members                 | Capacity and engagement |
+| High-value members at risk      | Retention priority      |
 
 A useful CRM should turn each report into an action:
 
@@ -283,15 +283,15 @@ This is especially important for gym franchises.
 
 ## Franchise vs boutique gym needs
 
-| Dimension | Franchises and multi-location gyms | Boutique gyms and independent studios |
-|---|---|---|
-| Main pain | Fragmentation and control | Simplicity and reliability |
-| Where value leaks | Migration, member transfers, central reporting, staff permissions, pricing consistency | Renewals, reminders, trainer coordination, app reliability, manual collection |
-| Primary user | Franchise owner, ops head, finance/admin, branch manager | Owner-manager, front desk, trainer |
-| Highest-value feature | Cross-location portability and auditability | WhatsApp-first renewals and simple mobile ops |
-| Reporting need | Network-level reporting by location, plan, staff, and revenue | Daily action lists: expiring, overdue, inactive, trial follow-up |
-| Tolerance for complexity | Higher, if it improves governance | Very low |
-| Best UX approach | Advanced controls with permissions | Simple phone-first dashboard |
+| Dimension                | Franchises and multi-location gyms                                                     | Boutique gyms and independent studios                                         |
+| ------------------------ | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Main pain                | Fragmentation and control                                                              | Simplicity and reliability                                                    |
+| Where value leaks        | Migration, member transfers, central reporting, staff permissions, pricing consistency | Renewals, reminders, trainer coordination, app reliability, manual collection |
+| Primary user             | Franchise owner, ops head, finance/admin, branch manager                               | Owner-manager, front desk, trainer                                            |
+| Highest-value feature    | Cross-location portability and auditability                                            | WhatsApp-first renewals and simple mobile ops                                 |
+| Reporting need           | Network-level reporting by location, plan, staff, and revenue                          | Daily action lists: expiring, overdue, inactive, trial follow-up              |
+| Tolerance for complexity | Higher, if it improves governance                                                      | Very low                                                                      |
+| Best UX approach         | Advanced controls with permissions                                                     | Simple phone-first dashboard                                                  |
 
 The same product can serve both, but not with the same interface. The best architecture is one platform with different operating layers.
 
@@ -456,14 +456,14 @@ UsefulDesk helps Indian gyms track members, send WhatsApp reminders, collect pay
 
 ## Representative user signals
 
-| Signal | What it means |
-|---|---|
+| Signal                                                                 | What it means                                                                     |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | Gyms still use registers, Excel, Google Sheets, and WhatsApp reminders | Existing software is either too heavy, too unreliable, or not India-native enough |
-| Some owners say member apps are overkill | A WhatsApp-first model may fit better than forcing every member to install an app |
-| Users complain about freezing, slow loading, and blank screens | Reliability is a product differentiator, not just an engineering concern |
-| Staff apps lack important actions | Gym operations are mobile, but software workflows are still desk-centric |
-| Owners want UPI AutoPay-style collection | Payment recovery is a major monetizable pain |
-| Reporting complaints are about usefulness, not just availability | The CRM should produce action lists, not dashboards only |
+| Some owners say member apps are overkill                               | A WhatsApp-first model may fit better than forcing every member to install an app |
+| Users complain about freezing, slow loading, and blank screens         | Reliability is a product differentiator, not just an engineering concern          |
+| Staff apps lack important actions                                      | Gym operations are mobile, but software workflows are still desk-centric          |
+| Owners want UPI AutoPay-style collection                               | Payment recovery is a major monetizable pain                                      |
+| Reporting complaints are about usefulness, not just availability       | The CRM should produce action lists, not dashboards only                          |
 
 ---
 
@@ -471,13 +471,13 @@ UsefulDesk helps Indian gyms track members, send WhatsApp reminders, collect pay
 
 Existing products are broad but often overbuilt or weak in local workflows.
 
-| Product type | Strength | Gap |
-|---|---|---|
-| Global gym CRM platforms | Mature features, scheduling, payments, branded apps | Expensive, complex, weak India-specific workflows |
-| Spa/salon enterprise platforms | Strong multi-location controls | Too heavy for small gyms and boutiques |
-| Indian gym software | Local pricing, basic member/payment tools | Often weaker UX, reliability, mobile polish, and modern CRM workflows |
-| Generic CRM tools | Flexible lead tracking | Not built for memberships, attendance, renewals, gym payments |
-| WhatsApp/manual workflows | Familiar and easy | No structure, no reporting, no accountability |
+| Product type                   | Strength                                            | Gap                                                                   |
+| ------------------------------ | --------------------------------------------------- | --------------------------------------------------------------------- |
+| Global gym CRM platforms       | Mature features, scheduling, payments, branded apps | Expensive, complex, weak India-specific workflows                     |
+| Spa/salon enterprise platforms | Strong multi-location controls                      | Too heavy for small gyms and boutiques                                |
+| Indian gym software            | Local pricing, basic member/payment tools           | Often weaker UX, reliability, mobile polish, and modern CRM workflows |
+| Generic CRM tools              | Flexible lead tracking                              | Not built for memberships, attendance, renewals, gym payments         |
+| WhatsApp/manual workflows      | Familiar and easy                                   | No structure, no reporting, no accountability                         |
 
 ---
 

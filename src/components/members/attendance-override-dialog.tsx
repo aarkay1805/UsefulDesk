@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2 } from 'lucide-react';
 
-import type { CheckInWarning } from "@/lib/memberships/attendance-limits";
+import type { CheckInWarning } from '@/lib/memberships/attendance-limits';
 import {
   Dialog,
   DialogContent,
@@ -10,8 +10,8 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 /**
  * The warn-with-override step both check-in paths share (migration 062):
@@ -37,8 +37,8 @@ export function AttendanceOverrideDialog({
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="size-4 text-amber-foreground" />
-            {warning?.title ?? "Check-in limit"}
+            <AlertTriangle className="text-amber-foreground size-4" />
+            {warning?.title ?? 'Check-in limit'}
           </DialogTitle>
           <DialogDescription>{warning?.body}</DialogDescription>
         </DialogHeader>
@@ -46,11 +46,7 @@ export function AttendanceOverrideDialog({
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button
-            type="button"
-            onClick={onConfirm}
-            disabled={busy}
-          >
+          <Button type="button" onClick={onConfirm} disabled={busy}>
             {busy && <Loader2 className="size-4 animate-spin" />}
             Check in anyway
           </Button>

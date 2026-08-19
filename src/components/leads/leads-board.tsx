@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -13,19 +13,16 @@ import {
   closestCorners,
   type DragEndEvent,
   type DragStartEvent,
-} from "@dnd-kit/core";
-import type { Contact, LeadStatus, LeadTransfer, Tag } from "@/types";
-import { canDeleteLead, type AccountRole } from "@/lib/auth/roles";
+} from '@dnd-kit/core';
+import type { Contact, LeadStatus, LeadTransfer, Tag } from '@/types';
+import { canDeleteLead, type AccountRole } from '@/lib/auth/roles';
 import {
   columnToStatus,
   leadColumnKey,
   type LeadColumn,
   type LeadColumnKey,
-} from "@/lib/leads/status";
-import {
-  humaniseKey,
-  UNKNOWN_STATUS_COLOR,
-} from "@/lib/leads/field-options";
+} from '@/lib/leads/status';
+import { humaniseKey, UNKNOWN_STATUS_COLOR } from '@/lib/leads/field-options';
 import {
   ArrowRight,
   Building2,
@@ -34,20 +31,20 @@ import {
   Pencil,
   Phone,
   Trash2,
-} from "lucide-react";
-import { motion, AnimatePresence, LayoutGroup } from "motion/react";
-import { Badge } from "@/components/ui/badge";
-import { UserAvatar } from "@/components/ui/user-avatar";
-import { SourceIcon } from "@/components/leads/source-icon";
+} from 'lucide-react';
+import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
+import { Badge } from '@/components/ui/badge';
+import { UserAvatar } from '@/components/ui/user-avatar';
+import { SourceIcon } from '@/components/leads/source-icon';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
-import { useLocale } from "@/hooks/use-locale";
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+import { useLocale } from '@/hooks/use-locale';
 
 /** Board rows are table rows — same enrichment (tags ride along). */
 export type BoardLead = Contact & { tags?: Tag[] };
@@ -124,7 +121,7 @@ const CARD_TAG_LIMIT = 2;
 // (the action-list use). Name sorts blanks (Unnamed) last, both empty = tie.
 function sortColumnLeads(
   list: BoardLead[],
-  mode: BoardSortWithin,
+  mode: BoardSortWithin
 ): BoardLead[] {
   const arr = [...list];
   switch (mode) {
@@ -144,8 +141,8 @@ function sortColumnLeads(
     case 'updated':
       arr.sort((a, b) =>
         (b.updated_at ?? b.created_at).localeCompare(
-          a.updated_at ?? a.created_at,
-        ),
+          a.updated_at ?? a.created_at
+        )
       );
       break;
     case 'newest':
@@ -162,9 +159,9 @@ function formatCardDate(iso: string, localeTag: string) {
   const d = new Date(iso);
   const sameYear = d.getFullYear() === new Date().getFullYear();
   return d.toLocaleDateString(localeTag, {
-    day: "numeric",
-    month: "short",
-    ...(sameYear ? {} : { year: "2-digit" }),
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: '2-digit' }),
   });
 }
 
@@ -178,8 +175,8 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
   const assignmentReq = ctx.assignmentRequests[lead.id];
   if (assignmentReq) {
     const targetName = assignmentReq.to_user_id
-      ? ctx.nameById.get(assignmentReq.to_user_id) ?? "Teammate"
-      : "Unassign";
+      ? (ctx.nameById.get(assignmentReq.to_user_id) ?? 'Teammate')
+      : 'Unassign';
     return (
       <Badge
         variant="warning"
@@ -196,20 +193,20 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
   if (transfer) {
     const incoming = transfer.to_user_id === ctx.currentUserId;
     const targetName = transfer.to_user_id
-      ? ctx.nameById.get(transfer.to_user_id) ?? "Teammate"
-      : "Teammate";
+      ? (ctx.nameById.get(transfer.to_user_id) ?? 'Teammate')
+      : 'Teammate';
     return (
       <Badge
         variant="warning"
         className="shrink-0 gap-0.5"
         title={
           incoming
-            ? "Ownership transfer awaiting your acceptance"
+            ? 'Ownership transfer awaiting your acceptance'
             : `Ownership transfer pending → ${targetName}`
         }
       >
         <ArrowRight className="size-3" />
-        {incoming ? "to you" : targetName}
+        {incoming ? 'to you' : targetName}
       </Badge>
     );
   }
@@ -232,7 +229,7 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
   }
 
   if (lead.assigned_to) {
-    const name = ctx.nameById.get(lead.assigned_to) ?? "Teammate";
+    const name = ctx.nameById.get(lead.assigned_to) ?? 'Teammate';
     return (
       <span title={`Assigned to ${name}`}>
         <UserAvatar
@@ -249,7 +246,7 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
     <span
       title="Unassigned"
       aria-label="Unassigned"
-      className="size-5 shrink-0 rounded-full border border-dashed border-muted-foreground/40"
+      className="border-muted-foreground/40 size-5 shrink-0 rounded-full border border-dashed"
     />
   );
 }
@@ -275,7 +272,7 @@ function CardMenu({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
             // is stopped so the drag sensor never eats the click.
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
-            className="-mr-1 -mt-0.5 flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/card:opacity-100 data-[popup-open]:opacity-100"
+            className="text-muted-foreground hover:bg-muted hover:text-foreground -mt-0.5 -mr-1 flex size-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover/card:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
           />
         }
       >
@@ -365,8 +362,8 @@ const LeadCard = memo(function LeadCard({
     <div
       onClick={() => ctx.onOpenLead(lead.id)}
       className={cn(
-        "group/card w-full cursor-pointer rounded-lg border border-border bg-card p-3 text-left transition-colors [contain:layout] hover:border-border-hover",
-        isOverlay && "shadow-lg",
+        'group/card border-border bg-card hover:border-border-hover w-full cursor-pointer rounded-lg border p-3 text-left transition-colors [contain:layout]',
+        isOverlay && 'shadow-lg'
       )}
     >
       {/* Header — name + hover-reveal actions menu. The name is the real
@@ -379,30 +376,30 @@ const LeadCard = memo(function LeadCard({
             e.stopPropagation();
             ctx.onOpenLead(lead.id);
           }}
-          className="min-w-0 truncate text-left text-sm font-medium text-foreground hover:underline"
+          className="text-foreground min-w-0 truncate text-left text-sm font-medium hover:underline"
         >
           {lead.name || (
-            <span className="italic text-muted-foreground">Unnamed</span>
+            <span className="text-muted-foreground italic">Unnamed</span>
           )}
         </button>
         {!isOverlay && <CardMenu lead={lead} ctx={ctx} />}
       </div>
 
-      <p className="mt-1 flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+      <p className="text-muted-foreground mt-1 flex items-center gap-1.5 font-mono text-xs">
         <Phone className="size-3 shrink-0" />
         <span className="truncate">{lead.phone}</span>
       </p>
 
       {/* Comfortable-only detail: company, tags, and the source+date footer
           strip. Compact keeps just name / phone / owner for a dense scan. */}
-      {ctx.density === "comfortable" && lead.company && (
-        <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+      {ctx.density === 'comfortable' && lead.company && (
+        <p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
           <Building2 className="size-3 shrink-0" />
           <span className="truncate">{lead.company}</span>
         </p>
       )}
 
-      {ctx.density === "comfortable" && tags.length > 0 && (
+      {ctx.density === 'comfortable' && tags.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {tags.slice(0, CARD_TAG_LIMIT).map((tag) => (
             <Badge key={tag.id} variant="neutral">
@@ -411,11 +408,11 @@ const LeadCard = memo(function LeadCard({
           ))}
           {overflowTags > 0 && (
             <span
-              className="text-[10px] text-muted-foreground"
+              className="text-muted-foreground text-[10px]"
               title={tags
                 .slice(CARD_TAG_LIMIT)
                 .map((t) => t.name)
-                .join(", ")}
+                .join(', ')}
             >
               +{overflowTags}
             </span>
@@ -423,10 +420,10 @@ const LeadCard = memo(function LeadCard({
         </div>
       )}
 
-      {ctx.density === "comfortable" ? (
+      {ctx.density === 'comfortable' ? (
         // Footer — origin (source glyph + created date) vs owner. Hairline
         // top border groups it apart from the identity block above.
-        <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border/60 pt-2">
+        <div className="border-border/60 mt-2.5 flex items-center justify-between gap-2 border-t pt-2">
           <span className="flex min-w-0 items-center gap-1.5">
             {lead.source && (
               <SourceIcon
@@ -436,7 +433,7 @@ const LeadCard = memo(function LeadCard({
               />
             )}
             <span
-              className="text-[11px] text-muted-foreground"
+              className="text-muted-foreground text-[11px]"
               title={`Created ${fmt.date(lead.created_at)}`}
             >
               {formatCardDate(lead.created_at, locale.locale)}
@@ -482,7 +479,10 @@ function DraggableLeadCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={cn("touch-none transition-opacity", isDragging && "opacity-30")}
+      className={cn(
+        'touch-none transition-opacity',
+        isDragging && 'opacity-30'
+      )}
     >
       <LeadCard lead={lead} ctx={ctx} />
     </div>
@@ -523,7 +523,12 @@ const ColumnCards = memo(function ColumnCards({
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.96 }}
-          transition={{ type: "spring", stiffness: 550, damping: 38, mass: 0.7 }}
+          transition={{
+            type: 'spring',
+            stiffness: 550,
+            damping: 38,
+            mass: 0.7,
+          }}
         >
           <DraggableLeadCard lead={lead} ctx={ctx} />
         </motion.div>
@@ -547,14 +552,14 @@ function StatusColumn({
     // On mobile each column is `w-[85vw]` (with a reasonable min/max)
     // so the next column's edge peeks in — a "there's more here" hint.
     // On lg+ the five columns share the row.
-    <div className="flex w-[85vw] min-w-[260px] max-w-[320px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-border bg-card/60 p-4 lg:w-auto lg:max-w-none lg:flex-1 lg:basis-[240px] lg:shrink lg:snap-none">
+    <div className="border-border bg-card/60 flex w-[85vw] max-w-[320px] min-w-[260px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border p-4 lg:w-auto lg:max-w-none lg:flex-1 lg:shrink lg:basis-[240px] lg:snap-none">
       {/* 3px colored top border — sits above the column's padding */}
       <div
         className="-mx-4 -mt-4 h-[3px] rounded-t-xl"
         style={{ backgroundColor: column.color }}
       />
       <div className="flex items-center justify-between pt-3">
-        <h3 className="truncate text-sm font-semibold text-foreground">
+        <h3 className="text-foreground truncate text-sm font-semibold">
           {column.label}
         </h3>
         <Badge variant="neutral" className="shrink-0">
@@ -568,14 +573,14 @@ function StatusColumn({
           // Transition only the drop-affordance colours — NOT `transition-all`,
           // which would watch layout properties too and can thrash as cards
           // enter/leave the column on every drop.
-          "mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-lg transition-[background-color,outline-color] duration-150",
+          'mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-lg transition-[background-color,outline-color] duration-150',
           isOver &&
-            "bg-primary/5 outline outline-2 outline-dashed outline-primary outline-offset-2",
+            'bg-primary/5 outline-primary outline outline-2 outline-offset-2 outline-dashed'
         )}
       >
         {leads.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed border-border py-10 text-xs text-muted-foreground">
-            {ctx.canEdit ? "Drop a lead here" : "No leads"}
+          <div className="border-border text-muted-foreground flex flex-1 items-center justify-center rounded-lg border-2 border-dashed py-10 text-xs">
+            {ctx.canEdit ? 'Drop a lead here' : 'No leads'}
           </div>
         ) : (
           <ColumnCards leads={leads} ctx={ctx} />
@@ -643,7 +648,7 @@ export function LeadsBoard({
   const displayColumns = useMemo(() => {
     if (!collapseEmpty || activeLeadId) return allColumns;
     return allColumns.filter(
-      (c) => (leadsByColumn.get(c.key)?.length ?? 0) > 0,
+      (c) => (leadsByColumn.get(c.key)?.length ?? 0) > 0
     );
   }, [allColumns, leadsByColumn, collapseEmpty, activeLeadId]);
 
@@ -679,7 +684,7 @@ export function LeadsBoard({
       currentUserId,
       sourceLabel,
       density,
-    ],
+    ]
   );
 
   const sensors = useSensors(
@@ -687,11 +692,11 @@ export function LeadsBoard({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     // Keyboard drag support: focus a card, Space to pick up, arrows to move,
     // Space to drop, Escape to cancel.
-    useSensor(KeyboardSensor),
+    useSensor(KeyboardSensor)
   );
 
   const activeLead = activeLeadId
-    ? leads.find((l) => l.id === activeLeadId) ?? null
+    ? (leads.find((l) => l.id === activeLeadId) ?? null)
     : null;
 
   function handleDragStart(event: DragStartEvent) {

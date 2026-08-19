@@ -11,8 +11,8 @@
  *     flows that can't ask — CSV import, single-option auto-select.
  */
 
-import { addDuration } from "@/lib/memberships/expiry";
-import type { DurationUnit, MembershipPlan, PlanPricingOption } from "@/types";
+import { addDuration } from '@/lib/memberships/expiry';
+import type { DurationUnit, MembershipPlan, PlanPricingOption } from '@/types';
 
 /** A plan's active options, ordered as the settings UI arranged them. */
 export function activeOptions(plan: MembershipPlan): PlanPricingOption[] {
@@ -20,7 +20,7 @@ export function activeOptions(plan: MembershipPlan): PlanPricingOption[] {
     .filter((o) => o.is_active)
     .sort(
       (a, b) =>
-        a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at),
+        a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at)
     );
 }
 
@@ -32,20 +32,20 @@ export function defaultOption(plan: MembershipPlan): PlanPricingOption | null {
 /** Expiry for a cycle starting `startDate` on this option. */
 export function optionEndDate(
   startDate: string,
-  option: Pick<PlanPricingOption, "duration_count" | "duration_unit">,
+  option: Pick<PlanPricingOption, 'duration_count' | 'duration_unit'>
 ): string {
   return addDuration(startDate, option.duration_count, option.duration_unit);
 }
 
 /** First cycle's fee: price + one-time joining fee. */
 export function firstCycleFee(
-  option: Pick<PlanPricingOption, "price" | "setup_fee">,
+  option: Pick<PlanPricingOption, 'price' | 'setup_fee'>
 ): number {
   return Number(option.price) + Number(option.setup_fee || 0);
 }
 
 /** Every later cycle's fee: price alone — never the setup fee again. */
-export function renewalFee(option: Pick<PlanPricingOption, "price">): number {
+export function renewalFee(option: Pick<PlanPricingOption, 'price'>): number {
   return Number(option.price);
 }
 
@@ -56,18 +56,18 @@ export interface MonthlyPriceInsight {
 
 /** Customer-facing cadence copy without changing the option's semantics. */
 export function pricingCadenceLabel(
-  plan: Pick<MembershipPlan, "plan_type">,
-  option: Pick<PlanPricingOption, "duration_count" | "duration_unit">,
+  plan: Pick<MembershipPlan, 'plan_type'>,
+  option: Pick<PlanPricingOption, 'duration_count' | 'duration_unit'>
 ): string {
   const { duration_count: count, duration_unit: unit } = option;
   const duration = durationLabel(count, unit);
 
-  if (plan.plan_type === "session_pack") return `Valid for ${duration}`;
-  if (plan.plan_type === "non_recurring") return `${count}-${unit} term`;
-  if (unit === "month" && count === 1) return "Billed monthly";
-  if (unit === "month" && count === 3) return "Billed quarterly";
-  if ((unit === "month" && count === 12) || (unit === "year" && count === 1)) {
-    return "Billed annually";
+  if (plan.plan_type === 'session_pack') return `Valid for ${duration}`;
+  if (plan.plan_type === 'non_recurring') return `${count}-${unit} term`;
+  if (unit === 'month' && count === 1) return 'Billed monthly';
+  if (unit === 'month' && count === 3) return 'Billed quarterly';
+  if ((unit === 'month' && count === 12) || (unit === 'year' && count === 1)) {
+    return 'Billed annually';
   }
   return `Billed every ${duration}`;
 }
@@ -85,14 +85,14 @@ export function pricingCadenceLabel(
  */
 export function monthlyPriceInsight(
   plan: MembershipPlan,
-  option: PlanPricingOption,
+  option: PlanPricingOption
 ): MonthlyPriceInsight | null {
-  if (plan.plan_type === "session_pack") return null;
+  if (plan.plan_type === 'session_pack') return null;
 
   const months =
-    option.duration_unit === "month"
+    option.duration_unit === 'month'
       ? option.duration_count
-      : option.duration_unit === "year"
+      : option.duration_unit === 'year'
         ? option.duration_count * 12
         : null;
   if (months === null || months <= 1) return null;
@@ -101,7 +101,7 @@ export function monthlyPriceInsight(
   const effectiveMonthlyPrice = price / months;
   const monthlyOptions = activeOptions(plan).filter(
     (candidate) =>
-      candidate.duration_unit === "month" && candidate.duration_count === 1,
+      candidate.duration_unit === 'month' && candidate.duration_count === 1
   );
 
   let savingsPercent: number | null = null;
@@ -109,7 +109,7 @@ export function monthlyPriceInsight(
     const monthlyBaseline = Number(monthlyOptions[0].price) * months;
     if (monthlyBaseline > 0) {
       const roundedSavings = Math.round(
-        ((monthlyBaseline - price) / monthlyBaseline) * 100,
+        ((monthlyBaseline - price) / monthlyBaseline) * 100
       );
       if (roundedSavings > 0) savingsPercent = roundedSavings;
     }
@@ -128,20 +128,23 @@ export function monthlyPriceInsight(
  * inline comparison at each surface (same rule as roles.ts).
  */
 export function isRenewalChaseable(
-  plan: { plan_type: MembershipPlan["plan_type"] | string | null } | null | undefined,
+  plan:
+    | { plan_type: MembershipPlan['plan_type'] | string | null }
+    | null
+    | undefined
 ): boolean {
-  return !plan || plan.plan_type === "recurring";
+  return !plan || plan.plan_type === 'recurring';
 }
 
 const UNIT_LABEL: Record<DurationUnit, string> = {
-  day: "day",
-  week: "week",
-  month: "month",
-  year: "year",
+  day: 'day',
+  week: 'week',
+  month: 'month',
+  year: 'year',
 };
 
 /** "1 month", "90 days", "2 weeks" — money is the caller's job (fmt.money). */
 export function durationLabel(count: number, unit: DurationUnit): string {
   const noun = UNIT_LABEL[unit];
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }

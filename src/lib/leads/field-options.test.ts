@@ -14,10 +14,10 @@ import {
 describe('resolveFieldOptions', () => {
   it('falls back to defaults when the account has no rows', () => {
     expect(resolveFieldOptions('status', null)).toBe(
-      DEFAULT_FIELD_OPTIONS.status,
+      DEFAULT_FIELD_OPTIONS.status
     );
     expect(resolveFieldOptions('source', [])).toBe(
-      DEFAULT_FIELD_OPTIONS.source,
+      DEFAULT_FIELD_OPTIONS.source
     );
   });
 
@@ -79,9 +79,7 @@ describe('humaniseKey', () => {
 
 describe('slugifyOptionKey', () => {
   it('slugs labels and strips punctuation', () => {
-    expect(slugifyOptionKey('Walk-in / Referral', [])).toBe(
-      'walk_in_referral',
-    );
+    expect(slugifyOptionKey('Walk-in / Referral', [])).toBe('walk_in_referral');
   });
 
   it('appends a numeric suffix on collision', () => {

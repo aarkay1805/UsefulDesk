@@ -16,15 +16,15 @@
  * DST- and locale-independent.
  */
 
-import { todayInTz } from "@/lib/locale/format";
-import type { DurationUnit, Membership, MembershipStatus } from "@/types";
+import { todayInTz } from '@/lib/locale/format';
+import type { DurationUnit, Membership, MembershipStatus } from '@/types';
 
 const MS_PER_DAY = 86_400_000;
 
 /** Today's date in Asia/Kolkata as 'YYYY-MM-DD' — the India-default
  *  fallback. Account-aware code uses `todayInTz` / `fmt.today()`. */
 export function istToday(now: Date = new Date()): string {
-  return todayInTz("Asia/Kolkata", now);
+  return todayInTz('Asia/Kolkata', now);
 }
 
 /** Parse 'YYYY-MM-DD' to a UTC-midnight epoch (ms). NaN on malformed input. */
@@ -38,8 +38,8 @@ function toUtcMs(dateStr: string): number {
 function fromUtcMs(ms: number): string {
   const d = new Date(ms);
   const y = d.getUTCFullYear();
-  const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const da = String(d.getUTCDate()).padStart(2, "0");
+  const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const da = String(d.getUTCDate()).padStart(2, '0');
   return `${y}-${mo}-${da}`;
 }
 
@@ -60,10 +60,10 @@ export function istAddDays(dateStr: string, days: number): string {
 export function addDuration(
   dateStr: string,
   count: number,
-  unit: DurationUnit,
+  unit: DurationUnit
 ): string {
-  if (unit === "day") return istAddDays(dateStr, count);
-  if (unit === "week") return istAddDays(dateStr, count * 7);
+  if (unit === 'day') return istAddDays(dateStr, count);
+  if (unit === 'week') return istAddDays(dateStr, count * 7);
 
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
   if (!m) return dateStr;
@@ -71,16 +71,18 @@ export function addDuration(
   const month = Number(m[2]); // 1-based
   const day = Number(m[3]);
 
-  const monthsToAdd = unit === "month" ? count : count * 12;
+  const monthsToAdd = unit === 'month' ? count : count * 12;
   const totalMonths = year * 12 + (month - 1) + monthsToAdd;
   const targetYear = Math.floor(totalMonths / 12);
   const targetMonth = totalMonths - targetYear * 12; // 0-based
   // Day 0 of the NEXT month = last day of the target month (UTC-anchored).
-  const daysInTarget = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  const daysInTarget = new Date(
+    Date.UTC(targetYear, targetMonth + 1, 0)
+  ).getUTCDate();
   const targetDay = Math.min(day, daysInTarget);
 
-  const mo = String(targetMonth + 1).padStart(2, "0");
-  const da = String(targetDay).padStart(2, "0");
+  const mo = String(targetMonth + 1).padStart(2, '0');
+  const da = String(targetDay).padStart(2, '0');
   return `${targetYear}-${mo}-${da}`;
 }
 
@@ -107,11 +109,11 @@ export function daysUntil(endDate: string, today: string = istToday()): number {
  * pass through unchanged (a frozen membership doesn't expire).
  */
 export function effectiveStatus(
-  m: Pick<Membership, "status" | "end_date">,
-  today: string = istToday(),
+  m: Pick<Membership, 'status' | 'end_date'>,
+  today: string = istToday()
 ): MembershipStatus {
-  if (m.status === "active" && daysBetween(today, m.end_date) < 0) {
-    return "expired";
+  if (m.status === 'active' && daysBetween(today, m.end_date) < 0) {
+    return 'expired';
   }
   return m.status;
 }
@@ -125,7 +127,7 @@ export function effectiveStatus(
 export function computeRenewalEndDate(
   currentEnd: string | null | undefined,
   durationDays: number,
-  today: string = istToday(),
+  today: string = istToday()
 ): string {
   let base = today;
   if (currentEnd && daysBetween(today, currentEnd) > 0) {
@@ -143,7 +145,7 @@ export function computeRenewalEndDate(
 export function unfreezeEndDate(
   endDate: string,
   frozenAt: string | null | undefined,
-  today: string = istToday(),
+  today: string = istToday()
 ): string {
   if (!frozenAt) return endDate;
   const frozenDays = daysBetween(frozenAt, today);

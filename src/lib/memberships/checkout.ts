@@ -121,20 +121,15 @@ export function quoteMembershipCheckout(input: {
     input.bonusMonths
   );
   const addOnTotal = roundMoney(catalogueTotal(input.selections));
-  const invoiceTotal = roundMoney(
-    discount.firstInvoiceTotal + addOnTotal
-  );
+  const invoiceTotal = roundMoney(discount.firstInvoiceTotal + addOnTotal);
   const rawCredit = Number(input.availableCredit ?? 0);
   const availableCredit = Number.isFinite(rawCredit)
     ? Math.max(rawCredit, 0)
     : 0;
-  const creditApplied = roundMoney(
-    Math.min(availableCredit, invoiceTotal)
-  );
+  const creditApplied = roundMoney(Math.min(availableCredit, invoiceTotal));
   const cashDue = roundMoney(invoiceTotal - creditApplied);
   const installments = installmentAmounts(cashDue);
-  const installmentsAvailable =
-    installments.now > 0 && installments.later > 0;
+  const installmentsAvailable = installments.now > 0 && installments.later > 0;
 
   return {
     listPrice: discount.listPrice,

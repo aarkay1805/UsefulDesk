@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import type React from "react";
-import { useId } from "react";
+import type React from 'react';
+import { useId } from 'react';
 
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from '@/components/ui/button';
 import {
   PreviewCard,
   PreviewCardContent,
   PreviewCardTrigger,
-} from "@/components/ui/preview-card";
-import { UserAvatar } from "@/components/ui/user-avatar";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/preview-card';
+import { UserAvatar } from '@/components/ui/user-avatar';
+import { cn } from '@/lib/utils';
 
 /**
  * MemberIdentity — the single way to render a person's identity on the
@@ -31,7 +31,7 @@ export function MemberIdentity({
   secondary,
   meta,
   src,
-  size = "default",
+  size = 'default',
   className,
   avatarPreview,
 }: {
@@ -42,7 +42,7 @@ export function MemberIdentity({
   meta?: React.ReactNode;
   /** Future member photo URL; null/undefined → initial fallback. */
   src?: string | null;
-  size?: "sm" | "default" | "lg";
+  size?: 'sm' | 'default' | 'lg';
   className?: string;
   /** Optional hover/focus content anchored only to the avatar. */
   avatarPreview?: {
@@ -51,7 +51,7 @@ export function MemberIdentity({
     onNavigate: () => void;
   };
 }) {
-  const display = name?.trim() || "Unnamed";
+  const display = name?.trim() || 'Unnamed';
   const avatarPreviewTriggerId = useId();
   // Two lines (name + phone) → centre the avatar against the pair. Three
   // or more (a `meta` context line is present) → top-align it to the
@@ -60,8 +60,8 @@ export function MemberIdentity({
   return (
     <div
       className={cn(
-        "flex min-w-0 gap-2.5",
-        multiLine ? "items-start" : "items-center",
+        'flex min-w-0 gap-2.5',
+        multiLine ? 'items-start' : 'items-center',
         className
       )}
     >
@@ -70,7 +70,7 @@ export function MemberIdentity({
           <PreviewCardTrigger
             id={avatarPreviewTriggerId}
             href={avatarPreview.href}
-            className={buttonVariants({ variant: "ghost", size: "icon" })}
+            className={buttonVariants({ variant: 'ghost', size: 'icon' })}
             aria-label={`Quick view for ${display}`}
             onClick={(event) => {
               event.preventDefault();
@@ -88,11 +88,11 @@ export function MemberIdentity({
         <UserAvatar name={display} src={src} size={size} />
       )}
       <div className="min-w-0">
-        <div className="truncate text-sm font-medium text-foreground">
+        <div className="text-foreground truncate text-sm font-medium">
           {display}
         </div>
         {secondary ? (
-          <div className="truncate text-xs text-muted-foreground">
+          <div className="text-muted-foreground truncate text-xs">
             {secondary}
           </div>
         ) : null}

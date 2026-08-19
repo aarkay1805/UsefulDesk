@@ -16,7 +16,7 @@ const VPA_RE = /^[A-Za-z0-9._-]{2,}@[A-Za-z]{2,}$/;
  * hardcoded `cu=INR` in the link below is correct for the rail itself).
  */
 export function upiAvailableFor(currency: string): boolean {
-  return currency === "INR";
+  return currency === 'INR';
 }
 
 export function isValidVpa(vpa: string): boolean {
@@ -39,14 +39,19 @@ export interface UpiLinkParams {
  * Build a `upi://pay` deep link. Parameters are URL-encoded; the
  * amount is fixed to two decimals (UPI apps reject weird precision).
  */
-export function buildUpiLink({ vpa, payeeName, amount, note }: UpiLinkParams): string {
+export function buildUpiLink({
+  vpa,
+  payeeName,
+  amount,
+  note,
+}: UpiLinkParams): string {
   const params = new URLSearchParams();
-  params.set("pa", vpa.trim());
-  if (payeeName?.trim()) params.set("pn", payeeName.trim());
-  if (typeof amount === "number" && Number.isFinite(amount) && amount > 0) {
-    params.set("am", amount.toFixed(2));
-    params.set("cu", "INR");
+  params.set('pa', vpa.trim());
+  if (payeeName?.trim()) params.set('pn', payeeName.trim());
+  if (typeof amount === 'number' && Number.isFinite(amount) && amount > 0) {
+    params.set('am', amount.toFixed(2));
+    params.set('cu', 'INR');
   }
-  if (note?.trim()) params.set("tn", note.trim());
+  if (note?.trim()) params.set('tn', note.trim());
   return `upi://pay?${params.toString()}`;
 }

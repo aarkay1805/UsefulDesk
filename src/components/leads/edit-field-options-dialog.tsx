@@ -171,7 +171,9 @@ function OptionsEditor({
         label,
         // Auto-assign a default swatch (cycles so consecutive adds differ);
         // the user recolours from the row's swatches afterwards.
-        color: isStatus ? STATUS_COLORS[prev.length % STATUS_COLORS.length] : null,
+        color: isStatus
+          ? STATUS_COLORS[prev.length % STATUS_COLORS.length]
+          : null,
         isNew: true,
       },
     ]);
@@ -202,8 +204,7 @@ function OptionsEditor({
           .select('id', { count: 'exact', head: true })
           .eq(FIELD_COLUMN[kind], key);
         if ((count ?? 0) > 0) {
-          const label =
-            current.find((o) => o.key === key)?.label ?? key;
+          const label = current.find((o) => o.key === key)?.label ?? key;
           toast.error(
             `Can't remove "${label}" — ${count} lead${count === 1 ? '' : 's'} still use it`
           );
@@ -229,7 +230,7 @@ function OptionsEditor({
             field: kind,
             key: o.key,
             label: o.label.trim(),
-            color: isStatus ? o.color ?? STATUS_COLORS[0] : null,
+            color: isStatus ? (o.color ?? STATUS_COLORS[0]) : null,
             sort_order: i,
           }))
         );
@@ -261,7 +262,7 @@ function OptionsEditor({
       {/* -mx-1 px-1: overflow-y-auto clips overflow-x too, so pad the
           scroll box (and pull it back out) to stop focus/selection rings
           from being shaved at the left edge. */}
-      <div className="max-h-[50vh] -mx-1 space-y-2 overflow-y-auto px-1 py-1">
+      <div className="-mx-1 max-h-[50vh] space-y-2 overflow-y-auto px-1 py-1">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -302,7 +303,7 @@ function OptionsEditor({
               }
             }}
             placeholder="Add an option…"
-            className="border-border text-foreground h-7 flex-1 rounded-full px-3.5 placeholder:text-muted-foreground"
+            className="border-border text-foreground placeholder:text-muted-foreground h-7 flex-1 rounded-full px-3.5"
           />
           {/* Cancel + Add reveal only once the user types, sliding in.
               Colour is chosen afterwards from the created row's swatches. */}
@@ -361,8 +362,14 @@ function OptionRow({
   onColor: (color: string) => void;
   onRemove: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: option.key });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: option.key });
 
   const color = option.color ?? STATUS_COLORS[0];
   const semanticPreset = resolveSemanticColorPreset(color);
@@ -413,9 +420,7 @@ function OptionRow({
         }
       />
 
-      {isStatus && (
-        <ColorSwatchPicker value={color} onChange={onColor} />
-      )}
+      {isStatus && <ColorSwatchPicker value={color} onChange={onColor} />}
 
       <Button
         variant="destructive-ghost"
@@ -438,7 +443,11 @@ function ColorSwatchPicker({
   onChange: (color: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-1" role="radiogroup" aria-label="Pill colour">
+    <div
+      className="flex items-center gap-1"
+      role="radiogroup"
+      aria-label="Pill colour"
+    >
       {STATUS_COLORS.map((c) => {
         const displayColor = resolveSemanticColorPreset(c)?.tint ?? c;
         return (
@@ -453,7 +462,7 @@ function ColorSwatchPicker({
               // The dot uses the same canonical primitive as its rendered
               // badge. A hairline keeps light colours perceivable on the card.
               'size-4 cursor-pointer rounded-full border border-black/15 transition-transform hover:scale-110 dark:border-white/20',
-              value === c && 'ring-2 ring-ring ring-offset-1 ring-offset-card'
+              value === c && 'ring-ring ring-offset-card ring-2 ring-offset-1'
             )}
             style={{ backgroundColor: displayColor }}
           />

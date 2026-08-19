@@ -34,7 +34,7 @@ export function SettingsChip({
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap [&_svg]:size-3.5',
         VARIANTS[variant],
-        className,
+        className
       )}
     >
       {children}
@@ -56,7 +56,7 @@ export function StatusDot({
       className={cn(
         'inline-block size-1.5 shrink-0 rounded-full',
         tone === 'ok' ? 'bg-emerald-500' : 'bg-muted-foreground',
-        className,
+        className
       )}
     />
   );

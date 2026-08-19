@@ -79,7 +79,9 @@ export function mapMetaLeadFields(fieldData: MetaFieldDatum[]): MappedMetaLead {
 
   // Tier 1 + 2 — key normalization, then the alias table.
   for (const field of fieldData) {
-    const value = (field.values ?? []).find((v) => v && v.trim() !== '')?.trim();
+    const value = (field.values ?? [])
+      .find((v) => v && v.trim() !== '')
+      ?.trim();
     if (!value) continue;
 
     const key = normalizeKey(field.name ?? '');
@@ -109,7 +111,9 @@ export function mapMetaLeadFields(fieldData: MetaFieldDatum[]): MappedMetaLead {
   // question is titled in Hindi.
   const extras: { label: string; value: string }[] = [];
   for (const field of unmatched) {
-    const value = (field.values ?? []).find((v) => v && v.trim() !== '')?.trim();
+    const value = (field.values ?? [])
+      .find((v) => v && v.trim() !== '')
+      ?.trim();
     if (!value) continue;
 
     if (!email && looksLikeEmail(value)) {

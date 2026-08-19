@@ -1,22 +1,22 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { Loader2, Plus, X } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { Loader2, Plus, X } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { useLocale } from "@/hooks/use-locale";
-import { getErrorMessage } from "@/lib/errors";
-import { isUniqueViolation } from "@/lib/contacts/dedupe";
-import { currencySymbol } from "@/lib/currency";
-import { cn } from "@/lib/utils";
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { useLocale } from '@/hooks/use-locale';
+import { getErrorMessage } from '@/lib/errors';
+import { isUniqueViolation } from '@/lib/contacts/dedupe';
+import { currencySymbol } from '@/lib/currency';
+import { cn } from '@/lib/utils';
 import type {
   AttendanceLimitInterval,
   DurationUnit,
   MembershipPlan,
   PlanType,
-} from "@/types";
+} from '@/types';
 import {
   Dialog,
   DialogContent,
@@ -24,46 +24,46 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Collapse } from "@/components/ui/collapse";
-import { CurrencyInput } from "@/components/ui/currency-input";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Textarea } from "@/components/ui/textarea";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Collapse } from '@/components/ui/collapse';
+import { CurrencyInput } from '@/components/ui/currency-input';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 
 const PLAN_TYPES: { value: PlanType; label: string; hint: string }[] = [
   {
-    value: "recurring",
-    label: "Recurring",
-    hint: "Bills every cycle, renewal reminders and auto-pay apply.",
+    value: 'recurring',
+    label: 'Recurring',
+    hint: 'Bills every cycle, renewal reminders and auto-pay apply.',
   },
   {
-    value: "non_recurring",
-    label: "Fixed term",
-    hint: "Pay once for a fixed period, no renewal chase.",
+    value: 'non_recurring',
+    label: 'Fixed term',
+    hint: 'Pay once for a fixed period, no renewal chase.',
   },
   {
-    value: "session_pack",
-    label: "Session pack",
-    hint: "A punch card of sessions, each check-in uses one.",
+    value: 'session_pack',
+    label: 'Session pack',
+    hint: 'A punch card of sessions, each check-in uses one.',
   },
 ];
 
 const DURATION_UNITS: { value: DurationUnit; label: string }[] = [
-  { value: "day", label: "Day(s)" },
-  { value: "week", label: "Week(s)" },
-  { value: "month", label: "Month(s)" },
-  { value: "year", label: "Year(s)" },
+  { value: 'day', label: 'Day(s)' },
+  { value: 'week', label: 'Week(s)' },
+  { value: 'month', label: 'Month(s)' },
+  { value: 'year', label: 'Year(s)' },
 ];
 
 /**
@@ -78,37 +78,36 @@ const PLAN_COPY: Record<
   { section: string; duration: string; add: string; rowNoun: string }
 > = {
   recurring: {
-    section: "Billing options",
-    duration: "Bill every",
-    add: "Add billing option",
-    rowNoun: "billing option",
+    section: 'Billing options',
+    duration: 'Bill every',
+    add: 'Add billing option',
+    rowNoun: 'billing option',
   },
   non_recurring: {
-    section: "Pricing & expiry",
-    duration: "Expire plan in",
-    add: "Add another price",
-    rowNoun: "price",
+    section: 'Pricing & expiry',
+    duration: 'Expire plan in',
+    add: 'Add another price',
+    rowNoun: 'price',
   },
   session_pack: {
-    section: "Pricing & validity",
-    duration: "Valid for",
-    add: "Add another price",
-    rowNoun: "price",
+    section: 'Pricing & validity',
+    duration: 'Valid for',
+    add: 'Add another price',
+    rowNoun: 'price',
   },
 };
 
 /** `period` = the membership's own cycle, which a fixed-term plan calls its term. */
 function limitIntervals(
-  planType: PlanType,
+  planType: PlanType
 ): { value: AttendanceLimitInterval; label: string }[] {
   return [
     {
-      value: "period",
-      label:
-        planType === "non_recurring" ? "per term" : "per billing period",
+      value: 'period',
+      label: planType === 'non_recurring' ? 'per term' : 'per billing period',
     },
-    { value: "week", label: "per week" },
-    { value: "month", label: "per month" },
+    { value: 'week', label: 'per week' },
+    { value: 'month', label: 'per month' },
   ];
 }
 
@@ -128,23 +127,23 @@ interface OptionRow {
 }
 
 const EMPTY_OPTION: OptionRow = {
-  duration_count: "1",
-  duration_unit: "month",
-  price: "",
-  setup_fee: "",
+  duration_count: '1',
+  duration_unit: 'month',
+  price: '',
+  setup_fee: '',
 };
 
 /** Mirror the first option into the legacy plan columns (062: frozen but
  *  kept coherent so pre-062 readers/rollback stay sane). */
 function approxDays(count: number, unit: DurationUnit): number {
   switch (unit) {
-    case "day":
+    case 'day':
       return count;
-    case "week":
+    case 'week':
       return count * 7;
-    case "month":
+    case 'month':
       return count * 30;
-    case "year":
+    case 'year':
       return count * 365;
   }
 }
@@ -180,18 +179,18 @@ export function PlanEditorDialog({
   const { locale } = useLocale();
   const isEdit = !!plan;
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [planType, setPlanType] = useState<PlanType>("recurring");
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [planType, setPlanType] = useState<PlanType>('recurring');
   const [options, setOptions] = useState<OptionRow[]>([{ ...EMPTY_OPTION }]);
   /** Persisted option ids removed in this session — resolved on save. */
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   /** Visit limit is opt-in — unchecked (= unlimited) by default. */
   const [limitEnabled, setLimitEnabled] = useState(false);
-  const [limitCount, setLimitCount] = useState("");
+  const [limitCount, setLimitCount] = useState('');
   const [limitInterval, setLimitInterval] =
-    useState<AttendanceLimitInterval>("period");
-  const [sessionsCount, setSessionsCount] = useState("");
+    useState<AttendanceLimitInterval>('period');
+  const [sessionsCount, setSessionsCount] = useState('');
   const [typeLocked, setTypeLocked] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -201,19 +200,15 @@ export function PlanEditorDialog({
     void (async () => {
       await Promise.resolve();
       if (cancelled) return;
-      setName(plan?.name ?? "");
-      setDescription(plan?.description ?? "");
-      setPlanType(plan?.plan_type ?? "recurring");
+      setName(plan?.name ?? '');
+      setDescription(plan?.description ?? '');
+      setPlanType(plan?.plan_type ?? 'recurring');
       setLimitEnabled(!!plan?.attendance_limit_count);
       setLimitCount(
-        plan?.attendance_limit_count
-          ? String(plan.attendance_limit_count)
-          : "",
+        plan?.attendance_limit_count ? String(plan.attendance_limit_count) : ''
       );
-      setLimitInterval(plan?.attendance_limit_interval ?? "period");
-      setSessionsCount(
-        plan?.sessions_count ? String(plan.sessions_count) : "",
-      );
+      setLimitInterval(plan?.attendance_limit_interval ?? 'period');
+      setSessionsCount(plan?.sessions_count ? String(plan.sessions_count) : '');
       setRemovedIds([]);
       const existing = (plan?.pricing_options ?? [])
         .slice()
@@ -223,16 +218,16 @@ export function PlanEditorDialog({
           duration_count: String(o.duration_count),
           duration_unit: o.duration_unit,
           price: String(o.price),
-          setup_fee: o.setup_fee > 0 ? String(o.setup_fee) : "",
+          setup_fee: o.setup_fee > 0 ? String(o.setup_fee) : '',
         }));
       setOptions(existing.length > 0 ? existing : [{ ...EMPTY_OPTION }]);
       setTypeLocked(false);
       if (plan) {
         // Lock the type once members reference the plan.
         const { count } = await supabase
-          .from("memberships")
-          .select("id", { count: "exact", head: true })
-          .eq("plan_id", plan.id);
+          .from('memberships')
+          .select('id', { count: 'exact', head: true })
+          .eq('plan_id', plan.id);
         if (!cancelled && (count ?? 0) > 0) setTypeLocked(true);
       }
     })();
@@ -244,7 +239,7 @@ export function PlanEditorDialog({
 
   function patchOption(index: number, patch: Partial<OptionRow>) {
     setOptions((rows) =>
-      rows.map((r, i) => (i === index ? { ...r, ...patch } : r)),
+      rows.map((r, i) => (i === index ? { ...r, ...patch } : r))
     );
   }
 
@@ -260,15 +255,15 @@ export function PlanEditorDialog({
     if (!accountId) return;
     const noun = PLAN_COPY[planType].rowNoun;
     const trimmed = name.trim();
-    if (!trimmed) return toast.error("Plan name is required");
+    if (!trimmed) return toast.error('Plan name is required');
     if (options.length === 0) return toast.error(`Add at least one ${noun}`);
 
     const parsedOptions = options.map((o) => ({
       id: o.id,
       duration_count: Number(o.duration_count),
       duration_unit: o.duration_unit,
-      price: o.price === "" ? 0 : Number(o.price),
-      setup_fee: o.setup_fee === "" ? 0 : Number(o.setup_fee),
+      price: o.price === '' ? 0 : Number(o.price),
+      setup_fee: o.setup_fee === '' ? 0 : Number(o.setup_fee),
     }));
     for (const o of parsedOptions) {
       if (!Number.isInteger(o.duration_count) || o.duration_count <= 0) {
@@ -280,16 +275,16 @@ export function PlanEditorDialog({
     }
 
     const limit =
-      !limitEnabled || limitCount === "" ? null : Number(limitCount);
-    if (limitEnabled && planType !== "session_pack") {
+      !limitEnabled || limitCount === '' ? null : Number(limitCount);
+    if (limitEnabled && planType !== 'session_pack') {
       if (limit === null || !Number.isInteger(limit) || limit <= 0) {
-        return toast.error("The visit limit must be a whole number");
+        return toast.error('The visit limit must be a whole number');
       }
     }
-    const sessions = sessionsCount === "" ? null : Number(sessionsCount);
-    if (planType === "session_pack") {
+    const sessions = sessionsCount === '' ? null : Number(sessionsCount);
+    if (planType === 'session_pack') {
       if (sessions === null || !Number.isInteger(sessions) || sessions <= 0) {
-        return toast.error("A session pack needs a whole-number session count");
+        return toast.error('A session pack needs a whole-number session count');
       }
     }
 
@@ -299,37 +294,38 @@ export function PlanEditorDialog({
         name: trimmed,
         description: description.trim() || null,
         plan_type: planType,
-        attendance_limit_count: planType === "session_pack" ? null : limit,
+        attendance_limit_count: planType === 'session_pack' ? null : limit,
         attendance_limit_interval:
-          planType === "session_pack" || limit === null ? null : limitInterval,
-        sessions_count: planType === "session_pack" ? sessions : null,
+          planType === 'session_pack' || limit === null ? null : limitInterval,
+        sessions_count: planType === 'session_pack' ? sessions : null,
         // Legacy mirror (062): keep the frozen scalar columns coherent
         // with the first billing option for rollback/old readers.
         price: parsedOptions[0].price,
         duration_days: approxDays(
           parsedOptions[0].duration_count,
-          parsedOptions[0].duration_unit,
+          parsedOptions[0].duration_unit
         ),
       };
 
       let planId = plan?.id;
       if (isEdit && planId) {
         const { data, error } = await supabase
-          .from("membership_plans")
+          .from('membership_plans')
           .update(planPayload)
-          .eq("id", planId)
-          .select("id");
+          .eq('id', planId)
+          .select('id');
         if (error) throw error;
-        if (!data?.length) throw new Error("You don't have permission to edit plans");
+        if (!data?.length)
+          throw new Error("You don't have permission to edit plans");
       } else {
         const { data, error } = await supabase
-          .from("membership_plans")
+          .from('membership_plans')
           .insert({ ...planPayload, account_id: accountId })
-          .select("id")
+          .select('id')
           .single();
         if (error) {
           if (isUniqueViolation(error)) {
-            toast.error("A plan with this name already exists");
+            toast.error('A plan with this name already exists');
             return;
           }
           throw error;
@@ -349,15 +345,16 @@ export function PlanEditorDialog({
         };
         if (o.id) {
           const { data, error } = await supabase
-            .from("plan_pricing_options")
+            .from('plan_pricing_options')
             .update(row)
-            .eq("id", o.id)
-            .select("id");
+            .eq('id', o.id)
+            .select('id');
           if (error) throw error;
-          if (!data?.length) throw new Error("You don't have permission to edit plans");
+          if (!data?.length)
+            throw new Error("You don't have permission to edit plans");
         } else {
           const { error } = await supabase
-            .from("plan_pricing_options")
+            .from('plan_pricing_options')
             .insert({ ...row, account_id: accountId, plan_id: planId });
           if (error) throw error;
         }
@@ -366,33 +363,35 @@ export function PlanEditorDialog({
       // Removed rows: delete when unreferenced, archive otherwise.
       for (const id of removedIds) {
         const { count } = await supabase
-          .from("memberships")
-          .select("id", { count: "exact", head: true })
-          .eq("pricing_option_id", id);
+          .from('memberships')
+          .select('id', { count: 'exact', head: true })
+          .eq('pricing_option_id', id);
         if ((count ?? 0) > 0) {
           const { data, error } = await supabase
-            .from("plan_pricing_options")
+            .from('plan_pricing_options')
             .update({ is_active: false })
-            .eq("id", id)
-            .select("id");
+            .eq('id', id)
+            .select('id');
           if (error) throw error;
-          if (!data?.length) throw new Error("You don't have permission to edit plans");
+          if (!data?.length)
+            throw new Error("You don't have permission to edit plans");
         } else {
           const { data, error } = await supabase
-            .from("plan_pricing_options")
+            .from('plan_pricing_options')
             .delete()
-            .eq("id", id)
-            .select("id");
+            .eq('id', id)
+            .select('id');
           if (error) throw error;
-          if (!data?.length) throw new Error("You don't have permission to edit plans");
+          if (!data?.length)
+            throw new Error("You don't have permission to edit plans");
         }
       }
 
-      toast.success(isEdit ? "Plan updated" : "Plan added");
+      toast.success(isEdit ? 'Plan updated' : 'Plan added');
       onOpenChange(false);
       onSaved();
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to save the plan"));
+      toast.error(getErrorMessage(err, 'Failed to save the plan'));
     } finally {
       setSaving(false);
     }
@@ -405,11 +404,11 @@ export function PlanEditorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit plan" : "New plan"}</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit plan' : 'New plan'}</DialogTitle>
           <DialogDescription>
             {isEdit
-              ? "Change what this plan sells. Existing members keep their current cycle."
-              : "What your gym sells — its billing options and access rules."}
+              ? 'Change what this plan sells. Existing members keep their current cycle.'
+              : 'What your gym sells — its billing options and access rules.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -432,16 +431,16 @@ export function PlanEditorDialog({
                 <label
                   key={t.value}
                   className={cn(
-                    "flex items-start gap-3 rounded-lg border p-3 transition-colors",
+                    'flex items-start gap-3 rounded-lg border p-3 transition-colors',
                     typeLocked
-                      ? "cursor-not-allowed opacity-60"
-                      : "cursor-pointer",
+                      ? 'cursor-not-allowed opacity-60'
+                      : 'cursor-pointer',
                     planType === t.value
-                      ? "border-primary/40 bg-primary/[0.04]"
+                      ? 'border-primary/40 bg-primary/[0.04]'
                       : cn(
-                          "border-border/80",
-                          !typeLocked && "hover:border-border-hover",
-                        ),
+                          'border-border/80',
+                          !typeLocked && 'hover:border-border-hover'
+                        )
                   )}
                 >
                   <RadioGroupItem value={t.value} className="mt-0.5" />
@@ -514,7 +513,8 @@ export function PlanEditorDialog({
                       <Select
                         value={o.duration_unit}
                         onValueChange={(v) =>
-                          v && patchOption(i, { duration_unit: v as DurationUnit })
+                          v &&
+                          patchOption(i, { duration_unit: v as DurationUnit })
                         }
                       >
                         <SelectTrigger className="w-32">
@@ -559,7 +559,9 @@ export function PlanEditorDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setOptions((rows) => [...rows, { ...EMPTY_OPTION }])}
+                onClick={() =>
+                  setOptions((rows) => [...rows, { ...EMPTY_OPTION }])
+                }
               >
                 <Plus className="size-4" /> {copy.add}
               </Button>
@@ -567,7 +569,7 @@ export function PlanEditorDialog({
           </div>
 
           {/* ---- Access ------------------------------------------- */}
-          {planType === "session_pack" ? (
+          {planType === 'session_pack' ? (
             <div className="space-y-1.5">
               <Label htmlFor="pe-sessions" className="text-muted-foreground">
                 Sessions in the pack
@@ -582,8 +584,8 @@ export function PlanEditorDialog({
                 className="sm:w-32"
               />
               <p className="text-muted-foreground text-xs">
-                Each check-in uses one session. Staff see the remaining count and
-                get a warning (not a block) when the pack runs out.
+                Each check-in uses one session. Staff see the remaining count
+                and get a warning (not a block) when the pack runs out.
               </p>
             </div>
           ) : (
@@ -640,7 +642,11 @@ export function PlanEditorDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -650,7 +656,7 @@ export function PlanEditorDialog({
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}
-            {isEdit ? "Save changes" : "Add plan"}
+            {isEdit ? 'Save changes' : 'Add plan'}
           </Button>
         </DialogFooter>
       </DialogContent>

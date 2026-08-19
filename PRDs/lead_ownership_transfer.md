@@ -44,7 +44,7 @@ Conventional CRM practice is **role-split**:
 
 - **Managerial reassign (instant).** Owner/admin routes any lead to anyone.
   No acceptance — a manager doesn't need permission.
-- **Peer handoff (request → accept).** Agent → agent transfer is a *request*
+- **Peer handoff (request → accept).** Agent → agent transfer is a _request_
   the receiver must accept. Prevents dumping and yanking.
 
 Non-negotiable from the product principles: **every lead always has an
@@ -53,20 +53,20 @@ flips only on acceptance. No lead ever goes ownerless or into limbo.
 
 ## 2. Role matrix
 
-| Action | owner | admin | agent | viewer |
-|---|:--:|:--:|:--:|:--:|
-| Direct reassign, single lead | ✓ instant | ✓ instant | ✗ | ✗ |
-| Bulk reassign (BulkEdit "Assigned to") | ✓ | ✓ | ✗ *(hidden)* | ✗ |
-| Self-claim an **unassigned** lead | ✓ | ✓ | ✓ instant | ✗ |
-| Request transfer of a lead **they own** | ✓ *(instant)* | ✓ *(instant)* | ✓ **pending** | ✗ |
-| Accept / decline a request **targeted at them** | ✓ | ✓ | ✓ | ✗ |
-| Force-resolve / cancel **any** pending request | ✓ | ✓ | ✗ | ✗ |
-| Cancel **their own** request | ✓ | ✓ | ✓ | ✗ |
+| Action                                          |     owner     |     admin     |     agent     | viewer |
+| ----------------------------------------------- | :-----------: | :-----------: | :-----------: | :----: |
+| Direct reassign, single lead                    |   ✓ instant   |   ✓ instant   |       ✗       |   ✗    |
+| Bulk reassign (BulkEdit "Assigned to")          |       ✓       |       ✓       | ✗ _(hidden)_  |   ✗    |
+| Self-claim an **unassigned** lead               |       ✓       |       ✓       |   ✓ instant   |   ✗    |
+| Request transfer of a lead **they own**         | ✓ _(instant)_ | ✓ _(instant)_ | ✓ **pending** |   ✗    |
+| Accept / decline a request **targeted at them** |       ✓       |       ✓       |       ✓       |   ✗    |
+| Force-resolve / cancel **any** pending request  |       ✓       |       ✓       |       ✗       |   ✗    |
+| Cancel **their own** request                    |       ✓       |       ✓       |       ✓       |   ✗    |
 
 Rules that fall out of the matrix:
 
 - Everything routes through **one entry point** — `request_lead_transfer`.
-  The RPC decides *instant vs pending* from the caller's role, so the UI
+  The RPC decides _instant vs pending_ from the caller's role, so the UI
   never branches on role for the write (only for labels/affordances).
 - An **agent may only initiate on a lead they currently own** (or claim one
   that is unassigned). Reassigning someone else's lead is admin-only.
@@ -142,16 +142,18 @@ the role rules and the state machine server-side; RLS on the table is
 SELECT-only.
 
 ### `request_lead_transfer(p_contact_id uuid, p_to_user uuid, p_note text)`
+
 Returns `TEXT` status (`'accepted'` = instant, `'pending'` = handshake).
 
 Logic:
+
 1. `v_uid := auth.uid()`; must be non-null. Resolve `v_account_id` from the
    contact; caller must be `is_account_member(v_account_id,'agent')`.
 2. Validate target: `p_to_user` is a real member of `v_account_id`
    (`profiles` row), not the current owner, not the caller-as-current-owner
    no-op, not a viewer.
 3. Load `v_owner := contacts.assigned_to`, `v_pending_invite :=
-   contacts.pending_invitation_id`.
+contacts.pending_invitation_id`.
    - If `v_pending_invite IS NOT NULL` (lead parked on a not-yet-joined
      invitee) → **admins only**; on assign, also clear the 049 overlay
      (`pending_invitation_id / pending_assignee_name := NULL`).
@@ -160,13 +162,13 @@ Logic:
    - `UPDATE contacts SET assigned_to = p_to_user, pending_* = NULL …`.
    - Supersede any existing pending row for this contact.
    - Insert a `lead_transfers` row `status='accepted', resolved_at=now(),
-     resolved_by=v_uid` (audit).
-   - Return `'accepted'`. *(The `notify_lead_assigned` trigger fires; if the
+resolved_by=v_uid` (audit).
+   - Return `'accepted'`. _(The `notify_lead_assigned` trigger fires; if the
      admin assigned to someone else it notifies them — desired. If self-claim,
-     the self-guard suppresses.)*
+     the self-guard suppresses.)_
 5. **Pending path** — caller is an agent transferring a lead **they own**
    (`v_owner = v_uid`; else raise `42501 'Only the current owner or an admin
-   can transfer this lead.'`):
+can transfer this lead.'`):
    - Supersede any existing pending row for this contact
      (`status='superseded'`).
    - Insert `status='pending'`, `from_user_id=v_owner`, `to_user_id=p_to_user`,
@@ -176,20 +178,22 @@ Logic:
    - Return `'pending'`. **`contacts.assigned_to` is untouched.**
 
 ### `respond_lead_transfer(p_transfer_id uuid, p_accept boolean)`
+
 1. Load transfer `FOR UPDATE`; must be `status='pending'`.
 2. Caller must be `to_user_id` **OR** `is_account_member(account_id,'admin')`
    (force-resolve). Else `42501`.
 3. **Accept** → `UPDATE contacts SET assigned_to = to_user_id, pending_* =
-   NULL WHERE id = contact_id`; set transfer `accepted / resolved_*`; notify
+NULL WHERE id = contact_id`; set transfer `accepted / resolved_*`; notify
    `requested_by` **and** `from_user_id` with `lead_transfer_accepted`.
-   *(The contacts trigger fires `notify_lead_assigned` to the new owner; when
+   _(The contacts trigger fires `notify_lead_assigned` to the new owner; when
    the acceptor is the target, `auth.uid() = assigned_to` → self-guard
    suppresses the duplicate. An admin force-accept DOES notify the new
-   owner — correct.)*
+   owner — correct.)_
 4. **Decline** → transfer `declined / resolved_*`; notify `requested_by`
    with `lead_transfer_declined`. Ownership unchanged.
 
 ### `cancel_lead_transfer(p_transfer_id uuid)`
+
 Caller = `requested_by` OR account admin. Pending → `cancelled`. Optionally
 notify `to_user_id` (`lead_transfer_cancelled`). Ownership unchanged.
 
@@ -248,19 +252,19 @@ RPC role checks; no inline role compares at call sites.
 ```ts
 /** Owner / admin: reassign any lead instantly + bulk reassign (managerial). */
 export function canReassignLeadsDirectly(role: AccountRole) {
-  return hasMinRole(role, "admin");
+  return hasMinRole(role, 'admin');
 }
 /** Owner / admin / agent: initiate a transfer (agents get the accept-gate). */
 export function canRequestLeadTransfer(role: AccountRole) {
-  return hasMinRole(role, "agent");
+  return hasMinRole(role, 'agent');
 }
 /** Owner / admin: force-accept/decline or cancel ANY pending transfer. */
 export function canResolveAnyLeadTransfer(role: AccountRole) {
-  return hasMinRole(role, "admin");
+  return hasMinRole(role, 'admin');
 }
 ```
 
-Add matching cases to `roles.test.ts`. (Accepting a request *targeted at you*
+Add matching cases to `roles.test.ts`. (Accepting a request _targeted at you_
 is identity-based, not a role predicate — gated in the RPC by `to_user_id`.)
 
 ## 8. UI states
@@ -271,12 +275,13 @@ Thin client wrappers in a new `src/lib/leads/transfers.ts`
 are unit-tested there.
 
 ### 8.1 Initiating — leads table assignee cell / detail sheet
+
 The assignee cell (`edit.kind === 'assignee'`, `page.tsx`) stops doing a raw
 `.update`. On picking a member it calls `requestLeadTransfer(contactId,
 toUser)` and reacts to the returned status:
 
 - **admin/owner** → returns `'accepted'`; cell flips owner immediately; toast
-  *"Reassigned to Priya."* (unchanged feel).
+  _"Reassigned to Priya."_ (unchanged feel).
 - **agent, owns the lead**, picks someone else → open
   `TransferRequestDialog` (new) — target avatar + optional note + confirm.
   On confirm → `'pending'`; cell keeps the current owner and shows a
@@ -285,20 +290,22 @@ toUser)` and reacts to the returned status:
   chip + `→ Rahul · pending` in `Badge variant="warning"`.
 - **agent, unassigned lead**, picks self → `'accepted'` instant self-claim.
 - **agent, doesn't own the lead** → the picker options are disabled with a
-  hint *"Only the owner or an admin can reassign."* (gate via
+  hint _"Only the owner or an admin can reassign."_ (gate via
   `canRequestLeadTransfer` + ownership check; never UI-only — the RPC also
   enforces).
 
 ### 8.2 Receiving — the target teammate
+
 - **Notifications page** (`/notifications`): a `lead_transfer_request` row
   renders inline **Accept** / **Decline** buttons (uses `reference_id`).
   Accept/Decline → `respondLeadTransfer`; on success the row collapses to a
   resolved state; if the RPC says it's no longer pending (resolved elsewhere)
-  → toast *"Already resolved."* and refresh.
-- **Leads list**: a lead whose pending transfer targets *me* shows
+  → toast _"Already resolved."_ and refresh.
+- **Leads list**: a lead whose pending transfer targets _me_ shows
   Accept/Decline in the assignee-cell menu too (so I can act in context).
 
 ### 8.3 Resolution / feedback
+
 - **Accepted** → owner flips to target; `lead_transfers` realtime clears the
   overlay on every open leads list; requester + prior owner get an
   informational notification.
@@ -308,6 +315,7 @@ toUser)` and reacts to the returned status:
   → old request silently closes; overlay reflects the newest state.
 
 ### 8.4 Admin oversight (MVP → later)
+
 - MVP: admins see the pending overlay on any lead and can force Accept/Decline
   from the cell menu, or direct-reassign (which supersedes).
 - Later (optional): **Settings → Team → Pending transfers** table listing all
@@ -315,6 +323,7 @@ toUser)` and reacts to the returned status:
   account-wide. Deferred; not required for the loop to work.
 
 ### 8.5 Bulk
+
 `BulkEditDialog` "Assigned to" becomes **admin/owner-only** (gate the option
 with `canReassignLeadsDirectly`; it already routes to a bulk `.update`). Keep
 that path instant for managers; agents no longer see the bulk assignee option.
@@ -342,18 +351,18 @@ that path instant for managers; agents no longer see the bulk assignee option.
 
 ## 10. File map (implementation)
 
-| Area | File |
-|---|---|
-| Migration | `supabase/migrations/050_lead_transfers.sql` (table, indexes, RLS, 3 RPCs, notif type + `reference_id`, realtime) |
-| Roles | `src/lib/auth/roles.ts` (+ `roles.test.ts`) — 3 predicates |
-| Client lib | `src/lib/leads/transfers.ts` (+ `.test.ts`) — RPC wrappers + `fetchPendingTransfers` + status/label helpers |
-| Renderers | `src/components/leads/lead-cell-renderers.tsx` — `TransferPendingDisplay` (+ menu actions) |
-| Dialog | `src/components/leads/transfer-request-dialog.tsx` (new) — agent confirm + note |
-| Leads page | `src/app/(dashboard)/leads/page.tsx` — assignee cell → RPC + role gate; pending-transfer fetch + overlay; accept/decline in cell menu; refetch on resolve; bulk assignee gated admin-only |
-| Detail sheet | `src/components/contacts/contact-detail-view.tsx` — same role-gated assignee row + pending state |
-| Notifications | `src/app/(dashboard)/notifications/page.tsx` — inline Accept/Decline for `lead_transfer_request`; new `TYPE_ICON`s |
-| Types | `src/types/index.ts` — `LeadTransfer`, extend `Notification['type']`, add `reference_id` |
-| Docs | `CLAUDE.md` — feature + gotchas (self-guard dedupe, one-pending index, admin-only bulk) |
+| Area          | File                                                                                                                                                                                      |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migration     | `supabase/migrations/050_lead_transfers.sql` (table, indexes, RLS, 3 RPCs, notif type + `reference_id`, realtime)                                                                         |
+| Roles         | `src/lib/auth/roles.ts` (+ `roles.test.ts`) — 3 predicates                                                                                                                                |
+| Client lib    | `src/lib/leads/transfers.ts` (+ `.test.ts`) — RPC wrappers + `fetchPendingTransfers` + status/label helpers                                                                               |
+| Renderers     | `src/components/leads/lead-cell-renderers.tsx` — `TransferPendingDisplay` (+ menu actions)                                                                                                |
+| Dialog        | `src/components/leads/transfer-request-dialog.tsx` (new) — agent confirm + note                                                                                                           |
+| Leads page    | `src/app/(dashboard)/leads/page.tsx` — assignee cell → RPC + role gate; pending-transfer fetch + overlay; accept/decline in cell menu; refetch on resolve; bulk assignee gated admin-only |
+| Detail sheet  | `src/components/contacts/contact-detail-view.tsx` — same role-gated assignee row + pending state                                                                                          |
+| Notifications | `src/app/(dashboard)/notifications/page.tsx` — inline Accept/Decline for `lead_transfer_request`; new `TYPE_ICON`s                                                                        |
+| Types         | `src/types/index.ts` — `LeadTransfer`, extend `Notification['type']`, add `reference_id`                                                                                                  |
+| Docs          | `CLAUDE.md` — feature + gotchas (self-guard dedupe, one-pending index, admin-only bulk)                                                                                                   |
 
 ## 11. Test plan
 

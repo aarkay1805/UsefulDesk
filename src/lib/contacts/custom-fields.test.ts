@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  customFieldInputType,
-  formatCustomFieldValue,
-} from './custom-fields';
+import { customFieldInputType, formatCustomFieldValue } from './custom-fields';
 
 describe('customFieldInputType', () => {
   it('maps field types to HTML input types', () => {
@@ -22,7 +19,7 @@ describe('formatCustomFieldValue', () => {
   it('formats currency in the account currency, not hardcoded USD', () => {
     expect(formatCustomFieldValue('1500', 'currency', 'INR')).toContain('₹');
     expect(formatCustomFieldValue('1500', 'currency', 'INR')).not.toContain(
-      '$',
+      '$'
     );
     expect(formatCustomFieldValue('1500', 'currency', 'EUR')).toContain('€');
   });
@@ -34,13 +31,13 @@ describe('formatCustomFieldValue', () => {
 
   it('returns the raw value when a currency value is not numeric', () => {
     expect(formatCustomFieldValue('about 5k', 'currency', 'INR')).toBe(
-      'about 5k',
+      'about 5k'
     );
   });
 
   it('formats numbers with grouping and leaves text-like types verbatim', () => {
     expect(formatCustomFieldValue('1234567', 'number')).toBe(
-      new Intl.NumberFormat().format(1234567),
+      new Intl.NumberFormat().format(1234567)
     );
     expect(formatCustomFieldValue('hello', 'text')).toBe('hello');
     expect(formatCustomFieldValue('a@b.c', 'email')).toBe('a@b.c');

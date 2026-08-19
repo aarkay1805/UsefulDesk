@@ -23,7 +23,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Could not load the image."));
+    img.onerror = () => reject(new Error('Could not load the image.'));
     img.src = src;
   });
 }
@@ -48,13 +48,13 @@ export async function cropToWebp(
   const side = Math.round(Math.min(crop.width, crop.height));
   const target = Math.max(1, Math.min(side, maxPx));
 
-  const canvas = document.createElement("canvas");
+  const canvas = document.createElement('canvas');
   canvas.width = target;
   canvas.height = target;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error("Your browser can't process images.");
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
+  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(
     img,
     crop.x,
@@ -68,8 +68,8 @@ export async function cropToWebp(
   );
 
   const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/webp", quality)
+    canvas.toBlob(resolve, 'image/webp', quality)
   );
-  if (!blob) throw new Error("Could not process the image.");
+  if (!blob) throw new Error('Could not process the image.');
   return blob;
 }

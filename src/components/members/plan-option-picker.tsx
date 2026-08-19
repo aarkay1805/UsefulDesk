@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 
-import { useLocale } from "@/hooks/use-locale";
-import { activeOptions, durationLabel } from "@/lib/memberships/pricing";
-import type { MembershipPlan, PlanPricingOption } from "@/types";
-import { Label } from "@/components/ui/label";
+import { useLocale } from '@/hooks/use-locale';
+import { activeOptions, durationLabel } from '@/lib/memberships/pricing';
+import type { MembershipPlan, PlanPricingOption } from '@/types';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -13,10 +13,10 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 
 /** The member-form trial sentinel rides through this picker untouched. */
-export const TRIAL_PLAN_VALUE = "__trial__";
+export const TRIAL_PLAN_VALUE = '__trial__';
 
 export interface PlanOptionSelection {
   planId: string;
@@ -40,18 +40,18 @@ interface PlanOptionPickerProps {
   idPrefix?: string;
 }
 
-const PLAN_TYPE_SUFFIX: Record<MembershipPlan["plan_type"], string | null> = {
+const PLAN_TYPE_SUFFIX: Record<MembershipPlan['plan_type'], string | null> = {
   recurring: null,
-  non_recurring: "fixed term",
-  session_pack: "session pack",
+  non_recurring: 'fixed term',
+  session_pack: 'session pack',
 };
 
 /** A row's duration only *bills* on a recurring plan — see PLAN_COPY in
  *  plan-editor-dialog.tsx, which names the same thing on the authoring side. */
-const OPTION_LABEL: Record<MembershipPlan["plan_type"], string> = {
-  recurring: "Billing option",
-  non_recurring: "Term",
-  session_pack: "Pricing",
+const OPTION_LABEL: Record<MembershipPlan['plan_type'], string> = {
+  recurring: 'Billing option',
+  non_recurring: 'Term',
+  session_pack: 'Pricing',
 };
 
 /**
@@ -72,7 +72,7 @@ export function PlanOptionPicker({
   required = false,
   footer,
   disabled = false,
-  idPrefix = "pop",
+  idPrefix = 'pop',
 }: PlanOptionPickerProps) {
   const { fmt } = useLocale();
 
@@ -88,12 +88,14 @@ export function PlanOptionPicker({
   function optionLabel(o: PlanPricingOption): ReactNode {
     return (
       <>
-        {durationLabel(o.duration_count, o.duration_unit)} ·{" "}
+        {durationLabel(o.duration_count, o.duration_unit)} ·{' '}
         <span className="tabular-nums">{fmt.money(o.price)}</span>
         {o.setup_fee > 0 && (
           <>
-            {" "}
-            (+<span className="tabular-nums">{fmt.money(o.setup_fee)}</span>{" "}
+            {' '}
+            (+<span className="tabular-nums">
+              {fmt.money(o.setup_fee)}
+            </span>{' '}
             joining fee)
           </>
         )}
@@ -129,8 +131,7 @@ export function PlanOptionPicker({
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor={`${idPrefix}-plan`}>
-          Plan{" "}
-          {required && <span className="text-red-foreground">*</span>}
+          Plan {required && <span className="text-red-foreground">*</span>}
         </Label>
         <Select
           value={planId || undefined}
@@ -146,7 +147,7 @@ export function PlanOptionPicker({
                 {/* Trial is picked like a plan — the caller's fields switch
                     to trial length / no fee when selected. */}
                 <SelectItem value={TRIAL_PLAN_VALUE}>
-                  Trial / free pass ·{" "}
+                  Trial / free pass ·{' '}
                   <span className="text-muted-foreground">no fee</span>
                 </SelectItem>
                 <SelectSeparator />
@@ -197,7 +198,8 @@ export function PlanOptionPicker({
 
       {selectedPlan && options.length === 0 && (
         <p className="text-destructive text-xs">
-          This plan has no active price — add one in Settings → Membership plans.
+          This plan has no active price — add one in Settings → Membership
+          plans.
         </p>
       )}
     </div>

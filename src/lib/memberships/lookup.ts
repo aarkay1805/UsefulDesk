@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Resolve a contact to their membership id, if they have one.
@@ -13,9 +13,9 @@ export async function membershipIdForContact(
   contactId: string
 ): Promise<string | null> {
   const { data } = await supabase
-    .from("memberships")
-    .select("id")
-    .eq("contact_id", contactId)
+    .from('memberships')
+    .select('id')
+    .eq('contact_id', contactId)
     .maybeSingle();
   return (data as { id: string } | null)?.id ?? null;
 }

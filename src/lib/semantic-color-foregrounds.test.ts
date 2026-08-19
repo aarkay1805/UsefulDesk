@@ -1,33 +1,33 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
 
 const HUES = [
-  "slate",
-  "red",
-  "orange",
-  "amber",
-  "yellow",
-  "green",
-  "emerald",
-  "teal",
-  "cyan",
-  "sky",
-  "blue",
-  "indigo",
-  "violet",
-  "purple",
-  "fuchsia",
-  "pink",
-  "rose",
+  'slate',
+  'red',
+  'orange',
+  'amber',
+  'yellow',
+  'green',
+  'emerald',
+  'teal',
+  'cyan',
+  'sky',
+  'blue',
+  'indigo',
+  'violet',
+  'purple',
+  'fuchsia',
+  'pink',
+  'rose',
 ] as const;
 
-const sourceRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const chartPalette = join(sourceRoot, "components/tremor/chart-colors.ts");
-const rawForeground = new RegExp(`text-(?:${HUES.join("|")})-\\d+`);
+const sourceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const chartPalette = join(sourceRoot, 'components/tremor/chart-colors.ts');
+const rawForeground = new RegExp(`text-(?:${HUES.join('|')})-\\d+`);
 const mismatchedSubtleForeground = new RegExp(
-  `bg-(${HUES.join("|")})-\\d+/\\d+[^\\n]*text-(?!\\1-foreground)(?:[a-z]+-foreground|primary-text)`,
+  `bg-(${HUES.join('|')})-\\d+/\\d+[^\\n]*text-(?!\\1-foreground)(?:[a-z]+-foreground|primary-text)`
 );
 
 function sourceFiles(directory: string): string[] {
@@ -38,51 +38,53 @@ function sourceFiles(directory: string): string[] {
   });
 }
 
-describe("semantic colour foregrounds", () => {
-  it("derives every hue token from its fill primitive and live foreground", () => {
-    const css = readFileSync(join(sourceRoot, "app/globals.css"), "utf8");
+describe('semantic colour foregrounds', () => {
+  it('derives every hue token from its fill primitive and live foreground', () => {
+    const css = readFileSync(join(sourceRoot, 'app/globals.css'), 'utf8');
 
     for (const hue of HUES) {
       expect(css).toContain(
-        `--color-${hue}-foreground: var(--${hue}-foreground);`,
+        `--color-${hue}-foreground: var(--${hue}-foreground);`
       );
       // Whitespace-tolerant: Prettier wraps long color-mix() calls across
       // lines, so match the token's parts rather than one exact line.
       expect(css).toMatch(
         new RegExp(
           `--${hue}-foreground:\\s*color-mix\\(\\s*in oklch,\\s*` +
-            `var\\(--color-${hue}-500\\),\\s*var\\(--foreground\\) 45%\\s*\\)`,
-        ),
+            `var\\(--color-${hue}-500\\),\\s*var\\(--foreground\\) 45%\\s*\\)`
+        )
       );
     }
 
-    expect(css.match(/--destructive: var\(--red-foreground\);/g)).toHaveLength(1);
+    expect(css.match(/--destructive: var\(--red-foreground\);/g)).toHaveLength(
+      1
+    );
   });
 
-  it("does not bypass hue tokens in application text or icons", () => {
+  it('does not bypass hue tokens in application text or icons', () => {
     const offenders = sourceFiles(sourceRoot)
       .filter((path) => path !== chartPalette)
       .flatMap((path) => {
-        const lines = readFileSync(path, "utf8").split("\n");
+        const lines = readFileSync(path, 'utf8').split('\n');
         return lines.flatMap((line, index) =>
           rawForeground.test(line)
             ? [`${relative(sourceRoot, path)}:${index + 1}`]
-            : [],
+            : []
         );
       });
 
     expect(offenders).toEqual([]);
   });
 
-  it("does not pair a subtle palette background with a different foreground family", () => {
+  it('does not pair a subtle palette background with a different foreground family', () => {
     const offenders = sourceFiles(sourceRoot)
       .filter((path) => path !== chartPalette)
       .flatMap((path) => {
-        const lines = readFileSync(path, "utf8").split("\n");
+        const lines = readFileSync(path, 'utf8').split('\n');
         return lines.flatMap((line, index) =>
           mismatchedSubtleForeground.test(line)
             ? [`${relative(sourceRoot, path)}:${index + 1}`]
-            : [],
+            : []
         );
       });
 

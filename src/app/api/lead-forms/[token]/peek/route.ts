@@ -21,7 +21,11 @@
 
 import { NextResponse } from 'next/server';
 
-import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+} from '@/lib/rate-limit';
 import { getClientIp } from '@/lib/security/client-ip';
 import { createClient } from '@/lib/supabase/server';
 
@@ -35,7 +39,10 @@ export async function GET(
 
   const { token } = await params;
   if (!token || typeof token !== 'string') {
-    return NextResponse.json({ ok: false, reason: 'not_found' }, { status: 404 });
+    return NextResponse.json(
+      { ok: false, reason: 'not_found' },
+      { status: 404 }
+    );
   }
 
   const supabase = await createClient();
@@ -45,7 +52,10 @@ export async function GET(
 
   if (error) {
     console.error('[lead-forms/peek] rpc error:', error);
-    return NextResponse.json({ ok: false, reason: 'server_error' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, reason: 'server_error' },
+      { status: 500 }
+    );
   }
 
   // The RPC always returns { ok: true, … } or { ok: false, reason }.

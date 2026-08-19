@@ -3,10 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const migration = (name: string) =>
-  readFileSync(
-    resolve(process.cwd(), `supabase/migrations/${name}`),
-    'utf8'
-  );
+  readFileSync(resolve(process.cwd(), `supabase/migrations/${name}`), 'utf8');
 
 const guardSql = migration(
   '20260725161912_protect_profile_membership_fields.sql'

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 // Shared column-header for data grids (the leads table + the all-members
 // table). Owns the per-column header UI: a label (optionally a drag
@@ -13,7 +13,7 @@
 // leads table passes the full set. The resize grip and any drag transform
 // live on the OWNING <th>, not here.
 
-import type React from "react";
+import type React from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -26,9 +26,9 @@ import {
   Pin,
   Plus,
   Sparkles,
-} from "lucide-react";
+} from 'lucide-react';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,9 +38,9 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 
-export type SortDir = "asc" | "desc";
+export type SortDir = 'asc' | 'desc';
 
 // Per-column Excel-style value filter — a checkbox list of the column's
 // possible values that show/hide rows. `selected` mirrors the owning
@@ -106,8 +106,8 @@ export function ColumnHeader({
       <span
         {...dragHandleProps}
         className={cn(
-          "min-w-0 flex-1 truncate",
-          dragHandleProps && "cursor-grab touch-none active:cursor-grabbing"
+          'min-w-0 flex-1 truncate',
+          dragHandleProps && 'cursor-grab touch-none active:cursor-grabbing'
         )}
       >
         {label}
@@ -120,26 +120,26 @@ export function ColumnHeader({
       {sortable && (
         <div
           className={cn(
-            "flex items-center overflow-hidden transition-all",
+            'flex items-center overflow-hidden transition-all',
             sortDir
-              ? "max-w-8 opacity-100"
-              : "max-w-0 opacity-0 group-hover/th:max-w-8 group-hover/th:opacity-100"
+              ? 'max-w-8 opacity-100'
+              : 'max-w-0 opacity-0 group-hover/th:max-w-8 group-hover/th:opacity-100'
           )}
         >
           <button
             type="button"
             aria-label={`Sort ${label} ${
-              sortDir === "asc" ? "descending" : "ascending"
+              sortDir === 'asc' ? 'descending' : 'ascending'
             }`}
-            onClick={() => onSort(sortDir === "asc" ? "desc" : "asc")}
+            onClick={() => onSort(sortDir === 'asc' ? 'desc' : 'asc')}
             className={cn(
-              "hover:bg-muted flex size-5 items-center justify-center rounded",
-              sortDir ? "text-primary-text" : "text-muted-foreground"
+              'hover:bg-muted flex size-5 items-center justify-center rounded',
+              sortDir ? 'text-primary-text' : 'text-muted-foreground'
             )}
           >
-            {sortDir === "asc" ? (
+            {sortDir === 'asc' ? (
               <ArrowUp className="size-3.5" />
-            ) : sortDir === "desc" ? (
+            ) : sortDir === 'desc' ? (
               <ArrowDown className="size-3.5" />
             ) : (
               <ChevronsUpDown className="size-3.5" />
@@ -167,7 +167,7 @@ export function ColumnHeader({
         >
           <DropdownMenuItem
             disabled={!sortable}
-            onClick={() => onSort("asc")}
+            onClick={() => onSort('asc')}
             className="text-popover-foreground focus:bg-muted focus:text-foreground"
           >
             <ArrowUp className="size-4" />
@@ -175,7 +175,7 @@ export function ColumnHeader({
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={!sortable}
-            onClick={() => onSort("desc")}
+            onClick={() => onSort('desc')}
             className="text-popover-foreground focus:bg-muted focus:text-foreground"
           >
             <ArrowDown className="size-4" />
@@ -216,10 +216,10 @@ export function ColumnHeader({
                       >
                         <span
                           className={cn(
-                            "flex size-4 shrink-0 items-center justify-center rounded-[4px] border",
+                            'flex size-4 shrink-0 items-center justify-center rounded-[4px] border',
                             checked
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-input-border bg-card"
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-input-border bg-card'
                           )}
                         >
                           {checked && <Check className="size-3.5" />}
@@ -258,7 +258,7 @@ export function ColumnHeader({
               className="text-popover-foreground focus:bg-muted focus:text-foreground"
             >
               <Pin className="size-4" />
-              {frozen ? "Unfreeze column" : "Freeze column"}
+              {frozen ? 'Unfreeze column' : 'Freeze column'}
             </DropdownMenuItem>
           )}
           {onAddColumn && (

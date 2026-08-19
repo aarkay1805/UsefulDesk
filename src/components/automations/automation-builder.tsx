@@ -1,4 +1,4 @@
-"use client"
+'use client';
 
 import {
   createContext,
@@ -6,9 +6,9 @@ import {
   useEffect,
   useState,
   type ReactNode,
-} from "react"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
+} from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   ChevronDown,
@@ -33,10 +33,10 @@ import {
   Loader2,
   ArrowDown,
   ArrowUp,
-} from "lucide-react"
+} from 'lucide-react';
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -45,15 +45,15 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from '@/components/ui/dropdown-menu';
 import type {
   AccountMember,
   AutomationStepType,
@@ -62,8 +62,8 @@ import type {
   KeywordMatchTriggerConfig,
   MessageTemplate,
   Tag as TagRecord,
-} from "@/types"
-import { createClient } from "@/lib/supabase/client"
+} from '@/types';
+import { createClient } from '@/lib/supabase/client';
 import {
   childPath,
   insertAt,
@@ -72,9 +72,9 @@ import {
   removeAt,
   type ParentScope,
   type StepPath,
-} from "@/lib/automations/builder-tree"
-import { useLeadFieldOptions } from "@/hooks/use-lead-field-options"
-import { cn } from "@/lib/utils"
+} from '@/lib/automations/builder-tree';
+import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
+import { cn } from '@/lib/utils';
 
 // ------------------------------------------------------------
 // Types (builder-local — mirror the flattened rows we POST)
@@ -82,20 +82,20 @@ import { cn } from "@/lib/utils"
 
 export interface BuilderStep {
   /** Client id; the API assigns real UUIDs server-side. */
-  cid: string
-  step_type: AutomationStepType
-  step_config: Record<string, unknown>
-  branches?: { yes: BuilderStep[]; no: BuilderStep[] }
+  cid: string;
+  step_type: AutomationStepType;
+  step_config: Record<string, unknown>;
+  branches?: { yes: BuilderStep[]; no: BuilderStep[] };
 }
 
 export interface BuilderInitial {
-  id?: string
-  name: string
-  description: string
-  trigger_type: AutomationTriggerType
-  trigger_config: Record<string, unknown>
-  is_active: boolean
-  steps: BuilderStep[]
+  id?: string;
+  name: string;
+  description: string;
+  trigger_type: AutomationTriggerType;
+  trigger_config: Record<string, unknown>;
+  is_active: boolean;
+  steps: BuilderStep[];
 }
 
 // ------------------------------------------------------------
@@ -103,105 +103,182 @@ export interface BuilderInitial {
 // ------------------------------------------------------------
 
 interface StepMeta {
-  label: string
-  icon: typeof Zap
+  label: string;
+  icon: typeof Zap;
   /** Left-border accent color per spec. */
-  border: string
+  border: string;
 }
 
 const STEP_META: Record<AutomationStepType, StepMeta> = {
-  send_message: { label: "Send Message", icon: MessageSquare, border: "border-l-primary" },
-  send_template: { label: "Send Template", icon: FileText, border: "border-l-primary" },
-  add_tag: { label: "Add Tag", icon: Tag, border: "border-l-primary" },
-  remove_tag: { label: "Remove Tag", icon: TagIcon, border: "border-l-primary" },
-  assign_conversation: { label: "Assign Conversation", icon: UserCheck, border: "border-l-primary" },
-  update_contact_field: { label: "Update Contact Field", icon: PencilLine, border: "border-l-primary" },
-  set_lead_status: { label: "Set Lead Status", icon: UserPlus, border: "border-l-primary" },
-  assign_lead: { label: "Assign Lead", icon: UserCog, border: "border-l-primary" },
-  create_follow_up: { label: "Create Follow-up Task", icon: ClipboardList, border: "border-l-primary" },
+  send_message: {
+    label: 'Send Message',
+    icon: MessageSquare,
+    border: 'border-l-primary',
+  },
+  send_template: {
+    label: 'Send Template',
+    icon: FileText,
+    border: 'border-l-primary',
+  },
+  add_tag: { label: 'Add Tag', icon: Tag, border: 'border-l-primary' },
+  remove_tag: {
+    label: 'Remove Tag',
+    icon: TagIcon,
+    border: 'border-l-primary',
+  },
+  assign_conversation: {
+    label: 'Assign Conversation',
+    icon: UserCheck,
+    border: 'border-l-primary',
+  },
+  update_contact_field: {
+    label: 'Update Contact Field',
+    icon: PencilLine,
+    border: 'border-l-primary',
+  },
+  set_lead_status: {
+    label: 'Set Lead Status',
+    icon: UserPlus,
+    border: 'border-l-primary',
+  },
+  assign_lead: {
+    label: 'Assign Lead',
+    icon: UserCog,
+    border: 'border-l-primary',
+  },
+  create_follow_up: {
+    label: 'Create Follow-up Task',
+    icon: ClipboardList,
+    border: 'border-l-primary',
+  },
   // Legacy — Pipelines merged into Leads. Existing automations with this
   // step still render/execute; it's just not in ADDABLE_STEPS anymore.
-  create_deal: { label: "Create Deal", icon: Briefcase, border: "border-l-primary" },
-  wait: { label: "Wait", icon: Hourglass, border: "border-l-border" },
-  condition: { label: "Condition (If/Else)", icon: GitBranch, border: "border-l-amber-500" },
-  send_webhook: { label: "Send Webhook", icon: Webhook, border: "border-l-primary" },
-  close_conversation: { label: "Close Conversation", icon: CircleSlash, border: "border-l-primary" },
-}
+  create_deal: {
+    label: 'Create Deal',
+    icon: Briefcase,
+    border: 'border-l-primary',
+  },
+  wait: { label: 'Wait', icon: Hourglass, border: 'border-l-border' },
+  condition: {
+    label: 'Condition (If/Else)',
+    icon: GitBranch,
+    border: 'border-l-amber-500',
+  },
+  send_webhook: {
+    label: 'Send Webhook',
+    icon: Webhook,
+    border: 'border-l-primary',
+  },
+  close_conversation: {
+    label: 'Close Conversation',
+    icon: CircleSlash,
+    border: 'border-l-primary',
+  },
+};
 
 // create_deal is intentionally absent: Pipelines was retired when it
 // merged into Leads. Existing automations that already contain a
 // create_deal step keep rendering (STEP_META still knows it) and the
 // engine still executes it — you just can't add new ones.
 const ADDABLE_STEPS: AutomationStepType[] = [
-  "send_message",
-  "send_template",
-  "add_tag",
-  "remove_tag",
-  "assign_conversation",
-  "update_contact_field",
-  "set_lead_status",
-  "assign_lead",
-  "create_follow_up",
-  "wait",
-  "condition",
-  "send_webhook",
-  "close_conversation",
-]
+  'send_message',
+  'send_template',
+  'add_tag',
+  'remove_tag',
+  'assign_conversation',
+  'update_contact_field',
+  'set_lead_status',
+  'assign_lead',
+  'create_follow_up',
+  'wait',
+  'condition',
+  'send_webhook',
+  'close_conversation',
+];
 
-const TRIGGER_OPTIONS: { value: AutomationTriggerType; label: string; hint: string }[] = [
-  { value: "new_message_received", label: "New Message Received", hint: "Any incoming message" },
+const TRIGGER_OPTIONS: {
+  value: AutomationTriggerType;
+  label: string;
+  hint: string;
+}[] = [
   {
-    value: "first_inbound_message",
-    label: "First Message from Contact",
-    hint: "First time this contact ever messages you (works for manually-added contacts too)",
+    value: 'new_message_received',
+    label: 'New Message Received',
+    hint: 'Any incoming message',
   },
-  { value: "keyword_match", label: "Keyword Match", hint: "Message contains specific keyword(s)" },
-  { value: "new_contact_created", label: "New Contact Created", hint: "When a contact is auto-created from an incoming message" },
-  { value: "conversation_assigned", label: "Conversation Assigned", hint: "When assigned to an agent" },
-  { value: "tag_added", label: "Tag Added", hint: "When a tag is added to a contact" },
-  { value: "time_based", label: "Time-Based", hint: "On a recurring schedule" },
-]
+  {
+    value: 'first_inbound_message',
+    label: 'First Message from Contact',
+    hint: 'First time this contact ever messages you (works for manually-added contacts too)',
+  },
+  {
+    value: 'keyword_match',
+    label: 'Keyword Match',
+    hint: 'Message contains specific keyword(s)',
+  },
+  {
+    value: 'new_contact_created',
+    label: 'New Contact Created',
+    hint: 'When a contact is auto-created from an incoming message',
+  },
+  {
+    value: 'conversation_assigned',
+    label: 'Conversation Assigned',
+    hint: 'When assigned to an agent',
+  },
+  {
+    value: 'tag_added',
+    label: 'Tag Added',
+    hint: 'When a tag is added to a contact',
+  },
+  { value: 'time_based', label: 'Time-Based', hint: 'On a recurring schedule' },
+];
 
 function cid(): string {
   return (
-    "c_" +
-    (typeof crypto !== "undefined" && "randomUUID" in crypto
+    'c_' +
+    (typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : Math.random().toString(36).slice(2) + Date.now().toString(36))
-  )
+  );
 }
 
 function blankConfig(type: AutomationStepType): Record<string, unknown> {
   switch (type) {
-    case "send_message":
-      return { text: "" }
-    case "send_template":
-      return { template_name: "", language: "en_US" }
-    case "add_tag":
-    case "remove_tag":
-      return { tag_id: "" }
-    case "assign_conversation":
-      return { mode: "round_robin" }
-    case "update_contact_field":
-      return { field: "name", value: "" }
-    case "set_lead_status":
-      return { status: "interested" }
-    case "assign_lead":
-      return { mode: "round_robin", only_if_unassigned: true }
-    case "create_follow_up":
-      return { task_type: "call", due_in_days: 1, assign_mode: "lead_owner", note: "" }
-    case "create_deal":
-      return { pipeline_id: "", stage_id: "", title: "", value: 0 }
-    case "wait":
-      return { amount: 1, unit: "hours" }
-    case "condition":
-      return { subject: "tag_presence", operand: "", value: "" }
-    case "send_webhook":
-      return { url: "", headers: {}, body_template: "" }
-    case "close_conversation":
-      return {}
+    case 'send_message':
+      return { text: '' };
+    case 'send_template':
+      return { template_name: '', language: 'en_US' };
+    case 'add_tag':
+    case 'remove_tag':
+      return { tag_id: '' };
+    case 'assign_conversation':
+      return { mode: 'round_robin' };
+    case 'update_contact_field':
+      return { field: 'name', value: '' };
+    case 'set_lead_status':
+      return { status: 'interested' };
+    case 'assign_lead':
+      return { mode: 'round_robin', only_if_unassigned: true };
+    case 'create_follow_up':
+      return {
+        task_type: 'call',
+        due_in_days: 1,
+        assign_mode: 'lead_owner',
+        note: '',
+      };
+    case 'create_deal':
+      return { pipeline_id: '', stage_id: '', title: '', value: 0 };
+    case 'wait':
+      return { amount: 1, unit: 'hours' };
+    case 'condition':
+      return { subject: 'tag_presence', operand: '', value: '' };
+    case 'send_webhook':
+      return { url: '', headers: {}, body_template: '' };
+    case 'close_conversation':
+      return {};
     default:
-      return {}
+      return {};
   }
 }
 
@@ -216,24 +293,24 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
 // ------------------------------------------------------------
 
 interface AutomationResources {
-  tags: TagRecord[]
-  members: AccountMember[]
-  templates: MessageTemplate[]
-  customFields: CustomField[]
-  pipelines: PipelineOption[]
-  stages: PipelineStageOption[]
+  tags: TagRecord[];
+  members: AccountMember[];
+  templates: MessageTemplate[];
+  customFields: CustomField[];
+  pipelines: PipelineOption[];
+  stages: PipelineStageOption[];
 }
 
 interface PipelineOption {
-  id: string
-  name: string
+  id: string;
+  name: string;
 }
 
 interface PipelineStageOption {
-  id: string
-  name: string
-  pipeline_id: string
-  position: number
+  id: string;
+  name: string;
+  pipeline_id: string;
+  position: number;
 }
 
 const ResourcesContext = createContext<AutomationResources>({
@@ -243,23 +320,23 @@ const ResourcesContext = createContext<AutomationResources>({
   customFields: [],
   pipelines: [],
   stages: [],
-})
+});
 
 function useResources(): AutomationResources {
-  return useContext(ResourcesContext)
+  return useContext(ResourcesContext);
 }
 
 function ResourcesProvider({ children }: { children: ReactNode }) {
-  const [tags, setTags] = useState<TagRecord[]>([])
-  const [members, setMembers] = useState<AccountMember[]>([])
-  const [templates, setTemplates] = useState<MessageTemplate[]>([])
-  const [customFields, setCustomFields] = useState<CustomField[]>([])
-  const [pipelines, setPipelines] = useState<PipelineOption[]>([])
-  const [stages, setStages] = useState<PipelineStageOption[]>([])
+  const [tags, setTags] = useState<TagRecord[]>([]);
+  const [members, setMembers] = useState<AccountMember[]>([]);
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [pipelines, setPipelines] = useState<PipelineOption[]>([]);
+  const [stages, setStages] = useState<PipelineStageOption[]>([]);
 
   useEffect(() => {
-    let cancelled = false
-    const supabase = createClient()
+    let cancelled = false;
+    const supabase = createClient();
 
     // Tags, templates and custom fields come straight from the DB — RLS
     // scopes them to the caller's account. Only APPROVED templates can
@@ -268,45 +345,45 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
     void (async () => {
       const [tagsRes, templatesRes, customFieldsRes, pipelinesRes, stagesRes] =
         await Promise.all([
-          supabase.from("tags").select("*").order("name"),
+          supabase.from('tags').select('*').order('name'),
           supabase
-            .from("message_templates")
-            .select("*")
-            .eq("status", "APPROVED")
-            .order("name"),
-          supabase.from("custom_fields").select("*").order("field_name"),
-          supabase.from("pipelines").select("id, name").order("name"),
+            .from('message_templates')
+            .select('*')
+            .eq('status', 'APPROVED')
+            .order('name'),
+          supabase.from('custom_fields').select('*').order('field_name'),
+          supabase.from('pipelines').select('id, name').order('name'),
           supabase
-            .from("pipeline_stages")
-            .select("id, name, pipeline_id, position")
-            .order("position"),
-        ])
-      if (cancelled) return
-      setTags((tagsRes.data as TagRecord[] | null) ?? [])
-      setTemplates((templatesRes.data as MessageTemplate[] | null) ?? [])
-      setCustomFields((customFieldsRes.data as CustomField[] | null) ?? [])
-      setPipelines((pipelinesRes.data as PipelineOption[] | null) ?? [])
-      setStages((stagesRes.data as PipelineStageOption[] | null) ?? [])
-    })()
+            .from('pipeline_stages')
+            .select('id, name, pipeline_id, position')
+            .order('position'),
+        ]);
+      if (cancelled) return;
+      setTags((tagsRes.data as TagRecord[] | null) ?? []);
+      setTemplates((templatesRes.data as MessageTemplate[] | null) ?? []);
+      setCustomFields((customFieldsRes.data as CustomField[] | null) ?? []);
+      setPipelines((pipelinesRes.data as PipelineOption[] | null) ?? []);
+      setStages((stagesRes.data as PipelineStageOption[] | null) ?? []);
+    })();
 
     // Members go through the API so we inherit its email-visibility
     // rules (agents/viewers don't see emails). Unreachable on older
     // deployments → pickers fall back to a raw agent-id input.
     void (async () => {
       try {
-        const res = await fetch("/api/account/members", { cache: "no-store" })
-        if (!res.ok) return
-        const json = (await res.json()) as { members?: AccountMember[] }
-        if (!cancelled) setMembers(json.members ?? [])
+        const res = await fetch('/api/account/members', { cache: 'no-store' });
+        if (!res.ok) return;
+        const json = (await res.json()) as { members?: AccountMember[] };
+        if (!cancelled) setMembers(json.members ?? []);
       } catch {
         // Members endpoint absent — caller falls back to raw input.
       }
-    })()
+    })();
 
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <ResourcesContext.Provider
@@ -314,7 +391,7 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
     >
       {children}
     </ResourcesContext.Provider>
-  )
+  );
 }
 
 /** Tag dropdown by name + color, storing the tag's id. Falls back to a
@@ -323,10 +400,10 @@ function TagSelect({
   value,
   onChange,
 }: {
-  value: string
-  onChange: (v: string) => void
+  value: string;
+  onChange: (v: string) => void;
 }) {
-  const { tags } = useResources()
+  const { tags } = useResources();
   if (tags.length === 0) {
     return (
       <Input
@@ -335,17 +412,20 @@ function TagSelect({
         onChange={(e) => onChange(e.target.value)}
         className="text-foreground"
       />
-    )
+    );
   }
-  const selected = tags.find((t) => t.id === value)
+  const selected = tags.find((t) => t.id === value);
   return (
     <div className="flex items-center gap-2">
       <span
-        className="h-3 w-3 shrink-0 rounded-full border border-border"
-        style={{ backgroundColor: selected?.color ?? "transparent" }}
+        className="border-border h-3 w-3 shrink-0 rounded-full border"
+        style={{ backgroundColor: selected?.color ?? 'transparent' }}
         aria-hidden
       />
-      <Select value={value || undefined} onValueChange={(v) => onChange(v ?? "")}>
+      <Select
+        value={value || undefined}
+        onValueChange={(v) => onChange(v ?? '')}
+      >
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Select a tag…" />
         </SelectTrigger>
@@ -363,7 +443,7 @@ function TagSelect({
         </SelectContent>
       </Select>
     </div>
-  )
+  );
 }
 
 /** Contact-field dropdown for "Update Contact Field": built-in columns plus
@@ -374,15 +454,15 @@ function ContactFieldSelect({
   value,
   onChange,
 }: {
-  value: string
-  onChange: (v: string) => void
+  value: string;
+  onChange: (v: string) => void;
 }) {
-  const { customFields } = useResources()
-  const customValue = value.startsWith("custom:") ? value : ""
+  const { customFields } = useResources();
+  const customValue = value.startsWith('custom:') ? value : '';
   const knownCustom =
-    customValue && customFields.some((f) => `custom:${f.id}` === customValue)
+    customValue && customFields.some((f) => `custom:${f.id}` === customValue);
   return (
-    <Select value={value || "name"} onValueChange={(v) => onChange(v ?? "")}>
+    <Select value={value || 'name'} onValueChange={(v) => onChange(v ?? '')}>
       <SelectTrigger className="w-full">
         <SelectValue />
       </SelectTrigger>
@@ -401,11 +481,13 @@ function ContactFieldSelect({
           </SelectGroup>
         )}
         {customValue && !knownCustom && (
-          <SelectItem value={customValue}>{customValue} (unknown field)</SelectItem>
+          <SelectItem value={customValue}>
+            {customValue} (unknown field)
+          </SelectItem>
         )}
       </SelectContent>
     </Select>
-  )
+  );
 }
 
 /** Agent dropdown by name, storing the member's user_id. Falls back to
@@ -414,10 +496,10 @@ function AgentSelect({
   value,
   onChange,
 }: {
-  value: string
-  onChange: (v: string) => void
+  value: string;
+  onChange: (v: string) => void;
 }) {
-  const { members } = useResources()
+  const { members } = useResources();
   if (members.length === 0) {
     return (
       <Input
@@ -426,11 +508,11 @@ function AgentSelect({
         onChange={(e) => onChange(e.target.value)}
         className="text-foreground"
       />
-    )
+    );
   }
-  const selected = members.find((m) => m.user_id === value)
+  const selected = members.find((m) => m.user_id === value);
   return (
-    <Select value={value || undefined} onValueChange={(v) => onChange(v ?? "")}>
+    <Select value={value || undefined} onValueChange={(v) => onChange(v ?? '')}>
       <SelectTrigger className="w-full">
         <SelectValue placeholder="Select an agent…" />
       </SelectTrigger>
@@ -445,7 +527,7 @@ function AgentSelect({
         )}
       </SelectContent>
     </Select>
-  )
+  );
 }
 
 /** Pipeline + stage picker for Create Deal. The automation stores ids because
@@ -455,11 +537,11 @@ function DealPipelineFields({
   stageId,
   onChange,
 }: {
-  pipelineId: string
-  stageId: string
-  onChange: (patch: { pipeline_id: string; stage_id: string }) => void
+  pipelineId: string;
+  stageId: string;
+  onChange: (patch: { pipeline_id: string; stage_id: string }) => void;
 }) {
-  const { pipelines, stages } = useResources()
+  const { pipelines, stages } = useResources();
 
   if (pipelines.length === 0) {
     return (
@@ -483,12 +565,12 @@ function DealPipelineFields({
           />
         </FieldBlock>
       </>
-    )
+    );
   }
 
-  const selectedPipeline = pipelines.find((p) => p.id === pipelineId)
-  const stageOptions = stages.filter((s) => s.pipeline_id === pipelineId)
-  const selectedStage = stageOptions.find((s) => s.id === stageId)
+  const selectedPipeline = pipelines.find((p) => p.id === pipelineId);
+  const stageOptions = stages.filter((s) => s.pipeline_id === pipelineId);
+  const selectedStage = stageOptions.find((s) => s.id === stageId);
 
   return (
     <>
@@ -496,14 +578,14 @@ function DealPipelineFields({
         <Select
           value={pipelineId || undefined}
           onValueChange={(v) => {
-            const nextPipelineId = v ?? ""
+            const nextPipelineId = v ?? '';
             const firstStage = stages.find(
               (s) => s.pipeline_id === nextPipelineId
-            )
+            );
             onChange({
               pipeline_id: nextPipelineId,
-              stage_id: firstStage?.id ?? "",
-            })
+              stage_id: firstStage?.id ?? '',
+            });
           }}
         >
           <SelectTrigger className="w-full">
@@ -527,14 +609,14 @@ function DealPipelineFields({
         <Select
           value={stageId || undefined}
           onValueChange={(v) =>
-            onChange({ pipeline_id: pipelineId, stage_id: v ?? "" })
+            onChange({ pipeline_id: pipelineId, stage_id: v ?? '' })
           }
           disabled={!pipelineId || stageOptions.length === 0}
         >
           <SelectTrigger className="w-full">
             <SelectValue
               placeholder={
-                pipelineId ? "Select a stage…" : "Select a pipeline first…"
+                pipelineId ? 'Select a stage…' : 'Select a pipeline first…'
               }
             />
           </SelectTrigger>
@@ -551,7 +633,7 @@ function DealPipelineFields({
         </Select>
       </FieldBlock>
     </>
-  )
+  );
 }
 
 /** Template dropdown showing approved templates by name + language,
@@ -562,11 +644,11 @@ function SendTemplateFields({
   language,
   onChange,
 }: {
-  templateName: string
-  language: string
-  onChange: (patch: { template_name: string; language: string }) => void
+  templateName: string;
+  language: string;
+  onChange: (patch: { template_name: string; language: string }) => void;
 }) {
-  const { templates } = useResources()
+  const { templates } = useResources();
 
   if (templates.length === 0) {
     return (
@@ -584,30 +666,33 @@ function SendTemplateFields({
           <Input
             value={language}
             onChange={(e) =>
-              onChange({ template_name: templateName, language: e.target.value })
+              onChange({
+                template_name: templateName,
+                language: e.target.value,
+              })
             }
             className="text-foreground"
           />
         </FieldBlock>
       </>
-    )
+    );
   }
 
   // Encode name + language in the option value so two templates that
   // share a name across languages stay distinct.
-  const toValue = (name: string, lang: string) => `${name}::${lang}`
-  const current = templateName ? toValue(templateName, language) : ""
+  const toValue = (name: string, lang: string) => `${name}::${lang}`;
+  const current = templateName ? toValue(templateName, language) : '';
   const hasMatch = templates.some(
-    (t) => toValue(t.name, t.language ?? "en_US") === current,
-  )
+    (t) => toValue(t.name, t.language ?? 'en_US') === current
+  );
 
   return (
     <FieldBlock label="Template">
       <Select
         value={current || undefined}
         onValueChange={(v) => {
-          const [name, lang] = (v ?? "").split("::")
-          onChange({ template_name: name ?? "", language: lang ?? "" })
+          const [name, lang] = (v ?? '').split('::');
+          onChange({ template_name: name ?? '', language: lang ?? '' });
         }}
       >
         <SelectTrigger className="w-full">
@@ -615,22 +700,22 @@ function SendTemplateFields({
         </SelectTrigger>
         <SelectContent>
           {templates.map((t) => {
-            const lang = t.language ?? "en_US"
+            const lang = t.language ?? 'en_US';
             return (
               <SelectItem key={t.id} value={toValue(t.name, lang)}>
                 {t.name} ({lang})
               </SelectItem>
-            )
+            );
           })}
           {current && !hasMatch && (
             <SelectItem value={current}>
-              {templateName} ({language || "unknown"}) — not in approved list
+              {templateName} ({language || 'unknown'}) — not in approved list
             </SelectItem>
           )}
         </SelectContent>
       </Select>
     </FieldBlock>
-  )
+  );
 }
 
 // ------------------------------------------------------------
@@ -638,115 +723,125 @@ function SendTemplateFields({
 // ------------------------------------------------------------
 
 export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
-  const router = useRouter()
-  const isEditing = !!initial.id
-  const [state, setState] = useState<BuilderInitial>(initial)
-  const [saving, setSaving] = useState(false)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const router = useRouter();
+  const isEditing = !!initial.id;
+  const [state, setState] = useState<BuilderInitial>(initial);
+  const [saving, setSaving] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  function patchTop<K extends keyof BuilderInitial>(key: K, value: BuilderInitial[K]) {
-    setState((s) => ({ ...s, [key]: value }))
+  function patchTop<K extends keyof BuilderInitial>(
+    key: K,
+    value: BuilderInitial[K]
+  ) {
+    setState((s) => ({ ...s, [key]: value }));
   }
 
   // --- Step tree mutations (immutable) ---
 
-  function updateStep(path: StepPath, updater: (s: BuilderStep) => BuilderStep) {
-    setState((s) => ({ ...s, steps: mapAtPath(s.steps, path, updater) }))
+  function updateStep(
+    path: StepPath,
+    updater: (s: BuilderStep) => BuilderStep
+  ) {
+    setState((s) => ({ ...s, steps: mapAtPath(s.steps, path, updater) }));
   }
 
-  function addStepAt(parent: ParentScope, index: number, type: AutomationStepType) {
+  function addStepAt(
+    parent: ParentScope,
+    index: number,
+    type: AutomationStepType
+  ) {
     const node: BuilderStep = {
       cid: cid(),
       step_type: type,
       step_config: blankConfig(type),
-      branches: type === "condition" ? { yes: [], no: [] } : undefined,
-    }
-    setState((s) => ({ ...s, steps: insertAt(s.steps, parent, index, node) }))
-    setExpandedId(node.cid)
+      branches: type === 'condition' ? { yes: [], no: [] } : undefined,
+    };
+    setState((s) => ({ ...s, steps: insertAt(s.steps, parent, index, node) }));
+    setExpandedId(node.cid);
   }
 
   function deleteStepAt(path: StepPath) {
-    setState((s) => ({ ...s, steps: removeAt(s.steps, path) }))
+    setState((s) => ({ ...s, steps: removeAt(s.steps, path) }));
   }
 
   function moveStepAt(path: StepPath, direction: -1 | 1) {
-    setState((s) => ({ ...s, steps: moveAt(s.steps, path, direction) }))
+    setState((s) => ({ ...s, steps: moveAt(s.steps, path, direction) }));
   }
 
   async function save() {
-    setSaving(true)
+    setSaving(true);
     try {
       const payload = {
-        name: state.name || "Untitled automation",
+        name: state.name || 'Untitled automation',
         description: state.description || null,
         trigger_type: state.trigger_type,
         trigger_config: state.trigger_config,
         is_active: state.is_active,
         steps: toApiSteps(state.steps),
-      }
+      };
 
       const res = isEditing
         ? await fetch(`/api/automations/${initial.id}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
             body: JSON.stringify(payload),
           })
         : await fetch(`/api/automations`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
             body: JSON.stringify(payload),
-          })
+          });
 
-      const body = await res.json().catch(() => ({}))
+      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         // If the server blocked activation with validation issues,
         // surface the first concrete problem so the user can fix it
         // without opening DevTools for the full array.
         const firstIssue: { path?: string; message?: string } | undefined =
-          body?.issues?.[0]
+          body?.issues?.[0];
         if (firstIssue?.message) {
           toast.error(firstIssue.message, {
             description: firstIssue.path ? `at ${firstIssue.path}` : undefined,
-          })
+          });
         } else {
-          toast.error(body?.error ?? "Save failed")
+          toast.error(body?.error ?? 'Save failed');
         }
-        return
+        return;
       }
-      toast.success(isEditing ? "Automation saved" : "Automation created")
+      toast.success(isEditing ? 'Automation saved' : 'Automation created');
       if (!isEditing && body?.automation?.id) {
-        router.replace(`/automations/${body.automation.id}/edit`)
+        router.replace(`/automations/${body.automation.id}/edit`);
       }
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-background">
+    <div className="bg-background fixed inset-0 flex flex-col">
       {/* Top bar. At sub-sm widths the "Active" label is hidden and the
           switch moves to the right of the save button, so the name input
           gets maximum width. */}
-      <header className="flex flex-shrink-0 items-center gap-2 border-b border-border bg-card/80 px-3 py-3 sm:gap-3 sm:px-4">
+      <header className="border-border bg-card/80 flex flex-shrink-0 items-center gap-2 border-b px-3 py-3 sm:gap-3 sm:px-4">
         <button
           type="button"
-          onClick={() => router.push("/automations")}
-          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          onClick={() => router.push('/automations')}
+          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md transition-colors"
           aria-label="Back to automations"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
         <input
           value={state.name}
-          onChange={(e) => patchTop("name", e.target.value)}
+          onChange={(e) => patchTop('name', e.target.value)}
           placeholder="Untitled automation"
-          className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus:bg-muted focus:outline-none sm:text-base"
+          className="text-foreground placeholder:text-muted-foreground focus:bg-muted min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-sm font-semibold focus:outline-none sm:text-base"
         />
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="text-muted-foreground flex items-center gap-2 text-xs">
           <span className="hidden sm:inline">Active</span>
           <Switch
             checked={state.is_active}
-            onCheckedChange={(v) => patchTop("is_active", !!v)}
+            onCheckedChange={(v) => patchTop('is_active', !!v)}
             aria-label="Active"
           />
         </div>
@@ -756,25 +851,25 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {isEditing ? "Save" : "Save Draft"}
+          {isEditing ? 'Save' : 'Save Draft'}
         </Button>
       </header>
 
       {/* Canvas */}
       <div className="relative flex-1 overflow-y-auto">
-        <div className="absolute inset-0 bg-[radial-gradient(circle,var(--border)_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,var(--border)_1px,transparent_1px)] [background-size:20px_20px]" />
         <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-0 px-4 py-10">
           <ResourcesProvider>
             <TriggerCard
               type={state.trigger_type}
               config={state.trigger_config}
-              onTypeChange={(t) => patchTop("trigger_type", t)}
-              onConfigChange={(c) => patchTop("trigger_config", c)}
+              onTypeChange={(t) => patchTop('trigger_type', t)}
+              onConfigChange={(c) => patchTop('trigger_config', c)}
             />
             <StepList
               steps={state.steps}
               basePath={[]}
-              scope={{ kind: "root" }}
+              scope={{ kind: 'root' }}
               expandedId={expandedId}
               setExpandedId={setExpandedId}
               updateStep={updateStep}
@@ -786,7 +881,7 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // ------------------------------------------------------------
@@ -799,39 +894,44 @@ function TriggerCard({
   onTypeChange,
   onConfigChange,
 }: {
-  type: AutomationTriggerType
-  config: Record<string, unknown>
-  onTypeChange: (t: AutomationTriggerType) => void
-  onConfigChange: (c: Record<string, unknown>) => void
+  type: AutomationTriggerType;
+  config: Record<string, unknown>;
+  onTypeChange: (t: AutomationTriggerType) => void;
+  onConfigChange: (c: Record<string, unknown>) => void;
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
   return (
     // Card width: full on mobile, fixed 320px on sm+. The canvas wrapper
     // (max-w-2xl + px-4) keeps this tidy on tablet/desktop.
     <div className="z-10 w-full max-w-[320px] sm:w-80">
-      <div className="rounded-lg border border-border border-l-4 border-l-blue-500 bg-card shadow-lg">
+      <div className="border-border bg-card rounded-lg border border-l-4 border-l-blue-500 shadow-lg">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           className="flex w-full items-center gap-3 px-4 py-3 text-left"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-500/10 text-blue-foreground">
+          <div className="text-blue-foreground flex h-8 w-8 items-center justify-center rounded-md bg-blue-500/10">
             <Zap className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] uppercase tracking-wide text-blue-foreground">Trigger</div>
-            <div className="truncate text-sm font-medium text-foreground">
+            <div className="text-blue-foreground text-[11px] tracking-wide uppercase">
+              Trigger
+            </div>
+            <div className="text-foreground truncate text-sm font-medium">
               {TRIGGER_OPTIONS.find((o) => o.value === type)?.label ?? type}
             </div>
           </div>
           <ChevronDown
-            className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")}
+            className={cn(
+              'text-muted-foreground h-4 w-4 transition-transform',
+              open && 'rotate-180'
+            )}
           />
         </button>
         {open && (
-          <div className="space-y-3 border-t border-border px-4 py-3">
+          <div className="border-border space-y-3 border-t px-4 py-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              <label className="text-muted-foreground mb-1 block text-xs font-medium">
                 Trigger type
               </label>
               <Select
@@ -849,31 +949,31 @@ function TriggerCard({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="mt-1 text-[11px] text-muted-foreground">
+              <p className="text-muted-foreground mt-1 text-[11px]">
                 {TRIGGER_OPTIONS.find((o) => o.value === type)?.hint}
               </p>
             </div>
-            {type === "keyword_match" && (
+            {type === 'keyword_match' && (
               <KeywordMatchConfig
                 config={config as unknown as KeywordMatchTriggerConfig}
                 onChange={onConfigChange}
               />
             )}
-            {type === "tag_added" && (
+            {type === 'tag_added' && (
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                <label className="text-muted-foreground mb-1 block text-xs font-medium">
                   Tag
                 </label>
                 <TagSelect
-                  value={(config.tag_id as string) ?? ""}
+                  value={(config.tag_id as string) ?? ''}
                   onChange={(v) => onConfigChange({ ...config, tag_id: v })}
                 />
               </div>
             )}
-            {type === "time_based" && (
+            {type === 'time_based' && (
               <Input
                 placeholder="Cron expression or HH:mm"
-                value={(config.schedule as string) ?? ""}
+                value={(config.schedule as string) ?? ''}
                 onChange={(e) =>
                   onConfigChange({ ...config, schedule: e.target.value })
                 }
@@ -884,24 +984,24 @@ function TriggerCard({
         )}
       </div>
     </div>
-  )
+  );
 }
 
 function KeywordMatchConfig({
   config,
   onChange,
 }: {
-  config: KeywordMatchTriggerConfig
-  onChange: (c: Record<string, unknown>) => void
+  config: KeywordMatchTriggerConfig;
+  onChange: (c: Record<string, unknown>) => void;
 }) {
-  const keywords = config?.keywords ?? []
+  const keywords = config?.keywords ?? [];
   // Keep a local draft string so the comma and trailing space aren't
   // stripped on every keystroke (which made multi-word, comma-separated
   // entry like "SEO, search engine optimization" impossible to type).
   // We only parse into the keywords array on blur, then re-display the
   // cleaned, rejoined form. Seeded once on mount; this component remounts
   // when the trigger type changes, so the seed stays in sync.
-  const [draft, setDraft] = useState(keywords.join(", "))
+  const [draft, setDraft] = useState(keywords.join(', '));
 
   // Persist the default the Select displays. The dropdown falls back to
   // "contains" for display, but leaving it untouched would otherwise omit
@@ -910,24 +1010,24 @@ function KeywordMatchConfig({
   // remounts when the trigger type changes, matching the keywords draft.
   useEffect(() => {
     if (config?.match_type == null) {
-      onChange({ ...config, match_type: "contains" })
+      onChange({ ...config, match_type: 'contains' });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   function commit() {
     const parsed = draft
-      .split(",")
+      .split(',')
       .map((s) => s.trim())
-      .filter(Boolean)
-    setDraft(parsed.join(", "))
-    onChange({ ...config, keywords: parsed })
+      .filter(Boolean);
+    setDraft(parsed.join(', '));
+    onChange({ ...config, keywords: parsed });
   }
 
   return (
     <div className="space-y-2">
       <div>
-        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+        <label className="text-muted-foreground mb-1 block text-xs font-medium">
           Keywords (comma-separated)
         </label>
         <Input
@@ -935,9 +1035,9 @@ function KeywordMatchConfig({
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault()
-              commit()
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commit();
             }
           }}
           placeholder="e.g. pricing, demo request, talk to sales"
@@ -945,15 +1045,15 @@ function KeywordMatchConfig({
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+        <label className="text-muted-foreground mb-1 block text-xs font-medium">
           Match type
         </label>
         <Select
-          value={config?.match_type ?? "contains"}
+          value={config?.match_type ?? 'contains'}
           onValueChange={(v) =>
             onChange({
               ...config,
-              match_type: v as "exact" | "contains" | "word",
+              match_type: v as 'exact' | 'contains' | 'word',
             })
           }
         >
@@ -966,8 +1066,8 @@ function KeywordMatchConfig({
             <SelectItem value="exact">Exact</SelectItem>
           </SelectContent>
         </Select>
-        {config?.match_type === "word" && (
-          <p className="mt-1 text-xs text-muted-foreground">
+        {config?.match_type === 'word' && (
+          <p className="text-muted-foreground mt-1 text-xs">
             Matches only a standalone word, so &quot;k&quot; does not match
             &quot;thanks&quot;. Best for space-separated languages; use Contains
             for languages written without spaces.
@@ -975,7 +1075,7 @@ function KeywordMatchConfig({
         )}
       </div>
     </div>
-  )
+  );
 }
 
 // ------------------------------------------------------------
@@ -983,21 +1083,28 @@ function KeywordMatchConfig({
 // ------------------------------------------------------------
 
 interface StepListProps {
-  steps: BuilderStep[]
+  steps: BuilderStep[];
   /** Path of the step that owns this list; empty for the root canvas. */
-  basePath: StepPath
+  basePath: StepPath;
   /** The root or condition branch bucket this list reads and writes. */
-  scope: ParentScope
-  expandedId: string | null
-  setExpandedId: (id: string | null) => void
-  updateStep: (path: StepPath, updater: (s: BuilderStep) => BuilderStep) => void
-  addStepAt: (parent: ParentScope, index: number, type: AutomationStepType) => void
-  deleteStepAt: (path: StepPath) => void
-  moveStepAt: (path: StepPath, direction: -1 | 1) => void
+  scope: ParentScope;
+  expandedId: string | null;
+  setExpandedId: (id: string | null) => void;
+  updateStep: (
+    path: StepPath,
+    updater: (s: BuilderStep) => BuilderStep
+  ) => void;
+  addStepAt: (
+    parent: ParentScope,
+    index: number,
+    type: AutomationStepType
+  ) => void;
+  deleteStepAt: (path: StepPath) => void;
+  moveStepAt: (path: StepPath, direction: -1 | 1) => void;
 }
 
 function StepList(props: StepListProps) {
-  const { steps, basePath, scope, ...rest } = props
+  const { steps, basePath, scope, ...rest } = props;
 
   return (
     <div className="flex w-full flex-col items-center">
@@ -1014,7 +1121,7 @@ function StepList(props: StepListProps) {
         />
       ))}
     </div>
-  )
+  );
 }
 
 function StepRenderer({
@@ -1025,35 +1132,35 @@ function StepRenderer({
   basePath,
   ...props
 }: {
-  step: BuilderStep
-  index: number
-  total: number
-  scope: ParentScope
-  basePath: StepPath
-} & Omit<StepListProps, "steps" | "basePath" | "scope">) {
-  const path = childPath(basePath, scope, index)
-  const meta = STEP_META[step.step_type]
-  const Icon = meta.icon
-  const expanded = props.expandedId === step.cid
-  const isCondition = step.step_type === "condition"
-  const nested = basePath.length > 0
+  step: BuilderStep;
+  index: number;
+  total: number;
+  scope: ParentScope;
+  basePath: StepPath;
+} & Omit<StepListProps, 'steps' | 'basePath' | 'scope'>) {
+  const path = childPath(basePath, scope, index);
+  const meta = STEP_META[step.step_type];
+  const Icon = meta.icon;
+  const expanded = props.expandedId === step.cid;
+  const isCondition = step.step_type === 'condition';
+  const nested = basePath.length > 0;
   // Card widths on mobile fill the full canvas column (max-w-2xl px-4
   // still keeps them reasonable). Nested cards remain fluid because a
   // fixed 320px card cannot fit inside one condition branch. A top-level
   // condition grows to 600px so its two branch columns stay usable.
   const width = nested
-    ? "w-full"
+    ? 'w-full'
     : isCondition
-      ? "w-full max-w-[600px] sm:w-[600px]"
-      : "w-full max-w-[320px] sm:w-80"
+      ? 'w-full max-w-[600px] sm:w-[600px]'
+      : 'w-full max-w-[320px] sm:w-80';
 
   return (
     <>
-      <div className={cn("z-10 flex min-w-0 flex-col", width)}>
+      <div className={cn('z-10 flex min-w-0 flex-col', width)}>
         <div
           className={cn(
-            "rounded-lg border border-border border-l-4 bg-card shadow-lg",
-            meta.border,
+            'border-border bg-card rounded-lg border border-l-4 shadow-lg',
+            meta.border
           )}
         >
           <button
@@ -1061,28 +1168,42 @@ function StepRenderer({
             onClick={() => props.setExpandedId(expanded ? null : step.cid)}
             className="flex w-full items-center gap-3 px-4 py-3 text-left"
           >
-            <GripVertical className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden />
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+            <GripVertical
+              className="text-muted-foreground h-4 w-4 flex-shrink-0"
+              aria-hidden
+            />
+            <div className="bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-md">
               <Icon className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                {isCondition ? "Condition" : step.step_type === "wait" ? "Wait" : "Action"}
+              <div className="text-muted-foreground text-[11px] tracking-wide uppercase">
+                {isCondition
+                  ? 'Condition'
+                  : step.step_type === 'wait'
+                    ? 'Wait'
+                    : 'Action'}
               </div>
-              <div className="truncate text-sm font-medium text-foreground">{meta.label}</div>
-              <div className="truncate text-[11px] text-muted-foreground">{previewFor(step)}</div>
+              <div className="text-foreground truncate text-sm font-medium">
+                {meta.label}
+              </div>
+              <div className="text-muted-foreground truncate text-[11px]">
+                {previewFor(step)}
+              </div>
             </div>
             <ChevronDown
-              className={cn("h-4 w-4 text-muted-foreground transition-transform", expanded && "rotate-180")}
+              className={cn(
+                'text-muted-foreground h-4 w-4 transition-transform',
+                expanded && 'rotate-180'
+              )}
             />
           </button>
           {expanded && (
-            <div className="border-t border-border px-4 py-3">
+            <div className="border-border border-t px-4 py-3">
               <StepEditor
                 step={step}
                 onChange={(next) => props.updateStep(path, () => next)}
               />
-              <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
+              <div className="border-border mt-3 flex items-center justify-between gap-2 border-t pt-3">
                 <div className="flex gap-1">
                   <Button
                     variant="ghost"
@@ -1128,7 +1249,7 @@ function StepRenderer({
         <AddButton onPick={(t) => props.addStepAt(scope, index + 1, t)} />
       )}
     </>
-  )
+  );
 }
 
 function ConditionBranches({
@@ -1136,12 +1257,12 @@ function ConditionBranches({
   path,
   ...props
 }: {
-  step: BuilderStep
+  step: BuilderStep;
   /** The condition's own path; its children append one marker each. */
-  path: StepPath
-} & Omit<StepListProps, "steps" | "basePath" | "scope">) {
-  const yes = step.branches?.yes ?? []
-  const no = step.branches?.no ?? []
+  path: StepPath;
+} & Omit<StepListProps, 'steps' | 'basePath' | 'scope'>) {
+  const yes = step.branches?.yes ?? [];
+  const no = step.branches?.no ?? [];
   return (
     // Split only when this condition card is wide enough, rather than
     // when the viewport is wide. Nested conditions can be much narrower.
@@ -1152,7 +1273,7 @@ function ConditionBranches({
             {...props}
             steps={yes}
             basePath={path}
-            scope={{ kind: "branch", parentCid: step.cid, branch: "yes" }}
+            scope={{ kind: 'branch', parentCid: step.cid, branch: 'yes' }}
           />
         </BranchColumn>
         <BranchColumn label="No" color="text-rose-foreground">
@@ -1160,12 +1281,12 @@ function ConditionBranches({
             {...props}
             steps={no}
             basePath={path}
-            scope={{ kind: "branch", parentCid: step.cid, branch: "no" }}
+            scope={{ kind: 'branch', parentCid: step.cid, branch: 'no' }}
           />
         </BranchColumn>
       </div>
     </div>
-  )
+  );
 }
 
 function BranchColumn({
@@ -1173,47 +1294,49 @@ function BranchColumn({
   color,
   children,
 }: {
-  label: string
-  color: string
-  children: React.ReactNode
+  label: string;
+  color: string;
+  children: React.ReactNode;
 }) {
   return (
     <div className="flex min-w-0 flex-col items-center">
-      <div className={cn("mb-2 text-[11px] font-semibold uppercase", color)}>{label}</div>
+      <div className={cn('mb-2 text-[11px] font-semibold uppercase', color)}>
+        {label}
+      </div>
       {children}
     </div>
-  )
+  );
 }
 
 function AddButton({ onPick }: { onPick: (t: AutomationStepType) => void }) {
   return (
     <div className="relative flex flex-col items-center">
-      <div className="h-4 w-[2px] bg-border" aria-hidden />
+      <div className="bg-border h-4 w-[2px]" aria-hidden />
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-dashed border-border bg-background text-muted-foreground transition-colors hover:border-primary hover:bg-primary/10 hover:text-primary-text data-[popup-open]:border-primary data-[popup-open]:bg-primary/20 data-[popup-open]:text-primary-text"
+          className="border-border bg-background text-muted-foreground hover:border-primary hover:bg-primary/10 hover:text-primary-text data-[popup-open]:border-primary data-[popup-open]:bg-primary/20 data-[popup-open]:text-primary-text flex h-8 w-8 items-center justify-center rounded-full border-2 border-dashed transition-colors"
           aria-label="Add step"
         >
           <Plus className="h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
-          className="max-h-80 min-w-56 overflow-y-auto border-border bg-popover"
+          className="border-border bg-popover max-h-80 min-w-56 overflow-y-auto"
         >
           {ADDABLE_STEPS.map((t) => {
-            const Icon = STEP_META[t].icon
+            const Icon = STEP_META[t].icon;
             return (
               <DropdownMenuItem key={t} onClick={() => onPick(t)}>
                 <Icon className="h-4 w-4" />
                 {STEP_META[t].label}
               </DropdownMenuItem>
-            )
+            );
           })}
         </DropdownMenuContent>
       </DropdownMenu>
-      <div className="h-4 w-[2px] bg-border" aria-hidden />
+      <div className="bg-border h-4 w-[2px]" aria-hidden />
     </div>
-  )
+  );
 }
 
 // ------------------------------------------------------------
@@ -1224,51 +1347,51 @@ function StepEditor({
   step,
   onChange,
 }: {
-  step: BuilderStep
-  onChange: (s: BuilderStep) => void
+  step: BuilderStep;
+  onChange: (s: BuilderStep) => void;
 }) {
   // Account-editable status list (migration 042) for set_lead_status.
-  const { statuses } = useLeadFieldOptions()
-  const cfg = step.step_config
+  const { statuses } = useLeadFieldOptions();
+  const cfg = step.step_config;
   const set = (patch: Record<string, unknown>) =>
-    onChange({ ...step, step_config: { ...cfg, ...patch } })
+    onChange({ ...step, step_config: { ...cfg, ...patch } });
 
   switch (step.step_type) {
-    case "send_message":
+    case 'send_message':
       return (
         <FieldBlock label="Message text">
           <Textarea
-            value={(cfg.text as string) ?? ""}
+            value={(cfg.text as string) ?? ''}
             onChange={(e) => set({ text: e.target.value })}
             placeholder="Hi! Thanks for reaching out…"
-            className="min-h-24 text-foreground"
+            className="text-foreground min-h-24"
           />
         </FieldBlock>
-      )
-    case "send_template":
+      );
+    case 'send_template':
       return (
         <SendTemplateFields
-          templateName={(cfg.template_name as string) ?? ""}
-          language={(cfg.language as string) ?? ""}
+          templateName={(cfg.template_name as string) ?? ''}
+          language={(cfg.language as string) ?? ''}
           onChange={(patch) => set(patch)}
         />
-      )
-    case "add_tag":
-    case "remove_tag":
+      );
+    case 'add_tag':
+    case 'remove_tag':
       return (
         <FieldBlock label="Tag">
           <TagSelect
-            value={(cfg.tag_id as string) ?? ""}
+            value={(cfg.tag_id as string) ?? ''}
             onChange={(v) => set({ tag_id: v })}
           />
         </FieldBlock>
-      )
-    case "assign_conversation":
+      );
+    case 'assign_conversation':
       return (
         <>
           <FieldBlock label="Mode">
             <Select
-              value={(cfg.mode as string) ?? "round_robin"}
+              value={(cfg.mode as string) ?? 'round_robin'}
               onValueChange={(v) => set({ mode: v })}
             >
               <SelectTrigger className="w-full">
@@ -1280,40 +1403,40 @@ function StepEditor({
               </SelectContent>
             </Select>
           </FieldBlock>
-          {cfg.mode === "specific" && (
+          {cfg.mode === 'specific' && (
             <FieldBlock label="Agent">
               <AgentSelect
-                value={(cfg.agent_id as string) ?? ""}
+                value={(cfg.agent_id as string) ?? ''}
                 onChange={(v) => set({ agent_id: v })}
               />
             </FieldBlock>
           )}
         </>
-      )
-    case "update_contact_field":
+      );
+    case 'update_contact_field':
       return (
         <>
           <FieldBlock label="Field">
             <ContactFieldSelect
-              value={(cfg.field as string) ?? "name"}
+              value={(cfg.field as string) ?? 'name'}
               onChange={(v) => set({ field: v })}
             />
           </FieldBlock>
           <FieldBlock label="Value">
             <Input
-              value={(cfg.value as string) ?? ""}
+              value={(cfg.value as string) ?? ''}
               onChange={(e) => set({ value: e.target.value })}
               placeholder="Text or {{ vars.x }} / {{ message.text }}"
               className="text-foreground"
             />
           </FieldBlock>
         </>
-      )
-    case "set_lead_status":
+      );
+    case 'set_lead_status':
       return (
         <FieldBlock label="Status">
           <Select
-            value={(cfg.status as string) ?? "interested"}
+            value={(cfg.status as string) ?? 'interested'}
             onValueChange={(v) => set({ status: v })}
           >
             <SelectTrigger className="w-full">
@@ -1328,13 +1451,13 @@ function StepEditor({
             </SelectContent>
           </Select>
         </FieldBlock>
-      )
-    case "assign_lead":
+      );
+    case 'assign_lead':
       return (
         <>
           <FieldBlock label="Mode">
             <Select
-              value={(cfg.mode as string) ?? "round_robin"}
+              value={(cfg.mode as string) ?? 'round_robin'}
               onValueChange={(v) => set({ mode: v })}
             >
               <SelectTrigger className="w-full">
@@ -1346,16 +1469,16 @@ function StepEditor({
               </SelectContent>
             </Select>
           </FieldBlock>
-          {cfg.mode === "specific" && (
+          {cfg.mode === 'specific' && (
             <FieldBlock label="Teammate">
               <AgentSelect
-                value={(cfg.agent_id as string) ?? ""}
+                value={(cfg.agent_id as string) ?? ''}
                 onChange={(v) => set({ agent_id: v })}
               />
             </FieldBlock>
           )}
           <label className="flex items-center justify-between gap-2 pt-1">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-muted-foreground text-sm">
               Only when the lead has no owner yet
             </span>
             <Switch
@@ -1364,14 +1487,14 @@ function StepEditor({
             />
           </label>
         </>
-      )
-    case "create_follow_up":
+      );
+    case 'create_follow_up':
       return (
         <>
           <div className="grid grid-cols-2 gap-2">
             <FieldBlock label="Task type">
               <Select
-                value={(cfg.task_type as string) ?? "call"}
+                value={(cfg.task_type as string) ?? 'call'}
                 onValueChange={(v) => set({ task_type: v })}
               >
                 <SelectTrigger className="w-full">
@@ -1398,7 +1521,7 @@ function StepEditor({
           </div>
           <FieldBlock label="Assign to">
             <Select
-              value={(cfg.assign_mode as string) ?? "lead_owner"}
+              value={(cfg.assign_mode as string) ?? 'lead_owner'}
               onValueChange={(v) => set({ assign_mode: v })}
             >
               <SelectTrigger className="w-full">
@@ -1410,35 +1533,35 @@ function StepEditor({
               </SelectContent>
             </Select>
           </FieldBlock>
-          {cfg.assign_mode === "specific" && (
+          {cfg.assign_mode === 'specific' && (
             <FieldBlock label="Teammate">
               <AgentSelect
-                value={(cfg.agent_id as string) ?? ""}
+                value={(cfg.agent_id as string) ?? ''}
                 onChange={(v) => set({ agent_id: v })}
               />
             </FieldBlock>
           )}
           <FieldBlock label="Note (optional)">
             <Input
-              value={(cfg.note as string) ?? ""}
+              value={(cfg.note as string) ?? ''}
               onChange={(e) => set({ note: e.target.value })}
               placeholder="Why chase — supports {{ vars.x }}"
               className="text-foreground"
             />
           </FieldBlock>
         </>
-      )
-    case "create_deal":
+      );
+    case 'create_deal':
       return (
         <>
           <DealPipelineFields
-            pipelineId={(cfg.pipeline_id as string) ?? ""}
-            stageId={(cfg.stage_id as string) ?? ""}
+            pipelineId={(cfg.pipeline_id as string) ?? ''}
+            stageId={(cfg.stage_id as string) ?? ''}
             onChange={(patch) => set(patch)}
           />
           <FieldBlock label="Title">
             <Input
-              value={(cfg.title as string) ?? ""}
+              value={(cfg.title as string) ?? ''}
               onChange={(e) => set({ title: e.target.value })}
               className="text-foreground"
             />
@@ -1452,8 +1575,8 @@ function StepEditor({
             />
           </FieldBlock>
         </>
-      )
-    case "wait":
+      );
+    case 'wait':
       return (
         <div className="grid grid-cols-2 gap-2">
           <FieldBlock label="Amount">
@@ -1461,13 +1584,15 @@ function StepEditor({
               type="number"
               min={1}
               value={(cfg.amount as number) ?? 1}
-              onChange={(e) => set({ amount: Math.max(1, Number(e.target.value)) })}
+              onChange={(e) =>
+                set({ amount: Math.max(1, Number(e.target.value)) })
+              }
               className="text-foreground"
             />
           </FieldBlock>
           <FieldBlock label="Unit">
             <Select
-              value={(cfg.unit as string) ?? "hours"}
+              value={(cfg.unit as string) ?? 'hours'}
               onValueChange={(v) => set({ unit: v })}
             >
               <SelectTrigger className="w-full">
@@ -1481,13 +1606,13 @@ function StepEditor({
             </Select>
           </FieldBlock>
         </div>
-      )
-    case "condition":
+      );
+    case 'condition':
       return (
         <>
           <FieldBlock label="Subject">
             <Select
-              value={(cfg.subject as string) ?? "tag_presence"}
+              value={(cfg.subject as string) ?? 'tag_presence'}
               onValueChange={(v) => set({ subject: v })}
             >
               <SelectTrigger className="w-full">
@@ -1504,57 +1629,59 @@ function StepEditor({
           <FieldBlock label="Operand">
             <Input
               placeholder={
-                cfg.subject === "time_of_day"
-                  ? "HH:mm-HH:mm"
-                  : cfg.subject === "contact_field"
-                  ? "name / email / company"
-                  : cfg.subject === "tag_presence"
-                  ? "tag id"
-                  : ""
+                cfg.subject === 'time_of_day'
+                  ? 'HH:mm-HH:mm'
+                  : cfg.subject === 'contact_field'
+                    ? 'name / email / company'
+                    : cfg.subject === 'tag_presence'
+                      ? 'tag id'
+                      : ''
               }
-              value={(cfg.operand as string) ?? ""}
+              value={(cfg.operand as string) ?? ''}
               onChange={(e) => set({ operand: e.target.value })}
               className="text-foreground"
             />
           </FieldBlock>
-          {(cfg.subject === "contact_field" || cfg.subject === "message_content") && (
+          {(cfg.subject === 'contact_field' ||
+            cfg.subject === 'message_content') && (
             <FieldBlock label="Value">
               <Input
-                value={(cfg.value as string) ?? ""}
+                value={(cfg.value as string) ?? ''}
                 onChange={(e) => set({ value: e.target.value })}
                 className="text-foreground"
               />
             </FieldBlock>
           )}
         </>
-      )
-    case "send_webhook":
+      );
+    case 'send_webhook':
       return (
         <>
           <FieldBlock label="URL">
             <Input
-              value={(cfg.url as string) ?? ""}
+              value={(cfg.url as string) ?? ''}
               onChange={(e) => set({ url: e.target.value })}
               className="text-foreground"
             />
           </FieldBlock>
           <FieldBlock label="Body template (JSON)">
             <Textarea
-              value={(cfg.body_template as string) ?? ""}
+              value={(cfg.body_template as string) ?? ''}
               onChange={(e) => set({ body_template: e.target.value })}
-              className="min-h-20 font-mono text-xs text-foreground"
+              className="text-foreground min-h-20 font-mono text-xs"
             />
           </FieldBlock>
         </>
-      )
-    case "close_conversation":
+      );
+    case 'close_conversation':
       return (
-        <p className="text-xs text-muted-foreground">
-          Sets the conversation status to &quot;closed&quot;. No configuration needed.
+        <p className="text-muted-foreground text-xs">
+          Sets the conversation status to &quot;closed&quot;. No configuration
+          needed.
         </p>
-      )
+      );
     default:
-      return null
+      return null;
   }
 }
 
@@ -1562,31 +1689,33 @@ function FieldBlock({
   label,
   children,
 }: {
-  label: string
-  children: React.ReactNode
+  label: string;
+  children: React.ReactNode;
 }) {
   return (
     <div className="mb-2 last:mb-0">
-      <label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label>
+      <label className="text-muted-foreground mb-1 block text-xs font-medium">
+        {label}
+      </label>
       {children}
     </div>
-  )
+  );
 }
 
 function previewFor(step: BuilderStep): string {
   switch (step.step_type) {
-    case "send_message":
-      return (step.step_config.text as string) || "no text yet"
-    case "send_template":
-      return (step.step_config.template_name as string) || "pick a template"
-    case "wait":
-      return `${step.step_config.amount ?? "?"} ${step.step_config.unit ?? ""}`
-    case "condition":
-      return `when ${step.step_config.subject ?? "?"}`
-    case "send_webhook":
-      return (step.step_config.url as string) || "no url"
+    case 'send_message':
+      return (step.step_config.text as string) || 'no text yet';
+    case 'send_template':
+      return (step.step_config.template_name as string) || 'pick a template';
+    case 'wait':
+      return `${step.step_config.amount ?? '?'} ${step.step_config.unit ?? ''}`;
+    case 'condition':
+      return `when ${step.step_config.subject ?? '?'}`;
+    case 'send_webhook':
+      return (step.step_config.url as string) || 'no url';
     default:
-      return ""
+      return '';
   }
 }
 
@@ -1595,9 +1724,9 @@ function previewFor(step: BuilderStep): string {
 // ------------------------------------------------------------
 
 interface ApiStep {
-  step_type: string
-  step_config: Record<string, unknown>
-  branches?: { yes?: ApiStep[]; no?: ApiStep[] }
+  step_type: string;
+  step_config: Record<string, unknown>;
+  branches?: { yes?: ApiStep[]; no?: ApiStep[] };
 }
 
 export function toApiSteps(steps: BuilderStep[]): ApiStep[] {
@@ -1607,7 +1736,7 @@ export function toApiSteps(steps: BuilderStep[]): ApiStep[] {
     branches: s.branches
       ? { yes: toApiSteps(s.branches.yes), no: toApiSteps(s.branches.no) }
       : undefined,
-  }))
+  }));
 }
 
 /**
@@ -1615,10 +1744,10 @@ export function toApiSteps(steps: BuilderStep[]): ApiStep[] {
  * builder-local shape with client ids.
  */
 export interface ServerStepNode {
-  id: string
-  step_type: string
-  step_config: Record<string, unknown>
-  branches: { yes: ServerStepNode[]; no: ServerStepNode[] }
+  id: string;
+  step_type: string;
+  step_config: Record<string, unknown>;
+  branches: { yes: ServerStepNode[]; no: ServerStepNode[] };
 }
 
 export function fromServerSteps(nodes: ServerStepNode[]): BuilderStep[] {
@@ -1627,11 +1756,11 @@ export function fromServerSteps(nodes: ServerStepNode[]): BuilderStep[] {
     step_type: n.step_type as AutomationStepType,
     step_config: n.step_config ?? {},
     branches:
-      n.step_type === "condition"
+      n.step_type === 'condition'
         ? {
             yes: fromServerSteps(n.branches?.yes ?? []),
             no: fromServerSteps(n.branches?.no ?? []),
           }
         : undefined,
-  }))
+  }));
 }

@@ -7,8 +7,8 @@
  * window start to an instant with `dayStartInTz` for the attendance query.
  */
 
-import { istAddDays } from "@/lib/memberships/expiry";
-import type { AttendanceLimitInterval, MembershipPlan } from "@/types";
+import { istAddDays } from '@/lib/memberships/expiry';
+import type { AttendanceLimitInterval, MembershipPlan } from '@/types';
 
 /**
  * The first day ('YYYY-MM-DD', inclusive) of the window visits count
@@ -18,15 +18,15 @@ import type { AttendanceLimitInterval, MembershipPlan } from "@/types";
  */
 export function attendanceWindowStart(
   interval: AttendanceLimitInterval,
-  opts: { periodStart: string; today: string; weekStart: number },
+  opts: { periodStart: string; today: string; weekStart: number }
 ): string {
-  if (interval === "period") return opts.periodStart;
-  if (interval === "month") return `${opts.today.slice(0, 8)}01`;
+  if (interval === 'period') return opts.periodStart;
+  if (interval === 'month') return `${opts.today.slice(0, 8)}01`;
 
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(opts.today);
   if (!m) return opts.today;
   const dow = new Date(
-    Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])),
+    Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
   ).getUTCDay();
   const back = (dow - opts.weekStart + 7) % 7;
   return istAddDays(opts.today, -back);
@@ -43,21 +43,21 @@ export interface AttendanceUsage {
 }
 
 const INTERVAL_LABEL: Record<AttendanceLimitInterval, string> = {
-  period: "this period",
-  week: "this week",
-  month: "this month",
+  period: 'this period',
+  week: 'this week',
+  month: 'this month',
 };
 
 /** Usage vs a recurring/non_recurring plan's attendance limit. */
 export function attendanceUsage(
   plan: Pick<
     MembershipPlan,
-    "plan_type" | "attendance_limit_count" | "attendance_limit_interval"
+    'plan_type' | 'attendance_limit_count' | 'attendance_limit_interval'
   >,
-  used: number,
+  used: number
 ): AttendanceUsage {
   const limit =
-    plan.plan_type !== "session_pack" &&
+    plan.plan_type !== 'session_pack' &&
     plan.attendance_limit_count &&
     plan.attendance_limit_interval
       ? plan.attendance_limit_count
@@ -74,7 +74,7 @@ export function attendanceUsage(
 /** Sessions left in a pack — derived, clamped at 0. */
 export function sessionsRemaining(
   sessionsCount: number,
-  usedSinceStart: number,
+  usedSinceStart: number
 ): number {
   return Math.max(sessionsCount - usedSinceStart, 0);
 }
@@ -89,18 +89,18 @@ export function membershipUsageWindowStart(
     start_date: string;
     plan?: Pick<
       MembershipPlan,
-      | "plan_type"
-      | "attendance_limit_count"
-      | "attendance_limit_interval"
-      | "sessions_count"
+      | 'plan_type'
+      | 'attendance_limit_count'
+      | 'attendance_limit_interval'
+      | 'sessions_count'
     > | null;
   },
   today: string,
-  weekStart: number,
+  weekStart: number
 ): string | null {
   const plan = m.plan;
   if (!plan) return null;
-  if (plan.plan_type === "session_pack") {
+  if (plan.plan_type === 'session_pack') {
     return plan.sessions_count ? m.start_date : null;
   }
   if (plan.attendance_limit_count && plan.attendance_limit_interval) {
@@ -123,14 +123,14 @@ export function membershipUsageWindowStart(
 export function usageSummary(
   plan: Pick<
     MembershipPlan,
-    | "plan_type"
-    | "attendance_limit_count"
-    | "attendance_limit_interval"
-    | "sessions_count"
+    | 'plan_type'
+    | 'attendance_limit_count'
+    | 'attendance_limit_interval'
+    | 'sessions_count'
   >,
-  used: number,
+  used: number
 ): { label: string; danger: boolean } | null {
-  if (plan.plan_type === "session_pack" && plan.sessions_count) {
+  if (plan.plan_type === 'session_pack' && plan.sessions_count) {
     const left = sessionsRemaining(plan.sessions_count, used);
     return {
       label: `${left} of ${plan.sessions_count} sessions left`,
@@ -154,26 +154,26 @@ export interface CheckInWarning {
 export function checkInWarning(
   plan: Pick<
     MembershipPlan,
-    | "plan_type"
-    | "attendance_limit_count"
-    | "attendance_limit_interval"
-    | "sessions_count"
+    | 'plan_type'
+    | 'attendance_limit_count'
+    | 'attendance_limit_interval'
+    | 'sessions_count'
   >,
-  used: number,
+  used: number
 ): CheckInWarning | null {
-  if (plan.plan_type === "session_pack") {
+  if (plan.plan_type === 'session_pack') {
     if (!plan.sessions_count) return null;
     const left = sessionsRemaining(plan.sessions_count, used);
     if (left > 0) return null;
     return {
-      title: "No sessions left",
+      title: 'No sessions left',
       body: `All ${plan.sessions_count} sessions of this pack are used. You can still check them in — consider selling a new pack.`,
     };
   }
   const usage = attendanceUsage(plan, used);
   if (!usage.exceeded) return null;
   return {
-    title: "Over the visit limit",
+    title: 'Over the visit limit',
     body: `This member is at ${usage.label} (plan limit ${usage.limit}). You can still check them in.`,
   };
 }

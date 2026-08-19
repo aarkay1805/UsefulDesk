@@ -106,13 +106,14 @@ export function LeadsFilters({
     v: string
   ) {
     const cur = value[key];
-    const next = cur.includes(v)
-      ? cur.filter((x) => x !== v)
-      : [...cur, v];
+    const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
     onChange({ ...value, [key]: next });
   }
 
-  const staffOptions = staff.map((s) => ({ value: s.user_id, label: s.full_name }));
+  const staffOptions = staff.map((s) => ({
+    value: s.user_id,
+    label: s.full_name,
+  }));
   const pendingOptions = pendingInvites.map((p) => ({
     value: `${PENDING_FILTER_PREFIX}${p.id}`,
     label: `${p.name} · pending`,
@@ -126,21 +127,21 @@ export function LeadsFilters({
         <Filter className="size-4" />
         Filters
         {count > 0 && (
-          <span className="ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+          <span className="bg-primary text-primary-foreground ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold">
             {count}
           </span>
         )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-0">
-        <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-          <span className="text-sm font-semibold text-popover-foreground">
+        <div className="border-border flex items-center justify-between border-b px-3 py-2.5">
+          <span className="text-popover-foreground text-sm font-semibold">
             Filters
           </span>
           {count > 0 && (
             <button
               type="button"
               onClick={() => onChange(EMPTY_FILTERS)}
-              className="cursor-pointer text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline-offset-4 hover:underline"
             >
               Clear all
             </button>
@@ -152,7 +153,9 @@ export function LeadsFilters({
             label="Create date"
             options={CREATED_RANGE_OPTIONS}
             value={value.createdRange}
-            onChange={(v) => onChange({ ...value, createdRange: v as CreatedRange })}
+            onChange={(v) =>
+              onChange({ ...value, createdRange: v as CreatedRange })
+            }
           />
 
           <Divider />
@@ -229,7 +232,7 @@ function Divider() {
 
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <p className="text-muted-foreground mb-1.5 text-[11px] font-semibold tracking-wider uppercase">
       {children}
     </p>
   );
@@ -252,20 +255,20 @@ function CheckGroup({
     <div>
       <GroupLabel>{label}</GroupLabel>
       {options.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{emptyHint ?? 'None.'}</p>
+        <p className="text-muted-foreground text-xs">{emptyHint ?? 'None.'}</p>
       ) : (
         <div className="max-h-40 space-y-0.5 overflow-y-auto">
           {options.map((o) => (
             <label
               key={o.value}
-              className="flex cursor-pointer items-center gap-2.5 rounded-md px-1 py-1 hover:bg-muted/60"
+              className="hover:bg-muted/60 flex cursor-pointer items-center gap-2.5 rounded-md px-1 py-1"
             >
               <Checkbox
                 checked={selected.includes(o.value)}
                 onCheckedChange={() => onToggle(o.value)}
                 aria-label={`Filter by ${o.label}`}
               />
-              <span className="truncate text-sm text-popover-foreground">
+              <span className="text-popover-foreground truncate text-sm">
                 {o.label}
               </span>
             </label>
@@ -298,7 +301,7 @@ function RadioGroup({
               key={o.value}
               type="button"
               onClick={() => onChange(o.value)}
-              className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-1 py-1 text-left hover:bg-muted/60"
+              className="hover:bg-muted/60 flex w-full cursor-pointer items-center gap-2.5 rounded-md px-1 py-1 text-left"
             >
               <span
                 className={
@@ -306,9 +309,9 @@ function RadioGroup({
                   (active ? 'border-primary' : 'border-border')
                 }
               >
-                {active && <span className="size-2 rounded-full bg-primary" />}
+                {active && <span className="bg-primary size-2 rounded-full" />}
               </span>
-              <span className="truncate text-sm text-popover-foreground">
+              <span className="text-popover-foreground truncate text-sm">
                 {o.label}
               </span>
             </button>

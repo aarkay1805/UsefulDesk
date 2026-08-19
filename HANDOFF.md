@@ -18,6 +18,7 @@ columns → **Preview & edit** → Confirm. Born from a HubSpot import-UX triage
 https://claude.ai/code/artifact/cbc7360a-18d0-4a32-9afe-75f58f084c69).
 
 Key pieces:
+
 - **Engine** `src/lib/leads/import-coerce.ts` (pure, 22 tests): option/assignee
   coercion, `fuzzyMatchOption`, `detectFieldType` heuristics, `detectDateOrder`
   (DD/MM chip, DMY default), `buildPreviewRows`, `applyValueFix`,
@@ -117,16 +118,16 @@ Import can assign leads to a teammate who **doesn't exist yet**:
 
 ## Key files (this session)
 
-| Area | Files |
-|---|---|
-| Engine | `src/lib/leads/import-coerce.ts` (+`.test.ts`), `src/lib/contacts/field-mapping.ts` (+`.test.ts`) |
-| Wizard | `src/components/contacts/import-wizard.tsx` |
-| Grid + panel | `src/components/leads/import-preview-grid.tsx` |
-| Shared UI | `src/components/leads/lead-cell-renderers.tsx`, `src/components/ui/combobox.tsx` |
-| Leads page | `src/app/(dashboard)/leads/page.tsx`, `src/components/leads/leads-filters.tsx` |
-| Invites | `supabase/migrations/049_pending_invite_assignees.sql`, `src/app/api/account/invitations/route.ts`, `src/app/api/account/invitations/[id]/link/route.ts`, `src/lib/auth/invitations.ts`, `src/components/settings/members-tab.tsx` |
-| Types | `src/types/index.ts` (Contact pending fields) |
-| Docs | `CLAUDE.md`, `PRDs/import_leads_ux.md`, memory `gym-crm-pivot.md` |
+| Area         | Files                                                                                                                                                                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Engine       | `src/lib/leads/import-coerce.ts` (+`.test.ts`), `src/lib/contacts/field-mapping.ts` (+`.test.ts`)                                                                                                                                  |
+| Wizard       | `src/components/contacts/import-wizard.tsx`                                                                                                                                                                                        |
+| Grid + panel | `src/components/leads/import-preview-grid.tsx`                                                                                                                                                                                     |
+| Shared UI    | `src/components/leads/lead-cell-renderers.tsx`, `src/components/ui/combobox.tsx`                                                                                                                                                   |
+| Leads page   | `src/app/(dashboard)/leads/page.tsx`, `src/components/leads/leads-filters.tsx`                                                                                                                                                     |
+| Invites      | `supabase/migrations/049_pending_invite_assignees.sql`, `src/app/api/account/invitations/route.ts`, `src/app/api/account/invitations/[id]/link/route.ts`, `src/lib/auth/invitations.ts`, `src/components/settings/members-tab.tsx` |
+| Types        | `src/types/index.ts` (Contact pending fields)                                                                                                                                                                                      |
+| Docs         | `CLAUDE.md`, `PRDs/import_leads_ux.md`, memory `gym-crm-pivot.md`                                                                                                                                                                  |
 
 Live Supabase project: `UsefulDesk` (`fwqthstqrkrwtaehefks`). Migrations
 land via MCP `apply_migration`; verify with information_schema/pg_proc

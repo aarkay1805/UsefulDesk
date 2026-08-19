@@ -1,15 +1,36 @@
-import {AbsoluteFill, Easing, Interactive, interpolate, useCurrentFrame} from "remotion";
-import {Brand, CheckIcon, SceneBackground} from "../components";
+import {
+  AbsoluteFill,
+  Easing,
+  Interactive,
+  interpolate,
+  useCurrentFrame,
+} from "remotion";
+import { Brand, CheckIcon, SceneBackground } from "../components";
 
 export const CollectScene: React.FC = () => {
   const frame = useCurrentFrame();
 
   return (
-    <AbsoluteFill style={{backgroundColor: "#0d0d14", overflow: "hidden"}}>
+    <AbsoluteFill style={{ backgroundColor: "#0d0d14", overflow: "hidden" }}>
       <SceneBackground accent="green" />
-      <div style={{position: "absolute", inset: "70px 80px", display: "flex", flexDirection: "column"}}>
+      <div
+        style={{
+          position: "absolute",
+          inset: "70px 80px",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         <Brand compact />
-        <div style={{flex: 1, display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 54, alignItems: "center"}}>
+        <div
+          style={{
+            flex: 1,
+            display: "grid",
+            gridTemplateColumns: "1.05fr 0.95fr",
+            gap: 54,
+            alignItems: "center",
+          }}
+        >
           <div>
             <Interactive.Div
               name="Collection headline"
@@ -24,11 +45,16 @@ export const CollectScene: React.FC = () => {
                   extrapolateRight: "clamp",
                   easing: Easing.bezier(0.16, 1, 0.3, 1),
                 }),
-                translate: interpolate(frame, [0, 22], ["0px 42px", "0px 0px"], {
-                  extrapolateLeft: "clamp",
-                  extrapolateRight: "clamp",
-                  easing: Easing.bezier(0.16, 1, 0.3, 1),
-                }),
+                translate: interpolate(
+                  frame,
+                  [0, 22],
+                  ["0px 42px", "0px 0px"],
+                  {
+                    extrapolateLeft: "clamp",
+                    extrapolateRight: "clamp",
+                    easing: Easing.bezier(0.16, 1, 0.3, 1),
+                  },
+                ),
               }}
             >
               Collect on UPI.
@@ -61,7 +87,8 @@ export const CollectScene: React.FC = () => {
               borderRadius: 36,
               border: "1px solid rgba(255,255,255,0.12)",
               padding: "42px 38px",
-              background: "linear-gradient(165deg,rgba(27,35,31,0.98) 0%,rgba(21,22,31,0.98) 100%)",
+              background:
+                "linear-gradient(165deg,rgba(27,35,31,0.98) 0%,rgba(21,22,31,0.98) 100%)",
               boxShadow: "0 46px 100px rgba(0,0,0,0.38)",
               opacity: interpolate(frame, [18, 38], [0, 1], {
                 extrapolateLeft: "clamp",
@@ -71,7 +98,7 @@ export const CollectScene: React.FC = () => {
               scale: interpolate(frame, [18, 44], [0.9, 1], {
                 extrapolateLeft: "clamp",
                 extrapolateRight: "clamp",
-                easing: Easing.spring({damping: 200}),
+                easing: Easing.spring({ damping: 200 }),
                 output: "perceptual-scale",
               }),
             }}
@@ -91,14 +118,23 @@ export const CollectScene: React.FC = () => {
                 scale: interpolate(frame, [42, 62], [0, 1], {
                   extrapolateLeft: "clamp",
                   extrapolateRight: "clamp",
-                  easing: Easing.spring({damping: 150}),
+                  easing: Easing.spring({ damping: 150 }),
                   output: "perceptual-scale",
                 }),
               }}
             >
               <CheckIcon size={42} />
             </Interactive.Div>
-            <div style={{fontSize: 22, color: "#86efac", fontWeight: 680, marginTop: 34}}>Payment received</div>
+            <div
+              style={{
+                fontSize: 22,
+                color: "#86efac",
+                fontWeight: 680,
+                marginTop: 34,
+              }}
+            >
+              Payment received
+            </div>
             <Interactive.Div
               name="Collected amount"
               style={{
@@ -118,11 +154,31 @@ export const CollectScene: React.FC = () => {
             >
               ₹2,499
             </Interactive.Div>
-            <div style={{height: 1, backgroundColor: "rgba(255,255,255,0.10)", margin: "32px 0 24px"}} />
-            <div style={{display: "grid", gridTemplateColumns: "1fr auto", rowGap: 15, fontSize: 19}}>
-              <span style={{color: "#8f8b9c"}}>Member</span><span style={{color: "#ffffff", fontWeight: 640}}>Arjun Mehta</span>
-              <span style={{color: "#8f8b9c"}}>Method</span><span style={{color: "#ffffff", fontWeight: 640}}>UPI · AutoPay</span>
-              <span style={{color: "#8f8b9c"}}>Membership</span><span style={{color: "#ffffff", fontWeight: 640}}>Renewed</span>
+            <div
+              style={{
+                height: 1,
+                backgroundColor: "rgba(255,255,255,0.10)",
+                margin: "32px 0 24px",
+              }}
+            />
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                rowGap: 15,
+                fontSize: 19,
+              }}
+            >
+              <span style={{ color: "#8f8b9c" }}>Member</span>
+              <span style={{ color: "#ffffff", fontWeight: 640 }}>
+                Arjun Mehta
+              </span>
+              <span style={{ color: "#8f8b9c" }}>Method</span>
+              <span style={{ color: "#ffffff", fontWeight: 640 }}>
+                UPI · AutoPay
+              </span>
+              <span style={{ color: "#8f8b9c" }}>Membership</span>
+              <span style={{ color: "#ffffff", fontWeight: 640 }}>Renewed</span>
             </div>
           </Interactive.Div>
         </div>

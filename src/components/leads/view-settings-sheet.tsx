@@ -60,10 +60,10 @@ export function BoardSettingsSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full gap-0 border-border bg-popover p-0 text-popover-foreground sm:max-w-md"
+        className="border-border bg-popover text-popover-foreground w-full gap-0 p-0 sm:max-w-md"
       >
-        <SheetHeader className="border-b border-border px-5 py-4">
-          <SheetTitle className="text-base text-foreground">
+        <SheetHeader className="border-border border-b px-5 py-4">
+          <SheetTitle className="text-foreground text-base">
             Board settings
           </SheetTitle>
           <SheetDescription className="text-muted-foreground">
@@ -118,9 +118,9 @@ export function BoardSettingsSheet({
               />
             </SettingRow>
 
-            <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-              The board shows the {boardLimit} most recent leads. Switch to
-              the table view to page through all of them.
+            <p className="border-border bg-muted/40 text-muted-foreground rounded-lg border px-3 py-2 text-xs leading-relaxed">
+              The board shows the {boardLimit} most recent leads. Switch to the
+              table view to page through all of them.
             </p>
           </Section>
         </div>
@@ -141,11 +141,11 @@ function Section({
   return (
     <section className="space-y-3">
       <div className="space-y-1">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
           {title}
         </h3>
         {description && (
-          <p className="text-xs leading-relaxed text-muted-foreground">
+          <p className="text-muted-foreground text-xs leading-relaxed">
             {description}
           </p>
         )}
@@ -168,9 +168,9 @@ function SettingRow({
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 space-y-0.5 pt-0.5">
-        <p className="text-sm text-foreground">{label}</p>
+        <p className="text-foreground text-sm">{label}</p>
         {description && (
-          <p className="text-xs leading-relaxed text-muted-foreground">
+          <p className="text-muted-foreground text-xs leading-relaxed">
             {description}
           </p>
         )}
@@ -194,7 +194,7 @@ function Segmented({
   return (
     <div
       role="radiogroup"
-      className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
+      className="bg-muted inline-flex items-center gap-0.5 rounded-lg p-0.5"
     >
       {options.map((opt) => {
         const active = value === opt.value;
@@ -206,7 +206,7 @@ function Segmented({
             aria-checked={active}
             onClick={() => onChange(opt.value)}
             className={cn(
-              'cursor-pointer rounded-md px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+              'focus-visible:ring-ring/50 cursor-pointer rounded-md px-3 py-1 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none',
               active
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'

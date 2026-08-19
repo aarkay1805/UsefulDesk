@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
-import { useLocale } from "@/hooks/use-locale";
-import type { Message, MessageStatus } from "@/types";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
+import { useLocale } from '@/hooks/use-locale';
+import type { Message, MessageStatus } from '@/types';
 import {
   Card,
   CardHeader,
   CardTitle,
   CardAction,
   CardContent,
-} from "@/components/ui/card";
+} from '@/components/ui/card';
 import {
   Table,
   TableHeader,
@@ -19,9 +19,9 @@ import {
   TableHead,
   TableRow,
   TableCell,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { MessageSquare, ArrowUpRight, Loader2 } from "lucide-react";
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { MessageSquare, ArrowUpRight, Loader2 } from 'lucide-react';
 
 interface MemberCommunicationProps {
   /** The member's contact id — the join key to their conversation. */
@@ -37,13 +37,13 @@ interface MemberCommunicationProps {
  */
 const TEMPLATE_REASONS: Record<string, { type: string; subject: string }> = {
   gym_renewal_reminder: {
-    type: "Renewal reminder",
-    subject: "Membership expiry reminder — plan, expiry date and fee",
+    type: 'Renewal reminder',
+    subject: 'Membership expiry reminder — plan, expiry date and fee',
   },
 };
 
 function humaniseTemplateName(name: string): string {
-  const cleaned = name.replace(/_/g, " ").trim();
+  const cleaned = name.replace(/_/g, ' ').trim();
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
@@ -52,20 +52,20 @@ function templateReason(m: Message): { type: string; subject: string } {
   if (known) return known;
   const label = m.template_name
     ? humaniseTemplateName(m.template_name)
-    : "Template message";
+    : 'Template message';
   // Some send paths store the rendered body; prefer it as the subject.
   return { type: label, subject: m.content_text || label };
 }
 
 const STATUS_VARIANTS: Record<
   MessageStatus,
-  "success" | "danger" | "info" | "neutral"
+  'success' | 'danger' | 'info' | 'neutral'
 > = {
-  read: "success",
-  delivered: "info",
-  sent: "neutral",
-  sending: "neutral",
-  failed: "danger",
+  read: 'success',
+  delivered: 'info',
+  sent: 'neutral',
+  sending: 'neutral',
+  failed: 'danger',
 };
 
 /**
@@ -93,10 +93,10 @@ export function MemberCommunication({
 
       // One conversation per (account, contact) — grab the most recent.
       const { data: conv } = await supabase
-        .from("conversations")
-        .select("id")
-        .eq("contact_id", contactId)
-        .order("last_message_at", { ascending: false, nullsFirst: false })
+        .from('conversations')
+        .select('id')
+        .eq('contact_id', contactId)
+        .order('last_message_at', { ascending: false, nullsFirst: false })
         .limit(1)
         .maybeSingle();
 
@@ -111,12 +111,12 @@ export function MemberCommunication({
 
       // Outbound template sends only — the system/staff-initiated log.
       const { data: msgs } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("conversation_id", conv.id)
-        .eq("content_type", "template")
-        .in("sender_type", ["agent", "bot"])
-        .order("created_at", { ascending: false })
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conv.id)
+        .eq('content_type', 'template')
+        .in('sender_type', ['agent', 'bot'])
+        .order('created_at', { ascending: false })
         .limit(50);
 
       if (cancelled) return;
@@ -138,7 +138,7 @@ export function MemberCommunication({
           <CardAction>
             <Link
               href={`/inbox?c=${conversationId}`}
-              className="inline-flex items-center gap-1 text-xs font-medium text-primary-text hover:underline"
+              className="text-primary-text inline-flex items-center gap-1 text-xs font-medium hover:underline"
             >
               Open in Inbox
               <ArrowUpRight className="size-3.5" />
@@ -148,11 +148,11 @@ export function MemberCommunication({
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex items-center justify-center py-10 text-muted-foreground">
+          <div className="text-muted-foreground flex items-center justify-center py-10">
             <Loader2 className="size-5 animate-spin" />
           </div>
         ) : rows.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
+          <div className="text-muted-foreground flex flex-col items-center gap-2 py-10 text-center">
             <MessageSquare className="size-6" />
             <p className="text-sm">No template messages sent yet.</p>
             <p className="text-xs">
@@ -160,7 +160,7 @@ export function MemberCommunication({
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-border">
+          <div className="border-border overflow-hidden rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -177,18 +177,18 @@ export function MemberCommunication({
                     <TableRow key={m.id}>
                       <TableCell>
                         <div className="text-foreground">{reason.type}</div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-muted-foreground text-xs">
                           {fmt.dateTime(new Date(m.created_at))}
                         </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant="neutral">WhatsApp</Badge>
                       </TableCell>
-                      <TableCell className="whitespace-normal text-muted-foreground">
+                      <TableCell className="text-muted-foreground whitespace-normal">
                         {reason.subject}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Badge variant={STATUS_VARIANTS[m.status] ?? "neutral"}>
+                        <Badge variant={STATUS_VARIANTS[m.status] ?? 'neutral'}>
                           {m.status.charAt(0).toUpperCase() + m.status.slice(1)}
                         </Badge>
                       </TableCell>

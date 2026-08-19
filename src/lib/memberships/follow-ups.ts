@@ -6,51 +6,51 @@
  * (see ./expiry), and derives a sensible default reason from the
  * member's membership state so the assign dialog opens pre-filled.
  */
-import { istToday, daysUntil } from "./expiry";
+import { istToday, daysUntil } from './expiry';
 import type {
   FollowUp,
   FollowUpOutcome,
   FollowUpReason,
   Membership,
-} from "@/types";
+} from '@/types';
 
 export const REASON_LABEL: Record<FollowUpReason, string> = {
-  renewal: "Renewal",
-  payment: "Payment",
-  trial: "Trial",
-  inactive: "Inactive",
-  other: "Other",
+  renewal: 'Renewal',
+  payment: 'Payment',
+  trial: 'Trial',
+  inactive: 'Inactive',
+  other: 'Other',
 };
 
 export const OUTCOME_LABEL: Record<FollowUpOutcome, string> = {
-  renewed: "Renewed",
-  paid: "Paid",
-  promised: "Promised to pay",
-  contacted: "Contacted",
-  trial_booked: "Trial booked",
-  no_answer: "No answer",
-  not_interested: "Not interested",
-  other: "Other",
+  renewed: 'Renewed',
+  paid: 'Paid',
+  promised: 'Promised to pay',
+  contacted: 'Contacted',
+  trial_booked: 'Trial booked',
+  no_answer: 'No answer',
+  not_interested: 'Not interested',
+  other: 'Other',
 };
 
 /** Outcomes offered when closing member-accountability work. */
 export const MEMBER_FOLLOW_UP_OUTCOMES = [
-  "renewed",
-  "paid",
-  "promised",
-  "no_answer",
-  "not_interested",
-  "other",
+  'renewed',
+  'paid',
+  'promised',
+  'no_answer',
+  'not_interested',
+  'other',
 ] as const satisfies readonly FollowUpOutcome[];
 
 /** Outcomes offered when closing lead-accountability work. */
 export const LEAD_FOLLOW_UP_OUTCOMES = [
-  "contacted",
-  "trial_booked",
-  "promised",
-  "no_answer",
-  "not_interested",
-  "other",
+  'contacted',
+  'trial_booked',
+  'promised',
+  'no_answer',
+  'not_interested',
+  'other',
 ] as const satisfies readonly FollowUpOutcome[];
 
 export interface FollowUpBuckets {
@@ -62,7 +62,7 @@ export interface FollowUpBuckets {
 /** Split open tasks by due date vs IST today. Preserves input order. */
 export function bucketFollowUps(
   rows: FollowUp[],
-  today: string = istToday(),
+  today: string = istToday()
 ): FollowUpBuckets {
   const buckets: FollowUpBuckets = { overdue: [], dueToday: [], upcoming: [] };
   for (const f of rows) {
@@ -81,11 +81,11 @@ export function bucketFollowUps(
  */
 export function defaultReason(
   m: Membership,
-  today: string = istToday(),
+  today: string = istToday()
 ): FollowUpReason {
-  if (m.is_trial) return "trial";
+  if (m.is_trial) return 'trial';
   const days = daysUntil(m.end_date, today);
-  if (days <= 7) return "renewal";
-  if (m.fee_status === "due") return "payment";
-  return "other";
+  if (days <= 7) return 'renewal';
+  if (m.fee_status === 'due') return 'payment';
+  return 'other';
 }

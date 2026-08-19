@@ -11,10 +11,7 @@ const memberIdentitySource = readFileSync(
   'utf8'
 );
 const quickViewSource = readFileSync(
-  join(
-    process.cwd(),
-    'src/components/members/member-avatar-quick-view.tsx'
-  ),
+  join(process.cwd(), 'src/components/members/member-avatar-quick-view.tsx'),
   'utf8'
 );
 const memberViewSources = [
@@ -66,10 +63,7 @@ describe('member avatar quick view', () => {
 
   it('loads at-risk avatars with the list instead of on hover', () => {
     const source = readFileSync(
-      join(
-        process.cwd(),
-        'src/components/members/inactive-action-lists.tsx'
-      ),
+      join(process.cwd(), 'src/components/members/inactive-action-lists.tsx'),
       'utf8'
     );
     expect(source).toContain(".select('id, avatar_url')");

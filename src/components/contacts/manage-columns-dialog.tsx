@@ -223,7 +223,11 @@ export function ManageColumnsDialog({
   }
 
   function handleApply() {
-    onSave([...visibleOrder, ...hiddenKeys], hiddenKeys, Math.min(frozen, visibleOrder.length));
+    onSave(
+      [...visibleOrder, ...hiddenKeys],
+      hiddenKeys,
+      Math.min(frozen, visibleOrder.length)
+    );
     onOpenChange(false);
   }
 
@@ -313,233 +317,241 @@ export function ManageColumnsDialog({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Responsive: 96vh tall; full width minus 96px side margins, capped
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        {/* Responsive: 96vh tall; full width minus 96px side margins, capped
           at 960px (override the base sm:max-w-sm at the same breakpoint). */}
-      <DialogContent className="flex max-h-[96vh] w-[calc(100vw-192px)] max-w-[960px] flex-col gap-0 p-0 sm:max-w-[960px]">
-        <DialogHeader className="border-b border-border px-5 py-4">
-          <DialogTitle>Edit columns</DialogTitle>
-        </DialogHeader>
+        <DialogContent className="flex max-h-[96vh] w-[calc(100vw-192px)] max-w-[960px] flex-col gap-0 p-0 sm:max-w-[960px]">
+          <DialogHeader className="border-border border-b px-5 py-4">
+            <DialogTitle>Edit columns</DialogTitle>
+          </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2">
-          {/* Left — catalogue + custom fields */}
-          <div className="flex min-h-0 flex-col border-b border-border md:border-b-0 md:border-r">
-            <div className="p-4 pb-2">
-              <SearchInput
-                value={query}
-                onValueChange={setQuery}
-                placeholder="Search columns…"
-                aria-label="Search columns"
-              />
-            </div>
+          <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2">
+            {/* Left — catalogue + custom fields */}
+            <div className="border-border flex min-h-0 flex-col border-b md:border-r md:border-b-0">
+              <div className="p-4 pb-2">
+                <SearchInput
+                  value={query}
+                  onValueChange={setQuery}
+                  placeholder="Search columns…"
+                  aria-label="Search columns"
+                />
+              </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-              <GroupLabel>Lead fields</GroupLabel>
-              {builtinCols.length === 0 ? (
-                <Empty>No matching fields.</Empty>
-              ) : (
-                <ul className="mb-4">
-                  {builtinCols.map((c) => (
-                    <CatalogueRow
-                      key={c.key}
-                      label={c.label}
-                      required={c.required}
-                      checked={isShown(c.key)}
-                      onToggle={() => toggle(c.key)}
-                    />
-                  ))}
-                </ul>
-              )}
-
-              <GroupLabel>Custom fields</GroupLabel>
-              {customCols.length === 0 ? (
-                <Empty>{term ? 'No matching fields.' : 'No custom fields yet.'}</Empty>
-              ) : (
-                <ul>
-                  {customCols.map((c) => (
-                    <CustomCatalogueRow
-                      key={c.key}
-                      column={c}
-                      checked={isShown(c.key)}
-                      onToggle={() => toggle(c.key)}
-                      canManage={canManageFields}
-                      busy={busyId === c.key.slice(3)}
-                      onEdit={() =>
-                        setEditField({
-                          id: c.key.slice(3),
-                          name: c.label,
-                          type: c.fieldType ?? 'text',
-                        })
-                      }
-                      onDelete={() => deleteField(c.key.slice(3), c.label)}
-                    />
-                  ))}
-                </ul>
-              )}
-
-              {canManageFields && !term && (
-                <div className="mt-3 flex items-center gap-2">
-                  {/* Split field: name on the left, data type on the right. */}
-                  <div className="flex h-8 min-w-0 flex-1 items-center rounded-lg border border-border bg-card focus-within:border-primary">
-                    <input
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          void createField();
-                        }
-                      }}
-                      placeholder="New field name…"
-                      aria-label="New field name"
-                      className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                    />
-                    <span className="h-4 w-px shrink-0 bg-border" aria-hidden />
-                    {/* Data type — drives future type-aware formatting. */}
-                    <Select
-                      value={newType}
-                      onValueChange={(v) => setNewType(v ?? 'text')}
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        aria-label="Field data type"
-                        className="h-full shrink-0 rounded-l-none border-0 bg-transparent text-muted-foreground shadow-none hover:bg-transparent focus-visible:ring-0 dark:bg-transparent dark:hover:bg-transparent"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CUSTOM_FIELD_TYPES.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>
-                            {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={createField}
-                    disabled={creating || !newName.trim()}
-                    className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
-                  >
-                    {creating ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Plus className="size-4" />
-                    )}
-                    Create field
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right — selected columns + freeze */}
-          <div className="flex min-h-0 flex-col">
-            <div className="flex items-center justify-between gap-3 p-4 pb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Selected columns ({visibleOrder.length})
-              </span>
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                Frozen columns
-                <Select
-                  value={String(frozen)}
-                  onValueChange={(v) => setFrozen(Number(v))}
-                >
-                  <SelectTrigger size="sm" className="min-w-[3.5rem]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: visibleOrder.length + 1 }, (_, i) => (
-                      <SelectItem key={i} value={String(i)}>
-                        {i}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={visibleOrder}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <ul className="flex flex-col gap-1.5">
-                    {visibleOrder.map((key, i) => (
-                      <div key={key}>
-                        <SelectedRow
-                          column={metaByKey[key]}
-                          onRemove={() => hide(key)}
-                        />
-                        {frozen > 0 &&
-                          frozen < visibleOrder.length &&
-                          i === frozen - 1 && <FrozenDivider />}
-                      </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+                <GroupLabel>Lead fields</GroupLabel>
+                {builtinCols.length === 0 ? (
+                  <Empty>No matching fields.</Empty>
+                ) : (
+                  <ul className="mb-4">
+                    {builtinCols.map((c) => (
+                      <CatalogueRow
+                        key={c.key}
+                        label={c.label}
+                        required={c.required}
+                        checked={isShown(c.key)}
+                        onToggle={() => toggle(c.key)}
+                      />
                     ))}
                   </ul>
-                </SortableContext>
-              </DndContext>
+                )}
+
+                <GroupLabel>Custom fields</GroupLabel>
+                {customCols.length === 0 ? (
+                  <Empty>
+                    {term ? 'No matching fields.' : 'No custom fields yet.'}
+                  </Empty>
+                ) : (
+                  <ul>
+                    {customCols.map((c) => (
+                      <CustomCatalogueRow
+                        key={c.key}
+                        column={c}
+                        checked={isShown(c.key)}
+                        onToggle={() => toggle(c.key)}
+                        canManage={canManageFields}
+                        busy={busyId === c.key.slice(3)}
+                        onEdit={() =>
+                          setEditField({
+                            id: c.key.slice(3),
+                            name: c.label,
+                            type: c.fieldType ?? 'text',
+                          })
+                        }
+                        onDelete={() => deleteField(c.key.slice(3), c.label)}
+                      />
+                    ))}
+                  </ul>
+                )}
+
+                {canManageFields && !term && (
+                  <div className="mt-3 flex items-center gap-2">
+                    {/* Split field: name on the left, data type on the right. */}
+                    <div className="border-border bg-card focus-within:border-primary flex h-8 min-w-0 flex-1 items-center rounded-lg border">
+                      <input
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void createField();
+                          }
+                        }}
+                        placeholder="New field name…"
+                        aria-label="New field name"
+                        className="text-foreground placeholder:text-muted-foreground h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm outline-none"
+                      />
+                      <span
+                        className="bg-border h-4 w-px shrink-0"
+                        aria-hidden
+                      />
+                      {/* Data type — drives future type-aware formatting. */}
+                      <Select
+                        value={newType}
+                        onValueChange={(v) => setNewType(v ?? 'text')}
+                      >
+                        <SelectTrigger
+                          size="sm"
+                          aria-label="Field data type"
+                          className="text-muted-foreground h-full shrink-0 rounded-l-none border-0 bg-transparent shadow-none hover:bg-transparent focus-visible:ring-0 dark:bg-transparent dark:hover:bg-transparent"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CUSTOM_FIELD_TYPES.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={createField}
+                      disabled={creating || !newName.trim()}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
+                    >
+                      {creating ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Plus className="size-4" />
+                      )}
+                      Create field
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right — selected columns + freeze */}
+            <div className="flex min-h-0 flex-col">
+              <div className="flex items-center justify-between gap-3 p-4 pb-2">
+                <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+                  Selected columns ({visibleOrder.length})
+                </span>
+                <label className="text-muted-foreground flex items-center gap-2 text-xs">
+                  Frozen columns
+                  <Select
+                    value={String(frozen)}
+                    onValueChange={(v) => setFrozen(Number(v))}
+                  >
+                    <SelectTrigger size="sm" className="min-w-[3.5rem]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from(
+                        { length: visibleOrder.length + 1 },
+                        (_, i) => (
+                          <SelectItem key={i} value={String(i)}>
+                            {i}
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </label>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={visibleOrder}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <ul className="flex flex-col gap-1.5">
+                      {visibleOrder.map((key, i) => (
+                        <div key={key}>
+                          <SelectedRow
+                            column={metaByKey[key]}
+                            onRemove={() => hide(key)}
+                          />
+                          {frozen > 0 &&
+                            frozen < visibleOrder.length &&
+                            i === frozen - 1 && <FrozenDivider />}
+                        </div>
+                      ))}
+                    </ul>
+                  </SortableContext>
+                </DndContext>
+              </div>
             </div>
           </div>
-        </div>
 
-        <DialogFooter className="mx-0 mb-0 rounded-none border-t border-border px-5 py-3">
-          {onResetWidths && (
-            <button
-              type="button"
-              onClick={onResetWidths}
-              className="mr-auto cursor-pointer rounded text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          <DialogFooter className="border-border mx-0 mb-0 rounded-none border-t px-5 py-3">
+            {onResetWidths && (
+              <button
+                type="button"
+                onClick={onResetWidths}
+                className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 mr-auto cursor-pointer rounded text-sm underline-offset-4 transition-colors hover:underline focus-visible:ring-2 focus-visible:outline-none"
+              >
+                Reset column widths
+              </button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="border-border text-muted-foreground hover:bg-muted"
             >
-              Reset column widths
-            </button>
-          )}
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="border-border text-muted-foreground hover:bg-muted"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleApply}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            Apply
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleApply}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-    {/* Edit custom field — nested over the columns dialog. */}
-    {editField && (
-      <CustomFieldEditDialog
-        key={editField.id}
-        field={editField}
-        saving={savingEdit}
-        onCancel={() => setEditField(null)}
-        onSave={saveEditField}
-      />
-    )}
+      {/* Edit custom field — nested over the columns dialog. */}
+      {editField && (
+        <CustomFieldEditDialog
+          key={editField.id}
+          field={editField}
+          saving={savingEdit}
+          onCancel={() => setEditField(null)}
+          onSave={saveEditField}
+        />
+      )}
     </>
   );
 }
 
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-1.5 mt-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <p className="text-muted-foreground mt-1 mb-1.5 text-[11px] font-semibold tracking-wider uppercase">
       {children}
     </p>
   );
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="py-2 text-xs text-muted-foreground">{children}</p>;
+  return <p className="text-muted-foreground py-2 text-xs">{children}</p>;
 }
 
 // Left-pane row for a built-in column: checkbox + label.
@@ -559,7 +571,7 @@ function CatalogueRow({
       <label
         className={cn(
           'flex items-center gap-2.5 rounded-md px-1 py-1.5 text-sm',
-          required ? 'cursor-default' : 'cursor-pointer hover:bg-muted/60'
+          required ? 'cursor-default' : 'hover:bg-muted/60 cursor-pointer'
         )}
       >
         <Checkbox
@@ -570,7 +582,9 @@ function CatalogueRow({
         />
         <span className="text-foreground">
           {label}
-          {required && <span className="text-muted-foreground"> (required)</span>}
+          {required && (
+            <span className="text-muted-foreground"> (required)</span>
+          )}
         </span>
       </label>
     </li>
@@ -598,18 +612,22 @@ function CustomCatalogueRow({
 }) {
   if (!canManage) {
     return (
-      <CatalogueRow label={column.label} checked={checked} onToggle={onToggle} />
+      <CatalogueRow
+        label={column.label}
+        checked={checked}
+        onToggle={onToggle}
+      />
     );
   }
 
   return (
-    <li className="group flex items-center gap-2.5 rounded-md px-1 py-1 hover:bg-muted/60">
+    <li className="group hover:bg-muted/60 flex items-center gap-2.5 rounded-md px-1 py-1">
       <Checkbox
         checked={checked}
         onCheckedChange={onToggle}
         aria-label={`Toggle ${column.label} column`}
       />
-      <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+      <span className="text-foreground min-w-0 flex-1 truncate text-sm">
         {column.label}
       </span>
       <Button
@@ -618,7 +636,7 @@ function CustomCatalogueRow({
         disabled={busy}
         onClick={onEdit}
         title="Edit field"
-        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+        className="text-muted-foreground hover:text-foreground shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
       >
         <Pencil className="size-4" />
       </Button>
@@ -629,7 +647,7 @@ function CustomCatalogueRow({
         onClick={onDelete}
         title="Delete field"
         className={cn(
-          'shrink-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100',
+          'shrink-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
           // Stay visible while the delete is in flight.
           busy ? 'opacity-100' : 'opacity-0'
         )}
@@ -730,8 +748,14 @@ function SelectedRow({
   column?: ManageColumn;
   onRemove: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: column?.key ?? '' });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: column?.key ?? '' });
 
   if (!column) return null;
   const required = column.required;
@@ -741,26 +765,28 @@ function SelectedRow({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        'flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm',
+        'border-border bg-card flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm',
         isDragging && 'shadow-sm'
       )}
     >
       <button
         type="button"
-        className="shrink-0 cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
+        className="text-muted-foreground hover:text-foreground shrink-0 cursor-grab touch-none active:cursor-grabbing"
         aria-label="Drag to reorder"
         {...attributes}
         {...listeners}
       >
         <GripVertical className="size-4" />
       </button>
-      <span className="min-w-0 flex-1 truncate text-foreground">{column.label}</span>
+      <span className="text-foreground min-w-0 flex-1 truncate">
+        {column.label}
+      </span>
       {!required && (
         <button
           type="button"
           onClick={onRemove}
           aria-label={`Remove ${column.label} column`}
-          className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
         >
           <X className="size-4" />
         </button>
@@ -772,11 +798,11 @@ function SelectedRow({
 function FrozenDivider() {
   return (
     <div className="my-1.5 flex items-center gap-2" aria-hidden>
-      <span className="h-px flex-1 bg-border" />
-      <span className="text-[11px] text-muted-foreground">
+      <span className="bg-border h-px flex-1" />
+      <span className="text-muted-foreground text-[11px]">
         Above column(s) are frozen
       </span>
-      <span className="h-px flex-1 bg-border" />
+      <span className="bg-border h-px flex-1" />
     </div>
   );
 }

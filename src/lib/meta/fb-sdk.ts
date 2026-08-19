@@ -31,7 +31,7 @@ export interface FbSdk {
       response_type: string;
       override_default_response_type: boolean;
       extras?: Record<string, unknown>;
-    },
+    }
   ) => void;
 }
 
@@ -72,7 +72,9 @@ export function loadFbSdk(appId: string): Promise<FbSdk> {
     script.onerror = () => {
       sdkPromise = null;
       reject(
-        new Error('Could not load the Facebook SDK (blocked by an ad-blocker?).'),
+        new Error(
+          'Could not load the Facebook SDK (blocked by an ad-blocker?).'
+        )
       );
     };
     document.body.appendChild(script);

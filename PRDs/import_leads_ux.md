@@ -34,7 +34,7 @@ a spreadsheet of 300 leads — get them in." Today `ImportWizard`
    only. A lead export with Status / Source / Gender columns (exactly the
    HubSpot screenshot we studied) loses those or dumps them as raw custom text.
 2. **No editable preview.** The Review step shows counts + a consent checkbox.
-   The owner can't *see the leads table they're about to create* and fix a
+   The owner can't _see the leads table they're about to create_ and fix a
    mis-mapped status or a wrong source before it lands.
 
 This design closes both. It reuses the existing pure mapping engine
@@ -52,17 +52,17 @@ so the preview looks **identical** to `/leads` — that is the feature.
 
 ## 3. What we keep from the current wizard (reuse, don't rebuild)
 
-| Capability | Lives in | Keep as-is |
-|---|---|---|
-| CSV parse (quoted cells, BOM-safe) | `parseCsvRaw` | ✓ |
-| Auto-map by header synonyms | `autoMapColumns` | ✓ (extend synonym table) |
-| Per-column sample values ("Preview Information") | `samples` memo | ✓ |
-| Create custom field on the fly | wizard `handleSaveField` | ✓ |
-| Mapping validation | `validateMapping` | ✓ (extend) |
-| Row structuring | `applyMapping` → `MappedRow` | ✓ (extend, see §6) |
-| Dedupe by phone (in-file + vs DB) | `dedupeByPhone`, `findExistingContact` | ✓ |
-| Import modes add/update/both | `handleImport` | ✓ (move UI to Confirm) |
-| `received_via:'import'`, importer as owner | `handleImport` insert payload | ✓ |
+| Capability                                       | Lives in                               | Keep as-is               |
+| ------------------------------------------------ | -------------------------------------- | ------------------------ |
+| CSV parse (quoted cells, BOM-safe)               | `parseCsvRaw`                          | ✓                        |
+| Auto-map by header synonyms                      | `autoMapColumns`                       | ✓ (extend synonym table) |
+| Per-column sample values ("Preview Information") | `samples` memo                         | ✓                        |
+| Create custom field on the fly                   | wizard `handleSaveField`               | ✓                        |
+| Mapping validation                               | `validateMapping`                      | ✓ (extend)               |
+| Row structuring                                  | `applyMapping` → `MappedRow`           | ✓ (extend, see §6)       |
+| Dedupe by phone (in-file + vs DB)                | `dedupeByPhone`, `findExistingContact` | ✓                        |
+| Import modes add/update/both                     | `handleImport`                         | ✓ (move UI to Confirm)   |
+| `received_via:'import'`, importer as owner       | `handleImport` insert payload          | ✓                        |
 
 ## 4. Flow
 
@@ -80,6 +80,7 @@ Step 4  Confirm & import   mode (add/update/both) + consent + final counts
 `StepIndicator` grows from 3 → 4 labels: Upload · Map · Preview · Confirm.
 
 ### Step 1 — Upload (minimal change)
+
 - Keep the dropzone. `accept=".csv,text/csv"` already correct.
 - Add sub-text: "Exported from Excel or Google Sheets? Save as **.csv** first."
   with a link to a converter (external — open in new tab). No in-app conversion.
@@ -88,17 +89,19 @@ Step 4  Confirm & import   mode (add/update/both) + consent + final counts
   paper-register gym starting its first sheet. (HubSpot P2, adopted — ~free.)
 
 ### Step 2 — Map columns (extend)
+
 Layout unchanged (File column · Sample data · Field dropdown), plus:
+
 - **Green "Mapped" check** per row (steal from HubSpot) — lit when the column is
   mapped to a real target, muted dot when "Don't import". Drive off the mapping
   array; near-free.
 - **Lead-field targets** in the dropdown, grouped, with **type-ahead search**
   (a search input pinned at the top filters across all groups; "Create new
   field…" stays pinned at the bottom — HubSpot's searchable picker, adopted):
-  - *Standard*: Name, Phone\*, Email, Company
-  - *Lead*: **Status**, **Source**, **Gender**, **Assigned to** (NEW)
-  - *Tags*
-  - *Custom fields* (+ Create new field…)
+  - _Standard_: Name, Phone\*, Email, Company
+  - _Lead_: **Status**, **Source**, **Gender**, **Assigned to** (NEW)
+  - _Tags_
+  - _Custom fields_ (+ Create new field…)
 - **Heuristic field-type detection on inline create** (HubSpot's "scanning
   column data…", minus the AI): when the user picks "Create new field", scan
   the column's values with `detectFieldType()` (§5.3) and pre-fill the
@@ -117,10 +120,11 @@ Layout unchanged (File column · Sample data · Field dropdown), plus:
   - assignee: `assigned to, owner, assigned, rep, agent`
 - Keep the phone-required + no-duplicate-target validation.
 - **Drop** HubSpot's "No unique identifier" banner. Replace with a calm inline
-  note under the phone row: *"Leads are matched by phone number — duplicates in
-  your file and existing leads are handled automatically."*
+  note under the phone row: _"Leads are matched by phone number — duplicates in
+  your file and existing leads are handled automatically."_
 
 ### Step 3 — Preview & edit (NEW — the centrepiece)
+
 A grid that **renders through the leads table's own column renderers**, so it is
 visually identical to `/leads`: `Badge` status pills (hex colours via
 `fieldOptions.statusFor`), `SourceIcon`, gender label, `UserAvatar` for
@@ -162,6 +166,7 @@ assignee, custom-field formatters (`formatCustomFieldValue`).
   for every row. (Windowing optional; correctness must not depend on it.)
 
 ASCII sketch:
+
 ```
 Preview — 42 leads · 3 skipped · 2 dupes · 5 unmatched values
 ┌────────┬────────────┬──────────────┬─────────┬──────────┬────────┬──────────┐
@@ -175,6 +180,7 @@ Preview — 42 leads · 3 skipped · 2 dupes · 5 unmatched values
 ```
 
 ### Step 4 — Confirm & import
+
 - **Move the mode radio here** (add / update / both) — Map is about columns,
   Preview about data, Confirm about the write policy. `dontOverwriteEmpty`
   toggle stays with update/both.
@@ -185,7 +191,7 @@ Preview — 42 leads · 3 skipped · 2 dupes · 5 unmatched values
   counts plus the **remap audit** from the Fix values panel
   (`"Not Interested" → Lost ×2`). This is HubSpot's Remappings tab adapted to
   an in-flow receipt — same trust, no persistent import-history surface.
-- **Final counts** reflect the *edited* preview: `Import 42 leads` /
+- **Final counts** reflect the _edited_ preview: `Import 42 leads` /
   `Update 6 · Add 36`.
 - **Post-import: summary tiles** (v2). Replace the small result banner with
   big scannable numbers — Added / Updated / Skipped — plus one audit line
@@ -198,7 +204,9 @@ New file `src/lib/leads/import-coerce.ts` (colocated `*.test.ts`). Pure so it's
 unit-tested like the rest of `field-mapping.ts`.
 
 ### Option fields (status / source / gender)
+
 `coerceOptionValue(raw, options): { key: string; matched: boolean }`
+
 1. Exact key match against the account's `LeadFieldOption[]`
    (`resolveFieldOptions`).
 2. Case-insensitive label match.
@@ -211,13 +219,16 @@ drives the amber "unmatched" flag in the preview so the user can fix or (admin)
 create the option before committing.
 
 ### Assignee
+
 `coerceAssignee(raw, staff): userId | null` — case-insensitive match of the cell
 against the staff roster names (`useAccountStaff().nameById`). No match → null
 (falls back to importer-as-owner, current behaviour). Never creates a user.
 
 ### Field-type detection (v2 — powers inline create)
+
 `detectFieldType(header, samples): { label, type, options? }` — pure
 heuristics, no AI:
+
 1. ≥80% of non-empty samples match a date pattern → `date` (plus
    `dateOrder: 'DMY' | 'MDY' | 'ambiguous'` from digit ranges — a `13/…`
    day disambiguates; all-ambiguous → default DMY + show the chip).
@@ -225,9 +236,10 @@ heuristics, no AI:
 3. Distinct non-empty values ≤ 12 **and** ≤ half the row count → `dropdown`
    with the distinct values pre-filled as options.
 4. Else → `text`.
-Label = title-cased header. Always shown for confirmation, never auto-committed.
+   Label = title-cased header. Always shown for confirmation, never auto-committed.
 
 ### Remap log (v2 — powers the receipt + audit)
+
 The Fix values panel maintains `Map<'status'|'source'|'gender',
 Map<rawValue, resolvedKey>>` plus per-value row counts. Applying it is a pure
 pass over `PreviewRow[]`; the same structure renders the Confirm receipt and
@@ -252,17 +264,19 @@ Generalize, don't fork. The Contacts wizard keeps working; Leads opts in.
   the Leads variant owns.
 
 ### Preview row model
+
 ```ts
 interface PreviewRow {
-  base: MappedRow;                 // phone/name/email/company/tags/custom
-  leadStatus: string | null;       // resolved + editable
+  base: MappedRow; // phone/name/email/company/tags/custom
+  leadStatus: string | null; // resolved + editable
   source: string | null;
   gender: string | null;
-  assignedTo: string | null;       // user_id
+  assignedTo: string | null; // user_id
   status: 'new' | 'update' | 'skip-no-phone' | 'skip-dupe';
-  unmatched: Set<'status'|'source'|'gender'|'assignee'>;
+  unmatched: Set<'status' | 'source' | 'gender' | 'assignee'>;
 }
 ```
+
 **Critical:** `handleImport` currently re-runs `applyMapping` at commit. It must
 instead consume the **edited `PreviewRow[]`** so on-the-fly edits actually land.
 The insert payload extends with `lead_status / source / gender / assigned_to`
@@ -271,6 +285,7 @@ The insert payload extends with `lead_status / source / gender / assigned_to`
 ## 7. Component shape
 
 Parameterize `ImportWizard` rather than clone it:
+
 - Add a `variant: 'contacts' | 'leads'` (or pass `targets` + `entityLabel` +
   `renderPreviewRow`) prop.
 - `variant:'leads'` → `buildLeadTargets`, "Import Leads" copy, 4 steps with the
@@ -289,7 +304,7 @@ Parameterize `ImportWizard` rather than clone it:
 - **In-file dupes** → `dedupeByPhone` keeps first; rest → `skip-dupe`.
 - **Existing lead (add mode)** → skipped at commit (existing). Flag as `skip`
   in preview when mode=add, `update` when mode=update/both. Needs the existing
-  `phone_normalized` lookup to run *before* preview (or lazily) to label rows —
+  `phone_normalized` lookup to run _before_ preview (or lazily) to label rows —
   acceptable one extra read on entering Step 3.
 - **Unknown status/source/gender** → stored as slug, flagged amber, editable.
 - **Unknown assignee name** → unassigned + flag.
@@ -345,7 +360,7 @@ Shipped after dogfooding a real 1,000-row export:
   (mirrors the `/leads` table), instead of overflowing off-modal. Other steps
   and the contacts variant keep normal body scroll.
 - **Assignee is a first-class fixable field.** `FixableField = OptionField |
-  'assignee'`; `unmatchedValues` / `applyValueFix` now cover assignee, so
+'assignee'`; `unmatchedValues` / `applyValueFix` now cover assignee, so
   mapped-but-unmatched staff names surface in the panel (resolvable to an
   existing teammate or "Assign to me (importer)") and count toward the fix
   total — previously they showed amber in-cell but the summary wrongly said
@@ -355,15 +370,16 @@ Shipped after dogfooding a real 1,000-row export:
 
 ### Create teammate on the fly from an import — BUILT (migration 049, Jul 2026)
 
-Resolve an unmatched **Assigned to** value by *creating a new teammate*
+Resolve an unmatched **Assigned to** value by _creating a new teammate_
 (pending invite), park the leads on them now, show "Invite pending · <name>"
 on the leads page until they activate — then hand the leads over on redeem.
 
 **Shipped** (reuses `account_invitations`, not a parallel table). Design as
 built:
+
 - Migration `049_pending_invite_assignees.sql`: `account_invitations.full_name`;
   `contacts.pending_invitation_id` (FK → account_invitations, `ON DELETE SET
-  NULL`) + `pending_assignee_name` (denormalized display); `redeem_invitation`
+NULL`) + `pending_assignee_name` (denormalized display); `redeem_invitation`
   extended to reassign parked leads to the joiner (assign-to-self → notify
   trigger self-guard suppresses the flood). `assigned_to` stays the importer
   as fallback owner (revoke/expire → degrades to importer, never ownerless).
@@ -399,34 +415,34 @@ Interactive version: https://claude.ai/code/artifact/cbc7360a-18d0-4a32-9afe-75f
 
 **Adopt (7)**
 
-| HubSpot pattern | Verdict for the gym CRM |
-|---|---|
-| Fix-errors panel: remap bad enum values by *value* with row counts, auto-fix, live counter (pp. 4–5) | **The single best steal.** Becomes the Fix values panel (§4 Step 3). P0. |
-| Per-column green "Mapped" check (p. 3) | Adopt as-is — drives off the mapping array, ~free. P0. |
-| Searchable, grouped property picker (pp. 3–4) | Adopt — type-ahead over Standard/Lead/Tags/Custom. P0. |
-| "Scanning column data" → suggested label/type/options (pp. 5–7) | Adopt the *pattern*, not the AI: `detectFieldType` heuristics (§5.3). P1. |
-| Big-number results summary (pp. 9–10) | Adopt — summary tiles on the result panel. P0. |
-| Sample CSV template (p. 2) | Adopt — one static file. P2. |
-| Required-field validation gate (p. 15) | Already ours (phone-required). Keep. |
+| HubSpot pattern                                                                                      | Verdict for the gym CRM                                                   |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Fix-errors panel: remap bad enum values by _value_ with row counts, auto-fix, live counter (pp. 4–5) | **The single best steal.** Becomes the Fix values panel (§4 Step 3). P0.  |
+| Per-column green "Mapped" check (p. 3)                                                               | Adopt as-is — drives off the mapping array, ~free. P0.                    |
+| Searchable, grouped property picker (pp. 3–4)                                                        | Adopt — type-ahead over Standard/Lead/Tags/Custom. P0.                    |
+| "Scanning column data" → suggested label/type/options (pp. 5–7)                                      | Adopt the _pattern_, not the AI: `detectFieldType` heuristics (§5.3). P1. |
+| Big-number results summary (pp. 9–10)                                                                | Adopt — summary tiles on the result panel. P0.                            |
+| Sample CSV template (p. 2)                                                                           | Adopt — one static file. P2.                                              |
+| Required-field validation gate (p. 15)                                                               | Already ours (phone-required). Keep.                                      |
 
 **Adapt (3)**
 
-| HubSpot pattern | Our shape |
-|---|---|
-| Remappings audit tab on a persistent import-history page (p. 13) | In-flow: Confirm receipt + post-import audit line from the remap log. No new surface. |
-| "No unique identifier" scare banner (p. 14) | Calm one-liner under the Phone row; phone is the key, dedupe automatic. (Already decided in v1.) |
-| Global date-format confirm step (p. 9) | Inline per-column `DD/MM ▾` chip, only when a mapped date column is ambiguous; DMY default for India. |
+| HubSpot pattern                                                  | Our shape                                                                                             |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Remappings audit tab on a persistent import-history page (p. 13) | In-flow: Confirm receipt + post-import audit line from the remap log. No new surface.                 |
+| "No unique identifier" scare banner (p. 14)                      | Calm one-liner under the Phone row; phone is the key, dedupe automatic. (Already decided in v1.)      |
+| Global date-format confirm step (p. 9)                           | Inline per-column `DD/MM ▾` chip, only when a mapped date column is ambiguous; DMY default for India. |
 
 **Skip (6)**
 
-| HubSpot pattern | Why not |
-|---|---|
-| Header-language selector (p. 2) | Indian gym sheets are English/Hinglish-headered; the synonym table covers it. |
-| "Import as" object-type selector (p. 3) | We import exactly one object: a lead. |
-| Google Sheets connect + XLSX (p. 2) | CSV-only stands (§2) — OAuth/sync cost, no wedge value. |
-| AI property creation "Breeze" / Data Agent fill (p. 7) | Heuristics land the same result at 300-row scale; no AI in the critical path. |
-| Import naming + history list (p. 9) | Deferred (see §10). |
-| "Clean up your data" paid upsell + option-style picker (pp. 7, 13) | No paid tiers; statuses already carry hex pill colours. |
+| HubSpot pattern                                                    | Why not                                                                       |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Header-language selector (p. 2)                                    | Indian gym sheets are English/Hinglish-headered; the synonym table covers it. |
+| "Import as" object-type selector (p. 3)                            | We import exactly one object: a lead.                                         |
+| Google Sheets connect + XLSX (p. 2)                                | CSV-only stands (§2) — OAuth/sync cost, no wedge value.                       |
+| AI property creation "Breeze" / Data Agent fill (p. 7)             | Heuristics land the same result at 300-row scale; no AI in the critical path. |
+| Import naming + history list (p. 9)                                | Deferred (see §10).                                                           |
+| "Clean up your data" paid upsell + option-style picker (pp. 7, 13) | No paid tiers; statuses already carry hex pill colours.                       |
 
 Deferred item for the To-Do list in CLAUDE.md when built: this reserves the
 `received_via:'import'` path already used by the contacts wizard — no new origin.

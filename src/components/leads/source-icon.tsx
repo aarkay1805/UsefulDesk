@@ -93,9 +93,13 @@ export function SourceIcon({
       role="img"
       aria-label={name}
       title={name}
-      className={cn('inline-flex size-4 shrink-0 items-center justify-center', className)}
+      className={cn(
+        'inline-flex size-4 shrink-0 items-center justify-center',
+        className
+      )}
     >
-      {brand ?? (Line ? <Line className="size-full text-muted-foreground" /> : null)}
+      {brand ??
+        (Line ? <Line className="text-muted-foreground size-full" /> : null)}
     </span>
   );
 }

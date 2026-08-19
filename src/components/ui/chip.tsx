@@ -48,7 +48,10 @@ function ChipGroup<Value extends string>({
   const updateScrollState = useCallback(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
-    const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+    const maxScrollLeft = Math.max(
+      0,
+      viewport.scrollWidth - viewport.clientWidth
+    );
     const next = {
       left: viewport.scrollLeft > 1,
       right: viewport.scrollLeft < maxScrollLeft - 1,
@@ -103,7 +106,7 @@ function ChipGroup<Value extends string>({
       <div
         ref={viewportRef}
         data-slot="chip-scroll-viewport"
-        className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="[scrollbar-width:none] overflow-x-auto [&::-webkit-scrollbar]:hidden"
       >
         <ChipGroupPrimitive
           ref={contentRef}

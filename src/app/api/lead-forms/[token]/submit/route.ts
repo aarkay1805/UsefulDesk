@@ -37,7 +37,11 @@ import {
   type CaptureFormInput,
 } from '@/lib/leads/capture-form';
 import { resolveFieldOptions } from '@/lib/leads/field-options';
-import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+} from '@/lib/rate-limit';
 import { getClientIp } from '@/lib/security/client-ip';
 import { verifyTurnstile } from '@/lib/security/turnstile';
 
@@ -61,14 +65,20 @@ export async function POST(
 
   const { token } = await params;
   if (!token) {
-    return NextResponse.json({ ok: false, reason: 'not_found' }, { status: 404 });
+    return NextResponse.json(
+      { ok: false, reason: 'not_found' },
+      { status: 404 }
+    );
   }
 
   let body: Partial<CaptureFormInput> & { turnstile_token?: string };
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ ok: false, reason: 'bad_request' }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, reason: 'bad_request' },
+      { status: 400 }
+    );
   }
 
   // Honeypot. A real browser leaves the hidden field empty. Answer
@@ -103,15 +113,23 @@ export async function POST(
 
   if (formError) {
     console.error('[lead-capture] form lookup error:', formError);
-    return NextResponse.json({ ok: false, reason: 'server_error' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, reason: 'server_error' },
+      { status: 500 }
+    );
   }
   // A revoked or unknown token are the same answer: the link is dead.
   if (!form) {
-    return NextResponse.json({ ok: false, reason: 'not_found' }, { status: 404 });
+    return NextResponse.json(
+      { ok: false, reason: 'not_found' },
+      { status: 404 }
+    );
   }
 
   const accountId = form.account_id as string;
-  const account = form.accounts as { phone_country_code?: string | null } | null;
+  const account = form.accounts as {
+    phone_country_code?: string | null;
+  } | null;
   const dialCode = account?.phone_country_code ?? '';
 
   // The gym's own source list — a submission may not invent a source
@@ -124,7 +142,9 @@ export async function POST(
     .eq('field', 'source')
     .order('sort_order');
 
-  const sourceKeys = resolveFieldOptions('source', sourceRows).map((o) => o.key);
+  const sourceKeys = resolveFieldOptions('source', sourceRows).map(
+    (o) => o.key
+  );
 
   const result = validateCaptureSubmission(
     {
@@ -219,6 +239,9 @@ export async function POST(
       }
     }
     console.error('[lead-capture] submit failed:', err);
-    return NextResponse.json({ ok: false, reason: 'server_error' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, reason: 'server_error' },
+      { status: 500 }
+    );
   }
 }

@@ -56,7 +56,9 @@ export async function verifyTurnstile(
       );
       return { ok: false, reason: 'not_configured' };
     }
-    console.warn('[turnstile] no secret configured — skipping check (dev only)');
+    console.warn(
+      '[turnstile] no secret configured — skipping check (dev only)'
+    );
     return { ok: true };
   }
 

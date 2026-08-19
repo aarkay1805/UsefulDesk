@@ -5,9 +5,9 @@ export function getErrorMessage(error: unknown, fallback: string): string {
 
   if (
     error !== null &&
-    typeof error === "object" &&
-    "message" in error &&
-    typeof error.message === "string" &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string' &&
     error.message.trim()
   ) {
     return error.message;

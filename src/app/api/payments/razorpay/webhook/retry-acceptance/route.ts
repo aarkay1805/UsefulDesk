@@ -86,7 +86,10 @@ export async function POST(request: Request) {
       ) {
         console.error('[razorpay retry acceptance] trigger rejected:', error);
         return NextResponse.json(
-          { error: 'Razorpay retry acceptance trigger preconditions did not pass' },
+          {
+            error:
+              'Razorpay retry acceptance trigger preconditions did not pass',
+          },
           { status: 409 }
         );
       }
@@ -96,7 +99,11 @@ export async function POST(request: Request) {
         throw new Error('Razorpay Test OAuth connection is unavailable');
       }
       await runRazorpayOperation(admin, connection, (authentication) =>
-        cancelSubscription(authentication, trigger.subscription_id as string, false)
+        cancelSubscription(
+          authentication,
+          trigger.subscription_id as string,
+          false
+        )
       );
       return NextResponse.json({ ok: true, triggered: true, acceptanceId });
     }

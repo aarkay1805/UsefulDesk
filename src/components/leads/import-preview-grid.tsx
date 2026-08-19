@@ -37,7 +37,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { EditableCell, type CellOption } from '@/components/leads/editable-cell';
+import {
+  EditableCell,
+  type CellOption,
+} from '@/components/leads/editable-cell';
 import {
   AssigneeDisplay,
   PendingAssigneeDisplay,
@@ -85,7 +88,12 @@ interface ImportPreviewGridProps {
   rows: PreviewRow[];
   onRowsChange: (rows: PreviewRow[]) => void;
   /** Called once per value-level fix, for the Confirm receipt's audit. */
-  onRemapLogged: (fix: { field: FixableField; raw: string; key: string; count: number }) => void;
+  onRemapLogged: (fix: {
+    field: FixableField;
+    raw: string;
+    key: string;
+    count: number;
+  }) => void;
   /** Mapped target keys — decides which columns the grid shows. */
   mappedKeys: Set<string>;
   customFields: CustomFieldRef[];
@@ -131,7 +139,7 @@ interface GridColumn {
 function resolveField(
   row: PreviewRow,
   field: 'status' | 'source' | 'gender' | 'assignee',
-  patch: Partial<PreviewRow>,
+  patch: Partial<PreviewRow>
 ): PreviewRow {
   const flags = new Set(row.unmatched);
   flags.delete(field);
@@ -148,7 +156,13 @@ const UNMATCHED_CHIP_CLASS =
 /** The amber "unmatched value" cell. With `onClick` it's an inline editor
  *  trigger (assignee); without, a static flag — the Fix-values panel
  *  (always docked when anything is unmatched) is the resolution surface. */
-function UnmatchedChip({ raw, onClick }: { raw: string; onClick?: () => void }) {
+function UnmatchedChip({
+  raw,
+  onClick,
+}: {
+  raw: string;
+  onClick?: () => void;
+}) {
   const body = (
     <>
       <AlertTriangle className="size-3 shrink-0" />
@@ -173,7 +187,10 @@ function UnmatchedChip({ raw, onClick }: { raw: string; onClick?: () => void }) 
         onClick();
       }}
       title="Doesn't match — click to pick a value"
-      className={cn(UNMATCHED_CHIP_CLASS, 'underline decoration-dashed underline-offset-2')}
+      className={cn(
+        UNMATCHED_CHIP_CLASS,
+        'underline decoration-dashed underline-offset-2'
+      )}
     >
       {body}
     </button>
@@ -220,7 +237,12 @@ export function ImportPreviewGrid({
     onRowsChange(copy);
   }
 
-  function fixValue(field: FixableField, raw: string, key: string, count: number) {
+  function fixValue(
+    field: FixableField,
+    raw: string,
+    key: string,
+    count: number
+  ) {
     onRowsChange(applyValueFix(rows, field, raw, key));
     onRemapLogged({ field, raw, key, count });
   }
@@ -474,7 +496,12 @@ export function ImportPreviewGrid({
           return (
             <span className="text-muted-foreground text-sm">
               {cv
-                ? formatCustomFieldValue(cv.value, type, defaultCurrency, localeTag)
+                ? formatCustomFieldValue(
+                    cv.value,
+                    type,
+                    defaultCurrency,
+                    localeTag
+                  )
                 : '-'}
             </span>
           );
@@ -488,7 +515,7 @@ export function ImportPreviewGrid({
             '',
           commit: (r, v) => {
             const rest = r.base.customValues.filter(
-              (cv) => cv.fieldId !== field.id,
+              (cv) => cv.fieldId !== field.id
             );
             const coerced = v.trim()
               ? coerceCustomValue(v, type, dateOrder)
@@ -543,12 +570,13 @@ export function ImportPreviewGrid({
           />
         )}
         {unmatchedRowCount > 0 ? (
-          <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 text-xs font-medium text-amber-foreground">
+          <span className="text-amber-foreground inline-flex h-6 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 text-xs font-medium">
             <AlertTriangle className="size-3" />
-            {unmatchedRowCount} value{unmatchedRowCount === 1 ? '' : 's'} to fix →
+            {unmatchedRowCount} value{unmatchedRowCount === 1 ? '' : 's'} to fix
+            →
           </span>
         ) : (
-          <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 text-xs font-medium text-emerald-foreground">
+          <span className="text-emerald-foreground inline-flex h-6 items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 text-xs font-medium">
             <Check className="size-3" />
             All values match your options
           </span>
@@ -558,14 +586,17 @@ export function ImportPreviewGrid({
       <div className="flex min-h-0 flex-1 items-stretch gap-3">
         {/* The grid — a flex column so the scroll region fills and the
             "showing N of M" strip pins to its bottom. */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border">
+        <div className="border-border flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border">
           <div className="min-h-0 flex-1 overflow-auto">
             <table className="w-full min-w-[56rem] text-sm">
-              <TableHeader className="sticky top-0 z-10 bg-popover">
+              <TableHeader className="bg-popover sticky top-0 z-10">
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-20 text-xs">Row</TableHead>
                   {columns.map((col) => (
-                    <TableHead key={col.key} className="text-xs whitespace-nowrap">
+                    <TableHead
+                      key={col.key}
+                      className="text-xs whitespace-nowrap"
+                    >
                       {col.label}
                     </TableHead>
                   ))}
@@ -576,12 +607,12 @@ export function ImportPreviewGrid({
                   <TableRow key={i} className="hover:bg-muted/40">
                     <TableCell className="py-1.5">
                       {row.exists ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-foreground">
+                        <span className="text-cyan-foreground inline-flex items-center gap-1 text-[11px] font-semibold">
                           <span className="size-1.5 rounded-full bg-current" />
                           UPDATE
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-foreground">
+                        <span className="text-emerald-foreground inline-flex items-center gap-1 text-[11px] font-semibold">
                           <span className="size-1.5 rounded-full bg-current" />
                           NEW
                         </span>
@@ -624,7 +655,7 @@ export function ImportPreviewGrid({
             </table>
           </div>
           {rows.length > PREVIEW_CAP && (
-            <p className="shrink-0 border-t border-border bg-background/50 px-3 py-1.5 text-[11px] text-muted-foreground">
+            <p className="border-border bg-background/50 text-muted-foreground shrink-0 border-t px-3 py-1.5 text-[11px]">
               Showing the first {PREVIEW_CAP} of {rows.length} rows — all{' '}
               {rows.length} will be imported, and value fixes apply to every
               row.
@@ -653,7 +684,7 @@ export function ImportPreviewGrid({
         </Collapse>
       </div>
 
-      <p className="shrink-0 text-xs text-muted-foreground">
+      <p className="text-muted-foreground shrink-0 text-xs">
         Every cell is editable — click one to fix it. Changes live in this
         preview only; nothing is written until you confirm.
       </p>
@@ -676,7 +707,7 @@ function SummaryChip({
     <span
       title={title}
       className={cn(
-        'inline-flex h-6 items-center gap-1 rounded-full border border-border bg-background/60 px-2.5 text-xs text-muted-foreground',
+        'border-border bg-background/60 text-muted-foreground inline-flex h-6 items-center gap-1 rounded-full border px-2.5 text-xs'
       )}
     >
       <b
@@ -684,7 +715,7 @@ function SummaryChip({
           'font-semibold',
           tone === 'ok' && 'text-emerald-foreground',
           tone === 'info' && 'text-cyan-foreground',
-          tone === 'muted' && 'text-foreground',
+          tone === 'muted' && 'text-foreground'
         )}
       >
         {count}
@@ -729,15 +760,15 @@ function FixValuesPanel({
   const total = values.reduce((n, v) => n + v.count, 0);
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-background/50">
-      <div className="flex items-start gap-2 border-b border-border px-3 py-2.5">
+    <aside className="border-border bg-background/50 flex w-80 shrink-0 flex-col overflow-hidden rounded-xl border">
+      <div className="border-border flex items-start gap-2 border-b px-3 py-2.5">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground">Fix values</p>
-          <p className="text-[11px] leading-snug text-muted-foreground">
+          <p className="text-foreground text-sm font-semibold">Fix values</p>
+          <p className="text-muted-foreground text-[11px] leading-snug">
             Fix each value once — it applies to every row carrying it.
           </p>
         </div>
-        <span className="rounded-lg bg-amber-500/10 px-2 py-1 text-center text-amber-foreground">
+        <span className="text-amber-foreground rounded-lg bg-amber-500/10 px-2 py-1 text-center">
           <b className="block text-base leading-none font-bold tabular-nums">
             {total}
           </b>
@@ -769,18 +800,18 @@ function FixValuesPanel({
         </MotionList>
       </div>
 
-      <div className="border-t border-border p-2.5">
+      <div className="border-border border-t p-2.5">
         <Button
           type="button"
           size="sm"
           variant="outline"
           onClick={onAutoMatch}
-          className="w-full border-border text-muted-foreground hover:bg-muted"
+          className="border-border text-muted-foreground hover:bg-muted w-full"
         >
           <Sparkles className="size-3.5" />
           Auto-match remaining
         </Button>
-        <p className="mt-1.5 text-center text-[10px] leading-snug text-muted-foreground">
+        <p className="text-muted-foreground mt-1.5 text-center text-[10px] leading-snug">
           Unfixed values still import safely — stored as-is, shown muted.
         </p>
       </div>
@@ -819,12 +850,12 @@ function FixValueCard({
   }
 
   return (
-    <div className="space-y-1.5 rounded-lg border border-border bg-popover p-2">
+    <div className="border-border bg-popover space-y-1.5 rounded-lg border p-2">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate font-mono text-xs font-semibold text-foreground">
+        <span className="text-foreground truncate font-mono text-xs font-semibold">
           &quot;{value.raw}&quot;
         </span>
-        <span className="shrink-0 text-[10px] text-muted-foreground">
+        <span className="text-muted-foreground shrink-0 text-[10px]">
           {FIELD_TITLES[value.field]} · {value.count} row
           {value.count === 1 ? '' : 's'}
         </span>
@@ -836,14 +867,19 @@ function FixValueCard({
           render={
             <button
               type="button"
-              className="flex h-7 w-full items-center justify-between gap-1.5 rounded-md border border-input-border bg-transparent px-2 text-xs text-muted-foreground outline-none transition-colors select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50"
+              className="border-input-border text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50 flex h-7 w-full items-center justify-between gap-1.5 rounded-md border bg-transparent px-2 text-xs transition-colors outline-none select-none focus-visible:ring-3"
             />
           }
         >
-          {value.field === 'assignee' ? 'Assign to…' : `Choose ${FIELD_TITLES[value.field].toLowerCase()}…`}
+          {value.field === 'assignee'
+            ? 'Assign to…'
+            : `Choose ${FIELD_TITLES[value.field].toLowerCase()}…`}
           <ChevronDown className="size-3.5 shrink-0" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-44 bg-popover border-border">
+        <DropdownMenuContent
+          align="start"
+          className="bg-popover border-border min-w-44"
+        >
           {value.field === 'assignee'
             ? [
                 { user_id: '', full_name: 'Assign to me (importer)' },
@@ -915,7 +951,7 @@ function FixValueCard({
           variant="ghost"
           disabled={creating}
           onClick={createTeammate}
-          className="h-6 w-full min-w-0 justify-start px-1.5 text-[11px] text-primary-text hover:bg-primary/5"
+          className="text-primary-text hover:bg-primary/5 h-6 w-full min-w-0 justify-start px-1.5 text-[11px]"
         >
           {creating ? (
             <Loader2 className="size-3 shrink-0 animate-spin" />

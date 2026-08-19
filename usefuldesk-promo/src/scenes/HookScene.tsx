@@ -1,11 +1,17 @@
-import {AbsoluteFill, Easing, Interactive, interpolate, useCurrentFrame} from "remotion";
-import {Brand, Eyebrow, SceneBackground} from "../components";
+import {
+  AbsoluteFill,
+  Easing,
+  Interactive,
+  interpolate,
+  useCurrentFrame,
+} from "remotion";
+import { Brand, Eyebrow, SceneBackground } from "../components";
 
 export const HookScene: React.FC = () => {
   const frame = useCurrentFrame();
 
   return (
-    <AbsoluteFill style={{backgroundColor: "#0d0d14", overflow: "hidden"}}>
+    <AbsoluteFill style={{ backgroundColor: "#0d0d14", overflow: "hidden" }}>
       <SceneBackground />
       <Interactive.Div
         name="Opening content"
@@ -24,7 +30,14 @@ export const HookScene: React.FC = () => {
         }}
       >
         <Brand compact />
-        <div style={{display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 32}}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 32,
+          }}
+        >
           <Eyebrow name="Category">India-first gym CRM</Eyebrow>
           <Interactive.Div
             name="Opening headline"
@@ -65,7 +78,7 @@ export const HookScene: React.FC = () => {
             Know who’s expiring. Remind on WhatsApp. Collect on UPI.
           </Interactive.Div>
         </div>
-        <div style={{display: "flex", gap: 14, width: "100%"}}>
+        <div style={{ display: "flex", gap: 14, width: "100%" }}>
           {[
             ["17", "expiring"],
             ["₹64.5k", "due"],
@@ -84,20 +97,40 @@ export const HookScene: React.FC = () => {
                 border: "1px solid rgba(255,255,255,0.10)",
                 backgroundColor: "rgba(255,255,255,0.045)",
                 color: "#ffffff",
-                opacity: interpolate(frame, [36 + index * 6, 52 + index * 6], [0, 1], {
-                  extrapolateLeft: "clamp",
-                  extrapolateRight: "clamp",
-                  easing: Easing.bezier(0.16, 1, 0.3, 1),
-                }),
-                translate: interpolate(frame, [36 + index * 6, 52 + index * 6], ["0px 24px", "0px 0px"], {
-                  extrapolateLeft: "clamp",
-                  extrapolateRight: "clamp",
-                  easing: Easing.bezier(0.16, 1, 0.3, 1),
-                }),
+                opacity: interpolate(
+                  frame,
+                  [36 + index * 6, 52 + index * 6],
+                  [0, 1],
+                  {
+                    extrapolateLeft: "clamp",
+                    extrapolateRight: "clamp",
+                    easing: Easing.bezier(0.16, 1, 0.3, 1),
+                  },
+                ),
+                translate: interpolate(
+                  frame,
+                  [36 + index * 6, 52 + index * 6],
+                  ["0px 24px", "0px 0px"],
+                  {
+                    extrapolateLeft: "clamp",
+                    extrapolateRight: "clamp",
+                    easing: Easing.bezier(0.16, 1, 0.3, 1),
+                  },
+                ),
               }}
             >
-              <span style={{fontSize: 34, fontWeight: 780, letterSpacing: "-0.04em"}}>{value}</span>
-              <span style={{fontSize: 20, color: "#918d9d", fontWeight: 560}}>{label}</span>
+              <span
+                style={{
+                  fontSize: 34,
+                  fontWeight: 780,
+                  letterSpacing: "-0.04em",
+                }}
+              >
+                {value}
+              </span>
+              <span style={{ fontSize: 20, color: "#918d9d", fontWeight: 560 }}>
+                {label}
+              </span>
             </Interactive.Div>
           ))}
         </div>

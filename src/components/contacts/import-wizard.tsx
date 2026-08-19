@@ -110,7 +110,10 @@ const DETECT_LIMIT = 40;
 const INSERT_CHUNK = 50;
 const CUSTOM_VALUE_CHUNK = 100;
 
-const TEMPLATE_CSV: Record<ImportVariant, { filename: string; content: string }> = {
+const TEMPLATE_CSV: Record<
+  ImportVariant,
+  { filename: string; content: string }
+> = {
   contacts: {
     filename: 'contacts-template.csv',
     content:
@@ -127,7 +130,10 @@ const TEMPLATE_CSV: Record<ImportVariant, { filename: string; content: string }>
   },
 };
 
-const MODE_LABELS: Record<ImportVariant, Record<ImportMode, { title: string; hint: string }>> = {
+const MODE_LABELS: Record<
+  ImportVariant,
+  Record<ImportMode, { title: string; hint: string }>
+> = {
   contacts: {
     add: {
       title: 'Add new contacts',
@@ -234,8 +240,12 @@ export function ImportWizard({
   // Account option lists + staff roster — the leads variant's coercion
   // targets. Cheap account-scoped reads; unused by the contacts variant.
   const fieldOptions = useLeadFieldOptions();
-  const { staff, nameById, avatarById, loading: staffLoading } =
-    useAccountStaff();
+  const {
+    staff,
+    nameById,
+    avatarById,
+    loading: staffLoading,
+  } = useAccountStaff();
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [file, setFile] = useState<File | null>(null);
@@ -271,7 +281,8 @@ export function ImportWizard({
   const [savingField, setSavingField] = useState(false);
 
   const targets = useMemo(
-    () => (isLeads ? buildLeadTargets(customFields) : buildTargets(customFields)),
+    () =>
+      isLeads ? buildLeadTargets(customFields) : buildTargets(customFields),
     [customFields, isLeads]
   );
   const fieldTypeById = useMemo(() => {
@@ -464,7 +475,8 @@ export function ImportWizard({
     const clash =
       RESERVED_FIELD_NAMES.includes(lower) ||
       customFields.some(
-        (f) => f.id !== editFieldId && f.field_name.trim().toLowerCase() === lower
+        (f) =>
+          f.id !== editFieldId && f.field_name.trim().toLowerCase() === lower
       );
     if (clash) {
       toast.error(`A field named "${name}" already exists.`);
@@ -656,7 +668,9 @@ export function ImportWizard({
       if (!body.invitation?.id) return null;
       const invite: PendingInvite = { id: body.invitation.id, name: trimmed };
       setPendingInvites((prev) => [...prev, invite]);
-      toast.success(`Invite created for "${trimmed}" — share the link later from Settings → Team.`);
+      toast.success(
+        `Invite created for "${trimmed}" — share the link later from Settings → Team.`
+      );
       return invite;
     } catch {
       toast.error('Could not create teammate.');
@@ -816,7 +830,10 @@ export function ImportWizard({
       // blanks overwrite.
       for (const { row, id } of toUpdate) {
         const patch: Record<string, string | null> = {};
-        const setField = (key: 'name' | 'email' | 'company', value?: string) => {
+        const setField = (
+          key: 'name' | 'email' | 'company',
+          value?: string
+        ) => {
           if (value && value.trim()) patch[key] = value;
           else if (!dontOverwriteEmpty) patch[key] = null;
         };
@@ -1040,7 +1057,10 @@ export function ImportWizard({
       // the standard fields; ownership is never cleared by an import.
       for (const { row, id } of toUpdate) {
         const patch: Record<string, string | null> = {};
-        const setField = (key: 'name' | 'email' | 'company', value?: string) => {
+        const setField = (
+          key: 'name' | 'email' | 'company',
+          value?: string
+        ) => {
           if (value && value.trim()) patch[key] = value;
           else if (!dontOverwriteEmpty) patch[key] = null;
         };
@@ -1169,375 +1189,387 @@ export function ImportWizard({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        className={cn(
-          'flex max-h-[min(92vh,760px)] flex-col gap-0 overflow-hidden border-border/80 bg-popover p-0 text-popover-foreground',
-          isLeads ? 'sm:max-w-[1200px]' : 'sm:max-w-3xl'
-        )}
-      >
-        <div className="shrink-0 space-y-4 border-b border-border/80 px-6 pt-6 pb-5">
-          <DialogHeader className="gap-1.5">
-            <DialogTitle size="lg" className="text-popover-foreground">
-              {isLeads ? 'Import Leads' : 'Import Contacts'}
-            </DialogTitle>
-            <DialogDescription className="leading-relaxed text-muted-foreground">
-              {description}
-            </DialogDescription>
-          </DialogHeader>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent
+          className={cn(
+            'border-border/80 bg-popover text-popover-foreground flex max-h-[min(92vh,760px)] flex-col gap-0 overflow-hidden p-0',
+            isLeads ? 'sm:max-w-[1200px]' : 'sm:max-w-3xl'
+          )}
+        >
+          <div className="border-border/80 shrink-0 space-y-4 border-b px-6 pt-6 pb-5">
+            <DialogHeader className="gap-1.5">
+              <DialogTitle size="lg" className="text-popover-foreground">
+                {isLeads ? 'Import Leads' : 'Import Contacts'}
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground leading-relaxed">
+                {description}
+              </DialogDescription>
+            </DialogHeader>
 
-          <StepIndicator step={result ? stepLabels.length : step} labels={stepLabels} />
-        </div>
+            <StepIndicator
+              step={result ? stepLabels.length : step}
+              labels={stepLabels}
+            />
+          </div>
 
-        {/* The Preview step owns its own scroll (the grid fills the height
+          {/* The Preview step owns its own scroll (the grid fills the height
             and scrolls x/y), so the body must NOT vertically scroll there —
             else the horizontal scrollbar ends up below the fold. Every other
             step keeps the normal vertical scroll. */}
-        <div
-          className={cn(
-            'min-h-0 flex-1 px-6 py-5',
-            isLeads && !result && step === 3
-              ? 'flex flex-col overflow-hidden'
-              : 'overflow-y-auto'
-          )}
-        >
-          {result ? (
-            isLeads ? (
-              <LeadsResultPanel result={result} remaps={remaps} fieldOptions={fieldOptions} nameById={nameById} />
-            ) : (
-              <ContactsResultPanel result={result} />
-            )
-          ) : (
-            // Crossfade between wizard steps. Opacity-only (no transform) so
-            // step 3's sticky-header preview grid is unaffected; `mode="wait"`
-            // keeps a single step mounted at a time.
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={step}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.13, ease: 'easeOut' }}
-                className={cn(
-                  'min-h-0',
-                  step === 3 && isLeads && 'flex flex-1 flex-col'
-                )}
-              >
-              {step === 1 && (
-                <UploadStep
-                  file={file}
-                  raw={raw}
-                  isLeads={isLeads}
-                  fileInputRef={fileInputRef}
-                  onFileChange={handleFileChange}
-                />
-              )}
-
-              {step === 2 && raw && (
-                <MapStep
-                  raw={raw}
-                  targets={targets}
-                  mapping={mapping}
-                  samples={samples}
-                  showMode={!isLeads}
-                  variant={variant}
-                  mode={mode}
-                  dontOverwriteEmpty={dontOverwriteEmpty}
-                  canCreateFields={canEditSettings}
-                  ambiguousDateCols={ambiguousDateCols}
-                  dateOrder={dateOrder}
-                  onToggleDateOrder={() =>
-                    setDateOrder((o) => (o === 'DMY' ? 'MDY' : 'DMY'))
-                  }
-                  onSetColumn={setColumn}
-                  onSetMode={setMode}
-                  onSetDontOverwriteEmpty={setDontOverwriteEmpty}
-                  onAutoMap={handleAutoMap}
-                  onReset={handleReset}
-                  onRequestCreateField={requestCreateField}
-                  onRequestEditField={requestEditField}
-                  onDeleteField={handleDeleteField}
-                />
-              )}
-
-              {step === 3 && !isLeads && (
-                <ReviewStep
-                  mode={mode}
-                  variant={variant}
-                  mappedPreview={mappedPreview}
-                  compliance={compliance}
-                  onSetCompliance={setCompliance}
-                />
-              )}
-
-              {step === 3 && isLeads && previewRows && (
-                <ImportPreviewGrid
-                  rows={previewRows}
-                  onRowsChange={setPreviewRows}
-                  onRemapLogged={recordRemap}
-                  mappedKeys={mappedKeys}
-                  customFields={customFields}
-                  fieldOptions={fieldOptions}
-                  staff={staff}
-                  nameById={nameById}
-                  avatarById={avatarById}
-                  pendingInvites={pendingInvites}
-                  canCreateTeammate={canEditSettings}
-                  onCreateTeammate={createTeammate}
-                  defaultCurrency={defaultCurrency}
-                  dateOrder={effectiveDateOrder}
-                  skippedNoPhone={previewMeta.droppedNoPhone}
-                  skippedDupes={previewMeta.dupes}
-                />
-              )}
-
-              {step === 4 && isLeads && previewRows && (
-                <ConfirmStep
-                  rows={previewRows}
-                  meta={previewMeta}
-                  mode={mode}
-                  onSetMode={setMode}
-                  dontOverwriteEmpty={dontOverwriteEmpty}
-                  onSetDontOverwriteEmpty={setDontOverwriteEmpty}
-                  compliance={compliance}
-                  onSetCompliance={setCompliance}
+          <div
+            className={cn(
+              'min-h-0 flex-1 px-6 py-5',
+              isLeads && !result && step === 3
+                ? 'flex flex-col overflow-hidden'
+                : 'overflow-y-auto'
+            )}
+          >
+            {result ? (
+              isLeads ? (
+                <LeadsResultPanel
+                  result={result}
                   remaps={remaps}
                   fieldOptions={fieldOptions}
                   nameById={nameById}
                 />
-              )}
-              </motion.div>
-            </AnimatePresence>
-          )}
-        </div>
+              ) : (
+                <ContactsResultPanel result={result} />
+              )
+            ) : (
+              // Crossfade between wizard steps. Opacity-only (no transform) so
+              // step 3's sticky-header preview grid is unaffected; `mode="wait"`
+              // keeps a single step mounted at a time.
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={step}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.13, ease: 'easeOut' }}
+                  className={cn(
+                    'min-h-0',
+                    step === 3 && isLeads && 'flex flex-1 flex-col'
+                  )}
+                >
+                  {step === 1 && (
+                    <UploadStep
+                      file={file}
+                      raw={raw}
+                      isLeads={isLeads}
+                      fileInputRef={fileInputRef}
+                      onFileChange={handleFileChange}
+                    />
+                  )}
 
-        <DialogFooter className="mx-0 mb-0 mt-0 shrink-0 items-center gap-2 border-t border-border/80 bg-background/50 px-6 py-4 sm:justify-between">
-          {/* Left slot: step-1 sample link, and — dedicated — the mapping
-              step's validation errors. Pinned here on the sticky footer so a
-              required-field error can't scroll out of sight behind the
-              mapping table. */}
-          <div className="min-w-0 flex-1">
-            {step === 1 && !result && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => downloadTemplate(variant)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <Download className="size-4" />
-                Sample CSV
-              </Button>
-            )}
-            {step === 2 && !result && !validation.ok && (
-              <div className="flex flex-col gap-0.5">
-                {!validation.phoneMapped && (
-                  <p className="flex items-center gap-1.5 text-xs text-red-foreground">
-                    <XCircle className="size-3.5 shrink-0" />
-                    Map one column to{' '}
-                    <span className="font-medium">Phone</span> to continue —
-                    it&apos;s required.
-                  </p>
-                )}
-                {validation.duplicateTargets.length > 0 && (
-                  <p className="flex items-center gap-1.5 text-xs text-red-foreground">
-                    <XCircle className="size-3.5 shrink-0" />
-                    Each field can be mapped once. Duplicated:{' '}
-                    {validation.duplicateTargets
-                      .map((k) => customFieldId(k) ?? k)
-                      .join(', ')}
-                    .
-                  </p>
-                )}
-              </div>
+                  {step === 2 && raw && (
+                    <MapStep
+                      raw={raw}
+                      targets={targets}
+                      mapping={mapping}
+                      samples={samples}
+                      showMode={!isLeads}
+                      variant={variant}
+                      mode={mode}
+                      dontOverwriteEmpty={dontOverwriteEmpty}
+                      canCreateFields={canEditSettings}
+                      ambiguousDateCols={ambiguousDateCols}
+                      dateOrder={dateOrder}
+                      onToggleDateOrder={() =>
+                        setDateOrder((o) => (o === 'DMY' ? 'MDY' : 'DMY'))
+                      }
+                      onSetColumn={setColumn}
+                      onSetMode={setMode}
+                      onSetDontOverwriteEmpty={setDontOverwriteEmpty}
+                      onAutoMap={handleAutoMap}
+                      onReset={handleReset}
+                      onRequestCreateField={requestCreateField}
+                      onRequestEditField={requestEditField}
+                      onDeleteField={handleDeleteField}
+                    />
+                  )}
+
+                  {step === 3 && !isLeads && (
+                    <ReviewStep
+                      mode={mode}
+                      variant={variant}
+                      mappedPreview={mappedPreview}
+                      compliance={compliance}
+                      onSetCompliance={setCompliance}
+                    />
+                  )}
+
+                  {step === 3 && isLeads && previewRows && (
+                    <ImportPreviewGrid
+                      rows={previewRows}
+                      onRowsChange={setPreviewRows}
+                      onRemapLogged={recordRemap}
+                      mappedKeys={mappedKeys}
+                      customFields={customFields}
+                      fieldOptions={fieldOptions}
+                      staff={staff}
+                      nameById={nameById}
+                      avatarById={avatarById}
+                      pendingInvites={pendingInvites}
+                      canCreateTeammate={canEditSettings}
+                      onCreateTeammate={createTeammate}
+                      defaultCurrency={defaultCurrency}
+                      dateOrder={effectiveDateOrder}
+                      skippedNoPhone={previewMeta.droppedNoPhone}
+                      skippedDupes={previewMeta.dupes}
+                    />
+                  )}
+
+                  {step === 4 && isLeads && previewRows && (
+                    <ConfirmStep
+                      rows={previewRows}
+                      meta={previewMeta}
+                      mode={mode}
+                      onSetMode={setMode}
+                      dontOverwriteEmpty={dontOverwriteEmpty}
+                      onSetDontOverwriteEmpty={setDontOverwriteEmpty}
+                      compliance={compliance}
+                      onSetCompliance={setCompliance}
+                      remaps={remaps}
+                      fieldOptions={fieldOptions}
+                      nameById={nameById}
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
             )}
           </div>
 
-          <div className="flex gap-2">
-            {result ? (
-              <Button
-                type="button"
-                onClick={() => handleOpenChange(false)}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                Done
-              </Button>
-            ) : (
-              <>
+          <DialogFooter className="border-border/80 bg-background/50 mx-0 mt-0 mb-0 shrink-0 items-center gap-2 border-t px-6 py-4 sm:justify-between">
+            {/* Left slot: step-1 sample link, and — dedicated — the mapping
+              step's validation errors. Pinned here on the sticky footer so a
+              required-field error can't scroll out of sight behind the
+              mapping table. */}
+            <div className="min-w-0 flex-1">
+              {step === 1 && !result && (
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={() =>
-                    step === 1
-                      ? handleOpenChange(false)
-                      : setStep((s) => (s - 1) as 1 | 2 | 3)
-                  }
-                  className="border-border text-muted-foreground hover:bg-muted"
+                  variant="ghost"
+                  onClick={() => downloadTemplate(variant)}
+                  className="text-muted-foreground hover:text-foreground"
                 >
-                  {step === 1 ? 'Cancel' : 'Back'}
+                  <Download className="size-4" />
+                  Sample CSV
                 </Button>
+              )}
+              {step === 2 && !result && !validation.ok && (
+                <div className="flex flex-col gap-0.5">
+                  {!validation.phoneMapped && (
+                    <p className="text-red-foreground flex items-center gap-1.5 text-xs">
+                      <XCircle className="size-3.5 shrink-0" />
+                      Map one column to{' '}
+                      <span className="font-medium">Phone</span> to continue —
+                      it&apos;s required.
+                    </p>
+                  )}
+                  {validation.duplicateTargets.length > 0 && (
+                    <p className="text-red-foreground flex items-center gap-1.5 text-xs">
+                      <XCircle className="size-3.5 shrink-0" />
+                      Each field can be mapped once. Duplicated:{' '}
+                      {validation.duplicateTargets
+                        .map((k) => customFieldId(k) ?? k)
+                        .join(', ')}
+                      .
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
-                {step === 1 && (
+            <div className="flex gap-2">
+              {result ? (
+                <Button
+                  type="button"
+                  onClick={() => handleOpenChange(false)}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  Done
+                </Button>
+              ) : (
+                <>
                   <Button
                     type="button"
-                    disabled={!canProceedFromUpload}
-                    onClick={() => setStep(2)}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                    variant="outline"
+                    onClick={() =>
+                      step === 1
+                        ? handleOpenChange(false)
+                        : setStep((s) => (s - 1) as 1 | 2 | 3)
+                    }
+                    className="border-border text-muted-foreground hover:bg-muted"
                   >
-                    Next
+                    {step === 1 ? 'Cancel' : 'Back'}
                   </Button>
-                )}
-                {step === 2 &&
-                  (isLeads ? (
+
+                  {step === 1 && (
                     <Button
                       type="button"
-                      // Gate on staff + option lists being loaded — coercion
-                      // reads them, and building the preview with an empty
-                      // roster would false-flag every mapped assignee.
-                      disabled={
-                        !validation.ok ||
-                        loadingPreview ||
-                        staffLoading ||
-                        fieldOptions.loading
-                      }
-                      onClick={buildPreview}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                    >
-                      {(loadingPreview || staffLoading) && (
-                        <Loader2 className="size-4 animate-spin" />
-                      )}
-                      Preview {raw?.rows.length ?? 0} row
-                      {raw?.rows.length !== 1 ? 's' : ''}
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      disabled={!validation.ok}
-                      onClick={() => setStep(3)}
+                      disabled={!canProceedFromUpload}
+                      onClick={() => setStep(2)}
                       className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       Next
                     </Button>
+                  )}
+                  {step === 2 &&
+                    (isLeads ? (
+                      <Button
+                        type="button"
+                        // Gate on staff + option lists being loaded — coercion
+                        // reads them, and building the preview with an empty
+                        // roster would false-flag every mapped assignee.
+                        disabled={
+                          !validation.ok ||
+                          loadingPreview ||
+                          staffLoading ||
+                          fieldOptions.loading
+                        }
+                        onClick={buildPreview}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                      >
+                        {(loadingPreview || staffLoading) && (
+                          <Loader2 className="size-4 animate-spin" />
+                        )}
+                        Preview {raw?.rows.length ?? 0} row
+                        {raw?.rows.length !== 1 ? 's' : ''}
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        disabled={!validation.ok}
+                        onClick={() => setStep(3)}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                      >
+                        Next
+                      </Button>
+                    ))}
+                  {step === 3 && isLeads && (
+                    <Button
+                      type="button"
+                      onClick={() => setStep(4)}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                    >
+                      Next: Confirm
+                    </Button>
+                  )}
+                  {step === 3 && !isLeads && (
+                    <Button
+                      type="button"
+                      disabled={!canImport}
+                      onClick={handleImport}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                    >
+                      {importing && <Loader2 className="size-4 animate-spin" />}
+                      Import {mappedPreview.rows.length} contact
+                      {mappedPreview.rows.length !== 1 ? 's' : ''}
+                    </Button>
+                  )}
+                  {step === 4 && isLeads && (
+                    <Button
+                      type="button"
+                      disabled={
+                        !compliance || importing || leadWriteCount === 0
+                      }
+                      onClick={handleLeadImport}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                    >
+                      {importing && <Loader2 className="size-4 animate-spin" />}
+                      Import {leadWriteCount} lead
+                      {leadWriteCount !== 1 ? 's' : ''}
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={createCol !== null || editFieldId !== null}
+        onOpenChange={(o) => !o && closeFieldDialog()}
+      >
+        <DialogContent className="border-border bg-popover text-popover-foreground sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-popover-foreground">
+              {editFieldId !== null
+                ? 'Edit custom field'
+                : 'Create custom field'}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              {editFieldId !== null
+                ? 'Rename or change the type. Existing stored values are not re-validated.'
+                : 'Adds a new field to every contact, then maps this column to it.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground">Field name</Label>
+              <Input
+                value={newFieldName}
+                autoFocus
+                onChange={(e) => setNewFieldName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !savingField) {
+                    e.preventDefault();
+                    void handleSaveField();
+                  }
+                }}
+                placeholder="e.g. Lead Source"
+                className="text-foreground"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground">Data type</Label>
+              <Select
+                value={newFieldType}
+                onValueChange={(v) => v && setNewFieldType(v)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CUSTOM_FIELD_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
                   ))}
-                {step === 3 && isLeads && (
-                  <Button
-                    type="button"
-                    onClick={() => setStep(4)}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    Next: Confirm
-                  </Button>
-                )}
-                {step === 3 && !isLeads && (
-                  <Button
-                    type="button"
-                    disabled={!canImport}
-                    onClick={handleImport}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    {importing && <Loader2 className="size-4 animate-spin" />}
-                    Import {mappedPreview.rows.length} contact
-                    {mappedPreview.rows.length !== 1 ? 's' : ''}
-                  </Button>
-                )}
-                {step === 4 && isLeads && (
-                  <Button
-                    type="button"
-                    disabled={!compliance || importing || leadWriteCount === 0}
-                    onClick={handleLeadImport}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    {importing && <Loader2 className="size-4 animate-spin" />}
-                    Import {leadWriteCount} lead
-                    {leadWriteCount !== 1 ? 's' : ''}
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <Dialog
-      open={createCol !== null || editFieldId !== null}
-      onOpenChange={(o) => !o && closeFieldDialog()}
-    >
-      <DialogContent className="border-border bg-popover text-popover-foreground sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-popover-foreground">
-            {editFieldId !== null ? 'Edit custom field' : 'Create custom field'}
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            {editFieldId !== null
-              ? 'Rename or change the type. Existing stored values are not re-validated.'
-              : 'Adds a new field to every contact, then maps this column to it.'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-1">
-          <div className="space-y-1.5">
-            <Label className="text-muted-foreground">Field name</Label>
-            <Input
-              value={newFieldName}
-              autoFocus
-              onChange={(e) => setNewFieldName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !savingField) {
-                  e.preventDefault();
-                  void handleSaveField();
-                }
-              }}
-              placeholder="e.g. Lead Source"
-              className="text-foreground"
-            />
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-[11px]">
+                {isLeads && createCol !== null
+                  ? 'Name and type were suggested by scanning this column — adjust if wrong.'
+                  : 'Values import as text today; the type is saved for validation and formatting.'}
+              </p>
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-muted-foreground">Data type</Label>
-            <Select
-              value={newFieldType}
-              onValueChange={(v) => v && setNewFieldType(v)}
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeFieldDialog}
+              className="border-border text-muted-foreground hover:bg-muted"
             >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CUSTOM_FIELD_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[11px] text-muted-foreground">
-              {isLeads && createCol !== null
-                ? 'Name and type were suggested by scanning this column — adjust if wrong.'
-                : 'Values import as text today; the type is saved for validation and formatting.'}
-            </p>
-          </div>
-        </div>
-
-        <DialogFooter className="gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={closeFieldDialog}
-            className="border-border text-muted-foreground hover:bg-muted"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            disabled={!newFieldName.trim() || savingField}
-            onClick={handleSaveField}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            {savingField && <Loader2 className="size-4 animate-spin" />}
-            {editFieldId !== null ? 'Save changes' : 'Create & map'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!newFieldName.trim() || savingField}
+              onClick={handleSaveField}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              {savingField && <Loader2 className="size-4 animate-spin" />}
+              {editFieldId !== null ? 'Save changes' : 'Create & map'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -1570,7 +1602,7 @@ function StepIndicator({ step, labels }: { step: number; labels: string[] }) {
               {label}
             </span>
             {i < labels.length - 1 && (
-              <span className="mx-1 h-px flex-1 bg-border" />
+              <span className="bg-border mx-1 h-px flex-1" />
             )}
           </div>
         );
@@ -1614,7 +1646,7 @@ function UploadStep({
               <FileText className="text-primary-text size-5" />
             </div>
             <p
-              className="max-w-full truncate px-2 text-sm font-medium text-popover-foreground"
+              className="text-popover-foreground max-w-full truncate px-2 text-sm font-medium"
               title={file.name}
             >
               {truncateFilename(file.name)}
@@ -1627,13 +1659,13 @@ function UploadStep({
           </>
         ) : (
           <>
-            <div className="flex size-10 items-center justify-center rounded-lg bg-muted/80 ring-1 ring-border/80 transition-colors group-hover:bg-muted">
-              <Upload className="size-5 text-muted-foreground group-hover:text-foreground" />
+            <div className="bg-muted/80 ring-border/80 group-hover:bg-muted flex size-10 items-center justify-center rounded-lg ring-1 transition-colors">
+              <Upload className="text-muted-foreground group-hover:text-foreground size-5" />
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               Click to choose a CSV file
             </p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-muted-foreground text-[11px]">
               Any column layout — you&apos;ll map fields next
             </p>
           </>
@@ -1641,9 +1673,9 @@ function UploadStep({
       </div>
 
       {isLeads && (
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-muted-foreground text-center text-xs">
           Exported from Excel or Google Sheets? Use{' '}
-          <span className="font-medium text-foreground">
+          <span className="text-foreground font-medium">
             File → Save as → .csv
           </span>{' '}
           first — only CSV files are supported.
@@ -1764,7 +1796,7 @@ function MapStep({
       {/* Action mode — contacts variant only; leads decides at Confirm. */}
       {showMode && (
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+          <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.14em] uppercase">
             How to process rows
           </p>
           <RadioGroup
@@ -1784,10 +1816,10 @@ function MapStep({
               >
                 <RadioGroupItem value={key} className="mt-0.5" />
                 <span className="space-y-0.5">
-                  <span className="block text-sm font-medium text-foreground">
+                  <span className="text-foreground block text-sm font-medium">
                     {modeLabels[key].title}
                   </span>
-                  <span className="block text-xs text-muted-foreground">
+                  <span className="text-muted-foreground block text-xs">
                     {modeLabels[key].hint}
                   </span>
                 </span>
@@ -1796,8 +1828,8 @@ function MapStep({
           </RadioGroup>
 
           {showEmptyToggle && (
-            <label className="flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-background/40 px-3 py-2.5">
-              <span className="text-sm text-foreground">
+            <label className="border-border/80 bg-background/40 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
+              <span className="text-foreground text-sm">
                 Don&apos;t overwrite existing values with empty cells
               </span>
               <Switch
@@ -1808,7 +1840,7 @@ function MapStep({
           )}
 
           {mode !== 'add' && (
-            <p className="flex items-start gap-1.5 text-[11px] text-amber-foreground">
+            <p className="text-amber-foreground flex items-start gap-1.5 text-[11px]">
               <AlertTriangle className="mt-px size-3 shrink-0" />
               Updates applied via import cannot be undone.
             </p>
@@ -1819,7 +1851,7 @@ function MapStep({
       {/* Mapping table */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+          <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.14em] uppercase">
             Column mapping
           </p>
           <div className="flex gap-1.5">
@@ -1828,7 +1860,7 @@ function MapStep({
               size="sm"
               variant="outline"
               onClick={onAutoMap}
-              className="h-7 border-border text-muted-foreground hover:bg-muted"
+              className="border-border text-muted-foreground hover:bg-muted h-7"
             >
               <Wand2 className="size-3.5" />
               Auto map
@@ -1838,7 +1870,7 @@ function MapStep({
               size="sm"
               variant="outline"
               onClick={onReset}
-              className="h-7 border-border text-muted-foreground hover:bg-muted"
+              className="border-border text-muted-foreground hover:bg-muted h-7"
             >
               <RotateCcw className="size-3.5" />
               Reset
@@ -1846,43 +1878,43 @@ function MapStep({
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-border ring-1 ring-border/50">
+        <div className="border-border ring-border/50 overflow-hidden rounded-xl border ring-1">
           <div className="overflow-x-auto">
             {/* table-fixed: column widths come from these <th>s, NOT cell
                 content — so the phone note / date chip appearing can grow the
                 row's height but never shift column widths. */}
             <table className="w-full min-w-[38rem] table-fixed text-xs">
               <thead>
-                <tr className="border-b border-border bg-background/60">
-                  <th className="w-[18%] px-3 py-2 text-left font-medium text-muted-foreground">
+                <tr className="border-border bg-background/60 border-b">
+                  <th className="text-muted-foreground w-[18%] px-3 py-2 text-left font-medium">
                     File column
                   </th>
-                  <th className="w-[24%] px-3 py-2 text-left font-medium text-muted-foreground">
+                  <th className="text-muted-foreground w-[24%] px-3 py-2 text-left font-medium">
                     Sample data
                   </th>
-                  <th className="w-[42%] px-3 py-2 text-left font-medium text-muted-foreground">
+                  <th className="text-muted-foreground w-[42%] px-3 py-2 text-left font-medium">
                     {variant === 'leads' ? 'Lead field' : 'Contact field'}
                   </th>
-                  <th className="w-[16%] px-3 py-2 text-left font-medium text-muted-foreground">
+                  <th className="text-muted-foreground w-[16%] px-3 py-2 text-left font-medium">
                     Status
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/70">
+              <tbody className="divide-border/70 divide-y">
                 {raw.headers.map((header, col) => {
                   const key = mapping[col] ?? IGNORE_KEY;
                   const isMapped = key !== IGNORE_KEY;
                   const cfId = customFieldId(key);
                   return (
                     <tr key={col} className="bg-popover/40">
-                      <td className="max-w-[10rem] truncate px-3 py-2 font-medium text-foreground">
+                      <td className="text-foreground max-w-[10rem] truncate px-3 py-2 font-medium">
                         {header || (
                           <span className="text-muted-foreground italic">
                             (unnamed)
                           </span>
                         )}
                       </td>
-                      <td className="max-w-[12rem] px-3 py-2 text-muted-foreground">
+                      <td className="text-muted-foreground max-w-[12rem] px-3 py-2">
                         <span className="block truncate font-mono text-[11px]">
                           {samples[col]?.join(' · ') || '—'}
                         </span>
@@ -1928,7 +1960,7 @@ function MapStep({
                                 size="icon-sm"
                                 title="Edit field"
                                 onClick={() => onRequestEditField(cfId)}
-                                className="shrink-0 text-muted-foreground hover:text-foreground"
+                                className="text-muted-foreground hover:text-foreground shrink-0"
                               >
                                 <Pencil className="size-3.5" />
                               </Button>
@@ -1947,10 +1979,9 @@ function MapStep({
                         </div>
 
                         {key === 'phone' && (
-                          <p className="mt-1 max-w-[24rem] text-[10px] leading-snug text-muted-foreground">
-                            Leads are matched by phone — duplicates in your
-                            file and existing records are handled
-                            automatically.
+                          <p className="text-muted-foreground mt-1 max-w-[24rem] text-[10px] leading-snug">
+                            Leads are matched by phone — duplicates in your file
+                            and existing records are handled automatically.
                           </p>
                         )}
 
@@ -1959,10 +1990,10 @@ function MapStep({
                             type="button"
                             onClick={onToggleDateOrder}
                             title="Toggle day/month order"
-                            className="mt-1 inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary-text hover:bg-primary/20"
+                            className="bg-primary/10 text-primary-text hover:bg-primary/20 mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold"
                           >
                             {dateOrder === 'DMY' ? 'DD/MM' : 'MM/DD'} ▾
-                            <span className="font-sans font-normal text-muted-foreground">
+                            <span className="text-muted-foreground font-sans font-normal">
                               {dateOrder === 'DMY'
                                 ? '02/07 = 2 July'
                                 : '02/07 = Feb 7'}
@@ -1972,12 +2003,12 @@ function MapStep({
                       </td>
                       <td className="px-3 py-2">
                         {isMapped ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-foreground">
+                          <span className="text-emerald-foreground inline-flex items-center gap-1 text-[11px] font-medium">
                             <CheckCircle className="size-3.5 shrink-0" />
                             Mapped
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <span className="text-muted-foreground inline-flex items-center gap-1 text-[11px]">
                             <span className="size-1.5 rounded-full bg-current opacity-50" />
                             Skipped
                           </span>
@@ -1991,9 +2022,9 @@ function MapStep({
           </div>
         </div>
 
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-muted-foreground text-[11px]">
           {unmappedCount === 0 ? (
-            <span className="inline-flex items-center gap-1 text-emerald-foreground">
+            <span className="text-emerald-foreground inline-flex items-center gap-1">
               <CheckCircle className="size-3" />
               All {mapping.length} columns mapped
             </span>
@@ -2032,24 +2063,26 @@ function ReviewStep({
 }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-background/40 p-4">
+      <div className="border-border bg-background/40 rounded-xl border p-4">
         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <div>
             <span className="text-muted-foreground">Rows to process: </span>
-            <span className="font-medium text-foreground">
+            <span className="text-foreground font-medium">
               {mappedPreview.rows.length}
             </span>
           </div>
           <div>
             <span className="text-muted-foreground">Mode: </span>
-            <span className="font-medium text-foreground">
+            <span className="text-foreground font-medium">
               {MODE_LABELS[variant][mode].title}
             </span>
           </div>
           {mappedPreview.droppedNoPhone > 0 && (
             <div>
-              <span className="text-muted-foreground">Rows without phone: </span>
-              <span className="font-medium text-amber-foreground">
+              <span className="text-muted-foreground">
+                Rows without phone:{' '}
+              </span>
+              <span className="text-amber-foreground font-medium">
                 {mappedPreview.droppedNoPhone} skipped
               </span>
             </div>
@@ -2059,7 +2092,7 @@ function ReviewStep({
               <span className="text-muted-foreground">
                 Wrong-format values:{' '}
               </span>
-              <span className="font-medium text-amber-foreground">
+              <span className="text-amber-foreground font-medium">
                 {mappedPreview.invalidCustomValues} will be skipped
               </span>
             </div>
@@ -2067,7 +2100,10 @@ function ReviewStep({
         </div>
       </div>
 
-      <ConsentCheckbox compliance={compliance} onSetCompliance={onSetCompliance} />
+      <ConsentCheckbox
+        compliance={compliance}
+        onSetCompliance={onSetCompliance}
+      />
     </div>
   );
 }
@@ -2080,16 +2116,16 @@ function ConsentCheckbox({
   onSetCompliance: (v: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/80 bg-background/40 p-4">
+    <label className="border-border/80 bg-background/40 flex cursor-pointer items-start gap-3 rounded-xl border p-4">
       <Checkbox
         checked={compliance}
         onCheckedChange={(v) => onSetCompliance(!!v)}
         className="mt-0.5"
       />
-      <span className="text-xs leading-relaxed text-muted-foreground">
-        I confirm these contacts have consented to be messaged, or that I have
-        a legitimate business interest to contact them, in line with WhatsApp
-        and anti-spam policies.
+      <span className="text-muted-foreground text-xs leading-relaxed">
+        I confirm these contacts have consented to be messaged, or that I have a
+        legitimate business interest to contact them, in line with WhatsApp and
+        anti-spam policies.
       </span>
     </label>
   );
@@ -2113,13 +2149,13 @@ function RemapTarget({
   }
   if (entry.field === 'assignee') {
     return (
-      <span className="truncate text-foreground">
+      <span className="text-foreground truncate">
         {entry.key ? (nameById.get(entry.key) ?? 'Teammate') : 'You (importer)'}
       </span>
     );
   }
   return (
-    <span className="truncate text-foreground">
+    <span className="text-foreground truncate">
       {entry.field === 'source'
         ? fieldOptions.sourceLabel(entry.key)
         : fieldOptions.genderLabel(entry.key)}
@@ -2177,7 +2213,7 @@ function ConfirmStep({
   return (
     <div className="grid gap-5 md:grid-cols-[1fr_minmax(15rem,0.8fr)]">
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+        <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.14em] uppercase">
           How to process rows
         </p>
         <RadioGroup
@@ -2197,10 +2233,10 @@ function ConfirmStep({
             >
               <RadioGroupItem value={key} className="mt-0.5" />
               <span className="space-y-0.5">
-                <span className="block text-sm font-medium text-foreground">
+                <span className="text-foreground block text-sm font-medium">
                   {modeLabels[key].title}
                 </span>
-                <span className="block text-xs text-muted-foreground">
+                <span className="text-muted-foreground block text-xs">
                   {modeLabels[key].hint}
                 </span>
               </span>
@@ -2209,8 +2245,8 @@ function ConfirmStep({
         </RadioGroup>
 
         {showEmptyToggle && (
-          <label className="flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-background/40 px-3 py-2.5">
-            <span className="text-sm text-foreground">
+          <label className="border-border/80 bg-background/40 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
+            <span className="text-foreground text-sm">
               Don&apos;t overwrite existing values with empty cells
             </span>
             <Switch
@@ -2221,7 +2257,7 @@ function ConfirmStep({
         )}
 
         {mode !== 'add' && (
-          <p className="flex items-start gap-1.5 text-[11px] text-amber-foreground">
+          <p className="text-amber-foreground flex items-start gap-1.5 text-[11px]">
             <AlertTriangle className="mt-px size-3 shrink-0" />
             Updates applied via import cannot be undone.
           </p>
@@ -2236,8 +2272,8 @@ function ConfirmStep({
       </div>
 
       {/* Import receipt — counts + the value-remap audit. */}
-      <aside className="h-fit rounded-xl border border-border bg-background/40 p-4">
-        <p className="text-[11px] font-semibold tracking-[0.13em] text-muted-foreground uppercase">
+      <aside className="border-border bg-background/40 h-fit rounded-xl border p-4">
+        <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.13em] uppercase">
           Import receipt
         </p>
         <div className="mt-2 space-y-1">
@@ -2247,19 +2283,19 @@ function ConfirmStep({
               className="flex items-baseline justify-between gap-3 text-sm"
             >
               <span className="text-muted-foreground">{label}</span>
-              <span className="font-medium text-foreground tabular-nums">
+              <span className="text-foreground font-medium tabular-nums">
                 {n}
               </span>
             </div>
           ))}
         </div>
 
-        <div className="mt-3 border-t border-dashed border-border pt-3">
-          <p className="text-[11px] font-semibold tracking-[0.13em] text-muted-foreground uppercase">
+        <div className="border-border mt-3 border-t border-dashed pt-3">
+          <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.13em] uppercase">
             Values remapped · {remaps.reduce((n, r) => n + r.count, 0)}
           </p>
           {remaps.length === 0 ? (
-            <p className="mt-1.5 text-xs text-muted-foreground">
+            <p className="text-muted-foreground mt-1.5 text-xs">
               No fixes applied — unmatched values import as-is.
             </p>
           ) : (
@@ -2269,16 +2305,16 @@ function ConfirmStep({
                   key={i}
                   className="flex min-w-0 items-center gap-1.5 text-xs"
                 >
-                  <span className="truncate font-mono text-muted-foreground line-through">
+                  <span className="text-muted-foreground truncate font-mono line-through">
                     {r.raw}
                   </span>
-                  <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
+                  <ArrowRight className="text-muted-foreground size-3 shrink-0" />
                   <RemapTarget
                     entry={r}
                     fieldOptions={fieldOptions}
                     nameById={nameById}
                   />
-                  <span className="shrink-0 text-muted-foreground">
+                  <span className="text-muted-foreground shrink-0">
                     ×{r.count}
                   </span>
                 </div>
@@ -2300,8 +2336,8 @@ function ContactsResultPanel({ result }: { result: ImportResult }) {
     ['failed', result.failed, 'text-red-foreground'],
   ];
   return (
-    <div className="rounded-xl border border-border bg-background/50 p-5">
-      <p className="text-sm font-medium text-popover-foreground">
+    <div className="border-border bg-background/50 rounded-xl border p-5">
+      <p className="text-popover-foreground text-sm font-medium">
         Import complete
       </p>
       <div className="mt-3 flex flex-wrap gap-4">
@@ -2324,7 +2360,7 @@ function ContactsResultPanel({ result }: { result: ImportResult }) {
           ))}
       </div>
       {(result.tagsAssigned > 0 || result.customValues > 0) && (
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="text-muted-foreground mt-3 text-xs">
           {result.tagsAssigned > 0 &&
             `${result.tagsAssigned} tag assignment${result.tagsAssigned !== 1 ? 's' : ''}`}
           {result.tagsAssigned > 0 && result.customValues > 0 && ' · '}
@@ -2334,11 +2370,11 @@ function ContactsResultPanel({ result }: { result: ImportResult }) {
         </p>
       )}
       {result.invalidValues > 0 && (
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-foreground">
+        <p className="text-amber-foreground mt-2 flex items-center gap-1.5 text-xs">
           <AlertTriangle className="size-3.5 shrink-0" />
           {result.invalidValues} value
-          {result.invalidValues !== 1 ? 's' : ''} skipped — wrong format for
-          the field type.
+          {result.invalidValues !== 1 ? 's' : ''} skipped — wrong format for the
+          field type.
         </p>
       )}
     </div>
@@ -2374,8 +2410,8 @@ function LeadsResultPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <CheckCircle className="size-5 shrink-0 text-emerald-foreground" />
-        <p className="text-sm font-medium text-popover-foreground">
+        <CheckCircle className="text-emerald-foreground size-5 shrink-0" />
+        <p className="text-popover-foreground text-sm font-medium">
           Import complete
         </p>
       </div>
@@ -2384,7 +2420,7 @@ function LeadsResultPanel({
         {tiles.map((t) => (
           <div
             key={t.label}
-            className="rounded-xl border border-border bg-background/50 px-4 py-3.5"
+            className="border-border bg-background/50 rounded-xl border px-4 py-3.5"
           >
             <p
               className={cn(
@@ -2394,7 +2430,7 @@ function LeadsResultPanel({
             >
               {t.n}
             </p>
-            <p className="mt-1.5 text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+            <p className="text-muted-foreground mt-1.5 text-[11px] font-medium tracking-[0.08em] uppercase">
               {t.label}
             </p>
           </div>
@@ -2402,31 +2438,34 @@ function LeadsResultPanel({
       </div>
 
       {result.failed > 0 && (
-        <p className="flex items-center gap-1.5 text-xs text-red-foreground">
+        <p className="text-red-foreground flex items-center gap-1.5 text-xs">
           <XCircle className="size-3.5 shrink-0" />
           {result.failed} row{result.failed !== 1 ? 's' : ''} failed to write.
         </p>
       )}
 
       {result.remapped > 0 && remaps.length > 0 && (
-        <div className="rounded-xl border border-border bg-background/40 p-4">
-          <p className="text-[11px] font-semibold tracking-[0.13em] text-muted-foreground uppercase">
+        <div className="border-border bg-background/40 rounded-xl border p-4">
+          <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.13em] uppercase">
             {result.remapped} value{result.remapped !== 1 ? 's' : ''} remapped
             to your options
           </p>
           <div className="mt-2 space-y-1.5">
             {remaps.map((r, i) => (
-              <div key={i} className="flex min-w-0 items-center gap-1.5 text-xs">
-                <span className="truncate font-mono text-muted-foreground line-through">
+              <div
+                key={i}
+                className="flex min-w-0 items-center gap-1.5 text-xs"
+              >
+                <span className="text-muted-foreground truncate font-mono line-through">
                   {r.raw}
                 </span>
-                <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
+                <ArrowRight className="text-muted-foreground size-3 shrink-0" />
                 <RemapTarget
                   entry={r}
                   fieldOptions={fieldOptions}
                   nameById={nameById}
                 />
-                <span className="shrink-0 text-muted-foreground">
+                <span className="text-muted-foreground shrink-0">
                   ×{r.count}
                 </span>
               </div>
@@ -2438,7 +2477,7 @@ function LeadsResultPanel({
       {(result.tagsAssigned > 0 ||
         result.customValues > 0 ||
         result.invalidValues > 0) && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-muted-foreground text-xs">
           {result.tagsAssigned > 0 &&
             `${result.tagsAssigned} tag assignment${result.tagsAssigned !== 1 ? 's' : ''} applied`}
           {result.tagsAssigned > 0 && result.customValues > 0 && ' · '}

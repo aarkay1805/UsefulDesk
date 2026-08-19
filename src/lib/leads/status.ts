@@ -35,7 +35,9 @@ export const LEAD_COLUMN_BY_KEY: Record<LeadColumnKey, LeadColumn> =
   >;
 
 /** Board column a contact belongs to (NULL status → the "New" column). */
-export function leadColumnKey(status: LeadStatus | null | undefined): LeadColumnKey {
+export function leadColumnKey(
+  status: LeadStatus | null | undefined
+): LeadColumnKey {
   return status ?? 'new';
 }
 

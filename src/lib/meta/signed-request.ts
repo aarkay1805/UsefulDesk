@@ -1,4 +1,4 @@
-import crypto from 'node:crypto'
+import crypto from 'node:crypto';
 
 /**
  * Parse and verify a Meta `signed_request`.
@@ -23,65 +23,68 @@ import crypto from 'node:crypto'
  */
 export interface SignedRequestPayload {
   /** App-scoped Facebook user id (ASID) the request concerns. */
-  user_id: string
+  user_id: string;
   /** Meta always sends "HMAC-SHA256"; we reject anything else. */
-  algorithm?: string
+  algorithm?: string;
   /** Unix seconds the request was issued. */
-  issued_at?: number
-  [key: string]: unknown
+  issued_at?: number;
+  [key: string]: unknown;
 }
 
 export function parseSignedRequest(
   signedRequest: string | null | undefined,
-  appSecret: string,
+  appSecret: string
 ): SignedRequestPayload | null {
-  if (!appSecret) return null
+  if (!appSecret) return null;
   if (typeof signedRequest !== 'string' || !signedRequest.includes('.')) {
-    return null
+    return null;
   }
 
-  const dot = signedRequest.indexOf('.')
-  const encodedSig = signedRequest.slice(0, dot)
-  const encodedPayload = signedRequest.slice(dot + 1)
-  if (!encodedSig || !encodedPayload) return null
+  const dot = signedRequest.indexOf('.');
+  const encodedSig = signedRequest.slice(0, dot);
+  const encodedPayload = signedRequest.slice(dot + 1);
+  if (!encodedSig || !encodedPayload) return null;
 
-  let actual: Buffer
-  let expected: Buffer
+  let actual: Buffer;
+  let expected: Buffer;
   try {
-    actual = Buffer.from(encodedSig, 'base64url')
+    actual = Buffer.from(encodedSig, 'base64url');
     expected = crypto
       .createHmac('sha256', appSecret)
       .update(encodedPayload)
-      .digest()
+      .digest();
   } catch {
-    return null
+    return null;
   }
 
   // timingSafeEqual throws on length mismatch — check first.
-  if (actual.length !== expected.length) return null
-  if (!crypto.timingSafeEqual(actual, expected)) return null
+  if (actual.length !== expected.length) return null;
+  if (!crypto.timingSafeEqual(actual, expected)) return null;
 
-  let json: unknown
+  let json: unknown;
   try {
-    json = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'))
+    json = JSON.parse(
+      Buffer.from(encodedPayload, 'base64url').toString('utf8')
+    );
   } catch {
-    return null
+    return null;
   }
-  if (!json || typeof json !== 'object') return null
+  if (!json || typeof json !== 'object') return null;
 
-  const payload = json as SignedRequestPayload
+  const payload = json as SignedRequestPayload;
   if (typeof payload.user_id !== 'string' || payload.user_id.length === 0) {
-    return null
+    return null;
   }
 
   // Defensive: Meta signs with HMAC-SHA256. Reject any other declared
   // algorithm rather than trusting a payload that claims something else.
   if (
     payload.algorithm != null &&
-    String(payload.algorithm).toUpperCase().replace(/[-_]/g, '') !== 'HMACSHA256'
+    String(payload.algorithm).toUpperCase().replace(/[-_]/g, '') !==
+      'HMACSHA256'
   ) {
-    return null
+    return null;
   }
 
-  return payload
+  return payload;
 }

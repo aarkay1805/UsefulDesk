@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Wallet, CalendarDays, IndianRupee, AlertTriangle } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { Wallet, CalendarDays, IndianRupee, AlertTriangle } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { useLocale } from "@/hooks/use-locale";
-import { dayStartInTz, todayInTz } from "@/lib/locale/format";
-import { istAddDays } from "@/lib/memberships/expiry";
+import { createClient } from '@/lib/supabase/client';
+import { useLocale } from '@/hooks/use-locale';
+import { dayStartInTz, todayInTz } from '@/lib/locale/format';
+import { istAddDays } from '@/lib/memberships/expiry';
 
 interface PaymentSummaryTilesProps {
   /** Bump to refetch after a payment is recorded elsewhere. */
@@ -45,15 +45,17 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
       // Fetch from the earlier of the two window starts, as an instant at
       // that day's local midnight in the account's zone.
       const from = weekStart < monthStart ? weekStart : monthStart;
-      const fromInstant = (dayStartInTz(from, locale.timeZone) ?? new Date()).toISOString();
+      const fromInstant = (
+        dayStartInTz(from, locale.timeZone) ?? new Date()
+      ).toISOString();
 
       const [paymentsResult, duesResult] = await Promise.all([
         supabase
-          .from("payments")
-          .select("amount, paid_at")
-          .eq("status", "paid")
-          .gte("paid_at", fromInstant),
-        supabase.from("membership_dues").select("balance").gt("balance", 0),
+          .from('payments')
+          .select('amount, paid_at')
+          .eq('status', 'paid')
+          .gte('paid_at', fromInstant),
+        supabase.from('membership_dues').select('balance').gt('balance', 0),
       ]);
       if (cancelled) return;
       const error = paymentsResult.error ?? duesResult.error;
@@ -73,7 +75,10 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
         if (day >= weekStart) t.week += amt;
         if (day >= monthStart) t.month += amt;
       }
-      t.outstanding = (dues ?? []).reduce((s, d) => s + (Number(d.balance) || 0), 0);
+      t.outstanding = (dues ?? []).reduce(
+        (s, d) => s + (Number(d.balance) || 0),
+        0
+      );
 
       setTotals(t);
       setLoading(false);
@@ -85,24 +90,24 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
 
   const tiles = [
     {
-      label: "Collected today",
+      label: 'Collected today',
       value: totals.today,
-      icon: <IndianRupee className="size-4 text-emerald-foreground" />,
+      icon: <IndianRupee className="text-emerald-foreground size-4" />,
     },
     {
-      label: "Last 7 days",
+      label: 'Last 7 days',
       value: totals.week,
-      icon: <CalendarDays className="size-4 text-emerald-foreground" />,
+      icon: <CalendarDays className="text-emerald-foreground size-4" />,
     },
     {
-      label: "This month",
+      label: 'This month',
       value: totals.month,
-      icon: <Wallet className="size-4 text-emerald-foreground" />,
+      icon: <Wallet className="text-emerald-foreground size-4" />,
     },
     {
-      label: "Outstanding",
+      label: 'Outstanding',
       value: totals.outstanding,
-      icon: <AlertTriangle className="size-4 text-amber-foreground" />,
+      icon: <AlertTriangle className="text-amber-foreground size-4" />,
       accent: true,
     },
   ];
@@ -121,15 +126,18 @@ export function PaymentSummaryTiles({ reloadKey }: PaymentSummaryTilesProps) {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {tiles.map((t) => (
-        <div key={t.label} className="border-border bg-card rounded-xl border p-4">
+        <div
+          key={t.label}
+          className="border-border bg-card rounded-xl border p-4"
+        >
           <div className="text-muted-foreground flex items-center gap-2 text-xs">
             {t.icon}
             {t.label}
           </div>
           <div
-            className={`mt-2 text-xl font-semibold tabular-nums ${t.accent && t.value > 0 ? "text-amber-foreground" : "text-foreground"}`}
+            className={`mt-2 text-xl font-semibold tabular-nums ${t.accent && t.value > 0 ? 'text-amber-foreground' : 'text-foreground'}`}
           >
-            {loading ? "—" : fmt.money(t.value)}
+            {loading ? '—' : fmt.money(t.value)}
           </div>
         </div>
       ))}

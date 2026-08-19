@@ -36,9 +36,15 @@ describe('normalizeSubmittedPhone', () => {
   });
 
   it('keeps an explicitly international number as typed', () => {
-    expect(normalizeSubmittedPhone('+91 98765 43210', '+91')).toBe('919876543210');
-    expect(normalizeSubmittedPhone('+1 415 555 0123', '+91')).toBe('14155550123');
-    expect(normalizeSubmittedPhone('0091 98765 43210', '+91')).toBe('919876543210');
+    expect(normalizeSubmittedPhone('+91 98765 43210', '+91')).toBe(
+      '919876543210'
+    );
+    expect(normalizeSubmittedPhone('+1 415 555 0123', '+91')).toBe(
+      '14155550123'
+    );
+    expect(normalizeSubmittedPhone('0091 98765 43210', '+91')).toBe(
+      '919876543210'
+    );
   });
 
   it('does not double-prefix a number that already carries the dial code', () => {
@@ -54,7 +60,9 @@ describe('normalizeSubmittedPhone', () => {
   });
 
   it("handles Meta's p: prefix, which the digit strip eats", () => {
-    expect(normalizeSubmittedPhone('p:+919876543210', '+91')).toBe('919876543210');
+    expect(normalizeSubmittedPhone('p:+919876543210', '+91')).toBe(
+      '919876543210'
+    );
   });
 
   it('passes the number through when the account has no dial code', () => {
@@ -100,20 +108,30 @@ describe('validateCaptureSubmission', () => {
     );
     expect(result.ok).toBe(false);
     expect(!result.ok && result.errors).toEqual(
-      expect.arrayContaining(['name_required', 'phone_required', 'consent_required'])
+      expect.arrayContaining([
+        'name_required',
+        'phone_required',
+        'consent_required',
+      ])
     );
   });
 
   it('rejects consent that was not given, even when everything else is valid', () => {
     // The lead is worthless if we may not contact them, and storing it
     // anyway is the DPDP problem this whole audit trail exists to avoid.
-    const result = validateCaptureSubmission(submission({ consent: false }), IN);
+    const result = validateCaptureSubmission(
+      submission({ consent: false }),
+      IN
+    );
     expect(result.ok).toBe(false);
     expect(!result.ok && result.errors).toContain('consent_required');
   });
 
   it('rejects an unparseable phone', () => {
-    const result = validateCaptureSubmission(submission({ phone: 'call me' }), IN);
+    const result = validateCaptureSubmission(
+      submission({ phone: 'call me' }),
+      IN
+    );
     expect(result.ok).toBe(false);
     expect(!result.ok && result.errors).toContain('phone_invalid');
   });
@@ -122,7 +140,9 @@ describe('validateCaptureSubmission', () => {
     expect(
       validateCaptureSubmission(submission({ email: 'priya@gmail' }), IN).ok
     ).toBe(false);
-    expect(validateCaptureSubmission(submission({ email: '' }), IN).ok).toBe(true);
+    expect(validateCaptureSubmission(submission({ email: '' }), IN).ok).toBe(
+      true
+    );
     expect(
       validateCaptureSubmission(submission({ email: 'priya@gmail.com' }), IN).ok
     ).toBe(true);

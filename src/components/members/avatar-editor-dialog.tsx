@@ -1,18 +1,18 @@
-"use client";
+'use client';
 
-import { useCallback, useMemo, useRef, useState } from "react";
-import Cropper, { type Area } from "react-easy-crop";
+import { useCallback, useMemo, useRef, useState } from 'react';
+import Cropper, { type Area } from 'react-easy-crop';
 // v6 ships its structural CSS as a separate file (not auto-injected) —
 // without it the crop container has no positioning and collapses.
-import "react-easy-crop/react-easy-crop.css";
-import { toast } from "sonner";
-import { Loader2, Trash2, Upload } from "lucide-react";
+import 'react-easy-crop/react-easy-crop.css';
+import { toast } from 'sonner';
+import { Loader2, Trash2, Upload } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { getClipboardImageFile } from "@/lib/images/clipboard";
-import { cropToWebp } from "@/lib/images/optimize";
-import { UserAvatar } from "@/components/ui/user-avatar";
-import { Button } from "@/components/ui/button";
+import { createClient } from '@/lib/supabase/client';
+import { getClipboardImageFile } from '@/lib/images/clipboard';
+import { cropToWebp } from '@/lib/images/optimize';
+import { UserAvatar } from '@/components/ui/user-avatar';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -20,11 +20,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 
 // Bucket allows these (migration 008). We always re-encode to WebP, so
 // the accept list is just to filter the OS picker.
-const ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
+const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
 // Guard the raw pick before we even decode it — the canvas step brings
 // it down to a ~30 KB WebP regardless, but reject absurd originals early.
 const MAX_INPUT_BYTES = 15 * 1024 * 1024;
@@ -45,7 +45,7 @@ interface AvatarEditorDialogProps {
 // avatars public URL (e.g. an external/WhatsApp avatar).
 function avatarPathFromUrl(url: string | null | undefined): string | null {
   if (!url) return null;
-  const marker = "/object/public/avatars/";
+  const marker = '/object/public/avatars/';
   const i = url.indexOf(marker);
   return i === -1 ? null : decodeURIComponent(url.slice(i + marker.length));
 }
@@ -85,12 +85,12 @@ export function AvatarEditorDialog({
   }
 
   function readImageFile(file: File) {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Choose an image file.");
+    if (!file.type.startsWith('image/')) {
+      toast.error('Choose an image file.');
       return;
     }
     if (file.size > MAX_INPUT_BYTES) {
-      toast.error("That image is too large (max 15 MB).");
+      toast.error('That image is too large (max 15 MB).');
       return;
     }
     const reader = new FileReader();
@@ -100,13 +100,13 @@ export function AvatarEditorDialog({
       setAreaPx(null);
       setSrc(reader.result as string);
     };
-    reader.onerror = () => toast.error("Could not read that file.");
+    reader.onerror = () => toast.error('Could not read that file.');
     reader.readAsDataURL(file);
   }
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-picking the same file
+    e.target.value = ''; // allow re-picking the same file
     if (file) readImageFile(file);
   }
 
@@ -122,10 +122,10 @@ export function AvatarEditorDialog({
     // Chain .select('id') so an RLS-blocked write (zero rows, no error)
     // surfaces as a failure instead of a false success toast.
     const { data, error } = await supabase
-      .from("contacts")
+      .from('contacts')
       .update({ avatar_url: avatarUrl })
-      .eq("id", contactId)
-      .select("id");
+      .eq('id', contactId)
+      .select('id');
     if (error) throw new Error(error.message);
     if (!data || data.length === 0) {
       throw new Error("You don't have permission to update this member.");
@@ -134,10 +134,13 @@ export function AvatarEditorDialog({
     // own uploads; a miss is a harmless storage nit).
     const old = avatarPathFromUrl(currentUrl);
     if (old && old !== avatarPathFromUrl(avatarUrl)) {
-      void supabase.storage.from("avatars").remove([old]).then(
-        () => {},
-        () => {}
-      );
+      void supabase.storage
+        .from('avatars')
+        .remove([old])
+        .then(
+          () => {},
+          () => {}
+        );
     }
   }
 
@@ -148,31 +151,33 @@ export function AvatarEditorDialog({
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not signed in.");
+      if (!user) throw new Error('Not signed in.');
 
       const blob = await cropToWebp(src, areaPx);
       // Path first segment = auth.uid() → matches the avatars bucket RLS
       // (migration 008). Public read, so the URL renders in <img> directly.
       const path = `${user.id}/member-${contactId}-${Date.now()}.webp`;
       const { error: upErr } = await supabase.storage
-        .from("avatars")
+        .from('avatars')
         .upload(path, blob, {
-          cacheControl: "3600",
+          cacheControl: '3600',
           upsert: true,
-          contentType: "image/webp",
+          contentType: 'image/webp',
         });
       if (upErr) throw new Error(upErr.message);
 
       const {
         data: { publicUrl },
-      } = supabase.storage.from("avatars").getPublicUrl(path);
+      } = supabase.storage.from('avatars').getPublicUrl(path);
       await persist(publicUrl);
 
-      toast.success("Photo updated");
+      toast.success('Photo updated');
       onSaved();
       close();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not update photo");
+      toast.error(
+        err instanceof Error ? err.message : 'Could not update photo'
+      );
     } finally {
       setBusy(false);
     }
@@ -182,31 +187,34 @@ export function AvatarEditorDialog({
     setBusy(true);
     try {
       await persist(null);
-      toast.success("Photo removed");
+      toast.success('Photo removed');
       onSaved();
       close();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not remove photo");
+      toast.error(
+        err instanceof Error ? err.message : 'Could not remove photo'
+      );
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => (o ? onOpenChange(true) : close())}
+    >
       <DialogContent className="sm:max-w-md" onPaste={onPaste}>
         <DialogHeader>
-          <DialogTitle>{src ? "Crop photo" : "Member photo"}</DialogTitle>
+          <DialogTitle>{src ? 'Crop photo' : 'Member photo'}</DialogTitle>
           <DialogDescription>
-            {src
-              ? "Position and crop the photo."
-              : "Upload or paste a photo."}
+            {src ? 'Position and crop the photo.' : 'Upload or paste a photo.'}
           </DialogDescription>
         </DialogHeader>
 
         {src ? (
           <div className="space-y-3">
-            <div className="relative h-64 w-full overflow-hidden rounded-lg bg-muted">
+            <div className="bg-muted relative h-64 w-full overflow-hidden rounded-lg">
               <Cropper
                 image={src}
                 crop={crop}
@@ -240,7 +248,7 @@ export function AvatarEditorDialog({
               <img
                 src={currentUrl}
                 alt={name}
-                className="max-h-80 w-full max-w-xs rounded-lg border border-border object-contain"
+                className="border-border max-h-80 w-full max-w-xs rounded-lg border object-contain"
               />
             ) : (
               <UserAvatar
@@ -250,7 +258,7 @@ export function AvatarEditorDialog({
                 fallbackClassName="text-3xl"
               />
             )}
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               PNG, JPG, WebP or GIF — capped at 512px, compressed to WebP.
             </p>
           </div>
@@ -270,10 +278,7 @@ export function AvatarEditorDialog({
               <Button variant="outline" onClick={resetCrop} disabled={busy}>
                 Cancel
               </Button>
-              <Button
-                onClick={save}
-                disabled={busy || !areaPx}
-              >
+              <Button onClick={save} disabled={busy || !areaPx}>
                 {busy && <Loader2 className="size-4 animate-spin" />}
                 Save photo
               </Button>
@@ -281,11 +286,7 @@ export function AvatarEditorDialog({
           ) : (
             <>
               {currentUrl ? (
-                <Button
-                  variant="destructive"
-                  onClick={remove}
-                  disabled={busy}
-                >
+                <Button variant="destructive" onClick={remove} disabled={busy}>
                   {busy ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
@@ -298,7 +299,7 @@ export function AvatarEditorDialog({
               )}
               <Button onClick={() => fileRef.current?.click()} disabled={busy}>
                 <Upload className="size-4" />
-                {currentUrl ? "Change photo" : "Upload photo"}
+                {currentUrl ? 'Change photo' : 'Upload photo'}
               </Button>
             </>
           )}

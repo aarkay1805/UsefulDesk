@@ -49,7 +49,7 @@ export function AssigneeDisplay({
 export function PendingAssigneeDisplay({ name }: { name: string }) {
   return (
     <span
-      className="flex min-w-0 items-center gap-1.5 text-amber-foreground"
+      className="text-amber-foreground flex min-w-0 items-center gap-1.5"
       title={`Invite pending — ${name} hasn't joined yet`}
     >
       <UserAvatar
@@ -115,7 +115,11 @@ export function TransferPendingDisplay({
 
 /** Status options as coloured pills ('new' bucket included by caller). */
 export function statusCellOptions(statuses: LeadColumn[]): CellOption[] {
-  return statuses.map((c) => ({ value: c.key, label: c.label, color: c.color }));
+  return statuses.map((c) => ({
+    value: c.key,
+    label: c.label,
+    color: c.color,
+  }));
 }
 
 /** Source options with their brand glyph (dropdown shows logo + name). */
@@ -141,7 +145,7 @@ export function assigneeCellOptions(staff: StaffRef[]): CellOption[] {
 
 /** Map a custom field's data type to the inline editor's input kind. */
 export function customEditKind(
-  type?: string,
+  type?: string
 ): 'text' | 'email' | 'number' | 'date' | 'phone' {
   switch (type) {
     case 'currency':

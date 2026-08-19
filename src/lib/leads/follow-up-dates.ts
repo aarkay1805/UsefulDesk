@@ -14,7 +14,9 @@ export function addMonths(dateStr: string, months: number): string {
   const targetMonth = m - 1 + months;
   const targetYear = y + Math.floor(targetMonth / 12);
   const monthIndex = ((targetMonth % 12) + 12) % 12;
-  const daysInTarget = new Date(Date.UTC(targetYear, monthIndex + 1, 0)).getUTCDate();
+  const daysInTarget = new Date(
+    Date.UTC(targetYear, monthIndex + 1, 0)
+  ).getUTCDate();
   const day = Math.min(d, daysInTarget);
   const mm = String(monthIndex + 1).padStart(2, '0');
   const dd = String(day).padStart(2, '0');
@@ -85,7 +87,7 @@ export const REMINDER_SLOTS: { value: string; label: string }[] = Array.from(
       value: `${String(hour24).padStart(2, '0')}:00`,
       label: `${hour12}:00 ${suffix}`,
     };
-  },
+  }
 );
 
 /**
@@ -96,7 +98,7 @@ export const REMINDER_SLOTS: { value: string; label: string }[] = Array.from(
 export function remindAtInTz(
   dueDate: string,
   slot: string,
-  timeZone: string = 'Asia/Kolkata',
+  timeZone: string = 'Asia/Kolkata'
 ): string {
   const instant = timeInTzToUtc(dueDate, slot, timeZone);
   return (instant ?? new Date(`${dueDate}T${slot}:00+05:30`)).toISOString();
@@ -109,7 +111,7 @@ export function remindAtInTz(
  */
 export function slotFromRemindAt(
   remindAt: string | null | undefined,
-  timeZone: string = 'Asia/Kolkata',
+  timeZone: string = 'Asia/Kolkata'
 ): string {
   if (!remindAt) return '';
   const d = new Date(remindAt);
@@ -126,7 +128,7 @@ export function slotFromRemindAt(
 export function followUpDueLabel(
   taskType: string,
   dueDate: string,
-  today: string = istToday(),
+  today: string = istToday()
 ): string {
   const type =
     FOLLOW_UP_TASK_TYPES.find((t) => t.value === taskType)?.label ?? 'Task';

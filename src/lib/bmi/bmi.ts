@@ -9,10 +9,10 @@
 // Standard WHO BMI is gender- and age-independent: bmi = kg / m^2.
 // ============================================================
 
-export type BmiCategory = "underweight" | "normal" | "overweight" | "obese";
+export type BmiCategory = 'underweight' | 'normal' | 'overweight' | 'obese';
 
 /** Colour tone for the gauge arc — maps to the Badge tint family. */
-export type BmiTone = "info" | "success" | "warning" | "danger";
+export type BmiTone = 'info' | 'success' | 'warning' | 'danger';
 
 export interface BmiZone {
   category: BmiCategory;
@@ -26,10 +26,22 @@ export interface BmiZone {
 
 /** WHO adult BMI categories, low to high. */
 export const BMI_ZONES: readonly BmiZone[] = [
-  { category: "underweight", label: "Underweight", min: 0, max: 18.5, tone: "info" },
-  { category: "normal", label: "Normal", min: 18.5, max: 25, tone: "success" },
-  { category: "overweight", label: "Overweight", min: 25, max: 30, tone: "warning" },
-  { category: "obese", label: "Obese", min: 30, max: Infinity, tone: "danger" },
+  {
+    category: 'underweight',
+    label: 'Underweight',
+    min: 0,
+    max: 18.5,
+    tone: 'info',
+  },
+  { category: 'normal', label: 'Normal', min: 18.5, max: 25, tone: 'success' },
+  {
+    category: 'overweight',
+    label: 'Overweight',
+    min: 25,
+    max: 30,
+    tone: 'warning',
+  },
+  { category: 'obese', label: 'Obese', min: 30, max: Infinity, tone: 'danger' },
 ];
 
 /** Visible BMI range on the gauge dial (needle clamps to these). */
@@ -42,7 +54,7 @@ export const BMI_GAUGE_MAX = 40;
  */
 export function computeBmi(
   heightCm: number | null | undefined,
-  weightKg: number | null | undefined,
+  weightKg: number | null | undefined
 ): number | null {
   const h = Number(heightCm);
   const w = Number(weightKg);
@@ -98,7 +110,8 @@ export function cmToFeetInches(cm: number): FeetInches {
 
 /** { feet, inches } → cm (rounded to 1 dp to fit NUMERIC(5,2)). */
 export function feetInchesToCm(feet: number, inches: number): number {
-  const totalInches = (Number(feet) || 0) * INCHES_PER_FOOT + (Number(inches) || 0);
+  const totalInches =
+    (Number(feet) || 0) * INCHES_PER_FOOT + (Number(inches) || 0);
   return Math.round(totalInches * CM_PER_INCH * 10) / 10;
 }
 
@@ -109,5 +122,5 @@ export function kgToLb(kg: number): number {
 
 /** lb → kg (1 dp). */
 export function lbToKg(lb: number): number {
-  return Math.round((Number(lb) || 0) / LB_PER_KG * 10) / 10;
+  return Math.round(((Number(lb) || 0) / LB_PER_KG) * 10) / 10;
 }

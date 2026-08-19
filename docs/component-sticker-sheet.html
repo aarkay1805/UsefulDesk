@@ -10,7 +10,7 @@
     <title>UsefulDesk atomic component sticker sheet</title>
     <style>
       :root,
-      html[data-mode="dark"] {
+      html[data-mode='dark'] {
         --background: oklch(0.13 0.01 260);
         --foreground: oklch(0.985 0 0);
         --card: oklch(0.18 0.01 260);
@@ -30,7 +30,7 @@
         --radius: 10px;
       }
 
-      html[data-mode="light"] {
+      html[data-mode='light'] {
         --background: oklch(1 0 0);
         --foreground: oklch(0.21 0.01 260);
         --card: oklch(1 0 0);
@@ -50,7 +50,7 @@
       }
 
       :root,
-      html[data-theme="violet"] {
+      html[data-theme='violet'] {
         --primary: oklch(0.54 0.24 293);
         --primary-foreground: oklch(0.985 0 0);
         --primary-hover: oklch(0.49 0.24 293);
@@ -59,7 +59,7 @@
         --ring: oklch(0.54 0.24 293);
       }
 
-      html[data-theme="emerald"] {
+      html[data-theme='emerald'] {
         --primary: oklch(0.62 0.16 162);
         --primary-foreground: oklch(0.16 0.02 162);
         --primary-hover: oklch(0.68 0.15 162);
@@ -68,7 +68,7 @@
         --ring: oklch(0.62 0.16 162);
       }
 
-      html[data-theme="cobalt"] {
+      html[data-theme='cobalt'] {
         --primary: oklch(0.55 0.19 254);
         --primary-foreground: oklch(0.985 0 0);
         --primary-hover: oklch(0.5 0.19 254);
@@ -77,7 +77,7 @@
         --ring: oklch(0.55 0.19 254);
       }
 
-      html[data-theme="amber"] {
+      html[data-theme='amber'] {
         --primary: oklch(0.745 0.16 65);
         --primary-foreground: oklch(0.18 0.03 65);
         --primary-hover: oklch(0.8 0.15 65);
@@ -86,7 +86,7 @@
         --ring: oklch(0.745 0.16 65);
       }
 
-      html[data-theme="rose"] {
+      html[data-theme='rose'] {
         --primary: oklch(0.58 0.21 16);
         --primary-foreground: oklch(0.985 0 0);
         --primary-hover: oklch(0.53 0.21 16);
@@ -95,22 +95,30 @@
         --ring: oklch(0.58 0.21 16);
       }
 
-      html[data-mode="light"][data-theme="amber"] {
+      html[data-mode='light'][data-theme='amber'] {
         --ring: oklch(0.6 0.15 65);
       }
 
       :root {
-        --primary-text: color-mix(in oklch, var(--primary), var(--foreground) 38%);
+        --primary-text: color-mix(
+          in oklch,
+          var(--primary),
+          var(--foreground) 38%
+        );
         --success: oklch(0.48 0.14 160);
         --warning: oklch(0.55 0.14 70);
         --info: oklch(0.5 0.14 235);
         color-scheme: dark;
         font-family:
-          Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Inter,
+          ui-sans-serif,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
           sans-serif;
       }
 
-      html[data-mode="light"] {
+      html[data-mode='light'] {
         color-scheme: light;
       }
 
@@ -129,7 +137,9 @@
         color: var(--foreground);
         font-size: 14px;
         line-height: 1.5;
-        transition: background-color 160ms ease, color 160ms ease;
+        transition:
+          background-color 160ms ease,
+          color 160ms ease;
       }
 
       button,
@@ -141,7 +151,7 @@
       }
 
       button:not(:disabled),
-      [role="button"]:not([aria-disabled="true"]) {
+      [role='button']:not([aria-disabled='true']) {
         cursor: pointer;
       }
 
@@ -252,7 +262,7 @@
         transform: translateY(-58%);
         border: 1.5px solid var(--muted-foreground);
         border-radius: 50%;
-        content: "";
+        content: '';
         pointer-events: none;
       }
 
@@ -265,7 +275,7 @@
         transform: rotate(45deg);
         transform-origin: left center;
         background: var(--muted-foreground);
-        content: "";
+        content: '';
         pointer-events: none;
       }
 
@@ -277,7 +287,9 @@
         outline: none;
         background: var(--muted);
         padding: 0 76px 0 34px;
-        transition: border-color 150ms ease, box-shadow 150ms ease;
+        transition:
+          border-color 150ms ease,
+          box-shadow 150ms ease;
       }
 
       .sheet-search:focus {
@@ -344,10 +356,10 @@
         margin: auto;
         border-radius: 50%;
         background: var(--swatch);
-        content: "";
+        content: '';
       }
 
-      .accent-button[aria-pressed="true"]::after {
+      .accent-button[aria-pressed='true']::after {
         position: absolute;
         right: 4px;
         bottom: 3px;
@@ -355,12 +367,13 @@
         height: 2px;
         border-radius: 2px;
         background: var(--swatch);
-        content: "";
+        content: '';
       }
 
       .section-nav {
         overflow-x: auto;
-        border-top: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
+        border-top: 1px solid
+          color-mix(in oklab, var(--border) 72%, transparent);
         scrollbar-width: none;
       }
 
@@ -489,7 +502,9 @@
         border: 1px solid var(--border);
         border-radius: 14px;
         background: var(--card);
-        transition: border-color 150ms ease, transform 150ms ease;
+        transition:
+          border-color 150ms ease,
+          transform 150ms ease;
       }
 
       .sticker:hover {
@@ -624,7 +639,10 @@
         font-weight: 550;
         line-height: 1;
         white-space: nowrap;
-        transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease,
+        transition:
+          background-color 140ms ease,
+          color 140ms ease,
+          border-color 140ms ease,
           transform 80ms ease;
       }
 
@@ -642,7 +660,11 @@
       }
 
       .button.secondary:hover {
-        background: color-mix(in oklab, var(--secondary) 80%, var(--foreground));
+        background: color-mix(
+          in oklab,
+          var(--secondary) 80%,
+          var(--foreground)
+        );
       }
 
       .button.outline {
@@ -723,7 +745,9 @@
         border-radius: 8px;
         outline: none;
         background: transparent;
-        transition: border-color 150ms ease, box-shadow 150ms ease;
+        transition:
+          border-color 150ms ease,
+          box-shadow 150ms ease;
       }
 
       .field,
@@ -745,9 +769,10 @@
         box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 25%, transparent);
       }
 
-      .field[aria-invalid="true"] {
+      .field[aria-invalid='true'] {
         border-color: var(--destructive);
-        box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 16%, transparent);
+        box-shadow: 0 0 0 3px
+          color-mix(in oklab, var(--destructive) 16%, transparent);
       }
 
       .field:disabled,
@@ -989,12 +1014,12 @@
       }
 
       .chip:hover,
-      .chip[aria-pressed="true"] {
+      .chip[aria-pressed='true'] {
         background: var(--muted);
         color: var(--foreground);
       }
 
-      .chip[aria-pressed="true"] {
+      .chip[aria-pressed='true'] {
         border-color: color-mix(in oklab, var(--primary) 30%, transparent);
         background: var(--primary-soft);
         color: var(--primary-text);
@@ -1032,7 +1057,7 @@
         color: var(--foreground);
       }
 
-      .toolbar .tool[aria-pressed="true"] {
+      .toolbar .tool[aria-pressed='true'] {
         background: var(--primary-soft);
         color: var(--primary-text);
       }
@@ -1092,7 +1117,7 @@
 
       .checkbox:checked::after {
         color: var(--primary-foreground);
-        content: "✓";
+        content: '✓';
         font-size: 12px;
         font-weight: 800;
       }
@@ -1102,7 +1127,7 @@
         height: 2px;
         border-radius: 2px;
         background: var(--primary-foreground);
-        content: "";
+        content: '';
       }
 
       .radio {
@@ -1114,7 +1139,7 @@
         height: 8px;
         border-radius: 50%;
         background: var(--primary-foreground);
-        content: "";
+        content: '';
       }
 
       .switch {
@@ -1138,15 +1163,15 @@
         border-radius: 50%;
         background: var(--card);
         box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
-        content: "";
+        content: '';
         transition: transform 150ms ease;
       }
 
-      .switch[aria-checked="true"] {
+      .switch[aria-checked='true'] {
         background: var(--primary);
       }
 
-      .switch[aria-checked="true"]::after {
+      .switch[aria-checked='true']::after {
         transform: translateX(16px);
       }
 
@@ -1225,7 +1250,8 @@
         overflow: hidden;
         border-radius: 12px;
         background: var(--card);
-        box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent);
+        box-shadow: 0 0 0 1px
+          color-mix(in oklab, var(--foreground) 10%, transparent);
       }
 
       .sample-card-header,
@@ -1381,7 +1407,10 @@
         border-radius: 8px;
         background: var(--card);
         padding: 10px;
-        transition: opacity 180ms ease, max-height 240ms ease, padding 240ms ease,
+        transition:
+          opacity 180ms ease,
+          max-height 240ms ease,
+          padding 240ms ease,
           border-width 240ms ease;
       }
 
@@ -1415,7 +1444,7 @@
         font-weight: 550;
       }
 
-      .tab[aria-selected="true"] {
+      .tab[aria-selected='true'] {
         border-color: var(--input-border);
         background: var(--background);
         color: var(--foreground);
@@ -1429,14 +1458,14 @@
         padding: 0;
       }
 
-      .tabs-list.line .tab[aria-selected="true"] {
+      .tabs-list.line .tab[aria-selected='true'] {
         border-color: transparent;
         background: transparent;
         color: var(--primary-text);
         box-shadow: none;
       }
 
-      .tabs-list.line .tab[aria-selected="true"]::after {
+      .tabs-list.line .tab[aria-selected='true']::after {
         position: absolute;
         right: 0;
         bottom: -4px;
@@ -1444,7 +1473,7 @@
         height: 2px;
         border-radius: 2px;
         background: var(--primary);
-        content: "";
+        content: '';
       }
 
       .tab-panel {
@@ -1503,7 +1532,7 @@
         background: var(--muted);
       }
 
-      .day[aria-selected="true"] {
+      .day[aria-selected='true'] {
         background: var(--primary);
         color: var(--primary-foreground);
       }
@@ -1585,7 +1614,9 @@
         font-size: 11px;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 120ms ease, transform 120ms ease;
+        transition:
+          opacity 120ms ease,
+          transform 120ms ease;
       }
 
       .tooltip-wrap:hover .tooltip-bubble,
@@ -1763,18 +1794,63 @@
             placeholder="Search component, export, or behavior…"
             autocomplete="off"
           />
-          <span class="search-count" id="result-count" aria-live="polite">37 / 37</span>
+          <span class="search-count" id="result-count" aria-live="polite"
+            >37 / 37</span
+          >
         </label>
         <div class="header-tools">
           <div class="accent-control" aria-label="Accent color">
-            <button class="accent-button" style="--swatch: oklch(0.54 0.24 293)" type="button" data-theme-button="violet" aria-label="Violet accent" aria-pressed="true"></button>
-            <button class="accent-button" style="--swatch: oklch(0.62 0.16 162)" type="button" data-theme-button="emerald" aria-label="Emerald accent" aria-pressed="false"></button>
-            <button class="accent-button" style="--swatch: oklch(0.55 0.19 254)" type="button" data-theme-button="cobalt" aria-label="Cobalt accent" aria-pressed="false"></button>
-            <button class="accent-button" style="--swatch: oklch(0.745 0.16 65)" type="button" data-theme-button="amber" aria-label="Amber accent" aria-pressed="false"></button>
-            <button class="accent-button" style="--swatch: oklch(0.58 0.21 16)" type="button" data-theme-button="rose" aria-label="Rose accent" aria-pressed="false"></button>
+            <button
+              class="accent-button"
+              style="--swatch: oklch(0.54 0.24 293)"
+              type="button"
+              data-theme-button="violet"
+              aria-label="Violet accent"
+              aria-pressed="true"
+            ></button>
+            <button
+              class="accent-button"
+              style="--swatch: oklch(0.62 0.16 162)"
+              type="button"
+              data-theme-button="emerald"
+              aria-label="Emerald accent"
+              aria-pressed="false"
+            ></button>
+            <button
+              class="accent-button"
+              style="--swatch: oklch(0.55 0.19 254)"
+              type="button"
+              data-theme-button="cobalt"
+              aria-label="Cobalt accent"
+              aria-pressed="false"
+            ></button>
+            <button
+              class="accent-button"
+              style="--swatch: oklch(0.745 0.16 65)"
+              type="button"
+              data-theme-button="amber"
+              aria-label="Amber accent"
+              aria-pressed="false"
+            ></button>
+            <button
+              class="accent-button"
+              style="--swatch: oklch(0.58 0.21 16)"
+              type="button"
+              data-theme-button="rose"
+              aria-label="Rose accent"
+              aria-pressed="false"
+            ></button>
           </div>
           <div class="mode-control">
-            <button id="mode-toggle" class="icon-control" type="button" aria-label="Switch to dark mode" title="Switch color mode">◐</button>
+            <button
+              id="mode-toggle"
+              class="icon-control"
+              type="button"
+              aria-label="Switch to dark mode"
+              title="Switch color mode"
+            >
+              ◐
+            </button>
           </div>
         </div>
       </div>
@@ -1794,33 +1870,77 @@
       <section class="intro" aria-labelledby="sheet-title">
         <div>
           <div class="kicker">UsefulDesk · 37 shared UI source files</div>
-          <h2 id="sheet-title">One visual source for the product’s smallest building blocks.</h2>
+          <h2 id="sheet-title">
+            One visual source for the product’s smallest building blocks.
+          </h2>
           <p>
-            This standalone reference mirrors <code>src/components/ui</code>. It is for review and discovery; the React primitives remain the implementation source of truth.
+            This standalone reference mirrors <code>src/components/ui</code>. It
+            is for review and discovery; the React primitives remain the
+            implementation source of truth.
           </p>
         </div>
         <ol class="rules" aria-label="Component usage rules">
-          <li><span class="rule-number">1</span><span>Reuse the shared primitive without call-site visual overrides.</span></li>
-          <li><span class="rule-number">2</span><span>Keep the same business field label wherever that field appears.</span></li>
-          <li><span class="rule-number">3</span><span>Create new styling together, then promote it into the shared component.</span></li>
+          <li>
+            <span class="rule-number">1</span
+            ><span
+              >Reuse the shared primitive without call-site visual
+              overrides.</span
+            >
+          </li>
+          <li>
+            <span class="rule-number">2</span
+            ><span
+              >Keep the same business field label wherever that field
+              appears.</span
+            >
+          </li>
+          <li>
+            <span class="rule-number">3</span
+            ><span
+              >Create new styling together, then promote it into the shared
+              component.</span
+            >
+          </li>
         </ol>
       </section>
 
       <section class="component-section" id="actions" data-section>
         <div class="section-heading">
-          <div><div class="kicker">01 · 5 files</div><h2>Actions</h2></div>
-          <p>Buttons, chips, toolbars, and action helpers with the product’s canonical interaction states.</p>
+          <div>
+            <div class="kicker">01 · 5 files</div>
+            <h2>Actions</h2>
+          </div>
+          <p>
+            Buttons, chips, toolbars, and action helpers with the product’s
+            canonical interaction states.
+          </p>
         </div>
         <div class="sticker-grid">
-          <article class="sticker wide" data-component="button.tsx" data-keywords="button action cta variants default outline secondary ghost destructive link sizes icon">
-            <div class="sticker-header"><div><h3>Button</h3><p class="sticker-description">Seven variants and eight supported sizes.</p></div><code class="source-file">button.tsx</code></div>
+          <article
+            class="sticker wide"
+            data-component="button.tsx"
+            data-keywords="button action cta variants default outline secondary ghost destructive link sizes icon"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Button</h3>
+                <p class="sticker-description">
+                  Seven variants and eight supported sizes.
+                </p>
+              </div>
+              <code class="source-file">button.tsx</code>
+            </div>
             <div class="specimen">
               <div class="row">
                 <button class="button" type="button">Primary</button>
                 <button class="button outline" type="button">Outline</button>
-                <button class="button secondary" type="button">Secondary</button>
+                <button class="button secondary" type="button">
+                  Secondary
+                </button>
                 <button class="button ghost" type="button">Ghost</button>
-                <button class="button destructive-ghost" type="button">Remove</button>
+                <button class="button destructive-ghost" type="button">
+                  Remove
+                </button>
                 <button class="button destructive" type="button">Delete</button>
                 <button class="button link" type="button">View details</button>
               </div>
@@ -1829,56 +1949,163 @@
                 <button class="button sm" type="button">Small</button>
                 <button class="button" type="button">Default</button>
                 <button class="button lg" type="button">Large</button>
-                <button class="button icon" type="button" aria-label="Add">＋</button>
+                <button class="button icon" type="button" aria-label="Add">
+                  ＋
+                </button>
                 <button class="button" type="button" disabled>Disabled</button>
               </div>
             </div>
           </article>
 
-          <article class="sticker" data-component="gated-button.tsx" data-keywords="gated button role permissions read only disabled tooltip">
-            <div class="sticker-header"><div><h3>GatedButton</h3><p class="sticker-description">Role-aware Button with a wrapper tooltip.</p></div><code class="source-file">gated-button.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="gated-button.tsx"
+            data-keywords="gated button role permissions read only disabled tooltip"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>GatedButton</h3>
+                <p class="sticker-description">
+                  Role-aware Button with a wrapper tooltip.
+                </p>
+              </div>
+              <code class="source-file">gated-button.tsx</code>
+            </div>
             <div class="specimen center">
               <div class="row">
                 <button class="button" type="button">New broadcast</button>
-                <span title="Read-only — your role can't create broadcasts"><button class="button" type="button" disabled>New broadcast</button></span>
+                <span title="Read-only — your role can't create broadcasts"
+                  ><button class="button" type="button" disabled>
+                    New broadcast
+                  </button></span
+                >
               </div>
-              <div class="caption">Hover the disabled action to see the native gate explanation.</div>
+              <div class="caption">
+                Hover the disabled action to see the native gate explanation.
+              </div>
             </div>
           </article>
 
-          <article class="sticker" data-component="chip.tsx" data-keywords="chip group selected pressed pill filter single selection multiple selection due today upcoming">
-            <div class="sticker-header"><div><h3>Chips</h3><p class="sticker-description">One pill visual with single- or multi-selection behavior.</p></div><code class="source-file">chip.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="chip.tsx"
+            data-keywords="chip group selected pressed pill filter single selection multiple selection due today upcoming"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Chips</h3>
+                <p class="sticker-description">
+                  One pill visual with single- or multi-selection behavior.
+                </p>
+              </div>
+              <code class="source-file">chip.tsx</code>
+            </div>
             <div class="specimen">
-              <div class="stack"><span class="caption">Single selection</span><div class="row" data-single-chip role="group" aria-label="Due date">
-                <button class="chip" type="button" aria-pressed="false">Overdue</button>
-                <button class="chip" type="button" aria-pressed="true">Due today</button>
-                <button class="chip" type="button" aria-pressed="false">Upcoming</button>
-              </div></div>
-              <div class="stack"><span class="caption">Multiple selection</span><div class="row" data-multiple-chip role="group" aria-label="Quick filters">
-                <button class="chip" type="button" aria-pressed="true">Churn risk</button>
-                <button class="chip" type="button" aria-pressed="false">Fees due</button>
-                <button class="chip" type="button" aria-pressed="true">Follow-ups</button>
+              <div class="stack">
+                <span class="caption">Single selection</span>
+                <div
+                  class="row"
+                  data-single-chip
+                  role="group"
+                  aria-label="Due date"
+                >
+                  <button class="chip" type="button" aria-pressed="false">
+                    Overdue
+                  </button>
+                  <button class="chip" type="button" aria-pressed="true">
+                    Due today
+                  </button>
+                  <button class="chip" type="button" aria-pressed="false">
+                    Upcoming
+                  </button>
+                </div>
               </div>
+              <div class="stack">
+                <span class="caption">Multiple selection</span>
+                <div
+                  class="row"
+                  data-multiple-chip
+                  role="group"
+                  aria-label="Quick filters"
+                >
+                  <button class="chip" type="button" aria-pressed="true">
+                    Churn risk
+                  </button>
+                  <button class="chip" type="button" aria-pressed="false">
+                    Fees due
+                  </button>
+                  <button class="chip" type="button" aria-pressed="true">
+                    Follow-ups
+                  </button>
+                </div>
               </div>
             </div>
           </article>
 
-          <article class="sticker" data-component="toolbar.tsx" data-keywords="toolbar group button toggle group item separator segmented filters">
-            <div class="sticker-header"><div><h3>Toolbar family</h3><p class="sticker-description">Root, groups, buttons, toggle items, and separator.</p></div><code class="source-file">toolbar.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="toolbar.tsx"
+            data-keywords="toolbar group button toggle group item separator segmented filters"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Toolbar family</h3>
+                <p class="sticker-description">
+                  Root, groups, buttons, toggle items, and separator.
+                </p>
+              </div>
+              <code class="source-file">toolbar.tsx</code>
+            </div>
             <div class="specimen center">
-              <div class="toolbar" role="toolbar" aria-label="List view controls">
-                <button class="tool" type="button" aria-pressed="true">All <span class="badge neutral">24</span></button>
-                <button class="tool" type="button" aria-pressed="false">Mine <span class="badge neutral">8</span></button>
+              <div
+                class="toolbar"
+                role="toolbar"
+                aria-label="List view controls"
+              >
+                <button class="tool" type="button" aria-pressed="true">
+                  All <span class="badge neutral">24</span>
+                </button>
+                <button class="tool" type="button" aria-pressed="false">
+                  Mine <span class="badge neutral">8</span>
+                </button>
                 <button class="tool" type="button">Sort ↕</button>
               </div>
             </div>
           </article>
 
-          <article class="sticker" data-component="inline-edit-actions.tsx" data-keywords="inline edit actions save confirm dismiss cancel loading field">
-            <div class="sticker-header"><div><h3>InlineEditActions</h3><p class="sticker-description">Floating confirm and dismiss pair for active editors.</p></div><code class="source-file">inline-edit-actions.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="inline-edit-actions.tsx"
+            data-keywords="inline edit actions save confirm dismiss cancel loading field"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>InlineEditActions</h3>
+                <p class="sticker-description">
+                  Floating confirm and dismiss pair for active editors.
+                </p>
+              </div>
+              <code class="source-file">inline-edit-actions.tsx</code>
+            </div>
             <div class="specimen">
-              <label class="stack"><span class="field-label">Phone number</span><span class="inline-edit"><input class="field" value="+91 98765 43210" aria-label="Phone number" style="padding-right: 62px" /><span class="inline-actions"><button class="save" type="button" aria-label="Save">✓</button><button type="button" aria-label="Cancel">×</button></span></span></label>
-              <div class="caption">The input host reserves right padding for both 24px actions.</div>
+              <label class="stack"
+                ><span class="field-label">Phone number</span
+                ><span class="inline-edit"
+                  ><input
+                    class="field"
+                    value="+91 98765 43210"
+                    aria-label="Phone number"
+                    style="padding-right: 62px"
+                  /><span class="inline-actions"
+                    ><button class="save" type="button" aria-label="Save">
+                      ✓</button
+                    ><button type="button" aria-label="Cancel">×</button></span
+                  ></span
+                ></label
+              >
+              <div class="caption">
+                The input host reserves right padding for both 24px actions.
+              </div>
             </div>
           </article>
         </div>
@@ -1886,122 +2113,539 @@
 
       <section class="component-section" id="inputs" data-section>
         <div class="section-heading">
-          <div><div class="kicker">02 · 13 files</div><h2>Inputs &amp; selection</h2></div>
-          <p>Canonical fields stay unfilled; SearchInput is the deliberate muted-fill exception.</p>
+          <div>
+            <div class="kicker">02 · 13 files</div>
+            <h2>Inputs &amp; selection</h2>
+          </div>
+          <p>
+            Canonical fields stay unfilled; SearchInput is the deliberate
+            muted-fill exception.
+          </p>
         </div>
         <div class="sticker-grid">
-          <article class="sticker" data-component="input.tsx" data-keywords="input field text invalid disabled placeholder focus">
-            <div class="sticker-header"><div><h3>Input</h3><p class="sticker-description">Base one-line field and common states.</p></div><code class="source-file">input.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="input.tsx"
+            data-keywords="input field text invalid disabled placeholder focus"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Input</h3>
+                <p class="sticker-description">
+                  Base one-line field and common states.
+                </p>
+              </div>
+              <code class="source-file">input.tsx</code>
+            </div>
             <div class="specimen">
-              <input class="field" type="text" placeholder="Default input" aria-label="Default input" />
-              <input class="field" type="email" value="invalid@" aria-invalid="true" aria-label="Invalid email" />
-              <input class="field" type="text" value="Disabled value" disabled aria-label="Disabled input" />
+              <input
+                class="field"
+                type="text"
+                placeholder="Default input"
+                aria-label="Default input"
+              />
+              <input
+                class="field"
+                type="email"
+                value="invalid@"
+                aria-invalid="true"
+                aria-label="Invalid email"
+              />
+              <input
+                class="field"
+                type="text"
+                value="Disabled value"
+                disabled
+                aria-label="Disabled input"
+              />
             </div>
           </article>
 
-          <article class="sticker" data-component="label.tsx" data-keywords="label field form required disabled text 14 12 small compact">
-            <div class="sticker-header"><div><h3>Label</h3><p class="sticker-description">14px default and 12px normal-weight muted labels bound to their controls.</p></div><code class="source-file">label.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="label.tsx"
+            data-keywords="label field form required disabled text 14 12 small compact"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Label</h3>
+                <p class="sticker-description">
+                  14px default and 12px normal-weight muted labels bound to
+                  their controls.
+                </p>
+              </div>
+              <code class="source-file">label.tsx</code>
+            </div>
             <div class="specimen">
-              <label class="stack" for="label-sample"><span class="sample-label">Follow-up reason <span class="required" aria-hidden="true">*</span></span><input id="label-sample" class="field" placeholder="Enter a reason" /></label>
+              <label class="stack" for="label-sample"
+                ><span class="sample-label"
+                  >Follow-up reason
+                  <span class="required" aria-hidden="true">*</span></span
+                ><input
+                  id="label-sample"
+                  class="field"
+                  placeholder="Enter a reason"
+              /></label>
               <span class="sample-label sm">Compact follow-up label</span>
-              <label class="sample-label" style="opacity: .5"><input class="checkbox" type="checkbox" disabled /> Disabled label</label>
+              <label class="sample-label" style="opacity: 0.5"
+                ><input class="checkbox" type="checkbox" disabled /> Disabled
+                label</label
+              >
             </div>
           </article>
 
-          <article class="sticker" data-component="textarea.tsx" data-keywords="textarea multiline note message field">
-            <div class="sticker-header"><div><h3>Textarea</h3><p class="sticker-description">Growing multiline field with Input-aligned states.</p></div><code class="source-file">textarea.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="textarea.tsx"
+            data-keywords="textarea multiline note message field"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Textarea</h3>
+                <p class="sticker-description">
+                  Growing multiline field with Input-aligned states.
+                </p>
+              </div>
+              <code class="source-file">textarea.tsx</code>
+            </div>
             <div class="specimen">
-              <label class="stack"><span class="field-label">Note</span><textarea class="field" placeholder="Add context for the next follow-up…"></textarea></label>
+              <label class="stack"
+                ><span class="field-label">Note</span
+                ><textarea
+                  class="field"
+                  placeholder="Add context for the next follow-up…"
+                ></textarea>
+              </label>
             </div>
           </article>
 
-          <article class="sticker" data-component="search-input.tsx" data-keywords="search input toolbar picker muted fill icon query">
-            <div class="sticker-header"><div><h3>SearchInput</h3><p class="sticker-description">Single source for search fields across product surfaces.</p></div><code class="source-file">search-input.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="search-input.tsx"
+            data-keywords="search input toolbar picker muted fill icon query"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>SearchInput</h3>
+                <p class="sticker-description">
+                  Single source for search fields across product surfaces.
+                </p>
+              </div>
+              <code class="source-file">search-input.tsx</code>
+            </div>
             <div class="specimen">
-              <label class="search-field-wrap"><span class="search-glyph" aria-hidden="true">⌕</span><input class="field" type="search" placeholder="Search members…" aria-label="Search members" /></label>
-              <div class="caption">Muted fill, border-border, fixed glyph, padding, and radius.</div>
+              <label class="search-field-wrap"
+                ><span class="search-glyph" aria-hidden="true">⌕</span
+                ><input
+                  class="field"
+                  type="search"
+                  placeholder="Search members…"
+                  aria-label="Search members"
+              /></label>
+              <div class="caption">
+                Muted fill, border-border, fixed glyph, padding, and radius.
+              </div>
             </div>
           </article>
 
-          <article class="sticker" data-component="currency-input.tsx" data-keywords="currency input amount symbol locale grouping rupee dollar">
-            <div class="sticker-header"><div><h3>CurrencyInput</h3><p class="sticker-description">Input composition with a locale-aware amount adornment.</p></div><code class="source-file">currency-input.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="currency-input.tsx"
+            data-keywords="currency input amount symbol locale grouping rupee dollar"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>CurrencyInput</h3>
+                <p class="sticker-description">
+                  Input composition with a locale-aware amount adornment.
+                </p>
+              </div>
+              <code class="source-file">currency-input.tsx</code>
+            </div>
             <div class="specimen">
-              <label class="stack"><span class="field-label">Membership value</span><span class="currency-wrap"><span class="currency-symbol" aria-hidden="true">₹</span><input class="field" inputmode="decimal" value="1,00,000" aria-label="Membership value" /></span></label>
-              <div class="caption">Grouped display; callers store the raw numeric value.</div>
+              <label class="stack"
+                ><span class="field-label">Membership value</span
+                ><span class="currency-wrap"
+                  ><span class="currency-symbol" aria-hidden="true">₹</span
+                  ><input
+                    class="field"
+                    inputmode="decimal"
+                    value="1,00,000"
+                    aria-label="Membership value" /></span
+              ></label>
+              <div class="caption">
+                Grouped display; callers store the raw numeric value.
+              </div>
             </div>
           </article>
 
-          <article class="sticker" data-component="phone-input.tsx" data-keywords="phone input telephone mobile country code dial code locale localization prefix readonly disabled">
-            <div class="sticker-header"><div><h3>PhoneInput</h3><p class="sticker-description">Phone field with the account dialling code fixed by Localization settings.</p></div><code class="source-file">phone-input.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="phone-input.tsx"
+            data-keywords="phone input telephone mobile country code dial code locale localization prefix readonly disabled"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>PhoneInput</h3>
+                <p class="sticker-description">
+                  Phone field with the account dialling code fixed by
+                  Localization settings.
+                </p>
+              </div>
+              <code class="source-file">phone-input.tsx</code>
+            </div>
             <div class="specimen">
-              <label class="stack" for="phone-input-sample"><span class="field-label">Phone number</span><span class="phone-wrap"><span class="phone-country-code" aria-hidden="true">+91</span><input id="phone-input-sample" class="field" type="tel" inputmode="tel" autocomplete="tel-national" value="98765 43210" aria-describedby="phone-input-caption" /></span></label>
-              <div class="caption" id="phone-input-caption">The muted country code is read-only here and stays synced with Settings → Localization.</div>
+              <label class="stack" for="phone-input-sample"
+                ><span class="field-label">Phone number</span
+                ><span class="phone-wrap"
+                  ><span class="phone-country-code" aria-hidden="true">+91</span
+                  ><input
+                    id="phone-input-sample"
+                    class="field"
+                    type="tel"
+                    inputmode="tel"
+                    autocomplete="tel-national"
+                    value="98765 43210"
+                    aria-describedby="phone-input-caption" /></span
+              ></label>
+              <div class="caption" id="phone-input-caption">
+                The muted country code is read-only here and stays synced with
+                Settings → Localization.
+              </div>
             </div>
           </article>
 
-          <article class="sticker" data-component="date-picker.tsx" data-keywords="date picker calendar field popover today ymd locale">
-            <div class="sticker-header"><div><h3>DatePicker</h3><p class="sticker-description">Whole-field trigger with YYYY-MM-DD value contract.</p></div><code class="source-file">date-picker.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="date-picker.tsx"
+            data-keywords="date picker calendar field popover today ymd locale"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>DatePicker</h3>
+                <p class="sticker-description">
+                  Whole-field trigger with YYYY-MM-DD value contract.
+                </p>
+              </div>
+              <code class="source-file">date-picker.tsx</code>
+            </div>
             <div class="specimen">
-              <label class="stack"><span class="field-label">Due date</span><span class="popover-anchor"><button class="date-trigger" type="button" data-popup-target="date-menu" aria-controls="date-menu" aria-expanded="false"><span class="trigger-glyph">□</span><span id="date-value">18 Jul 2026</span></button><span class="popup" id="date-menu" hidden><span class="menu-label">Quick dates</span><button class="menu-item date-choice" type="button">Today <span class="menu-shortcut">18 Jul</span></button><button class="menu-item date-choice" type="button">Tomorrow <span class="menu-shortcut">19 Jul</span></button><div class="menu-separator"></div><button class="menu-item date-choice" type="button">Clear date</button></span></span></label>
+              <label class="stack"
+                ><span class="field-label">Due date</span
+                ><span class="popover-anchor"
+                  ><button
+                    class="date-trigger"
+                    type="button"
+                    data-popup-target="date-menu"
+                    aria-controls="date-menu"
+                    aria-expanded="false"
+                  >
+                    <span class="trigger-glyph">□</span
+                    ><span id="date-value">18 Jul 2026</span></button
+                  ><span class="popup" id="date-menu" hidden
+                    ><span class="menu-label">Quick dates</span
+                    ><button class="menu-item date-choice" type="button">
+                      Today <span class="menu-shortcut">18 Jul</span></button
+                    ><button class="menu-item date-choice" type="button">
+                      Tomorrow <span class="menu-shortcut">19 Jul</span>
+                    </button>
+                    <div class="menu-separator"></div>
+                    <button class="menu-item date-choice" type="button">
+                      Clear date
+                    </button></span
+                  ></span
+                ></label
+              >
             </div>
           </article>
 
-          <article class="sticker wide" data-component="calendar.tsx" data-keywords="calendar date month day picker navigation selected today dropdown">
-            <div class="sticker-header"><div><h3>Calendar</h3><p class="sticker-description">Design-system month grid used by DatePicker.</p></div><code class="source-file">calendar.tsx</code></div>
+          <article
+            class="sticker wide"
+            data-component="calendar.tsx"
+            data-keywords="calendar date month day picker navigation selected today dropdown"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Calendar</h3>
+                <p class="sticker-description">
+                  Design-system month grid used by DatePicker.
+                </p>
+              </div>
+              <code class="source-file">calendar.tsx</code>
+            </div>
             <div class="specimen center">
               <div class="calendar" aria-label="July 2026 calendar">
-                <div class="calendar-head"><button class="button ghost icon" type="button" aria-label="Previous month">‹</button><span class="calendar-title">July 2026</span><button class="button ghost icon" type="button" aria-label="Next month">›</button></div>
+                <div class="calendar-head">
+                  <button
+                    class="button ghost icon"
+                    type="button"
+                    aria-label="Previous month"
+                  >
+                    ‹</button
+                  ><span class="calendar-title">July 2026</span
+                  ><button
+                    class="button ghost icon"
+                    type="button"
+                    aria-label="Next month"
+                  >
+                    ›
+                  </button>
+                </div>
                 <div class="calendar-grid" role="grid">
-                  <span class="weekday">Su</span><span class="weekday">Mo</span><span class="weekday">Tu</span><span class="weekday">We</span><span class="weekday">Th</span><span class="weekday">Fr</span><span class="weekday">Sa</span>
-                  <span></span><span></span><span></span>
-                  <button class="day" type="button">1</button><button class="day" type="button">2</button><button class="day" type="button">3</button><button class="day" type="button">4</button>
-                  <button class="day" type="button">5</button><button class="day" type="button">6</button><button class="day" type="button">7</button><button class="day" type="button">8</button><button class="day" type="button">9</button><button class="day" type="button">10</button><button class="day" type="button">11</button>
-                  <button class="day" type="button">12</button><button class="day" type="button">13</button><button class="day" type="button">14</button><button class="day" type="button">15</button><button class="day" type="button">16</button><button class="day" type="button">17</button><button class="day today" type="button" aria-selected="true">18</button>
-                  <button class="day" type="button">19</button><button class="day" type="button">20</button><button class="day" type="button">21</button><button class="day" type="button">22</button><button class="day" type="button">23</button><button class="day" type="button">24</button><button class="day" type="button">25</button>
-                  <button class="day" type="button">26</button><button class="day" type="button">27</button><button class="day" type="button">28</button><button class="day" type="button">29</button><button class="day" type="button">30</button><button class="day" type="button">31</button>
+                  <span class="weekday">Su</span><span class="weekday">Mo</span
+                  ><span class="weekday">Tu</span><span class="weekday">We</span
+                  ><span class="weekday">Th</span><span class="weekday">Fr</span
+                  ><span class="weekday">Sa</span> <span></span><span></span
+                  ><span></span> <button class="day" type="button">1</button
+                  ><button class="day" type="button">2</button
+                  ><button class="day" type="button">3</button
+                  ><button class="day" type="button">4</button>
+                  <button class="day" type="button">5</button
+                  ><button class="day" type="button">6</button
+                  ><button class="day" type="button">7</button
+                  ><button class="day" type="button">8</button
+                  ><button class="day" type="button">9</button
+                  ><button class="day" type="button">10</button
+                  ><button class="day" type="button">11</button>
+                  <button class="day" type="button">12</button
+                  ><button class="day" type="button">13</button
+                  ><button class="day" type="button">14</button
+                  ><button class="day" type="button">15</button
+                  ><button class="day" type="button">16</button
+                  ><button class="day" type="button">17</button
+                  ><button class="day today" type="button" aria-selected="true">
+                    18
+                  </button>
+                  <button class="day" type="button">19</button
+                  ><button class="day" type="button">20</button
+                  ><button class="day" type="button">21</button
+                  ><button class="day" type="button">22</button
+                  ><button class="day" type="button">23</button
+                  ><button class="day" type="button">24</button
+                  ><button class="day" type="button">25</button>
+                  <button class="day" type="button">26</button
+                  ><button class="day" type="button">27</button
+                  ><button class="day" type="button">28</button
+                  ><button class="day" type="button">29</button
+                  ><button class="day" type="button">30</button
+                  ><button class="day" type="button">31</button>
                 </div>
               </div>
             </div>
           </article>
 
-          <article class="sticker" data-component="select.tsx" data-keywords="select trigger value content group label item separator dropdown scroll">
-            <div class="sticker-header"><div><h3>Select family</h3><p class="sticker-description">Short static lists with grouped menu parts.</p></div><code class="source-file">select.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="select.tsx"
+            data-keywords="select trigger value content group label item separator dropdown scroll"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Select family</h3>
+                <p class="sticker-description">
+                  Short static lists with grouped menu parts.
+                </p>
+              </div>
+              <code class="source-file">select.tsx</code>
+            </div>
             <div class="specimen top">
-              <label class="stack"><span class="field-label">Owner</span><span class="popover-anchor"><button class="select-trigger" type="button" data-popup-target="select-menu" aria-controls="select-menu" aria-expanded="false"><span data-select-value>Meera Shah</span><span class="trigger-glyph">⌄</span></button><span class="popup" id="select-menu" hidden><span class="menu-label">Team</span><button class="menu-item select-choice" type="button">Meera Shah <span class="menu-shortcut">✓</span></button><button class="menu-item select-choice" type="button">Aarav Mehta</button><button class="menu-item select-choice" type="button">Priya Rao</button><div class="menu-separator"></div><button class="menu-item" type="button" disabled>Unassigned</button></span></span></label>
+              <label class="stack"
+                ><span class="field-label">Owner</span
+                ><span class="popover-anchor"
+                  ><button
+                    class="select-trigger"
+                    type="button"
+                    data-popup-target="select-menu"
+                    aria-controls="select-menu"
+                    aria-expanded="false"
+                  >
+                    <span data-select-value>Meera Shah</span
+                    ><span class="trigger-glyph">⌄</span></button
+                  ><span class="popup" id="select-menu" hidden
+                    ><span class="menu-label">Team</span
+                    ><button class="menu-item select-choice" type="button">
+                      Meera Shah <span class="menu-shortcut">✓</span></button
+                    ><button class="menu-item select-choice" type="button">
+                      Aarav Mehta</button
+                    ><button class="menu-item select-choice" type="button">
+                      Priya Rao
+                    </button>
+                    <div class="menu-separator"></div>
+                    <button class="menu-item" type="button" disabled>
+                      Unassigned
+                    </button></span
+                  ></span
+                ></label
+              >
             </div>
           </article>
 
-          <article class="sticker" data-component="combobox.tsx" data-keywords="combobox searchable select groups options footer create search popover">
-            <div class="sticker-header"><div><h3>Combobox</h3><p class="sticker-description">Searchable select for lists too long to scan.</p></div><code class="source-file">combobox.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="combobox.tsx"
+            data-keywords="combobox searchable select groups options footer create search popover"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Combobox</h3>
+                <p class="sticker-description">
+                  Searchable select for lists too long to scan.
+                </p>
+              </div>
+              <code class="source-file">combobox.tsx</code>
+            </div>
             <div class="specimen top">
-              <label class="stack"><span class="field-label">Map to field</span><span class="popover-anchor"><button class="combobox-trigger" type="button" data-popup-target="combo-menu" aria-controls="combo-menu" aria-expanded="false"><span data-combo-value>Email address</span><span class="trigger-glyph">⌄</span></button><span class="popup" id="combo-menu" hidden><span class="search-field-wrap" style="display:block; margin: 2px 2px 5px"><span class="search-glyph" aria-hidden="true">⌕</span><input id="combo-search" class="field" type="search" placeholder="Search fields…" aria-label="Search fields" /></span><span class="menu-label">Member</span><span id="combo-options"><button class="menu-item combo-choice" type="button">Email address <span class="menu-shortcut">Text · ✓</span></button><button class="menu-item combo-choice" type="button">Phone number <span class="menu-shortcut">Phone</span></button><button class="menu-item combo-choice" type="button">Renewal date <span class="menu-shortcut">Date</span></button></span><div class="menu-separator"></div><button class="menu-item" type="button" style="color: var(--primary-text)">＋ Create new field…</button></span></span></label>
+              <label class="stack"
+                ><span class="field-label">Map to field</span
+                ><span class="popover-anchor"
+                  ><button
+                    class="combobox-trigger"
+                    type="button"
+                    data-popup-target="combo-menu"
+                    aria-controls="combo-menu"
+                    aria-expanded="false"
+                  >
+                    <span data-combo-value>Email address</span
+                    ><span class="trigger-glyph">⌄</span></button
+                  ><span class="popup" id="combo-menu" hidden
+                    ><span
+                      class="search-field-wrap"
+                      style="display: block; margin: 2px 2px 5px"
+                      ><span class="search-glyph" aria-hidden="true">⌕</span
+                      ><input
+                        id="combo-search"
+                        class="field"
+                        type="search"
+                        placeholder="Search fields…"
+                        aria-label="Search fields" /></span
+                    ><span class="menu-label">Member</span
+                    ><span id="combo-options"
+                      ><button class="menu-item combo-choice" type="button">
+                        Email address
+                        <span class="menu-shortcut">Text · ✓</span></button
+                      ><button class="menu-item combo-choice" type="button">
+                        Phone number
+                        <span class="menu-shortcut">Phone</span></button
+                      ><button class="menu-item combo-choice" type="button">
+                        Renewal date <span class="menu-shortcut">Date</span>
+                      </button></span
+                    >
+                    <div class="menu-separator"></div>
+                    <button
+                      class="menu-item"
+                      type="button"
+                      style="color: var(--primary-text)"
+                    >
+                      ＋ Create new field…
+                    </button></span
+                  ></span
+                ></label
+              >
             </div>
           </article>
 
-          <article class="sticker" data-component="checkbox.tsx" data-keywords="checkbox checked unchecked indeterminate disabled selection">
-            <div class="sticker-header"><div><h3>Checkbox</h3><p class="sticker-description">Unchecked, checked, indeterminate, and disabled.</p></div><code class="source-file">checkbox.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="checkbox.tsx"
+            data-keywords="checkbox checked unchecked indeterminate disabled selection"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Checkbox</h3>
+                <p class="sticker-description">
+                  Unchecked, checked, indeterminate, and disabled.
+                </p>
+              </div>
+              <code class="source-file">checkbox.tsx</code>
+            </div>
             <div class="specimen">
-              <label class="choice-row"><input class="checkbox" type="checkbox" /> Email reminder</label>
-              <label class="choice-row"><input class="checkbox" type="checkbox" checked /> Include a note</label>
-              <label class="choice-row"><input id="mixed-checkbox" class="checkbox" type="checkbox" /> Some members selected</label>
-              <label class="choice-row" style="opacity:.5"><input class="checkbox" type="checkbox" disabled /> Locked setting</label>
+              <label class="choice-row"
+                ><input class="checkbox" type="checkbox" /> Email
+                reminder</label
+              >
+              <label class="choice-row"
+                ><input class="checkbox" type="checkbox" checked /> Include a
+                note</label
+              >
+              <label class="choice-row"
+                ><input id="mixed-checkbox" class="checkbox" type="checkbox" />
+                Some members selected</label
+              >
+              <label class="choice-row" style="opacity: 0.5"
+                ><input class="checkbox" type="checkbox" disabled /> Locked
+                setting</label
+              >
             </div>
           </article>
 
-          <article class="sticker" data-component="radio-group.tsx" data-keywords="radio group item single selection checked">
-            <div class="sticker-header"><div><h3>RadioGroup family</h3><p class="sticker-description">Single-value selection with labelled items.</p></div><code class="source-file">radio-group.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="radio-group.tsx"
+            data-keywords="radio group item single selection checked"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>RadioGroup family</h3>
+                <p class="sticker-description">
+                  Single-value selection with labelled items.
+                </p>
+              </div>
+              <code class="source-file">radio-group.tsx</code>
+            </div>
             <div class="specimen">
-              <label class="choice-row"><input class="radio" type="radio" name="reminder" checked /> 15 minutes before</label>
-              <label class="choice-row"><input class="radio" type="radio" name="reminder" /> 1 hour before</label>
-              <label class="choice-row"><input class="radio" type="radio" name="reminder" /> 1 day before</label>
+              <label class="choice-row"
+                ><input class="radio" type="radio" name="reminder" checked /> 15
+                minutes before</label
+              >
+              <label class="choice-row"
+                ><input class="radio" type="radio" name="reminder" /> 1 hour
+                before</label
+              >
+              <label class="choice-row"
+                ><input class="radio" type="radio" name="reminder" /> 1 day
+                before</label
+              >
             </div>
           </article>
 
-          <article class="sticker" data-component="switch.tsx" data-keywords="switch on off checked unchecked setting toggle">
-            <div class="sticker-header"><div><h3>Switch</h3><p class="sticker-description">Binary setting with a primary checked state.</p></div><code class="source-file">switch.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="switch.tsx"
+            data-keywords="switch on off checked unchecked setting toggle"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Switch</h3>
+                <p class="sticker-description">
+                  Binary setting with a primary checked state.
+                </p>
+              </div>
+              <code class="source-file">switch.tsx</code>
+            </div>
             <div class="specimen">
-              <div class="choice-row" style="justify-content:space-between"><span><strong>Reminder</strong><br /><span class="caption">Notify the assignee before this is due.</span></span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Reminder"></button></div>
-              <div class="choice-row" style="justify-content:space-between"><span>Repeat follow-up</span><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Repeat follow-up"></button></div>
+              <div class="choice-row" style="justify-content: space-between">
+                <span
+                  ><strong>Reminder</strong><br /><span class="caption"
+                    >Notify the assignee before this is due.</span
+                  ></span
+                ><button
+                  class="switch"
+                  type="button"
+                  role="switch"
+                  aria-checked="true"
+                  aria-label="Reminder"
+                ></button>
+              </div>
+              <div class="choice-row" style="justify-content: space-between">
+                <span>Repeat follow-up</span
+                ><button
+                  class="switch"
+                  type="button"
+                  role="switch"
+                  aria-checked="false"
+                  aria-label="Repeat follow-up"
+                ></button>
+              </div>
             </div>
           </article>
         </div>
@@ -2009,102 +2653,445 @@
 
       <section class="component-section" id="display" data-section>
         <div class="section-heading">
-          <div><div class="kicker">03 · 10 files</div><h2>Data display</h2></div>
-          <p>Identity, status, progress, containers, feedback, and structured data primitives.</p>
+          <div>
+            <div class="kicker">03 · 10 files</div>
+            <h2>Data display</h2>
+          </div>
+          <p>
+            Identity, status, progress, containers, feedback, and structured
+            data primitives.
+          </p>
         </div>
         <div class="sticker-grid">
-          <article class="sticker" data-component="avatar.tsx" data-keywords="avatar image fallback badge group count sizes person identity borderless">
-            <div class="sticker-header"><div><h3>Avatar family</h3><p class="sticker-description">Root, image/fallback, badge, group, and count.</p></div><code class="source-file">avatar.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="avatar.tsx"
+            data-keywords="avatar image fallback badge group count sizes person identity borderless"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Avatar family</h3>
+                <p class="sticker-description">
+                  Root, image/fallback, badge, group, and count.
+                </p>
+              </div>
+              <code class="source-file">avatar.tsx</code>
+            </div>
             <div class="specimen">
-              <div class="row"><span class="avatar sm">A</span><span class="avatar">M<span class="avatar-badge"></span></span><span class="avatar lg">P</span></div>
-              <div class="avatar-group" aria-label="Assigned teammates"><span class="avatar primary">M</span><span class="avatar" style="background: color-mix(in oklab, oklch(0.68 0.16 235) 18%, var(--card)); color: var(--info)">A</span><span class="avatar" style="background: color-mix(in oklab, oklch(0.65 0.17 155) 18%, var(--card)); color: var(--success)">P</span><span class="avatar">+4</span></div>
-              <div class="caption">Avatars remain borderless across sizes and groups.</div>
-            </div>
-          </article>
-
-          <article class="sticker" data-component="user-avatar.tsx" data-keywords="user avatar person teammate photo initials fallback primary tint">
-            <div class="sticker-header"><div><h3>UserAvatar</h3><p class="sticker-description">Canonical person avatar with photo or initial fallback.</p></div><code class="source-file">user-avatar.tsx</code></div>
-            <div class="specimen center">
-              <div class="row"><span class="avatar primary lg">M<span class="avatar-badge"></span></span><span><strong>Meera Shah</strong><br /><span class="caption">Fallback initial · online</span></span></div>
-            </div>
-          </article>
-
-          <article class="sticker wide" data-component="badge.tsx" data-keywords="badge status pill tag default secondary destructive outline ghost link success danger warning info violet neutral tinted">
-            <div class="sticker-header"><div><h3>Badge</h3><p class="sticker-description">Canonical fill-only status pills plus core variants.</p></div><code class="source-file">badge.tsx</code></div>
-            <div class="specimen">
-              <div class="row"><span class="badge">Default</span><span class="badge secondary">Secondary</span><span class="badge outline">Outline</span><span class="badge ghost">Ghost</span><span class="badge link">Link</span></div>
-              <div class="row"><span class="badge success">Active</span><span class="badge danger">Overdue</span><span class="badge warning">Due today</span><span class="badge info">Scheduled</span><span class="badge violet">Renewal</span><span class="badge neutral">Admin tag</span><span class="badge" style="--badge-tint:#db2777;background:color-mix(in srgb,var(--badge-tint) 10%,transparent);color:color-mix(in oklab,var(--badge-tint) 65%,var(--foreground))">Dynamic tint</span></div>
-              <div class="caption">Status badges use tint fill without an outline. Do not override height, type, padding, radius, or color at call sites.</div>
-            </div>
-          </article>
-
-          <article class="sticker" data-component="animated-number.tsx" data-keywords="animated number counter kpi motion reduced motion format currency">
-            <div class="sticker-header"><div><h3>AnimatedNumber</h3><p class="sticker-description">Count-up KPI that honours reduced motion.</p></div><code class="source-file">animated-number.tsx</code></div>
-            <div class="specimen center">
-              <span class="animated-number" id="animated-number">1,248</span>
-              <span class="caption">Active members</span>
-              <button class="button outline sm" id="replay-number" type="button">Replay</button>
-            </div>
-          </article>
-
-          <article class="sticker" data-component="progress.tsx" data-keywords="progress bar determinate value max percentage fill track">
-            <div class="sticker-header"><div><h3>Progress</h3><p class="sticker-description">Determinate muted track with primary fill.</p></div><code class="source-file">progress.tsx</code></div>
-            <div class="specimen">
-              <div class="stack"><div class="row" style="justify-content:space-between"><span>Profile completion</span><span class="caption" id="progress-label">72%</span></div><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="72"><span id="progress-fill" style="--value:72%"></span></div></div>
-              <button class="button outline sm" id="advance-progress" type="button">Advance</button>
-            </div>
-          </article>
-
-          <article class="sticker" data-component="card.tsx" data-keywords="card header title description action content footer small container">
-            <div class="sticker-header"><div><h3>Card family</h3><p class="sticker-description">Container, header, title, description, action, content, and footer.</p></div><code class="source-file">card.tsx</code></div>
-            <div class="specimen">
-              <div class="sample-card">
-                <div class="sample-card-header"><span><span class="sample-card-title">Renewal summary</span><br /><span class="caption">July 2026</span></span><button class="button ghost icon" type="button" aria-label="More options">•••</button></div>
-                <div class="sample-card-content">18 members renew this month, with ₹2.4L in projected value.</div>
-                <div class="sample-card-footer"><button class="button link" type="button">Review renewals</button></div>
+              <div class="row">
+                <span class="avatar sm">A</span
+                ><span class="avatar">M<span class="avatar-badge"></span></span
+                ><span class="avatar lg">P</span>
+              </div>
+              <div class="avatar-group" aria-label="Assigned teammates">
+                <span class="avatar primary">M</span
+                ><span
+                  class="avatar"
+                  style="
+                    background: color-mix(
+                      in oklab,
+                      oklch(0.68 0.16 235) 18%,
+                      var(--card)
+                    );
+                    color: var(--info);
+                  "
+                  >A</span
+                ><span
+                  class="avatar"
+                  style="
+                    background: color-mix(
+                      in oklab,
+                      oklch(0.65 0.17 155) 18%,
+                      var(--card)
+                    );
+                    color: var(--success);
+                  "
+                  >P</span
+                ><span class="avatar">+4</span>
+              </div>
+              <div class="caption">
+                Avatars remain borderless across sizes and groups.
               </div>
             </div>
           </article>
 
-          <article class="sticker" data-component="alert.tsx" data-keywords="alert title description action feedback destructive error default">
-            <div class="sticker-header"><div><h3>Alert family</h3><p class="sticker-description">Default and destructive feedback containers.</p></div><code class="source-file">alert.tsx</code></div>
-            <div class="specimen">
-              <div class="alert" role="alert"><span class="alert-title">Import ready</span><span class="alert-description">248 rows passed validation.</span></div>
-              <div class="alert destructive" role="alert"><span class="alert-title">3 rows need attention</span><span class="alert-description">Email address is missing or invalid.</span><button class="button link" type="button" style="position:absolute;right:10px;top:9px;color:inherit">Review</button></div>
+          <article
+            class="sticker"
+            data-component="user-avatar.tsx"
+            data-keywords="user avatar person teammate photo initials fallback primary tint"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>UserAvatar</h3>
+                <p class="sticker-description">
+                  Canonical person avatar with photo or initial fallback.
+                </p>
+              </div>
+              <code class="source-file">user-avatar.tsx</code>
+            </div>
+            <div class="specimen center">
+              <div class="row">
+                <span class="avatar primary lg"
+                  >M<span class="avatar-badge"></span></span
+                ><span
+                  ><strong>Meera Shah</strong><br /><span class="caption"
+                    >Fallback initial · online</span
+                  ></span
+                >
+              </div>
             </div>
           </article>
 
-          <article class="sticker" data-component="separator.tsx" data-keywords="separator divider horizontal vertical orientation">
-            <div class="sticker-header"><div><h3>Separator</h3><p class="sticker-description">Horizontal and vertical content division.</p></div><code class="source-file">separator.tsx</code></div>
+          <article
+            class="sticker wide"
+            data-component="badge.tsx"
+            data-keywords="badge status pill tag default secondary destructive outline ghost link success danger warning info violet neutral tinted"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Badge</h3>
+                <p class="sticker-description">
+                  Canonical fill-only status pills plus core variants.
+                </p>
+              </div>
+              <code class="source-file">badge.tsx</code>
+            </div>
+            <div class="specimen">
+              <div class="row">
+                <span class="badge">Default</span
+                ><span class="badge secondary">Secondary</span
+                ><span class="badge outline">Outline</span
+                ><span class="badge ghost">Ghost</span
+                ><span class="badge link">Link</span>
+              </div>
+              <div class="row">
+                <span class="badge success">Active</span
+                ><span class="badge danger">Overdue</span
+                ><span class="badge warning">Due today</span
+                ><span class="badge info">Scheduled</span
+                ><span class="badge violet">Renewal</span
+                ><span class="badge neutral">Admin tag</span
+                ><span
+                  class="badge"
+                  style="
+                    --badge-tint: #db2777;
+                    background: color-mix(
+                      in srgb,
+                      var(--badge-tint) 10%,
+                      transparent
+                    );
+                    color: color-mix(
+                      in oklab,
+                      var(--badge-tint) 65%,
+                      var(--foreground)
+                    );
+                  "
+                  >Dynamic tint</span
+                >
+              </div>
+              <div class="caption">
+                Status badges use tint fill without an outline. Do not override
+                height, type, padding, radius, or color at call sites.
+              </div>
+            </div>
+          </article>
+
+          <article
+            class="sticker"
+            data-component="animated-number.tsx"
+            data-keywords="animated number counter kpi motion reduced motion format currency"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>AnimatedNumber</h3>
+                <p class="sticker-description">
+                  Count-up KPI that honours reduced motion.
+                </p>
+              </div>
+              <code class="source-file">animated-number.tsx</code>
+            </div>
             <div class="specimen center">
-              <div class="row" style="width:100%"><span>Details</span><span class="separator vertical" role="separator" aria-orientation="vertical"></span><span>Activity</span></div>
+              <span class="animated-number" id="animated-number">1,248</span>
+              <span class="caption">Active members</span>
+              <button
+                class="button sm outline"
+                id="replay-number"
+                type="button"
+              >
+                Replay
+              </button>
+            </div>
+          </article>
+
+          <article
+            class="sticker"
+            data-component="progress.tsx"
+            data-keywords="progress bar determinate value max percentage fill track"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Progress</h3>
+                <p class="sticker-description">
+                  Determinate muted track with primary fill.
+                </p>
+              </div>
+              <code class="source-file">progress.tsx</code>
+            </div>
+            <div class="specimen">
+              <div class="stack">
+                <div class="row" style="justify-content: space-between">
+                  <span>Profile completion</span
+                  ><span class="caption" id="progress-label">72%</span>
+                </div>
+                <div
+                  class="progress"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="72"
+                >
+                  <span id="progress-fill" style="--value: 72%"></span>
+                </div>
+              </div>
+              <button
+                class="button sm outline"
+                id="advance-progress"
+                type="button"
+              >
+                Advance
+              </button>
+            </div>
+          </article>
+
+          <article
+            class="sticker"
+            data-component="card.tsx"
+            data-keywords="card header title description action content footer small container"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Card family</h3>
+                <p class="sticker-description">
+                  Container, header, title, description, action, content, and
+                  footer.
+                </p>
+              </div>
+              <code class="source-file">card.tsx</code>
+            </div>
+            <div class="specimen">
+              <div class="sample-card">
+                <div class="sample-card-header">
+                  <span
+                    ><span class="sample-card-title">Renewal summary</span
+                    ><br /><span class="caption">July 2026</span></span
+                  ><button
+                    class="button ghost icon"
+                    type="button"
+                    aria-label="More options"
+                  >
+                    •••
+                  </button>
+                </div>
+                <div class="sample-card-content">
+                  18 members renew this month, with ₹2.4L in projected value.
+                </div>
+                <div class="sample-card-footer">
+                  <button class="button link" type="button">
+                    Review renewals
+                  </button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article
+            class="sticker"
+            data-component="alert.tsx"
+            data-keywords="alert title description action feedback destructive error default"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Alert family</h3>
+                <p class="sticker-description">
+                  Default and destructive feedback containers.
+                </p>
+              </div>
+              <code class="source-file">alert.tsx</code>
+            </div>
+            <div class="specimen">
+              <div class="alert" role="alert">
+                <span class="alert-title">Import ready</span
+                ><span class="alert-description"
+                  >248 rows passed validation.</span
+                >
+              </div>
+              <div class="alert destructive" role="alert">
+                <span class="alert-title">3 rows need attention</span
+                ><span class="alert-description"
+                  >Email address is missing or invalid.</span
+                ><button
+                  class="button link"
+                  type="button"
+                  style="
+                    position: absolute;
+                    right: 10px;
+                    top: 9px;
+                    color: inherit;
+                  "
+                >
+                  Review
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article
+            class="sticker"
+            data-component="separator.tsx"
+            data-keywords="separator divider horizontal vertical orientation"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Separator</h3>
+                <p class="sticker-description">
+                  Horizontal and vertical content division.
+                </p>
+              </div>
+              <code class="source-file">separator.tsx</code>
+            </div>
+            <div class="specimen center">
+              <div class="row" style="width: 100%">
+                <span>Details</span
+                ><span
+                  class="separator vertical"
+                  role="separator"
+                  aria-orientation="vertical"
+                ></span
+                ><span>Activity</span>
+              </div>
               <span class="separator horizontal" role="separator"></span>
             </div>
           </article>
 
-          <article class="sticker wide" data-component="table.tsx" data-keywords="table container header body footer row head cell caption data grid columns">
-            <div class="sticker-header"><div><h3>Table family</h3><p class="sticker-description">Responsive table container and every semantic table part.</p></div><code class="source-file">table.tsx</code></div>
+          <article
+            class="sticker wide"
+            data-component="table.tsx"
+            data-keywords="table container header body footer row head cell caption data grid columns"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Table family</h3>
+                <p class="sticker-description">
+                  Responsive table container and every semantic table part.
+                </p>
+              </div>
+              <code class="source-file">table.tsx</code>
+            </div>
             <div class="specimen">
               <div class="table-wrap">
                 <table class="sample-table">
-                  <caption style="caption-side:bottom;padding:9px;color:var(--muted-foreground)">Showing 2 of 1,248 members</caption>
-                  <thead><tr><th scope="col">Member details</th><th scope="col">Status</th><th scope="col">Renewal date</th><th scope="col">Owner</th></tr></thead>
-                  <tbody><tr><td><strong>Ananya Iyer</strong><br /><span class="caption">ananya@example.com</span></td><td><span class="badge success">Active</span></td><td>24 Jul 2026</td><td>Meera Shah</td></tr><tr><td><strong>Kabir Singh</strong><br /><span class="caption">kabir@example.com</span></td><td><span class="badge warning">Due today</span></td><td>18 Jul 2026</td><td>Aarav Mehta</td></tr></tbody>
-                  <tfoot><tr><td colspan="4" style="background:color-mix(in oklab,var(--muted) 50%,transparent);font-weight:550">Total projected renewal value · ₹2,40,000</td></tr></tfoot>
+                  <caption
+                    style="
+                      caption-side: bottom;
+                      padding: 9px;
+                      color: var(--muted-foreground);
+                    "
+                  >
+                    Showing 2 of 1,248 members
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Member details</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Renewal date</th>
+                      <th scope="col">Owner</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        <strong>Ananya Iyer</strong><br /><span class="caption"
+                          >ananya@example.com</span
+                        >
+                      </td>
+                      <td><span class="badge success">Active</span></td>
+                      <td>24 Jul 2026</td>
+                      <td>Meera Shah</td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>Kabir Singh</strong><br /><span class="caption"
+                          >kabir@example.com</span
+                        >
+                      </td>
+                      <td><span class="badge warning">Due today</span></td>
+                      <td>18 Jul 2026</td>
+                      <td>Aarav Mehta</td>
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td
+                        colspan="4"
+                        style="
+                          background: color-mix(
+                            in oklab,
+                            var(--muted) 50%,
+                            transparent
+                          );
+                          font-weight: 550;
+                        "
+                      >
+                        Total projected renewal value · ₹2,40,000
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
           </article>
 
-          <article class="sticker" data-component="scroll-area.tsx" data-keywords="scroll area viewport scrollbar thumb overflow list">
-            <div class="sticker-header"><div><h3>ScrollArea family</h3><p class="sticker-description">Viewport, scrollbar, thumb, and corner.</p></div><code class="source-file">scroll-area.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="scroll-area.tsx"
+            data-keywords="scroll area viewport scrollbar thumb overflow list"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>ScrollArea family</h3>
+                <p class="sticker-description">
+                  Viewport, scrollbar, thumb, and corner.
+                </p>
+              </div>
+              <code class="source-file">scroll-area.tsx</code>
+            </div>
             <div class="specimen">
               <div class="scroll-box" tabindex="0" aria-label="Recent activity">
-                <div class="scroll-row"><strong>Note added</strong><br /><span class="caption">Asked to call after 5pm.</span></div>
-                <div class="scroll-row"><strong>Follow-up assigned</strong><br /><span class="caption">Renewal · Meera Shah</span></div>
-                <div class="scroll-row"><strong>Status changed</strong><br /><span class="caption">Lead → Member</span></div>
-                <div class="scroll-row"><strong>Payment recorded</strong><br /><span class="caption">₹12,000 · UPI</span></div>
-                <div class="scroll-row"><strong>Tag added</strong><br /><span class="caption">Annual plan</span></div>
+                <div class="scroll-row">
+                  <strong>Note added</strong><br /><span class="caption"
+                    >Asked to call after 5pm.</span
+                  >
+                </div>
+                <div class="scroll-row">
+                  <strong>Follow-up assigned</strong><br /><span class="caption"
+                    >Renewal · Meera Shah</span
+                  >
+                </div>
+                <div class="scroll-row">
+                  <strong>Status changed</strong><br /><span class="caption"
+                    >Lead → Member</span
+                  >
+                </div>
+                <div class="scroll-row">
+                  <strong>Payment recorded</strong><br /><span class="caption"
+                    >₹12,000 · UPI</span
+                  >
+                </div>
+                <div class="scroll-row">
+                  <strong>Tag added</strong><br /><span class="caption"
+                    >Annual plan</span
+                  >
+                </div>
               </div>
             </div>
           </article>
@@ -2113,34 +3100,181 @@
 
       <section class="component-section" id="disclosure" data-section>
         <div class="section-heading">
-          <div><div class="kicker">04 · 3 files</div><h2>Disclosure &amp; navigation</h2></div>
-          <p>Reveal, collapse, and local navigation patterns with explicit active state.</p>
+          <div>
+            <div class="kicker">04 · 3 files</div>
+            <h2>Disclosure &amp; navigation</h2>
+          </div>
+          <p>
+            Reveal, collapse, and local navigation patterns with explicit active
+            state.
+          </p>
         </div>
         <div class="sticker-grid">
-          <article class="sticker" data-component="accordion.tsx" data-keywords="accordion item trigger content panel expanded disclosure faq">
-            <div class="sticker-header"><div><h3>Accordion family</h3><p class="sticker-description">Root, items, triggers, and animated panels.</p></div><code class="source-file">accordion.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="accordion.tsx"
+            data-keywords="accordion item trigger content panel expanded disclosure faq"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Accordion family</h3>
+                <p class="sticker-description">
+                  Root, items, triggers, and animated panels.
+                </p>
+              </div>
+              <code class="source-file">accordion.tsx</code>
+            </div>
             <div class="specimen top">
-              <div class="accordion-item"><button class="accordion-trigger" type="button" data-disclosure="accordion-one" aria-expanded="true">What creates a follow-up?<span aria-hidden="true">⌃</span></button><div class="accordion-panel" id="accordion-one">Notes and renewal assignments use the same follow-up record and reminder behavior.</div></div>
-              <div class="accordion-item"><button class="accordion-trigger" type="button" data-disclosure="accordion-two" aria-expanded="false">Who can reassign it?<span aria-hidden="true">⌄</span></button><div class="accordion-panel" id="accordion-two" hidden>Teammates with member edit permission can change the owner.</div></div>
+              <div class="accordion-item">
+                <button
+                  class="accordion-trigger"
+                  type="button"
+                  data-disclosure="accordion-one"
+                  aria-expanded="true"
+                >
+                  What creates a follow-up?<span aria-hidden="true">⌃</span>
+                </button>
+                <div class="accordion-panel" id="accordion-one">
+                  Notes and renewal assignments use the same follow-up record
+                  and reminder behavior.
+                </div>
+              </div>
+              <div class="accordion-item">
+                <button
+                  class="accordion-trigger"
+                  type="button"
+                  data-disclosure="accordion-two"
+                  aria-expanded="false"
+                >
+                  Who can reassign it?<span aria-hidden="true">⌄</span>
+                </button>
+                <div class="accordion-panel" id="accordion-two" hidden>
+                  Teammates with member edit permission can change the owner.
+                </div>
+              </div>
             </div>
           </article>
 
-          <article class="sticker" data-component="collapse.tsx" data-keywords="collapse height width reveal hide animate presence panel">
-            <div class="sticker-header"><div><h3>Collapse</h3><p class="sticker-description">Size-and-fade reveal on the height or width axis.</p></div><code class="source-file">collapse.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="collapse.tsx"
+            data-keywords="collapse height width reveal hide animate presence panel"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Collapse</h3>
+                <p class="sticker-description">
+                  Size-and-fade reveal on the height or width axis.
+                </p>
+              </div>
+              <code class="source-file">collapse.tsx</code>
+            </div>
             <div class="specimen">
-              <button class="button outline" type="button" data-disclosure="collapse-panel" aria-expanded="true">Toggle selected-member tools</button>
-              <div class="collapse-panel" id="collapse-panel"><div class="row"><strong>3 selected</strong><button class="button sm" type="button">Add note</button><button class="button ghost sm" type="button">Assign owner</button></div></div>
+              <button
+                class="button outline"
+                type="button"
+                data-disclosure="collapse-panel"
+                aria-expanded="true"
+              >
+                Toggle selected-member tools
+              </button>
+              <div class="collapse-panel" id="collapse-panel">
+                <div class="row">
+                  <strong>3 selected</strong
+                  ><button class="button sm" type="button">Add note</button
+                  ><button class="button ghost sm" type="button">
+                    Assign owner
+                  </button>
+                </div>
+              </div>
             </div>
           </article>
 
-          <article class="sticker wide" data-component="tabs.tsx" data-keywords="tabs list trigger content panel default line active navigation">
-            <div class="sticker-header"><div><h3>Tabs family</h3><p class="sticker-description">Default raised-chip and line navigation variants.</p></div><code class="source-file">tabs.tsx</code></div>
+          <article
+            class="sticker wide"
+            data-component="tabs.tsx"
+            data-keywords="tabs list trigger content panel default line active navigation"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Tabs family</h3>
+                <p class="sticker-description">
+                  Default raised-chip and line navigation variants.
+                </p>
+              </div>
+              <code class="source-file">tabs.tsx</code>
+            </div>
             <div class="specimen">
               <div data-tabs>
-                <div class="tabs-list" role="tablist" aria-label="Member detail sections"><button class="tab" type="button" role="tab" aria-selected="true" data-tab="tab-overview">Overview</button><button class="tab" type="button" role="tab" aria-selected="false" data-tab="tab-notes">Notes</button><button class="tab" type="button" role="tab" aria-selected="false" data-tab="tab-payments">Payments</button></div>
-                <div class="tab-panel" id="tab-overview" role="tabpanel">Member summary and current membership details.</div><div class="tab-panel" id="tab-notes" role="tabpanel" hidden>Notes, reminders, and linked follow-ups.</div><div class="tab-panel" id="tab-payments" role="tabpanel" hidden>Payment history and outstanding invoices.</div>
+                <div
+                  class="tabs-list"
+                  role="tablist"
+                  aria-label="Member detail sections"
+                >
+                  <button
+                    class="tab"
+                    type="button"
+                    role="tab"
+                    aria-selected="true"
+                    data-tab="tab-overview"
+                  >
+                    Overview</button
+                  ><button
+                    class="tab"
+                    type="button"
+                    role="tab"
+                    aria-selected="false"
+                    data-tab="tab-notes"
+                  >
+                    Notes</button
+                  ><button
+                    class="tab"
+                    type="button"
+                    role="tab"
+                    aria-selected="false"
+                    data-tab="tab-payments"
+                  >
+                    Payments
+                  </button>
+                </div>
+                <div class="tab-panel" id="tab-overview" role="tabpanel">
+                  Member summary and current membership details.
+                </div>
+                <div class="tab-panel" id="tab-notes" role="tabpanel" hidden>
+                  Notes, reminders, and linked follow-ups.
+                </div>
+                <div class="tab-panel" id="tab-payments" role="tabpanel" hidden>
+                  Payment history and outstanding invoices.
+                </div>
               </div>
-              <div class="tabs-list line" role="tablist" aria-label="List sections"><button class="tab" type="button" role="tab" aria-selected="true">Members</button><button class="tab" type="button" role="tab" aria-selected="false">Follow-ups</button><button class="tab" type="button" role="tab" aria-selected="false">Renewals</button></div>
+              <div
+                class="tabs-list line"
+                role="tablist"
+                aria-label="List sections"
+              >
+                <button
+                  class="tab"
+                  type="button"
+                  role="tab"
+                  aria-selected="true"
+                >
+                  Members</button
+                ><button
+                  class="tab"
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                >
+                  Follow-ups</button
+                ><button
+                  class="tab"
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                >
+                  Renewals
+                </button>
+              </div>
             </div>
           </article>
         </div>
@@ -2148,38 +3282,192 @@
 
       <section class="component-section" id="overlays" data-section>
         <div class="section-heading">
-          <div><div class="kicker">05 · 5 files</div><h2>Overlays</h2></div>
+          <div>
+            <div class="kicker">05 · 5 files</div>
+            <h2>Overlays</h2>
+          </div>
           <p>Layered content, menus, panels, and contextual explanation.</p>
         </div>
         <div class="sticker-grid">
-          <article class="sticker" data-component="dialog.tsx" data-keywords="dialog modal trigger portal overlay content header footer title description close">
-            <div class="sticker-header"><div><h3>Dialog family</h3><p class="sticker-description">Modal overlay with structured header and footer.</p></div><code class="source-file">dialog.tsx</code></div>
-            <div class="specimen center"><button class="button" type="button" data-open-layer="dialog-demo">Open dialog</button><span class="caption">Trigger · Portal · Overlay · Content · Close</span></div>
+          <article
+            class="sticker"
+            data-component="dialog.tsx"
+            data-keywords="dialog modal trigger portal overlay content header footer title description close"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Dialog family</h3>
+                <p class="sticker-description">
+                  Modal overlay with structured header and footer.
+                </p>
+              </div>
+              <code class="source-file">dialog.tsx</code>
+            </div>
+            <div class="specimen center">
+              <button
+                class="button"
+                type="button"
+                data-open-layer="dialog-demo"
+              >
+                Open dialog</button
+              ><span class="caption"
+                >Trigger · Portal · Overlay · Content · Close</span
+              >
+            </div>
           </article>
 
-          <article class="sticker" data-component="dropdown-menu.tsx" data-keywords="dropdown menu portal trigger content group label item checkbox radio shortcut submenu separator">
-            <div class="sticker-header"><div><h3>DropdownMenu family</h3><p class="sticker-description">Actions, check/radio items, shortcuts, and submenus.</p></div><code class="source-file">dropdown-menu.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="dropdown-menu.tsx"
+            data-keywords="dropdown menu portal trigger content group label item checkbox radio shortcut submenu separator"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>DropdownMenu family</h3>
+                <p class="sticker-description">
+                  Actions, check/radio items, shortcuts, and submenus.
+                </p>
+              </div>
+              <code class="source-file">dropdown-menu.tsx</code>
+            </div>
             <div class="specimen top center">
-              <span class="popover-anchor"><button class="button outline" type="button" data-popup-target="dropdown-demo" aria-controls="dropdown-demo" aria-expanded="false">Actions <span aria-hidden="true">⌄</span></button><span class="popup" id="dropdown-demo" hidden><span class="menu-label">Member</span><button class="menu-item" type="button">Open profile <span class="menu-shortcut">↵</span></button><button class="menu-item" type="button">Add note <span class="menu-shortcut">N</span></button><div class="menu-separator"></div><label class="menu-item"><input class="checkbox" type="checkbox" checked /> Show inactive fields</label><label class="menu-item"><input class="radio" type="radio" checked /> Compact rows</label><div class="menu-separator"></div><button class="menu-item" type="button" style="color:var(--destructive)">Archive member</button></span></span>
+              <span class="popover-anchor"
+                ><button
+                  class="button outline"
+                  type="button"
+                  data-popup-target="dropdown-demo"
+                  aria-controls="dropdown-demo"
+                  aria-expanded="false"
+                >
+                  Actions <span aria-hidden="true">⌄</span></button
+                ><span class="popup" id="dropdown-demo" hidden
+                  ><span class="menu-label">Member</span
+                  ><button class="menu-item" type="button">
+                    Open profile <span class="menu-shortcut">↵</span></button
+                  ><button class="menu-item" type="button">
+                    Add note <span class="menu-shortcut">N</span>
+                  </button>
+                  <div class="menu-separator"></div>
+                  <label class="menu-item"
+                    ><input class="checkbox" type="checkbox" checked /> Show
+                    inactive fields</label
+                  ><label class="menu-item"
+                    ><input class="radio" type="radio" checked /> Compact
+                    rows</label
+                  >
+                  <div class="menu-separator"></div>
+                  <button
+                    class="menu-item"
+                    type="button"
+                    style="color: var(--destructive)"
+                  >
+                    Archive member
+                  </button></span
+                ></span
+              >
             </div>
           </article>
 
-          <article class="sticker" data-component="popover.tsx" data-keywords="popover trigger content header title description contextual floating">
-            <div class="sticker-header"><div><h3>Popover family</h3><p class="sticker-description">Contextual content with optional header structure.</p></div><code class="source-file">popover.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="popover.tsx"
+            data-keywords="popover trigger content header title description contextual floating"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Popover family</h3>
+                <p class="sticker-description">
+                  Contextual content with optional header structure.
+                </p>
+              </div>
+              <code class="source-file">popover.tsx</code>
+            </div>
             <div class="specimen center">
-              <span class="popover-anchor"><button class="button outline" type="button" data-popup-target="popover-demo" aria-controls="popover-demo" aria-expanded="false">Reminder settings</button><span class="popup" id="popover-demo" hidden style="padding:12px"><strong>Reminder</strong><p class="caption" style="margin:2px 0 12px">Choose when the assignee should be notified.</p><label class="stack"><span class="field-label">Notify before</span><button class="select-trigger" type="button">1 hour <span>⌄</span></button></label></span></span>
+              <span class="popover-anchor"
+                ><button
+                  class="button outline"
+                  type="button"
+                  data-popup-target="popover-demo"
+                  aria-controls="popover-demo"
+                  aria-expanded="false"
+                >
+                  Reminder settings</button
+                ><span
+                  class="popup"
+                  id="popover-demo"
+                  hidden
+                  style="padding: 12px"
+                  ><strong>Reminder</strong>
+                  <p class="caption" style="margin: 2px 0 12px">
+                    Choose when the assignee should be notified.
+                  </p>
+                  <label class="stack"
+                    ><span class="field-label">Notify before</span
+                    ><button class="select-trigger" type="button">
+                      1 hour <span>⌄</span>
+                    </button></label
+                  ></span
+                ></span
+              >
             </div>
           </article>
 
-          <article class="sticker" data-component="sheet.tsx" data-keywords="sheet drawer side panel trigger overlay content header footer title description close">
-            <div class="sticker-header"><div><h3>Sheet family</h3><p class="sticker-description">Edge-anchored panel for longer supporting workflows.</p></div><code class="source-file">sheet.tsx</code></div>
-            <div class="specimen center"><button class="button outline" type="button" data-open-layer="sheet-demo">Open sheet</button><span class="caption">Trigger · Overlay · Content · Header · Footer</span></div>
+          <article
+            class="sticker"
+            data-component="sheet.tsx"
+            data-keywords="sheet drawer side panel trigger overlay content header footer title description close"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Sheet family</h3>
+                <p class="sticker-description">
+                  Edge-anchored panel for longer supporting workflows.
+                </p>
+              </div>
+              <code class="source-file">sheet.tsx</code>
+            </div>
+            <div class="specimen center">
+              <button
+                class="button outline"
+                type="button"
+                data-open-layer="sheet-demo"
+              >
+                Open sheet</button
+              ><span class="caption"
+                >Trigger · Overlay · Content · Header · Footer</span
+              >
+            </div>
           </article>
 
-          <article class="sticker" data-component="tooltip.tsx" data-keywords="tooltip provider trigger content hover focus explanation">
-            <div class="sticker-header"><div><h3>Tooltip family</h3><p class="sticker-description">Concise explanation on pointer hover or keyboard focus.</p></div><code class="source-file">tooltip.tsx</code></div>
+          <article
+            class="sticker"
+            data-component="tooltip.tsx"
+            data-keywords="tooltip provider trigger content hover focus explanation"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>Tooltip family</h3>
+                <p class="sticker-description">
+                  Concise explanation on pointer hover or keyboard focus.
+                </p>
+              </div>
+              <code class="source-file">tooltip.tsx</code>
+            </div>
             <div class="specimen center">
-              <span class="tooltip-wrap"><button class="button outline icon" type="button" aria-describedby="tooltip-content">?</button><span class="tooltip-bubble" id="tooltip-content" role="tooltip">Renewal date comes from the active membership.</span></span>
+              <span class="tooltip-wrap"
+                ><button
+                  class="button icon outline"
+                  type="button"
+                  aria-describedby="tooltip-content"
+                >
+                  ?</button
+                ><span
+                  class="tooltip-bubble"
+                  id="tooltip-content"
+                  role="tooltip"
+                  >Renewal date comes from the active membership.</span
+                ></span
+              >
               <div class="caption">Hover or focus the help action.</div>
             </div>
           </article>
@@ -2188,17 +3476,59 @@
 
       <section class="component-section" id="motion" data-section>
         <div class="section-heading">
-          <div><div class="kicker">06 · 1 file</div><h2>Motion</h2></div>
-          <p>The shared list transition keeps add, remove, and reflow behavior consistent.</p>
+          <div>
+            <div class="kicker">06 · 1 file</div>
+            <h2>Motion</h2>
+          </div>
+          <p>
+            The shared list transition keeps add, remove, and reflow behavior
+            consistent.
+          </p>
         </div>
         <div class="sticker-grid">
-          <article class="sticker wide" data-component="motion-list.tsx" data-keywords="motion list item animate presence add remove reorder spring layout reduced motion">
-            <div class="sticker-header"><div><h3>MotionList family</h3><p class="sticker-description">Animated collection root and stable-key list item.</p></div><code class="source-file">motion-list.tsx</code></div>
+          <article
+            class="sticker wide"
+            data-component="motion-list.tsx"
+            data-keywords="motion list item animate presence add remove reorder spring layout reduced motion"
+          >
+            <div class="sticker-header">
+              <div>
+                <h3>MotionList family</h3>
+                <p class="sticker-description">
+                  Animated collection root and stable-key list item.
+                </p>
+              </div>
+              <code class="source-file">motion-list.tsx</code>
+            </div>
             <div class="specimen">
-              <div class="row"><button class="button sm" id="add-motion-item" type="button">Add follow-up</button><button class="button outline sm" id="remove-motion-item" type="button">Remove first</button></div>
+              <div class="row">
+                <button class="button sm" id="add-motion-item" type="button">
+                  Add follow-up</button
+                ><button
+                  class="button sm outline"
+                  id="remove-motion-item"
+                  type="button"
+                >
+                  Remove first
+                </button>
+              </div>
               <div class="motion-list" id="motion-list" aria-live="polite">
-                <div class="motion-item"><span><strong>Call about renewal</strong><br /><span class="caption">Due today · Meera Shah</span></span><span class="badge warning">Due today</span></div>
-                <div class="motion-item"><span><strong>Send plan options</strong><br /><span class="caption">19 Jul · Aarav Mehta</span></span><span class="badge info">Upcoming</span></div>
+                <div class="motion-item">
+                  <span
+                    ><strong>Call about renewal</strong><br /><span
+                      class="caption"
+                      >Due today · Meera Shah</span
+                    ></span
+                  ><span class="badge warning">Due today</span>
+                </div>
+                <div class="motion-item">
+                  <span
+                    ><strong>Send plan options</strong><br /><span
+                      class="caption"
+                      >19 Jul · Aarav Mehta</span
+                    ></span
+                  ><span class="badge info">Upcoming</span>
+                </div>
               </div>
             </div>
           </article>
@@ -2206,257 +3536,437 @@
       </section>
 
       <div class="empty-state" id="empty-state" hidden>
-        <strong>No components match this search.</strong><br />Try a component name such as “Badge”, an export such as “Trigger”, or a behavior such as “searchable”.
+        <strong>No components match this search.</strong><br />Try a component
+        name such as “Badge”, an export such as “Trigger”, or a behavior such as
+        “searchable”.
       </div>
     </main>
 
     <footer>
       <div class="footer-inner">
         <span>Static review artifact · React source remains authoritative</span>
-        <span>Coverage: <strong id="coverage-count">37 / 37</strong> files from <code>src/components/ui</code></span>
+        <span
+          >Coverage: <strong id="coverage-count">37 / 37</strong> files from
+          <code>src/components/ui</code></span
+        >
       </div>
     </footer>
 
-    <div class="dialog-layer" id="dialog-demo" role="dialog" aria-modal="true" aria-labelledby="dialog-title" hidden>
+    <div
+      class="dialog-layer"
+      id="dialog-demo"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dialog-title"
+      hidden
+    >
       <div class="dialog-box">
         <h3 id="dialog-title">Create follow-up</h3>
         <p>Assign one owner, reason, due date, and optional reminder.</p>
-        <div class="stack" style="margin-top:16px"><div class="stack"><span class="field-label sm" id="dialog-reason-label">Reason</span><div class="row" data-single-chip role="group" aria-labelledby="dialog-reason-label"><button class="chip" type="button" aria-pressed="true">Renewal</button><button class="chip" type="button" aria-pressed="false">Payment</button><button class="chip" type="button" aria-pressed="false">General</button></div></div><label class="stack"><span class="field-label">Note</span><textarea class="field" placeholder="Add context…"></textarea></label></div>
-        <div class="dialog-footer"><button class="button outline" type="button" data-close-layer="dialog-demo">Cancel</button><button class="button" type="button" data-close-layer="dialog-demo">Create follow-up</button></div>
+        <div class="stack" style="margin-top: 16px">
+          <div class="stack">
+            <span class="field-label sm" id="dialog-reason-label">Reason</span>
+            <div
+              class="row"
+              data-single-chip
+              role="group"
+              aria-labelledby="dialog-reason-label"
+            >
+              <button class="chip" type="button" aria-pressed="true">
+                Renewal</button
+              ><button class="chip" type="button" aria-pressed="false">
+                Payment</button
+              ><button class="chip" type="button" aria-pressed="false">
+                General
+              </button>
+            </div>
+          </div>
+          <label class="stack"
+            ><span class="field-label">Note</span
+            ><textarea class="field" placeholder="Add context…"></textarea>
+          </label>
+        </div>
+        <div class="dialog-footer">
+          <button
+            class="button outline"
+            type="button"
+            data-close-layer="dialog-demo"
+          >
+            Cancel</button
+          ><button class="button" type="button" data-close-layer="dialog-demo">
+            Create follow-up
+          </button>
+        </div>
       </div>
     </div>
 
-    <div class="sheet-layer" id="sheet-demo" role="dialog" aria-modal="true" aria-labelledby="sheet-title-demo" hidden>
+    <div
+      class="sheet-layer"
+      id="sheet-demo"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sheet-title-demo"
+      hidden
+    >
       <div class="sheet-box">
-        <div class="row" style="justify-content:space-between;align-items:flex-start"><span><h3 id="sheet-title-demo">Follow-up details</h3><p>Review and update this task.</p></span><button class="button ghost icon" type="button" data-close-layer="sheet-demo" aria-label="Close sheet">×</button></div>
-        <div class="stack" style="margin-top:24px"><label class="stack"><span class="field-label">Owner</span><button class="select-trigger" type="button">Meera Shah <span>⌄</span></button></label><label class="stack"><span class="field-label">Due date</span><button class="date-trigger" type="button"><span class="trigger-glyph">□</span><span>18 Jul 2026</span></button></label><div class="choice-row" style="justify-content:space-between"><span>Reminder</span><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Reminder"></button></div></div>
-        <div class="sheet-footer"><button class="button destructive-ghost" type="button">Delete</button><button class="button" type="button" data-close-layer="sheet-demo">Save changes</button></div>
+        <div
+          class="row"
+          style="justify-content: space-between; align-items: flex-start"
+        >
+          <span
+            ><h3 id="sheet-title-demo">Follow-up details</h3>
+            <p>Review and update this task.</p></span
+          ><button
+            class="button ghost icon"
+            type="button"
+            data-close-layer="sheet-demo"
+            aria-label="Close sheet"
+          >
+            ×
+          </button>
+        </div>
+        <div class="stack" style="margin-top: 24px">
+          <label class="stack"
+            ><span class="field-label">Owner</span
+            ><button class="select-trigger" type="button">
+              Meera Shah <span>⌄</span>
+            </button></label
+          ><label class="stack"
+            ><span class="field-label">Due date</span
+            ><button class="date-trigger" type="button">
+              <span class="trigger-glyph">□</span><span>18 Jul 2026</span>
+            </button></label
+          >
+          <div class="choice-row" style="justify-content: space-between">
+            <span>Reminder</span
+            ><button
+              class="switch"
+              type="button"
+              role="switch"
+              aria-checked="true"
+              aria-label="Reminder"
+            ></button>
+          </div>
+        </div>
+        <div class="sheet-footer">
+          <button class="button destructive-ghost" type="button">Delete</button
+          ><button class="button" type="button" data-close-layer="sheet-demo">
+            Save changes
+          </button>
+        </div>
       </div>
     </div>
     <script>
       (function () {
-        "use strict";
+        'use strict';
 
         var root = document.documentElement;
         var expectedComponents = [
-          "accordion.tsx",
-          "alert.tsx",
-          "animated-number.tsx",
-          "avatar.tsx",
-          "badge.tsx",
-          "button.tsx",
-          "calendar.tsx",
-          "card.tsx",
-          "checkbox.tsx",
-          "collapse.tsx",
-          "combobox.tsx",
-          "currency-input.tsx",
-          "date-picker.tsx",
-          "dialog.tsx",
-          "dropdown-menu.tsx",
-          "gated-button.tsx",
-          "inline-edit-actions.tsx",
-          "input.tsx",
-          "label.tsx",
-          "motion-list.tsx",
-          "popover.tsx",
-          "phone-input.tsx",
-          "progress.tsx",
-          "radio-group.tsx",
-          "scroll-area.tsx",
-          "search-input.tsx",
-          "select.tsx",
-          "separator.tsx",
-          "sheet.tsx",
-          "switch.tsx",
-          "table.tsx",
-          "tabs.tsx",
-          "textarea.tsx",
-          "chip.tsx",
-          "toolbar.tsx",
-          "tooltip.tsx",
-          "user-avatar.tsx"
+          'accordion.tsx',
+          'alert.tsx',
+          'animated-number.tsx',
+          'avatar.tsx',
+          'badge.tsx',
+          'button.tsx',
+          'calendar.tsx',
+          'card.tsx',
+          'checkbox.tsx',
+          'collapse.tsx',
+          'combobox.tsx',
+          'currency-input.tsx',
+          'date-picker.tsx',
+          'dialog.tsx',
+          'dropdown-menu.tsx',
+          'gated-button.tsx',
+          'inline-edit-actions.tsx',
+          'input.tsx',
+          'label.tsx',
+          'motion-list.tsx',
+          'popover.tsx',
+          'phone-input.tsx',
+          'progress.tsx',
+          'radio-group.tsx',
+          'scroll-area.tsx',
+          'search-input.tsx',
+          'select.tsx',
+          'separator.tsx',
+          'sheet.tsx',
+          'switch.tsx',
+          'table.tsx',
+          'tabs.tsx',
+          'textarea.tsx',
+          'chip.tsx',
+          'toolbar.tsx',
+          'tooltip.tsx',
+          'user-avatar.tsx',
         ];
-        var stickers = Array.prototype.slice.call(document.querySelectorAll("[data-component]"));
+        var stickers = Array.prototype.slice.call(
+          document.querySelectorAll('[data-component]')
+        );
         var actualComponents = stickers.map(function (card) {
-          return card.getAttribute("data-component");
+          return card.getAttribute('data-component');
         });
         var complete = expectedComponents.every(function (name) {
           return actualComponents.indexOf(name) !== -1;
         });
-        document.getElementById("coverage-count").textContent = actualComponents.length + " / " + expectedComponents.length;
-        if (!complete || actualComponents.length !== expectedComponents.length) {
-          document.getElementById("coverage-count").textContent += " · check inventory";
+        document.getElementById('coverage-count').textContent =
+          actualComponents.length + ' / ' + expectedComponents.length;
+        if (
+          !complete ||
+          actualComponents.length !== expectedComponents.length
+        ) {
+          document.getElementById('coverage-count').textContent +=
+            ' · check inventory';
         }
 
-        var modeButton = document.getElementById("mode-toggle");
+        var modeButton = document.getElementById('mode-toggle');
         function setMode(mode) {
-          root.setAttribute("data-mode", mode);
-          modeButton.setAttribute("aria-label", "Switch to " + (mode === "light" ? "dark" : "light") + " mode");
-          modeButton.textContent = mode === "light" ? "◐" : "◑";
+          root.setAttribute('data-mode', mode);
+          modeButton.setAttribute(
+            'aria-label',
+            'Switch to ' + (mode === 'light' ? 'dark' : 'light') + ' mode'
+          );
+          modeButton.textContent = mode === 'light' ? '◐' : '◑';
         }
-        modeButton.addEventListener("click", function () {
-          setMode(root.getAttribute("data-mode") === "light" ? "dark" : "light");
+        modeButton.addEventListener('click', function () {
+          setMode(
+            root.getAttribute('data-mode') === 'light' ? 'dark' : 'light'
+          );
         });
 
-        document.querySelectorAll("[data-theme-button]").forEach(function (button) {
-          button.addEventListener("click", function () {
-            root.setAttribute("data-theme", button.getAttribute("data-theme-button"));
-            document.querySelectorAll("[data-theme-button]").forEach(function (candidate) {
-              candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
+        document
+          .querySelectorAll('[data-theme-button]')
+          .forEach(function (button) {
+            button.addEventListener('click', function () {
+              root.setAttribute(
+                'data-theme',
+                button.getAttribute('data-theme-button')
+              );
+              document
+                .querySelectorAll('[data-theme-button]')
+                .forEach(function (candidate) {
+                  candidate.setAttribute(
+                    'aria-pressed',
+                    candidate === button ? 'true' : 'false'
+                  );
+                });
             });
           });
-        });
 
-        var search = document.getElementById("component-search");
-        var resultCount = document.getElementById("result-count");
-        var emptyState = document.getElementById("empty-state");
+        var search = document.getElementById('component-search');
+        var resultCount = document.getElementById('result-count');
+        var emptyState = document.getElementById('empty-state');
         function filterComponents() {
           var query = search.value.trim().toLowerCase();
           var visible = 0;
           stickers.forEach(function (card) {
-            var haystack = (card.getAttribute("data-component") + " " + card.getAttribute("data-keywords") + " " + card.textContent).toLowerCase();
+            var haystack = (
+              card.getAttribute('data-component') +
+              ' ' +
+              card.getAttribute('data-keywords') +
+              ' ' +
+              card.textContent
+            ).toLowerCase();
             var show = !query || haystack.indexOf(query) !== -1;
             card.hidden = !show;
             if (show) visible += 1;
           });
-          document.querySelectorAll("[data-section]").forEach(function (section) {
-            section.hidden = section.querySelectorAll("[data-component]:not([hidden])").length === 0;
-          });
-          resultCount.textContent = visible + " / " + stickers.length;
+          document
+            .querySelectorAll('[data-section]')
+            .forEach(function (section) {
+              section.hidden =
+                section.querySelectorAll('[data-component]:not([hidden])')
+                  .length === 0;
+            });
+          resultCount.textContent = visible + ' / ' + stickers.length;
           emptyState.hidden = visible !== 0;
         }
-        search.addEventListener("input", filterComponents);
+        search.addEventListener('input', filterComponents);
 
-        document.querySelectorAll("[data-single-chip]").forEach(function (group) {
-          group.addEventListener("click", function (event) {
-            var button = event.target.closest("button");
-            if (!button || !group.contains(button)) return;
-            group.querySelectorAll("button").forEach(function (candidate) {
-              candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
+        document
+          .querySelectorAll('[data-single-chip]')
+          .forEach(function (group) {
+            group.addEventListener('click', function (event) {
+              var button = event.target.closest('button');
+              if (!button || !group.contains(button)) return;
+              group.querySelectorAll('button').forEach(function (candidate) {
+                candidate.setAttribute(
+                  'aria-pressed',
+                  candidate === button ? 'true' : 'false'
+                );
+              });
             });
           });
-        });
 
-        document.querySelectorAll("[data-multiple-chip]").forEach(function (group) {
-          group.addEventListener("click", function (event) {
-            var button = event.target.closest("button");
-            if (!button || !group.contains(button)) return;
-            button.setAttribute("aria-pressed", button.getAttribute("aria-pressed") === "true" ? "false" : "true");
-          });
-        });
-
-        document.querySelectorAll(".toolbar .tool[aria-pressed]").forEach(function (button) {
-          button.addEventListener("click", function () {
-            button.parentElement.querySelectorAll(".tool[aria-pressed]").forEach(function (candidate) {
-              candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
+        document
+          .querySelectorAll('[data-multiple-chip]')
+          .forEach(function (group) {
+            group.addEventListener('click', function (event) {
+              var button = event.target.closest('button');
+              if (!button || !group.contains(button)) return;
+              button.setAttribute(
+                'aria-pressed',
+                button.getAttribute('aria-pressed') === 'true'
+                  ? 'false'
+                  : 'true'
+              );
             });
           });
-        });
 
-        document.querySelectorAll(".switch").forEach(function (button) {
-          button.addEventListener("click", function () {
-            button.setAttribute("aria-checked", button.getAttribute("aria-checked") === "true" ? "false" : "true");
+        document
+          .querySelectorAll('.toolbar .tool[aria-pressed]')
+          .forEach(function (button) {
+            button.addEventListener('click', function () {
+              button.parentElement
+                .querySelectorAll('.tool[aria-pressed]')
+                .forEach(function (candidate) {
+                  candidate.setAttribute(
+                    'aria-pressed',
+                    candidate === button ? 'true' : 'false'
+                  );
+                });
+            });
+          });
+
+        document.querySelectorAll('.switch').forEach(function (button) {
+          button.addEventListener('click', function () {
+            button.setAttribute(
+              'aria-checked',
+              button.getAttribute('aria-checked') === 'true' ? 'false' : 'true'
+            );
           });
         });
 
         function closePopups(except) {
-          document.querySelectorAll(".popup:not([hidden])").forEach(function (popup) {
-            if (popup === except) return;
-            popup.hidden = true;
-            var trigger = document.querySelector("[data-popup-target='" + popup.id + "']");
-            if (trigger) trigger.setAttribute("aria-expanded", "false");
-          });
+          document
+            .querySelectorAll('.popup:not([hidden])')
+            .forEach(function (popup) {
+              if (popup === except) return;
+              popup.hidden = true;
+              var trigger = document.querySelector(
+                "[data-popup-target='" + popup.id + "']"
+              );
+              if (trigger) trigger.setAttribute('aria-expanded', 'false');
+            });
         }
 
-        document.querySelectorAll("[data-popup-target]").forEach(function (button) {
-          button.addEventListener("click", function (event) {
+        document
+          .querySelectorAll('[data-popup-target]')
+          .forEach(function (button) {
+            button.addEventListener('click', function (event) {
+              event.stopPropagation();
+              var popup = document.getElementById(
+                button.getAttribute('data-popup-target')
+              );
+              var willOpen = popup.hidden;
+              closePopups(popup);
+              popup.hidden = !willOpen;
+              button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+              if (willOpen) {
+                var focusTarget = popup.querySelector('input');
+                if (focusTarget)
+                  window.setTimeout(function () {
+                    focusTarget.focus();
+                  }, 0);
+              }
+            });
+          });
+
+        document.querySelectorAll('.popup').forEach(function (popup) {
+          popup.addEventListener('click', function (event) {
             event.stopPropagation();
-            var popup = document.getElementById(button.getAttribute("data-popup-target"));
-            var willOpen = popup.hidden;
-            closePopups(popup);
-            popup.hidden = !willOpen;
-            button.setAttribute("aria-expanded", willOpen ? "true" : "false");
-            if (willOpen) {
-              var focusTarget = popup.querySelector("input");
-              if (focusTarget) window.setTimeout(function () { focusTarget.focus(); }, 0);
-            }
           });
         });
 
-        document.querySelectorAll(".popup").forEach(function (popup) {
-          popup.addEventListener("click", function (event) {
-            event.stopPropagation();
-          });
-        });
-
-        document.addEventListener("click", function () {
+        document.addEventListener('click', function () {
           closePopups();
         });
 
-        document.querySelectorAll(".select-choice").forEach(function (button) {
-          button.addEventListener("click", function () {
-            document.querySelector("[data-select-value]").textContent = button.childNodes[0].textContent.trim();
+        document.querySelectorAll('.select-choice').forEach(function (button) {
+          button.addEventListener('click', function () {
+            document.querySelector('[data-select-value]').textContent =
+              button.childNodes[0].textContent.trim();
             closePopups();
           });
         });
 
-        document.querySelectorAll(".combo-choice").forEach(function (button) {
-          button.addEventListener("click", function () {
-            document.querySelector("[data-combo-value]").textContent = button.childNodes[0].textContent.trim();
+        document.querySelectorAll('.combo-choice').forEach(function (button) {
+          button.addEventListener('click', function () {
+            document.querySelector('[data-combo-value]').textContent =
+              button.childNodes[0].textContent.trim();
             closePopups();
           });
         });
 
-        document.querySelectorAll(".date-choice").forEach(function (button) {
-          button.addEventListener("click", function () {
+        document.querySelectorAll('.date-choice').forEach(function (button) {
+          button.addEventListener('click', function () {
             var label = button.childNodes[0].textContent.trim();
-            var dateValue = document.getElementById("date-value");
-            dateValue.textContent = label === "Clear date" ? "Pick a date" : label === "Tomorrow" ? "19 Jul 2026" : "18 Jul 2026";
+            var dateValue = document.getElementById('date-value');
+            dateValue.textContent =
+              label === 'Clear date'
+                ? 'Pick a date'
+                : label === 'Tomorrow'
+                  ? '19 Jul 2026'
+                  : '18 Jul 2026';
             closePopups();
           });
         });
 
-        var comboSearch = document.getElementById("combo-search");
-        comboSearch.addEventListener("input", function () {
+        var comboSearch = document.getElementById('combo-search');
+        comboSearch.addEventListener('input', function () {
           var query = comboSearch.value.trim().toLowerCase();
-          document.querySelectorAll("#combo-options .menu-item").forEach(function (option) {
-            option.hidden = query && option.textContent.toLowerCase().indexOf(query) === -1;
-          });
-        });
-
-        document.querySelectorAll("[data-disclosure]").forEach(function (button) {
-          button.addEventListener("click", function () {
-            var panel = document.getElementById(button.getAttribute("data-disclosure"));
-            var willOpen = button.getAttribute("aria-expanded") !== "true";
-            button.setAttribute("aria-expanded", willOpen ? "true" : "false");
-            panel.hidden = !willOpen;
-            var glyph = button.querySelector("[aria-hidden='true']");
-            if (glyph) glyph.textContent = willOpen ? "⌃" : "⌄";
-          });
-        });
-
-        document.querySelectorAll(".tabs-list").forEach(function (list) {
-          list.addEventListener("click", function (event) {
-            var tab = event.target.closest(".tab");
-            if (!tab || !list.contains(tab)) return;
-            list.querySelectorAll(".tab").forEach(function (candidate) {
-              candidate.setAttribute("aria-selected", candidate === tab ? "true" : "false");
+          document
+            .querySelectorAll('#combo-options .menu-item')
+            .forEach(function (option) {
+              option.hidden =
+                query && option.textContent.toLowerCase().indexOf(query) === -1;
             });
-            if (tab.hasAttribute("data-tab")) {
-              var tabs = tab.closest("[data-tabs]");
-              tabs.querySelectorAll(".tab-panel").forEach(function (panel) {
-                panel.hidden = panel.id !== tab.getAttribute("data-tab");
+        });
+
+        document
+          .querySelectorAll('[data-disclosure]')
+          .forEach(function (button) {
+            button.addEventListener('click', function () {
+              var panel = document.getElementById(
+                button.getAttribute('data-disclosure')
+              );
+              var willOpen = button.getAttribute('aria-expanded') !== 'true';
+              button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+              panel.hidden = !willOpen;
+              var glyph = button.querySelector("[aria-hidden='true']");
+              if (glyph) glyph.textContent = willOpen ? '⌃' : '⌄';
+            });
+          });
+
+        document.querySelectorAll('.tabs-list').forEach(function (list) {
+          list.addEventListener('click', function (event) {
+            var tab = event.target.closest('.tab');
+            if (!tab || !list.contains(tab)) return;
+            list.querySelectorAll('.tab').forEach(function (candidate) {
+              candidate.setAttribute(
+                'aria-selected',
+                candidate === tab ? 'true' : 'false'
+              );
+            });
+            if (tab.hasAttribute('data-tab')) {
+              var tabs = tab.closest('[data-tabs]');
+              tabs.querySelectorAll('.tab-panel').forEach(function (panel) {
+                panel.hidden = panel.id !== tab.getAttribute('data-tab');
               });
             }
           });
         });
 
-        document.querySelectorAll(".calendar .day").forEach(function (day) {
-          day.addEventListener("click", function () {
-            document.querySelectorAll(".calendar .day").forEach(function (candidate) {
-              candidate.setAttribute("aria-selected", candidate === day ? "true" : "false");
-            });
+        document.querySelectorAll('.calendar .day').forEach(function (day) {
+          day.addEventListener('click', function () {
+            document
+              .querySelectorAll('.calendar .day')
+              .forEach(function (candidate) {
+                candidate.setAttribute(
+                  'aria-selected',
+                  candidate === day ? 'true' : 'false'
+                );
+              });
           });
         });
 
@@ -2466,41 +3976,58 @@
           var layer = document.getElementById(id);
           lastLayerTrigger = trigger;
           layer.hidden = false;
-          document.body.style.overflow = "hidden";
-          var focusTarget = layer.querySelector("button, input, textarea, select, [tabindex='0']");
-          if (focusTarget) window.setTimeout(function () { focusTarget.focus(); }, 0);
+          document.body.style.overflow = 'hidden';
+          var focusTarget = layer.querySelector(
+            "button, input, textarea, select, [tabindex='0']"
+          );
+          if (focusTarget)
+            window.setTimeout(function () {
+              focusTarget.focus();
+            }, 0);
         }
         function closeLayer(id) {
           document.getElementById(id).hidden = true;
-          document.body.style.overflow = "";
+          document.body.style.overflow = '';
           if (lastLayerTrigger) lastLayerTrigger.focus();
           lastLayerTrigger = null;
         }
 
-        document.querySelectorAll("[data-open-layer]").forEach(function (button) {
-          button.addEventListener("click", function () {
-            openLayer(button.getAttribute("data-open-layer"), button);
+        document
+          .querySelectorAll('[data-open-layer]')
+          .forEach(function (button) {
+            button.addEventListener('click', function () {
+              openLayer(button.getAttribute('data-open-layer'), button);
+            });
           });
-        });
-        document.querySelectorAll("[data-close-layer]").forEach(function (button) {
-          button.addEventListener("click", function () {
-            closeLayer(button.getAttribute("data-close-layer"));
+        document
+          .querySelectorAll('[data-close-layer]')
+          .forEach(function (button) {
+            button.addEventListener('click', function () {
+              closeLayer(button.getAttribute('data-close-layer'));
+            });
           });
-        });
-        document.querySelectorAll(".dialog-layer, .sheet-layer").forEach(function (layer) {
-          layer.addEventListener("click", function (event) {
-            if (event.target === layer) closeLayer(layer.id);
+        document
+          .querySelectorAll('.dialog-layer, .sheet-layer')
+          .forEach(function (layer) {
+            layer.addEventListener('click', function (event) {
+              if (event.target === layer) closeLayer(layer.id);
+            });
           });
-        });
 
-        document.addEventListener("keydown", function (event) {
-          var openLayerElement = document.querySelector(".dialog-layer:not([hidden]), .sheet-layer:not([hidden])");
-          if (event.key === "Escape") {
+        document.addEventListener('keydown', function (event) {
+          var openLayerElement = document.querySelector(
+            '.dialog-layer:not([hidden]), .sheet-layer:not([hidden])'
+          );
+          if (event.key === 'Escape') {
             if (openLayerElement) closeLayer(openLayerElement.id);
             else closePopups();
           }
-          if (event.key === "Tab" && openLayerElement) {
-            var focusable = Array.prototype.slice.call(openLayerElement.querySelectorAll("button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex='0']"));
+          if (event.key === 'Tab' && openLayerElement) {
+            var focusable = Array.prototype.slice.call(
+              openLayerElement.querySelectorAll(
+                "button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex='0']"
+              )
+            );
             if (!focusable.length) return;
             var first = focusable[0];
             var last = focusable[focusable.length - 1];
@@ -2514,61 +4041,80 @@
           }
         });
 
-        var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        var animatedNumber = document.getElementById("animated-number");
+        var reducedMotion = window.matchMedia(
+          '(prefers-reduced-motion: reduce)'
+        ).matches;
+        var animatedNumber = document.getElementById('animated-number');
         function replayNumber() {
           var target = 1248;
           if (reducedMotion) {
-            animatedNumber.textContent = target.toLocaleString("en-IN");
+            animatedNumber.textContent = target.toLocaleString('en-IN');
             return;
           }
           var start = performance.now();
           function frame(now) {
             var progress = Math.min((now - start) / 900, 1);
             var eased = 1 - Math.pow(1 - progress, 3);
-            animatedNumber.textContent = Math.round(target * eased).toLocaleString("en-IN");
+            animatedNumber.textContent = Math.round(
+              target * eased
+            ).toLocaleString('en-IN');
             if (progress < 1) requestAnimationFrame(frame);
           }
           requestAnimationFrame(frame);
         }
-        document.getElementById("replay-number").addEventListener("click", replayNumber);
+        document
+          .getElementById('replay-number')
+          .addEventListener('click', replayNumber);
 
         var progressValue = 72;
-        document.getElementById("advance-progress").addEventListener("click", function () {
-          progressValue = progressValue >= 100 ? 24 : Math.min(progressValue + 14, 100);
-          document.getElementById("progress-fill").style.setProperty("--value", progressValue + "%");
-          document.getElementById("progress-label").textContent = progressValue + "%";
-          document.querySelector("[role='progressbar']").setAttribute("aria-valuenow", String(progressValue));
-        });
+        document
+          .getElementById('advance-progress')
+          .addEventListener('click', function () {
+            progressValue =
+              progressValue >= 100 ? 24 : Math.min(progressValue + 14, 100);
+            document
+              .getElementById('progress-fill')
+              .style.setProperty('--value', progressValue + '%');
+            document.getElementById('progress-label').textContent =
+              progressValue + '%';
+            document
+              .querySelector("[role='progressbar']")
+              .setAttribute('aria-valuenow', String(progressValue));
+          });
 
-        var motionList = document.getElementById("motion-list");
+        var motionList = document.getElementById('motion-list');
         var motionItemCount = 2;
-        document.getElementById("add-motion-item").addEventListener("click", function () {
-          motionItemCount += 1;
-          var item = document.createElement("div");
-          item.className = "motion-item";
-          var details = document.createElement("span");
-          var title = document.createElement("strong");
-          title.textContent = "Follow up with member " + motionItemCount;
-          var breakElement = document.createElement("br");
-          var caption = document.createElement("span");
-          caption.className = "caption";
-          caption.textContent = "20 Jul · Priya Rao";
-          details.appendChild(title);
-          details.appendChild(breakElement);
-          details.appendChild(caption);
-          var status = document.createElement("span");
-          status.className = "badge info";
-          status.textContent = "Upcoming";
-          item.appendChild(details);
-          item.appendChild(status);
-          motionList.appendChild(item);
-        });
-        document.getElementById("remove-motion-item").addEventListener("click", function () {
-          if (motionList.firstElementChild) motionList.firstElementChild.remove();
-        });
+        document
+          .getElementById('add-motion-item')
+          .addEventListener('click', function () {
+            motionItemCount += 1;
+            var item = document.createElement('div');
+            item.className = 'motion-item';
+            var details = document.createElement('span');
+            var title = document.createElement('strong');
+            title.textContent = 'Follow up with member ' + motionItemCount;
+            var breakElement = document.createElement('br');
+            var caption = document.createElement('span');
+            caption.className = 'caption';
+            caption.textContent = '20 Jul · Priya Rao';
+            details.appendChild(title);
+            details.appendChild(breakElement);
+            details.appendChild(caption);
+            var status = document.createElement('span');
+            status.className = 'badge info';
+            status.textContent = 'Upcoming';
+            item.appendChild(details);
+            item.appendChild(status);
+            motionList.appendChild(item);
+          });
+        document
+          .getElementById('remove-motion-item')
+          .addEventListener('click', function () {
+            if (motionList.firstElementChild)
+              motionList.firstElementChild.remove();
+          });
 
-        var mixedCheckbox = document.getElementById("mixed-checkbox");
+        var mixedCheckbox = document.getElementById('mixed-checkbox');
         if (mixedCheckbox) mixedCheckbox.indeterminate = true;
         replayNumber();
       })();

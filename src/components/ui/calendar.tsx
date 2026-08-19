@@ -1,26 +1,26 @@
-"use client"
+'use client';
 
-import * as React from "react"
+import * as React from 'react';
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-} from "lucide-react"
+} from 'lucide-react';
 import {
   DayPicker,
   getDefaultClassNames,
   type DayButtonProps,
   type DropdownProps,
-} from "react-day-picker"
+} from 'react-day-picker';
 
-import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
+import { cn } from '@/lib/utils';
+import { buttonVariants } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-} from "@/components/ui/select"
+} from '@/components/ui/select';
 
 /**
  * Calendar — the design-system month grid (react-day-picker), used by
@@ -32,99 +32,99 @@ function Calendar({
   className,
   classNames,
   showOutsideDays = true,
-  captionLayout = "dropdown",
+  captionLayout = 'dropdown',
   components,
   ...props
 }: React.ComponentProps<typeof DayPicker>) {
-  const defaultClassNames = getDefaultClassNames()
+  const defaultClassNames = getDefaultClassNames();
 
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
       captionLayout={captionLayout}
-      className={cn("group/calendar p-2 [--cell-size:--spacing(8)]", className)}
+      className={cn('group/calendar p-2 [--cell-size:--spacing(8)]', className)}
       classNames={{
         // Fixed overall width sized for the longest month name ("September") —
         // the popup must never resize as the caption text changes; the day
         // cells flex to fill it instead.
-        root: cn("w-[16.5rem]", defaultClassNames.root),
+        root: cn('w-[16.5rem]', defaultClassNames.root),
         months: cn(
-          "relative flex flex-col gap-4 md:flex-row",
+          'relative flex flex-col gap-4 md:flex-row',
           defaultClassNames.months
         ),
-        month: cn("flex w-full flex-col gap-3", defaultClassNames.month),
+        month: cn('flex w-full flex-col gap-3', defaultClassNames.month),
         // The nav is an absolute full-width strip painting over the caption
         // (positioned beats static) — without pointer-events-none it swallows
         // every click on the month/year dropdown triggers underneath.
         nav: cn(
-          "pointer-events-none absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1",
+          'pointer-events-none absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1',
           defaultClassNames.nav
         ),
         button_previous: cn(
-          buttonVariants({ variant: "ghost", size: "icon" }),
-          "pointer-events-auto size-(--cell-size) select-none text-muted-foreground aria-disabled:opacity-50",
+          buttonVariants({ variant: 'ghost', size: 'icon' }),
+          'pointer-events-auto size-(--cell-size) select-none text-muted-foreground aria-disabled:opacity-50',
           defaultClassNames.button_previous
         ),
         button_next: cn(
-          buttonVariants({ variant: "ghost", size: "icon" }),
-          "pointer-events-auto size-(--cell-size) select-none text-muted-foreground aria-disabled:opacity-50",
+          buttonVariants({ variant: 'ghost', size: 'icon' }),
+          'pointer-events-auto size-(--cell-size) select-none text-muted-foreground aria-disabled:opacity-50',
           defaultClassNames.button_next
         ),
         month_caption: cn(
-          "flex h-(--cell-size) w-full items-center justify-center px-(--cell-size)",
+          'flex h-(--cell-size) w-full items-center justify-center px-(--cell-size)',
           defaultClassNames.month_caption
         ),
         dropdowns: cn(
-          "flex h-(--cell-size) w-full items-center justify-center gap-1.5 text-sm font-medium",
+          'flex h-(--cell-size) w-full items-center justify-center gap-1.5 text-sm font-medium',
           defaultClassNames.dropdowns
         ),
-        dropdown_root: cn("relative", defaultClassNames.dropdown_root),
+        dropdown_root: cn('relative', defaultClassNames.dropdown_root),
         // Fixed trigger widths (passed through CalendarDropdown onto the
         // SelectTrigger) so "May" and "September" occupy the same box.
-        months_dropdown: "w-[6.5rem]",
-        years_dropdown: "w-[4.5rem]",
+        months_dropdown: 'w-[6.5rem]',
+        years_dropdown: 'w-[4.5rem]',
         caption_label: cn(
-          "select-none text-sm font-medium",
+          'select-none text-sm font-medium',
           defaultClassNames.caption_label
         ),
-        month_grid: "w-full border-collapse",
-        weekdays: cn("flex", defaultClassNames.weekdays),
+        month_grid: 'w-full border-collapse',
+        weekdays: cn('flex', defaultClassNames.weekdays),
         weekday: cn(
-          "flex-1 select-none rounded-md text-center text-[0.8rem] font-normal text-muted-foreground",
+          'flex-1 select-none rounded-md text-center text-[0.8rem] font-normal text-muted-foreground',
           defaultClassNames.weekday
         ),
-        week: cn("mt-1.5 flex w-full", defaultClassNames.week),
+        week: cn('mt-1.5 flex w-full', defaultClassNames.week),
         // Cells flex-share the fixed root width; the square day button
         // centres inside its cell.
         day: cn(
-          "group/day relative flex h-(--cell-size) flex-1 items-center justify-center p-0 text-center select-none",
+          'group/day relative flex h-(--cell-size) flex-1 items-center justify-center p-0 text-center select-none',
           defaultClassNames.day
         ),
-        footer: cn("mt-1.5", defaultClassNames.footer),
+        footer: cn('mt-1.5', defaultClassNames.footer),
         today: cn(
-          "rounded-lg bg-muted text-foreground",
+          'rounded-lg bg-muted text-foreground',
           defaultClassNames.today
         ),
         outside: cn(
-          "text-muted-foreground/60 aria-selected:text-muted-foreground",
+          'text-muted-foreground/60 aria-selected:text-muted-foreground',
           defaultClassNames.outside
         ),
         disabled: cn(
-          "text-muted-foreground opacity-50",
+          'text-muted-foreground opacity-50',
           defaultClassNames.disabled
         ),
-        hidden: cn("invisible", defaultClassNames.hidden),
+        hidden: cn('invisible', defaultClassNames.hidden),
         ...classNames,
       }}
       components={{
         Chevron: ({ className, orientation, ...chevronProps }) => {
           const Icon =
-            orientation === "left"
+            orientation === 'left'
               ? ChevronLeftIcon
-              : orientation === "right"
+              : orientation === 'right'
                 ? ChevronRightIcon
-                : ChevronDownIcon
-          return <Icon className={cn("size-4", className)} {...chevronProps} />
+                : ChevronDownIcon;
+          return <Icon className={cn('size-4', className)} {...chevronProps} />;
         },
         DayButton: CalendarDayButton,
         Dropdown: CalendarDropdown,
@@ -132,14 +132,19 @@ function Calendar({
       }}
       {...props}
     />
-  )
+  );
 }
 
-function CalendarDayButton({ className, day, modifiers, ...props }: DayButtonProps) {
-  const ref = React.useRef<HTMLButtonElement>(null)
+function CalendarDayButton({
+  className,
+  day,
+  modifiers,
+  ...props
+}: DayButtonProps) {
+  const ref = React.useRef<HTMLButtonElement>(null);
   React.useEffect(() => {
-    if (modifiers.focused) ref.current?.focus()
-  }, [modifiers.focused])
+    if (modifiers.focused) ref.current?.focus();
+  }, [modifiers.focused]);
 
   return (
     <button
@@ -148,13 +153,13 @@ function CalendarDayButton({ className, day, modifiers, ...props }: DayButtonPro
       data-day={day.date.toDateString()}
       data-selected={modifiers.selected || undefined}
       className={cn(
-        buttonVariants({ variant: "ghost" }),
-        "size-(--cell-size) min-w-0 p-0 font-normal leading-none data-selected:bg-primary data-selected:text-primary-foreground data-selected:hover:bg-primary",
+        buttonVariants({ variant: 'ghost' }),
+        'data-selected:bg-primary data-selected:text-primary-foreground data-selected:hover:bg-primary size-(--cell-size) min-w-0 p-0 leading-none font-normal',
         className
       )}
       {...props}
     />
-  )
+  );
 }
 
 /** Month/year caption picker — `ui/select` instead of a native `<select>`. */
@@ -164,18 +169,18 @@ function CalendarDropdown({
   onChange,
   disabled,
   className,
-  "aria-label": ariaLabel,
+  'aria-label': ariaLabel,
 }: DropdownProps) {
-  const selected = options.find((o) => String(o.value) === String(value))
+  const selected = options.find((o) => String(o.value) === String(value));
   return (
     <Select
       value={value != null ? String(value) : undefined}
       onValueChange={(v) => {
-        if (v == null) return
+        if (v == null) return;
         // react-day-picker expects a <select> change event; hand it the shape it reads.
         onChange?.({
           target: { value: v },
-        } as unknown as React.ChangeEvent<HTMLSelectElement>)
+        } as unknown as React.ChangeEvent<HTMLSelectElement>);
       }}
       disabled={disabled}
     >
@@ -183,7 +188,7 @@ function CalendarDropdown({
         size="sm"
         aria-label={ariaLabel}
         className={cn(
-          "gap-1 border-transparent bg-transparent px-1.5 font-medium hover:bg-muted",
+          'hover:bg-muted gap-1 border-transparent bg-transparent px-1.5 font-medium',
           className
         )}
       >
@@ -191,13 +196,17 @@ function CalendarDropdown({
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false} className="max-h-72">
         {options.map((o) => (
-          <SelectItem key={o.value} value={String(o.value)} disabled={o.disabled}>
+          <SelectItem
+            key={o.value}
+            value={String(o.value)}
+            disabled={o.disabled}
+          >
             {o.label}
           </SelectItem>
         ))}
       </SelectContent>
     </Select>
-  )
+  );
 }
 
-export { Calendar }
+export { Calendar };

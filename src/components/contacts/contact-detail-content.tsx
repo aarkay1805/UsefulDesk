@@ -94,12 +94,7 @@ const SECTION_IDS = ['details', 'tags', 'notes'];
  * and `template` (the composer is right there).
  */
 export type ContactQuickActionId =
-  | 'convert'
-  | 'template'
-  | 'chat'
-  | 'call'
-  | 'note'
-  | 'email';
+  'convert' | 'template' | 'chat' | 'call' | 'note' | 'email';
 
 const ALL_QUICK_ACTIONS: ContactQuickActionId[] = [
   'convert',
@@ -203,7 +198,7 @@ export function ContactDetailContent({
   // re-fire the load effect on every render.
   const collapsedKey = (collapsedSections ?? []).join(',');
   const [openSections, setOpenSections] = useState<string[]>(() =>
-    SECTION_IDS.filter((id) => !(collapsedSections ?? []).includes(id)),
+    SECTION_IDS.filter((id) => !(collapsedSections ?? []).includes(id))
   );
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -247,7 +242,10 @@ export function ContactDetailContent({
 
     const [tagsRes, contactTagsRes] = await Promise.all([
       supabase.from('tags').select('*').order('name'),
-      supabase.from('contact_tags').select('tag_id').eq('contact_id', contactId),
+      supabase
+        .from('contact_tags')
+        .select('tag_id')
+        .eq('contact_id', contactId),
     ]);
 
     if (tagsRes.data) setAllTags(tagsRes.data);
@@ -292,7 +290,7 @@ export function ContactDetailContent({
       const openIds = SECTION_IDS.filter(
         (id) =>
           !collapsed.includes(id) ||
-          (initialFocus === 'followup' && id === 'notes'),
+          (initialFocus === 'followup' && id === 'notes')
       );
       setOpenSections(openIds);
       await Promise.all([
@@ -338,12 +336,15 @@ export function ContactDetailContent({
   // Quick action: make sure the Notes section is open, then focus the composer.
   function startNote() {
     setOpenSections((prev) =>
-      prev.includes('notes') ? prev : [...prev, 'notes'],
+      prev.includes('notes') ? prev : [...prev, 'notes']
     );
     // Wait a tick so the accordion panel is mounted/expanded before focusing.
     setTimeout(() => {
       noteInputRef.current?.focus();
-      noteInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      noteInputRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
     }, 100);
   }
 
@@ -358,7 +359,7 @@ export function ContactDetailContent({
   // Returns whether the write succeeded so the row can exit edit mode.
   async function saveField(
     column: 'name' | 'phone' | 'email' | 'company',
-    val: string,
+    val: string
   ): Promise<boolean> {
     if (!contactId) return false;
     const next = val.trim() || null;
@@ -381,7 +382,7 @@ export function ContactDetailContent({
   // uuid|null), so no trimming here.
   async function saveContactColumn(
     column: 'lead_status' | 'source' | 'gender' | 'assigned_to',
-    next: string | null,
+    next: string | null
   ): Promise<boolean> {
     if (!contactId) return false;
     const { error } = await supabase
@@ -519,7 +520,7 @@ export function ContactDetailContent({
   // only, so no unique constraint on the value table is assumed.
   async function saveCustomField(
     fieldId: string,
-    val: string,
+    val: string
   ): Promise<boolean> {
     if (!contactId) return false;
     const trimmed = val.trim();
@@ -575,7 +576,7 @@ export function ContactDetailContent({
 
   async function handleSendTemplate(
     template: MessageTemplate,
-    values: TemplateSendValues,
+    values: TemplateSendValues
   ) {
     if (!contactId) return;
     setSendingTemplate(true);
@@ -620,7 +621,7 @@ export function ContactDetailContent({
   if (loading || !contact) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="size-6 animate-spin text-primary-text" />
+        <Loader2 className="text-primary-text size-6 animate-spin" />
       </div>
     );
   }
@@ -637,15 +638,15 @@ export function ContactDetailContent({
     <>
       <div className="flex h-full flex-col">
         {/* Header */}
-        <Header className="border-b border-border/50 p-4">
+        <Header className="border-border/50 border-b p-4">
           <div className="flex items-center gap-3">
             <UserAvatar
               name={contact.name?.trim() || contact.phone}
               src={contact.avatar_url}
-              className="size-12 border border-border"
+              className="border-border size-12 border"
             />
             <div className="min-w-0 flex-1">
-              <Title className="truncate text-popover-foreground">
+              <Title className="text-popover-foreground truncate">
                 {contact.name || 'Unknown'}
               </Title>
               {/* Split axes: on the 500px sheet this row fits one line, where
@@ -653,15 +654,15 @@ export function ContactDetailContent({
                   wraps, and a single `gap-3` would also become a 12px ROW gap —
                   leaving the two lines floating apart. gap-y-1 keeps the wrapped
                   form a tight meta block. */}
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                 <button
                   onClick={copyPhone}
-                  className="flex items-center gap-1 transition-colors hover:text-primary-text"
+                  className="hover:text-primary-text flex items-center gap-1 transition-colors"
                 >
                   <Phone className="size-3" />
                   {contact.phone}
                   {copiedPhone ? (
-                    <Check className="size-3 text-primary-text" />
+                    <Check className="text-primary-text size-3" />
                   ) : (
                     <Copy className="size-3" />
                   )}
@@ -766,8 +767,11 @@ export function ContactDetailContent({
             className="px-4"
           >
             {/* Details */}
-            <AccordionItem value="details" className="border-b border-border/50">
-              <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline">
+            <AccordionItem
+              value="details"
+              className="border-border/50 border-b"
+            >
+              <AccordionTrigger className="text-foreground text-sm font-semibold hover:no-underline">
                 Details
               </AccordionTrigger>
               <AccordionContent>
@@ -776,7 +780,7 @@ export function ContactDetailContent({
                     fields (added once in Settings, they surface in both
                     the table and here from the shared custom_fields
                     fetch). Received By + Created are read-only. */}
-                <dl className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50">
+                <dl className="divide-border/50 border-border/50 divide-y overflow-hidden rounded-lg border">
                   <InlineField
                     label="Name"
                     value={contact.name}
@@ -793,14 +797,18 @@ export function ContactDetailContent({
                       color: s.color,
                     }))}
                     display={
-                      <Badge color={fieldOptions.statusFor(contact.lead_status).color}>
+                      <Badge
+                        color={
+                          fieldOptions.statusFor(contact.lead_status).color
+                        }
+                      >
                         {fieldOptions.statusFor(contact.lead_status).label}
                       </Badge>
                     }
                     onSave={(v) =>
                       saveContactColumn(
                         'lead_status',
-                        columnToStatus(v as LeadColumnKey),
+                        columnToStatus(v as LeadColumnKey)
                       )
                     }
                   />
@@ -886,7 +894,9 @@ export function ContactDetailContent({
                       contact.assigned_to ? (
                         <span className="flex min-w-0 items-center gap-1.5">
                           <UserAvatar
-                            name={nameById.get(contact.assigned_to) ?? 'Teammate'}
+                            name={
+                              nameById.get(contact.assigned_to) ?? 'Teammate'
+                            }
                             src={avatarById.get(contact.assigned_to) ?? null}
                             className="size-5 shrink-0"
                             fallbackClassName="text-[10px]"
@@ -896,7 +906,9 @@ export function ContactDetailContent({
                           </span>
                         </span>
                       ) : (
-                        <span className="text-muted-foreground/60">Unassigned</span>
+                        <span className="text-muted-foreground/60">
+                          Unassigned
+                        </span>
                       )
                     }
                     onSave={(v) => saveAssignment(v || null)}
@@ -996,18 +1008,18 @@ export function ContactDetailContent({
             </AccordionItem>
 
             {/* Tags */}
-            <AccordionItem value="tags" className="border-b border-border/50">
-              <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline">
+            <AccordionItem value="tags" className="border-border/50 border-b">
+              <AccordionTrigger className="text-foreground text-sm font-semibold hover:no-underline">
                 Tags
               </AccordionTrigger>
               <AccordionContent>
                 {allTags.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     No tags available.{' '}
                     <Link
                       href="/settings?tab=fields"
                       onClick={() => onClose?.()}
-                      className="text-primary-text underline underline-offset-3 hover:text-primary-text/80"
+                      className="text-primary-text hover:text-primary-text/80 underline underline-offset-3"
                     >
                       Create tags in Settings
                     </Link>
@@ -1025,8 +1037,8 @@ export function ContactDetailContent({
                           className={cn(
                             'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all disabled:opacity-60',
                             selected
-                              ? 'border-transparent bg-muted text-foreground'
-                              : 'border-border bg-transparent text-muted-foreground hover:bg-muted/50',
+                              ? 'bg-muted text-foreground border-transparent'
+                              : 'border-border text-muted-foreground hover:bg-muted/50 bg-transparent'
                           )}
                         >
                           {selected && <Check className="size-3.5" />}
@@ -1041,7 +1053,7 @@ export function ContactDetailContent({
 
             {/* Notes & follow-ups */}
             <AccordionItem value="notes" className="border-b-0">
-              <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline">
+              <AccordionTrigger className="text-foreground text-sm font-semibold hover:no-underline">
                 Notes &amp; follow-ups
               </AccordionTrigger>
               {/* The panel is overflow-hidden (open/close animation),
@@ -1063,7 +1075,7 @@ export function ContactDetailContent({
             area so it never crowds the fields; hidden entirely for roles
             that can't delete (the RLS would refuse them anyway). */}
         {canDelete && (
-          <div className="border-t border-border/50 p-4">
+          <div className="border-border/50 border-t p-4">
             <Button
               variant="destructive-ghost"
               size="sm"
@@ -1109,7 +1121,7 @@ export function ContactDetailContent({
           if (!open) setTransferTarget(null);
         }}
         targetName={
-          transferTarget ? nameById.get(transferTarget) ?? 'Teammate' : ''
+          transferTarget ? (nameById.get(transferTarget) ?? 'Teammate') : ''
         }
         targetAvatarUrl={transferTarget ? avatarById.get(transferTarget) : null}
         leadName={contact.name?.trim() || contact.phone}
@@ -1123,8 +1135,8 @@ export function ContactDetailContent({
               Delete {contact.name?.trim() || contact.phone}?
             </DialogTitle>
             <DialogDescription>
-              This permanently deletes the lead and its notes, tags, and
-              custom values. This action cannot be undone.
+              This permanently deletes the lead and its notes, tags, and custom
+              values. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1135,7 +1147,11 @@ export function ContactDetailContent({
             >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={deleteLead} disabled={deleting}>
+            <Button
+              variant="destructive"
+              onClick={deleteLead}
+              disabled={deleting}
+            >
               {deleting && <Loader2 className="size-4 animate-spin" />}
               <Trash2 className="size-4" /> Delete lead
             </Button>
@@ -1149,15 +1165,17 @@ export function ContactDetailContent({
 // Non-dialog stand-ins for the Sheet header parts, so the panel host
 // renders byte-identical chrome without a Dialog root in scope.
 function PanelHeader({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('flex flex-col gap-0.5 p-4', className)} {...props} />;
+  return (
+    <div className={cn('flex flex-col gap-0.5 p-4', className)} {...props} />
+  );
 }
 
 function PanelTitle({ className, ...props }: React.ComponentProps<'h3'>) {
   return (
     <h3
       className={cn(
-        'font-heading text-base font-medium text-foreground',
-        className,
+        'font-heading text-foreground text-base font-medium',
+        className
       )}
       {...props}
     />
@@ -1217,7 +1235,7 @@ function QuickAction({
           {inner}
         </button>
       )}
-      <span className="text-xs leading-none text-muted-foreground">
+      <span className="text-muted-foreground text-xs leading-none">
         {label}
       </span>
     </div>
@@ -1294,7 +1312,9 @@ function InlineField({
     };
     return (
       <div className="grid min-h-10 grid-cols-[100px_1fr] items-center gap-3 px-3">
-        <span className="text-xs text-muted-foreground capitalize">{label}</span>
+        <span className="text-muted-foreground text-xs capitalize">
+          {label}
+        </span>
         {/* Same in-field editing chrome as the leads table cells: the
             input fills the row and the actions float inside its right
             edge (InlineEditActions). */}
@@ -1335,9 +1355,9 @@ function InlineField({
     <button
       type="button"
       onClick={begin}
-      className="group grid min-h-10 w-full grid-cols-[100px_1fr] items-center gap-3 px-3 text-left transition-colors hover:bg-muted/40"
+      className="group hover:bg-muted/40 grid min-h-10 w-full grid-cols-[100px_1fr] items-center gap-3 px-3 text-left transition-colors"
     >
-      <span className="text-xs text-muted-foreground capitalize leading-5">
+      <span className="text-muted-foreground text-xs leading-5 capitalize">
         {label}
       </span>
       <span className="flex min-w-0 items-center gap-2">
@@ -1348,7 +1368,7 @@ function InlineField({
         >
           {shown}
         </span>
-        <Pencil className="ml-auto size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+        <Pencil className="text-muted-foreground ml-auto size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
       </span>
     </button>
   );
@@ -1365,10 +1385,10 @@ function StaticField({
 }) {
   return (
     <div className="grid min-h-10 grid-cols-[100px_1fr] items-center gap-3 px-3">
-      <span className="text-xs text-muted-foreground capitalize leading-5">
+      <span className="text-muted-foreground text-xs leading-5 capitalize">
         {label}
       </span>
-      <span className="flex min-w-0 items-center gap-2 text-sm text-foreground">
+      <span className="text-foreground flex min-w-0 items-center gap-2 text-sm">
         {children}
       </span>
     </div>
@@ -1421,7 +1441,7 @@ function InlineSelectField({
 
   return (
     <div className="grid min-h-10 grid-cols-[100px_1fr] items-center gap-3 px-3">
-      <span className="text-xs text-muted-foreground capitalize leading-5">
+      <span className="text-muted-foreground text-xs leading-5 capitalize">
         {label}
       </span>
       <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -1430,7 +1450,7 @@ function InlineSelectField({
             <button
               type="button"
               disabled={saving}
-              className="group -mx-1.5 flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/40 disabled:opacity-60"
+              className="group hover:bg-muted/40 -mx-1.5 flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors disabled:opacity-60"
             />
           }
         >
@@ -1438,17 +1458,20 @@ function InlineSelectField({
             {display}
           </span>
           {saving ? (
-            <Loader2 className="ml-auto size-3.5 shrink-0 animate-spin text-primary-text" />
+            <Loader2 className="text-primary-text ml-auto size-3.5 shrink-0 animate-spin" />
           ) : (
-            <ChevronDown className="ml-auto size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-data-[popup-open]:opacity-100" />
+            <ChevronDown className="text-muted-foreground ml-auto size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-data-[popup-open]:opacity-100" />
           )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="bg-popover border-border min-w-52">
+        <DropdownMenuContent
+          align="start"
+          className="bg-popover border-border min-w-52"
+        >
           {options.map((o) => (
             <DropdownMenuItem
               key={o.value || 'unassigned'}
               onClick={() => pick(o.value)}
-              className="justify-between gap-3 text-popover-foreground focus:bg-muted focus:text-foreground"
+              className="text-popover-foreground focus:bg-muted focus:text-foreground justify-between gap-3"
             >
               {variant === 'pill' ? (
                 <Badge color={o.color ?? '#64748b'}>{o.label}</Badge>
@@ -1459,7 +1482,7 @@ function InlineSelectField({
                 </span>
               )}
               {o.value === value && (
-                <Check className="size-3.5 shrink-0 text-primary-text" />
+                <Check className="text-primary-text size-3.5 shrink-0" />
               )}
             </DropdownMenuItem>
           ))}

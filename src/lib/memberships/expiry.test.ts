@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from 'vitest';
 import {
   istToday,
   istAddDays,
@@ -8,116 +8,130 @@ import {
   effectiveStatus,
   computeRenewalEndDate,
   unfreezeEndDate,
-} from "./expiry";
+} from './expiry';
 
-describe("istToday", () => {
-  it("returns the IST calendar day, not the UTC day, around the 18:30 UTC boundary", () => {
+describe('istToday', () => {
+  it('returns the IST calendar day, not the UTC day, around the 18:30 UTC boundary', () => {
     // 2026-07-03 18:29 UTC is still 2026-07-03 23:59 IST.
-    expect(istToday(new Date("2026-07-03T18:29:00Z"))).toBe("2026-07-03");
+    expect(istToday(new Date('2026-07-03T18:29:00Z'))).toBe('2026-07-03');
     // 2026-07-03 18:30 UTC is 2026-07-04 00:00 IST — the day has rolled over.
-    expect(istToday(new Date("2026-07-03T18:30:00Z"))).toBe("2026-07-04");
+    expect(istToday(new Date('2026-07-03T18:30:00Z'))).toBe('2026-07-04');
   });
 
-  it("formats as zero-padded YYYY-MM-DD", () => {
-    expect(istToday(new Date("2026-01-05T06:00:00Z"))).toBe("2026-01-05");
+  it('formats as zero-padded YYYY-MM-DD', () => {
+    expect(istToday(new Date('2026-01-05T06:00:00Z'))).toBe('2026-01-05');
   });
 });
 
-describe("istAddDays", () => {
-  it("adds days across a month boundary", () => {
-    expect(istAddDays("2026-01-30", 3)).toBe("2026-02-02");
+describe('istAddDays', () => {
+  it('adds days across a month boundary', () => {
+    expect(istAddDays('2026-01-30', 3)).toBe('2026-02-02');
   });
-  it("subtracts with a negative offset", () => {
-    expect(istAddDays("2026-03-01", -1)).toBe("2026-02-28");
+  it('subtracts with a negative offset', () => {
+    expect(istAddDays('2026-03-01', -1)).toBe('2026-02-28');
   });
-  it("crosses a leap-year February correctly", () => {
-    expect(istAddDays("2024-02-28", 1)).toBe("2024-02-29");
+  it('crosses a leap-year February correctly', () => {
+    expect(istAddDays('2024-02-28', 1)).toBe('2024-02-29');
   });
 });
 
-describe("addDuration", () => {
-  it("day/week delegate to plain day math", () => {
-    expect(addDuration("2026-07-11", 10, "day")).toBe("2026-07-21");
-    expect(addDuration("2026-07-11", 2, "week")).toBe("2026-07-25");
+describe('addDuration', () => {
+  it('day/week delegate to plain day math', () => {
+    expect(addDuration('2026-07-11', 10, 'day')).toBe('2026-07-21');
+    expect(addDuration('2026-07-11', 2, 'week')).toBe('2026-07-25');
   });
 
   it("adds calendar months, clamping to the target month's length", () => {
-    expect(addDuration("2026-01-31", 1, "month")).toBe("2026-02-28");
-    expect(addDuration("2026-01-15", 1, "month")).toBe("2026-02-15");
-    expect(addDuration("2026-10-31", 2, "month")).toBe("2026-12-31");
-    expect(addDuration("2026-11-30", 3, "month")).toBe("2027-02-28");
+    expect(addDuration('2026-01-31', 1, 'month')).toBe('2026-02-28');
+    expect(addDuration('2026-01-15', 1, 'month')).toBe('2026-02-15');
+    expect(addDuration('2026-10-31', 2, 'month')).toBe('2026-12-31');
+    expect(addDuration('2026-11-30', 3, 'month')).toBe('2027-02-28');
   });
 
-  it("clamps into a leap February correctly", () => {
-    expect(addDuration("2028-01-31", 1, "month")).toBe("2028-02-29");
+  it('clamps into a leap February correctly', () => {
+    expect(addDuration('2028-01-31', 1, 'month')).toBe('2028-02-29');
   });
 
-  it("adds years, clamping Feb 29", () => {
-    expect(addDuration("2026-07-11", 1, "year")).toBe("2027-07-11");
-    expect(addDuration("2028-02-29", 1, "year")).toBe("2029-02-28");
+  it('adds years, clamping Feb 29', () => {
+    expect(addDuration('2026-07-11', 1, 'year')).toBe('2027-07-11');
+    expect(addDuration('2028-02-29', 1, 'year')).toBe('2029-02-28');
   });
 
-  it("crosses year boundaries in month mode", () => {
-    expect(addDuration("2026-11-15", 3, "month")).toBe("2027-02-15");
+  it('crosses year boundaries in month mode', () => {
+    expect(addDuration('2026-11-15', 3, 'month')).toBe('2027-02-15');
   });
 
-  it("returns malformed input unchanged", () => {
-    expect(addDuration("soon", 1, "month")).toBe("soon");
+  it('returns malformed input unchanged', () => {
+    expect(addDuration('soon', 1, 'month')).toBe('soon');
   });
 });
 
-describe("daysBetween / daysUntil", () => {
-  it("counts forward and backward", () => {
-    expect(daysBetween("2026-07-01", "2026-07-08")).toBe(7);
-    expect(daysBetween("2026-07-08", "2026-07-01")).toBe(-7);
+describe('daysBetween / daysUntil', () => {
+  it('counts forward and backward', () => {
+    expect(daysBetween('2026-07-01', '2026-07-08')).toBe(7);
+    expect(daysBetween('2026-07-08', '2026-07-01')).toBe(-7);
   });
-  it("daysUntil is 0 on the expiry day and negative after", () => {
-    expect(daysUntil("2026-07-04", "2026-07-04")).toBe(0);
-    expect(daysUntil("2026-07-01", "2026-07-04")).toBe(-3);
-  });
-});
-
-describe("effectiveStatus", () => {
-  const today = "2026-07-04";
-  it("keeps an active membership active when not yet past", () => {
-    expect(effectiveStatus({ status: "active", end_date: "2026-07-10" }, today)).toBe("active");
-    expect(effectiveStatus({ status: "active", end_date: "2026-07-04" }, today)).toBe("active");
-  });
-  it("derives expired for an active membership past its end date", () => {
-    expect(effectiveStatus({ status: "active", end_date: "2026-07-03" }, today)).toBe("expired");
-  });
-  it("passes frozen and cancelled through unchanged even when past", () => {
-    expect(effectiveStatus({ status: "frozen", end_date: "2026-07-01" }, today)).toBe("frozen");
-    expect(effectiveStatus({ status: "cancelled", end_date: "2026-07-01" }, today)).toBe("cancelled");
+  it('daysUntil is 0 on the expiry day and negative after', () => {
+    expect(daysUntil('2026-07-04', '2026-07-04')).toBe(0);
+    expect(daysUntil('2026-07-01', '2026-07-04')).toBe(-3);
   });
 });
 
-describe("computeRenewalEndDate", () => {
-  const today = "2026-07-04";
-  it("extends from the current expiry when still active (no days burned)", () => {
-    expect(computeRenewalEndDate("2026-07-20", 30, today)).toBe("2026-08-19");
+describe('effectiveStatus', () => {
+  const today = '2026-07-04';
+  it('keeps an active membership active when not yet past', () => {
+    expect(
+      effectiveStatus({ status: 'active', end_date: '2026-07-10' }, today)
+    ).toBe('active');
+    expect(
+      effectiveStatus({ status: 'active', end_date: '2026-07-04' }, today)
+    ).toBe('active');
   });
-  it("extends from today when already expired", () => {
-    expect(computeRenewalEndDate("2026-06-01", 30, today)).toBe("2026-08-03");
+  it('derives expired for an active membership past its end date', () => {
+    expect(
+      effectiveStatus({ status: 'active', end_date: '2026-07-03' }, today)
+    ).toBe('expired');
   });
-  it("starts from today when there is no current expiry", () => {
-    expect(computeRenewalEndDate(null, 30, today)).toBe("2026-08-03");
-  });
-  it("treats an expiry equal to today as extend-from-today", () => {
-    expect(computeRenewalEndDate("2026-07-04", 30, today)).toBe("2026-08-03");
+  it('passes frozen and cancelled through unchanged even when past', () => {
+    expect(
+      effectiveStatus({ status: 'frozen', end_date: '2026-07-01' }, today)
+    ).toBe('frozen');
+    expect(
+      effectiveStatus({ status: 'cancelled', end_date: '2026-07-01' }, today)
+    ).toBe('cancelled');
   });
 });
 
-describe("unfreezeEndDate", () => {
-  const today = "2026-07-04";
-  it("pushes expiry forward by the frozen span", () => {
+describe('computeRenewalEndDate', () => {
+  const today = '2026-07-04';
+  it('extends from the current expiry when still active (no days burned)', () => {
+    expect(computeRenewalEndDate('2026-07-20', 30, today)).toBe('2026-08-19');
+  });
+  it('extends from today when already expired', () => {
+    expect(computeRenewalEndDate('2026-06-01', 30, today)).toBe('2026-08-03');
+  });
+  it('starts from today when there is no current expiry', () => {
+    expect(computeRenewalEndDate(null, 30, today)).toBe('2026-08-03');
+  });
+  it('treats an expiry equal to today as extend-from-today', () => {
+    expect(computeRenewalEndDate('2026-07-04', 30, today)).toBe('2026-08-03');
+  });
+});
+
+describe('unfreezeEndDate', () => {
+  const today = '2026-07-04';
+  it('pushes expiry forward by the frozen span', () => {
     // Frozen on 2026-06-24, unfrozen 10 days later → +10 days of expiry.
-    expect(unfreezeEndDate("2026-07-10", "2026-06-24", today)).toBe("2026-07-20");
+    expect(unfreezeEndDate('2026-07-10', '2026-06-24', today)).toBe(
+      '2026-07-20'
+    );
   });
-  it("leaves expiry unchanged when frozenAt is missing", () => {
-    expect(unfreezeEndDate("2026-07-10", null, today)).toBe("2026-07-10");
+  it('leaves expiry unchanged when frozenAt is missing', () => {
+    expect(unfreezeEndDate('2026-07-10', null, today)).toBe('2026-07-10');
   });
-  it("leaves expiry unchanged when frozenAt is today (zero span)", () => {
-    expect(unfreezeEndDate("2026-07-10", "2026-07-04", today)).toBe("2026-07-10");
+  it('leaves expiry unchanged when frozenAt is today (zero span)', () => {
+    expect(unfreezeEndDate('2026-07-10', '2026-07-04', today)).toBe(
+      '2026-07-10'
+    );
   });
 });

@@ -37,7 +37,7 @@ const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
  */
 export function coerceOptionValue(
   raw: string,
-  options: LeadFieldOption[],
+  options: LeadFieldOption[]
 ): CoercedOption {
   const value = raw.trim();
   const lower = norm(value);
@@ -58,7 +58,10 @@ export function coerceOptionValue(
   }
 
   return {
-    key: slugifyOptionKey(value, options.map((o) => o.key)),
+    key: slugifyOptionKey(
+      value,
+      options.map((o) => o.key)
+    ),
     matched: false,
   };
 }
@@ -71,7 +74,7 @@ export function coerceOptionValue(
  */
 export function fuzzyMatchOption(
   raw: string,
-  options: LeadFieldOption[],
+  options: LeadFieldOption[]
 ): string | null {
   const q = squash(raw);
   if (q.length < 3) return null;
@@ -110,8 +113,7 @@ export function coerceAssignee(raw: string, staff: StaffRef[]): string | null {
 
   const prefix = staff.filter(
     (s) =>
-      norm(s.full_name).startsWith(q) ||
-      norm(s.full_name).split(/\s+/)[0] === q,
+      norm(s.full_name).startsWith(q) || norm(s.full_name).split(/\s+/)[0] === q
   );
   return prefix.length === 1 ? prefix[0].user_id : null;
 }
@@ -159,7 +161,7 @@ const PHONE_HEADER_HINT = /phone|mobile|whatsapp|contact\s*no|cell/i;
  */
 export function detectFieldType(
   header: string,
-  samples: string[],
+  samples: string[]
 ): DetectedField {
   const label = titleCase(header.trim()) || 'New field';
   const values = samples.map((s) => s.trim()).filter(Boolean);
@@ -275,7 +277,7 @@ export function buildPreviewRows(args: BuildPreviewArgs): PreviewRow[] {
     const option = (
       raw: string | undefined,
       options: LeadFieldOption[],
-      field: UnmatchedField,
+      field: UnmatchedField
     ): string | null => {
       if (!raw || !raw.trim()) return null;
       const { key, matched } = coerceOptionValue(raw, options);
@@ -309,7 +311,12 @@ export type OptionField = 'status' | 'source' | 'gender';
 /** Every field the Fix-values panel can resolve — option lists + assignee. */
 export type FixableField = OptionField | 'assignee';
 
-const FIXABLE_FIELDS: FixableField[] = ['status', 'source', 'gender', 'assignee'];
+const FIXABLE_FIELDS: FixableField[] = [
+  'status',
+  'source',
+  'gender',
+  'assignee',
+];
 
 export interface UnmatchedValue {
   field: FixableField;
@@ -364,7 +371,7 @@ export function applyValueFix(
   rows: PreviewRow[],
   field: FixableField,
   raw: string,
-  key: string,
+  key: string
 ): PreviewRow[] {
   const target = raw.trim().toLowerCase();
   return rows.map((row) => {

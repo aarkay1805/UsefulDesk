@@ -636,7 +636,7 @@ function NodeEditSheet({
             <SheetTitle className="flex items-center gap-2 text-[11px] font-semibold tracking-wider uppercase">
               <span style={{ color: c.text }}>{meta.label}</span>
               {isEntry && (
-                <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-emerald-foreground uppercase">
+                <span className="text-emerald-foreground rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase">
                   Entry
                 </span>
               )}
@@ -667,11 +667,7 @@ function NodeEditSheet({
           ) : (
             <span />
           )}
-          <Button
-            variant="destructive-ghost"
-            size="sm"
-            onClick={onDelete}
-          >
+          <Button variant="destructive-ghost" size="sm" onClick={onDelete}>
             <Trash2 className="h-3.5 w-3.5" />
             Delete node
           </Button>

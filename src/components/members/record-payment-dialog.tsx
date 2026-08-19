@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { Loader2, Upload, X } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { Loader2, Upload, X } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { useLocale } from "@/hooks/use-locale";
-import { getErrorMessage } from "@/lib/errors";
-import { dateAtNoonInTz } from "@/lib/locale/format";
-import { validatePaymentAmount } from "@/lib/payments/validation";
-import { isChargeableAmount } from "@/lib/memberships/periods";
+import { createClient } from '@/lib/supabase/client';
+import { useLocale } from '@/hooks/use-locale';
+import { getErrorMessage } from '@/lib/errors';
+import { dateAtNoonInTz } from '@/lib/locale/format';
+import { validatePaymentAmount } from '@/lib/payments/validation';
+import { isChargeableAmount } from '@/lib/memberships/periods';
 import {
   uploadPrivateAccountMedia,
   deleteAccountMedia,
   MEDIA_MAX_BYTES_BY_KIND,
-} from "@/lib/storage/upload-media";
-import type { Membership, PaymentMethod } from "@/types";
+} from '@/lib/storage/upload-media';
+import type { Membership, PaymentMethod } from '@/types';
 import {
   Dialog,
   DialogContent,
@@ -23,25 +23,25 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
-  { value: "cash", label: "Cash" },
-  { value: "upi", label: "UPI" },
-  { value: "card", label: "Card" },
-  { value: "bank", label: "Bank transfer" },
-  { value: "other", label: "Other" },
+  { value: 'cash', label: 'Cash' },
+  { value: 'upi', label: 'UPI' },
+  { value: 'card', label: 'Card' },
+  { value: 'bank', label: 'Bank transfer' },
+  { value: 'other', label: 'Other' },
 ];
 
 interface RecordPaymentDialogProps {
@@ -77,15 +77,17 @@ export function RecordPaymentDialog({
   const supabase = createClient();
   const { locale, fmt } = useLocale();
 
-  const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState<PaymentMethod>("cash");
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState<PaymentMethod>('cash');
   const [paidOn, setPaidOn] = useState(fmt.today());
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [shot, setShot] = useState<{ url: string; path: string } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey, setIdempotencyKey] = useState(() =>
+    crypto.randomUUID()
+  );
   // Outstanding balance for the current period, pulled from the
   // membership_dues view so a payment settles a balance (supports
   // partials) instead of a blind paid/due flip.
@@ -106,9 +108,9 @@ export function RecordPaymentDialog({
     void (async () => {
       await Promise.resolve();
       if (cancelled) return;
-      setMethod("cash");
+      setMethod('cash');
       setPaidOn(fmt.today());
-      setNote("");
+      setNote('');
       setShot(null);
       setDues(null);
       setLoadError(null);
@@ -119,25 +121,25 @@ export function RecordPaymentDialog({
       if (period) {
         const balance = Number(period.balance);
         setDues({ balance, collected: targetFee - balance });
-        setAmount(isChargeableAmount(balance) ? String(balance) : "");
+        setAmount(isChargeableAmount(balance) ? String(balance) : '');
         return;
       }
       const { data, error } = await supabase
-        .from("membership_dues")
-        .select("balance, collected_current")
-        .eq("membership_id", membership.id)
+        .from('membership_dues')
+        .select('balance, collected_current')
+        .eq('membership_id', membership.id)
         .maybeSingle();
       if (cancelled) return;
       if (error) {
         setLoadError(error.message);
-        setAmount("");
+        setAmount('');
         return;
       }
       const fee = Number(membership.fee_amount ?? 0);
       const balance = data ? Number(data.balance) : fee;
       const collected = data ? Number(data.collected_current) : 0;
       setDues({ balance, collected });
-      setAmount(isChargeableAmount(balance) ? String(balance) : "");
+      setAmount(isChargeableAmount(balance) ? String(balance) : '');
     })();
     return () => {
       cancelled = true;
@@ -146,15 +148,15 @@ export function RecordPaymentDialog({
 
   async function handleUpload(file: File) {
     if (file.size > MEDIA_MAX_BYTES_BY_KIND.image) {
-      toast.error("Screenshot must be 5 MB or smaller.");
+      toast.error('Screenshot must be 5 MB or smaller.');
       return;
     }
     setUploading(true);
     try {
-      const res = await uploadPrivateAccountMedia("payment-receipts", file);
+      const res = await uploadPrivateAccountMedia('payment-receipts', file);
       setShot({ url: res.signedUrl, path: res.path });
     } catch (err) {
-      toast.error(getErrorMessage(err, "Upload failed"));
+      toast.error(getErrorMessage(err, 'Upload failed'));
     } finally {
       setUploading(false);
     }
@@ -165,12 +167,12 @@ export function RecordPaymentDialog({
     const path = shot.path;
     setShot(null);
     // Best-effort GC of the staged object.
-    deleteAccountMedia("payment-receipts", path).catch(() => {});
+    deleteAccountMedia('payment-receipts', path).catch(() => {});
   }
 
   function closeDialog() {
     if (shot) {
-      deleteAccountMedia("payment-receipts", shot.path).catch(() => {});
+      deleteAccountMedia('payment-receipts', shot.path).catch(() => {});
       setShot(null);
     }
     onOpenChange(false);
@@ -179,15 +181,17 @@ export function RecordPaymentDialog({
 
   async function handleSave() {
     const amt = Number(amount);
-    if (!dues || loadError) return toast.error("The balance is not available yet");
+    if (!dues || loadError)
+      return toast.error('The balance is not available yet');
     // ISO date strings compare lexically == chronologically. Backdating
     // is legitimate (cash noted late); future-dating is a typo.
-    if (paidOn > fmt.today()) return toast.error("The payment date cannot be in the future");
+    if (paidOn > fmt.today())
+      return toast.error('The payment date cannot be in the future');
     const validation = validatePaymentAmount(amt, dues.balance);
-    if (validation === "invalid" || validation === "not_positive") {
-      return toast.error("Enter an amount greater than zero");
+    if (validation === 'invalid' || validation === 'not_positive') {
+      return toast.error('Enter an amount greater than zero');
     }
-    if (validation === "exceeds_balance") {
+    if (validation === 'exceeds_balance') {
       return toast.error(`Amount cannot exceed ${fmt.money(dues.balance)}`);
     }
 
@@ -196,9 +200,11 @@ export function RecordPaymentDialog({
       // Store paid_at as an instant: local noon in the ACCOUNT's zone,
       // so the row reads back on the same day it was picked anywhere on
       // earth (a fixed noon-UTC anchor breaks past ±12h, e.g. Auckland).
-      const paidAt = (dateAtNoonInTz(paidOn, locale.timeZone) ?? new Date()).toISOString();
+      const paidAt = (
+        dateAtNoonInTz(paidOn, locale.timeZone) ?? new Date()
+      ).toISOString();
 
-      const { data, error } = await supabase.rpc("record_membership_payment", {
+      const { data, error } = await supabase.rpc('record_membership_payment', {
         p_membership_id: membership.id,
         p_period_end: targetEnd,
         p_amount: amt,
@@ -213,14 +219,14 @@ export function RecordPaymentDialog({
       const result = (data as { balance: number }[] | null)?.[0];
       const settled = Number(result?.balance ?? dues.balance - amt) <= 0;
 
-      toast.success(settled ? "Payment recorded" : "Partial payment recorded");
+      toast.success(settled ? 'Payment recorded' : 'Partial payment recorded');
       // The receipt now belongs to the persisted payment; prevent close
       // cleanup from deleting it.
       setShot(null);
       onOpenChange(false);
       onSaved();
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to record payment"));
+      toast.error(getErrorMessage(err, 'Failed to record payment'));
     } finally {
       setSaving(false);
     }
@@ -228,13 +234,14 @@ export function RecordPaymentDialog({
 
   const amountValidation = dues
     ? validatePaymentAmount(Number(amount), dues.balance)
-    : "invalid";
+    : 'invalid';
   const amountError =
-    amount !== "" && amountValidation === "exceeds_balance"
+    amount !== '' && amountValidation === 'exceeds_balance'
       ? `Amount cannot exceed ${fmt.money(dues?.balance ?? 0)}`
-      : amount !== "" &&
-          (amountValidation === "invalid" || amountValidation === "not_positive")
-        ? "Enter an amount greater than zero"
+      : amount !== '' &&
+          (amountValidation === 'invalid' ||
+            amountValidation === 'not_positive')
+        ? 'Enter an amount greater than zero'
         : null;
 
   return (
@@ -251,7 +258,7 @@ export function RecordPaymentDialog({
           <DialogDescription>
             {period
               ? `For ${fmt.date(targetStart)} – ${fmt.date(targetEnd)}.`
-              : "Log a cash, UPI, or card payment for this member."}
+              : 'Log a cash, UPI, or card payment for this member.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -259,7 +266,7 @@ export function RecordPaymentDialog({
           {dues && isChargeableAmount(dues.balance) && (
             <div className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
               <span className="text-muted-foreground">Balance due</span>
-              <span className="font-medium text-amber-foreground tabular-nums">
+              <span className="text-amber-foreground font-medium tabular-nums">
                 {fmt.money(dues.balance)}
                 {dues.collected > 0 && (
                   <span className="text-muted-foreground ml-1 text-xs">
@@ -274,11 +281,12 @@ export function RecordPaymentDialog({
               className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border px-3 py-2 text-sm"
               role="alert"
             >
-              Could not load the current balance. Close this dialog and try again.
+              Could not load the current balance. Close this dialog and try
+              again.
             </p>
           )}
           {dues && !isChargeableAmount(dues.balance) && !loadError && (
-            <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-foreground">
+            <p className="text-emerald-foreground rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm">
               This billing period is already settled.
             </p>
           )}
@@ -297,10 +305,14 @@ export function RecordPaymentDialog({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 aria-invalid={!!amountError}
-                aria-describedby={amountError ? "rp-amount-error" : undefined}
+                aria-describedby={amountError ? 'rp-amount-error' : undefined}
               />
               {amountError && (
-                <p id="rp-amount-error" className="text-destructive text-xs" role="alert">
+                <p
+                  id="rp-amount-error"
+                  className="text-destructive text-xs"
+                  role="alert"
+                >
                   {amountError}
                 </p>
               )}
@@ -317,10 +329,15 @@ export function RecordPaymentDialog({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAmount(String(Math.round((dues.balance / 2) * 100) / 100))}
+                    onClick={() =>
+                      setAmount(
+                        String(Math.round((dues.balance / 2) * 100) / 100)
+                      )
+                    }
                     className="border-border text-muted-foreground hover:bg-muted hover:text-foreground rounded-md border px-2 py-0.5 text-xs tabular-nums transition-colors"
                   >
-                    Half {fmt.moneyShort(Math.round((dues.balance / 2) * 100) / 100)}
+                    Half{' '}
+                    {fmt.moneyShort(Math.round((dues.balance / 2) * 100) / 100)}
                   </button>
                 </div>
               )}
@@ -349,13 +366,13 @@ export function RecordPaymentDialog({
 
           {dues &&
             isChargeableAmount(dues.balance) &&
-            validatePaymentAmount(Number(amount), dues.balance) === "valid" && (
+            validatePaymentAmount(Number(amount), dues.balance) === 'valid' && (
               <p className="text-muted-foreground text-xs">
                 {Number(amount) >= dues.balance ? (
                   <>This payment settles the period.</>
                 ) : (
                   <>
-                    Remaining after this payment:{" "}
+                    Remaining after this payment:{' '}
                     <span className="text-foreground font-medium tabular-nums">
                       {fmt.money(dues.balance - Number(amount))}
                     </span>
@@ -377,13 +394,26 @@ export function RecordPaymentDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-muted-foreground">Screenshot (optional)</Label>
+            <Label className="text-muted-foreground">
+              Screenshot (optional)
+            </Label>
             {shot ? (
               <div className="border-border bg-muted/40 flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={shot.url} alt="Payment proof" className="size-10 rounded object-cover" />
-                <span className="text-muted-foreground flex-1 truncate">Screenshot attached</span>
-                <Button type="button" variant="ghost" size="icon-sm" onClick={removeShot}>
+                <img
+                  src={shot.url}
+                  alt="Payment proof"
+                  className="size-10 rounded object-cover"
+                />
+                <span className="text-muted-foreground flex-1 truncate">
+                  Screenshot attached
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={removeShot}
+                >
                   <X className="size-4" />
                 </Button>
               </div>
@@ -406,7 +436,7 @@ export function RecordPaymentDialog({
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) handleUpload(f);
-                    e.target.value = "";
+                    e.target.value = '';
                   }}
                 />
               </label>
@@ -439,7 +469,7 @@ export function RecordPaymentDialog({
               !dues ||
               !!loadError ||
               !isChargeableAmount(dues.balance) ||
-              amountValidation !== "valid"
+              amountValidation !== 'valid'
             }
           >
             {saving && <Loader2 className="size-4 animate-spin" />}

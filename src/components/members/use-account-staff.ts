@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useEffect, useMemo, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
 
 export interface StaffMember {
   user_id: string;
@@ -26,17 +26,17 @@ export function useAccountStaff() {
     let cancelled = false;
     (async () => {
       const { data } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, avatar_url")
-        .eq("account_id", accountId)
-        .order("full_name", { ascending: true });
+        .from('profiles')
+        .select('user_id, full_name, avatar_url')
+        .eq('account_id', accountId)
+        .order('full_name', { ascending: true });
       if (cancelled) return;
       setStaff(
         ((data as StaffMember[]) ?? []).map((s) => ({
           user_id: s.user_id,
-          full_name: s.full_name || "Teammate",
+          full_name: s.full_name || 'Teammate',
           avatar_url: s.avatar_url ?? null,
-        })),
+        }))
       );
       setLoading(false);
     })();
@@ -48,13 +48,13 @@ export function useAccountStaff() {
   /** user_id → display name, for rendering assignee chips. */
   const nameById = useMemo(
     () => new Map(staff.map((s) => [s.user_id, s.full_name])),
-    [staff],
+    [staff]
   );
 
   /** user_id → avatar photo URL (null = no upload), for UserAvatar. */
   const avatarById = useMemo(
     () => new Map(staff.map((s) => [s.user_id, s.avatar_url])),
-    [staff],
+    [staff]
   );
 
   return { staff, nameById, avatarById, loading };

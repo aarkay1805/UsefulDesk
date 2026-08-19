@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CalendarClock,
   Clock,
@@ -8,27 +8,30 @@ import {
   CheckCircle2,
   Loader2,
   UserPlus,
-} from "lucide-react";
+} from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { useLocale } from "@/hooks/use-locale";
-import { daysUntil } from "@/lib/memberships/expiry";
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { useLocale } from '@/hooks/use-locale';
+import { daysUntil } from '@/lib/memberships/expiry';
 import {
   partitionTrials,
   type TrialBucket,
   type PartitionedTrials,
-} from "@/lib/memberships/trials";
-import type { Membership } from "@/types";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { FollowUpDialog } from "@/components/follow-ups/follow-up-dialog";
-import { FollowUpButton } from "@/components/follow-ups/follow-up-button";
-import { TrialBadge } from "./membership-status-badge";
-import { MemberIdentity } from "./member-identity";
-import { buildMemberAvatarPreview } from "./member-avatar-quick-view";
-import { SendReminderButton, type ReminderReadiness } from "./send-reminder-button";
-import { RenewMembershipDialog } from "./renew-membership-dialog";
+} from '@/lib/memberships/trials';
+import type { Membership } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
+import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
+import { TrialBadge } from './membership-status-badge';
+import { MemberIdentity } from './member-identity';
+import { buildMemberAvatarPreview } from './member-avatar-quick-view';
+import {
+  SendReminderButton,
+  type ReminderReadiness,
+} from './send-reminder-button';
+import { RenewMembershipDialog } from './renew-membership-dialog';
 
 interface TrialActionListsProps {
   readiness: ReminderReadiness;
@@ -36,33 +39,33 @@ interface TrialActionListsProps {
   reloadKey: number;
 }
 
-const SELECT = "*, contact:contacts(*), plan:membership_plans(*)";
+const SELECT = '*, contact:contacts(*), plan:membership_plans(*)';
 
 const BUCKET_META: Record<
   TrialBucket,
   { label: string; icon: React.ReactNode; empty: string }
 > = {
   ending_today: {
-    label: "Ending today",
-    icon: <CalendarClock className="size-4 text-amber-foreground" />,
-    empty: "No trials ending today.",
+    label: 'Ending today',
+    icon: <CalendarClock className="text-amber-foreground size-4" />,
+    empty: 'No trials ending today.',
   },
   ending_soon: {
-    label: "Ending this week",
-    icon: <Clock className="size-4 text-sky-foreground" />,
-    empty: "No trials ending this week.",
+    label: 'Ending this week',
+    icon: <Clock className="text-sky-foreground size-4" />,
+    empty: 'No trials ending this week.',
   },
   expired_unconverted: {
-    label: "Expired — not converted",
-    icon: <CircleAlert className="size-4 text-red-foreground" />,
-    empty: "No lapsed trials to win back.",
+    label: 'Expired — not converted',
+    icon: <CircleAlert className="text-red-foreground size-4" />,
+    empty: 'No lapsed trials to win back.',
   },
 };
 
 const BUCKET_ORDER: TrialBucket[] = [
-  "ending_today",
-  "ending_soon",
-  "expired_unconverted",
+  'ending_today',
+  'ending_soon',
+  'expired_unconverted',
 ];
 
 export function TrialActionLists({
@@ -89,12 +92,12 @@ export function TrialActionLists({
       // Unconverted, non-cancelled trials only — the win-back tail is
       // "expired AND never converted", so converted rows drop out here.
       const { data } = await supabase
-        .from("memberships")
+        .from('memberships')
         .select(SELECT)
-        .eq("is_trial", true)
-        .is("converted_at", null)
-        .neq("status", "cancelled")
-        .order("end_date", { ascending: true });
+        .eq('is_trial', true)
+        .is('converted_at', null)
+        .neq('status', 'cancelled')
+        .order('end_date', { ascending: true });
       if (cancelled) return;
       setTrials((data as Membership[]) ?? []);
       setLoading(false);
@@ -106,12 +109,12 @@ export function TrialActionLists({
 
   const buckets: PartitionedTrials = useMemo(
     () => partitionTrials(trials, fmt.today()),
-    [trials, fmt],
+    [trials, fmt]
   );
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
+      <div className="text-muted-foreground flex items-center gap-2 py-10 text-sm">
         <Loader2 className="size-4 animate-spin" /> Loading trials…
       </div>
     );
@@ -189,10 +192,10 @@ function TrialList({
   const { fmt } = useLocale();
   const today = fmt.today();
   return (
-    <section className="flex flex-col rounded-xl border border-border bg-card">
-      <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+    <section className="border-border bg-card flex flex-col rounded-xl border">
+      <header className="border-border flex items-center gap-2 border-b px-3 py-2.5">
         {meta.icon}
-        <h3 className="text-sm font-medium text-foreground">{meta.label}</h3>
+        <h3 className="text-foreground text-sm font-medium">{meta.label}</h3>
         <Badge variant="neutral" className="ml-auto tabular-nums">
           {rows.length}
         </Badge>
@@ -200,11 +203,11 @@ function TrialList({
 
       {rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-3 py-8 text-center">
-          <CheckCircle2 className="size-6 text-emerald-foreground" />
-          <p className="text-xs text-muted-foreground">{meta.empty}</p>
+          <CheckCircle2 className="text-emerald-foreground size-6" />
+          <p className="text-muted-foreground text-xs">{meta.empty}</p>
         </div>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="divide-border divide-y">
           {rows.map((m) => {
             const days = daysUntil(m.end_date, today);
             const when =
@@ -216,7 +219,7 @@ function TrialList({
             return (
               <li
                 key={m.id}
-                className="cursor-pointer px-3 py-2.5 transition-colors hover:bg-muted/50"
+                className="hover:bg-muted/50 cursor-pointer px-3 py-2.5 transition-colors"
                 onClick={() => onSelect(m.id)}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -227,18 +230,16 @@ function TrialList({
                     avatarPreview={buildMemberAvatarPreview({
                       membership: m,
                       accountId,
-                      view: "trials",
+                      view: 'trials',
                       readiness,
                       canFollowUp,
                       onSelect: () => onSelect(m.id),
-                      onFollowUp: onFollowUp
-                        ? () => onFollowUp(m)
-                        : undefined,
+                      onFollowUp: onFollowUp ? () => onFollowUp(m) : undefined,
                       onReminderSent: onChanged,
                     })}
                     meta={
-                      <p className="truncate text-xs text-muted-foreground">
-                        {m.plan?.name ?? "Trial pass"} · {when}
+                      <p className="text-muted-foreground truncate text-xs">
+                        {m.plan?.name ?? 'Trial pass'} · {when}
                       </p>
                     }
                   />

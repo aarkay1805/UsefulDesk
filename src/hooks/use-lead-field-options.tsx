@@ -58,7 +58,7 @@ export function useLeadFieldOptions() {
     const byField = (kind: LeadFieldKind) =>
       resolveFieldOptions(
         kind,
-        rows.filter((r) => r.field === kind),
+        rows.filter((r) => r.field === kind)
       );
     const statusOptions = byField('status');
     const sources = byField('source');

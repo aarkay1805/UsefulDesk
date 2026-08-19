@@ -1,17 +1,12 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Trash2 } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { createClient } from '@/lib/supabase/client';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -19,7 +14,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 
 interface MemberDangerZoneProps {
   contactId: string;
@@ -51,12 +46,12 @@ export function MemberDangerZone({
 
   async function remove() {
     setBusy(true);
-    const { error } = await supabase.rpc("delete_member", {
+    const { error } = await supabase.rpc('delete_member', {
       p_contact_id: contactId,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
-    toast.success("Member deleted");
+    toast.success('Member deleted');
     setConfirmOpen(false);
     onDeleted();
   }
@@ -69,14 +64,16 @@ export function MemberDangerZone({
       <CardContent>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-destructive">Delete member</p>
-            <p className="mt-0.5 text-sm text-muted-foreground">
+            <p className="text-destructive text-sm font-medium">
+              Delete member
+            </p>
+            <p className="text-muted-foreground mt-0.5 text-sm">
               Permanently delete this member&apos;s profile, membership,
-              attendance, and notes. Payment ledger entries are retained
-              without the member link for accounting. This can&apos;t be undone.
+              attendance, and notes. Payment ledger entries are retained without
+              the member link for accounting. This can&apos;t be undone.
             </p>
             {blockedReason && (
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="text-muted-foreground mt-1 text-sm">
                 {blockedReason} Deletion is unavailable until then.
               </p>
             )}
@@ -90,7 +87,7 @@ export function MemberDangerZone({
               blockedReason ??
               (canDelete
                 ? undefined
-                : "Only an owner or admin can delete a member")
+                : 'Only an owner or admin can delete a member')
             }
           >
             <Trash2 className="size-4" /> Delete
@@ -101,7 +98,7 @@ export function MemberDangerZone({
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete {memberName || "this member"}?</DialogTitle>
+            <DialogTitle>Delete {memberName || 'this member'}?</DialogTitle>
             <DialogDescription>
               This permanently removes the member profile, membership,
               attendance, and notes. Payment ledger entries are retained and

@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { Copy, ExternalLink, Loader2, Repeat, Check } from "lucide-react";
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Copy, ExternalLink, Loader2, Repeat, Check } from 'lucide-react';
 
-import { getErrorMessage } from "@/lib/errors";
-import { useLocale } from "@/hooks/use-locale";
-import type { Membership } from "@/types";
+import { getErrorMessage } from '@/lib/errors';
+import { useLocale } from '@/hooks/use-locale';
+import type { Membership } from '@/types';
 import {
   Dialog,
   DialogContent,
@@ -14,8 +14,8 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface SetUpAutoPayDialogProps {
   open: boolean;
@@ -45,7 +45,7 @@ export function SetUpAutoPayDialog({
   // include a joining fee from the first cycle, so showing it here would
   // promise a different recurring debit from the one Razorpay creates.
   const recurringFee = Number(
-    membership.pricing_option?.price ?? membership.fee_amount ?? 0,
+    membership.pricing_option?.price ?? membership.fee_amount ?? 0
   );
   const [busy, setBusy] = useState(false);
   const [shortUrl, setShortUrl] = useState<string | null>(null);
@@ -54,18 +54,18 @@ export function SetUpAutoPayDialog({
   async function createMandate() {
     setBusy(true);
     try {
-      const res = await fetch("/api/payments/razorpay/mandate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/payments/razorpay/mandate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ membership_id: membership.id }),
       });
       const data = (await res.json()) as { short_url?: string; error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Could not start auto-pay");
-      if (!data.short_url) throw new Error("No mandate link returned");
+      if (!res.ok) throw new Error(data.error ?? 'Could not start auto-pay');
+      if (!data.short_url) throw new Error('No mandate link returned');
       setShortUrl(data.short_url);
       onStarted();
     } catch (err) {
-      toast.error(getErrorMessage(err, "Could not start auto-pay"));
+      toast.error(getErrorMessage(err, 'Could not start auto-pay'));
     } finally {
       setBusy(false);
     }
@@ -75,7 +75,7 @@ export function SetUpAutoPayDialog({
     if (!shortUrl) return;
     await navigator.clipboard.writeText(shortUrl);
     setCopied(true);
-    toast.success("Link copied");
+    toast.success('Link copied');
     setTimeout(() => setCopied(false), 1500);
   }
 
@@ -96,20 +96,20 @@ export function SetUpAutoPayDialog({
             <Repeat className="size-4" /> Set up auto-pay
           </DialogTitle>
           <DialogDescription>
-            Auto-debit {membership.contact?.name ?? "this member"}&apos;s{" "}
-            <span className="tabular-nums">{fmt.money(recurringFee)}</span>{" "}
-            {membership.plan?.name ? `${membership.plan.name} ` : ""}fee each cycle
-            over UPI AutoPay. The member approves the mandate once; renewals then
-            collect automatically.
+            Auto-debit {membership.contact?.name ?? 'this member'}&apos;s{' '}
+            <span className="tabular-nums">{fmt.money(recurringFee)}</span>{' '}
+            {membership.plan?.name ? `${membership.plan.name} ` : ''}fee each
+            cycle over UPI AutoPay. The member approves the mandate once;
+            renewals then collect automatically.
           </DialogDescription>
         </DialogHeader>
 
         {!shortUrl ? (
           <div className="text-muted-foreground space-y-2 text-sm">
             <p>
-              We&apos;ll create a UPI-mandate link on your Razorpay account. Share
-              it with the member — they approve it once in their UPI app (GPay,
-              PhonePe, etc.) with a single PIN.
+              We&apos;ll create a UPI-mandate link on your Razorpay account.
+              Share it with the member — they approve it once in their UPI app
+              (GPay, PhonePe, etc.) with a single PIN.
             </p>
             <p>
               Until they approve, this member stays on manual collection. If a
@@ -119,7 +119,7 @@ export function SetUpAutoPayDialog({
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm font-medium text-emerald-foreground">
+            <p className="text-emerald-foreground text-sm font-medium">
               Mandate link created. Send it to the member to approve.
             </p>
             <div className="flex items-center gap-2">
@@ -132,12 +132,16 @@ export function SetUpAutoPayDialog({
                 onClick={copyLink}
                 aria-label="Copy link"
               >
-                {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                {copied ? (
+                  <Check className="size-4" />
+                ) : (
+                  <Copy className="size-4" />
+                )}
               </Button>
             </div>
             <p className="text-muted-foreground text-xs">
-              The member&apos;s auto-pay turns on once they approve — you&apos;ll
-              see it reflected here shortly after.
+              The member&apos;s auto-pay turns on once they approve —
+              you&apos;ll see it reflected here shortly after.
             </p>
           </div>
         )}
@@ -164,7 +168,11 @@ export function SetUpAutoPayDialog({
               </Button>
               <Button
                 render={
-                  <a href={shortUrl} target="_blank" rel="noopener noreferrer" />
+                  <a
+                    href={shortUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  />
                 }
               >
                 <ExternalLink className="size-4" /> Open link
