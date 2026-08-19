@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   check:
-    name: Lint, typecheck, test, build
+    name: Format, lint, typecheck, test, build
     runs-on: ubuntu-latest
     # Dummy env vars so `next build` doesn't fail when it reads the
     # public Supabase config at build time. These never leave CI and
@@ -39,6 +39,17 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Runs first: it is the cheapest check and the easiest to fix
+      # (`npm run format`), so a formatting slip fails in seconds rather
+      # than after a full build.
+      #
+      # Gotcha: Prettier is not always idempotent. A single `--write`
+      # pass can emit output that `--check` then rejects (it happened to
+      # one file in the initial sweep). If this step fails immediately
+      # after you ran `npm run format`, run it once more — it converges.
+      - name: Format
+        run: npm run format:check
 
       - name: Lint
         run: npm run lint

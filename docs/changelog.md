@@ -6,6 +6,18 @@
 
 ---
 
+## Prettier enforced in CI
+
+`npm run format:check` now runs in `.github/workflows/ci.yml` ahead of lint, so formatting cannot drift again. A one-time repo-wide `npm run format` reformatted 353 files; that commit is formatting-only and listed in `.git-blame-ignore-revs` (opt in locally with `git config blame.ignoreRevsFile .git-blame-ignore-revs`).
+
+**Do not re-litigate `trailingComma`.** The config keeps `"es5"`, not Prettier 3's `"all"` default. This was measured, not assumed: 530 of 845 `src` files already matched `es5` versus 96 for `all`, and the most recent work already conforms — of the 419 `src` files last touched in 2026-08, 363 were `es5`-clean and 56 were `all`-style. The `all`-style pocket is a contained 2026-07 drift, so switching would have reformatted the actively-maintained majority (749 files) to chase it.
+
+Two gotchas. **Prettier is not always idempotent** — one file needed a second `--write` pass before `--check` accepted it; if the CI step fails right after you ran `npm run format`, run it again. And **`prettier --write .` reaches far past `src`**: `.prettierignore` now also excludes `pnpm-lock.yaml`, `.agents` (vendored third-party skills), and `.playwright-cli` (captured debug logs), which cut the sweep from 491 files to 353.
+
+Related: two contract tests asserted on literal source text (`rpc("record_membership_payment"`, one exact `color-mix()` line in `globals.css`) and were hardened to be quote- and whitespace-tolerant, since any reformat would otherwise break them.
+
+---
+
 ## Service-aware, resumable member import
 
 Members CSV/XLSX import now creates membership-only, service-only, or combined customer purchases, groups compatible repeated rows, resolves current plans/services/trainers/rates, and commits each customer atomically through stable idempotency keys. Explicit historical service sold price, expiry, and cancelled state are audited snapshots; cancellation creates no refund. All Members is now contact-backed, so service-only customers remain manageable without fabricated memberships while membership metrics stay truthful. Unfinished imports keep an author-private, revision-safe 30-day draft and private source file that can resume across devices; stale revisions reload or Start fresh rather than overwrite. Migration `20260816122505_service_aware_resumable_member_import.sql` plus `20260816130000_harden_member_import_grants.sql` were connector-applied and rollback-accepted only in UsefulDesk Razorpay Test; Production was untouched. Key code: `src/lib/memberships/member-import-candidates.ts`, `member-import-transaction.ts`, `import-draft.ts`, `src/components/members/import-members-csv-dialog.tsx`, and `src/app/api/members/import-draft/`. Merchandise and multiple numbered service-column families remain out of scope.
