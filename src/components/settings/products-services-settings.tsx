@@ -5,6 +5,8 @@ import {
   AlertCircle,
   Archive,
   Loader2,
+  MoreHorizontal,
+  Pencil,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -37,6 +39,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -51,6 +54,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -159,6 +169,10 @@ export function ProductsServicesSettings() {
   const [trainerDeleteTarget, setTrainerDeleteTarget] =
     useState<Trainer | null>(null);
   const [deletingTrainer, setDeletingTrainer] = useState(false);
+  // Controlled so the panel head can carry the Catalogue tab's own
+  // primary action; Trainers keeps its contextual "Add trainer" inside
+  // the Independent trainers card.
+  const [tab, setTab] = useState<'catalogue' | 'trainers'>('catalogue');
   useEffect(() => {
     if (authLoading || !accountId) return;
     let cancelled = false;
@@ -376,10 +390,17 @@ export function ProductsServicesSettings() {
   }
 
   return (
-    <section className="max-w-5xl">
+    <section className="animate-in fade-in-50 max-w-3xl duration-200">
       <SettingsPanelHead
         title="Products & services"
-        description="Manage services, merchandise, trainers, and duration-specific fees."
+        description="What your gym sells alongside memberships. Checkout and member sales pick from these."
+        action={
+          tab === 'catalogue' && canManageCatalog ? (
+            <Button onClick={() => setItemOpen(true)}>
+              <Plus className="size-4" /> Add item
+            </Button>
+          ) : null
+        }
       />
 
       {loading ? (
@@ -401,293 +422,277 @@ export function ProductsServicesSettings() {
           </AlertDescription>
         </Alert>
       ) : (
-        <Tabs defaultValue="catalogue">
+        <Tabs
+          value={tab}
+          onValueChange={(value) => setTab(value as 'catalogue' | 'trainers')}
+        >
           <TabsList>
             <TabsTrigger value="catalogue">Catalogue</TabsTrigger>
             <TabsTrigger value="trainers">Trainers</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="catalogue" className="mt-4 space-y-4">
-            <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
-              <p className="text-muted-foreground text-sm">
-                Services use calendar durations; merchandise uses a unit price.
-              </p>
-              {canManageCatalog ? (
-                <Button onClick={() => setItemOpen(true)}>
-                  <Plus className="size-4" /> Add item
-                </Button>
-              ) : null}
-            </div>
+          <TabsContent value="catalogue" className="mt-4">
             {items.length === 0 ? (
               <Empty
                 icon={<ShoppingBag className="size-7" aria-hidden="true" />}
                 label="No products or services yet"
               />
             ) : (
-              items.map((item) => (
-                <Card key={item.id}>
-                  <CardHeader>
-                    <CardTitle className="flex flex-wrap items-center gap-2">
-                      {item.name}
-                      <Badge variant="neutral">
-                        {item.kind === 'service' ? 'Service' : 'Merchandise'}
-                      </Badge>
-                      {item.requires_trainer ? (
-                        <Badge variant="info">Trainer priced</Badge>
-                      ) : null}
-                      {!item.is_active ? (
-                        <Badge variant="neutral">Archived</Badge>
-                      ) : null}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {item.description ? (
-                      <p className="text-muted-foreground text-sm">
-                        {item.description}
-                      </p>
-                    ) : null}
-                    {item.catalog_options.length === 0 ? (
-                      <p className="text-muted-foreground text-sm">
-                        No sellable options yet.
-                      </p>
-                    ) : (
-                      <div className="divide-y rounded-lg border">
-                        {[...item.catalog_options]
-                          .sort((a, b) => a.sort_order - b.sort_order)
-                          .map((option) => (
-                            <div
-                              key={option.id}
-                              className="flex flex-wrap items-center gap-3 px-3 py-2.5"
-                            >
-                              <div className="min-w-40 flex-1">
-                                <p className="font-medium">
-                                  {catalogOptionLabel(option)}
-                                </p>
-                                <p className="text-muted-foreground text-xs tabular-nums">
-                                  {item.requires_trainer
-                                    ? trainerFeeStatusLabel(option, trainers)
-                                    : option.standard_price == null
-                                      ? 'Price missing'
-                                      : fmt.money(option.standard_price)}
-                                </p>
-                              </div>
-                              {!option.is_active ? (
-                                <Badge variant="neutral">Archived</Badge>
-                              ) : null}
-                              {canManageCatalog &&
-                              item.is_active &&
-                              item.requires_trainer &&
-                              option.is_active ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    setRateOption({ item, option })
+              <ul className="flex flex-col gap-4">
+                {items.map((item) => {
+                  const canAddOption =
+                    item.is_active &&
+                    (item.kind === 'service' ||
+                      !item.catalog_options.some((option) => option.is_active));
+                  return (
+                    <li key={item.id}>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex flex-wrap items-center gap-2">
+                            {item.name}
+                            <Badge variant="neutral">
+                              {item.kind === 'service'
+                                ? 'Service'
+                                : 'Merchandise'}
+                            </Badge>
+                            {item.requires_trainer ? (
+                              <Badge variant="info">Trainer priced</Badge>
+                            ) : null}
+                            {!item.is_active ? (
+                              <Badge variant="neutral">Archived</Badge>
+                            ) : null}
+                          </CardTitle>
+                          {item.description ? (
+                            <CardDescription>
+                              {item.description}
+                            </CardDescription>
+                          ) : null}
+                          {canManageCatalog ? (
+                            <CardAction>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger
+                                  render={
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-sm"
+                                      aria-label={`Manage ${item.name}`}
+                                    />
                                   }
                                 >
-                                  {configuredTrainerFeeCount(option, trainers) >
-                                  0
-                                    ? 'Edit trainer fees'
-                                    : 'Set trainer fees'}
-                                </Button>
-                              ) : null}
-                              {canManageCatalog && item.is_active ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    if (option.is_active) {
+                                  <MoreHorizontal className="size-4" />
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="min-w-44"
+                                >
+                                  {canAddOption ? (
+                                    <DropdownMenuItem
+                                      onClick={() => setOptionItem(item)}
+                                    >
+                                      <Plus className="size-4" />
+                                      Add{' '}
+                                      {item.kind === 'service'
+                                        ? 'duration'
+                                        : 'price'}
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {item.is_active ? (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        setArchiveTarget({
+                                          table: 'catalog_items',
+                                          id: item.id,
+                                          title: `Archive ${item.name}?`,
+                                          description:
+                                            'This item and its options will no longer be available for new sales. Existing purchases and service history stay intact.',
+                                        })
+                                      }
+                                    >
+                                      <Archive className="size-4" />
+                                      Archive item
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        void setArchived(
+                                          'catalog_items',
+                                          item.id,
+                                          true
+                                        )
+                                      }
+                                    >
+                                      <RotateCcw className="size-4" />
+                                      Restore item
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onClick={() =>
+                                      setDeleteTarget({
+                                        id: item.id,
+                                        name: item.name,
+                                      })
+                                    }
+                                  >
+                                    <Trash2 className="size-4" />
+                                    Delete item
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </CardAction>
+                          ) : null}
+                        </CardHeader>
+                        <CardContent>
+                          {item.catalog_options.length === 0 ? (
+                            <p className="text-muted-foreground text-sm">
+                              No sellable options yet.
+                            </p>
+                          ) : (
+                            <ul className="divide-border divide-y">
+                              {[...item.catalog_options]
+                                .sort((a, b) => a.sort_order - b.sort_order)
+                                .map((option) => (
+                                  <OptionRow
+                                    key={option.id}
+                                    item={item}
+                                    option={option}
+                                    trainers={trainers}
+                                    formatMoney={fmt.money}
+                                    canManage={canManageCatalog}
+                                    onEditFees={() =>
+                                      setRateOption({ item, option })
+                                    }
+                                    onArchive={() =>
                                       setArchiveTarget({
                                         table: 'catalog_options',
                                         id: option.id,
                                         title: `Archive ${catalogOptionLabel(option)}?`,
                                         description:
                                           'This option will no longer be available for new sales. Existing purchases and service history stay intact.',
-                                      });
-                                      return;
+                                      })
                                     }
-                                    void setArchived(
-                                      'catalog_options',
-                                      option.id,
-                                      true
-                                    );
-                                  }}
-                                >
-                                  {option.is_active ? (
-                                    <Archive className="size-4" />
-                                  ) : (
-                                    <RotateCcw className="size-4" />
-                                  )}
-                                  {option.is_active ? 'Archive' : 'Restore'}
-                                </Button>
-                              ) : null}
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                    {canManageCatalog ? (
-                      <div className="flex flex-wrap gap-2">
-                        {item.is_active &&
-                        (item.kind === 'service' ||
-                          !item.catalog_options.some(
-                            (option) => option.is_active
-                          )) ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setOptionItem(item)}
-                          >
-                            <Plus className="size-4" /> Add{' '}
-                            {item.kind === 'service' ? 'duration' : 'price'}
-                          </Button>
-                        ) : null}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (item.is_active) {
-                              setArchiveTarget({
-                                table: 'catalog_items',
-                                id: item.id,
-                                title: `Archive ${item.name}?`,
-                                description:
-                                  'This item and its options will no longer be available for new sales. Existing purchases and service history stay intact.',
-                              });
-                              return;
-                            }
-                            void setArchived('catalog_items', item.id, true);
-                          }}
-                        >
-                          {item.is_active ? (
-                            <Archive className="size-4" />
-                          ) : (
-                            <RotateCcw className="size-4" />
+                                    onRestore={() =>
+                                      void setArchived(
+                                        'catalog_options',
+                                        option.id,
+                                        true
+                                      )
+                                    }
+                                  />
+                                ))}
+                            </ul>
                           )}
-                          {item.is_active ? 'Archive item' : 'Restore item'}
-                        </Button>
-                        <Button
-                          variant="destructive-ghost"
-                          size="sm"
-                          onClick={() =>
-                            setDeleteTarget({ id: item.id, name: item.name })
-                          }
-                        >
-                          <Trash2 className="size-4" /> Delete item
-                        </Button>
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              ))
+                        </CardContent>
+                      </Card>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </TabsContent>
 
           <TabsContent value="trainers" className="mt-4 space-y-4">
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Team members</CardTitle>
-                  <CardDescription>
-                    A trainer switch does not change the teammate&apos;s account
-                    role or permissions.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {teamMembers.length === 0 ? (
-                    <p className="text-muted-foreground px-4 pb-4 text-sm">
-                      No registered team members found.
-                    </p>
-                  ) : (
-                    <ul className="divide-border divide-y">
-                      {teamMembers.map((member) => {
-                        const linkedTrainer = trainers.find(
-                          (trainer) => trainer.linked_user_id === member.user_id
-                        );
-                        const switchId = `team-trainer-${member.user_id}`;
-                        const isPending =
-                          pendingTrainerUserId === member.user_id;
-                        return (
-                          <TrainerSwitchRow
-                            key={member.user_id}
-                            switchId={switchId}
-                            name={member.full_name || 'Teammate'}
-                            avatarUrl={member.avatar_url}
-                            context={`${ROLE_META[member.role].label} access`}
-                            checked={linkedTrainer?.is_active ?? false}
-                            pending={isPending}
-                            disabled={!canManageTrainers}
-                            onCheckedChange={(active) =>
-                              void setTeamMemberTrainer(member, active)
-                            }
-                          />
-                        );
-                      })}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Team members</CardTitle>
+                <CardDescription>
+                  A trainer switch does not change the teammate&apos;s account
+                  role or permissions.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                {teamMembers.length === 0 ? (
+                  <p className="text-muted-foreground px-4 pb-4 text-sm">
+                    No registered team members found.
+                  </p>
+                ) : (
+                  <ul className="divide-border divide-y">
+                    {teamMembers.map((member) => {
+                      const linkedTrainer = trainers.find(
+                        (trainer) => trainer.linked_user_id === member.user_id
+                      );
+                      const switchId = `team-trainer-${member.user_id}`;
+                      const isPending = pendingTrainerUserId === member.user_id;
+                      return (
+                        <TrainerSwitchRow
+                          key={member.user_id}
+                          switchId={switchId}
+                          name={member.full_name || 'Teammate'}
+                          avatarUrl={member.avatar_url}
+                          context={`${ROLE_META[member.role].label} access`}
+                          checked={linkedTrainer?.is_active ?? false}
+                          pending={isPending}
+                          disabled={!canManageTrainers}
+                          onCheckedChange={(active) =>
+                            void setTeamMemberTrainer(member, active)
+                          }
+                        />
+                      );
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
 
-              <Card>
-                <CardHeader>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-1.5">
-                      <CardTitle>Independent trainers</CardTitle>
-                      <CardDescription>
-                        For trainers without UsefulDesk team access.
-                      </CardDescription>
-                    </div>
-                    {canManageTrainers ? (
-                      <Button size="sm" onClick={() => setTrainerOpen(true)}>
-                        <Plus className="size-4" /> Add trainer
-                      </Button>
-                    ) : null}
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-1.5">
+                    <CardTitle>Independent trainers</CardTitle>
+                    <CardDescription>
+                      For trainers without UsefulDesk team access.
+                    </CardDescription>
                   </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {trainers.filter((trainer) => !trainer.linked_user_id)
-                    .length === 0 ? (
-                    <p className="text-muted-foreground px-4 pb-4 text-sm">
-                      No trainers added yet.
-                    </p>
-                  ) : (
-                    <ul className="divide-border divide-y">
-                      {trainers
-                        .filter((trainer) => !trainer.linked_user_id)
-                        .map((trainer) => (
-                          <TrainerRosterRow
-                            key={trainer.id}
-                            name={trainer.display_name}
-                            context={trainer.title || 'Trainer'}
-                            action={
-                              canManageTrainers ? (
-                                <Button
-                                  variant="destructive-ghost"
-                                  size="icon-sm"
-                                  onClick={() =>
-                                    setTrainerDeleteTarget(trainer)
-                                  }
-                                  disabled={
-                                    deletingTrainer &&
-                                    trainerDeleteTarget?.id === trainer.id
-                                  }
-                                  aria-label={`Delete ${trainer.display_name}`}
-                                >
-                                  {deletingTrainer &&
-                                  trainerDeleteTarget?.id === trainer.id ? (
-                                    <Loader2 className="size-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="size-4" />
-                                  )}
-                                </Button>
-                              ) : null
-                            }
-                          />
-                        ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-            </>
+                  {canManageTrainers ? (
+                    <Button size="sm" onClick={() => setTrainerOpen(true)}>
+                      <Plus className="size-4" /> Add trainer
+                    </Button>
+                  ) : null}
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {trainers.filter((trainer) => !trainer.linked_user_id)
+                  .length === 0 ? (
+                  <p className="text-muted-foreground px-4 pb-4 text-sm">
+                    No trainers added yet.
+                  </p>
+                ) : (
+                  <ul className="divide-border divide-y">
+                    {trainers
+                      .filter((trainer) => !trainer.linked_user_id)
+                      .map((trainer) => (
+                        <TrainerRosterRow
+                          key={trainer.id}
+                          name={trainer.display_name}
+                          context={trainer.title || 'Trainer'}
+                          action={
+                            canManageTrainers ? (
+                              <Button
+                                variant="destructive-ghost"
+                                size="icon-sm"
+                                onClick={() => setTrainerDeleteTarget(trainer)}
+                                disabled={
+                                  deletingTrainer &&
+                                  trainerDeleteTarget?.id === trainer.id
+                                }
+                                aria-label={`Delete ${trainer.display_name}`}
+                              >
+                                {deletingTrainer &&
+                                trainerDeleteTarget?.id === trainer.id ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="size-4" />
+                                )}
+                              </Button>
+                            ) : null
+                          }
+                        />
+                      ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       )}
@@ -916,6 +921,111 @@ function Empty({ icon, label }: { icon: React.ReactNode; label: string }) {
         {label}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * One sellable option. The row leads with its identifier (duration, or
+ * "Unit price" for merchandise) and ends with the number the owner
+ * actually came to check. Archive/restore and fee editing live behind
+ * the trailing menu — revealed on hover or keyboard focus, and always
+ * visible on touch — so a healthy catalogue reads as prices, not
+ * plumbing. The one exception surfaces its own fix: an option with no
+ * trainer fee is unsellable at checkout, so it keeps an inline CTA.
+ */
+function OptionRow({
+  item,
+  option,
+  trainers,
+  formatMoney,
+  canManage,
+  onEditFees,
+  onArchive,
+  onRestore,
+}: {
+  item: HydratedItem;
+  option: HydratedItem['catalog_options'][number];
+  trainers: Trainer[];
+  formatMoney: (value: number) => string;
+  canManage: boolean;
+  onEditFees: () => void;
+  onArchive: () => void;
+  onRestore: () => void;
+}) {
+  const label = catalogOptionLabel(option);
+  const feeCount = configuredTrainerFeeCount(option, trainers);
+  const needsFees = item.requires_trainer && feeCount === 0;
+  const canAct = canManage && item.is_active;
+
+  return (
+    <li className="group/option flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5">
+      {/* The identifier keeps a floor width so a long trailing cluster
+          (a fee CTA on a phone) wraps below it instead of truncating
+          "6 months" down to a single character. */}
+      <p className="min-w-24 flex-1 truncate font-medium">{label}</p>
+      {!option.is_active ? <Badge variant="neutral">Archived</Badge> : null}
+      <div className="ml-auto flex items-center gap-3">
+        {item.requires_trainer ? (
+          needsFees ? (
+            <>
+              <span className="text-amber-foreground text-sm">
+                Trainer fees not set
+              </span>
+              {canAct && option.is_active ? (
+                <Button variant="outline" size="sm" onClick={onEditFees}>
+                  Set trainer fees
+                </Button>
+              ) : null}
+            </>
+          ) : (
+            <span className="text-muted-foreground text-sm tabular-nums">
+              {trainerFeeStatusLabel(option, trainers)}
+            </span>
+          )
+        ) : option.standard_price == null ? (
+          <span className="text-amber-foreground text-sm">Price missing</span>
+        ) : (
+          <span className="font-medium tabular-nums">
+            {formatMoney(option.standard_price)}
+          </span>
+        )}
+        {canAct ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Manage ${label}`}
+                  className="shrink-0 opacity-0 group-focus-within/option:opacity-100 group-hover/option:opacity-100 data-[popup-open]:opacity-100 pointer-coarse:opacity-100"
+                />
+              }
+            >
+              <MoreHorizontal className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-40">
+              {item.requires_trainer && option.is_active && !needsFees ? (
+                <DropdownMenuItem onClick={onEditFees}>
+                  <Pencil className="size-4" />
+                  Edit trainer fees
+                </DropdownMenuItem>
+              ) : null}
+              {option.is_active ? (
+                <DropdownMenuItem onClick={onArchive}>
+                  <Archive className="size-4" />
+                  Archive
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={onRestore}>
+                  <RotateCcw className="size-4" />
+                  Restore
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
+    </li>
   );
 }
 
