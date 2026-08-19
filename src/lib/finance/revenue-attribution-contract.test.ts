@@ -76,8 +76,11 @@ describe('Finance revenue-attribution database contract', () => {
     expect(importer).toContain('commitMemberImportGroups');
     expect(importer).not.toContain("'record_joining_payment'");
     expect(importTransaction).toContain("'perform_member_import_group'");
-    expect(recordPayment).toContain('rpc("record_membership_payment"');
-    expect(bulkPayment).toContain('rpc("record_membership_payment"');
+    // Quote-agnostic: the contract is the RPC being called, not which
+    // quote style Prettier happens to emit around its name.
+    const callsPaymentRpc = /rpc\(\s*['"]record_membership_payment['"]/;
+    expect(recordPayment).toMatch(callsPaymentRpc);
+    expect(bulkPayment).toMatch(callsPaymentRpc);
   });
 
   it('implements a branch-scoped acquisition cohort with to-date outcomes', () => {

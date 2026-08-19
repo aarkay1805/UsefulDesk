@@ -46,8 +46,13 @@ describe("semantic colour foregrounds", () => {
       expect(css).toContain(
         `--color-${hue}-foreground: var(--${hue}-foreground);`,
       );
-      expect(css).toContain(
-        `--${hue}-foreground: color-mix(in oklch, var(--color-${hue}-500), var(--foreground) 45%);`,
+      // Whitespace-tolerant: Prettier wraps long color-mix() calls across
+      // lines, so match the token's parts rather than one exact line.
+      expect(css).toMatch(
+        new RegExp(
+          `--${hue}-foreground:\\s*color-mix\\(\\s*in oklch,\\s*` +
+            `var\\(--color-${hue}-500\\),\\s*var\\(--foreground\\) 45%\\s*\\)`,
+        ),
       );
     }
 
