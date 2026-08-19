@@ -6,6 +6,22 @@
 
 ---
 
+## Remotion promo project removed
+
+`usefuldesk-promo/` was committed by accident and is gone: the Remotion sources, its own `package-lock.json`, the tracked audio bed, and the rendered output. The root `tsconfig.json` no longer carries the `usefuldesk-promo` entry in `exclude` — that entry existed only to keep remote Next.js builds off the nested package — so `exclude` is back to `["node_modules"]`. Nothing under `src/`, `.github/`, or the root dependency tree referenced the project.
+
+Gotcha: an earlier entry below records the root TypeScript project excluding the nested package. That is history now — do not re-add the exclude.
+
+---
+
+## Single authoritative lockfile — npm
+
+`package-lock.json` is now the only lockfile. The tracked `pnpm-lock.yaml` and `pnpm-workspace.yaml` are deleted, and `package.json` declares `"packageManager": "npm@11.9.0"` so the choice cannot drift again. npm was already the real toolchain: `.github/workflows/ci.yml` installs with `npm ci`, and the npm lockfile carried 81 commits against pnpm's 4. Key files: `package.json`, `.prettierignore`. Verified with a clean `npm ci` and the full CI gate — format:check, lint, typecheck, 1971 tests, build.
+
+Two gotchas. **Dependency security overrides now live only in `package.json` `overrides`** — pnpm 11 read them from `pnpm-workspace.yaml`, so deleting that file leaves `overrides` as the single source for the Sharp, PostCSS, Undici, and related floors from the upstream security refresh; do not prune that field. And **`vercel.json` sets no `installCommand`**, so Vercel selected its package manager by auto-detecting a lockfile — while both were tracked, that detection rather than the repository decided whether a production build used npm or pnpm. The `packageManager` field now states it explicitly; confirm the first deploy after this change installs with npm.
+
+---
+
 ## Prettier enforced in CI
 
 `npm run format:check` now runs in `.github/workflows/ci.yml` ahead of lint, so formatting cannot drift again. A one-time repo-wide `npm run format` reformatted 353 files; that commit is formatting-only and listed in `.git-blame-ignore-revs` (opt in locally with `git config blame.ignoreRevsFile .git-blame-ignore-revs`).
