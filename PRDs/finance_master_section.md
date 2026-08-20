@@ -296,11 +296,12 @@ Rules:
 Seed a concise default category set:
 
 - Rent
-- Salaries
+- Staff salaries & trainer payouts
 - Utilities
 - Equipment & maintenance
 - Marketing
 - Cleaning & supplies
+- Software & subscriptions
 - Bank & gateway charges
 - Taxes & licences
 - Other

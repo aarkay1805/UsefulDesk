@@ -1360,3 +1360,9 @@ Triggered by a real clash: the onboarding step rows tinted their leading icon `b
 ## Provider branding in integration settings
 
 Added a shared compact provider-mark component (`src/components/brand/provider-mark.tsx`). WhatsApp uses a grayscale mark beside the settings menu label and its brand-green mark beside the panel heading; Razorpay payments and Meta lead ads use theirs in the relevant card title. Provider colours stay separate from semantic status and action iconography.
+
+---
+
+## Gym-first expense category presets
+
+New branches now receive a refined ten-category gym expense catalogue, with **Staff salaries & trainer payouts** replacing the generic Salaries label and **Software & subscriptions** added. Existing active untouched Salaries presets are renamed, Software & subscriptions is backfilled once, previously unseeded branches receive the complete catalogue, and renamed or archived categories are never recreated. Key code: `supabase/migrations/20260820162727_refine_gym_expense_category_presets.sql` and `20260820163041_complete_unseeded_expense_category_catalogues.sql`.
