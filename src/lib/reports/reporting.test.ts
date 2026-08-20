@@ -145,14 +145,18 @@ describe('owner reporting helpers', () => {
         },
       ],
     });
-    const csv = ownerReportCsv(report, {
-      adSpend: 1500,
-      leads: 10,
-      convertedMembers: 4,
-      joiningRevenue: 3000,
-      conversionRate: 40,
-      returnOnAdSpend: 2,
-    });
+    const csv = ownerReportCsv(
+      report,
+      {
+        adSpend: 1500,
+        leads: 10,
+        convertedMembers: 4,
+        joiningRevenue: 3000,
+        conversionRate: 40,
+        returnOnAdSpend: 2,
+      },
+      { current: 1500, previous: 700 }
+    );
 
     expect(csv).toContain('"Gold, annual"');
     expect(csv).toContain('"Gold, annual",1 year,9000');
@@ -163,6 +167,10 @@ describe('owner reporting helpers', () => {
     );
     expect(csv).toContain('Ad performance,Value');
     expect(csv).toContain('Return on ad spend,2');
+    expect(csv).toContain('Expenses,1500,700');
+    expect(csv).toContain('Net cash,-1500,-700');
+    expect(ownerReportCsv(report)).not.toContain('Expenses,');
+    expect(ownerReportCsv(report)).not.toContain('Net cash,');
   });
 
   it('scopes the exact paginated compatibility dataset by assigned staff', () => {

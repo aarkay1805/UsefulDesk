@@ -180,7 +180,9 @@ Business → Overview's built revenue-source drilldown keeps phone numbers out o
 
 Business → Performance Ad performance places its question-mark help affordance on the trailing side of Leads acquired while keeping the cohort definition available through the existing tooltip.
 
-Left: trainer payroll and class-delivery accountability beyond assigned-member performance · **Business section finance-domain integration** (`PRDs/finance_master_section.md`): connect posted expenses to the performance export and add expense-category settings; human invoice numbering, PDF/WhatsApp sharing, and GST-ready documents wait for an approved immutable invoice-identity migration and compliance validation; the failed-AutoPay recovery loop stays with Members → Payments.
+Business → Performance's All staff CSV now includes branch-wide posted Expenses and Net cash for the selected and previous calendar months while teammate-scoped and organization exports keep their existing attribution boundaries. Settings → Payments now manages the current branch's expense categories with admin-gated add, rename, archive, and restore actions plus explicit read-only and recovery states; archived categories remain attached to historical expenses.
+
+Left: trainer payroll and class-delivery accountability beyond assigned-member performance · **Business section finance-domain integration** (`PRDs/finance_master_section.md`): human invoice numbering, PDF/WhatsApp sharing, and GST-ready documents wait for an approved immutable invoice-identity migration and compliance validation; the failed-AutoPay recovery loop stays with Members → Payments.
 
 ## 🚧 Phase 4 — franchise / multi-branch
 

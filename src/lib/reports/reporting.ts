@@ -6,7 +6,10 @@ import {
 } from '@/lib/leads/field-options';
 import { dayStartInTz, todayInTz } from '@/lib/locale/format';
 import { durationLabel } from '@/lib/memberships/pricing';
-import type { FinanceAdPerformance } from '@/lib/finance/overview';
+import type {
+  FinanceAdPerformance,
+  FinanceExpenseTotals,
+} from '@/lib/finance/overview';
 import type { DurationUnit } from '@/types';
 import type { OwnerAttention, OwnerReport, ReportRangeDays } from './types';
 
@@ -1363,7 +1366,8 @@ function csvRow(values: Array<string | number>): string {
 /** Full-fidelity export: summary, attention queue, daily data, and breakdowns. */
 export function ownerReportCsv(
   report: OwnerReport,
-  adPerformance: FinanceAdPerformance | null = null
+  adPerformance: FinanceAdPerformance | null = null,
+  expenseTotals: FinanceExpenseTotals | null = null
 ): string {
   const lines: string[] = [
     csvRow([
@@ -1377,6 +1381,16 @@ export function ownerReportCsv(
       report.metrics.revenue.current,
       report.metrics.revenue.previous,
     ]),
+    ...(expenseTotals
+      ? [
+          csvRow(['Expenses', expenseTotals.current, expenseTotals.previous]),
+          csvRow([
+            'Net cash',
+            report.metrics.revenue.current - expenseTotals.current,
+            report.metrics.revenue.previous - expenseTotals.previous,
+          ]),
+        ]
+      : []),
     csvRow([
       'New members',
       report.metrics.newMembers.current,

@@ -145,7 +145,7 @@ Built:
 - New members, Average Sale Price, and Lead conversion KPIs;
 - member activity, plan/billing-option performance, and lead-source performance;
 - paid-social cohort performance beside lead-source analysis for the All staff scope. The cohort follows the selected calendar month; Marketing spend is account-level and is therefore not shown for an individual staff scope;
-- CSV export containing the full historical report payload and the All-staff ad-performance cohort;
+- CSV export containing the full historical report payload, the All-staff ad-performance cohort, and branch-wide posted Expenses plus Net cash for All staff only; teammate-scoped and organization exports omit those branch totals because expenses are not staff-attributable;
 - legacy `/reports` URLs redirect to `/finance?view=performance`, preserving a valid branch query.
 
 Performance deliberately omits the Revenue collected KPI and Collections over time chart because Overview owns the overall revenue total and cash-flow trend. Collection mix and invoice health also remain Overview-only.
@@ -395,7 +395,7 @@ Built:
 - immutable joining/renewal/sale/due/other payment attribution and a reconciling Revenue breakdown on Overview;
 - calendar-month staff-scoped business analysis plus All-staff Meta/Instagram/Facebook acquisition-cohort ad performance on Performance;
 - day/weekly income-and-expense cash flow with an optional previous-month four-series comparison, invoice health, collection mix, and merged recent transactions;
-- admin-only Overview CSV export with revenue attribution, expense, profit, current and aligned previous daily cash-flow truth, plus Performance CSV export with its historical and All-staff ad-performance truth;
+- admin-only Overview CSV export with revenue attribution, expense, profit, current and aligned previous daily cash-flow truth, plus Performance CSV export with its historical, All-staff ad-performance, posted-expense, and Net cash truth;
 - posted Expense totals and Revenue-minus-Expenses Profit for the selected and previous calendar months;
 - analytical Business → Payments with tenant-safe database paging, filtered totals/method mix, full export, receipt audit, and member deep links;
 - Members → Payments restored as the operational due/payment home, including its existing server paging, filters, complete CSV export, reminders, payment entry, and realtime behavior.
@@ -464,12 +464,9 @@ Built:
 - migrations, RLS, named capabilities, database-authoritative RPCs, seeded categories, and private receipt storage;
 - the Expenses list, filters, classification quick views, approved four-card summary, trends, category analysis, paging, export, add dialog, and void dialog;
 - recurring/one-time classification persisted on every ledger entry;
-- recorder, receipt, status, and void metadata on every expense row.
-
-Remaining:
-
-- Add Settings management for expense categories.
-- Add expense totals and Net cash to Overview and owner-report export.
+- recorder, receipt, status, and void metadata on every expense row;
+- Settings → Payments category management with admin-gated add, rename, archive, and restore actions, current-branch scoping, read-only visibility, and retained historical references;
+- posted expense totals and Net cash in Overview and the All staff branch Performance export, with teammate and organization attribution boundaries preserved.
 
 Exit criteria:
 
@@ -544,6 +541,6 @@ Each phase must cover:
 
 ## 12. Recommended build order
 
-Overview, its immutable revenue attribution, Performance with its ad-performance cohort, the account-wide issued-invoice master, the analytical Payments ledger, and the classified Expenses ledger are built. Posted expense totals now flow through Overview, Profit, cash flow, Performance ad spend, CSV export, and the combined recent-transactions timeline. Next, connect general expense totals to the Performance export and add expense-category settings.
+Overview, its immutable revenue attribution, Performance with its ad-performance cohort and All-staff expense/net-cash export, the account-wide issued-invoice master, the analytical Payments ledger, the classified Expenses ledger, and expense-category settings are built. Posted expense totals now flow through Overview, Profit, cash flow, Performance ad spend, both applicable CSV exports, and the combined recent-transactions timeline.
 
 Keep AutoPay recovery under Members → Payments, where staff can act on the member. Only add document sharing or GST behavior after immutable invoice identity and snapshots are proven.

@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   alignFinanceCashFlowTrends,
   financeCashFlowHasMovement,
   financeComparisonThroughDay,
+  loadFinanceExpenseTotals,
   financeMonthRange,
   financeOverviewCsv,
   financeYearOptions,
@@ -234,6 +236,62 @@ describe('summarizeFinanceExpenses', () => {
     ]);
     expect(summary.transactions[0].method).toBe('cash');
     expect(summary.transactions[1].method).toBe('bank_other');
+  });
+});
+
+describe('loadFinanceExpenseTotals', () => {
+  it('loads the previous and selected calendar months and totals posted rows', async () => {
+    const rows = [
+      {
+        id: 'previous',
+        occurred_on: '2026-06-30',
+        amount: 700,
+        description: 'June supplies',
+        method: 'cash',
+        status: 'posted',
+        created_at: '2026-06-30T08:00:00Z',
+      },
+      {
+        id: 'current',
+        occurred_on: '2026-07-01',
+        amount: 1500,
+        description: 'July utilities',
+        method: 'bank',
+        status: 'posted',
+        created_at: '2026-07-01T08:00:00Z',
+      },
+      {
+        id: 'void',
+        occurred_on: '2026-07-10',
+        amount: 9000,
+        description: 'Voided entry',
+        method: 'card',
+        status: 'void',
+        created_at: '2026-07-10T08:00:00Z',
+      },
+    ];
+    const query = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      gte: vi.fn(),
+      lt: vi.fn(),
+    };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.gte.mockReturnValue(query);
+    query.lt.mockResolvedValue({ data: rows, error: null });
+    const db = {
+      from: vi.fn().mockReturnValue(query),
+    } as unknown as SupabaseClient;
+
+    await expect(loadFinanceExpenseTotals(db, '2026-07')).resolves.toEqual({
+      current: 1500,
+      previous: 700,
+    });
+    expect(db.from).toHaveBeenCalledWith('expenses');
+    expect(query.eq).toHaveBeenCalledWith('status', 'posted');
+    expect(query.gte).toHaveBeenCalledWith('occurred_on', '2026-06-01');
+    expect(query.lt).toHaveBeenCalledWith('occurred_on', '2026-08-01');
   });
 });
 

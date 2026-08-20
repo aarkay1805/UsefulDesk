@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/card';
 import { SettingsPanelHead } from './settings-panel-head';
 import { RazorpaySettingsCard } from './razorpay-settings-card';
+import { ExpenseCategoriesCard } from './expense-categories-card';
 
 /**
  * Payment collection settings — UPI and Razorpay.
@@ -40,6 +41,7 @@ export function DealsSettings() {
       <div className="space-y-4">
         <UpiCard />
         <RazorpaySettingsCard />
+        <ExpenseCategoriesCard />
       </div>
     </section>
   );

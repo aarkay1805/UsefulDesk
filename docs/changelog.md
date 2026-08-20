@@ -6,6 +6,12 @@
 
 ---
 
+## Performance expense export and expense-category settings
+
+Business → Performance now adds branch-wide posted Expenses and Net cash to the All staff CSV for the selected and previous calendar months; teammate-scoped and organization exports remain unchanged because expenses are not staff-attributable. Settings → Payments now lists the branch expense catalogue and lets admins add, rename, archive, and restore categories while agents/viewers retain read-only visibility and historical expenses keep archived references. Key code: `src/lib/finance/overview.ts`, `src/lib/reports/reporting.ts`, `src/components/reports/owner-reports-view.tsx`, and `src/components/settings/expense-categories-card.tsx`. Gotcha: never attach branch-wide expenses to a teammate-scoped export or infer staff profit.
+
+---
+
 ## Remotion promo project removed
 
 `usefuldesk-promo/` was committed by accident and is gone: the Remotion sources, its own `package-lock.json`, the tracked audio bed, and the rendered output. The root `tsconfig.json` no longer carries the `usefuldesk-promo` entry in `exclude` — that entry existed only to keep remote Next.js builds off the nested package — so `exclude` is back to `["node_modules"]`. Nothing under `src/`, `.github/`, or the root dependency tree referenced the project.

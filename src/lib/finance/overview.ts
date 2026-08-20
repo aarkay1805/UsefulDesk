@@ -142,6 +142,11 @@ export interface FinanceOverviewData {
   recentTransactions: FinanceRecentTransaction[];
 }
 
+export interface FinanceExpenseTotals {
+  current: number;
+  previous: number;
+}
+
 type PaymentRow = Payment & {
   contact?: Pick<Contact, 'name' | 'avatar_url'> | null;
   plan?: Pick<MembershipPlan, 'name'> | null;
@@ -463,6 +468,26 @@ export function summarizeFinanceExpenses(
         amount: number(expense.amount),
       })),
   };
+}
+
+export async function loadFinanceExpenseTotals(
+  db: SupabaseClient,
+  month: string
+): Promise<FinanceExpenseTotals> {
+  const period = financeMonthRange(month);
+  const { data, error } = await db
+    .from('expenses')
+    .select('id, occurred_on, amount, description, method, status, created_at')
+    .eq('status', 'posted')
+    .gte('occurred_on', period.previousStart)
+    .lt('occurred_on', period.nextStart);
+  if (error) throw error;
+
+  const summary = summarizeFinanceExpenses(
+    (data ?? []) as FinanceOverviewExpenseRow[],
+    period
+  );
+  return { current: summary.current, previous: summary.previous };
 }
 
 function emptyFinanceTrend(start: string, end: string): FinanceTrendPoint[] {

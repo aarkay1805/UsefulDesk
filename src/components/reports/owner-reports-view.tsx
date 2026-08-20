@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { GatedButton } from '@/components/ui/gated-button';
 import {
   Card,
   CardContent,
@@ -64,11 +65,14 @@ import {
 } from '@/components/ui/table';
 import { ActivityTrendCard } from './report-trend-card';
 import { useAuth } from '@/hooks/use-auth';
+import { canExportFinance } from '@/lib/auth/roles';
 import { OrganizationReportsView } from './organization-reports-view';
 import {
   financeMonthRange,
   loadFinanceAdPerformance,
+  loadFinanceExpenseTotals,
   type FinanceAdPerformance,
+  type FinanceExpenseTotals,
 } from '@/lib/finance/overview';
 
 const ALL_STAFF = 'all';
@@ -76,6 +80,7 @@ const ALL_STAFF = 'all';
 interface PerformanceSnapshot {
   report: OwnerReport;
   adPerformance: FinanceAdPerformance | null;
+  expenseTotals: FinanceExpenseTotals | null;
 }
 
 type ReportCache = Record<string, PerformanceSnapshot>;
@@ -92,7 +97,14 @@ export function OwnerReportsView({
   onMonthChange: (month: string) => void;
 }) {
   const { fmt, locale } = useLocale();
-  const { account, accountId, organizationId, isOrganizationOwner } = useAuth();
+  const {
+    account,
+    accountId,
+    accountRole,
+    organizationId,
+    isOrganizationOwner,
+  } = useAuth();
+  const mayExport = accountRole ? canExportFinance(accountRole) : false;
   const [reportScope, setReportScope] = useState<'branch' | 'organization'>(
     'branch'
   );
@@ -120,11 +132,14 @@ export function OwnerReportsView({
         selectedStaffUserId
           ? Promise.resolve(null)
           : loadFinanceAdPerformance(db, dateRange, locale.timeZone),
+        selectedStaffUserId
+          ? Promise.resolve(null)
+          : loadFinanceExpenseTotals(db, selectedMonth),
       ])
-        .then(([nextReport, adPerformance]) => {
+        .then(([nextReport, adPerformance, expenseTotals]) => {
           setReports((current) => ({
             ...current,
-            [cacheKey]: { report: nextReport, adPerformance },
+            [cacheKey]: { report: nextReport, adPerformance, expenseTotals },
           }));
           if (requestId.current === id) setError(null);
         })
@@ -154,6 +169,7 @@ export function OwnerReportsView({
   const snapshot = reports[reportCacheKey(month, staffUserId)] ?? null;
   const report = snapshot?.report ?? null;
   const adPerformance = snapshot?.adPerformance ?? null;
+  const expenseTotals = snapshot?.expenseTotals ?? null;
 
   function handleMonthChange(nextMonth: string) {
     setLoading(true);
@@ -177,9 +193,12 @@ export function OwnerReportsView({
 
   function exportReport() {
     if (!report) return;
-    const blob = new Blob([ownerReportCsv(report, adPerformance)], {
-      type: 'text/csv;charset=utf-8',
-    });
+    const blob = new Blob(
+      [ownerReportCsv(report, adPerformance, expenseTotals)],
+      {
+        type: 'text/csv;charset=utf-8',
+      }
+    );
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -258,14 +277,16 @@ export function OwnerReportsView({
             ))}
           </SelectContent>
         </Select>
-        <Button
+        <GatedButton
           variant="ghost"
+          canAct={mayExport}
+          gateReason="export financial data"
           onClick={exportReport}
           disabled={!report || loading}
         >
           <Download />
           <span className="hidden sm:inline">Export CSV</span>
-        </Button>
+        </GatedButton>
       </PageHeaderActions>
 
       {error && (
