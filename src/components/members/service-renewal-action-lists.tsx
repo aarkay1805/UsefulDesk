@@ -97,6 +97,7 @@ export function ServiceRenewalActionLists({
   const [actionService, setActionService] = useState<ServiceQueueRow | null>(
     null
   );
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
@@ -134,25 +135,30 @@ export function ServiceRenewalActionLists({
   }, [bucket, expired, expiring, today, windowValue]);
 
   async function openAction(row: ServiceQueueRow, next: 'renew' | 'followup') {
-    const supabase = createClient();
-    const [contactResult, membershipResult] = await Promise.all([
-      supabase.from('contacts').select('*').eq('id', row.contact_id).single(),
-      row.membership_id
-        ? supabase
-            .from('memberships')
-            .select(
-              '*, contact:contacts(*), plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
-            )
-            .eq('id', row.membership_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-    ]);
-    const error = contactResult.error ?? membershipResult.error;
-    if (error) return toast.error(error.message);
-    setActionContact(contactResult.data as Contact);
-    setActionMembership((membershipResult.data as Membership | null) ?? null);
-    setActionService(row);
-    setAction(next);
+    setPendingAction(`${row.id}:${next}`);
+    try {
+      const supabase = createClient();
+      const [contactResult, membershipResult] = await Promise.all([
+        supabase.from('contacts').select('*').eq('id', row.contact_id).single(),
+        row.membership_id
+          ? supabase
+              .from('memberships')
+              .select(
+                '*, contact:contacts(*), plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
+              )
+              .eq('id', row.membership_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+      const error = contactResult.error ?? membershipResult.error;
+      if (error) return toast.error(error.message);
+      setActionContact(contactResult.data as Contact);
+      setActionMembership((membershipResult.data as Membership | null) ?? null);
+      setActionService(row);
+      setAction(next);
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   async function remind(row: ServiceQueueRow) {
@@ -163,44 +169,49 @@ export function ServiceRenewalActionLists({
         'Configure the current trainer rate before sending a renewal reminder'
       );
     }
-    const supabase = createClient();
-    const [{ data: config }, { data: template }] = await Promise.all([
-      supabase.from('whatsapp_config').select('status').maybeSingle(),
-      supabase
-        .from('message_templates')
-        .select('language')
-        .eq('name', SERVICE_TEMPLATE)
-        .eq('status', 'APPROVED')
-        .maybeSingle(),
-    ]);
-    if (config?.status !== 'connected')
-      return toast.error('Connect WhatsApp in Settings first');
-    if (!template)
-      return toast.error(
-        `Approve the ${SERVICE_TEMPLATE} template in Meta first`
-      );
-    const params = [
-      row.member_name?.trim() || 'there',
-      row.item_name_snapshot,
-      fmt.date(row.end_date),
-      fmt.money(row.current_renewal_price),
-    ];
-    const response = await fetch('/api/whatsapp/send', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        contact_id: row.contact_id,
-        message_type: 'template',
-        template_name: SERVICE_TEMPLATE,
-        template_language: template.language ?? 'en_US',
-        template_message_params: { body: params },
-        template_params: params,
-      }),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok)
-      return toast.error(result.error || 'Failed to send reminder');
-    toast.success('Service renewal reminder sent');
+    setPendingAction(`${row.id}:remind`);
+    try {
+      const supabase = createClient();
+      const [{ data: config }, { data: template }] = await Promise.all([
+        supabase.from('whatsapp_config').select('status').maybeSingle(),
+        supabase
+          .from('message_templates')
+          .select('language')
+          .eq('name', SERVICE_TEMPLATE)
+          .eq('status', 'APPROVED')
+          .maybeSingle(),
+      ]);
+      if (config?.status !== 'connected')
+        return toast.error('Connect WhatsApp in Settings first');
+      if (!template)
+        return toast.error(
+          `Approve the ${SERVICE_TEMPLATE} template in Meta first`
+        );
+      const params = [
+        row.member_name?.trim() || 'there',
+        row.item_name_snapshot,
+        fmt.date(row.end_date),
+        fmt.money(row.current_renewal_price),
+      ];
+      const response = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          contact_id: row.contact_id,
+          message_type: 'template',
+          template_name: SERVICE_TEMPLATE,
+          template_language: template.language ?? 'en_US',
+          template_message_params: { body: params },
+          template_params: params,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok)
+        return toast.error(result.error || 'Failed to send reminder');
+      toast.success('Service renewal reminder sent');
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   return (
@@ -314,15 +325,19 @@ export function ServiceRenewalActionLists({
                     <TableCell onClick={(event) => event.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <FollowUpButton
-                          disabled={!canAct}
+                          loading={pendingAction === `${row.id}:followup`}
+                          disabled={!canAct || pendingAction !== null}
                           onClick={() => void openAction(row, 'followup')}
                         />
                         <Button
                           variant="ghost"
                           size="sm"
                           disabled={
-                            !canAct || row.current_renewal_price == null
+                            !canAct ||
+                            row.current_renewal_price == null ||
+                            pendingAction !== null
                           }
+                          loading={pendingAction === `${row.id}:renew`}
                           onClick={() => void openAction(row, 'renew')}
                         >
                           <RefreshCw className="size-3.5" />
@@ -331,7 +346,8 @@ export function ServiceRenewalActionLists({
                         <Button
                           variant="ghost"
                           size="sm"
-                          disabled={!canAct}
+                          disabled={!canAct || pendingAction !== null}
+                          loading={pendingAction === `${row.id}:remind`}
                           onClick={() => void remind(row)}
                         >
                           <MessageCircle className="size-3.5" />

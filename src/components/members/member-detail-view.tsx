@@ -277,6 +277,7 @@ function MembershipDetailView({
     null
   );
   const [busy, setBusy] = useState(false);
+  const [checkInBusy, setCheckInBusy] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [changePlanOpen, setChangePlanOpen] = useState(false);
@@ -295,6 +296,7 @@ function MembershipDetailView({
   const [cancelServiceTarget, setCancelServiceTarget] =
     useState<MemberService | null>(null);
   const [cancelServiceReason, setCancelServiceReason] = useState('');
+  const [cancellingService, setCancellingService] = useState(false);
   const [pendingLifecycle, setPendingLifecycle] =
     useState<LifecycleAction | null>(null);
   const [returnToInvoiceAfterPay, setReturnToInvoiceAfterPay] = useState(false);
@@ -640,9 +642,8 @@ function MembershipDetailView({
     if (succeeded) setPendingLifecycle(null);
   }
 
-  async function doCheckInInsert() {
+  async function insertCheckIn() {
     if (!membership || !user) return;
-    setBusy(true);
     const { error } = await supabase.from('attendance').insert({
       account_id: membership.account_id,
       contact_id: membership.contact_id,
@@ -650,28 +651,44 @@ function MembershipDetailView({
       user_id: user.id,
       method: 'manual',
     });
-    setBusy(false);
     setOverrideWarning(null);
     if (error) return toast.error(error.message);
     toast.success('Checked in');
     refreshAll();
   }
 
+  async function doCheckInInsert() {
+    setCheckInBusy(true);
+    try {
+      await insertCheckIn();
+    } finally {
+      setCheckInBusy(false);
+    }
+  }
+
   async function checkIn() {
     if (!membership || !user) return;
     // Limit check (062): fresh count → warn-with-override, never a block.
     // A failed count returns null — never block the front desk.
-    setBusy(true);
-    const result = await fetchCheckInUsage(supabase, membership, today, locale);
-    setBusy(false);
-    if (result) {
-      setUsageCount(result.used);
-      if (result.warning) {
-        setOverrideWarning(result.warning);
-        return;
+    setCheckInBusy(true);
+    try {
+      const result = await fetchCheckInUsage(
+        supabase,
+        membership,
+        today,
+        locale
+      );
+      if (result) {
+        setUsageCount(result.used);
+        if (result.warning) {
+          setOverrideWarning(result.warning);
+          return;
+        }
       }
+      await insertCheckIn();
+    } finally {
+      setCheckInBusy(false);
     }
-    await doCheckInInsert();
   }
 
   const today = fmt.today();
@@ -803,15 +820,20 @@ function MembershipDetailView({
 
   async function confirmCancelService() {
     if (!cancelServiceTarget || !cancelServiceReason.trim()) return;
-    const { error } = await supabase.rpc('cancel_member_service', {
-      p_member_service_id: cancelServiceTarget.id,
-      p_reason: cancelServiceReason.trim(),
-    });
-    if (error) return toast.error(error.message);
-    toast.success('Service cancelled. No financial credit was created.');
-    setCancelServiceTarget(null);
-    setCancelServiceReason('');
-    refreshAll();
+    setCancellingService(true);
+    try {
+      const { error } = await supabase.rpc('cancel_member_service', {
+        p_member_service_id: cancelServiceTarget.id,
+        p_reason: cancelServiceReason.trim(),
+      });
+      if (error) return toast.error(error.message);
+      toast.success('Service cancelled. No financial credit was created.');
+      setCancelServiceTarget(null);
+      setCancelServiceReason('');
+      refreshAll();
+    } finally {
+      setCancellingService(false);
+    }
   }
   const lifecycleCopy = pendingLifecycle
     ? LIFECYCLE_COPY[pendingLifecycle]
@@ -1694,7 +1716,8 @@ function MembershipDetailView({
                               size="sm"
                               variant="outline"
                               onClick={checkIn}
-                              disabled={busy}
+                              loading={checkInBusy}
+                              disabled={checkInBusy}
                             >
                               <UserCheck className="size-3.5" /> Check in
                             </Button>
@@ -1918,7 +1941,7 @@ function MembershipDetailView({
             <AttendanceOverrideDialog
               open={!!overrideWarning}
               warning={overrideWarning}
-              busy={busy}
+              busy={checkInBusy}
               onConfirm={doCheckInInsert}
               onCancel={() => setOverrideWarning(null)}
             />
@@ -1943,7 +1966,7 @@ function MembershipDetailView({
             <Dialog
               open={!!cancelServiceTarget}
               onOpenChange={(next) => {
-                if (!next) {
+                if (!next && !cancellingService) {
                   setCancelServiceTarget(null);
                   setCancelServiceReason('');
                 }
@@ -1972,13 +1995,17 @@ function MembershipDetailView({
                   <Button
                     variant="outline"
                     onClick={() => setCancelServiceTarget(null)}
+                    disabled={cancellingService}
                   >
                     Keep service
                   </Button>
                   <Button
                     variant="destructive"
                     onClick={confirmCancelService}
-                    disabled={!cancelServiceReason.trim()}
+                    loading={cancellingService}
+                    disabled={
+                      cancellingService || !cancelServiceReason.trim()
+                    }
                   >
                     Cancel service
                   </Button>

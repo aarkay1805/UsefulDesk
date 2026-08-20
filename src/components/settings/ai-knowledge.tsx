@@ -47,6 +47,9 @@ export function AiKnowledgeCard({
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [reindexing, setReindexing] = useState(false);
+  const [pendingDocumentAction, setPendingDocumentAction] = useState<
+    string | null
+  >(null);
   const loadedAccountIdRef = useRef<string | null>(null);
 
   const fetchDocs = useCallback(async () => {
@@ -76,6 +79,7 @@ export function AiKnowledgeCard({
   };
 
   const openEdit = async (id: string) => {
+    setPendingDocumentAction(`${id}:edit`);
     try {
       const res = await fetch(`/api/ai/knowledge/${id}`);
       const data = await res.json();
@@ -88,6 +92,8 @@ export function AiKnowledgeCard({
       setContent(data.content ?? '');
     } catch {
       toast.error('Failed to open document');
+    } finally {
+      setPendingDocumentAction(null);
     }
   };
 
@@ -134,6 +140,7 @@ export function AiKnowledgeCard({
   };
 
   const remove = async (id: string) => {
+    setPendingDocumentAction(`${id}:delete`);
     try {
       const res = await fetch(`/api/ai/knowledge/${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -145,6 +152,8 @@ export function AiKnowledgeCard({
       }
     } catch {
       toast.error('Failed to remove.');
+    } finally {
+      setPendingDocumentAction(null);
     }
   };
 
@@ -208,6 +217,9 @@ export function AiKnowledgeCard({
                           size="sm"
                           className="h-8 w-8 p-0"
                           onClick={() => void openEdit(doc.id)}
+                          loading={pendingDocumentAction === `${doc.id}:edit`}
+                          disabled={pendingDocumentAction !== null}
+                          aria-label="Edit knowledge document"
                           title="Edit"
                         >
                           <Pencil className="h-4 w-4" />
@@ -216,6 +228,10 @@ export function AiKnowledgeCard({
                           variant="destructive-ghost"
                           size="icon"
                           onClick={() => void remove(doc.id)}
+                          loading={
+                            pendingDocumentAction === `${doc.id}:delete`
+                          }
+                          disabled={pendingDocumentAction !== null}
                           aria-label="Delete knowledge document"
                           title="Delete"
                         >

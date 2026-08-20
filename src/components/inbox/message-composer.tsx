@@ -88,8 +88,8 @@ interface MediaDraft {
 interface MessageComposerProps {
   conversationId: string;
   sessionExpired: boolean;
-  onSend: (text: string, replyToId?: string) => void;
-  onSendMedia: (payload: SendMediaPayload) => void;
+  onSend: (text: string, replyToId?: string) => void | Promise<void>;
+  onSendMedia: (payload: SendMediaPayload) => void | Promise<void>;
   onOpenTemplates: () => void;
   replyTo?: ReplyDraft | null;
   onClearReply?: () => void;
@@ -192,7 +192,7 @@ export function MessageComposer({
 
     setSending(true);
     try {
-      onSend(trimmed, replyTo?.id);
+      await onSend(trimmed, replyTo?.id);
       setText('');
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
@@ -425,22 +425,29 @@ export function MessageComposer({
 
   // ---- Draft send / discard -----------------------------------------
 
-  const sendDraft = useCallback(() => {
+  const sendDraft = useCallback(async () => {
     if (!draft || busy) return;
-    onSendMedia({
-      kind: draft.kind,
-      mediaUrl: draft.mediaUrl,
-      path: draft.path,
-      // Audio takes no caption (Meta rejects it). Everything else: the
-      // trimmed caption, or undefined when blank.
-      caption:
-        draft.kind === 'audio' ? undefined : draft.caption.trim() || undefined,
-      filename: draft.kind === 'document' ? draft.filename : undefined,
-      replyToId: replyTo?.id,
-    });
-    // The object is now owned by the sent message — clear without GC.
-    setDraft(null);
-    onClearReply?.();
+    setBusy(true);
+    try {
+      await onSendMedia({
+        kind: draft.kind,
+        mediaUrl: draft.mediaUrl,
+        path: draft.path,
+        // Audio takes no caption (Meta rejects it). Everything else: the
+        // trimmed caption, or undefined when blank.
+        caption:
+          draft.kind === 'audio'
+            ? undefined
+            : draft.caption.trim() || undefined,
+        filename: draft.kind === 'document' ? draft.filename : undefined,
+        replyToId: replyTo?.id,
+      });
+      // The object is now owned by the sent message — clear without GC.
+      setDraft(null);
+      onClearReply?.();
+    } finally {
+      setBusy(false);
+    }
   }, [draft, busy, onSendMedia, replyTo?.id, onClearReply]);
 
   // Discard GCs the staged object — it was uploaded but never sent.
@@ -658,6 +665,7 @@ export function MessageComposer({
             gateReason="send messages"
             disabled={!text.trim() || sessionExpired || sending}
             onClick={handleSend}
+            loading={sending}
             aria-label="Send message"
             className="bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 p-0 disabled:opacity-40"
           >
@@ -697,7 +705,7 @@ function MediaDraftPreview({
   readOnly: boolean;
   onCaptionChange: (caption: string) => void;
   onDiscard: () => void;
-  onSend: () => void;
+  onSend: () => void | Promise<void>;
 }) {
   return (
     <div className="border-border bg-muted/40 rounded-xl border p-3">
@@ -747,7 +755,7 @@ function MediaDraftPreview({
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                onSend();
+                void onSend();
               }
             }}
             placeholder="Add a caption…"
@@ -760,6 +768,7 @@ function MediaDraftPreview({
           gateReason="send messages"
           disabled={busy}
           onClick={onSend}
+          loading={busy}
           aria-label="Send attachment"
           className={cn(
             'bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 p-0 disabled:opacity-40',

@@ -206,6 +206,7 @@ export function ContactDetailContent({
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [contactTagIds, setContactTagIds] = useState<string[]>([]);
   const [savingTags, setSavingTags] = useState(false);
+  const [savingTagId, setSavingTagId] = useState<string | null>(null);
 
   // Custom fields — folded into the Details section (values keyed by field id).
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
@@ -555,6 +556,7 @@ export function ContactDetailContent({
   async function toggleTag(tagId: string) {
     if (!contactId) return;
     setSavingTags(true);
+    setSavingTagId(tagId);
 
     const isSelected = contactTagIds.includes(tagId);
 
@@ -571,6 +573,7 @@ export function ContactDetailContent({
       toast.error(getErrorMessage(error, 'Failed to update tags'));
     } finally {
       setSavingTags(false);
+      setSavingTagId(null);
     }
   }
 
@@ -1034,6 +1037,7 @@ export function ContactDetailContent({
                           key={tag.id}
                           onClick={() => toggleTag(tag.id)}
                           disabled={savingTags}
+                          aria-busy={savingTagId === tag.id || undefined}
                           className={cn(
                             'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all disabled:opacity-60',
                             selected
@@ -1041,7 +1045,14 @@ export function ContactDetailContent({
                               : 'border-border text-muted-foreground hover:bg-muted/50 bg-transparent'
                           )}
                         >
-                          {selected && <Check className="size-3.5" />}
+                          {savingTagId === tag.id ? (
+                            <Loader2
+                              className="size-3.5 animate-spin"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            selected && <Check className="size-3.5" />
+                          )}
                           {tag.name}
                         </button>
                       );

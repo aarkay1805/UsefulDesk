@@ -136,6 +136,9 @@ export function MembersTab() {
   const [pendingMemberAction, setPendingMemberAction] = useState<string | null>(
     null
   );
+  const [revokingInvitationId, setRevokingInvitationId] = useState<
+    string | null
+  >(null);
 
   const loadEverything = useCallback(async () => {
     try {
@@ -259,6 +262,7 @@ export function MembersTab() {
   }
 
   async function handleRevoke(invite: Invitation) {
+    setRevokingInvitationId(invite.id);
     try {
       const res = await fetch(`/api/account/invitations/${invite.id}`, {
         method: 'DELETE',
@@ -273,6 +277,8 @@ export function MembersTab() {
     } catch (err) {
       console.error('[MembersTab] revoke error:', err);
       toast.error('Could not reach the server');
+    } finally {
+      setRevokingInvitationId(null);
     }
   }
 
@@ -585,6 +591,8 @@ export function MembersTab() {
                               variant="destructive-ghost"
                               size="sm"
                               onClick={() => handleRevoke(inv)}
+                              loading={revokingInvitationId === inv.id}
+                              disabled={revokingInvitationId !== null}
                               className="flex-1 sm:flex-none"
                             >
                               <MailX className="size-4" />

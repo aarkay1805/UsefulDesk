@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
@@ -146,40 +145,48 @@ function BulkCompleteForm({
     () => outcomeOptions(context)[0]
   );
   const [saving, setSaving] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<
+    'done' | 'cancelled' | null
+  >(null);
 
   async function close(status: 'done' | 'cancelled') {
     if (followUpIds.length === 0) return;
     setSaving(true);
-    const { data, error } = await supabase
-      .from('follow_ups')
-      .update({
-        status,
-        outcome: status === 'done' ? outcome : null,
-        completed_at: new Date().toISOString(),
-      })
-      .in('id', followUpIds)
-      .eq('status', 'open')
-      .select('id');
-    setSaving(false);
+    setPendingStatus(status);
+    try {
+      const { data, error } = await supabase
+        .from('follow_ups')
+        .update({
+          status,
+          outcome: status === 'done' ? outcome : null,
+          completed_at: new Date().toISOString(),
+        })
+        .in('id', followUpIds)
+        .eq('status', 'open')
+        .select('id');
 
-    if (error) {
-      toast.error(getErrorMessage(error, 'Failed to update follow-ups'));
-      return;
-    }
-    if (!data || data.length !== followUpIds.length) {
-      toast.error(
-        'Some follow-ups could not be updated. Refresh and try again.'
+      if (error) {
+        toast.error(getErrorMessage(error, 'Failed to update follow-ups'));
+        return;
+      }
+      if (!data || data.length !== followUpIds.length) {
+        toast.error(
+          'Some follow-ups could not be updated. Refresh and try again.'
+        );
+        return;
+      }
+      const noun = `follow-up${followUpIds.length === 1 ? '' : 's'}`;
+      toast.success(
+        status === 'done'
+          ? `${followUpIds.length} ${noun} completed`
+          : `${followUpIds.length} ${noun} cancelled`
       );
-      return;
+      onClose();
+      onSaved(status);
+    } finally {
+      setSaving(false);
+      setPendingStatus(null);
     }
-    const noun = `follow-up${followUpIds.length === 1 ? '' : 's'}`;
-    toast.success(
-      status === 'done'
-        ? `${followUpIds.length} ${noun} completed`
-        : `${followUpIds.length} ${noun} cancelled`
-    );
-    onClose();
-    onSaved(status);
   }
 
   return (
@@ -221,6 +228,7 @@ function BulkCompleteForm({
           type="button"
           variant="ghost"
           onClick={() => close('cancelled')}
+          loading={pendingStatus === 'cancelled'}
           disabled={saving}
         >
           Cancel tasks
@@ -229,8 +237,12 @@ function BulkCompleteForm({
           <Button type="button" variant="outline" onClick={onClose}>
             Back
           </Button>
-          <Button type="button" onClick={() => close('done')} disabled={saving}>
-            {saving && <Loader2 className="size-4 animate-spin" />}
+          <Button
+            type="button"
+            onClick={() => close('done')}
+            loading={pendingStatus === 'done'}
+            disabled={saving}
+          >
             Mark done
           </Button>
         </div>
@@ -256,34 +268,42 @@ function CompleteForm({
   const existingNote = followUp.note?.trim() ?? '';
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<
+    'done' | 'cancelled' | null
+  >(null);
 
   async function close(status: 'done' | 'cancelled') {
     setSaving(true);
-    const { data, error } = await supabase
-      .from('follow_ups')
-      .update({
-        status,
-        outcome: status === 'done' ? outcome : null,
-        note: note.trim() || existingNote || null,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', followUp.id)
-      .eq('status', 'open')
-      .select('id')
-      .maybeSingle();
-    setSaving(false);
+    setPendingStatus(status);
+    try {
+      const { data, error } = await supabase
+        .from('follow_ups')
+        .update({
+          status,
+          outcome: status === 'done' ? outcome : null,
+          note: note.trim() || existingNote || null,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', followUp.id)
+        .eq('status', 'open')
+        .select('id')
+        .maybeSingle();
 
-    if (error || !data) {
-      toast.error(
-        getErrorMessage(error, 'This follow-up could not be updated')
+      if (error || !data) {
+        toast.error(
+          getErrorMessage(error, 'This follow-up could not be updated')
+        );
+        return;
+      }
+      toast.success(
+        status === 'done' ? 'Follow-up completed' : 'Follow-up cancelled'
       );
-      return;
+      onClose();
+      onSaved(status);
+    } finally {
+      setSaving(false);
+      setPendingStatus(null);
     }
-    toast.success(
-      status === 'done' ? 'Follow-up completed' : 'Follow-up cancelled'
-    );
-    onClose();
-    onSaved(status);
   }
 
   const personLabel = followUp.contact?.name?.trim() || `this ${context}`;
@@ -345,6 +365,7 @@ function CompleteForm({
           type="button"
           variant="ghost"
           onClick={() => close('cancelled')}
+          loading={pendingStatus === 'cancelled'}
           disabled={saving}
         >
           Cancel task
@@ -353,8 +374,12 @@ function CompleteForm({
           <Button type="button" variant="outline" onClick={onClose}>
             Back
           </Button>
-          <Button type="button" onClick={() => close('done')} disabled={saving}>
-            {saving && <Loader2 className="size-4 animate-spin" />}
+          <Button
+            type="button"
+            onClick={() => close('done')}
+            loading={pendingStatus === 'done'}
+            disabled={saving}
+          >
             Mark done
           </Button>
         </div>
