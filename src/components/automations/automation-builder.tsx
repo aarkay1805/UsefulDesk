@@ -74,6 +74,7 @@ import {
   type StepPath,
 } from '@/lib/automations/builder-tree';
 import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { cn } from '@/lib/utils';
 
 // ------------------------------------------------------------
@@ -724,6 +725,7 @@ function SendTemplateFields({
 
 export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
   const router = useRouter();
+  const { navigate, isPending } = usePendingNavigation();
   const isEditing = !!initial.id;
   const [state, setState] = useState<BuilderInitial>(initial);
   const [saving, setSaving] = useState(false);
@@ -769,6 +771,7 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
   }
 
   async function save() {
+    let navigationStarted = false;
     setSaving(true);
     try {
       const payload = {
@@ -811,9 +814,10 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
       toast.success(isEditing ? 'Automation saved' : 'Automation created');
       if (!isEditing && body?.automation?.id) {
         router.replace(`/automations/${body.automation.id}/edit`);
+        navigationStarted = true;
       }
     } finally {
-      setSaving(false);
+      if (!navigationStarted) setSaving(false);
     }
   }
 
@@ -825,11 +829,17 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
       <header className="border-border bg-card/80 flex flex-shrink-0 items-center gap-2 border-b px-3 py-3 sm:gap-3 sm:px-4">
         <button
           type="button"
-          onClick={() => router.push('/automations')}
+          onClick={() => navigate('/automations')}
+          aria-busy={isPending('/automations') || undefined}
+          disabled={isPending('/automations')}
           className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md transition-colors"
           aria-label="Back to automations"
         >
-          <ArrowLeft className="h-4 w-4" />
+          {isPending('/automations') ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <ArrowLeft className="h-4 w-4" />
+          )}
         </button>
         <input
           value={state.name}
@@ -847,10 +857,9 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
         </div>
         <Button
           onClick={save}
-          disabled={saving}
+          loading={saving}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {isEditing ? 'Save' : 'Save Draft'}
         </Button>
       </header>

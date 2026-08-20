@@ -22,7 +22,6 @@
  * /flows/[id]/runs) — those don't belong in the hook.
  */
 
-import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   CircleDot,
@@ -36,11 +35,12 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { cn } from '@/lib/utils';
 import { useFlowEditor, type BuilderState } from './flow-editor-state';
 
 export function EditorHeader() {
-  const router = useRouter();
+  const { navigate, isPending } = usePendingNavigation();
   const {
     flow,
     state,
@@ -48,6 +48,7 @@ export function EditorHeader() {
     dirty,
     saving,
     activating,
+    deleting,
     canActivate,
     save,
     setStatus,
@@ -60,12 +61,18 @@ export function EditorHeader() {
         {/* ---- left: back · icon · name · status · edited ---- */}
         <button
           type="button"
-          onClick={() => router.push('/flows')}
+          onClick={() => navigate('/flows')}
+          aria-busy={isPending('/flows') || undefined}
+          disabled={isPending('/flows')}
           title="Back to Flows"
           aria-label="Back to Flows"
           className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" />
+          {isPending('/flows') ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <ArrowLeft className="h-4 w-4" />
+          )}
         </button>
         <span className="bg-primary-soft text-primary-text flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
           <Workflow className="h-[18px] w-[18px]" />
@@ -95,7 +102,8 @@ export function EditorHeader() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push(`/flows/${flow.id}/runs`)}
+            onClick={() => navigate(`/flows/${flow.id}/runs`)}
+            loading={isPending(`/flows/${flow.id}/runs`)}
           >
             <History className="h-3.5 w-3.5" />
             Runs
@@ -107,6 +115,7 @@ export function EditorHeader() {
             variant="destructive-ghost"
             size="sm"
             onClick={() => void deleteFlow()}
+            loading={deleting}
           >
             <Trash2 className="h-3.5 w-3.5" />
             Delete
@@ -116,13 +125,9 @@ export function EditorHeader() {
               variant="outline"
               size="sm"
               onClick={() => void setStatus('draft')}
-              disabled={activating}
+              loading={activating}
             >
-              {activating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <PauseCircle className="h-3.5 w-3.5" />
-              )}
+              <PauseCircle className="h-3.5 w-3.5" />
               Pause
             </Button>
           ) : (
@@ -130,27 +135,20 @@ export function EditorHeader() {
               variant="outline"
               size="sm"
               onClick={() => void setStatus('active')}
-              disabled={activating || !canActivate}
+              loading={activating}
+              disabled={!canActivate}
               title={
                 !canActivate
                   ? 'Fix the issues below before activating'
                   : undefined
               }
             >
-              {activating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <PlayCircle className="h-3.5 w-3.5" />
-              )}
+              <PlayCircle className="h-3.5 w-3.5" />
               Activate
             </Button>
           )}
-          <Button onClick={() => void save()} disabled={saving} size="sm">
-            {saving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )}
+          <Button onClick={() => void save()} loading={saving} size="sm">
+            <Save className="h-3.5 w-3.5" />
             Save
           </Button>
         </div>

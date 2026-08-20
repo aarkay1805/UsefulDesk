@@ -52,6 +52,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { createClient } from '@/lib/supabase/client';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 
 interface PeekOk {
   ok: true;
@@ -93,6 +94,7 @@ const FAIL_COPY: Record<PeekFail['reason'], { title: string; body: string }> = {
 export default function JoinPage() {
   const params = useParams<{ token: string }>();
   const token = params?.token;
+  const { startNavigation, isPending } = usePendingNavigation();
 
   const [peek, setPeek] = useState<PeekResult | null>(null);
   // Local auth probe — the AuthProvider lives inside the (dashboard)
@@ -102,6 +104,7 @@ export default function JoinPage() {
     undefined // undefined = unknown / still loading; null = signed out
   );
   const [accepting, setAccepting] = useState(false);
+  const [openingDashboard, setOpeningDashboard] = useState(false);
   // `redeem_invitation` returns 409 only when this membership already exists.
   // Keep the result visible so the user can return to their branch selector.
   const [conflictMessage, setConflictMessage] = useState<string | null>(null);
@@ -246,6 +249,8 @@ export default function JoinPage() {
               <Link href="/signup">
                 <Button
                   variant="outline"
+                  loading={isPending('/signup')}
+                  onClick={() => startNavigation('/signup')}
                   className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
                 >
                   Create a new account instead
@@ -255,13 +260,19 @@ export default function JoinPage() {
           ) : (
             <>
               <Link href="/signup">
-                <Button className="bg-primary text-primary-foreground hover:bg-primary/90 w-full">
+                <Button
+                  loading={isPending('/signup')}
+                  onClick={() => startNavigation('/signup')}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
+                >
                   Create a new account instead
                 </Button>
               </Link>
               <Link href="/login">
                 <Button
                   variant="outline"
+                  loading={isPending('/login')}
+                  onClick={() => startNavigation('/login')}
                   className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
                 >
                   Sign in
@@ -310,20 +321,11 @@ export default function JoinPage() {
           <CardContent className="flex flex-col gap-3">
             <Button
               onClick={handleAccept}
-              disabled={accepting}
+              loading={accepting}
               className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
             >
-              {accepting ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Accepting…
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="size-4" />
-                  Accept invitation
-                </>
-              )}
+              <CheckCircle className="size-4" />
+              {accepting ? 'Accepting…' : 'Accept invitation'}
             </Button>
             <p className="text-muted-foreground text-center text-xs">
               Accepting adds{' '}
@@ -371,9 +373,11 @@ export default function JoinPage() {
               <Button
                 onClick={() => {
                   // The conflict can reflect newer branch access than this tree.
+                  setOpeningDashboard(true);
                   // eslint-disable-next-line @next/next/no-location-assign-relative-destination
                   window.location.href = '/dashboard';
                 }}
+                loading={openingDashboard}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Open dashboard
@@ -391,13 +395,23 @@ export default function JoinPage() {
       {inviteHeader}
       <CardContent className="flex flex-col gap-2">
         <Link href={`/signup?invite=${encodeURIComponent(token!)}`}>
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90 w-full">
+          <Button
+            loading={isPending(`/signup?invite=${encodeURIComponent(token!)}`)}
+            onClick={() =>
+              startNavigation(`/signup?invite=${encodeURIComponent(token!)}`)
+            }
+            className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
+          >
             Create account &amp; join
           </Button>
         </Link>
         <Link href={`/login?invite=${encodeURIComponent(token!)}`}>
           <Button
             variant="outline"
+            loading={isPending(`/login?invite=${encodeURIComponent(token!)}`)}
+            onClick={() =>
+              startNavigation(`/login?invite=${encodeURIComponent(token!)}`)
+            }
             className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
           >
             I already have an account

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import {
   ArrowLeft,
   Loader2,
@@ -19,6 +19,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 
 /**
  * Run history viewer.
@@ -94,7 +95,7 @@ const STATUS_META: Record<
 };
 
 export default function FlowRunsPage() {
-  const router = useRouter();
+  const { navigate, isPending } = usePendingNavigation();
   const params = useParams<{ id: string }>();
 
   const [flow, setFlow] = useState<{ id: string; name: string } | null>(null);
@@ -161,10 +162,18 @@ export default function FlowRunsPage() {
         <p className="text-muted-foreground text-sm">Flow not found.</p>
         <button
           type="button"
-          onClick={() => router.push('/flows')}
+          onClick={() => navigate('/flows')}
+          aria-busy={isPending('/flows') || undefined}
+          disabled={isPending('/flows')}
           className="text-primary-text text-sm hover:opacity-80"
         >
-          ← Back to flows
+          {isPending('/flows') ? (
+            <Loader2
+              className="mr-1 inline h-4 w-4 animate-spin"
+              aria-hidden="true"
+            />
+          ) : null}
+          Back to flows
         </button>
       </div>
     );
@@ -174,10 +183,16 @@ export default function FlowRunsPage() {
     <div className="mx-auto max-w-4xl p-6">
       <button
         type="button"
-        onClick={() => router.push(`/flows/${flow.id}`)}
+        onClick={() => navigate(`/flows/${flow.id}`)}
+        aria-busy={isPending(`/flows/${flow.id}`) || undefined}
+        disabled={isPending(`/flows/${flow.id}`)}
         className="text-muted-foreground hover:text-foreground mb-2 inline-flex items-center gap-1 text-xs"
       >
-        <ArrowLeft className="h-3 w-3" />
+        {isPending(`/flows/${flow.id}`) ? (
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+        ) : (
+          <ArrowLeft className="h-3 w-3" />
+        )}
         {flow.name}
       </button>
       <h1 className="text-foreground text-xl font-semibold">Runs</h1>

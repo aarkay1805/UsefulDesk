@@ -52,6 +52,7 @@ function ResetPasswordPageInner() {
     undefined
   );
   const [addingPassword, setAddingPassword] = useState(false);
+  const [requestingNewLink, setRequestingNewLink] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,7 +143,11 @@ function ResetPasswordPageInner() {
           </CardHeader>
           <CardContent>
             <Link href={forgotPasswordPath}>
-              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 w-full">
+              <Button
+                loading={requestingNewLink}
+                onClick={() => setRequestingNewLink(true)}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
+              >
                 Request new link
               </Button>
             </Link>

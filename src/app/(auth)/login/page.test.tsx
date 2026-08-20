@@ -31,9 +31,7 @@ afterEach(cleanup);
 
 describe('invitation login continuation', () => {
   it('shows in-button progress while sign-in is pending', async () => {
-    let resolveSignIn!: (value: {
-      error: { message: string };
-    }) => void;
+    let resolveSignIn!: (value: { error: { message: string } }) => void;
     signInWithPassword.mockReturnValue(
       new Promise((resolve) => {
         resolveSignIn = resolve;

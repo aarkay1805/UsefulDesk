@@ -56,8 +56,6 @@ describe('MessageComposer pending feedback', () => {
       resolveSend();
     }
 
-    await waitFor(() =>
-      expect(send.getAttribute('aria-busy')).toBeNull()
-    );
+    await waitFor(() => expect(send.getAttribute('aria-busy')).toBeNull());
   });
 });

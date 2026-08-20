@@ -24,11 +24,13 @@
 ### Task 1: Add the shared loading contract
 
 **Files:**
+
 - Create: `src/components/ui/button.test.tsx`
 - Modify: `src/components/ui/button.tsx`
 - Read-through verification: `src/components/ui/gated-button.tsx`
 
 **Interfaces:**
+
 - Produces: `Button` accepts `loading?: boolean` in addition to Base UI and variant props.
 - Behavior: `loading` renders one `Loader2`, sets `aria-busy`, forces `disabled`, preserves children, and is not forwarded to the DOM.
 - Consumers: every later task passes its existing or new pending state through this prop.
@@ -76,7 +78,12 @@ type ButtonProps = ButtonPrimitive.Props &
     loading?: boolean;
   };
 
-function Button({ loading = false, disabled, children, ...props }: ButtonProps) {
+function Button({
+  loading = false,
+  disabled,
+  children,
+  ...props
+}: ButtonProps) {
   return (
     <ButtonPrimitive
       aria-busy={loading || undefined}
@@ -110,6 +117,7 @@ git commit -m "feat: add shared button loading state"
 ### Task 2: Wire existing pending state into mutation and authentication buttons
 
 **Files:**
+
 - Modify: `src/app/(auth)/login/page.tsx`
 - Modify: `src/app/(auth)/signup/page.tsx`
 - Modify: `src/app/(auth)/forgot-password/page.tsx`
@@ -127,6 +135,7 @@ git commit -m "feat: add shared button loading state"
 - Modify: `src/app/(dashboard)/broadcasts/[id]/page.tsx`
 
 **Interfaces:**
+
 - Consumes: `Button loading?: boolean` from Task 1.
 - Produces: every listed initiating button maps its already-owned `loading`, `busy`, `deleting`, or retry state to the shared prop.
 
@@ -195,6 +204,7 @@ git commit -m "fix: show pending feedback for core actions"
 ### Task 3: Add item-scoped state to asynchronous row and dialog actions
 
 **Files:**
+
 - Modify: `src/components/members/service-renewal-action-lists.tsx`
 - Modify: `src/components/members/service-renewal-action-lists.test.tsx`
 - Modify: `src/components/follow-ups/complete-follow-up-dialog.tsx`
@@ -204,6 +214,7 @@ git commit -m "fix: show pending feedback for core actions"
 - Modify: `src/components/members/member-detail-view.tsx`
 
 **Interfaces:**
+
 - Consumes: `Button loading?: boolean`.
 - Produces: item-scoped operation keys such as `${row.id}:remind` or the relevant record ID; concurrent visual state never leaks to sibling rows.
 
@@ -215,7 +226,9 @@ Render a renewal row with a deferred reminder request. Click **Remind** and asse
 await user.click(screen.getByRole('button', { name: 'Remind' }));
 const remind = screen.getByRole('button', { name: 'Remind' });
 expect(remind.getAttribute('aria-busy')).toBe('true');
-expect(screen.getByRole('button', { name: 'Renew' }).getAttribute('aria-busy')).toBeNull();
+expect(
+  screen.getByRole('button', { name: 'Renew' }).getAttribute('aria-busy')
+).toBeNull();
 ```
 
 - [ ] **Step 2: Run the service-row test and verify RED**
@@ -247,7 +260,7 @@ async function remind(row: ServiceRenewalRow) {
   onClick={() => void remind(row)}
 >
   Remind
-</Button>
+</Button>;
 ```
 
 Apply the same principle to remote renew-detail loading, follow-up completion/cancellation, AI knowledge edit/delete, invitation revoke, contact tag writes, and service cancellation. Reuse an existing item-ID pending state where the component already has one. Keep handlers protected by `try/finally` and retain existing error handling.
@@ -270,6 +283,7 @@ git commit -m "fix: show row action progress on async operations"
 ### Task 4: Cover native async controls and button-driven navigation
 
 **Files:**
+
 - Modify: `src/app/(dashboard)/flows/page.tsx`
 - Modify: `src/components/flows/header.tsx`
 - Modify: `src/components/automations/automation-builder.tsx`
@@ -283,6 +297,7 @@ git commit -m "fix: show row action progress on async operations"
 - Modify: `src/app/(dashboard)/broadcasts/[id]/page.tsx`
 
 **Interfaces:**
+
 - Native async controls reproduce the shared contract locally only where the current composed-card geometry prevents using `Button`.
 - Navigation controls use `useTransition`; a local destination/action key identifies the clicked button.
 
@@ -313,7 +328,7 @@ const [creatingTemplate, setCreatingTemplate] = useState<string | null>(null);
     existingIcon
   )}
   {existingContent}
-</button>
+</button>;
 ```
 
 For route-changing shared buttons:
@@ -332,7 +347,7 @@ function navigate(href: string) {
   onClick={() => navigate(href)}
 >
   View runs
-</Button>
+</Button>;
 ```
 
 Use the same `isNavigating && pendingHref === href` condition for established native icon/back buttons, rendering `Loader2` locally and setting `aria-busy`. Do not change ordinary links or clickable table/card rows in this pass.
@@ -355,11 +370,13 @@ git commit -m "fix: show progress for async navigation controls"
 ### Task 5: Record the invariant and verify the full repository
 
 **Files:**
+
 - Modify: `docs/ui-patterns.md`
 - Modify: `docs/changelog.md`
 - Modify: `PRDs/roadmap.md`
 
 **Interfaces:**
+
 - Produces: one durable UI rule describing when `Button loading` is required and which controls are excluded.
 
 - [ ] **Step 1: Update product documentation**

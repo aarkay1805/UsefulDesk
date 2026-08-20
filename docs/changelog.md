@@ -6,6 +6,12 @@
 
 ---
 
+## Consistent pending feedback for delayed actions
+
+Buttons that wait on authentication, Supabase/API/storage work, imports, messaging, automation/flow operations, retries, or cold route transitions now show an in-control spinner and accessible busy state from activation through completion. `Button.loading` is the canonical contract; repeated actions track the clicked item, native controls replace their glyph, and `usePendingNavigation` covers imperative and Link navigation without double-pushing. Key code: `src/components/ui/button.tsx`, `src/hooks/use-pending-navigation.ts`, and the affected auth, member, contact, messaging, broadcast, automation, and flow surfaces. Gotcha: keep successful network-plus-navigation actions pending until the destination mounts; clipboard and explicitly optimistic local removals remain immediate.
+
+---
+
 ## Phone input edit clarity and visible country codes
 
 Constrained table-cell phone editors now expand to a responsive 240px floating surface without changing the column width, keeping the visible country code, complete national number, and compact check/cross actions unobstructed; the active shell uses the established focus ring plus restrained floating-panel elevation. All `InlineEditActions` consumers keep the original icon controls. The shared phone normalizer always presents country codes as `+<digits>`, including legacy digits-only account configuration, and the member-import review ledger shows qualified phones with the visible plus without changing stored, dedupe, or WhatsApp values. `COUNTRY_PRESETS.phoneNationalLengths` keeps shorter national plans and local numbers that begin with their dial code unambiguous. Key code: `src/components/ui/phone-input.tsx`, `src/components/ui/inline-edit-actions.tsx`, `src/lib/phone-input.ts`, `src/lib/locale/config.ts`, `src/components/leads/editable-cell.tsx`, and `src/components/members/import-members-preview.tsx`.

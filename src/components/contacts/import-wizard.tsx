@@ -279,6 +279,7 @@ export function ImportWizard({
   const [newFieldName, setNewFieldName] = useState('');
   const [newFieldType, setNewFieldType] = useState('text');
   const [savingField, setSavingField] = useState(false);
+  const [deletingFieldId, setDeletingFieldId] = useState<string | null>(null);
 
   const targets = useMemo(
     () =>
@@ -541,20 +542,25 @@ export function ImportWizard({
       return;
     }
 
-    const { error } = await supabase
-      .from('custom_fields')
-      .delete()
-      .eq('id', fieldId);
-    if (error) {
-      toast.error('Could not delete field. You may not have permission.');
-      return;
-    }
+    setDeletingFieldId(fieldId);
+    try {
+      const { error } = await supabase
+        .from('custom_fields')
+        .delete()
+        .eq('id', fieldId);
+      if (error) {
+        toast.error('Could not delete field. You may not have permission.');
+        return;
+      }
 
-    setCustomFields((prev) => prev.filter((f) => f.id !== fieldId));
-    // Unmap any column that pointed at the deleted field.
-    const key = `custom:${fieldId}`;
-    setMapping((prev) => prev.map((k) => (k === key ? IGNORE_KEY : k)));
-    toast.success(`Deleted "${field.field_name}".`);
+      setCustomFields((prev) => prev.filter((f) => f.id !== fieldId));
+      // Unmap any column that pointed at the deleted field.
+      const key = `custom:${fieldId}`;
+      setMapping((prev) => prev.map((k) => (k === key ? IGNORE_KEY : k)));
+      toast.success(`Deleted "${field.field_name}".`);
+    } finally {
+      setDeletingFieldId(null);
+    }
   }
 
   /** Leads: structure + dedupe + coerce, then land on the Preview step. */
@@ -1285,6 +1291,7 @@ export function ImportWizard({
                       onRequestCreateField={requestCreateField}
                       onRequestEditField={requestEditField}
                       onDeleteField={handleDeleteField}
+                      deletingFieldId={deletingFieldId}
                     />
                   )}
 
@@ -1714,6 +1721,7 @@ function MapStep({
   onRequestCreateField,
   onRequestEditField,
   onDeleteField,
+  deletingFieldId,
 }: {
   raw: RawCsv;
   targets: TargetField[];
@@ -1737,6 +1745,7 @@ function MapStep({
   onRequestCreateField: (col: number) => void;
   onRequestEditField: (fieldId: string) => void;
   onDeleteField: (fieldId: string) => void;
+  deletingFieldId: string | null;
 }) {
   const showEmptyToggle = mode === 'update' || mode === 'both';
   const modeLabels = MODE_LABELS[variant];
@@ -1970,6 +1979,8 @@ function MapStep({
                                 size="icon-sm"
                                 title="Delete field"
                                 onClick={() => onDeleteField(cfId)}
+                                loading={deletingFieldId === cfId}
+                                disabled={deletingFieldId !== null}
                                 className="shrink-0"
                               >
                                 <Trash2 className="size-3.5" />

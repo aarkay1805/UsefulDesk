@@ -218,6 +218,9 @@ export function ImportMembersCsvDialog({
   const [resumingDraft, setResumingDraft] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [startFreshConfirm, setStartFreshConfirm] = useState(false);
+  const [draftAction, setDraftAction] = useState<
+    'closing' | 'reloading' | 'discarding' | 'retrying' | null
+  >(null);
 
   const [createCol, setCreateCol] = useState<number | null>(null);
   const [newFieldName, setNewFieldName] = useState('');
@@ -444,13 +447,18 @@ export function ImportMembersCsvDialog({
 
   async function requestClose() {
     if (importing) return;
-    if (draftManager.draft && file && !result) {
-      const saved = await draftManager.flush();
-      if (!saved) return;
+    setDraftAction('closing');
+    try {
+      if (draftManager.draft && file && !result) {
+        const saved = await draftManager.flush();
+        if (!saved) return;
+      }
+      fileReadSequence.current++;
+      setReadingFile(false);
+      onOpenChange(false);
+    } finally {
+      setDraftAction(null);
     }
-    fileReadSequence.current++;
-    setReadingFile(false);
-    onOpenChange(false);
   }
 
   function handleOpenChange(next: boolean) {
@@ -479,15 +487,35 @@ export function ImportMembersCsvDialog({
   }
 
   async function startFresh() {
-    const discarded = await draftManager.discard();
-    if (!discarded) return;
-    resetWorkingImport();
-    setStartFreshConfirm(false);
+    setDraftAction('discarding');
+    try {
+      const discarded = await draftManager.discard();
+      if (!discarded) return;
+      resetWorkingImport();
+      setStartFreshConfirm(false);
+    } finally {
+      setDraftAction(null);
+    }
   }
 
   async function reloadSavedDraft() {
-    const saved = await draftManager.reload();
-    if (saved) await resumeSavedDraft(saved);
+    setDraftAction('reloading');
+    try {
+      const saved = await draftManager.reload();
+      if (saved) await resumeSavedDraft(saved);
+    } finally {
+      setDraftAction(null);
+    }
+  }
+
+  async function retryDraftSave() {
+    setDraftAction('retrying');
+    try {
+      draftManager.save(draftState);
+      await draftManager.flush();
+    } finally {
+      setDraftAction(null);
+    }
   }
 
   function prepareRawTable(parsed: RawCsv) {
@@ -1498,7 +1526,9 @@ export function ImportMembersCsvDialog({
 
           <DialogFooter className="border-border/80 bg-background/50 mx-0 mt-0 mb-0 shrink-0 items-center gap-2 border-t px-6 py-4 sm:justify-between">
             <div className="min-w-0 flex-1">
-              {draftManager.saveState === 'error' && draftManager.draft ? (
+              {(draftManager.saveState === 'error' ||
+                draftAction === 'retrying') &&
+              draftManager.draft ? (
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-destructive text-xs">
                     Couldn’t save draft.
@@ -1507,10 +1537,9 @@ export function ImportMembersCsvDialog({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      draftManager.save(draftState);
-                      void draftManager.flush();
-                    }}
+                    loading={draftAction === 'retrying'}
+                    disabled={draftAction !== null}
+                    onClick={() => void retryDraftSave()}
                   >
                     Retry
                   </Button>
@@ -1533,6 +1562,8 @@ export function ImportMembersCsvDialog({
                     type="button"
                     variant="ghost"
                     size="sm"
+                    loading={draftAction === 'reloading'}
+                    disabled={draftAction !== null}
                     onClick={() => void reloadSavedDraft()}
                   >
                     Reload saved draft
@@ -1573,7 +1604,8 @@ export function ImportMembersCsvDialog({
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={importing}
+                    loading={step === 1 && draftAction === 'closing'}
+                    disabled={importing || draftAction !== null}
                     onClick={() =>
                       step === 1
                         ? void requestClose()
@@ -1743,6 +1775,7 @@ export function ImportMembersCsvDialog({
               type="button"
               variant="outline"
               onClick={() => setStartFreshConfirm(false)}
+              disabled={draftAction === 'discarding'}
             >
               Keep draft
             </Button>
@@ -1750,6 +1783,8 @@ export function ImportMembersCsvDialog({
               type="button"
               variant="destructive"
               onClick={() => void startFresh()}
+              loading={draftAction === 'discarding'}
+              disabled={draftAction === 'discarding'}
             >
               Delete draft and start fresh
             </Button>

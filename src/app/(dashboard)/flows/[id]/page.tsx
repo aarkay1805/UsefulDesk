@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { FlowEditorShell } from '@/components/flows/flow-editor-shell';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { canEditAuthoredContent } from '@/lib/auth/roles';
 import type { FlowRow, FlowNodeRow } from '@/lib/flows/types';
 
@@ -24,7 +25,7 @@ import type { FlowRow, FlowNodeRow } from '@/lib/flows/types';
  * "Flow not found" state below.
  */
 export default function FlowEditorPage() {
-  const router = useRouter();
+  const { navigate, isPending } = usePendingNavigation();
   const params = useParams<{ id: string }>();
   const { user, accountRole, profileLoading } = useAuth();
 
@@ -79,10 +80,18 @@ export default function FlowEditorPage() {
         <p className="text-muted-foreground text-sm">Flow not found.</p>
         <button
           type="button"
-          onClick={() => router.push('/flows')}
+          onClick={() => navigate('/flows')}
+          aria-busy={isPending('/flows') || undefined}
+          disabled={isPending('/flows')}
           className="text-primary-text text-sm hover:opacity-80"
         >
-          ← Back to flows
+          {isPending('/flows') ? (
+            <Loader2
+              className="mr-1 inline h-4 w-4 animate-spin"
+              aria-hidden="true"
+            />
+          ) : null}
+          Back to flows
         </button>
       </div>
     );
@@ -98,10 +107,17 @@ export default function FlowEditorPage() {
           Only the flow author can edit or activate it.
         </p>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => router.push('/flows')}>
+          <Button
+            variant="outline"
+            onClick={() => navigate('/flows')}
+            loading={isPending('/flows')}
+          >
             Back to flows
           </Button>
-          <Button onClick={() => router.push(`/flows/${flow.id}/runs`)}>
+          <Button
+            onClick={() => navigate(`/flows/${flow.id}/runs`)}
+            loading={isPending(`/flows/${flow.id}/runs`)}
+          >
             View runs
           </Button>
         </div>

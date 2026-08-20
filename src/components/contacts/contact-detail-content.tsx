@@ -179,6 +179,7 @@ export function ContactDetailContent({
 
   // Existing WhatsApp thread for this contact — powers the Chat quick action.
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [openingChat, setOpeningChat] = useState(false);
 
   // Convert-to-member — opens the member form seeded with this contact.
   const [convertOpen, setConvertOpen] = useState(false);
@@ -352,7 +353,7 @@ export function ContactDetailContent({
   // Quick action: jump to this contact's WhatsApp thread in the inbox.
   function openChat() {
     if (!conversationId) return;
-    onClose?.();
+    setOpeningChat(true);
     router.push(`/inbox?c=${conversationId}`);
   }
 
@@ -728,6 +729,7 @@ export function ContactDetailContent({
                     : 'No conversation yet — send a template to start one'
                 }
                 disabled={!conversationId}
+                loading={openingChat}
                 onClick={openChat}
               />
             )}

@@ -28,7 +28,9 @@ describe('authored automation and flow UI gates', () => {
     expect(list).toContain('canEditAuthoredContent(');
     expect(list).toContain('canDeleteAuthoredContent(');
     expect(list).toMatch(/onClick=\{onEdit\}[\s\S]*?disabled=\{!canEdit\}/);
-    expect(list).toMatch(/onClick=\{onDelete\}[\s\S]*?disabled=\{!canDelete\}/);
+    expect(list).toMatch(
+      /onClick=\{onDelete\}[\s\S]*?disabled=\{!canDelete \|\| deleteBlocked\}/
+    );
     expect(editor).toContain('canEditAuthoredContent(');
     expect(editor).toContain('Only the flow author can edit or activate it.');
   });

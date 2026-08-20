@@ -71,10 +71,7 @@ describe('invitation signup continuation', () => {
     await user.type(screen.getByLabelText('Full name'), 'Invitee Person');
     await user.type(screen.getByLabelText('Email'), 'invitee@example.com');
     await user.type(screen.getByLabelText('Password'), 'password-123');
-    await user.type(
-      screen.getByLabelText('Confirm password'),
-      'password-123'
-    );
+    await user.type(screen.getByLabelText('Confirm password'), 'password-123');
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     const submit = screen.getByRole('button', {

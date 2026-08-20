@@ -228,9 +228,7 @@ export function AiKnowledgeCard({
                           variant="destructive-ghost"
                           size="icon"
                           onClick={() => void remove(doc.id)}
-                          loading={
-                            pendingDocumentAction === `${doc.id}:delete`
-                          }
+                          loading={pendingDocumentAction === `${doc.id}:delete`}
                           disabled={pendingDocumentAction !== null}
                           aria-label="Delete knowledge document"
                           title="Delete"

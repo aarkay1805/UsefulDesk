@@ -65,6 +65,12 @@ button:not(:disabled),
 
 A `:disabled` control keeps the arrow (a dead affordance must not advertise itself). **Never add `cursor-pointer` to a button/tab/trigger.** A **non-button** clickable (`<div>`/`<tr>` row, card) still needs it explicitly.
 
+## Pending button actions
+
+Any button that waits for a network request, storage operation, other asynchronous work, or a cold route transition must show progress in the control that was pressed. Shared `Button` and `GatedButton` consumers use `loading`; the master inserts the spinner, sets `aria-busy`, disables repeat activation, and suppresses a competing direct icon while preserving the label. Do not hand-build a `Loader2` branch at a call site when `loading` fits.
+
+Set pending state before the first awaited operation and clear it in `finally`. If success starts navigation, keep the button pending until the destination replaces the current view. Repeated rows use an item/action identifier so only the pressed control spins; unrelated row actions remain available unless concurrent work would be unsafe. Native buttons that cannot use the master must set `aria-busy`, prevent repeat activation, and replace their glyph with the same compact spinner. Instant local toggles, clipboard writes, and explicitly optimistic removals do not need a spinner when their visible result is immediate.
+
 ## Text-link actions
 
 `Button` (`ui/button.tsx`) with `variant="link"` is the canonical compact text-link action, including anchors styled through `buttonVariants`. It uses the account primary text colour without an underline at rest or on hover. Do not restore a hover underline or recreate this treatment at a call site. `AccordionContent` keeps underlines on ordinary prose links but excludes `[data-slot="button"]`; an anchor using `buttonVariants` inside an accordion must carry that slot marker so the two masters do not collide.

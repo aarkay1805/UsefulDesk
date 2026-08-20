@@ -18,6 +18,7 @@ interface Step1Props {
   onSelect: (template: MessageTemplate) => void;
   onNext: () => void;
   onBack: () => void;
+  backLoading?: boolean;
 }
 
 export function Step1ChooseTemplate({
@@ -25,6 +26,7 @@ export function Step1ChooseTemplate({
   onSelect,
   onNext,
   onBack,
+  backLoading = false,
 }: Step1Props) {
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,6 +138,7 @@ export function Step1ChooseTemplate({
         <Button
           variant="outline"
           onClick={onBack}
+          loading={backLoading}
           className="border-border text-muted-foreground"
         >
           Back

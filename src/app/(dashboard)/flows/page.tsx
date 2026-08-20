@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   Workflow,
@@ -19,6 +18,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import {
   canDeleteAuthoredContent,
   canEditAuthoredContent,
@@ -87,7 +87,7 @@ const TEMPLATE_ICONS = {
 } as const;
 
 export default function FlowsPage() {
-  const router = useRouter();
+  const { navigate, isPending } = usePendingNavigation();
   const { user, accountRole } = useAuth();
   const canCreate = accountRole
     ? canEditAuthoredContent(accountRole, user?.id ?? null, user?.id ?? null)
@@ -97,6 +97,8 @@ export default function FlowsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [creatingTemplate, setCreatingTemplate] = useState<string | null>(null);
+  const [deletingFlowId, setDeletingFlowId] = useState<string | null>(null);
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
 
   useEffect(() => {
@@ -136,6 +138,7 @@ export default function FlowsPage() {
 
   async function handleCreate() {
     if (!newName.trim()) return;
+    let navigationStarted = false;
     setCreating(true);
     try {
       const res = await fetch('/api/flows', {
@@ -149,19 +152,20 @@ export default function FlowsPage() {
       });
       if (!res.ok) throw new Error(`Create failed: ${res.status}`);
       const json = (await res.json()) as { flow: FlowRow };
-      setCreateOpen(false);
-      setNewName('');
-      router.push(`/flows/${json.flow.id}`);
+      navigate(`/flows/${json.flow.id}`);
+      navigationStarted = true;
     } catch (err) {
       console.error(err);
       toast.error("Couldn't create flow.");
     } finally {
-      setCreating(false);
+      if (!navigationStarted) setCreating(false);
     }
   }
 
   async function handleUseTemplate(slug: string) {
+    let navigationStarted = false;
     setCreating(true);
+    setCreatingTemplate(slug);
     try {
       const res = await fetch('/api/flows', {
         method: 'POST',
@@ -173,13 +177,16 @@ export default function FlowsPage() {
         throw new Error(json.error ?? `Clone failed: ${res.status}`);
       }
       const json = (await res.json()) as { flow: FlowRow };
-      setCreateOpen(false);
-      router.push(`/flows/${json.flow.id}`);
+      navigate(`/flows/${json.flow.id}`);
+      navigationStarted = true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Clone failed';
       toast.error(msg);
     } finally {
-      setCreating(false);
+      if (!navigationStarted) {
+        setCreating(false);
+        setCreatingTemplate(null);
+      }
     }
   }
 
@@ -188,6 +195,7 @@ export default function FlowsPage() {
       `Delete "${flow.name}"? Any active runs will end immediately.`
     );
     if (!yes) return;
+    setDeletingFlowId(flow.id);
     try {
       const res = await fetch(`/api/flows/${flow.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
@@ -196,6 +204,8 @@ export default function FlowsPage() {
     } catch (err) {
       console.error(err);
       toast.error("Couldn't delete flow.");
+    } finally {
+      setDeletingFlowId(null);
     }
   }
 
@@ -261,8 +271,11 @@ export default function FlowsPage() {
                     )
                   : false
               }
-              onEdit={() => router.push(`/flows/${flow.id}`)}
+              onEdit={() => navigate(`/flows/${flow.id}`)}
               onDelete={() => handleDelete(flow)}
+              editing={isPending(`/flows/${flow.id}`)}
+              deleting={deletingFlowId === flow.id}
+              deleteBlocked={deletingFlowId !== null}
             />
           ))}
         </div>
@@ -295,9 +308,17 @@ export default function FlowsPage() {
                       type="button"
                       onClick={() => handleUseTemplate(t.slug)}
                       disabled={creating || !canCreate}
+                      aria-busy={creatingTemplate === t.slug || undefined}
                       className="border-border bg-background hover:border-border-hover flex flex-col gap-2.5 rounded-lg border p-4 text-left transition-colors disabled:opacity-50"
                     >
-                      <Icon className="text-primary-text h-5 w-5" />
+                      {creatingTemplate === t.slug ? (
+                        <Loader2
+                          className="text-primary-text h-5 w-5 animate-spin"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <Icon className="text-primary-text h-5 w-5" />
+                      )}
                       <span className="text-popover-foreground text-sm font-semibold">
                         {t.name}
                       </span>
@@ -339,9 +360,9 @@ export default function FlowsPage() {
             </Button>
             <Button
               onClick={handleCreate}
+              loading={creating && creatingTemplate === null}
               disabled={!newName.trim() || creating}
             >
-              {creating && <Loader2 className="h-4 w-4 animate-spin" />}
               Create blank flow
             </Button>
           </DialogFooter>
@@ -390,12 +411,18 @@ function FlowCard({
   canDelete,
   onEdit,
   onDelete,
+  editing,
+  deleting,
+  deleteBlocked,
 }: {
   flow: FlowRow;
   canEdit: boolean;
   canDelete: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  editing: boolean;
+  deleting: boolean;
+  deleteBlocked: boolean;
 }) {
   const triggerSummary = describeTrigger(flow);
   const StatusIcon =
@@ -437,7 +464,13 @@ function FlowCard({
       </div>
 
       <div className="border-border mt-4 flex items-center justify-end gap-2 border-t pt-3">
-        <Button variant="ghost" size="sm" onClick={onEdit} disabled={!canEdit}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          loading={editing}
+          disabled={!canEdit}
+        >
           <Pencil className="h-3.5 w-3.5" />
           Edit
         </Button>
@@ -445,7 +478,8 @@ function FlowCard({
           variant="destructive-ghost"
           size="sm"
           onClick={onDelete}
-          disabled={!canDelete}
+          loading={deleting}
+          disabled={!canDelete || deleteBlocked}
         >
           <Trash2 className="h-3.5 w-3.5" />
           Delete

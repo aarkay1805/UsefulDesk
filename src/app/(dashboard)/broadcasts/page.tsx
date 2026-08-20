@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table';
 import { Radio, Plus, Loader2 } from 'lucide-react';
 import { useCan } from '@/hooks/use-can';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { GatedButton } from '@/components/ui/gated-button';
 import { getBroadcastStatus } from '@/lib/broadcast-status';
 
@@ -59,10 +60,12 @@ function RateCell({
 
 export default function BroadcastsPage() {
   const router = useRouter();
+  const { navigate, isPending } = usePendingNavigation();
   const canCreate = useCan('send-messages');
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   // Used to kick off polling only while something is actively sending.
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -77,12 +80,22 @@ export default function BroadcastsPage() {
 
       if (fetchError) throw fetchError;
       setBroadcasts(data ?? []);
+      setError(null);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to load broadcasts'
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function retryLoad() {
+    setRetrying(true);
+    try {
+      await fetchBroadcasts();
+    } finally {
+      setRetrying(false);
     }
   }
 
@@ -150,7 +163,7 @@ export default function BroadcastsPage() {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-2">
         <p className="text-red-foreground text-sm">{error}</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
+        <Button variant="outline" onClick={retryLoad} loading={retrying}>
           Retry
         </Button>
       </div>
@@ -197,7 +210,8 @@ export default function BroadcastsPage() {
         <GatedButton
           canAct={canCreate}
           gateReason="create broadcasts"
-          onClick={() => router.push('/broadcasts/new')}
+          onClick={() => navigate('/broadcasts/new')}
+          loading={isPending('/broadcasts/new')}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
@@ -217,7 +231,8 @@ export default function BroadcastsPage() {
           <GatedButton
             canAct={canCreate}
             gateReason="create broadcasts"
-            onClick={() => router.push('/broadcasts/new')}
+            onClick={() => navigate('/broadcasts/new')}
+            loading={isPending('/broadcasts/new')}
             className="bg-primary text-primary-foreground hover:bg-primary/90 mt-4"
           >
             <Plus className="h-4 w-4" />

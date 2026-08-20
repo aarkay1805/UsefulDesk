@@ -62,6 +62,7 @@ function SignupPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [returningToSignIn, setReturningToSignIn] = useState(false);
   const supabase = createClient();
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -144,6 +145,8 @@ function SignupPageInner() {
             <Link href={withInvitation('/login', inviteToken)}>
               <Button
                 variant="outline"
+                loading={returningToSignIn}
+                onClick={() => setReturningToSignIn(true)}
                 className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
               >
                 Back to sign in

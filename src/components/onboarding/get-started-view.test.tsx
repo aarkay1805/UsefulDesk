@@ -5,6 +5,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { GetStartedView } from './get-started-view';
 
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/get-started',
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({
     profileLoading: false,

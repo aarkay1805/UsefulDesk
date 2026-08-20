@@ -37,6 +37,7 @@ function ForgotPasswordPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [returningToSignIn, setReturningToSignIn] = useState(false);
   const supabase = createClient();
 
   const handleReset = async (e: React.FormEvent) => {
@@ -82,6 +83,8 @@ function ForgotPasswordPageInner() {
             <Link href={loginPath}>
               <Button
                 variant="outline"
+                loading={returningToSignIn}
+                onClick={() => setReturningToSignIn(true)}
                 className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
               >
                 Back to sign in

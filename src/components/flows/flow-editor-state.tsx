@@ -85,6 +85,7 @@ export interface FlowEditorContextValue {
   dirty: boolean;
   saving: boolean;
   activating: boolean;
+  deleting: boolean;
   issues: ValidationIssue[];
   canActivate: boolean;
 
@@ -250,6 +251,7 @@ export function FlowEditorProvider({
 
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   // dirty flips on user edits; status-only updates (after the activate
   // API succeeds) use setStateRaw so they don't falsely re-flag the
   // form as dirty.
@@ -398,15 +400,20 @@ export function FlowEditorProvider({
       `Delete "${state.name}"? Any active runs end immediately. This can't be undone.`
     );
     if (!yes) return;
+    let navigationStarted = false;
+    setDeleting(true);
     try {
       const res = await fetch(`/api/flows/${initialFlow.id}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
       router.push('/flows');
+      navigationStarted = true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Delete failed';
       toast.error(msg);
+    } finally {
+      if (!navigationStarted) setDeleting(false);
     }
   }, [initialFlow.id, router, state.name]);
 
@@ -518,6 +525,7 @@ export function FlowEditorProvider({
       dirty,
       saving,
       activating,
+      deleting,
       issues,
       canActivate,
       addNode,
@@ -539,6 +547,7 @@ export function FlowEditorProvider({
       dirty,
       saving,
       activating,
+      deleting,
       issues,
       canActivate,
       addNode,

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -12,6 +11,7 @@ import { Step3Personalize } from '@/components/broadcasts/step3-personalize';
 import { Step4ScheduleSend } from '@/components/broadcasts/step4-schedule-send';
 import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
 import { Check } from 'lucide-react';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 
 const steps = [
   { label: 'Template', key: 'template' },
@@ -21,7 +21,7 @@ const steps = [
 ] as const;
 
 export default function NewBroadcastPage() {
-  const router = useRouter();
+  const { navigate, isPending } = usePendingNavigation();
   const { accountId } = useAuth();
   const { createAndSendBroadcast, isProcessing, progress } =
     useBroadcastSending();
@@ -44,6 +44,8 @@ export default function NewBroadcastPage() {
   >({});
   const [headerMediaUrl, setHeaderMediaUrl] = useState('');
   const [name, setName] = useState('');
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [navigatingToBroadcast, setNavigatingToBroadcast] = useState(false);
 
   async function handleSend() {
     if (!template) return;
@@ -62,7 +64,8 @@ export default function NewBroadcastPage() {
         variables,
         headerMediaUrl,
       });
-      router.push(`/broadcasts/${broadcastId}`);
+      setNavigatingToBroadcast(true);
+      navigate(`/broadcasts/${broadcastId}`);
     } catch (err) {
       // Previously swallowed with console.error — the wizard would
       // just no-op, leaving the user confused. Surface the reason.
@@ -86,46 +89,51 @@ export default function NewBroadcastPage() {
       toast.error('Give the broadcast a name before saving a draft.');
       return;
     }
-    const supabase = createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const user = session?.user;
-    if (!user) {
-      toast.error('Not signed in.');
-      return;
-    }
-    if (!accountId) {
-      toast.error('Your profile is not linked to an account.');
-      return;
-    }
+    setSavingDraft(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) {
+        toast.error('Not signed in.');
+        return;
+      }
+      if (!accountId) {
+        toast.error('Your profile is not linked to an account.');
+        return;
+      }
 
-    const { error } = await supabase.from('broadcasts').insert({
-      user_id: user.id,
-      account_id: accountId,
-      name: name.trim(),
-      template_name: template.name,
-      template_language: template.language ?? 'en_US',
-      template_variables: variables,
-      audience_filter: {
-        type: audience.type,
-        tagIds: audience.tagIds,
-      },
-      status: 'draft',
-      total_recipients: 0,
-      sent_count: 0,
-      delivered_count: 0,
-      read_count: 0,
-      replied_count: 0,
-      failed_count: 0,
-    });
+      const { error } = await supabase.from('broadcasts').insert({
+        user_id: user.id,
+        account_id: accountId,
+        name: name.trim(),
+        template_name: template.name,
+        template_language: template.language ?? 'en_US',
+        template_variables: variables,
+        audience_filter: {
+          type: audience.type,
+          tagIds: audience.tagIds,
+        },
+        status: 'draft',
+        total_recipients: 0,
+        sent_count: 0,
+        delivered_count: 0,
+        read_count: 0,
+        replied_count: 0,
+        failed_count: 0,
+      });
 
-    if (error) {
-      toast.error(`Failed to save draft: ${error.message}`);
-      return;
+      if (error) {
+        toast.error(`Failed to save draft: ${error.message}`);
+        return;
+      }
+      toast.success('Draft saved');
+      navigate('/broadcasts');
+    } finally {
+      setSavingDraft(false);
     }
-    toast.success('Draft saved');
-    router.push('/broadcasts');
   }
 
   return (
@@ -196,7 +204,8 @@ export default function NewBroadcastPage() {
               selectedTemplate={template}
               onSelect={setTemplate}
               onNext={() => setCurrentStep(1)}
-              onBack={() => router.push('/broadcasts')}
+              onBack={() => navigate('/broadcasts')}
+              backLoading={isPending('/broadcasts')}
             />
           )}
           {currentStep === 1 && (
@@ -226,8 +235,9 @@ export default function NewBroadcastPage() {
               audience={audience}
               onSend={handleSend}
               onSaveDraft={handleSaveDraft}
+              isSavingDraft={savingDraft || isPending('/broadcasts')}
               onBack={() => setCurrentStep(2)}
-              isProcessing={isProcessing}
+              isProcessing={isProcessing || navigatingToBroadcast}
               progress={progress}
             />
           )}

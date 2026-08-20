@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Broadcast, BroadcastRecipient, RecipientStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getBroadcastStatus, getRecipientStatus } from '@/lib/broadcast-status';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 
 interface StatCardProps {
   label: string;
@@ -145,7 +146,7 @@ function downloadBlob(filename: string, content: string) {
 
 export default function BroadcastDetailPage() {
   const params = useParams();
-  const router = useRouter();
+  const { navigate, isPending } = usePendingNavigation();
   const broadcastId = params.id as string;
 
   const [broadcast, setBroadcast] = useState<Broadcast | null>(null);
@@ -240,13 +241,13 @@ export default function BroadcastDetailPage() {
       .from('broadcasts')
       .delete()
       .eq('id', broadcastId);
-    setDeleting(false);
     if (delErr) {
+      setDeleting(false);
       toast.error(`Failed to delete: ${delErr.message}`);
       return;
     }
     toast.success('Broadcast deleted');
-    router.push('/broadcasts');
+    navigate('/broadcasts');
   }
 
   if (loading) {
@@ -263,7 +264,11 @@ export default function BroadcastDetailPage() {
         <p className="text-red-foreground text-sm">
           {error ?? 'Broadcast not found'}
         </p>
-        <Button variant="outline" onClick={() => router.push('/broadcasts')}>
+        <Button
+          variant="outline"
+          onClick={() => navigate('/broadcasts')}
+          loading={isPending('/broadcasts')}
+        >
           Back to Broadcasts
         </Button>
       </div>
@@ -295,7 +300,8 @@ export default function BroadcastDetailPage() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => router.push('/broadcasts')}
+            onClick={() => navigate('/broadcasts')}
+            loading={isPending('/broadcasts')}
             className="border-border"
           >
             <ArrowLeft className="h-4 w-4" />

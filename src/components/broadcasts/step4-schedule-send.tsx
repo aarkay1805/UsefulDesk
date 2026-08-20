@@ -29,6 +29,7 @@ interface Step4Props {
   audience: AudienceConfig;
   onSend: () => void;
   onSaveDraft?: () => void;
+  isSavingDraft?: boolean;
   onBack: () => void;
   isProcessing: boolean;
   progress: number;
@@ -41,6 +42,7 @@ export function Step4ScheduleSend({
   audience,
   onSend,
   onSaveDraft,
+  isSavingDraft = false,
   onBack,
   isProcessing,
   progress,
@@ -191,6 +193,7 @@ export function Step4ScheduleSend({
             <Button
               variant="outline"
               onClick={onSaveDraft}
+              loading={isSavingDraft}
               disabled={!name.trim() || isProcessing}
               className="border-border text-muted-foreground hover:bg-muted disabled:opacity-50"
             >
@@ -203,6 +206,7 @@ export function Step4ScheduleSend({
             <DialogTrigger
               render={
                 <Button
+                  loading={isProcessing}
                   disabled={!name.trim() || isProcessing}
                   className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 />

@@ -15,11 +15,11 @@ import {
 import type { AutomationStepType, AutomationTriggerType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { canEditAuthoredContent } from '@/lib/auth/roles';
-import { useRouter } from 'next/navigation';
 
 export default function NewAutomationPage() {
-  const router = useRouter();
+  const { navigate, isPending } = usePendingNavigation();
   const { user, accountRole, profileLoading } = useAuth();
   const params = useSearchParams();
   const template = params.get('template') as TemplateSlug | null;
@@ -65,7 +65,11 @@ export default function NewAutomationPage() {
         <p className="text-foreground text-sm font-medium">
           Your role cannot create automations.
         </p>
-        <Button variant="outline" onClick={() => router.push('/automations')}>
+        <Button
+          variant="outline"
+          onClick={() => navigate('/automations')}
+          loading={isPending('/automations')}
+        >
           Back to Automations
         </Button>
       </div>

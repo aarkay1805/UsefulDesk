@@ -29,9 +29,11 @@ interface LoadFailure {
 function PurchasePageFailure({
   failure,
   onBack,
+  backLoading,
 }: {
   failure: LoadFailure;
   onBack: () => void;
+  backLoading: boolean;
 }) {
   return (
     <div className="max-w-xl space-y-3">
@@ -40,7 +42,12 @@ function PurchasePageFailure({
         <AlertTitle>{failure.title}</AlertTitle>
         <AlertDescription>{failure.description}</AlertDescription>
       </Alert>
-      <Button type="button" variant="outline" onClick={onBack}>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onBack}
+        loading={backLoading}
+      >
         <ArrowLeft className="size-4" /> Back to members
       </Button>
     </div>
@@ -59,6 +66,7 @@ export function MemberPurchasePage({
   const [loading, setLoading] = useState(true);
   const [loadFailure, setLoadFailure] = useState<LoadFailure | null>(null);
   const [checkoutSaving, setCheckoutSaving] = useState(false);
+  const [navigationPending, setNavigationPending] = useState(false);
   const safeReturn = resolveMemberPurchaseReturn(returnTo, membershipId ?? '');
   const canSell = accountRole ? canSellProductsServices(accountRole) : false;
 
@@ -96,7 +104,10 @@ export function MemberPurchasePage({
     };
   }, [canSell, membershipId, profileLoading, supabase]);
 
-  const navigateBack = () => router.push(safeReturn);
+  const navigateBack = () => {
+    setNavigationPending(true);
+    router.push(safeReturn);
+  };
 
   if (!membershipId) {
     return (
@@ -107,6 +118,7 @@ export function MemberPurchasePage({
             'Open Add purchase from a member profile to start a checkout.',
         }}
         onBack={navigateBack}
+        backLoading={navigationPending}
       />
     );
   }
@@ -120,6 +132,7 @@ export function MemberPurchasePage({
             'Your account can view this member, but it cannot create purchases.',
         }}
         onBack={navigateBack}
+        backLoading={navigationPending}
       />
     );
   }
@@ -143,6 +156,7 @@ export function MemberPurchasePage({
           }
         }
         onBack={navigateBack}
+        backLoading={navigationPending}
       />
     );
   }
@@ -157,6 +171,7 @@ export function MemberPurchasePage({
           aria-label="Close add purchase"
           title="Close add purchase"
           disabled={checkoutSaving}
+          loading={navigationPending}
           onClick={navigateBack}
         >
           <X className="size-4" />

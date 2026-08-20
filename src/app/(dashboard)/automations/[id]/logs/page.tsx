@@ -1,7 +1,6 @@
 'use client';
 
 import { use, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Check,
@@ -18,6 +17,7 @@ import type {
   AutomationLogStepResult,
 } from '@/types';
 import { Button } from '@/components/ui/button';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { cn } from '@/lib/utils';
 import { formatRelative } from '@/lib/automations/trigger-meta';
 
@@ -27,7 +27,7 @@ export default function AutomationLogsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const router = useRouter();
+  const { navigate, isPending } = usePendingNavigation();
 
   const [automation, setAutomation] = useState<Automation | null>(null);
   const [logs, setLogs] = useState<AutomationLog[] | null>(null);
@@ -62,7 +62,11 @@ export default function AutomationLogsPage({
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3">
         <p className="text-red-foreground text-sm">{error}</p>
-        <Button variant="outline" onClick={() => router.push('/automations')}>
+        <Button
+          variant="outline"
+          onClick={() => navigate('/automations')}
+          loading={isPending('/automations')}
+        >
           Back
         </Button>
       </div>
@@ -82,11 +86,17 @@ export default function AutomationLogsPage({
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => router.push('/automations')}
+          onClick={() => navigate('/automations')}
+          aria-busy={isPending('/automations') || undefined}
+          disabled={isPending('/automations')}
           className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 w-8 items-center justify-center rounded-md transition-colors"
           aria-label="Back"
         >
-          <ArrowLeft className="h-4 w-4" />
+          {isPending('/automations') ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <ArrowLeft className="h-4 w-4" />
+          )}
         </button>
         <div>
           <h1 className="text-foreground text-2xl font-bold">

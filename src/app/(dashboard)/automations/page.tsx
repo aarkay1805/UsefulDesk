@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   Zap,
@@ -20,6 +19,7 @@ import {
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import {
   canDeleteAuthoredContent,
   canEditAuthoredContent,
@@ -65,7 +65,7 @@ const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
 };
 
 export default function AutomationsPage() {
-  const router = useRouter();
+  const { navigate, isPending } = usePendingNavigation();
   const { user, accountRole } = useAuth();
   const canCreate = accountRole
     ? canEditAuthoredContent(accountRole, user?.id ?? null, user?.id ?? null)
@@ -74,6 +74,8 @@ export default function AutomationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Automation | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   async function load() {
     try {
@@ -84,6 +86,7 @@ export default function AutomationsPage() {
         .order('created_at', { ascending: false });
       if (fetchErr) throw fetchErr;
       setAutomations((data ?? []) as Automation[]);
+      setError(null);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to load automations'
@@ -129,44 +132,61 @@ export default function AutomationsPage() {
   }
 
   async function duplicate(a: Automation) {
-    const res = await fetch(`/api/automations/${a.id}/duplicate`, {
-      method: 'POST',
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      toast.error(body?.error ?? 'Failed to duplicate');
-      return;
+    setDuplicatingId(a.id);
+    try {
+      const res = await fetch(`/api/automations/${a.id}/duplicate`, {
+        method: 'POST',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body?.error ?? 'Failed to duplicate');
+        return;
+      }
+      toast.success('Automation duplicated');
+      await load();
+    } finally {
+      setDuplicatingId(null);
     }
-    toast.success('Automation duplicated');
-    load();
   }
 
   async function confirmDelete() {
     if (!pendingDelete) return;
     setDeleting(true);
-    const res = await fetch(`/api/automations/${pendingDelete.id}`, {
-      method: 'DELETE',
-    });
-    setDeleting(false);
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      toast.error(body?.error ?? 'Failed to delete');
-      return;
+    try {
+      const res = await fetch(`/api/automations/${pendingDelete.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body?.error ?? 'Failed to delete');
+        return;
+      }
+      toast.success('Automation deleted');
+      setPendingDelete(null);
+      await load();
+    } finally {
+      setDeleting(false);
     }
-    toast.success('Automation deleted');
-    setPendingDelete(null);
-    load();
   }
 
-  async function startFromTemplate(slug: TemplateSlug) {
-    router.push(`/automations/new?template=${slug}`);
+  async function retryLoad() {
+    setRetrying(true);
+    try {
+      await load();
+    } finally {
+      setRetrying(false);
+    }
+  }
+
+  function startFromTemplate(slug: TemplateSlug) {
+    navigate(`/automations/new?template=${slug}`);
   }
 
   if (error) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-2">
         <p className="text-red-foreground text-sm">{error}</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
+        <Button variant="outline" onClick={retryLoad} loading={retrying}>
           Retry
         </Button>
       </div>
@@ -195,7 +215,8 @@ export default function AutomationsPage() {
         <GatedButton
           canAct={canCreate}
           gateReason="create automations"
-          onClick={() => router.push('/automations/new')}
+          onClick={() => navigate('/automations/new')}
+          loading={isPending('/automations/new')}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
@@ -216,11 +237,23 @@ export default function AutomationsPage() {
                 <button
                   key={slug}
                   onClick={() => startFromTemplate(slug)}
-                  disabled={!canCreate}
+                  disabled={
+                    !canCreate || isPending(`/automations/new?template=${slug}`)
+                  }
+                  aria-busy={
+                    isPending(`/automations/new?template=${slug}`) || undefined
+                  }
                   className="group border-border bg-card hover:border-border-hover flex flex-col items-start rounded-xl border p-4 text-left transition-colors"
                 >
                   <div className="bg-primary/10 text-primary-text group-hover:bg-primary/15 mb-3 flex h-9 w-9 items-center justify-center rounded-lg">
-                    <Icon className="h-5 w-5" />
+                    {isPending(`/automations/new?template=${slug}`) ? (
+                      <Loader2
+                        className="h-5 w-5 animate-spin"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <Icon className="h-5 w-5" />
+                    )}
                   </div>
                   <div className="text-foreground text-sm font-semibold">
                     {t.name}
@@ -273,10 +306,14 @@ export default function AutomationsPage() {
                   : false
               }
               onToggle={(next) => toggleActive(a, next)}
-              onEdit={() => router.push(`/automations/${a.id}/edit`)}
+              onEdit={() => navigate(`/automations/${a.id}/edit`)}
               onDuplicate={() => duplicate(a)}
-              onLogs={() => router.push(`/automations/${a.id}/logs`)}
+              onLogs={() => navigate(`/automations/${a.id}/logs`)}
               onDelete={() => setPendingDelete(a)}
+              editing={isPending(`/automations/${a.id}/edit`)}
+              viewingLogs={isPending(`/automations/${a.id}/logs`)}
+              duplicating={duplicatingId === a.id}
+              duplicateBlocked={duplicatingId !== null}
             />
           ))}
         </ul>
@@ -306,13 +343,9 @@ export default function AutomationsPage() {
             <Button
               variant="destructive"
               onClick={confirmDelete}
-              disabled={deleting}
+              loading={deleting}
             >
-              {deleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
+              <Trash2 className="h-4 w-4" />
               Delete
             </Button>
           </DialogFooter>
@@ -332,6 +365,10 @@ function AutomationCard({
   onDuplicate,
   onLogs,
   onDelete,
+  editing,
+  viewingLogs,
+  duplicating,
+  duplicateBlocked,
 }: {
   automation: Automation;
   canEdit: boolean;
@@ -342,6 +379,10 @@ function AutomationCard({
   onDuplicate: () => void;
   onLogs: () => void;
   onDelete: () => void;
+  editing: boolean;
+  viewingLogs: boolean;
+  duplicating: boolean;
+  duplicateBlocked: boolean;
 }) {
   const meta = triggerMeta(automation.trigger_type);
   return (
@@ -357,10 +398,17 @@ function AutomationCard({
         <button
           type="button"
           onClick={onEdit}
-          disabled={!canEdit}
+          disabled={!canEdit || editing}
+          aria-busy={editing || undefined}
           className="min-w-0 flex-1 text-left"
         >
           <div className="flex items-center gap-2">
+            {editing ? (
+              <Loader2
+                className="text-primary-text h-4 w-4 shrink-0 animate-spin"
+                aria-hidden="true"
+              />
+            ) : null}
             <span className="text-foreground truncate text-sm font-semibold">
               {automation.name}
             </span>
@@ -405,16 +453,25 @@ function AutomationCard({
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Open menu"
+              aria-busy={duplicating || viewingLogs || undefined}
+              disabled={duplicateBlocked || viewingLogs}
               className="text-muted-foreground hover:bg-muted hover:text-foreground data-[popup-open]:bg-muted inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
             >
-              <MoreVertical className="h-4 w-4" />
+              {duplicating || viewingLogs ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <MoreVertical className="h-4 w-4" />
+              )}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEdit} disabled={!canEdit}>
                 <Pencil className="h-4 w-4" />
                 Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onDuplicate} disabled={!canDuplicate}>
+              <DropdownMenuItem
+                onClick={onDuplicate}
+                disabled={!canDuplicate || duplicateBlocked}
+              >
                 <Copy className="h-4 w-4" />
                 Duplicate
               </DropdownMenuItem>

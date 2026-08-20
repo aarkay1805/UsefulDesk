@@ -8,6 +8,7 @@ import { Loader2, MessageCircle, Check, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import type { LocaleFormatters } from '@/lib/locale/format';
 import type { Membership } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -183,6 +184,7 @@ export function SendReminderButton({
   variant = 'ghost',
 }: SendReminderButtonProps) {
   const { fmt } = useLocale();
+  const { startNavigation, isPending } = usePendingNavigation();
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [blockerOpen, setBlockerOpen] = useState(false);
@@ -271,7 +273,10 @@ export function SendReminderButton({
             {resolution && (
               <Button
                 render={<Link href={resolution.href} />}
-                onClick={() => setBlockerOpen(false)}
+                onClick={() => {
+                  startNavigation(resolution.href);
+                }}
+                loading={isPending(resolution.href)}
               >
                 {resolution.label}
                 <ArrowRight className="size-3.5" />

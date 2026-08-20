@@ -290,6 +290,7 @@ function MembershipDetailView({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
   const [saleOpen, setSaleOpen] = useState(false);
+  const [openingPurchasePage, setOpeningPurchasePage] = useState(false);
   const [saleInitial, setSaleInitial] = useState<CheckoutSelection[]>([]);
   const [reassignServiceTarget, setReassignServiceTarget] =
     useState<MemberService | null>(null);
@@ -790,6 +791,7 @@ function MembershipDetailView({
 
   function openSale() {
     if (!membership) return;
+    setOpeningPurchasePage(true);
     router.push(buildMemberPurchaseHref(window.location.href, membership.id));
   }
 
@@ -1315,6 +1317,7 @@ function MembershipDetailView({
                                 size="sm"
                                 variant="outline"
                                 onClick={openSale}
+                                loading={openingPurchasePage}
                               >
                                 <Plus className="size-4" /> Add purchase
                               </Button>
@@ -2003,9 +2006,7 @@ function MembershipDetailView({
                     variant="destructive"
                     onClick={confirmCancelService}
                     loading={cancellingService}
-                    disabled={
-                      cancellingService || !cancelServiceReason.trim()
-                    }
+                    disabled={cancellingService || !cancelServiceReason.trim()}
                   >
                     Cancel service
                   </Button>

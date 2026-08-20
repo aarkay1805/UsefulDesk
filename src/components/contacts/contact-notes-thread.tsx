@@ -109,6 +109,7 @@ export function ContactNotesThread({
   const [notes, setNotes] = useState<ContactNote[]>([]);
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [loadingNotes, setLoadingNotes] = useState(false);
   const [followUps, setFollowUps] = useState<ProfileFollowUp[]>([]);
   const { noteFollowUps, items: activityItems } = useMemo(
@@ -307,38 +308,44 @@ export function ContactNotesThread({
   }
 
   async function deleteNote(noteId: string) {
-    // Cancel the note's open follow-up FIRST (while note_id still
-    // points here). The partial unique index allows one OPEN task per
-    // contact — an orphaned open task would block every future
-    // follow-up on this contact.
-    await supabase
-      .from('follow_ups')
-      .update({ status: 'cancelled' })
-      .eq('note_id', noteId)
-      .eq('status', 'open');
+    if (deletingNoteId) return;
+    setDeletingNoteId(noteId);
+    try {
+      // Cancel the note's open follow-up FIRST (while note_id still
+      // points here). The partial unique index allows one OPEN task per
+      // contact — an orphaned open task would block every future
+      // follow-up on this contact.
+      await supabase
+        .from('follow_ups')
+        .update({ status: 'cancelled' })
+        .eq('note_id', noteId)
+        .eq('status', 'open');
 
-    // .select() makes an RLS-blocked delete detectable: it returns no
-    // error, just zero rows — without it we'd toast success while the
-    // note survives (only its own author or an admin may delete).
-    const { data: deleted, error } = await supabase
-      .from('contact_notes')
-      .delete()
-      .eq('id', noteId)
-      .select('id');
+      // .select() makes an RLS-blocked delete detectable: it returns no
+      // error, just zero rows — without it we'd toast success while the
+      // note survives (only its own author or an admin may delete).
+      const { data: deleted, error } = await supabase
+        .from('contact_notes')
+        .delete()
+        .eq('id', noteId)
+        .select('id');
 
-    if (error || !deleted?.length) {
-      toast.error('Failed to delete note');
-    } else {
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
-      setFollowUps((current) =>
-        current.map((task) =>
-          task.note_id === noteId
-            ? { ...task, note_id: null, status: 'cancelled' }
-            : task
-        )
-      );
-      toast.success('Note deleted');
-      notifyFollowUpChanged();
+      if (error || !deleted?.length) {
+        toast.error('Failed to delete note');
+      } else {
+        setNotes((prev) => prev.filter((n) => n.id !== noteId));
+        setFollowUps((current) =>
+          current.map((task) =>
+            task.note_id === noteId
+              ? { ...task, note_id: null, status: 'cancelled' }
+              : task
+          )
+        );
+        toast.success('Note deleted');
+        notifyFollowUpChanged();
+      }
+    } finally {
+      setDeletingNoteId(null);
     }
   }
 
@@ -524,6 +531,8 @@ export function ContactNotesThread({
                     }
                     onMarkDone={completeFollowUp}
                     onDelete={deleteNote}
+                    deleting={deletingNoteId === item.note.id}
+                    deleteBlocked={deletingNoteId !== null}
                     onSaveEdit={saveNoteEdit}
                   />
                 ) : (
@@ -766,6 +775,8 @@ function NoteCard({
   showReason,
   onMarkDone,
   onDelete,
+  deleting,
+  deleteBlocked,
   onSaveEdit,
 }: {
   note: ContactNote;
@@ -780,6 +791,8 @@ function NoteCard({
   showReason: boolean;
   onMarkDone: (followUpId: string) => void;
   onDelete: (noteId: string) => void;
+  deleting: boolean;
+  deleteBlocked: boolean;
   onSaveEdit: (
     noteId: string,
     text: string,
@@ -850,6 +863,8 @@ function NoteCard({
         onDelete(note.id);
       }}
       aria-label="Delete note"
+      loading={deleting}
+      disabled={deleteBlocked}
       title="Delete note"
       className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
     >

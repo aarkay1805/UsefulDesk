@@ -19,6 +19,7 @@ import {
 
 import { useAuth } from '@/hooks/use-auth';
 import { useOnboardingStatus } from '@/hooks/use-onboarding-status';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import type { OnboardingStep, OnboardingStepId } from '@/lib/onboarding/steps';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -83,6 +84,7 @@ function StepRow({ step }: { step: OnboardingStep }) {
 export function GetStartedView() {
   const { profileLoading, canEditSettings, account } = useAuth();
   const onboarding = useOnboardingStatus();
+  const { startNavigation, isPending } = usePendingNavigation();
 
   if (profileLoading) {
     return (
@@ -110,6 +112,8 @@ export function GetStartedView() {
             variant="outline"
             nativeButton={false}
             render={<Link href="/dashboard" />}
+            onClick={() => startNavigation('/dashboard')}
+            loading={isPending('/dashboard')}
           >
             Go to dashboard
           </Button>
@@ -140,6 +144,8 @@ export function GetStartedView() {
             variant="outline"
             nativeButton={false}
             render={<Link href="/dashboard" />}
+            onClick={() => startNavigation('/dashboard')}
+            loading={isPending('/dashboard')}
           >
             Go to dashboard
           </Button>
@@ -195,6 +201,8 @@ export function GetStartedView() {
             <Button
               nativeButton={false}
               render={<Link href={recommended.href} />}
+              onClick={() => startNavigation(recommended.href)}
+              loading={isPending(recommended.href)}
             >
               Set up <ArrowRight data-icon="inline-end" />
             </Button>

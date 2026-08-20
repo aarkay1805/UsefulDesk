@@ -1,10 +1,10 @@
 'use client';
 
 import { use, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
+import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { canEditAuthoredContent } from '@/lib/auth/roles';
 
 import {
@@ -21,7 +21,7 @@ export default function EditAutomationPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const router = useRouter();
+  const { navigate, isPending } = usePendingNavigation();
   const { user, accountRole, profileLoading } = useAuth();
   const [initial, setInitial] = useState<BuilderInitial | null>(null);
   const [authorId, setAuthorId] = useState<string | null>(null);
@@ -59,9 +59,17 @@ export default function EditAutomationPage({
       <div className="flex h-screen flex-col items-center justify-center gap-3">
         <p className="text-red-foreground text-sm">{error}</p>
         <button
-          onClick={() => router.push('/automations')}
+          onClick={() => navigate('/automations')}
+          aria-busy={isPending('/automations') || undefined}
+          disabled={isPending('/automations')}
           className="text-primary-text hover:text-primary-text/80 text-sm"
         >
+          {isPending('/automations') ? (
+            <Loader2
+              className="mr-1 inline h-4 w-4 animate-spin"
+              aria-hidden="true"
+            />
+          ) : null}
           Back to Automations
         </button>
       </div>
@@ -85,7 +93,11 @@ export default function EditAutomationPage({
         <p className="text-foreground text-sm font-medium">
           Only the automation author can edit or activate it.
         </p>
-        <Button variant="outline" onClick={() => router.push('/automations')}>
+        <Button
+          variant="outline"
+          onClick={() => navigate('/automations')}
+          loading={isPending('/automations')}
+        >
           Back to Automations
         </Button>
       </div>
