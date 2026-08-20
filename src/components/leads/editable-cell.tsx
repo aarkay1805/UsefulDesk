@@ -343,7 +343,12 @@ export function EditableCell({
 
   return (
     <div
-      className={cn(OUTER, 'relative')}
+      className={cn(
+        OUTER,
+        'relative',
+        kind === 'phone' &&
+          'bg-card z-20 w-[min(15rem,calc(100vw-2rem))] rounded-lg shadow-md'
+      )}
       // Keep clicks inside the editor from bubbling to the row.
       onClick={(e) => e.stopPropagation()}
       // Focus escaping the editor entirely (outside click / Tab away)

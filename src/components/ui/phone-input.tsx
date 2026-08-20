@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { useLocale } from '@/hooks/use-locale';
 import {
   accountQualifiedPhoneValue,
+  canonicalPhoneCountryCode,
   nationalPhoneInputValue,
 } from '@/lib/phone-input';
 import { cn } from '@/lib/utils';
@@ -42,8 +43,9 @@ function PhoneInput({
 }: PhoneInputProps) {
   const { locale } = useLocale();
   const descriptionId = React.useId();
-  const normalizedCountryCode = (countryCode ?? locale.phoneCountryCode).trim();
-  const displayCountryCode = normalizedCountryCode || '—';
+  const configuredCountryCode = (countryCode ?? locale.phoneCountryCode).trim();
+  const displayCountryCode =
+    canonicalPhoneCountryCode(configuredCountryCode) || '—';
   const describedBy = [ariaDescribedBy, descriptionId]
     .filter(Boolean)
     .join(' ');
@@ -57,8 +59,8 @@ function PhoneInput({
         {displayCountryCode}
       </span>
       <span id={descriptionId} className="sr-only">
-        {normalizedCountryCode
-          ? `Country code ${normalizedCountryCode}, set in Regional settings.`
+        {displayCountryCode !== '—'
+          ? `Country code ${displayCountryCode}, set in Regional settings.`
           : 'No country code is set. Configure it in Regional settings.'}
       </span>
       <Input
@@ -69,18 +71,18 @@ function PhoneInput({
         value={
           value === undefined
             ? undefined
-            : nationalPhoneInputValue(value, normalizedCountryCode)
+            : nationalPhoneInputValue(value, configuredCountryCode)
         }
         defaultValue={
           defaultValue === undefined
             ? undefined
-            : nationalPhoneInputValue(defaultValue, normalizedCountryCode)
+            : nationalPhoneInputValue(defaultValue, configuredCountryCode)
         }
         onChange={(event) =>
           onValueChange?.(
             accountQualifiedPhoneValue(
               event.currentTarget.value,
-              normalizedCountryCode
+              configuredCountryCode
             )
           )
         }

@@ -6,6 +6,12 @@
 
 ---
 
+## Phone input edit clarity and visible country codes
+
+Constrained table-cell phone editors now expand to a responsive 240px floating surface without changing the column width, keeping the visible country code, complete national number, and compact check/cross actions unobstructed; the active shell uses the established focus ring plus restrained floating-panel elevation. All `InlineEditActions` consumers keep the original icon controls. The shared phone normalizer always presents country codes as `+<digits>`, including legacy digits-only account configuration, and the member-import review ledger shows qualified phones with the visible plus without changing stored, dedupe, or WhatsApp values. `COUNTRY_PRESETS.phoneNationalLengths` keeps shorter national plans and local numbers that begin with their dial code unambiguous. Key code: `src/components/ui/phone-input.tsx`, `src/components/ui/inline-edit-actions.tsx`, `src/lib/phone-input.ts`, `src/lib/locale/config.ts`, `src/components/leads/editable-cell.tsx`, and `src/components/members/import-members-preview.tsx`.
+
+---
+
 ## Performance expense export and expense-category settings
 
 Business → Performance now adds branch-wide posted Expenses and Net cash to the All staff CSV for the selected and previous calendar months; teammate-scoped and organization exports remain unchanged because expenses are not staff-attributable. Settings → Payments now lists the branch expense catalogue and lets admins add, rename, archive, and restore categories while agents/viewers retain read-only visibility and historical expenses keep archived references. Key code: `src/lib/finance/overview.ts`, `src/lib/reports/reporting.ts`, `src/components/reports/owner-reports-view.tsx`, and `src/components/settings/expense-categories-card.tsx`. Gotcha: never attach branch-wide expenses to a teammate-scoped export or infer staff profit.

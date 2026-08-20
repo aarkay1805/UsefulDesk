@@ -27,6 +27,18 @@ describe('COUNTRY_PRESETS', () => {
       ).not.toThrow();
       if (code === 'ZZ') expect(p.phoneCountryCode).toBe('');
       else expect(p.phoneCountryCode).toMatch(/^\+[0-9]{1,4}$/);
+      if (code === 'ZZ') expect(p.phoneNationalLengths).toEqual([]);
+      else {
+        expect(
+          p.phoneNationalLengths.length,
+          `${code} phone lengths`
+        ).toBeGreaterThan(0);
+        for (const length of p.phoneNationalLengths) {
+          expect(Number.isInteger(length), `${code} phone length`).toBe(true);
+          expect(length, `${code} phone length`).toBeGreaterThanOrEqual(7);
+          expect(length, `${code} phone length`).toBeLessThanOrEqual(12);
+        }
+      }
       if (p.timeZones) expect(p.timeZones).toContain(p.timeZone);
     }
   });

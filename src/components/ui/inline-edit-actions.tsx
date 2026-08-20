@@ -3,10 +3,9 @@ import { Check, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * The floating confirm/dismiss pair shown inside an active inline
- * editor (leads table cells, lead-detail fields). Render inside a
- * `relative` wrapper around the input and give the input enough right
- * padding to clear the pair (`pr-13`).
+ * The floating confirm/dismiss pair shown inside an active inline editor.
+ * Render inside a relative field wrapper and give the input enough right
+ * padding to clear the pair (`pr-13` in table cells; `pr-16` in detail rows).
  *
  * onMouseDown preventDefault keeps the input focused while a button is
  * clicked, so blur-driven dismissal in the host can't fire before the
@@ -23,7 +22,7 @@ function InlineEditActions({
   onDismiss: () => void;
 }) {
   const button =
-    'flex size-6 shrink-0 items-center justify-center rounded-full bg-card disabled:opacity-50 cursor-pointer';
+    'flex size-6 shrink-0 items-center justify-center rounded-full bg-card disabled:opacity-50';
   return (
     <div className="absolute top-1/2 right-2.5 z-10 flex -translate-y-1/2 items-center gap-0.5">
       <button

@@ -42,6 +42,8 @@ export interface AccountLocale {
 export interface CountryPreset extends Omit<AccountLocale, 'countryCode'> {
   /** Picker label, e.g. 'India'. */
   label: string;
+  /** Common national significant-number lengths used for safe phone display. */
+  phoneNationalLengths: readonly number[];
   /** Zones offered first in the timezone picker (multi-zone countries).
    *  `timeZone` above is the default and must be in this list. */
   timeZones?: string[];
@@ -67,6 +69,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 1,
     phoneCountryCode: '+91',
+    phoneNationalLengths: [10],
     measurementSystem: 'metric',
   },
   NP: {
@@ -78,6 +81,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 0,
     phoneCountryCode: '+977',
+    phoneNationalLengths: [8, 9, 10],
     measurementSystem: 'metric',
   },
   BD: {
@@ -89,6 +93,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 0,
     phoneCountryCode: '+880',
+    phoneNationalLengths: [10],
     measurementSystem: 'metric',
   },
   LK: {
@@ -100,6 +105,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 1,
     phoneCountryCode: '+94',
+    phoneNationalLengths: [9],
     measurementSystem: 'metric',
   },
   AE: {
@@ -111,6 +117,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 1,
     phoneCountryCode: '+971',
+    phoneNationalLengths: [9],
     measurementSystem: 'metric',
   },
   SA: {
@@ -122,6 +129,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 0,
     phoneCountryCode: '+966',
+    phoneNationalLengths: [9],
     measurementSystem: 'metric',
   },
   SG: {
@@ -133,6 +141,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 1,
     phoneCountryCode: '+65',
+    phoneNationalLengths: [8],
     measurementSystem: 'metric',
   },
   US: {
@@ -153,6 +162,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 0,
     phoneCountryCode: '+1',
+    phoneNationalLengths: [10],
     measurementSystem: 'imperial',
   },
   CA: {
@@ -172,6 +182,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 0,
     phoneCountryCode: '+1',
+    phoneNationalLengths: [10],
     measurementSystem: 'metric',
   },
   GB: {
@@ -183,6 +194,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 1,
     phoneCountryCode: '+44',
+    phoneNationalLengths: [9, 10],
     measurementSystem: 'metric',
   },
   AU: {
@@ -203,6 +215,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 1,
     phoneCountryCode: '+61',
+    phoneNationalLengths: [9],
     measurementSystem: 'metric',
   },
   NZ: {
@@ -214,6 +227,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 1,
     phoneCountryCode: '+64',
+    phoneNationalLengths: [8, 9, 10],
     measurementSystem: 'metric',
   },
   ZA: {
@@ -225,6 +239,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 1,
     phoneCountryCode: '+27',
+    phoneNationalLengths: [9],
     measurementSystem: 'metric',
   },
   NG: {
@@ -236,6 +251,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 1,
     phoneCountryCode: '+234',
+    phoneNationalLengths: [10],
     measurementSystem: 'metric',
   },
   ZZ: {
@@ -247,6 +263,7 @@ export const COUNTRY_PRESETS: Record<string, CountryPreset> = {
     timeFormat: '12h',
     weekStart: 1,
     phoneCountryCode: '',
+    phoneNationalLengths: [],
     measurementSystem: 'metric',
   },
 };

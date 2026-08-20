@@ -1,9 +1,30 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  accountQualifiedPhoneDisplayValue,
   accountQualifiedPhoneValue,
   nationalPhoneInputValue,
 } from './phone-input';
+
+describe('accountQualifiedPhoneDisplayValue', () => {
+  it('adds a plus to a digits-only qualified phone using the country numbering plan', () => {
+    expect(accountQualifiedPhoneDisplayValue('6512345678', '+65')).toBe(
+      '+6512345678'
+    );
+  });
+
+  it('preserves a national phone that happens to begin with its country code', () => {
+    expect(accountQualifiedPhoneDisplayValue('1555000044', '+1')).toBe(
+      '1555000044'
+    );
+  });
+
+  it('falls back safely for an unlisted configured dial code', () => {
+    expect(accountQualifiedPhoneDisplayValue('4915123456789', '+49')).toBe(
+      '+4915123456789'
+    );
+  });
+});
 
 describe('nationalPhoneInputValue', () => {
   it('removes the configured country code from a persisted phone', () => {
@@ -20,6 +41,18 @@ describe('nationalPhoneInputValue', () => {
     expect(nationalPhoneInputValue('9198765432', '+91')).toBe('9198765432');
   });
 
+  it('uses the configured numbering plan for shorter qualified phones', () => {
+    expect(nationalPhoneInputValue('6512345678', '+65')).toBe('12345678');
+  });
+
+  it('preserves a North American national number beginning with one', () => {
+    expect(nationalPhoneInputValue('1555000044', '+1')).toBe('1555000044');
+  });
+
+  it('splits a qualified phone for an unlisted configured dial code', () => {
+    expect(nationalPhoneInputValue('4915123456789', '+49')).toBe('15123456789');
+  });
+
   it('leaves the value alone when no country code is configured', () => {
     expect(nationalPhoneInputValue('9876543210', '')).toBe('9876543210');
   });
@@ -30,6 +63,10 @@ describe('accountQualifiedPhoneValue', () => {
     expect(accountQualifiedPhoneValue('98765 43210', '+91')).toBe(
       '+9198765 43210'
     );
+  });
+
+  it('preserves the configured legacy country code in emitted values', () => {
+    expect(accountQualifiedPhoneValue('9876543210', '91')).toBe('919876543210');
   });
 
   it('drops a domestic trunk zero when adding the account code', () => {
@@ -47,6 +84,20 @@ describe('accountQualifiedPhoneValue', () => {
   it('normalizes a legacy digits-only qualified phone without doubling it', () => {
     expect(accountQualifiedPhoneValue('919876543210', '+91')).toBe(
       '+919876543210'
+    );
+  });
+
+  it('does not double-prefix a shorter Singapore qualified phone', () => {
+    expect(accountQualifiedPhoneValue('6512345678', '+65')).toBe('+6512345678');
+  });
+
+  it('qualifies a North American national number beginning with one', () => {
+    expect(accountQualifiedPhoneValue('1555000044', '+1')).toBe('+11555000044');
+  });
+
+  it('does not double-prefix an unlisted configured dial code', () => {
+    expect(accountQualifiedPhoneValue('4915123456789', '+49')).toBe(
+      '+4915123456789'
     );
   });
 

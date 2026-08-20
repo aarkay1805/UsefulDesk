@@ -50,6 +50,7 @@ import {
 } from '@/lib/memberships/member-import-candidates';
 import { parseMoney } from '@/lib/memberships/import-commit';
 import { durationLabel } from '@/lib/memberships/pricing';
+import { accountQualifiedPhoneDisplayValue } from '@/lib/phone-input';
 import { cn } from '@/lib/utils';
 import type { CatalogItem, MembershipPlan, Trainer } from '@/types';
 import { MemberIdentity } from './member-identity';
@@ -196,7 +197,7 @@ export function ImportMembersPreview({
   onResolveExistingContact,
   onSetDisposition,
 }: ImportMembersPreviewProps) {
-  const { fmt } = useLocale();
+  const { fmt, locale } = useLocale();
   const sectionId = useId();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<MemberImportCandidateFilter>('all');
@@ -554,7 +555,12 @@ export function ImportMembersPreview({
                                 value={candidate.draftValues.phone}
                                 display={
                                   <span className="text-foreground truncate text-sm">
-                                    {candidate.draftValues.phone || 'Add phone'}
+                                    {candidate.draftValues.phone
+                                      ? accountQualifiedPhoneDisplayValue(
+                                          candidate.draftValues.phone,
+                                          locale.phoneCountryCode
+                                        )
+                                      : 'Add phone'}
                                   </span>
                                 }
                                 onStart={() =>
@@ -673,7 +679,12 @@ export function ImportMembersPreview({
                               candidate.draftValues.name || 'Unnamed member'
                             }
                             secondary={
-                              candidate.draftValues.phone || 'No phone'
+                              candidate.draftValues.phone
+                                ? accountQualifiedPhoneDisplayValue(
+                                    candidate.draftValues.phone,
+                                    locale.phoneCountryCode
+                                  )
+                                : 'No phone'
                             }
                             meta={
                               <div className="text-muted-foreground truncate text-xs">

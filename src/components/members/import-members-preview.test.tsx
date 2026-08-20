@@ -175,6 +175,61 @@ describe('ImportMembersPreview conflict resolution', () => {
     ).toBeTruthy();
   });
 
+  it('shows a plus on digits-only account-qualified phones', () => {
+    renderPreview(candidates([input(2, { phone: '15550000044' })]));
+
+    const desktop = screen.getByTestId('member-import-desktop');
+    expect(within(desktop).getByText('+15550000044')).toBeTruthy();
+    const mobile = screen.getByTestId('member-import-mobile');
+    expect(within(mobile).getByText('+15550000044')).toBeTruthy();
+  });
+
+  it('preserves invalid source text instead of presenting it as account-qualified', async () => {
+    const user = userEvent.setup();
+    renderPreview(candidates([input(2, { phone: 'not-a-phone' })]));
+
+    await user.click(
+      screen.getByRole('tab', { name: 'Review rows, 1 in total' })
+    );
+
+    const desktop = screen.getByTestId('member-import-desktop');
+    expect(within(desktop).getByText('not-a-phone')).toBeTruthy();
+    expect(within(desktop).queryByText('+1not-a-phone')).toBeNull();
+  });
+
+  it('preserves a national phone that begins with its country code', () => {
+    renderPreview(candidates([input(2, { phone: '1555000044' })]));
+
+    const desktop = screen.getByTestId('member-import-desktop');
+    expect(within(desktop).getByText('1555000044')).toBeTruthy();
+    expect(within(desktop).queryByText('+1555000044')).toBeNull();
+  });
+
+  it('keeps the complete phone and icon actions together in a floated editor', async () => {
+    const user = userEvent.setup();
+    renderPreview(candidates([input(2, { phone: '15550000044' })]));
+
+    const desktop = screen.getByTestId('member-import-desktop');
+    await user.click(
+      within(desktop).getByRole('button', { name: '+15550000044' })
+    );
+
+    const phone = within(desktop).getByRole('textbox') as HTMLInputElement;
+    const editor = phone.parentElement?.parentElement;
+    const save = within(desktop).getByRole('button', { name: 'Save' });
+    const cancel = within(desktop).getByRole('button', { name: 'Cancel' });
+
+    expect(phone.value).toBe('5550000044');
+    expect(phone.className).toContain('pr-13');
+    expect(editor?.className).toContain('w-[min(15rem,calc(100vw-2rem))]');
+    expect(editor?.className).toContain('z-20');
+    expect(editor?.className).toContain('shadow-md');
+    expect(save.textContent).toBe('');
+    expect(cancel.textContent).toBe('');
+    expect(editor?.contains(save)).toBe(true);
+    expect(editor?.contains(cancel)).toBe(true);
+  });
+
   it('repairs a phone conflict inline without jumping to the row ledger', async () => {
     const user = userEvent.setup();
     const onPatch = vi.fn();
