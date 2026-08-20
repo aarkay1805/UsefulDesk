@@ -15,6 +15,7 @@ import { useLocale } from '@/hooks/use-locale';
 import { canConfigurePaymentGateway } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
 import { upiAvailableFor } from '@/lib/payments/upi';
+import { ProviderMark } from '@/components/brand/provider-mark';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -343,7 +344,10 @@ export function RazorpaySettingsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Razorpay</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <ProviderMark provider="razorpay" />
+          Razorpay
+        </CardTitle>
         <CardDescription>
           Connect Razorpay for auto-pay and payment links. Money settles
           directly to your account.

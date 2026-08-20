@@ -70,7 +70,7 @@ export function SettingsRail({
             ) : null}
             {items.map((s) => {
               const meta = SECTION_META[s];
-              const Icon = meta.icon;
+              const Icon = meta.brandIcon ?? meta.icon;
               const isActive = s === active;
               return (
                 <button
@@ -87,7 +87,12 @@ export function SettingsRail({
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   )}
                 >
-                  <Icon className="size-4 shrink-0" />
+                  <Icon
+                    className={cn(
+                      'size-4 shrink-0',
+                      meta.brandIcon && 'grayscale'
+                    )}
+                  />
                   <span className="flex-1">{meta.label}</span>
                   {hints?.[s] != null ? (
                     <span

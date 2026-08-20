@@ -17,6 +17,9 @@ import {
   UsersRound,
   type LucideIcon,
 } from 'lucide-react';
+import type { ComponentType } from 'react';
+
+import { WhatsAppMark } from '@/components/brand/provider-mark';
 
 /**
  * Settings information architecture for the redesigned page.
@@ -54,6 +57,7 @@ export interface SectionMeta {
   id: SettingsSection;
   label: string;
   icon: LucideIcon;
+  brandIcon?: ComponentType<{ className?: string }>;
   group:
     | 'top'
     | 'account'
@@ -92,6 +96,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     id: 'whatsapp',
     label: 'WhatsApp',
     icon: PlugZap,
+    brandIcon: WhatsAppMark,
     group: 'messaging',
   },
   // "Where do my leads come from" — the public capture form and (once

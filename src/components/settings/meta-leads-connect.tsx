@@ -40,6 +40,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { getErrorMessage } from '@/lib/errors';
 import { loadFbSdk, type FbLoginResponse } from '@/lib/meta/fb-sdk';
 import { createClient } from '@/lib/supabase/client';
+import { ProviderMark } from '@/components/brand/provider-mark';
 
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID;
 const LEADS_CONFIG_ID = process.env.NEXT_PUBLIC_META_LEADS_CONFIG_ID;
@@ -184,7 +185,10 @@ export function MetaLeadsConnect() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Facebook & Instagram lead ads</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <ProviderMark provider="meta" />
+            Facebook & Instagram lead ads
+          </CardTitle>
           <CardDescription>
             Connect your Page and every lead from a Facebook or Instagram lead
             ad lands in Leads automatically, ready to follow up on WhatsApp.

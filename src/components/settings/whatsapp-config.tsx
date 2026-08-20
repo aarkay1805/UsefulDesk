@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { canEditSettings } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
+import { WhatsAppMark } from '@/components/brand/provider-mark';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { GatedButton } from '@/components/ui/gated-button';
 import { Input } from '@/components/ui/input';
@@ -510,6 +511,7 @@ export function WhatsAppConfig() {
       <section className="animate-in fade-in-50 duration-200">
         <SettingsPanelHead
           title="WhatsApp"
+          leading={<WhatsAppMark />}
           description="Connect and monitor the WhatsApp number your team uses."
         />
         <div
@@ -528,6 +530,7 @@ export function WhatsAppConfig() {
       <section className="animate-in fade-in-50 duration-200">
         <SettingsPanelHead
           title="WhatsApp"
+          leading={<WhatsAppMark />}
           description="Connect and monitor the WhatsApp number your team uses."
         />
         <Alert variant="destructive">
@@ -556,6 +559,7 @@ export function WhatsAppConfig() {
     <section className="animate-in fade-in-50 duration-200">
       <SettingsPanelHead
         title="WhatsApp"
+        leading={<WhatsAppMark />}
         description="Connect and monitor the WhatsApp number your team uses."
       />
       <div className="space-y-6">

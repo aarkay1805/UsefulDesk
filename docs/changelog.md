@@ -1354,3 +1354,9 @@ Triggered by a real clash: the onboarding step rows tinted their leading icon `b
 - Selected/active states keep their `primary` tint — only the _unselected_ hover went neutral. Untouched on purpose: tag pills, dashed dropzone, icon-circle buttons, table rows, canvas nodes, destructive/red.
 - `StepRow` (`get-started-view.tsx`) and the settings status tile (`settings-overview.tsx`) are **byte-identical boxes** — visual twins that must change together.
 - Verified: `tsc` + eslint clean, `next build` green, and both utilities confirmed in the emitted CSS (`.hover\:border-border-hover:hover{border-color:var(--border-hover)}`, `…ring-border-hover:hover>div{--tw-ring-color:var(--border-hover)}`).
+
+---
+
+## Provider branding in integration settings
+
+Added a shared compact provider-mark component (`src/components/brand/provider-mark.tsx`). WhatsApp uses a grayscale mark beside the settings menu label and its brand-green mark beside the panel heading; Razorpay payments and Meta lead ads use theirs in the relevant card title. Provider colours stay separate from semantic status and action iconography.

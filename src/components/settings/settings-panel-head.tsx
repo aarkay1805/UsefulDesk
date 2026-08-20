@@ -9,11 +9,13 @@ import { cn } from '@/lib/utils';
  */
 export function SettingsPanelHead({
   title,
+  leading,
   description,
   action,
   className,
 }: {
   title: string;
+  leading?: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
   className?: string;
@@ -26,7 +28,8 @@ export function SettingsPanelHead({
       )}
     >
       <div className="min-w-0">
-        <h2 className="text-foreground text-lg font-semibold tracking-tight">
+        <h2 className="text-foreground flex items-center gap-2 text-lg font-semibold tracking-tight">
+          {leading}
           {title}
         </h2>
         {description ? (
