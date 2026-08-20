@@ -205,7 +205,7 @@ export function BmiCard({
             </div>
 
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={save} disabled={busy}>
+              <Button size="sm" onClick={save} loading={busy} disabled={busy}>
                 Save
               </Button>
               <Button

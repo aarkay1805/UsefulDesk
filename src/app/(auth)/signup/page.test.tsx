@@ -57,4 +57,36 @@ describe('invitation signup continuation', () => {
     expect(callback.pathname).toBe('/auth/callback');
     expect(callback.searchParams.get('next')).toBe(`/join/${INVITE_TOKEN}`);
   });
+
+  it('shows in-button progress while account creation is pending', async () => {
+    let resolveSignup!: (value: { error: { message: string } }) => void;
+    signUp.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSignup = resolve;
+      })
+    );
+    const user = userEvent.setup();
+    render(<SignupPage />);
+
+    await user.type(screen.getByLabelText('Full name'), 'Invitee Person');
+    await user.type(screen.getByLabelText('Email'), 'invitee@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password-123');
+    await user.type(
+      screen.getByLabelText('Confirm password'),
+      'password-123'
+    );
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    const submit = screen.getByRole('button', {
+      name: 'Creating account...',
+    });
+    try {
+      expect(submit.getAttribute('aria-busy')).toBe('true');
+      expect((submit as HTMLButtonElement).disabled).toBe(true);
+      expect(submit.querySelector('.animate-spin')).not.toBeNull();
+    } finally {
+      resolveSignup({ error: { message: 'Test signup stopped' } });
+    }
+    await screen.findByText('Test signup stopped');
+  });
 });

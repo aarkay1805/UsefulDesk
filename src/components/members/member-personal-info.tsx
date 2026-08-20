@@ -169,7 +169,7 @@ export function MemberPersonalInfo({
         <CardTitle>Personal information</CardTitle>
         {canEdit && dirty && (
           <CardAction>
-            <Button size="sm" onClick={save} disabled={busy}>
+            <Button size="sm" onClick={save} loading={busy} disabled={busy}>
               Save changes
             </Button>
           </CardAction>

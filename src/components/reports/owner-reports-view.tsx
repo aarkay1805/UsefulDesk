@@ -187,7 +187,6 @@ export function OwnerReportsView({
 
   function retry() {
     setLoading(true);
-    setError(null);
     fetchReport(month, staffUserId);
   }
 
@@ -298,6 +297,7 @@ export function OwnerReportsView({
             size="sm"
             variant="destructive-ghost"
             onClick={retry}
+            loading={loading}
             className="mt-2 w-fit"
           >
             <RefreshCw /> Retry

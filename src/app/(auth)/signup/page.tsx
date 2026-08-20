@@ -275,6 +275,7 @@ function SignupPageInner() {
 
             <Button
               type="submit"
+              loading={loading}
               disabled={loading}
               className="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 h-10 w-full disabled:opacity-50"
             >

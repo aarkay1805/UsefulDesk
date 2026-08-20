@@ -43,4 +43,28 @@ describe('invitation password recovery continuation', () => {
       screen.getByRole('link', { name: 'Back to sign in' }).getAttribute('href')
     ).toBe(`/login?invite=${INVITE_TOKEN}`);
   });
+
+  it('shows in-button progress while the reset email is pending', async () => {
+    let resolveReset!: (value: { error: { message: string } }) => void;
+    resetPasswordForEmail.mockReturnValue(
+      new Promise((resolve) => {
+        resolveReset = resolve;
+      })
+    );
+    const user = userEvent.setup();
+    render(<ForgotPasswordPage />);
+
+    await user.type(screen.getByLabelText('Email'), 'invitee@example.com');
+    await user.click(screen.getByRole('button', { name: 'Send reset link' }));
+
+    const submit = screen.getByRole('button', { name: 'Sending...' });
+    try {
+      expect(submit.getAttribute('aria-busy')).toBe('true');
+      expect((submit as HTMLButtonElement).disabled).toBe(true);
+      expect(submit.querySelector('.animate-spin')).not.toBeNull();
+    } finally {
+      resolveReset({ error: { message: 'Test reset stopped' } });
+    }
+    await screen.findByText('Test reset stopped');
+  });
 });

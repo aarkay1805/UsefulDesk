@@ -113,7 +113,12 @@ export function MemberDangerZone({
             >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={remove} disabled={busy}>
+            <Button
+              variant="destructive"
+              onClick={remove}
+              loading={busy}
+              disabled={busy}
+            >
               <Trash2 className="size-4" /> Delete member
             </Button>
           </DialogFooter>

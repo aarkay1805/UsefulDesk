@@ -106,6 +106,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             <Button
               variant={fallbackBranch ? 'outline' : 'default'}
               onClick={() => void retryBranchAccess()}
+              loading={retryingBranchAccess}
               disabled={retryingBranchAccess}
             >
               {retryingBranchAccess ? 'Retrying...' : 'Retry'}

@@ -337,6 +337,7 @@ export default function BroadcastDetailPage() {
               variant="destructive"
               size="sm"
               onClick={handleDelete}
+              loading={deleting}
               disabled={deleting}
               className="h-7"
             >
