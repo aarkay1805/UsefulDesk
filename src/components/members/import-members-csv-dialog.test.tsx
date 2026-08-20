@@ -39,6 +39,11 @@ const draftHook = vi.hoisted(() => ({
   discard: vi.fn(async () => true),
 }));
 
+const membershipPlansHook = vi.hoisted(() => ({
+  plans: [] as MembershipPlan[],
+  loading: false,
+}));
+
 vi.mock('@/hooks/use-member-import-draft', () => ({
   useMemberImportDraft: () => draftHook,
 }));
@@ -92,7 +97,7 @@ vi.mock('@/hooks/use-locale', () => ({
 }));
 
 vi.mock('./use-membership-plans', () => ({
-  useMembershipPlans: () => ({ plans: [plan], loading: false }),
+  useMembershipPlans: () => membershipPlansHook,
 }));
 
 vi.mock('./use-account-staff', () => ({
@@ -136,6 +141,8 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  membershipPlansHook.plans = [plan];
+  membershipPlansHook.loading = false;
   draftHook.draft = null;
   draftHook.saveState = 'idle';
   draftHook.lastAcknowledgedRevision = null;
@@ -155,6 +162,39 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('ImportMembersCsvDialog candidate continuity', () => {
+  it('allows a service-only file to reach preview without membership plans', async () => {
+    const user = userEvent.setup();
+    membershipPlansHook.plans = [];
+
+    render(
+      <ImportMembersCsvDialog open onOpenChange={vi.fn()} onSaved={vi.fn()} />
+    );
+    const input =
+      document.querySelector<HTMLInputElement>('input[type="file"]');
+    await user.upload(
+      input!,
+      new window.File(
+        window.Array.of(
+          'Name,Phone,Service\nAsha,+919876543210,Personal training'
+        ),
+        'service-members.csv',
+        { type: 'text/csv' }
+      )
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Map manually' })
+    );
+
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Preview 1 row',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(false);
+  });
+
   it('clears a selected workbook when private draft initialization fails', async () => {
     const user = userEvent.setup();
     draftHook.initialize.mockResolvedValueOnce(null);

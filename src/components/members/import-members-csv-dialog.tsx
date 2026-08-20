@@ -1620,8 +1620,7 @@ export function ImportMembersCsvDialog({
                         plansLoading ||
                         staffLoading ||
                         serviceFactsLoading ||
-                        loadingPreview ||
-                        plans.length === 0
+                        loadingPreview
                       }
                       onClick={buildPreview}
                     >
