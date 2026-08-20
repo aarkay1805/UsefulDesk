@@ -26,7 +26,14 @@ const draftHook = vi.hoisted(() => ({
   adopt: vi.fn(),
   load: vi.fn(async () => null),
   reload: vi.fn(async () => null),
-  initialize: vi.fn(async () => null),
+  initialize: vi.fn(
+    async (): Promise<null | {
+      id: string;
+      revision: number;
+      sourceFilename: string;
+      state: Record<string, unknown>;
+    }> => null
+  ),
   save: vi.fn(),
   flush: vi.fn(async () => true),
   discard: vi.fn(async () => true),
@@ -134,7 +141,12 @@ beforeEach(() => {
   draftHook.lastAcknowledgedRevision = null;
   draftHook.load.mockClear();
   draftHook.reload.mockClear();
-  draftHook.initialize.mockClear();
+  draftHook.initialize.mockReset().mockResolvedValue({
+    id: 'draft-new',
+    revision: 1,
+    sourceFilename: 'members.csv',
+    state: {},
+  });
   draftHook.save.mockClear();
   draftHook.flush.mockReset().mockResolvedValue(true);
   draftHook.discard.mockReset().mockResolvedValue(true);
@@ -143,6 +155,74 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('ImportMembersCsvDialog candidate continuity', () => {
+  it('clears a selected workbook when private draft initialization fails', async () => {
+    const user = userEvent.setup();
+    draftHook.initialize.mockResolvedValueOnce(null);
+
+    render(
+      <ImportMembersCsvDialog open onOpenChange={vi.fn()} onSaved={vi.fn()} />
+    );
+    const input =
+      document.querySelector<HTMLInputElement>('input[type="file"]');
+    await user.upload(
+      input!,
+      new window.File(
+        window.Array.of('Name,Phone,Plan\nAsha,+919876543210,Gold'),
+        'unsaved-members.csv',
+        { type: 'text/csv' }
+      )
+    );
+
+    expect(
+      screen.getByText('Click to choose a CSV or Excel file')
+    ).toBeTruthy();
+    expect(screen.queryByText('unsaved-members.csv')).toBeNull();
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Analyze file',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true);
+  });
+
+  it('does not schedule another autosave when only the acknowledged revision changes', async () => {
+    const user = userEvent.setup();
+    const props = {
+      open: true,
+      onOpenChange: vi.fn(),
+      onSaved: vi.fn(),
+    };
+    const view = render(<ImportMembersCsvDialog {...props} />);
+    const input =
+      document.querySelector<HTMLInputElement>('input[type="file"]');
+    await user.upload(
+      input!,
+      new window.File(
+        window.Array.of('Name,Phone,Plan\nAsha,+919876543210,Gold'),
+        'members.csv',
+        { type: 'text/csv' }
+      )
+    );
+
+    draftHook.draft = {
+      id: 'draft-new',
+      revision: 1,
+      sourceFilename: 'members.csv',
+      state: {},
+    };
+    view.rerender(<ImportMembersCsvDialog {...props} />);
+    await waitFor(() => expect(draftHook.save).toHaveBeenCalledTimes(1));
+
+    draftHook.draft = {
+      ...draftHook.draft,
+      revision: 2,
+    };
+    view.rerender(<ImportMembersCsvDialog {...props} />);
+
+    expect(draftHook.save).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the dialog open when Save & close cannot flush', async () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();

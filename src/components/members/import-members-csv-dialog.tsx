@@ -416,14 +416,14 @@ export function ImportMembersCsvDialog({
       suggestedRecipe,
     ]
   );
-  const activeDraftForAutosave = draftManager.draft;
+  const activeDraftId = draftManager.draft?.id ?? null;
   const scheduleDraftSave = draftManager.save;
 
   useEffect(() => {
     if (
       !open ||
       !file ||
-      !activeDraftForAutosave ||
+      !activeDraftId ||
       readingFile ||
       resumingDraft ||
       importing
@@ -432,7 +432,7 @@ export function ImportMembersCsvDialog({
     }
     scheduleDraftSave(draftState);
   }, [
-    activeDraftForAutosave,
+    activeDraftId,
     draftState,
     file,
     importing,
@@ -777,6 +777,9 @@ export function ImportMembersCsvDialog({
           initialState
         );
         if (!created) {
+          if (sequence === fileReadSequence.current) {
+            resetWorkingImport();
+          }
           toast.error('Couldn’t save the private import draft. Try again.');
           return false;
         }

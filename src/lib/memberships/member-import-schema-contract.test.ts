@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -16,6 +16,15 @@ const hardeningSql = readFileSync(
   ),
   'utf8'
 );
+const allMigrationSql = readdirSync(
+  resolve(process.cwd(), 'supabase/migrations')
+)
+  .filter((name) => name.endsWith('.sql'))
+  .sort()
+  .map((name) =>
+    readFileSync(resolve(process.cwd(), 'supabase/migrations', name), 'utf8')
+  )
+  .join('\n');
 
 describe('service-aware resumable member import schema contract', () => {
   it('keeps the customer directory invoker-scoped and anonymous-free', () => {
@@ -50,6 +59,12 @@ describe('service-aware resumable member import schema contract', () => {
       '(storage.foldername(name))[2] = (SELECT auth.uid())::TEXT'
     );
     expect(sql).not.toMatch(/DELETE\s+FROM\s+storage\.objects/i);
+  });
+
+  it('allows an author-scoped SELECT when Storage signs a draft workbook URL', () => {
+    expect(allMigrationSql).toMatch(
+      /CREATE POLICY "Authors can read member import draft files"[\s\S]*?storage\.allow_any_operation\(ARRAY\[[\s\S]*?'storage\.object\.sign'[\s\S]*?\]\)/
+    );
   });
 
   it('revokes public CAS and cleanup execution and claims cleanup rows safely', () => {
