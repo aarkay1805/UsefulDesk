@@ -64,13 +64,18 @@ Meta, wait for **APPROVED**. It needs exactly **4 body params**, in order:
 
 Example body:
 
-> Hi {{1}}, your {{2}} membership expires on {{3}}. The renewal amount is
-> {{4}}. Reply to this message if you need help completing the renewal.
+> Hi {{1}}, account update: your existing {{2}} membership is scheduled to
+> expire on {{3}}. The membership fee recorded on your account is {{4}}. Reply
+> if you need help with your account.
 
 Until the template is both APPROVED and still classified as Utility, the cron
 silently skips the account (readiness gate). Meta can approve a submitted
 template after reclassifying it as Marketing; that does not satisfy the renewal
 reminder contract.
+
+If Meta reclassifies the template as Marketing while it is still Pending, it
+cannot be edited. Delete that pending provider template, recreate the pinned
+preset with the account-update copy above, and sync again after review.
 
 ### 2. Turn it on
 

@@ -57,7 +57,7 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
     id: 'renewal_reminder',
     title: 'Renewal reminder',
     blurb:
-      'Nudge a member whose plan is about to expire. Powers the one-tap Remind button.',
+      'Send an account update before an existing membership expires. Powers the one-tap Remind button.',
     category: 'Utility',
     pinned: true,
     note: 'Keep the pinned name and the 4 variables in order (name, plan, expiry, fee) — the Remind button and the auto-reminder cron send against exactly this shape. Existing approved Utility gym_renewal_reminder templates remain supported.',
@@ -66,7 +66,7 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
       category: 'Utility',
       header_format: 'none',
       body_text:
-        'Hi {{1}}, your {{2}} membership expires on {{3}}. The renewal amount is {{4}}. Reply to this message if you need help completing the renewal.',
+        'Hi {{1}}, account update: your existing {{2}} membership is scheduled to expire on {{3}}. The membership fee recorded on your account is {{4}}. Reply if you need help with your account.',
       body_samples: ['Rahul', 'Quarterly', '20 Jul 2026', '₹3,999'],
     },
   },
