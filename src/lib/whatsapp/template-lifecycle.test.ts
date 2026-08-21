@@ -115,6 +115,34 @@ describe('submitMessageTemplate', () => {
     );
   });
 
+  it('explains when the template content does not match the selected category', async () => {
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(400, {
+        error: {
+          message: 'Invalid parameter',
+          code: 100,
+          error_subcode: 2388025,
+          error_data: { details: 'Message template category is invalid' },
+        },
+      })
+    );
+
+    await expect(
+      submitMessageTemplate({
+        wabaId: 'W',
+        accessToken: 't',
+        payload: {
+          name: 'membership_expiry',
+          category: 'UTILITY',
+          language: 'en_US',
+          components: [{ type: 'BODY', text: 'Your plan expires soon.' }],
+        },
+      })
+    ).rejects.toThrow(
+      'Meta says this template does not match the selected Utility category. Utility templates must be strictly transactional, such as an update about an existing account or transaction. Rewrite promotional or renewal-call-to-action wording, or select Marketing when the message promotes a new purchase or renewal. No template was created. (Meta code 100/2388025)'
+    );
+  });
+
   it('throws if Meta accepts but returns no id (data integrity guard)', async () => {
     fetchMock.mockResolvedValueOnce(okResponse({ status: 'PENDING' }));
     await expect(
@@ -177,6 +205,32 @@ describe('editMessageTemplate', () => {
       components: [{ type: 'BODY', text: 'x' }],
       category: 'MARKETING',
     });
+  });
+
+  it('explains a category mismatch when editing a template', async () => {
+    fetchMock.mockResolvedValueOnce(
+      errorResponse(400, {
+        error: {
+          message: 'Invalid parameter',
+          code: 100,
+          error_subcode: 2388025,
+          error_data: { details: 'Message template category is invalid' },
+        },
+      })
+    );
+
+    await expect(
+      editMessageTemplate({
+        metaTemplateId: 'TMPL_42',
+        accessToken: 'tok',
+        name: 'member_offer',
+        language: 'en_US',
+        components: [{ type: 'BODY', text: 'Save on your next plan.' }],
+        category: 'MARKETING',
+      })
+    ).rejects.toThrow(
+      'Meta says this template does not match the selected Marketing category. Review the message purpose and select the category that matches it, then submit again. No changes were applied. (Meta code 100/2388025)'
+    );
   });
 
   it('returns success:true on Meta success', async () => {

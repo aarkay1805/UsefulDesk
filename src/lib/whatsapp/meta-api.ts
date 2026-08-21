@@ -39,7 +39,11 @@ interface MetaErrorResponse {
 
 async function throwMetaError(
   response: Response,
-  fallback: string
+  fallback: string,
+  formatMessage?: (
+    error: NonNullable<MetaErrorResponse['error']>,
+    defaultMessage: string
+  ) => string
 ): Promise<never> {
   let message = fallback;
   try {
@@ -66,6 +70,9 @@ async function throwMetaError(
       message = [providerMessage || fallback, providerCode, actionableDetail]
         .filter(Boolean)
         .join(' — ');
+      if (formatMessage) {
+        message = formatMessage(error, message);
+      }
     }
   } catch {
     // response body wasn't JSON — keep the fallback
@@ -802,6 +809,26 @@ export interface SubmitMessageTemplateResult {
   category?: string;
 }
 
+function formatTemplateCategoryMismatch(
+  category: MetaTemplateSubmitPayload['category'],
+  unchangedMessage: string
+) {
+  return (
+    error: NonNullable<MetaErrorResponse['error']>,
+    defaultMessage: string
+  ): string => {
+    if (error.error_subcode !== 2388025) return defaultMessage;
+
+    const selectedCategory =
+      category.charAt(0) + category.slice(1).toLowerCase();
+    if (category === 'UTILITY') {
+      return `Meta says this template does not match the selected ${selectedCategory} category. Utility templates must be strictly transactional, such as an update about an existing account or transaction. Rewrite promotional or renewal-call-to-action wording, or select Marketing when the message promotes a new purchase or renewal. ${unchangedMessage} (Meta code 100/2388025)`;
+    }
+
+    return `Meta says this template does not match the selected ${selectedCategory} category. Review the message purpose and select the category that matches it, then submit again. ${unchangedMessage} (Meta code 100/2388025)`;
+  };
+}
+
 /**
  * Submit a message template to Meta for approval.
  *
@@ -829,7 +856,14 @@ export async function submitMessageTemplate(
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    await throwMetaError(response, `Meta API error: ${response.status}`);
+    await throwMetaError(
+      response,
+      `Meta API error: ${response.status}`,
+      formatTemplateCategoryMismatch(
+        payload.category,
+        'No template was created.'
+      )
+    );
   }
   const data = await response.json();
   if (!data?.id) {
@@ -885,7 +919,13 @@ export async function editMessageTemplate(
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    await throwMetaError(response, `Meta API error: ${response.status}`);
+    await throwMetaError(
+      response,
+      `Meta API error: ${response.status}`,
+      category
+        ? formatTemplateCategoryMismatch(category, 'No changes were applied.')
+        : undefined
+    );
   }
   const data = await response.json().catch(() => ({}));
   if (data?.success === false) {
