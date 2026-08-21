@@ -15,6 +15,7 @@ import {
   canManageExpenseCategories,
   canRecordExpenses,
   canRecordPayments,
+  canRecordWhatsAppConsent,
   canManageCatalog,
   canManageTrainers,
   canSellProductsServices,
@@ -383,6 +384,13 @@ describe('capability predicates', () => {
     expect(canDeleteMember('admin')).toBe(true);
     expect(canDeleteMember('agent')).toBe(false);
     expect(canDeleteMember('viewer')).toBe(false);
+  });
+
+  it('canRecordWhatsAppConsent: operational agent+ only', () => {
+    expect(canRecordWhatsAppConsent('owner')).toBe(true);
+    expect(canRecordWhatsAppConsent('admin')).toBe(true);
+    expect(canRecordWhatsAppConsent('agent')).toBe(true);
+    expect(canRecordWhatsAppConsent('viewer')).toBe(false);
   });
 
   it('canDeleteAccount: owner only', () => {

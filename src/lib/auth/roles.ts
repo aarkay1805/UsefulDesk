@@ -93,6 +93,11 @@ export function canSendMessages(role: AccountRole): boolean {
   return hasMinRole(role, 'agent');
 }
 
+/** Agent+ may record auditable WhatsApp category consent for a contact. */
+export function canRecordWhatsAppConsent(role: AccountRole): boolean {
+  return hasMinRole(role, 'agent');
+}
+
 /** Admin / owner: acknowledge that a branch's configuration was reviewed. */
 export function canCompleteBranchSetup(role: AccountRole): boolean {
   return hasMinRole(role, 'admin');

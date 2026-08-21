@@ -7,7 +7,9 @@ export type BusinessMessagePurpose =
   | 'follow_up'
   | 'automation'
   | 'template'
-  | 'api';
+  | 'api'
+  | 'whatsapp_account_updates'
+  | 'whatsapp_marketing';
 
 export class MessageSuppressedError extends Error {
   readonly code = 'message_suppressed';

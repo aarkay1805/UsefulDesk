@@ -25,6 +25,7 @@ import {
 } from '@/lib/leads/transfers';
 import { TransferRequestDialog } from '@/components/leads/transfer-request-dialog';
 import { ContactNotesThread } from './contact-notes-thread';
+import { WhatsAppConsentControl } from './whatsapp-consent-control';
 import { useAccountStaff } from '@/components/members/use-account-staff';
 import {
   TemplatePicker,
@@ -760,6 +761,10 @@ export function ContactDetailContent({
                 href={contact.email ? `mailto:${contact.email}` : undefined}
               />
             )}
+            <WhatsAppConsentControl
+              contactId={contact.id}
+              contactName={contact.name || contact.phone}
+            />
           </div>
         </Header>
 
