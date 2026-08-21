@@ -443,6 +443,7 @@ export interface TemplateSampleValues {
 
 export interface MessageTemplate {
   id: string;
+  account_id?: string;
   user_id: string;
   name: string;
   category: 'Marketing' | 'Utility' | 'Authentication';
@@ -461,6 +462,8 @@ export interface MessageTemplate {
   quality_score?: 'GREEN' | 'YELLOW' | 'RED';
   submission_error?: string;
   last_submitted_at?: string;
+  parameter_format?: 'POSITIONAL' | 'NAMED';
+  provider_components_sync_required_at?: string;
   created_at: string;
 }
 

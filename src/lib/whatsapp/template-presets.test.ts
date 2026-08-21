@@ -1,28 +1,40 @@
 import { describe, expect, it } from 'vitest';
 
-import { RENEWAL_TEMPLATE_NAME } from '@/lib/memberships/renewal-reminders';
 import { extractVariableIndices } from './template-validators';
 import { TEMPLATE_PRESETS } from './template-presets';
 
-describe('renewal reminder preset', () => {
-  it('stays a transactional account update with the pinned send contract', () => {
-    const preset = TEMPLATE_PRESETS.find(
-      (candidate) => candidate.id === 'renewal_reminder'
-    );
-
-    expect(preset).toBeDefined();
-    expect(preset?.pinned).toBe(true);
-    expect(preset?.fields.name).toBe(RENEWAL_TEMPLATE_NAME);
-    expect(preset?.fields.category).toBe('Utility');
-    expect(extractVariableIndices(preset?.fields.body_text ?? '')).toEqual([
-      1, 2, 3, 4,
+describe('gym template preset projection', () => {
+  it('offers the complete supported library without unsupported booking or legacy renewal presets', () => {
+    expect(TEMPLATE_PRESETS.map((preset) => preset.fields.name)).toEqual([
+      'gym_membership_renewal',
+      'gym_service_renewal',
+      'gym_installment_reminder',
+      'gym_payment_link',
+      'gym_payment_due',
+      'gym_payment_receipt',
+      'gym_membership_activation',
+      'gym_win_back',
+      'gym_festival_offer',
     ]);
 
-    const body = preset?.fields.body_text ?? '';
-    expect(body).toMatch(/account update/i);
-    expect(body).toMatch(/existing .*membership/i);
-    expect(body).not.toMatch(
-      /complet\w* renewal|renew now|pay now|discount|special offer/i
-    );
+    expect(
+      TEMPLATE_PRESETS.some((preset) =>
+        [
+          'gym_membership_expiry_notice',
+          'gym_renewal_reminder',
+          'gym_service_renewal_reminder',
+          'gym_welcome_member',
+          'gym_class_booking',
+        ].includes(preset.fields.name)
+      )
+    ).toBe(false);
+  });
+
+  it('projects every body parameter into one ordered sample value', () => {
+    for (const preset of TEMPLATE_PRESETS) {
+      expect(extractVariableIndices(preset.fields.body_text)).toEqual(
+        preset.fields.body_samples.map((_, index) => index + 1)
+      );
+    }
   });
 });
