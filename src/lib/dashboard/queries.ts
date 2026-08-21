@@ -168,6 +168,7 @@ export async function loadLeadFunnel(db: DB): Promise<LeadFunnelData> {
       totalLeads + totalMembers > 0
         ? totalMembers / (totalLeads + totalMembers)
         : null,
+    convertedTotal: totalMembers,
     topSources,
   };
 }

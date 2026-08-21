@@ -33,6 +33,8 @@ export interface LeadFunnelData {
   convertedThisMonth: number;
   /** All-time members / (leads + members). Null when no contacts. */
   conversionRate: number | null;
+  /** All-time contacts that became members — the numerator behind `conversionRate`. */
+  convertedTotal: number;
   topSources: LeadSourcePerf[];
 }
 

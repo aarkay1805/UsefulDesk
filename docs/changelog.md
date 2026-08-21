@@ -6,6 +6,16 @@
 
 ---
 
+## Leads by stage reads as labelled columns
+
+Every number in the card was unlabelled, so the reader had to guess what it counted. The bare total beside the title read as a stage count and now says **N total**. The stage rows became a four-column grid (**Stage** · bar · **Leads** · **Avg. time**) whose caption row shares one `STAGE_GRID` template with the rows, so the headings sit over the numbers they label instead of being eyeballed into place. The count moved out of the bar: at a low `maxCount` the fill was a 4%-wide sliver and the numeral inside it overflowed its own bar, and a zero stage rendered a tinted pill around a `0`, which read as a status badge. Zero stages now show an empty track and a muted `0`. Stage age is formatted (`<1 day`, `1 day`, `4 days`) rather than printing the raw rounded numeric, which produced "1 days here".
+
+The right column keeps its two tiles and gains a base line under each value: **Joined this month** counts *new memberships* (a renewal opens a period, not a `memberships` row, so the count stays honest), and **Leads who joined** shows `N of N all time` — a percentage over three contacts is noise without its denominator. That needed `convertedTotal` on `LeadFunnelData` (`loadLeadFunnel` already computed `totalMembers` and threw it away). The source list, formerly *Lead source results* with an unexplained `1/1`, is **Joined by source** with **Source** · **Joined** · **Rate** captions and reads `1 of 1`. The loading skeleton now mirrors the two-column layout instead of five full-width bars.
+
+Key code: `src/components/dashboard/lead-funnel.tsx`, `src/lib/dashboard/queries.ts`, `src/lib/dashboard/types.ts`.
+
+---
+
 ## Dashboard distilled to one queue per fact
 
 The Dashboard said the same things twice, so each fact now has exactly one home. **Needs attention** lost Renewals due, Fees to collect, and Inactive members: *Today at a glance* already carried those three numbers and pointed at the same routes, so the page stated the same work in two visual languages a screen apart. What remains — May leave, Trials to follow up, Auto-pay problems — is the set no other queue owns, and the card moved out of *The full picture* into **Work to do**, next to Lead work and Member work, because an exception queue is work rather than reading. The **Lead status** donut was deleted (`leads-donut.tsx`, `loadLeadsDonut`, `LeadsDonutData`, `LeadStatusSlice`): *Leads by stage* groups the same `lead_status` buckets off the same `lead_field_options` columns and adds average days in stage, so the ring only restated counts the bars already had. The ring's one unique value, the lead total, now sits beside the *Leads by stage* title.
