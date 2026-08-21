@@ -26,7 +26,7 @@ import {
 } from '@/lib/whatsapp/template-readiness';
 
 /**
- * The preferred Utility template a gym creates + submits in Settings → Templates.
+ * The exact Marketing renewal template a gym creates + submits in Settings → Templates.
  * Lives here (server-safe) rather than in the client button so both the
  * manual send and the cron can import it without pulling client code.
  */
@@ -39,10 +39,8 @@ export const RENEWAL_TEMPLATE_CATEGORY =
 export type RenewalTemplateReadinessRow = TemplateReadinessRow;
 
 /**
- * Meta may approve a submitted Utility template after reclassifying it as
- * Marketing. Those sends can be accepted by the Cloud API and then fail
- * asynchronously under Marketing delivery controls, so approval alone is
- * not sufficient readiness for the transactional renewal-reminder path.
+ * Approval alone is not enough: category, positional format, components,
+ * and the latest provider sync must all match the contract.
  */
 export function isRenewalTemplateReady(
   template: RenewalTemplateReadinessRow | null | undefined
@@ -54,8 +52,7 @@ export function isRenewalTemplateReady(
   ).ready;
 }
 
-/** Prefer the current transactional name without breaking gyms whose legacy
- * template is already approved as Utility. */
+/** Select only the exact current renewal contract. */
 export function selectRenewalTemplate<T extends RenewalTemplateReadinessRow>(
   templates: readonly T[] | null | undefined
 ): T | null {

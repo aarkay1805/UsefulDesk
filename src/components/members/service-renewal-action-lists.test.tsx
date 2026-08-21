@@ -5,9 +5,11 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  buildServiceRenewalParams,
   ServiceRenewalActionLists,
   serviceCustomerTarget,
 } from './service-renewal-action-lists';
+import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
 const serviceRow = {
   id: 'service-1',
@@ -38,20 +40,24 @@ const from = vi.hoisted(() =>
       };
     }
     if (table === 'whatsapp_config') {
-      return {
-        select: () => ({
-          maybeSingle: async () => ({
-            data: { status: 'connected' },
-            error: null,
-          }),
+      const query = {
+        eq: () => query,
+        maybeSingle: async () => ({
+          data: { status: 'connected' },
+          error: null,
         }),
       };
+      return { select: () => query };
     }
     if (table === 'message_templates') {
       const query = {
         eq: () => query,
         maybeSingle: async () => ({
-          data: { language: 'en_US' },
+          data: {
+            ...TEMPLATE_CONTRACTS.service_renewal.payload,
+            status: 'APPROVED',
+            parameter_format: 'POSITIONAL',
+          },
           error: null,
         }),
       };
@@ -73,6 +79,10 @@ vi.mock('@/hooks/use-locale', () => ({
       money: (value: number) => `₹${value}`,
     },
   }),
+}));
+
+vi.mock('@/hooks/use-auth', () => ({
+  useAuth: () => ({ accountId: 'account-1' }),
 }));
 
 vi.mock('@/components/follow-ups/follow-up-button', () => ({
@@ -107,6 +117,20 @@ afterEach(() => {
 });
 
 describe('service renewal customer target', () => {
+  it('builds the exact localized service-renewal parameter order', () => {
+    expect(
+      buildServiceRenewalParams(serviceRow, {
+        date: (value: string) => `DATE:${value}`,
+        money: (value: number) => `MONEY:${value}`,
+      })
+    ).toEqual([
+      'Asha Rao',
+      'Personal training',
+      'DATE:2026-08-24',
+      'MONEY:2500',
+    ]);
+  });
+
   it('opens service-only customer detail with a null membership', () => {
     expect(
       serviceCustomerTarget({ contact_id: 'contact-1', membership_id: null })

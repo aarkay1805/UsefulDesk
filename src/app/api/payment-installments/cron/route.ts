@@ -11,6 +11,7 @@ import {
   installmentReminderTargets,
 } from '@/lib/memberships/installments';
 import { REMINDER_SEND_HOUR_LOCAL } from '@/lib/memberships/renewal-reminders';
+import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 
 const MAX_SENDS_PER_RUN = 200;
 
@@ -106,10 +107,10 @@ export async function GET(request: Request) {
           .maybeSingle(),
         admin
           .from('message_templates')
-          .select('language, status')
+          .select('*')
           .eq('account_id', accountId)
           .eq('name', INSTALLMENT_REMINDER_TEMPLATE_NAME)
-          .eq('status', 'APPROVED')
+          .eq('language', 'en_US')
           .maybeSingle(),
         admin
           .from('accounts')
@@ -120,8 +121,21 @@ export async function GET(request: Request) {
           .maybeSingle(),
       ]);
 
-    if (!config || config.status !== 'connected' || !template || !account) {
+    const templateReadiness = evaluateTemplateReadiness(
+      template ? [template] : [],
+      'installment_reminder',
+      'en_US'
+    );
+    if (
+      !config ||
+      config.status !== 'connected' ||
+      !templateReadiness.ready ||
+      !account
+    ) {
       summary.accounts_skipped++;
+      if (!templateReadiness.ready) {
+        notes.push(`account ${accountId}: ${templateReadiness.message}`);
+      }
       continue;
     }
 
@@ -134,7 +148,7 @@ export async function GET(request: Request) {
 
     const today = todayInTz(locale.timeZone, now);
     const ownerUserId = account.owner_user_id as string;
-    const language = (template.language as string) ?? 'en_US';
+    const language = (templateReadiness.row.language as string) ?? 'en_US';
 
     for (const target of installmentReminderTargets(today)) {
       if (summary.sent >= MAX_SENDS_PER_RUN) break;
@@ -245,7 +259,6 @@ export async function GET(request: Request) {
               candidate.membership?.plan?.name || 'membership',
               fmt.date(candidate.second_due_on),
             ],
-            purpose: 'payment',
           });
 
           await admin

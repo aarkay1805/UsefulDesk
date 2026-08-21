@@ -12,6 +12,7 @@ import { canManagePaymentLinks } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
 import { PAYMENT_LINK_TEMPLATE_NAME } from '@/lib/payments/payment-link-constants';
 import { createClient } from '@/lib/supabase/client';
+import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 import type { Membership } from '@/types';
 
 interface BrowserPaymentLink {
@@ -65,6 +66,7 @@ export function PaymentLinkActions({
   const [providerReady, setProviderReady] = useState(false);
   const [providerReason, setProviderReason] = useState<string | null>(null);
   const [templateReady, setTemplateReady] = useState(false);
+  const [templateReason, setTemplateReason] = useState<string | null>(null);
   const [templateLanguage, setTemplateLanguage] = useState('en_US');
   const [readinessLoading, setReadinessLoading] = useState(true);
   const [creatingFor, setCreatingFor] = useState<'copy' | 'send' | null>(null);
@@ -81,12 +83,17 @@ export function PaymentLinkActions({
             `/api/payments/razorpay/payment-links?invoiceId=${encodeURIComponent(invoice.id)}`,
             { cache: 'no-store' }
           ),
-          supabase.from('whatsapp_config').select('status').maybeSingle(),
+          supabase
+            .from('whatsapp_config')
+            .select('status')
+            .eq('account_id', accountId)
+            .maybeSingle(),
           supabase
             .from('message_templates')
-            .select('language, status')
+            .select('*')
+            .eq('account_id', accountId)
             .eq('name', PAYMENT_LINK_TEMPLATE_NAME)
-            .eq('status', 'APPROVED')
+            .eq('language', 'en_US')
             .maybeSingle(),
         ]);
         const linkBody = await linkResponse.json().catch(() => ({}));
@@ -115,11 +122,26 @@ export function PaymentLinkActions({
             linkBody.error ?? 'Payment Link status is unavailable'
           );
         }
-        const approvedTemplate = templateResult.data;
-        setTemplateReady(
-          configResult.data?.status === 'connected' && Boolean(approvedTemplate)
+        const templateReadiness = evaluateTemplateReadiness(
+          templateResult.data ? [templateResult.data] : [],
+          'payment_link',
+          'en_US'
         );
-        setTemplateLanguage(approvedTemplate?.language ?? 'en_US');
+        setTemplateReady(
+          configResult.data?.status === 'connected' && templateReadiness.ready
+        );
+        setTemplateReason(
+          configResult.data?.status !== 'connected'
+            ? 'Connect WhatsApp in Settings first'
+            : templateReadiness.ready
+              ? null
+              : templateReadiness.message
+        );
+        setTemplateLanguage(
+          templateReadiness.ready
+            ? (templateReadiness.row.language ?? 'en_US')
+            : 'en_US'
+        );
       } catch (error) {
         if (cancelled) return;
         setProviderReady(false);
@@ -209,7 +231,8 @@ export function PaymentLinkActions({
     : !hasPhone
       ? 'Add a phone number before sending on WhatsApp'
       : !templateReady
-        ? `Connect WhatsApp and approve the ${PAYMENT_LINK_TEMPLATE_NAME} template`
+        ? (templateReason ??
+          `Connect WhatsApp and approve the ${PAYMENT_LINK_TEMPLATE_NAME} template`)
         : null;
   const active = link?.status === 'created' && link.shortUrl;
   const showStatus =

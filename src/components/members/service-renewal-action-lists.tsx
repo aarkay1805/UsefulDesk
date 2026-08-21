@@ -11,8 +11,11 @@ import {
 import { toast } from 'sonner';
 
 import { useLocale } from '@/hooks/use-locale';
+import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/supabase/client';
 import { istAddDays } from '@/lib/memberships/expiry';
+import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
+import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 import type { Contact, MemberService, Membership } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -59,7 +62,7 @@ const WINDOWS = {
     { value: 'all', label: 'All time', days: null },
   ],
 } as const;
-const SERVICE_TEMPLATE = 'gym_service_renewal_reminder';
+const SERVICE_TEMPLATE = TEMPLATE_CONTRACTS.service_renewal.payload.name;
 
 export function serviceCustomerTarget(
   row: Pick<ServiceQueueRow, 'contact_id' | 'membership_id'>
@@ -68,6 +71,24 @@ export function serviceCustomerTarget(
     contactId: row.contact_id,
     membershipId: row.membership_id ?? null,
   };
+}
+
+export function buildServiceRenewalParams(
+  row: Pick<
+    ServiceQueueRow,
+    'member_name' | 'item_name_snapshot' | 'end_date' | 'current_renewal_price'
+  >,
+  fmt: {
+    date: (value: string) => string;
+    money: (value: number) => string;
+  }
+): string[] {
+  return [
+    row.member_name?.trim() || 'there',
+    row.item_name_snapshot,
+    fmt.date(row.end_date),
+    fmt.money(row.current_renewal_price ?? 0),
+  ];
 }
 
 export function ServiceRenewalActionLists({
@@ -85,6 +106,7 @@ export function ServiceRenewalActionLists({
   sourceControl: ReactNode;
 }) {
   const { fmt } = useLocale();
+  const { accountId } = useAuth();
   const [rows, setRows] = useState<ServiceQueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [bucket, setBucket] = useState<Bucket>('expiring');
@@ -171,28 +193,31 @@ export function ServiceRenewalActionLists({
     }
     setPendingAction(`${row.id}:remind`);
     try {
+      if (!accountId) return toast.error('Account is still loading');
       const supabase = createClient();
       const [{ data: config }, { data: template }] = await Promise.all([
-        supabase.from('whatsapp_config').select('status').maybeSingle(),
+        supabase
+          .from('whatsapp_config')
+          .select('status')
+          .eq('account_id', accountId)
+          .maybeSingle(),
         supabase
           .from('message_templates')
-          .select('language')
+          .select('*')
+          .eq('account_id', accountId)
           .eq('name', SERVICE_TEMPLATE)
-          .eq('status', 'APPROVED')
+          .eq('language', 'en_US')
           .maybeSingle(),
       ]);
       if (config?.status !== 'connected')
         return toast.error('Connect WhatsApp in Settings first');
-      if (!template)
-        return toast.error(
-          `Approve the ${SERVICE_TEMPLATE} template in Meta first`
-        );
-      const params = [
-        row.member_name?.trim() || 'there',
-        row.item_name_snapshot,
-        fmt.date(row.end_date),
-        fmt.money(row.current_renewal_price),
-      ];
+      const readiness = evaluateTemplateReadiness(
+        template ? [template] : [],
+        'service_renewal',
+        'en_US'
+      );
+      if (!readiness.ready) return toast.error(readiness.message);
+      const params = buildServiceRenewalParams(row, fmt);
       const response = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -200,7 +225,7 @@ export function ServiceRenewalActionLists({
           contact_id: row.contact_id,
           message_type: 'template',
           template_name: SERVICE_TEMPLATE,
-          template_language: template.language ?? 'en_US',
+          template_language: readiness.row.language ?? 'en_US',
           template_message_params: { body: params },
           template_params: params,
         }),

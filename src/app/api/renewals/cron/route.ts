@@ -12,6 +12,8 @@ import {
   targetEndDates,
 } from '@/lib/memberships/renewal-reminders';
 import { isRenewalChaseable } from '@/lib/memberships/pricing';
+import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
+import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 
 /**
  * Auto renewal reminders — the scheduled half of the renewal wedge.
@@ -19,8 +21,7 @@ import { isRenewalChaseable } from '@/lib/memberships/pricing';
  * Hit on a schedule (Vercel Cron / external pinger), once a day is
  * plenty. For every account that opted in (renewal_reminder_settings
  * .enabled), it finds memberships expiring at each configured offset
- * and sends the preferred approved Utility renewal template (with the
- * approved Utility legacy name as a fallback) — the same message the manual
+ * and sends the exact approved Marketing renewal contract — the same message the manual
  * "Remind" button sends, just without an owner having to click.
  *
  * Guarded by the shared AUTOMATION_CRON_SECRET (same secret the
@@ -37,7 +38,7 @@ import { isRenewalChaseable } from '@/lib/memberships/pricing';
 // misconfigured account with a huge expiring cohort hammering Meta in
 // one run. Anything above this simply waits for the next run.
 const MAX_SENDS_PER_RUN = 200;
-const SERVICE_TEMPLATE_NAME = 'gym_service_renewal_reminder';
+const SERVICE_TEMPLATE_NAME = TEMPLATE_CONTRACTS.service_renewal.payload.name;
 
 /** Shape of a membership row hydrated for a reminder (to-one embeds). */
 interface ReminderCandidate {
@@ -109,7 +110,7 @@ export async function GET(request: Request) {
           .maybeSingle(),
         admin
           .from('message_templates')
-          .select('name, language, status, category')
+          .select('*')
           .eq('account_id', accountId)
           .in('name', [...RENEWAL_TEMPLATE_NAMES]),
         admin
@@ -248,7 +249,6 @@ export async function GET(request: Request) {
             templateName: template.name ?? RENEWAL_TEMPLATE_NAME,
             language,
             params,
-            purpose: 'renewal',
           });
 
           // Stamp the claim row with the real Meta id now the send landed.
@@ -300,10 +300,10 @@ export async function GET(request: Request) {
                 .maybeSingle(),
               admin
                 .from('message_templates')
-                .select('language')
+                .select('*')
                 .eq('account_id', candidate.account_id)
                 .eq('name', SERVICE_TEMPLATE_NAME)
-                .eq('status', 'APPROVED')
+                .eq('language', 'en_US')
                 .maybeSingle(),
               admin
                 .from('accounts')
@@ -313,16 +313,18 @@ export async function GET(request: Request) {
                 .eq('id', candidate.account_id)
                 .single(),
             ]);
-          if (
-            !config ||
-            config.status !== 'connected' ||
-            !template ||
-            !account
-          ) {
-            throw new Error(
-              `setup required: connect WhatsApp and approve ${SERVICE_TEMPLATE_NAME}`
-            );
+          const templateReadiness = evaluateTemplateReadiness(
+            template ? [template] : [],
+            'service_renewal',
+            'en_US'
+          );
+          if (!config || config.status !== 'connected') {
+            throw new Error('setup required: connect WhatsApp');
           }
+          if (!templateReadiness.ready) {
+            throw new Error(`setup required: ${templateReadiness.message}`);
+          }
+          if (!account) throw new Error('setup required: account not found');
           if (!candidate.phone) throw new Error('member has no phone number');
           const fmt = buildFormatters(resolveAccountLocale(account));
           const conversationId = await findOrCreateConversation(
@@ -343,9 +345,8 @@ export async function GET(request: Request) {
             conversationId,
             contactId: candidate.contact_id,
             templateName: SERVICE_TEMPLATE_NAME,
-            language: template.language ?? 'en_US',
+            language: templateReadiness.row.language ?? 'en_US',
             params,
-            purpose: 'renewal',
           });
           await admin.rpc('finish_service_renewal_reminder', {
             p_member_service_id: candidate.id,

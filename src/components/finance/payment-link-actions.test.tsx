@@ -4,6 +4,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Membership } from '@/types';
+import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
 const fetchPaymentLink = vi.hoisted(() => vi.fn());
 
@@ -35,7 +36,11 @@ vi.mock('@/lib/supabase/client', () => ({
             table === 'whatsapp_config'
               ? { data: { status: 'connected' }, error: null }
               : {
-                  data: { language: 'en_US', status: 'APPROVED' },
+                  data: {
+                    ...TEMPLATE_CONTRACTS.payment_link.payload,
+                    status: 'APPROVED',
+                    parameter_format: 'POSITIONAL',
+                  },
                   error: null,
                 }
           ),

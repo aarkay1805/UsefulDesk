@@ -36,13 +36,49 @@ interface MemberCommunicationProps {
  * without a code change.
  */
 const TEMPLATE_REASONS: Record<string, { type: string; subject: string }> = {
-  gym_membership_expiry_notice: {
+  gym_membership_renewal: {
     type: 'Renewal reminder',
-    subject: 'Membership expiry reminder — plan, expiry date and fee',
+    subject: 'Membership renewal invitation — plan, end date and price',
+  },
+  gym_service_renewal: {
+    type: 'Service renewal',
+    subject: 'Service renewal invitation — service, end date and price',
+  },
+  gym_installment_reminder: {
+    type: 'Installment reminder',
+    subject: 'Existing installment — amount, membership and due date',
+  },
+  gym_payment_link: {
+    type: 'Payment link',
+    subject: 'Existing invoice — amount, reference and secure payment link',
+  },
+  gym_payment_due: {
+    type: 'Payment due',
+    subject: 'Existing membership balance — amount and plan',
+  },
+  gym_payment_receipt: {
+    type: 'Payment receipt',
+    subject: 'Recorded payment — amount, plan and active-until date',
+  },
+  gym_membership_activation: {
+    type: 'Membership activation',
+    subject: 'Activated membership — plan, gym and membership dates',
+  },
+  gym_win_back: {
+    type: 'Win-back campaign',
+    subject: 'Return invitation for a lapsed member',
+  },
+  gym_festival_offer: {
+    type: 'Festival offer',
+    subject: 'Time-bound promotional gym offer',
+  },
+  gym_membership_expiry_notice: {
+    type: 'Legacy renewal message',
+    subject: 'Retired membership-expiry template',
   },
   gym_renewal_reminder: {
-    type: 'Renewal reminder',
-    subject: 'Membership expiry reminder — plan, expiry date and fee',
+    type: 'Legacy renewal message',
+    subject: 'Retired renewal template',
   },
 };
 

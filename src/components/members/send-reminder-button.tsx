@@ -22,11 +22,10 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import {
-  RENEWAL_TEMPLATE_CATEGORY,
   RENEWAL_TEMPLATE_NAME,
   RENEWAL_TEMPLATE_NAMES,
-  selectRenewalTemplate,
 } from '@/lib/memberships/renewal-reminders';
+import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 
 // RENEWAL_TEMPLATE_NAME now lives in the server-safe lib so the cron can
 // share it; re-exported here to keep existing import sites working.
@@ -49,14 +48,14 @@ export interface ReminderReadiness {
   resolution: ReminderResolution | null;
   /** The approved template's language, passed through on send. */
   templateLanguage: string;
-  /** Current or legacy approved Utility template selected for the send. */
+  /** Exact approved Marketing template selected for the send. */
   templateName: string;
 }
 
 /**
  * One-shot check that the one-tap reminder can actually send: WhatsApp
- * must be connected and a supported renewal template approved by Meta as
- * Utility. Fetched once and shared across every action-list row so we don't
+ * must be connected and the exact renewal contract approved by Meta as
+ * Marketing. Fetched once and shared across every action-list row so we don't
  * re-query per member.
  */
 export function useReminderReadiness(): ReminderReadiness {
@@ -84,13 +83,17 @@ export function useReminderReadiness(): ReminderReadiness {
           .maybeSingle(),
         supabase
           .from('message_templates')
-          .select('name, language, status, category')
+          .select('*')
           .eq('account_id', accountId)
           .in('name', [...RENEWAL_TEMPLATE_NAMES]),
       ]);
       if (cancelled) return;
 
-      const template = selectRenewalTemplate(templates);
+      const readiness = evaluateTemplateReadiness(
+        templates,
+        'membership_renewal',
+        'en_US'
+      );
 
       if (!config || config.status !== 'connected') {
         setState({
@@ -107,26 +110,11 @@ export function useReminderReadiness(): ReminderReadiness {
         });
         return;
       }
-      if (!template) {
-        const preferredTemplate = templates?.find(
-          (candidate) => candidate.name === RENEWAL_TEMPLATE_NAME
-        );
-        const categoryMismatch = templates?.find(
-          (candidate) =>
-            candidate.status === 'APPROVED' &&
-            candidate.category !== RENEWAL_TEMPLATE_CATEGORY
-        );
-        const preferredPending =
-          preferredTemplate?.status === 'PENDING' &&
-          preferredTemplate.category === RENEWAL_TEMPLATE_CATEGORY;
+      if (!readiness.ready) {
         setState({
           loading: false,
           ready: false,
-          reason: preferredPending
-            ? `The "${RENEWAL_TEMPLATE_NAME}" Utility template is awaiting Meta approval. Reminders will be available after it is approved and Templates is synced.`
-            : categoryMismatch
-              ? `The "${categoryMismatch.name}" template is approved as ${categoryMismatch.category ?? 'a non-Utility category'}. Meta does not allow changing an approved template's category, so create and approve the "${RENEWAL_TEMPLATE_NAME}" Utility template from the Renewal reminder preset.`
-              : `The "${RENEWAL_TEMPLATE_NAME}" Utility template isn't approved yet. Create it and get Meta approval to send reminders.`,
+          reason: readiness.message,
           resolution: {
             label: 'Go to Templates',
             href: '/settings?tab=templates',
@@ -141,8 +129,8 @@ export function useReminderReadiness(): ReminderReadiness {
         ready: true,
         reason: null,
         resolution: null,
-        templateLanguage: template.language ?? 'en_US',
-        templateName: template.name ?? RENEWAL_TEMPLATE_NAME,
+        templateLanguage: readiness.row.language ?? 'en_US',
+        templateName: readiness.row.name ?? RENEWAL_TEMPLATE_NAME,
       });
     })();
 
@@ -168,12 +156,7 @@ export async function sendRenewalReminder(
 ): Promise<void> {
   // {{3}} expiry + {{4}} fee rendered the way the gym writes them
   // (locale settings, migration 055) — mirrors the cron's params.
-  const params = [
-    membership.contact?.name?.trim() || 'there',
-    membership.plan?.name || 'membership',
-    fmt.date(membership.end_date),
-    fmt.money(membership.fee_amount),
-  ];
+  const params = buildMembershipRenewalParams(membership, fmt);
   const res = await fetch('/api/whatsapp/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -190,6 +173,18 @@ export async function sendRenewalReminder(
   if (!res.ok) {
     throw new Error(payload?.error || 'Failed to send reminder');
   }
+}
+
+export function buildMembershipRenewalParams(
+  membership: Membership,
+  fmt: Pick<LocaleFormatters, 'date' | 'money'>
+): string[] {
+  return [
+    membership.contact?.name?.trim() || 'there',
+    membership.plan?.name || 'membership',
+    fmt.date(membership.end_date),
+    fmt.money(membership.fee_amount),
+  ];
 }
 
 interface SendReminderButtonProps {
