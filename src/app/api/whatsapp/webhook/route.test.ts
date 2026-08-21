@@ -232,9 +232,6 @@ vi.mock('@/lib/ai/auto-reply', () => ({
 vi.mock('@/lib/webhooks/deliver', () => ({
   dispatchWebhookEvent: h.dispatchWebhookEvent,
 }));
-vi.mock('@/lib/consent/whatsapp-opt-out', () => ({
-  isWhatsAppOptOut: () => false,
-}));
 vi.mock('@/lib/whatsapp/referral', () => ({
   parseWhatsAppReferral: () => null,
   contactSourceFromReferral: () => null,
@@ -640,5 +637,31 @@ describe('template quick-reply normalization', () => {
       content_text: 'Track my order',
       interactive_reply_id: 'Track my order',
     });
+  });
+
+  it('records Unsubscribe before suppressing every downstream Flow, automation, and AI action', async () => {
+    await runWebhook({
+      ...templateButton,
+      id: 'wamid.UNSUBSCRIBE1',
+      button: { text: 'Unsubscribe', payload: 'Unsubscribe' },
+    });
+
+    expect(h.state.rpcCalls).toContainEqual({
+      name: 'record_contact_consent',
+      args: {
+        p_account_id: 'account-1',
+        p_contact_id: 'contact-1',
+        p_purpose: 'business_initiated',
+        p_action: 'opt_out',
+        p_source: 'whatsapp_inbound_keyword',
+        p_evidence: {
+          meta_message_id: 'wamid.UNSUBSCRIBE1',
+          keyword: 'unsubscribe',
+        },
+      },
+    });
+    expect(h.dispatchInboundToFlows).not.toHaveBeenCalled();
+    expect(h.runAutomationsForTrigger).not.toHaveBeenCalled();
+    expect(h.dispatchInboundToAiReply).not.toHaveBeenCalled();
   });
 });

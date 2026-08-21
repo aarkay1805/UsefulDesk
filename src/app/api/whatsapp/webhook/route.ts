@@ -15,7 +15,7 @@ import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook';
-import { isWhatsAppOptOut } from '@/lib/consent/whatsapp-opt-out';
+import { whatsappOptOutText } from '@/lib/consent/whatsapp-opt-out';
 import { cronSecretConfigured, isAuthorizedCronRequest } from '@/lib/cron/auth';
 import {
   contactSourceFromReferral,
@@ -807,7 +807,9 @@ async function processMessage(
   // the replay boundary so a redelivery cannot repeat either side effect.
   await setReferralFirstTouchSource(contactRecord, referral);
 
-  if (message.type === 'text' && isWhatsAppOptOut(contentText)) {
+  const optOutText = whatsappOptOutText(message.type, contentText);
+  const isOptOut = optOutText !== null;
+  if (isOptOut) {
     const { error: consentError } = await supabaseAdmin().rpc(
       'record_contact_consent',
       {
@@ -818,7 +820,7 @@ async function processMessage(
         p_source: 'whatsapp_inbound_keyword',
         p_evidence: {
           meta_message_id: message.id,
-          keyword: contentText?.trim().toLowerCase(),
+          keyword: optOutText.trim().toLowerCase(),
         },
       }
     );
@@ -867,25 +869,27 @@ async function processMessage(
   // no active flows take the runner's early-exit "no_match" path
   // basically for free (one indexed SELECT for the active run).
   // ============================================================
-  const flowResult = await dispatchInboundToFlows({
-    accountId,
-    userId: configOwnerUserId,
-    contactId: contactRecord.id,
-    conversationId: conversation.id,
-    message: interactiveReplyId
-      ? {
-          kind: 'interactive_reply',
-          reply_id: interactiveReplyId,
-          reply_title: contentText ?? '',
-          meta_message_id: message.id,
-        }
-      : {
-          kind: 'text',
-          text: contentText ?? message.text?.body ?? '',
-          meta_message_id: message.id,
-        },
-    isFirstInboundMessage,
-  });
+  const flowResult = isOptOut
+    ? { consumed: true }
+    : await dispatchInboundToFlows({
+        accountId,
+        userId: configOwnerUserId,
+        contactId: contactRecord.id,
+        conversationId: conversation.id,
+        message: interactiveReplyId
+          ? {
+              kind: 'interactive_reply',
+              reply_id: interactiveReplyId,
+              reply_title: contentText ?? '',
+              meta_message_id: message.id,
+            }
+          : {
+              kind: 'text',
+              text: contentText ?? message.text?.body ?? '',
+              meta_message_id: message.id,
+            },
+        isFirstInboundMessage,
+      });
   const flowConsumed = flowResult.consumed;
 
   // Fire any automations that react to this webhook event. All dispatches
@@ -911,9 +915,9 @@ async function processMessage(
   // manually-imported contacts sending for the first time. We dispatch both
   // so users can pick whichever semantic they want; an automation that
   // listens to only one trigger runs only when that trigger matches.
-  if (contactOutcome.wasCreated)
+  if (!isOptOut && contactOutcome.wasCreated)
     automationTriggers.unshift('new_contact_created');
-  if (isFirstInboundMessage)
+  if (!isOptOut && isFirstInboundMessage)
     automationTriggers.unshift('first_inbound_message');
   for (const triggerType of automationTriggers) {
     await runAutomationsForTrigger({
