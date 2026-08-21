@@ -7,6 +7,7 @@ import {
   MAX_REMINDER_OFFSETS,
   isRenewalTemplateReady,
   selectRenewalTemplate,
+  type RenewalTemplateReadinessRow,
 } from './renewal-reminders';
 
 describe('normalizeDaysBefore', () => {
@@ -53,37 +54,67 @@ describe('isRemindableStatus', () => {
 });
 
 describe('isRenewalTemplateReady', () => {
-  it('accepts only an approved Utility template', () => {
+  it('accepts only the exact approved Marketing membership-renewal contract', () => {
     expect(
-      isRenewalTemplateReady({ status: 'APPROVED', category: 'Utility' })
+      isRenewalTemplateReady({
+        name: 'gym_membership_renewal',
+        language: 'en_US',
+        status: 'APPROVED',
+        category: 'Marketing',
+        parameter_format: 'POSITIONAL',
+        body_text:
+          'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the buttons below to respond.',
+        footer_text: 'Tap Unsubscribe to stop promotional messages.',
+        buttons: [
+          { type: 'QUICK_REPLY', text: 'Renew membership' },
+          { type: 'QUICK_REPLY', text: 'Unsubscribe' },
+        ],
+      })
     ).toBe(true);
     expect(
-      isRenewalTemplateReady({ status: 'APPROVED', category: 'Marketing' })
+      isRenewalTemplateReady({
+        name: 'gym_membership_renewal',
+        status: 'APPROVED',
+        category: 'Utility',
+      })
     ).toBe(false);
     expect(
-      isRenewalTemplateReady({ status: 'PENDING', category: 'Utility' })
+      isRenewalTemplateReady({
+        name: 'gym_membership_expiry_notice',
+        status: 'APPROVED',
+        category: 'Utility',
+      })
     ).toBe(false);
     expect(isRenewalTemplateReady(null)).toBe(false);
   });
 
-  it('prefers the new Utility expiry notice and falls back to the legacy Utility name', () => {
-    const legacy = {
-      name: 'gym_renewal_reminder',
+  it('does not treat retired Utility renewal names as a fallback', () => {
+    const current: RenewalTemplateReadinessRow = {
+      name: 'gym_membership_renewal',
       language: 'en_US',
       status: 'APPROVED',
-      category: 'Utility',
-    };
-    const current = {
-      name: 'gym_membership_expiry_notice',
-      language: 'en_US',
-      status: 'APPROVED',
-      category: 'Utility',
+      category: 'Marketing',
+      parameter_format: 'POSITIONAL',
+      body_text:
+        'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the buttons below to respond.',
+      footer_text: 'Tap Unsubscribe to stop promotional messages.',
+      buttons: [
+        { type: 'QUICK_REPLY' as const, text: 'Renew membership' },
+        { type: 'QUICK_REPLY' as const, text: 'Unsubscribe' },
+      ],
     };
 
-    expect(selectRenewalTemplate([legacy, current])).toEqual(current);
     expect(
-      selectRenewalTemplate([legacy, { ...current, category: 'Marketing' }])
-    ).toEqual(legacy);
+      selectRenewalTemplate([
+        {
+          name: 'gym_renewal_reminder',
+          language: 'en_US',
+          status: 'APPROVED',
+          category: 'Utility',
+        },
+        current,
+      ])
+    ).toEqual(current);
   });
 });
 

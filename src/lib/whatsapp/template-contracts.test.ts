@@ -211,8 +211,12 @@ describe('gym WhatsApp template contracts', () => {
           sample_values: { body: wanted.samples },
         },
       });
-      expect(contract?.payload.footer_text).toBe(wanted.footer);
-      expect(contract?.payload.buttons).toEqual(wanted.buttons);
+      expect(contract?.payload.footer_text).toBe(
+        'footer' in wanted ? wanted.footer : undefined
+      );
+      expect(contract?.payload.buttons).toEqual(
+        'buttons' in wanted ? wanted.buttons : undefined
+      );
       expect(contract?.purpose.length).toBeGreaterThan(20);
       expect(contract?.trigger.length).toBeGreaterThan(20);
       expect(getTemplateContract(wanted.name)?.id).toBe(wanted.id);

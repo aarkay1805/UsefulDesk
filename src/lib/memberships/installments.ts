@@ -1,10 +1,12 @@
 import { istAddDays } from './expiry';
+import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
 export const INSTALLMENT_NOW_PERCENT = 60;
 export const INSTALLMENT_LATER_PERCENT = 40;
 export const INSTALLMENT_SECOND_DUE_DAYS = 28;
 export const INSTALLMENT_REMINDER_DAYS_BEFORE = [7, 3, 1, 0] as const;
-export const INSTALLMENT_REMINDER_TEMPLATE_NAME = 'gym_installment_reminder';
+export const INSTALLMENT_REMINDER_TEMPLATE_NAME =
+  TEMPLATE_CONTRACTS.installment_reminder.payload.name;
 
 function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;

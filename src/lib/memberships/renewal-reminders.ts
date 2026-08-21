@@ -19,26 +19,24 @@
 
 import { istAddDays, istToday } from './expiry';
 import type { MembershipStatus } from '@/types';
+import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
+import {
+  evaluateTemplateReadiness,
+  type TemplateReadinessRow,
+} from '@/lib/whatsapp/template-readiness';
 
 /**
  * The preferred Utility template a gym creates + submits in Settings → Templates.
  * Lives here (server-safe) rather than in the client button so both the
  * manual send and the cron can import it without pulling client code.
  */
-export const RENEWAL_TEMPLATE_NAME = 'gym_membership_expiry_notice';
-export const LEGACY_RENEWAL_TEMPLATE_NAME = 'gym_renewal_reminder';
-export const RENEWAL_TEMPLATE_NAMES = [
-  RENEWAL_TEMPLATE_NAME,
-  LEGACY_RENEWAL_TEMPLATE_NAME,
-] as const;
-export const RENEWAL_TEMPLATE_CATEGORY = 'Utility';
+export const RENEWAL_TEMPLATE_NAME =
+  TEMPLATE_CONTRACTS.membership_renewal.payload.name;
+export const RENEWAL_TEMPLATE_NAMES = [RENEWAL_TEMPLATE_NAME] as const;
+export const RENEWAL_TEMPLATE_CATEGORY =
+  TEMPLATE_CONTRACTS.membership_renewal.category;
 
-export type RenewalTemplateReadinessRow = {
-  name?: string | null;
-  language?: string | null;
-  status?: string | null;
-  category?: string | null;
-};
+export type RenewalTemplateReadinessRow = TemplateReadinessRow;
 
 /**
  * Meta may approve a submitted Utility template after reclassifying it as
@@ -49,10 +47,11 @@ export type RenewalTemplateReadinessRow = {
 export function isRenewalTemplateReady(
   template: RenewalTemplateReadinessRow | null | undefined
 ): boolean {
-  return (
-    template?.status === 'APPROVED' &&
-    template.category === RENEWAL_TEMPLATE_CATEGORY
-  );
+  return evaluateTemplateReadiness(
+    template ? [template] : [],
+    'membership_renewal',
+    template?.language ?? 'en_US'
+  ).ready;
 }
 
 /** Prefer the current transactional name without breaking gyms whose legacy
@@ -60,14 +59,12 @@ export function isRenewalTemplateReady(
 export function selectRenewalTemplate<T extends RenewalTemplateReadinessRow>(
   templates: readonly T[] | null | undefined
 ): T | null {
-  if (!templates) return null;
-  for (const name of RENEWAL_TEMPLATE_NAMES) {
-    const ready = templates.find(
-      (template) => template.name === name && isRenewalTemplateReady(template)
-    );
-    if (ready) return ready;
-  }
-  return null;
+  const result = evaluateTemplateReadiness(
+    templates,
+    'membership_renewal',
+    'en_US'
+  );
+  return result.ready ? result.row : null;
 }
 
 /** Hard ceiling on configured offsets — guards the settings UI + cron
