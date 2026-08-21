@@ -6,6 +6,14 @@
 
 ---
 
+## Leads Phone column uses the PhoneInput master
+
+The Leads table's built-in Phone column edited through a plain `<input type="text">` and displayed the raw stored string — the last subscriber phone field bypassing `PhoneInput`, contrary to the master-component rule in `docs/ui-patterns.md`. Typed phone *custom* fields already routed to it via `customEditKind`, so the two phone columns behaved differently in the same table. `EditSpec` in `src/app/(dashboard)/leads/page.tsx` now carries a `{ kind: 'phone'; column: 'phone' }` variant instead of folding phone into the `text` variant, and `liveColumns` overrides the column's render with `accountQualifiedPhoneDisplayValue` so legacy digits-only rows show the account's country code.
+
+Gotcha: the commit path is unchanged on purpose. `PhoneInput`'s `onValueChange` already reports the complete account-qualified value, so `commitCell`'s built-in-column branch still writes `edit.column` directly and the required-phone guard plus the unique-violation toast keep working. Do not re-normalize in `commitCell`.
+
+---
+
 ## Renewal reminder template category guard
 
 The member-profile Remind action, Settings readiness card, and automated renewal cron now require a supported template to be both **Approved** and **Utility**. Live diagnosis found four Meta-accepted sends to two members later marked failed while the operating account's `gym_renewal_reminder` was classified Marketing; normal WhatsApp text delivery remained healthy. The failed provider-side category repair means new setup uses the transactional `gym_membership_expiry_notice`, while an already-approved Utility legacy name remains supported. The shared selector lives in `src/lib/memberships/renewal-reminders.ts`; both settings surfaces explain the non-destructive replacement path, and the cron skips misconfigured accounts. Meta edits send the required name, language, components, and requested category, and a false Meta success result now blocks the local category/status update so the provider and local row cannot silently diverge.
