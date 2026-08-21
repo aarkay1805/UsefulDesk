@@ -14,6 +14,7 @@ const messageInserts: Array<Record<string, unknown>> = [];
 // Toggles for the per-test scenario.
 let existingConversation: Record<string, unknown> | null = null;
 let contactRow: Record<string, unknown> | null = null;
+let templateRow: Record<string, unknown> | null = null;
 // A conversation created during the request becomes retrievable by id —
 // the shared send core re-loads the conversation (with its contact) from
 // just the id, so the mock must model insert-then-select-by-id.
@@ -56,7 +57,7 @@ function makeSupabaseMock() {
             error: null,
           };
         case 'message_templates':
-          return { data: null, error: null };
+          return { data: templateRow, error: null };
         default:
           return { data: null, error: null };
       }
@@ -208,6 +209,7 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     existingConversation = null;
     createdConversation = null;
     contactRow = CONTACT;
+    templateRow = null;
     supabaseMock = makeSupabaseMock();
     requireOperationalAccess.mockReset();
     requireOperationalAccess.mockResolvedValue({
@@ -274,6 +276,42 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     expect(messageInserts[0]).toMatchObject({
       conversation_id: 'conv-existing',
     });
+  });
+
+  it('rejects a Marketing-classified renewal template before Meta accepts then fails it', async () => {
+    existingConversation = {
+      id: 'conv-existing',
+      account_id: 'acct-1',
+      contact_id: 'contact-1',
+      contact: CONTACT,
+    };
+    templateRow = {
+      id: 'template-1',
+      account_id: 'acct-1',
+      user_id: 'user-1',
+      name: 'gym_renewal_reminder',
+      language: 'en_US',
+      status: 'APPROVED',
+      category: 'Marketing',
+      body_text:
+        'Hi {{1}}, your {{2}} membership expires on {{3}}. The fee is {{4}}.',
+      created_at: '2026-08-21T00:00:00.000Z',
+    };
+
+    const res = await postContactTemplate({
+      template_name: 'gym_renewal_reminder',
+      template_message_params: {
+        body: ['Rajat', 'Annual', '31 Aug 2026', '₹12,000'],
+      },
+      template_params: ['Rajat', 'Annual', '31 Aug 2026', '₹12,000'],
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.error).toMatch(/approved as Marketing/i);
+    expect(json.error).toMatch(/gym_membership_expiry_notice/);
+    expect(sendTemplateMessage).not.toHaveBeenCalled();
+    expect(messageInserts).toHaveLength(0);
   });
 
   it('404s when the contact is not in the caller account', async () => {

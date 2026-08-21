@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { BranchLink as Link } from '@/components/layout/branch-link';
 import { useEffect, useState } from 'react';
 import {
   AlertCircle,

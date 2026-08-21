@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { BranchLink as Link } from '@/components/layout/branch-link';
 import { useState } from 'react';
 import { MessageSquare, UserPlus, Radio, Zap, Inbox } from 'lucide-react';
 import type { ComponentType } from 'react';

@@ -41,6 +41,11 @@ import {
   assertBusinessMessageAllowed,
   MessageSuppressedError,
 } from '@/lib/consent/business-messaging';
+import {
+  isRenewalTemplateReady,
+  RENEWAL_TEMPLATE_NAME,
+  RENEWAL_TEMPLATE_NAMES,
+} from '@/lib/memberships/renewal-reminders';
 
 export const MEDIA_KINDS = ['image', 'video', 'document', 'audio'] as const;
 export const VALID_MESSAGE_TYPES = [
@@ -330,6 +335,25 @@ export async function sendMessageToConversation(
       );
     }
     templateRow = data ?? null;
+
+    // Renewal reminders are a transactional product path. Meta can accept a
+    // Marketing-classified template send, return a wamid, and then fail it
+    // asynchronously under Marketing delivery controls. Stop that known-bad
+    // configuration at the shared boundary so Inbox, member actions, public
+    // API callers, and future send surfaces all get an actionable error.
+    const templateRowName = templateRow?.name;
+    if (
+      templateRow &&
+      RENEWAL_TEMPLATE_NAMES.some((name) => name === templateRowName) &&
+      !isRenewalTemplateReady(templateRow)
+    ) {
+      const category = templateRow.category ?? 'a non-Utility category';
+      throw new SendMessageError(
+        'renewal_template_not_ready',
+        `The "${templateRow.name}" renewal template is approved as ${category}, so Meta can accept the request and still fail delivery. Create and approve "${RENEWAL_TEMPLATE_NAME}" as a Utility template, then sync Templates before sending.`,
+        409
+      );
+    }
   }
 
   const attempt = async (phone: string): Promise<string> => {

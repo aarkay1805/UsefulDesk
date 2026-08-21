@@ -44,7 +44,7 @@ migration [`033`](../supabase/migrations/033_renewal_reminders.sql).
 | `/api/renewals/cron` deployed           | ✅ (401 without header, 200 with)       |
 | `AUTOMATION_CRON_SECRET` (Vercel)       | ✅ set + redeployed                     |
 | GitHub Action scheduler                 | ✅ green                                |
-| `gym_membership_expiry_notice` approved | ⬜ **blocked on Meta Business account** |
+| `gym_membership_expiry_notice` approved | ⬜ **Meta create rejects Utility category (`100/2388025`)** |
 | Account opt-in                          | ⬜ off by default                       |
 | Members with expiry dates               | ⬜ business data                        |
 
@@ -71,11 +71,22 @@ Example body:
 Until the template is both APPROVED and still classified as Utility, the cron
 silently skips the account (readiness gate). Meta can approve a submitted
 template after reclassifying it as Marketing; that does not satisfy the renewal
-reminder contract.
+reminder contract. The shared outbound-send boundary enforces the same rule, so
+Inbox and API sends of a recognized Marketing-classified renewal template fail
+immediately with the Utility replacement path instead of returning a provider
+message id that later changes to failed.
+
+The Get Started checklist uses this same readiness contract: an Approved
+Utility `gym_membership_expiry_notice`, or an already-approved Utility legacy
+`gym_renewal_reminder`, completes the template step. Approved Marketing rows do
+not.
 
 If Meta reclassifies the template as Marketing while it is still Pending, it
-cannot be edited. Delete that pending provider template, recreate the pinned
-preset with the account-update copy above, and sync again after review.
+cannot be edited. Do not assume deletion allows an immediate retry: Meta can
+reserve the deleted name for 30 days. If the canonical name is launch-critical,
+either wait for that cooldown or explicitly ship and review support for a
+temporary unique name before creating it. An unrecognized provider name will
+not be selected by member sends or the cron.
 
 ### 2. Turn it on
 
@@ -94,18 +105,42 @@ Returns `{ sent, failed, skipped_already_sent, accounts_considered, notes }`.
 - Run twice → second run `skipped_already_sent` climbs, `sent = 0` (dedupe).
 - Check `renewal_reminders_sent` has a row with `wa_message_id` filled.
 
+## Controlled pilot (after provider readiness)
+
+1. Keep automated renewal reminders off. Sync from Meta and verify the exact
+   template name is supported, status is **Approved**, category is **Utility**,
+   and the four body parameters remain in contract order.
+2. Use one staff-controlled, consented WhatsApp contact in the single pilot
+   account. Give its test membership an expiry matching one configured offset;
+   do not use a real customer's membership or change a collectible balance.
+3. With action-time approval to send, run the member-profile Remind action once.
+   Verify the provider message id is stored and the message advances beyond
+   accepted to delivered/read before testing automation.
+4. With separate approval to enable automation and send, select one offset,
+   enable the account, and invoke the cron after 09:00 account-local time. Run it
+   a second time and verify no second message is created for the same
+   membership, expiry, and offset.
+5. Disable the pilot schedule immediately after evidence is captured. Confirm
+   the reminder ledger has exactly one automated claim, the conversation has
+   the expected messages only, and there are no failed sends or setup notes.
+
+Every provider send, automation enablement, test-record mutation, and cleanup
+remains an explicit production action; this runbook does not pre-authorize it.
+
 ## Troubleshooting
 
-| Symptom                                     | Cause / fix                                                                                                                                                                     |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `401 Unauthorized`                          | header value ≠ `AUTOMATION_CRON_SECRET`. Check Vercel env + GH repo secret match.                                                                                               |
-| `503 cron not configured`                   | env var not loaded → set in Vercel, **redeploy**.                                                                                                                               |
-| 200 but `sent: 0`, `accounts_considered: 0` | no account has `enabled = true`.                                                                                                                                                |
-| 200 but account skipped                     | WhatsApp not connected, or the template is not APPROVED as Utility for that account.                                                                                            |
-| Template APPROVED but Remind stays blocked  | Meta classified it as Marketing and will not let an approved category change. Create the pinned `gym_membership_expiry_notice` Utility preset, then wait for approval and sync. |
-| Settings says **Utility needed**            | The same category guard is active before scheduling. Open Templates, create the renewal preset as Utility, and sync after Meta approves it.                                     |
-| `sent: 0` with members expiring             | check offsets vs the account-local date; only exact `today + offset` matches.                                                                                                   |
-| `accounts_before_send_hour` high            | expected — those accounts' local time hasn't reached 09:00 yet; a later hourly run picks them up.                                                                               |
+| Symptom                                      | Cause / fix                                                                                                                                                                     |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `401 Unauthorized`                           | header value ≠ `AUTOMATION_CRON_SECRET`. Check Vercel env + GH repo secret match.                                                                                               |
+| `503 cron not configured`                    | env var not loaded → set in Vercel, **redeploy**.                                                                                                                               |
+| 200 but `sent: 0`, `accounts_considered: 0`  | no account has `enabled = true`.                                                                                                                                                |
+| 200 but account skipped                      | WhatsApp not connected, or the template is not APPROVED as Utility for that account.                                                                                            |
+| Template APPROVED but Remind stays blocked   | Meta classified it as Marketing and will not let an approved category change. Create the pinned `gym_membership_expiry_notice` Utility preset, then wait for approval and sync. |
+| Settings says **Utility needed**             | The same category guard is active before scheduling. Open Templates, create the renewal preset as Utility, and sync after Meta approves it.                                     |
+| Inbox rejects a renewal template immediately | The selected supported renewal name is not Approved as Utility. Create/approve `gym_membership_expiry_notice`, sync Templates, then retry.                                      |
+| Meta create returns `100/2388025`             | The connected WABA rejected the requested Utility category; do not retry as Marketing under the canonical renewal name. Review the copy/category in Meta Manager or with Meta support first. |
+| `sent: 0` with members expiring              | check offsets vs the account-local date; only exact `today + offset` matches.                                                                                                   |
+| `accounts_before_send_hour` high             | expected — those accounts' local time hasn't reached 09:00 yet; a later hourly run picks them up.                                                                               |
 
 ## Ops
 

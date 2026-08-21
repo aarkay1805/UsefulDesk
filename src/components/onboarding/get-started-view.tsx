@@ -24,6 +24,7 @@ import type { OnboardingStep, OnboardingStepId } from '@/lib/onboarding/steps';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { branchHref } from '@/lib/auth/branch-context';
 import { cn } from '@/lib/utils';
 
 const STEP_ICONS: Record<OnboardingStepId, typeof MessageCircle> = {
@@ -42,11 +43,18 @@ const GROUP_LABELS: { key: OnboardingStep['group']; label: string }[] = [
   { key: 'payments', label: 'Collect payments' },
 ];
 
-function StepRow({ step }: { step: OnboardingStep }) {
+function StepRow({
+  step,
+  accountId,
+}: {
+  step: OnboardingStep;
+  accountId: string | null;
+}) {
   const Icon = STEP_ICONS[step.id];
+  const href = branchHref(step.href, accountId);
   return (
     <Link
-      href={step.href}
+      href={href}
       className={cn(
         'group border-border bg-card flex items-start gap-3.5 rounded-xl border p-4 transition-colors',
         'hover:border-border-hover'
@@ -82,9 +90,10 @@ function StepRow({ step }: { step: OnboardingStep }) {
 }
 
 export function GetStartedView() {
-  const { profileLoading, canEditSettings, account } = useAuth();
+  const { profileLoading, canEditSettings, account, accountId } = useAuth();
   const onboarding = useOnboardingStatus();
   const { startNavigation, isPending } = usePendingNavigation();
+  const dashboardHref = branchHref('/dashboard', accountId);
 
   if (profileLoading) {
     return (
@@ -111,9 +120,9 @@ export function GetStartedView() {
           <Button
             variant="outline"
             nativeButton={false}
-            render={<Link href="/dashboard" />}
-            onClick={() => startNavigation('/dashboard')}
-            loading={isPending('/dashboard')}
+            render={<Link href={dashboardHref} />}
+            onClick={() => startNavigation(dashboardHref)}
+            loading={isPending(dashboardHref)}
           >
             Go to dashboard
           </Button>
@@ -143,9 +152,9 @@ export function GetStartedView() {
           <Button
             variant="outline"
             nativeButton={false}
-            render={<Link href="/dashboard" />}
-            onClick={() => startNavigation('/dashboard')}
-            loading={isPending('/dashboard')}
+            render={<Link href={dashboardHref} />}
+            onClick={() => startNavigation(dashboardHref)}
+            loading={isPending(dashboardHref)}
           >
             Go to dashboard
           </Button>
@@ -164,6 +173,9 @@ export function GetStartedView() {
 
   const { steps, completedCount, total, recommended } = onboarding;
   const RecommendedIcon = recommended ? STEP_ICONS[recommended.id] : Rocket;
+  const recommendedHref = recommended
+    ? branchHref(recommended.href, accountId)
+    : null;
 
   return (
     <section className="animate-in fade-in-50 mx-auto max-w-3xl duration-200">
@@ -200,9 +212,9 @@ export function GetStartedView() {
             </div>
             <Button
               nativeButton={false}
-              render={<Link href={recommended.href} />}
-              onClick={() => startNavigation(recommended.href)}
-              loading={isPending(recommended.href)}
+              render={<Link href={recommendedHref!} />}
+              onClick={() => startNavigation(recommendedHref!)}
+              loading={isPending(recommendedHref!)}
             >
               Set up <ArrowRight data-icon="inline-end" />
             </Button>
@@ -220,7 +232,7 @@ export function GetStartedView() {
             {steps
               .filter((step) => step.group === key)
               .map((step) => (
-                <StepRow key={step.id} step={step} />
+                <StepRow key={step.id} step={step} accountId={accountId} />
               ))}
           </div>
         </div>

@@ -6,9 +6,15 @@
 
 ---
 
+## Fresh-account navigation branch context
+
+Get Started now carries the selected account through every setup action and dashboard handoff with `branchHref`, including the pending-navigation target. Dashboard links use the shared `BranchLink` wrapper for KPIs, quick actions, work queues, reports, inbox, and empty-state handoffs. A production smoke on an isolated empty branch exposed that both surfaces rendered the right zero-data state but emitted branchless links; `src/components/onboarding/get-started-view.tsx` and `src/components/layout/branch-link.tsx` now follow the same durable branch-URL contract as the sidebar.
+
+---
+
 ## Renewal reminder template category guard
 
-The member-profile Remind action, Settings readiness card, and automated renewal cron now require a supported template to be both **Approved** and **Utility**. Live diagnosis found four Meta-accepted sends to two members later marked failed while the operating account's `gym_renewal_reminder` was classified Marketing; normal WhatsApp text delivery remained healthy. The failed provider-side category repair means new setup uses `gym_membership_expiry_notice`, while an already-approved Utility legacy name remains supported. Its preset is deliberately an existing-membership account update with no renewal-completion CTA after Meta reclassified the first submitted wording as Marketing. The shared selector lives in `src/lib/memberships/renewal-reminders.ts`; both settings surfaces explain the replacement path, and the cron skips misconfigured accounts. Meta edits send the required name, language, components, and requested category, and a false Meta success result now blocks the local category/status update so the provider and local row cannot silently diverge.
+The member-profile Remind action, Settings readiness card, Get Started checklist, automated renewal cron, and shared outbound-send boundary now require a supported renewal template to be both **Approved** and **Utility**. Live diagnosis found four Meta-accepted sends to two members later marked failed while the operating account's `gym_renewal_reminder` was classified Marketing; normal WhatsApp text delivery remained healthy. The shared send guard now stops Inbox and API callers before Meta accepts that known-bad configuration and points them to `gym_membership_expiry_notice`; an already-approved Utility legacy name remains supported. Its preset is deliberately an existing-membership account update with no renewal-completion CTA after Meta reclassified the first submitted wording as Marketing. The shared selector lives in `src/lib/memberships/renewal-reminders.ts`; settings, onboarding, member sends, cron, and `src/lib/whatsapp/send-message.ts` all enforce it. Meta edits send the required name, language, components, and requested category, and a false Meta success result now blocks the local category/status update so the provider and local row cannot silently diverge. The connected WABA currently rejects creation of the replacement as Utility with Meta `100/2388025`, so do not resubmit it as Marketing under the canonical name; resolve the provider classification first. Meta can also reserve a deleted template name for 30 days, so waiting or a code-reviewed temporary alias is a deliberate launch decision.
 
 ---
 

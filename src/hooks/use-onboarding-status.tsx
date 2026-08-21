@@ -15,7 +15,10 @@ import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { getErrorMessage } from '@/lib/errors';
-import { RENEWAL_TEMPLATE_NAME } from '@/lib/memberships/renewal-reminders';
+import {
+  RENEWAL_TEMPLATE_NAMES,
+  selectRenewalTemplate,
+} from '@/lib/memberships/renewal-reminders';
 import {
   deriveOnboardingSteps,
   ONBOARDING_STEP_COUNT,
@@ -107,9 +110,8 @@ export function OnboardingProvider({
         supabase.from('whatsapp_config').select('status').maybeSingle(),
         supabase
           .from('message_templates')
-          .select('id', { count: 'exact', head: true })
-          .eq('name', RENEWAL_TEMPLATE_NAME)
-          .eq('status', 'APPROVED'),
+          .select('name, status, category')
+          .in('name', [...RENEWAL_TEMPLATE_NAMES]),
         supabase
           .from('membership_plans')
           .select('is_active, pricing_options:plan_pricing_options(is_active)')
@@ -145,7 +147,9 @@ export function OnboardingProvider({
           config.status === 'fulfilled' &&
           config.value.data?.status === 'connected',
         templateApproved:
-          template.status === 'fulfilled' && (template.value.count ?? 0) > 0,
+          template.status === 'fulfilled' &&
+          !template.value.error &&
+          selectRenewalTemplate(template.value.data ?? []) !== null,
         hasActivePlanPricing:
           plans.status === 'fulfilled' &&
           !plans.value.error &&

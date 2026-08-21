@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { BranchLink as Link } from '@/components/layout/branch-link';
 import { createClient } from '@/lib/supabase/client';
 import { Inbox, UserRoundSearch } from 'lucide-react';
 import {

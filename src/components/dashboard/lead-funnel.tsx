@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { BranchLink as Link } from '@/components/layout/branch-link';
 import { Filter } from 'lucide-react';
 import { useLocale } from '@/hooks/use-locale';
 import type { LeadFunnelData } from '@/lib/dashboard/types';
