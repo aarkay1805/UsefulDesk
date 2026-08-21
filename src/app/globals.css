@@ -226,6 +226,11 @@ html[data-theme='violet'] {
   --primary-soft-2: oklch(0.54 0.24 293 / 0.2);
   --ring: oklch(0.54 0.24 293);
   --chart-1: oklch(0.54 0.24 293);
+  /* Every other accent ships a paired second series; violet was the one theme
+   * falling through to the neutral mode-level --chart-2, so a two-series chart
+   * read as "accent + gray" on the default theme. Blue pairs with violet at a
+   * clear hue distance and keeps its own contrast in both modes. */
+  --chart-2: oklch(0.7 0.15 254);
   --sidebar-primary: oklch(0.54 0.24 293);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-ring: oklch(0.54 0.24 293);

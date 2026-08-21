@@ -8,18 +8,6 @@ export interface ConversationsSeriesPoint {
   outgoing: number;
 }
 
-export interface LeadStatusSlice {
-  key: string;
-  label: string;
-  color: string;
-  count: number;
-}
-
-export interface LeadsDonutData {
-  slices: LeadStatusSlice[];
-  total: number;
-}
-
 export interface LeadFunnelStage {
   key: string;
   label: string;

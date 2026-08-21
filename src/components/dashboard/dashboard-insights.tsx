@@ -7,14 +7,12 @@ import {
   loadActivity,
   loadConversationsSeries,
   loadLeadFunnel,
-  loadLeadsDonut,
 } from '@/lib/dashboard/queries';
 import { loadLeadSourceRatings } from '@/lib/dashboard/lead-conversion-rating';
 import type {
   ActivityItem,
   ConversationsSeriesPoint,
   LeadFunnelData,
-  LeadsDonutData,
   LeadSourceRatingData,
 } from '@/lib/dashboard/types';
 import { useLocale } from '@/hooks/use-locale';
@@ -22,11 +20,15 @@ import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { ConversationsChart } from '@/components/dashboard/conversations-chart';
 import { LeadConversionRating } from '@/components/dashboard/lead-conversion-rating';
 import { LeadFunnel } from '@/components/dashboard/lead-funnel';
-import { LeadsDonut } from '@/components/dashboard/leads-donut';
-import { NeedsAttentionCard } from '@/components/dashboard/needs-attention-card';
 
 type RangeDays = 7 | 30 | 90;
 
+/**
+ * Historical reading, not today's work — the action queues all live above
+ * this section. The lead-status ring was removed: "Leads by stage" already
+ * groups the same lead_status buckets and adds how long leads sit in each,
+ * so the ring only restated counts the bars already carried.
+ */
 export function DashboardInsights() {
   const { fmt, locale } = useLocale();
   const [conversationRange, setConversationRange] = useState<RangeDays>(30);
@@ -47,7 +49,6 @@ export function DashboardInsights() {
     90: null,
   });
   const [ratingLoading, setRatingLoading] = useState(true);
-  const [leadsDonut, setLeadsDonut] = useState<LeadsDonutData | null>(null);
   const [leadFunnel, setLeadFunnel] = useState<LeadFunnelData | null>(null);
   const [activity, setActivity] = useState<ActivityItem[] | null>(null);
 
@@ -79,13 +80,6 @@ export function DashboardInsights() {
       .finally(() => {
         if (!cancelled) setRatingLoading(false);
       });
-    void loadLeadsDonut(db)
-      .then((next) => {
-        if (!cancelled) setLeadsDonut(next);
-      })
-      .catch((error) =>
-        console.error('[dashboard] pipeline insights failed:', error)
-      );
     void loadLeadFunnel(db)
       .then((next) => {
         if (!cancelled) setLeadFunnel(next);
@@ -148,17 +142,14 @@ export function DashboardInsights() {
 
   return (
     <section aria-labelledby="business-picture-heading" className="space-y-4">
-      <div>
-        <h2
-          id="business-picture-heading"
-          className="text-foreground text-sm font-semibold"
-        >
-          The full picture
-        </h2>
-        <p className="text-muted-foreground mt-0.5 text-xs">
-          Check your messages, leads, and recent work.
-        </p>
-      </div>
+      <h2
+        id="business-picture-heading"
+        className="text-foreground text-sm font-semibold"
+      >
+        The full picture
+      </h2>
+      {/* The two range-controlled reads sit together, so one 7/30/90 decision
+          reads as one row rather than two unrelated widgets. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div className="h-full lg:col-span-3">
           <ConversationsChart
@@ -167,14 +158,6 @@ export function DashboardInsights() {
             range={conversationRange}
             onRangeChange={handleConversationRangeChange}
           />
-        </div>
-        <div className="h-full lg:col-span-2">
-          <LeadsDonut data={leadsDonut} loading={!leadsDonut} />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="h-full lg:col-span-3">
-          <NeedsAttentionCard />
         </div>
         <div className="h-full lg:col-span-2">
           <LeadConversionRating

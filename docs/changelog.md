@@ -6,6 +6,18 @@
 
 ---
 
+## Dashboard distilled to one queue per fact
+
+The Dashboard said the same things twice, so each fact now has exactly one home. **Needs attention** lost Renewals due, Fees to collect, and Inactive members: *Today at a glance* already carried those three numbers and pointed at the same routes, so the page stated the same work in two visual languages a screen apart. What remains — May leave, Trials to follow up, Auto-pay problems — is the set no other queue owns, and the card moved out of *The full picture* into **Work to do**, next to Lead work and Member work, because an exception queue is work rather than reading. The **Lead status** donut was deleted (`leads-donut.tsx`, `loadLeadsDonut`, `LeadsDonutData`, `LeadStatusSlice`): *Leads by stage* groups the same `lead_status` buckets off the same `lead_field_options` columns and adds average days in stage, so the ring only restated counts the bars already had. The ring's one unique value, the lead total, now sits beside the *Leads by stage* title.
+
+Every section subtitle was cut — each only restated the card titles under it — along with the per-card subtitles on Lead work, Member work, Needs attention, Messages, Lead health score, and Leads by stage. The six hand-rolled `<section className="border-border bg-card rounded-xl border">` shells in `src/components/dashboard/` now use the canonical `Card`/`CardHeader className="border-b"`/`CardContent` composition that the other ~50 card call sites already use; the dashboard was the only place carrying a second card chrome. Inside the action lists the bordered, tinted `<ul>` that sat inside a bordered card is gone — `-mx-2` plus `divide-y` gives flush rows whose dividers and hover bleed into the card padding — and the dashed empty-state box went with it, since after the flattening an empty queue read as *more* contained than a populated one. Recent work dropped its alternating row stripe (it rode on top of the dividers, so every row carried two separators) and replaced the 5/10/20/50 page-size buttons with one expand control that reveals more than the old maximum in a click.
+
+`conversations-chart.tsx` no longer hard-codes `#3b82f6`/`#7c3aed`; both series resolve through `--chart-1`/`--chart-2`. Gotcha: do not substitute `--primary` for the sent series — this was tried and collides with a fixed blue on a cobalt account. `html[data-theme='violet']` gained the `--chart-2` it was missing (every other accent already shipped a pair), so the default theme no longer falls through to the neutral mode-level gray; this also fixes `report-trend-card.tsx`, which already read that pair.
+
+Key code: `src/app/(dashboard)/dashboard/page.tsx`, `src/components/dashboard/*`, `src/lib/dashboard/queries.ts`, `src/lib/dashboard/types.ts`, `src/app/globals.css`.
+
+---
+
 ## Notes & follow-ups composer and timeline polish
 
 The lead/member profile's **Notes & follow-ups** surface was refined without changing its data model or entry points. `FollowUpFields` now renders every value control as the same outline/small menu-trigger under its own `Label size="sm"` caption — Reason, Follow-up, Assign to, and Reminder — replacing the split where owner and reminder sat in a separate bordered strip as ghost buttons; owner and reminder share a row that collapses to one column in a narrow composer. A custom due date renders through `fmt.date` instead of the raw `YYYY-MM-DD`, and the unset reminder trigger reads **No reminder**, matching its own menu.

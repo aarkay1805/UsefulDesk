@@ -5,6 +5,13 @@ import { Filter } from 'lucide-react';
 import { useLocale } from '@/hooks/use-locale';
 import type { LeadFunnelData } from '@/lib/dashboard/types';
 import { buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { EmptyState } from './empty-state';
 import { Skeleton } from './skeleton';
 
@@ -22,41 +29,45 @@ export function LeadFunnel({ data, loading }: LeadFunnelProps) {
   const maxCount = data ? Math.max(1, ...data.stages.map((s) => s.count)) : 1;
 
   return (
-    <section className="border-border bg-card rounded-xl border">
-      <header className="border-border flex items-center justify-between border-b px-5 py-4">
-        <div>
-          <h2 className="text-foreground text-sm font-semibold">
-            Leads by stage
-          </h2>
-          <p className="text-muted-foreground mt-0.5 text-xs">
-            See how many leads are in each stage and how long they stay
-          </p>
-        </div>
-        <Link
-          data-slot="button"
-          href="/leads"
-          className={buttonVariants({ variant: 'link', size: 'xs' })}
-        >
-          See all leads
-        </Link>
-      </header>
+    <Card>
+      <CardHeader className="border-b">
+        {/* The lead total moved here from the retired status ring, which was
+            the only thing that view carried beyond these bars. */}
+        <CardTitle className="flex items-baseline gap-2">
+          Leads by stage
+          {data && data.totalLeads > 0 && (
+            <span className="text-muted-foreground text-sm font-normal tabular-nums">
+              {fmt.number(data.totalLeads)}
+            </span>
+          )}
+        </CardTitle>
+        <CardAction>
+          <Link
+            data-slot="button"
+            href="/leads"
+            className={buttonVariants({ variant: 'link', size: 'xs' })}
+          >
+            See all leads
+          </Link>
+        </CardAction>
+      </CardHeader>
 
       {loading || !data ? (
-        <div className="space-y-2 p-5">
+        <CardContent className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-8 w-full" />
           ))}
-        </div>
+        </CardContent>
       ) : data.totalLeads === 0 && data.convertedThisMonth === 0 ? (
-        <div className="p-5">
+        <CardContent>
           <EmptyState
             icon={Filter}
             title="No leads yet"
             hint="Add or import leads to see stage and conversion numbers here."
           />
-        </div>
+        </CardContent>
       ) : (
-        <div className="grid grid-cols-1 gap-6 p-5 lg:grid-cols-5">
+        <CardContent className="grid grid-cols-1 gap-6 lg:grid-cols-5">
           {/* Stage bars */}
           <div className="lg:col-span-3">
             <ul className="space-y-2.5">
@@ -143,8 +154,8 @@ export function LeadFunnel({ data, loading }: LeadFunnelProps) {
               )}
             </div>
           </div>
-        </div>
+        </CardContent>
       )}
-    </section>
+    </Card>
   );
 }

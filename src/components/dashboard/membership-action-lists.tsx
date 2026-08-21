@@ -20,6 +20,7 @@ import { FollowUpCompletionControl } from '@/components/follow-ups/follow-up-com
 import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MemberIdentity } from '@/components/members/member-identity';
 import { MemberDetailView } from '@/components/members/member-detail-view';
 import { MemberForm } from '@/components/members/member-form';
@@ -125,26 +126,19 @@ export function MembershipActionLists() {
     (followUpMode === 'due' ? followUpTotal : 0) + (expiring?.length ?? 0);
 
   return (
-    <section className="border-border bg-card rounded-xl border">
-      <header className="border-border border-b px-5 py-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-foreground text-sm font-semibold">
-              Member work
-            </h2>
-            {followUps !== null && expiring !== null && (
-              <Badge variant={actionTotal > 0 ? 'warning' : 'success'}>
-                {actionTotal} to do
-              </Badge>
-            )}
-          </div>
-          <p className="text-muted-foreground mt-0.5 text-xs">
-            Follow-ups and renewals to finish.
-          </p>
-        </div>
-      </header>
+    <Card>
+      <CardHeader className="border-b">
+        <CardTitle className="flex items-center gap-2">
+          Member work
+          {followUps !== null && expiring !== null && (
+            <Badge variant={actionTotal > 0 ? 'warning' : 'success'}>
+              {actionTotal} to do
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
 
-      <div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-2">
+      <CardContent className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div>
           <QueueHeading
             label={
@@ -165,7 +159,7 @@ export function MembershipActionLists() {
               }
             />
           ) : (
-            <ul className="border-border/60 divide-border/60 bg-muted/20 divide-y overflow-hidden rounded-lg border">
+            <ul className="divide-border/60 -mx-2 divide-y">
               {followUps.map((followUp) => {
                 const name =
                   followUp.contact?.name?.trim() ||
@@ -177,7 +171,7 @@ export function MembershipActionLists() {
                 return (
                   <li
                     key={followUp.id}
-                    className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-2.5 py-2 transition-colors"
+                    className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-2 py-2 transition-colors"
                     tabIndex={0}
                     aria-label={`Open ${name} details`}
                     onClick={() =>
@@ -259,7 +253,7 @@ export function MembershipActionLists() {
               text="No memberships expiring in the next 7 days."
             />
           ) : (
-            <ul className="border-border/60 divide-border/60 bg-muted/20 divide-y overflow-hidden rounded-lg border">
+            <ul className="divide-border/60 -mx-2 divide-y">
               {expiring.slice(0, LIST_LIMIT).map((membership) => {
                 const days = daysBetween(fmt.today(), membership.end_date);
                 return (
@@ -269,7 +263,7 @@ export function MembershipActionLists() {
                   >
                     <Link
                       href={`/members?view=renewals&member=${encodeURIComponent(membership.id)}`}
-                      className="flex items-center gap-3 px-3 py-2"
+                      className="flex items-center gap-3 px-2 py-2"
                     >
                       <div className="min-w-0 flex-1">
                         <MemberIdentity
@@ -294,7 +288,7 @@ export function MembershipActionLists() {
             </p>
           )}
         </div>
-      </div>
+      </CardContent>
       {completing && (
         <CompleteFollowUpDialog
           open={Boolean(completing)}
@@ -334,7 +328,7 @@ export function MembershipActionLists() {
         member={editing}
         onSaved={() => setNonce((value) => value + 1)}
       />
-    </section>
+    </Card>
   );
 }
 
@@ -377,7 +371,7 @@ function QueueEmpty({
   text: string;
 }) {
   return (
-    <div className="border-border text-muted-foreground flex items-center gap-2 rounded-lg border border-dashed px-3 py-4 text-xs">
+    <div className="text-muted-foreground flex items-center gap-2 py-3 text-xs">
       <Icon className="size-4 shrink-0" />
       {text}
     </div>

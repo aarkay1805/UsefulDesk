@@ -43,14 +43,9 @@ export function GymMetrics() {
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h2 className="text-foreground text-sm font-semibold">
-            Today at a glance
-          </h2>
-          <p className="text-muted-foreground mt-0.5 text-xs">
-            Start with money, renewals, and members who need help.
-          </p>
-        </div>
+        <h2 className="text-foreground text-sm font-semibold">
+          Today at a glance
+        </h2>
         <Link
           data-slot="button"
           href="/finance?view=performance"

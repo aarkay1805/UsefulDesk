@@ -18,8 +18,6 @@ import type {
   ConversationsSeriesPoint,
   LeadFunnelData,
   LeadFunnelStage,
-  LeadsDonutData,
-  LeadStatusSlice,
   ResponseTimeBucket,
   ResponseTimeSummary,
 } from './types';
@@ -67,55 +65,6 @@ export async function loadConversationsSeries(
     day,
     ...(buckets.get(day) ?? { incoming: 0, outgoing: 0 }),
   }));
-}
-
-// --- 3. Leads donut ----------------------------------------------------
-
-export async function loadLeadsDonut(db: DB): Promise<LeadsDonutData> {
-  // Status buckets are per-account editable (migration 042) — RLS
-  // scopes the option rows to the caller's account; no rows = the
-  // built-in defaults.
-  const { data: optionRows } = await db
-    .from('lead_field_options')
-    .select('key, label, color')
-    .eq('field', 'status')
-    .order('sort_order', { ascending: true });
-  const columns = statusColumns(
-    resolveFieldOptions('status', optionRows ?? [])
-  );
-
-  // One head-count query per status bucket instead of pulling rows —
-  // counts stay exact past PostgREST's row cap. A handful of small
-  // queries in parallel is fine at this scale.
-  const counts = await Promise.all(
-    columns.map((col) => {
-      let q = db
-        .from('contacts')
-        .select('id, memberships!left(id)', { count: 'exact', head: true })
-        .is('memberships', null);
-      q =
-        col.key === 'new'
-          ? q.is('lead_status', null)
-          : q.eq('lead_status', col.key);
-      return q;
-    })
-  );
-
-  const slices: LeadStatusSlice[] = columns
-    .map((col, i) => ({
-      key: col.key,
-      label: col.label,
-      color: col.color,
-      count: counts[i].count ?? 0,
-    }))
-    // Hide empty buckets from the ring — trimming keeps the visual
-    // clean for the common case.
-    .filter((s) => s.count > 0);
-
-  return {
-    slices,
-    total: slices.reduce((sum, s) => sum + s.count, 0),
-  };
 }
 
 // --- 3b. Lead funnel + conversion --------------------------------------

@@ -4,13 +4,10 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
   AlertCircle,
-  CalendarClock,
   ChevronRight,
-  CircleDollarSign,
   CreditCard,
   FlaskConical,
   ShieldAlert,
-  UserRoundX,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -19,14 +16,7 @@ import { useLocale } from '@/hooks/use-locale';
 import { loadOwnerAttention } from '@/lib/reports/reporting';
 import type { OwnerAttention } from '@/lib/reports/types';
 import { createClient } from '@/lib/supabase/client';
-import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from './empty-state';
 import { Skeleton } from './skeleton';
 
@@ -36,9 +26,14 @@ interface AttentionItem {
   value: number;
   icon: LucideIcon;
   href: string;
-  badge?: string;
 }
 
+/**
+ * The exceptions no other queue owns. Renewals due, fees to collect, and
+ * inactive members deliberately do NOT appear here — "Today at a glance"
+ * already carries those three numbers and links to the same destinations,
+ * so repeating them made the page state the same work twice.
+ */
 export function NeedsAttentionCard() {
   const { accountId } = useAuth();
   const { fmt, locale } = useLocale();
@@ -70,28 +65,6 @@ export function NeedsAttentionCard() {
   const items: AttentionItem[] = attention
     ? [
         {
-          label: 'Renewals due',
-          detail: 'Plans ending in 7 days',
-          value: attention.renewalsDue,
-          icon: CalendarClock,
-          href: '/members?view=renewals',
-          badge: '7 days',
-        },
-        {
-          label: 'Fees to collect',
-          detail: fmt.money(attention.outstandingAmount),
-          value: attention.outstandingDues,
-          icon: CircleDollarSign,
-          href: '/members?view=payments',
-        },
-        {
-          label: 'Inactive members',
-          detail: 'No visit for 10 days or more',
-          value: attention.inactiveMembers,
-          icon: UserRoundX,
-          href: '/members?view=renewals',
-        },
-        {
           label: 'May leave',
           detail: 'Active members marked as at risk',
           value: attention.churnRisk,
@@ -116,18 +89,17 @@ export function NeedsAttentionCard() {
     : [];
 
   return (
-    <Card className="h-full">
-      <CardHeader>
+    <Card>
+      <CardHeader className="border-b">
         <CardTitle>Needs attention</CardTitle>
-        <CardDescription>Open a list to start the work.</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-2 sm:grid-cols-2">
+      <CardContent className="grid gap-2 sm:grid-cols-3">
         {failed ? (
           <EmptyState
             icon={AlertCircle}
             title="Could not load these lists"
             hint="Reload the page to try again."
-            className="min-h-52 sm:col-span-2"
+            className="min-h-32 sm:col-span-3"
           />
         ) : attention ? (
           items.map((item) => (
@@ -140,11 +112,8 @@ export function NeedsAttentionCard() {
                 <item.icon className="size-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="text-foreground truncate text-sm font-medium">
-                    {item.label}
-                  </span>
-                  {item.badge && <Badge variant="neutral">{item.badge}</Badge>}
+                <span className="text-foreground block truncate text-sm font-medium">
+                  {item.label}
                 </span>
                 <span className="text-muted-foreground block truncate text-xs">
                   {item.detail}
@@ -157,7 +126,7 @@ export function NeedsAttentionCard() {
             </Link>
           ))
         ) : (
-          Array.from({ length: 6 }, (_, index) => (
+          Array.from({ length: 3 }, (_, index) => (
             <Skeleton key={index} className="h-14 w-full" />
           ))
         )}
