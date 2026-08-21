@@ -121,6 +121,6 @@ describe('Razorpay Payment Link safety contract', () => {
     expect(actions).toContain(
       'disabled={readinessLoading || creatingFor !== null || !providerReady}'
     );
-    expect(constants).toContain("'gym_payment_link'");
+    expect(constants).toContain('TEMPLATE_CONTRACTS.payment_link.payload.name');
   });
 });
