@@ -209,7 +209,18 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     existingConversation = null;
     createdConversation = null;
     contactRow = CONTACT;
-    templateRow = null;
+    templateRow = {
+      id: 'template-custom',
+      account_id: 'acct-1',
+      user_id: 'user-1',
+      name: 'order_update',
+      language: 'en_US',
+      status: 'APPROVED',
+      category: 'Utility',
+      parameter_format: 'POSITIONAL',
+      body_text: 'Hi {{1}}, order {{2}} has an update.',
+      created_at: '2026-08-21T00:00:00.000Z',
+    };
     supabaseMock = makeSupabaseMock();
     requireOperationalAccess.mockReset();
     requireOperationalAccess.mockResolvedValue({
@@ -278,7 +289,7 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     });
   });
 
-  it('rejects a Marketing-classified renewal template before Meta accepts then fails it', async () => {
+  it('rejects a Utility-classified Marketing renewal contract before Meta', async () => {
     existingConversation = {
       id: 'conv-existing',
       account_id: 'acct-1',
@@ -289,17 +300,23 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
       id: 'template-1',
       account_id: 'acct-1',
       user_id: 'user-1',
-      name: 'gym_renewal_reminder',
+      name: 'gym_membership_renewal',
       language: 'en_US',
       status: 'APPROVED',
-      category: 'Marketing',
+      category: 'Utility',
+      parameter_format: 'POSITIONAL',
       body_text:
-        'Hi {{1}}, your {{2}} membership expires on {{3}}. The fee is {{4}}.',
+        'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the buttons below to respond.',
+      footer_text: 'Tap Unsubscribe to stop promotional messages.',
+      buttons: [
+        { type: 'QUICK_REPLY', text: 'Renew membership' },
+        { type: 'QUICK_REPLY', text: 'Unsubscribe' },
+      ],
       created_at: '2026-08-21T00:00:00.000Z',
     };
 
     const res = await postContactTemplate({
-      template_name: 'gym_renewal_reminder',
+      template_name: 'gym_membership_renewal',
       template_message_params: {
         body: ['Rajat', 'Annual', '31 Aug 2026', '₹12,000'],
       },
@@ -308,8 +325,7 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     const json = await res.json();
 
     expect(res.status).toBe(409);
-    expect(json.error).toMatch(/approved as Marketing/i);
-    expect(json.error).toMatch(/gym_membership_expiry_notice/);
+    expect(json.error).toMatch(/category required by its UsefulDesk contract/i);
     expect(sendTemplateMessage).not.toHaveBeenCalled();
     expect(messageInserts).toHaveLength(0);
   });

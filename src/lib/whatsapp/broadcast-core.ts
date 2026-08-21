@@ -30,7 +30,12 @@ import {
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
-import { assertBusinessMessageAllowed } from '@/lib/consent/business-messaging';
+import { assertTemplateConsentAllowed } from '@/lib/consent/template-consent';
+import type { TemplateConsentScope } from '@/lib/whatsapp/template-contracts';
+import {
+  resolveTemplateSendPolicy,
+  TemplateSendPolicyError,
+} from '@/lib/whatsapp/template-send-policy';
 
 /** Thrown by createBroadcast on a caller-visible failure; route maps it. */
 export class BroadcastError extends Error {
@@ -80,6 +85,7 @@ interface BroadcastDeliveryContext {
   phoneNumberId: string;
   accessToken: string;
   templateRow: MessageTemplate | null;
+  consentScope: TemplateConsentScope;
 }
 
 export interface BroadcastDrainResult {
@@ -174,6 +180,18 @@ export async function createBroadcast(
     );
   }
   const templateRow = (rawTemplateRow as MessageTemplate | null) ?? null;
+  try {
+    resolveTemplateSendPolicy(
+      templateRow ? [templateRow] : [],
+      templateName,
+      templateLanguage
+    );
+  } catch (error) {
+    if (error instanceof TemplateSendPolicyError) {
+      throw new BroadcastError(error.code, error.message, 409);
+    }
+    throw error;
+  }
 
   // Resolve each recipient to a contact. Invalid phones are dropped
   // (counted as rejected) rather than aborting the whole broadcast.
@@ -413,11 +431,11 @@ async function deliverClaimedBroadcastRecipient(
   let lastError: string | null = null;
 
   try {
-    await assertBusinessMessageAllowed(
+    await assertTemplateConsentAllowed(
       db,
       recipient.account_id,
       phone,
-      'broadcast'
+      context.consentScope
     );
   } catch (error) {
     lastError = error instanceof Error ? error.message : 'Consent check failed';
@@ -504,11 +522,18 @@ async function loadBroadcastDeliveryContext(
   if (templateResult.data && !isMessageTemplate(templateResult.data)) {
     throw new Error('Message template is malformed locally');
   }
+  const templateRow =
+    (templateResult.data as MessageTemplate | null | undefined) ?? null;
+  const policy = resolveTemplateSendPolicy(
+    templateRow ? [templateRow] : [],
+    recipient.template_name,
+    recipient.template_language
+  );
 
   return {
     phoneNumberId: configResult.data.phone_number_id as string,
     accessToken: decrypt(configResult.data.access_token as string),
-    templateRow:
-      (templateResult.data as MessageTemplate | null | undefined) ?? null,
+    templateRow,
+    consentScope: policy.consentScope,
   };
 }

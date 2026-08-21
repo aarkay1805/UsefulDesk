@@ -11,6 +11,10 @@ import {
   assertBusinessMessageAllowed,
   type BusinessMessagePurpose,
 } from '@/lib/consent/business-messaging';
+import { assertTemplateConsentAllowed } from '@/lib/consent/template-consent';
+import { resolveTemplateSendPolicy } from '@/lib/whatsapp/template-send-policy';
+import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
+import type { MessageTemplate } from '@/types';
 
 // ------------------------------------------------------------
 // Automation-side Meta sender.
@@ -92,12 +96,41 @@ async function sendViaMeta(
     throw new Error(`contact phone invalid: ${contact.phone}`);
   }
 
-  await assertBusinessMessageAllowed(
-    db,
-    input.accountId,
-    contact.phone,
-    input.purpose ?? 'automation'
-  );
+  let templateRow: MessageTemplate | null = null;
+  if (input.kind === 'template') {
+    const language = input.language ?? 'en_US';
+    const { data } = await db
+      .from('message_templates')
+      .select('*')
+      .eq('account_id', input.accountId)
+      .eq('name', input.templateName)
+      .eq('language', language)
+      .maybeSingle();
+    if (data && !isMessageTemplate(data)) {
+      throw new Error(
+        'Template row is malformed locally — run "Sync from Meta" in Settings to repair it.'
+      );
+    }
+    templateRow = data ?? null;
+    const policy = resolveTemplateSendPolicy(
+      templateRow ? [templateRow] : [],
+      input.templateName,
+      language
+    );
+    await assertTemplateConsentAllowed(
+      db,
+      input.accountId,
+      contact.phone,
+      policy.consentScope
+    );
+  } else {
+    await assertBusinessMessageAllowed(
+      db,
+      input.accountId,
+      contact.phone,
+      input.purpose ?? 'automation'
+    );
+  }
 
   const { data: config, error: configErr } = await db
     .from('whatsapp_config')
@@ -119,6 +152,7 @@ async function sendViaMeta(
         templateName: input.templateName,
         language: input.language,
         params: input.params,
+        template: templateRow ?? undefined,
       });
       return r.messageId;
     }

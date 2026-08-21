@@ -4,7 +4,11 @@ import { sendTemplateMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
-import { assertBusinessMessageAllowed } from '@/lib/consent/business-messaging';
+import { assertTemplateConsentAllowed } from '@/lib/consent/template-consent';
+import {
+  resolveTemplateSendPolicy,
+  TemplateSendPolicyError,
+} from '@/lib/whatsapp/template-send-policy';
 import {
   sanitizePhoneForMeta,
   isValidE164,
@@ -156,6 +160,24 @@ export async function POST(request: Request) {
       );
     }
     const templateRow = rawTemplateRow ?? null;
+    let templatePolicy;
+    try {
+      templatePolicy = resolveTemplateSendPolicy(
+        templateRow ? [templateRow] : [],
+        template_name,
+        template_language || 'en_US'
+      );
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof TemplateSendPolicyError
+              ? error.message
+              : 'Could not verify the selected template.',
+        },
+        { status: error instanceof TemplateSendPolicyError ? 409 : 500 }
+      );
+    }
 
     const results: BroadcastResult[] = [];
     let sentCount = 0;
@@ -175,11 +197,11 @@ export async function POST(request: Request) {
       }
 
       try {
-        await assertBusinessMessageAllowed(
+        await assertTemplateConsentAllowed(
           supabase,
           accountId,
           recipient.phone,
-          'broadcast'
+          templatePolicy.consentScope
         );
       } catch (error) {
         results.push({

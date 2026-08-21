@@ -43,6 +43,15 @@ import {
   assertBusinessMessageAllowed,
   MessageSuppressedError,
 } from '@/lib/consent/business-messaging';
+import {
+  assertTemplateConsentAllowed,
+  MessageConsentRequiredError,
+} from '@/lib/consent/template-consent';
+import {
+  resolveTemplateSendPolicy,
+  TemplateSendPolicyError,
+} from '@/lib/whatsapp/template-send-policy';
+import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 
 export async function POST(request: Request) {
   try {
@@ -90,19 +99,57 @@ export async function POST(request: Request) {
       templateName: typeof template?.name === 'string' ? template.name : null,
     });
 
-    // API sends are business-initiated even when the payload is plain text.
-    // Check before creating contact/conversation side effects.
+    // Check before creating contact/conversation side effects. Templates use
+    // the synced provider category (and exact registry contract when known);
+    // plain text retains the API-purpose suppression policy.
     try {
-      await assertBusinessMessageAllowed(
-        ctx.supabase,
-        ctx.accountId,
-        to,
-        'api'
-      );
+      if (type === 'template' && typeof template?.name === 'string') {
+        const language =
+          typeof template.language === 'string' ? template.language : 'en_US';
+        const { data: rawTemplateRow } = await ctx.supabase
+          .from('message_templates')
+          .select('*')
+          .eq('account_id', ctx.accountId)
+          .eq('name', template.name)
+          .eq('language', language)
+          .maybeSingle();
+        if (rawTemplateRow && !isMessageTemplate(rawTemplateRow)) {
+          throw new SendMessageError(
+            'template_malformed',
+            'Template row is malformed locally — run "Sync from Meta" in Settings to repair it.',
+            500
+          );
+        }
+        const policy = resolveTemplateSendPolicy(
+          rawTemplateRow ? [rawTemplateRow] : [],
+          template.name,
+          language
+        );
+        await assertTemplateConsentAllowed(
+          ctx.supabase,
+          ctx.accountId,
+          to,
+          policy.consentScope
+        );
+      } else {
+        await assertBusinessMessageAllowed(
+          ctx.supabase,
+          ctx.accountId,
+          to,
+          'api'
+        );
+      }
     } catch (error) {
-      if (error instanceof MessageSuppressedError) {
+      if (
+        error instanceof MessageSuppressedError ||
+        error instanceof MessageConsentRequiredError
+      ) {
         throw new SendMessageError(error.code, error.message, 409);
       }
+      if (error instanceof TemplateSendPolicyError) {
+        throw new SendMessageError(error.code, error.message, 409);
+      }
+      if (error instanceof SendMessageError) throw error;
       throw new SendMessageError(
         'consent_check_failed',
         error instanceof Error
