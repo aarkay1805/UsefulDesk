@@ -18,7 +18,7 @@ import {
   type ReactNode,
 } from 'react';
 import { toast } from 'sonner';
-import { Calendar, Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Pencil, Trash2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -27,6 +27,7 @@ import { isUniqueViolation } from '@/lib/contacts/dedupe';
 import { canDeleteAnyNote } from '@/lib/auth/roles';
 import { manualFollowUpReasonForWrite } from '@/lib/follow-ups/manual';
 import { buildProfileActivity } from '@/lib/follow-ups/profile-activity';
+import { daysBetween } from '@/lib/memberships/expiry';
 import {
   duePresets,
   FOLLOW_UP_TASK_TYPES,
@@ -46,6 +47,7 @@ import {
   type FollowUpDraft,
 } from '@/components/follow-ups/follow-up-fields';
 import type { ContactNote, FollowUp, FollowUpReason } from '@/types';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MotionList, MotionListItem } from '@/components/ui/motion-list';
 import { Textarea } from '@/components/ui/textarea';
@@ -57,6 +59,27 @@ import {
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-up-dialog';
 import { FollowUpCompletionControl } from '@/components/follow-ups/follow-up-completion-control';
+import { TASK_ICON } from '@/components/follow-ups/follow-up-task-summary';
+
+/** Row actions stay hidden until the card is hovered or focused, but a touch
+ *  device never hovers — there they are always on. */
+const HOVER_ACTION_CLASS =
+  'shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100';
+
+/** Urgency of an OPEN task, using the product's established due buckets.
+ *  A closed task never claims urgency. */
+function dueBadge(
+  status: FollowUp['status'],
+  dueDate: string,
+  today: string
+): { label: string; variant: 'danger' | 'warning' } | null {
+  if (status !== 'open') return null;
+  const diff = daysBetween(today, dueDate);
+  if (Number.isNaN(diff)) return null;
+  if (diff < 0) return { label: 'Overdue', variant: 'danger' };
+  if (diff === 0) return { label: 'Due today', variant: 'warning' };
+  return null;
+}
 
 /** The slice of a follow_ups row the profile activity timeline needs. */
 interface ProfileFollowUp {
@@ -270,13 +293,13 @@ export function ContactNotesThread({
       if (taskError) {
         if (isUniqueViolation(taskError)) {
           toast.error(
-            'Note added — this contact already has an open follow-up, so no new task was created'
+            'Note added — this contact already has an open follow-up, so no new follow-up was created'
           );
         } else {
-          toast.error('Note added, but creating the follow-up task failed');
+          toast.error('Note added, but creating the follow-up failed');
         }
       } else {
-        toast.success('Note and follow-up task added');
+        toast.success('Note and follow-up added');
         setFollowUpDraft(DEFAULT_FOLLOW_UP_DRAFT);
         notifyFollowUpChanged();
       }
@@ -429,7 +452,7 @@ export function ContactNotesThread({
         if (taskError) {
           if (isUniqueViolation(taskError)) {
             toast.error(
-              'Note saved — this contact already has an open follow-up, so no new task was created'
+              'Note saved — this contact already has an open follow-up, so no new follow-up was created'
             );
           } else {
             toast.error('Note saved, but creating the follow-up failed');
@@ -450,6 +473,19 @@ export function ContactNotesThread({
     return true;
   }
 
+  // A disabled primary button must never be a dead end: the status slot
+  // beside it always says what the composer is still waiting for.
+  const hasText = Boolean(newNote.trim());
+  const needsFollowUpDate =
+    followUpDraft.enabled && !resolveDueDate(followUpDraft, fmt.today());
+  const composerHint = needsFollowUpDate
+    ? 'Pick a follow-up date'
+    : followUpDraft.enabled && !hasText
+      ? 'Add a note to save this follow-up'
+      : draftSaved
+        ? 'Draft saved'
+        : null;
+
   return (
     <>
       {/* pb-4: 16px of air between the composer block (Create note row)
@@ -463,6 +499,7 @@ export function ContactNotesThread({
           <NoteComposerCard
             text={newNote}
             onTextChange={setNewNote}
+            onSubmit={addNote}
             draft={followUpDraft}
             onPatch={patchFollowUpDraft}
             staff={staff}
@@ -470,23 +507,26 @@ export function ContactNotesThread({
             showReason={Boolean(membershipId)}
             textareaRef={textareaRef}
           />
-          <div className="flex items-center justify-between">
+          {/* Wraps rather than clips: on a phone the status drops to its own
+              line instead of truncating mid-sentence. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
             <Button
               onClick={addNote}
-              disabled={!newNote.trim() || savingNote}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              disabled={!hasText || needsFollowUpDate}
+              loading={savingNote}
               size="sm"
             >
-              {savingNote && <Loader2 className="size-3.5 animate-spin" />}
-              Create note
+              {followUpDraft.enabled
+                ? 'Create note & follow-up'
+                : 'Create note'}
             </Button>
-            <div className="flex items-center gap-2">
-              {draftSaved && (
-                <span className="text-muted-foreground text-xs">
-                  Draft saved
+            <div className="flex min-w-0 items-center gap-1">
+              {composerHint && (
+                <span role="status" className="text-muted-foreground text-xs">
+                  {composerHint}
                 </span>
               )}
-              {(newNote.trim() || draftSaved) && (
+              {(hasText || draftSaved) && (
                 <Button
                   type="button"
                   variant="destructive-ghost"
@@ -599,11 +639,17 @@ function FollowUpActivityCard({
   footerAction?: ReactNode;
 }) {
   const { fmt } = useLocale();
+  // Same "<name> (Me)" order the Assign to field uses, so the card and the
+  // control that set it never read differently.
   const assigneeName = followUp.assigned_to
     ? followUp.assigned_to === currentUserId
-      ? `Me (${nameById.get(followUp.assigned_to) ?? 'me'})`
+      ? `${nameById.get(followUp.assigned_to) ?? 'Me'} (Me)`
       : (nameById.get(followUp.assigned_to) ?? 'Teammate')
     : null;
+  // The icon carries the task type, so the heading can keep the product's
+  // one noun for the thing itself and give the row to its urgency instead.
+  const TaskIcon = TASK_ICON[followUp.task_type] ?? TASK_ICON.todo;
+  const due = dueBadge(followUp.status, followUp.due_date, fmt.today());
 
   return (
     <div className="grid grid-cols-[auto_1fr] gap-2.5">
@@ -612,10 +658,13 @@ function FollowUpActivityCard({
         <div className="flex items-start justify-between gap-3 p-3">
           <div className="flex min-w-0 items-start gap-2.5">
             <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-full">
-              <Calendar className="size-4" />
+              <TaskIcon className="size-4" />
             </span>
             <div className="min-w-0">
-              <p className="text-foreground text-sm">Follow-up</p>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <p className="text-foreground text-sm">Follow-up</p>
+                {due && <Badge variant={due.variant}>{due.label}</Badge>}
+              </div>
               <p className="text-muted-foreground text-xs">
                 {followUpDueLabel(
                   followUp.task_type,
@@ -623,6 +672,11 @@ function FollowUpActivityCard({
                   fmt.today()
                 )}
               </p>
+              {followUp.remind_at && followUp.status === 'open' && (
+                <p className="text-muted-foreground text-xs">
+                  Reminder at {fmt.time(followUp.remind_at)}
+                </p>
+              )}
               {noteContent && <div className="mt-2">{noteContent}</div>}
             </div>
           </div>
@@ -632,14 +686,19 @@ function FollowUpActivityCard({
           />
         </div>
         <div className="text-muted-foreground border-border/50 flex min-w-0 items-center justify-between gap-2 border-t px-3 py-2 text-xs">
-          <span className="flex min-w-0 items-center gap-4">
-            <span className="shrink-0">
+          {/* The avatar names the creator; the footer carries when it was
+              made and who owns it, wrapping rather than clipping. */}
+          <span className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-0.5">
+            <span
+              className="shrink-0"
+              title={fmt.dateTime(followUp.created_at)}
+            >
               Created on {fmt.date(followUp.created_at)}
             </span>
             {assigneeName && (
-              <span className="min-w-0 truncate">
-                Assigned to{' '}
-                <span className="text-foreground font-medium">
+              <span className="flex min-w-0 items-center gap-1">
+                <span className="shrink-0">Assigned to</span>
+                <span className="text-foreground truncate font-medium">
                   {assigneeName}
                 </span>
               </span>
@@ -717,6 +776,7 @@ function StaffAvatar({ name, src }: { name: string; src?: string | null }) {
 function NoteComposerCard({
   text,
   onTextChange,
+  onSubmit,
   draft,
   onPatch,
   staff,
@@ -727,6 +787,8 @@ function NoteComposerCard({
 }: {
   text: string;
   onTextChange: (v: string) => void;
+  /** ⌘/Ctrl+Enter accelerator — Enter still inserts a newline. */
+  onSubmit?: () => void;
   draft: FollowUpDraft;
   onPatch: (patch: Partial<FollowUpDraft>) => void;
   staff: StaffMember[];
@@ -744,8 +806,17 @@ function NoteComposerCard({
         autoFocus={autoFocus}
         value={text}
         onChange={(e) => onTextChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            onSubmit?.();
+          }
+        }}
         placeholder="Write a note..."
-        className="text-foreground placeholder:text-muted-foreground min-h-[64px] resize-none border-0 bg-transparent text-sm focus-visible:border-transparent focus-visible:ring-0"
+        aria-label="Note"
+        // The master already grows with its content; the cap keeps a long
+        // note from pushing the follow-up fields out of the sheet.
+        className="text-foreground placeholder:text-muted-foreground max-h-56 resize-none overflow-y-auto border-0 bg-transparent text-sm focus-visible:border-transparent focus-visible:ring-0"
       />
       <FollowUpFields
         draft={draft}
@@ -851,37 +922,65 @@ function NoteCard({
     if (ok) setEditing(false);
   }
 
+  const editNeedsDate =
+    editDraft.enabled && !resolveDueDate(editDraft, fmt.today());
+  const bodyClickDoesSomething = isOwner || isLong;
+
   const createdOn = fmt.date(note.created_at);
 
-  const deleteAction = (isOwner || canDeleteAny) && (
-    <Button
-      type="button"
-      variant="destructive-ghost"
-      size="icon-xs"
-      onClick={(e) => {
-        e.stopPropagation();
-        onDelete(note.id);
-      }}
-      aria-label="Delete note"
-      loading={deleting}
-      disabled={deleteBlocked}
-      title="Delete note"
-      className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-    >
-      <Trash2 className="size-3.5" />
-    </Button>
+  // Both card actions live in the footer strip so they are reachable by
+  // keyboard and on touch — the body click stays a mouse shortcut, not the
+  // only way in.
+  const cardActions = (
+    <span className="flex shrink-0 items-center gap-0.5">
+      {isOwner && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={(e) => {
+            e.stopPropagation();
+            beginEdit();
+          }}
+          aria-label="Edit note"
+          title="Edit note"
+          className={HOVER_ACTION_CLASS}
+        >
+          <Pencil className="size-3.5" />
+        </Button>
+      )}
+      {(isOwner || canDeleteAny) && (
+        <Button
+          type="button"
+          variant="destructive-ghost"
+          size="icon-xs"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(note.id);
+          }}
+          aria-label="Delete note"
+          loading={deleting}
+          disabled={deleteBlocked}
+          title="Delete note"
+          className={HOVER_ACTION_CLASS}
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      )}
+    </span>
   );
 
   const noteContent = (
-    <div
-      className="cursor-pointer"
-      onClick={handleBodyClick}
-      role="button"
-      title={isOwner ? 'Click to edit' : 'Click to expand'}
-    >
+    <div>
+      {/* Presentational click shortcut: the same actions exist as real
+          buttons in the footer, so this div needs no role of its own. */}
       <p
+        onClick={bodyClickDoesSomething ? handleBodyClick : undefined}
         className={cn(
           'text-foreground text-sm whitespace-pre-wrap',
+          // No pointer cursor on a short note someone else wrote — there is
+          // nothing to edit and nothing to expand.
+          bodyClickDoesSomething && 'cursor-pointer',
           isLong && !expanded && 'line-clamp-3'
         )}
       >
@@ -894,7 +993,8 @@ function NoteCard({
             e.stopPropagation();
             setExpanded((v) => !v);
           }}
-          className="text-primary-text mt-1 cursor-pointer text-xs font-medium hover:underline"
+          aria-expanded={expanded}
+          className="text-primary-text mt-1 text-xs font-medium hover:underline"
         >
           {expanded ? 'See less' : 'See more'}
         </button>
@@ -912,6 +1012,7 @@ function NoteCard({
           <NoteComposerCard
             text={draftText}
             onTextChange={setDraftText}
+            onSubmit={saveEdit}
             draft={editDraft}
             onPatch={(patch) => setEditDraft((d) => ({ ...d, ...patch }))}
             staff={staff}
@@ -919,25 +1020,30 @@ function NoteCard({
             showReason={showReason}
             autoFocus
           />
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={saveEdit}
-              disabled={!draftText.trim() || savingEdit}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              {savingEdit && <Loader2 className="size-3.5 animate-spin" />}
-              Save
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setEditing(false)}
-              disabled={savingEdit}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              Cancel
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={saveEdit}
+                disabled={!draftText.trim() || editNeedsDate}
+                loading={savingEdit}
+              >
+                Save
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setEditing(false)}
+                disabled={savingEdit}
+              >
+                Cancel
+              </Button>
+            </div>
+            {editNeedsDate && (
+              <span role="status" className="text-muted-foreground text-xs">
+                Pick a follow-up date
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -954,7 +1060,7 @@ function NoteCard({
         nameById={nameById}
         onMarkDone={onMarkDone}
         noteContent={noteContent}
-        footerAction={deleteAction}
+        footerAction={cardActions}
       />
     );
   }
@@ -965,10 +1071,13 @@ function NoteCard({
       <div className="group border-border/50 bg-card min-w-0 rounded-lg border">
         <div className="p-3">{noteContent}</div>
 
-        {/* Meta footer strip — divider above, in every layout (per mock) */}
+        {/* Meta footer strip — divider above, in every layout (per mock).
+            The author is the avatar's job; this strip only dates the note. */}
         <div className="text-muted-foreground border-border/50 flex items-center justify-between gap-2 border-t px-3 py-2 text-xs">
-          <span className="shrink-0">Created on {createdOn}</span>
-          {deleteAction}
+          <span className="shrink-0" title={fmt.dateTime(note.created_at)}>
+            Created on {createdOn}
+          </span>
+          {cardActions}
         </div>
       </div>
     </div>

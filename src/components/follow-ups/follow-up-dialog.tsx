@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -194,8 +193,7 @@ function CreateFollowUpForm({
         <Button type="button" variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button type="button" onClick={handleCreate} disabled={saving}>
-          {saving && <Loader2 className="size-4 animate-spin" />}
+        <Button type="button" onClick={handleCreate} loading={saving}>
           Create follow-up
         </Button>
       </DialogFooter>

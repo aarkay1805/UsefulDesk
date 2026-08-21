@@ -5,7 +5,9 @@ import { REASON_LABEL } from '@/lib/memberships/follow-ups';
 import type { FollowUp, FollowUpReason } from '@/types';
 import { Badge } from '@/components/ui/badge';
 
-const TASK_ICON: Record<FollowUp['task_type'], typeof Phone> = {
+/** One task-type icon vocabulary for every follow-up surface — queue cells
+ *  and the profile timeline card read from this map, never their own. */
+export const TASK_ICON: Record<FollowUp['task_type'], typeof Phone> = {
   call: Phone,
   email: Mail,
   todo: ClipboardList,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useId } from 'react';
-import { ChevronDown, Timer } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 import { useLocale } from '@/hooks/use-locale';
 import {
@@ -22,7 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Label, labelVariants } from '@/components/ui/label';
+import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Chip, ChipGroup } from '@/components/ui/chip';
 
@@ -75,10 +75,42 @@ interface FollowUpFieldsProps {
   className?: string;
 }
 
+/** One captioned field: `Label` above its control(s), grouped for assistive tech. */
+function FollowUpField({
+  label,
+  labelId,
+  className,
+  children,
+}: {
+  label: string;
+  labelId: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn('space-y-1.5', className)}>
+      <Label id={labelId} size="sm">
+        {label}
+      </Label>
+      <div
+        role="group"
+        aria-labelledby={labelId}
+        className="flex flex-wrap items-center gap-2"
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /**
  * The single manual follow-up field set used by notes and assignment dialogs.
  * Keeping reason, action, date, owner, and reminder here prevents the two
  * entry points from drifting into different task models again.
+ *
+ * Every value control is the same menu-trigger recipe (outline / small) under
+ * its own caption, so no field in the set reads as a lesser control than
+ * another. Only Reason differs, because a chip strip owns its full row.
  */
 export function FollowUpFields({
   draft,
@@ -91,14 +123,23 @@ export function FollowUpFields({
 }: FollowUpFieldsProps) {
   const { fmt } = useLocale();
   const reasonLabelId = useId();
-  const nextActionLabelId = useId();
+  const taskLabelId = useId();
+  const assigneeLabelId = useId();
+  const reminderLabelId = useId();
   const presets = duePresets(fmt.today());
   const fieldsVisible = !showEnabledToggle || draft.enabled;
+  const typeLabel =
+    FOLLOW_UP_TASK_TYPES.find((taskType) => taskType.value === draft.type)
+      ?.label ?? 'To-do';
+  // A custom date renders through the account's formatter — never the raw
+  // 'YYYY-MM-DD' the draft stores.
   const dueLabel =
     draft.dueId === 'custom'
-      ? draft.customDate || 'Custom date'
+      ? draft.customDate
+        ? fmt.date(draft.customDate)
+        : 'Pick a date'
       : (presets.find((preset) => preset.id === draft.dueId)?.label ??
-        presets[3].label);
+        'Pick a date');
   const effectiveAssignee = draft.assignee || currentUserId;
   const assigneeMember = staff.find(
     (member) => member.user_id === effectiveAssignee
@@ -108,7 +149,7 @@ export function FollowUpFields({
     : 'Me';
   const remindLabel =
     REMINDER_SLOTS.find((slot) => slot.value === draft.remindSlot)?.label ??
-    'Set reminder';
+    'No reminder';
 
   return (
     <div
@@ -119,9 +160,9 @@ export function FollowUpFields({
         className
       )}
     >
-      <div className="flex flex-col px-3 py-2">
+      <div className="flex flex-col gap-3 p-3">
         {showEnabledToggle && (
-          <div className="flex items-center justify-between gap-2 py-1">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-foreground text-sm">Add a follow-up</span>
             <Switch
               checked={draft.enabled}
@@ -132,12 +173,9 @@ export function FollowUpFields({
         )}
 
         {fieldsVisible && (
-          <div className={cn('space-y-3 py-1', showEnabledToggle && 'mt-2')}>
+          <>
             {showReason && (
-              <div className="space-y-1.5">
-                <Label id={reasonLabelId} size="sm">
-                  Reason
-                </Label>
+              <FollowUpField label="Reason" labelId={reasonLabelId}>
                 <ChipGroup<FollowUpReason>
                   selectionMode="single"
                   value={[draft.reason]}
@@ -153,135 +191,142 @@ export function FollowUpFields({
                     </Chip>
                   ))}
                 </ChipGroup>
-              </div>
+              </FollowUpField>
             )}
 
-            <div className="space-y-1.5">
-              <Label id={nextActionLabelId} size="sm">
-                Follow-up
-              </Label>
-              <div
-                className="flex flex-wrap items-center gap-2"
-                role="group"
-                aria-labelledby={nextActionLabelId}
+            <FollowUpField label="Follow-up" labelId={taskLabelId}>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={<Button type="button" variant="outline" size="sm" />}
+                >
+                  {typeLabel}
+                  <ChevronDown className="text-muted-foreground" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {FOLLOW_UP_TASK_TYPES.map((taskType) => (
+                    <DropdownMenuItem
+                      key={taskType.value}
+                      onClick={() => onPatch({ type: taskType.value })}
+                    >
+                      {taskType.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={<Button type="button" variant="outline" size="sm" />}
+                >
+                  {dueLabel}
+                  <ChevronDown className="text-muted-foreground" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {presets.map((preset) => (
+                    <DropdownMenuItem
+                      key={preset.id}
+                      onClick={() => onPatch({ dueId: preset.id })}
+                    >
+                      {preset.label}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuItem
+                    onClick={() => onPatch({ dueId: 'custom' })}
+                  >
+                    Custom date
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {draft.dueId === 'custom' && (
+                <div className="w-48">
+                  <DatePicker
+                    value={draft.customDate}
+                    min={fmt.today()}
+                    onChange={(value) => onPatch({ customDate: value })}
+                    aria-label="Follow-up date"
+                  />
+                </div>
+              )}
+            </FollowUpField>
+
+            {/* Owner and reminder share a row and collapse to one column in a
+                narrow composer. */}
+            <div className="flex flex-wrap gap-x-4 gap-y-3">
+              <FollowUpField
+                label="Assign to"
+                labelId={assigneeLabelId}
+                className="min-w-0 flex-1 basis-40"
               >
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
-                      <Button type="button" variant="outline" size="sm" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-between"
+                      />
                     }
                   >
-                    {
-                      FOLLOW_UP_TASK_TYPES.find(
-                        (taskType) => taskType.value === draft.type
-                      )?.label
-                    }
+                    <span className="min-w-0 truncate">{assigneeLabel}</span>
                     <ChevronDown className="text-muted-foreground" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    {FOLLOW_UP_TASK_TYPES.map((taskType) => (
+                    {staff.map((member) => (
                       <DropdownMenuItem
-                        key={taskType.value}
-                        onClick={() => onPatch({ type: taskType.value })}
+                        key={member.user_id}
+                        onClick={() => onPatch({ assignee: member.user_id })}
                       >
-                        {taskType.label}
+                        {member.user_id === currentUserId
+                          ? `${member.full_name} (Me)`
+                          : member.full_name}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
+              </FollowUpField>
 
+              <FollowUpField
+                label="Reminder"
+                labelId={reminderLabelId}
+                className="min-w-0 flex-1 basis-40"
+              >
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
-                      <Button type="button" variant="outline" size="sm" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-between"
+                      />
                     }
                   >
-                    {dueLabel}
+                    <span className="min-w-0 truncate">{remindLabel}</span>
                     <ChevronDown className="text-muted-foreground" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    {presets.map((preset) => (
+                    <DropdownMenuItem
+                      onClick={() => onPatch({ remindSlot: '' })}
+                    >
+                      No reminder
+                    </DropdownMenuItem>
+                    {REMINDER_SLOTS.map((slot) => (
                       <DropdownMenuItem
-                        key={preset.id}
-                        onClick={() => onPatch({ dueId: preset.id })}
+                        key={slot.value}
+                        onClick={() => onPatch({ remindSlot: slot.value })}
                       >
-                        {preset.label}
+                        {slot.label}
                       </DropdownMenuItem>
                     ))}
-                    <DropdownMenuItem
-                      onClick={() => onPatch({ dueId: 'custom' })}
-                    >
-                      Custom date
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-
-                {draft.dueId === 'custom' && (
-                  <div className="w-48">
-                    <DatePicker
-                      value={draft.customDate}
-                      min={fmt.today()}
-                      onChange={(value) => onPatch({ customDate: value })}
-                      aria-label="Follow-up date"
-                    />
-                  </div>
-                )}
-              </div>
+              </FollowUpField>
             </div>
-          </div>
+          </>
         )}
       </div>
-
-      {fieldsVisible && (
-        <div className="border-border flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t px-3 py-2">
-          <span className="flex items-center gap-1">
-            <span className={labelVariants({ size: 'sm' })}>Assign to</span>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button type="button" variant="ghost" size="sm" />}
-              >
-                {assigneeLabel}
-                <ChevronDown className="text-muted-foreground" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {staff.map((member) => (
-                  <DropdownMenuItem
-                    key={member.user_id}
-                    onClick={() => onPatch({ assignee: member.user_id })}
-                  >
-                    {member.user_id === currentUserId
-                      ? `${member.full_name} (Me)`
-                      : member.full_name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </span>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button type="button" variant="ghost" size="sm" />}
-            >
-              <Timer className="text-muted-foreground" />
-              {remindLabel}
-              <ChevronDown className="text-muted-foreground" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={() => onPatch({ remindSlot: '' })}>
-                No reminder
-              </DropdownMenuItem>
-              {REMINDER_SLOTS.map((slot) => (
-                <DropdownMenuItem
-                  key={slot.value}
-                  onClick={() => onPatch({ remindSlot: slot.value })}
-                >
-                  {slot.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
     </div>
   );
 }

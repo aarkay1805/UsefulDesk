@@ -6,9 +6,21 @@
 
 ---
 
+## Notes & follow-ups composer and timeline polish
+
+The lead/member profile's **Notes & follow-ups** surface was refined without changing its data model or entry points. `FollowUpFields` now renders every value control as the same outline/small menu-trigger under its own `Label size="sm"` caption — Reason, Follow-up, Assign to, and Reminder — replacing the split where owner and reminder sat in a separate bordered strip as ghost buttons; owner and reminder share a row that collapses to one column in a narrow composer. A custom due date renders through `fmt.date` instead of the raw `YYYY-MM-DD`, and the unset reminder trigger reads **No reminder**, matching its own menu.
+
+In `ContactNotesThread`: the composer CTA reads **Create note & follow-up** when a task is attached, uses `Button.loading` instead of a hand-built spinner, and never dead-ends — the status slot beside it says what is still missing (`Pick a follow-up date`, `Add a note to save this follow-up`) instead of only `Draft saved`. ⌘/Ctrl+Enter submits. Note cards gained a keyboard- and touch-reachable **Edit** action beside Delete; both reveal on hover or focus and stay visible under `(hover: none)`, where the previous hover-only Delete was unreachable. The card body's click-to-edit shortcut is no longer a `role="button"` div wrapping a nested button. The footer keeps its `Created on <date>` line and gains a full-timestamp `title`, so same-day notes are distinguishable; the author stays the avatar's job and is deliberately not repeated as text.
+
+Profile follow-up cards now use the shared `TASK_ICON` map exported from `follow-up-task-summary.tsx` (never a second icon vocabulary), show an **Overdue**/**Due today** Badge for open tasks only — matching `lead-accountability-view`'s existing bucket-to-variant mapping, which deliberately has no Upcoming badge — and render `Reminder at <time>` so a reminder the user set is verifiable. Assignee text is `<name> (Me)`, the same order the Assign to field uses. Toasts say **follow-up**, not "follow-up task".
+
+Gotcha: `followUpDueLabel` and `duePresets` still format weekday/month names through hard-coded `en-US` in `src/lib/leads/follow-up-dates.ts`. That predates this pass and is asserted by `follow-up-dates.test.ts`; localizing it means threading formatters into every follow-up queue, not a call-site fix.
+
+---
+
 ## Leads Phone column uses the PhoneInput master
 
-The Leads table's built-in Phone column edited through a plain `<input type="text">` and displayed the raw stored string — the last subscriber phone field bypassing `PhoneInput`, contrary to the master-component rule in `docs/ui-patterns.md`. Typed phone *custom* fields already routed to it via `customEditKind`, so the two phone columns behaved differently in the same table. `EditSpec` in `src/app/(dashboard)/leads/page.tsx` now carries a `{ kind: 'phone'; column: 'phone' }` variant instead of folding phone into the `text` variant, and `liveColumns` overrides the column's render with `accountQualifiedPhoneDisplayValue` so legacy digits-only rows show the account's country code.
+The Leads table's built-in Phone column edited through a plain `<input type="text">` and displayed the raw stored string — the last subscriber phone field bypassing `PhoneInput`, contrary to the master-component rule in `docs/ui-patterns.md`. Typed phone _custom_ fields already routed to it via `customEditKind`, so the two phone columns behaved differently in the same table. `EditSpec` in `src/app/(dashboard)/leads/page.tsx` now carries a `{ kind: 'phone'; column: 'phone' }` variant instead of folding phone into the `text` variant, and `liveColumns` overrides the column's render with `accountQualifiedPhoneDisplayValue` so legacy digits-only rows show the account's country code.
 
 Gotcha: the commit path is unchanged on purpose. `PhoneInput`'s `onValueChange` already reports the complete account-qualified value, so `commitCell`'s built-in-column branch still writes `edit.column` directly and the required-phone guard plus the unique-violation toast keep working. Do not re-normalize in `commitCell`.
 
