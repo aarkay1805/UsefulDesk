@@ -10,6 +10,8 @@ import {
 import { buildMetaTemplatePayload } from '@/lib/whatsapp/template-components';
 import { ensureImageHeaderHandle } from '@/lib/whatsapp/template-header-handle';
 import { normalizeStatus } from '@/lib/whatsapp/template-status-normalize';
+import { resolveSubmittedTemplateCategory } from '@/lib/whatsapp/template-lifecycle-policy';
+import type { MessageTemplate } from '@/types';
 
 /**
  * Shared upsert payload builder — both the Meta-failure path and the
@@ -24,6 +26,7 @@ function buildUpsertRow(
     status: 'DRAFT' | string;
     metaTemplateId: string | null;
     submissionError: string | null;
+    category?: MessageTemplate['category'];
   }
 ) {
   return {
@@ -36,8 +39,9 @@ function buildUpsertRow(
     // for the cross-teammate dedup follow-up.
     user_id: userId,
     name: payload.name,
-    category: payload.category,
+    category: extras.category ?? payload.category,
     language: payload.language,
+    parameter_format: 'POSITIONAL',
     header_type: payload.header_type ?? null,
     header_content: payload.header_content ?? null,
     header_media_url: payload.header_media_url ?? null,
@@ -132,6 +136,10 @@ export async function POST(request: Request) {
 
     let metaTemplateId: string;
     let metaStatus: string;
+    let categoryResult = resolveSubmittedTemplateCategory(
+      payload.category,
+      undefined
+    );
 
     if (dryRun) {
       metaTemplateId = `dry-run-${crypto.randomUUID()}`;
@@ -188,6 +196,10 @@ export async function POST(request: Request) {
         });
         metaTemplateId = meta.id;
         metaStatus = meta.status;
+        categoryResult = resolveSubmittedTemplateCategory(
+          payload.category,
+          meta.category
+        );
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Meta submit failed.';
         // Persist the failure so the user can retry; row stays DRAFT
@@ -218,6 +230,7 @@ export async function POST(request: Request) {
         status: normalizeStatus(metaStatus),
         metaTemplateId,
         submissionError: null,
+        category: categoryResult.category,
       })
     );
 
@@ -238,6 +251,8 @@ export async function POST(request: Request) {
       success: true,
       template: row,
       dry_run: dryRun,
+      category_changed: categoryResult.categoryChanged,
+      warning: categoryResult.warning,
     });
   } catch (error) {
     console.error('Error submitting template:', error);

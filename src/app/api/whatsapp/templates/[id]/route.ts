@@ -11,6 +11,11 @@ import {
 } from '@/lib/whatsapp/template-validators';
 import { buildMetaTemplatePayload } from '@/lib/whatsapp/template-components';
 import { ensureImageHeaderHandle } from '@/lib/whatsapp/template-header-handle';
+import {
+  ApprovedTemplateCategoryChangeError,
+  editCategoryForMeta,
+} from '@/lib/whatsapp/template-lifecycle-policy';
+import type { MessageTemplate } from '@/types';
 
 /**
  * Per-template lifecycle endpoint.
@@ -79,7 +84,7 @@ export async function PATCH(
     // meta_template_id and status — fetch explicitly.
     const { data: existing, error: lookupErr } = await supabase
       .from('message_templates')
-      .select('id, name, status, meta_template_id, language')
+      .select('id, name, status, category, meta_template_id, language')
       .eq('id', id)
       .eq('account_id', accountId)
       .maybeSingle();
@@ -128,6 +133,23 @@ export async function PATCH(
       );
     }
 
+    let editCategory;
+    try {
+      editCategory = editCategoryForMeta(
+        existing.status,
+        existing.category as MessageTemplate['category'],
+        payload.category
+      );
+    } catch (error) {
+      if (error instanceof ApprovedTemplateCategoryChangeError) {
+        return NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: 409 }
+        );
+      }
+      throw error;
+    }
+
     if (!isDryRun()) {
       const { data: config, error: configError } = await supabase
         .from('whatsapp_config')
@@ -164,7 +186,7 @@ export async function PATCH(
           name: existing.name,
           language: existing.language,
           components: metaPayload.components,
-          category: metaPayload.category,
+          category: editCategory,
         });
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Meta edit failed.';
@@ -183,7 +205,8 @@ export async function PATCH(
     const { data: row, error: updErr } = await supabase
       .from('message_templates')
       .update({
-        category: payload.category,
+        category:
+          existing.status === 'APPROVED' ? existing.category : payload.category,
         header_type: payload.header_type ?? null,
         header_content: payload.header_content ?? null,
         header_media_url: payload.header_media_url ?? null,
