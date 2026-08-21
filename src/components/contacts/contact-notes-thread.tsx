@@ -24,6 +24,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
+import { getErrorMessage } from '@/lib/errors';
 import { canDeleteAnyNote } from '@/lib/auth/roles';
 import { manualFollowUpReasonForWrite } from '@/lib/follow-ups/manual';
 import { buildProfileActivity } from '@/lib/follow-ups/profile-activity';
@@ -236,7 +237,7 @@ export function ContactNotesThread({
     if (!contactId || !newNote.trim()) return;
     const followUpDue = resolveDueDate(followUpDraft, fmt.today());
     if (followUpDraft.enabled && !followUpDue) {
-      toast.error('Pick a follow-up date');
+      toast.error('Pick a due date');
       return;
     }
     setSavingNote(true);
@@ -246,7 +247,7 @@ export function ContactNotesThread({
     } = await supabase.auth.getSession();
     const authUser = session?.user;
     if (!authUser || !accountId) {
-      toast.error('Not authenticated');
+      toast.error('Your session has expired. Sign in again to save this note.');
       setSavingNote(false);
       return;
     }
@@ -263,7 +264,12 @@ export function ContactNotesThread({
       .single();
 
     if (error) {
-      toast.error('Failed to add note');
+      toast.error(
+        getErrorMessage(
+          error,
+          "Couldn't add the note. Check your connection and try again."
+        )
+      );
       setSavingNote(false);
       return;
     }
@@ -293,10 +299,12 @@ export function ContactNotesThread({
       if (taskError) {
         if (isUniqueViolation(taskError)) {
           toast.error(
-            'Note added — this contact already has an open follow-up, so no new follow-up was created'
+            'Note added. Only one open follow-up at a time — complete the current one first.'
           );
         } else {
-          toast.error('Note added, but creating the follow-up failed');
+          toast.error(
+            "Note added, but the follow-up wasn't created. Edit the note to try again."
+          );
         }
       } else {
         toast.success('Note and follow-up added');
@@ -332,6 +340,9 @@ export function ContactNotesThread({
 
   async function deleteNote(noteId: string) {
     if (deletingNoteId) return;
+    const hadOpenFollowUp = followUps.some(
+      (task) => task.note_id === noteId && task.status === 'open'
+    );
     setDeletingNoteId(noteId);
     try {
       // Cancel the note's open follow-up FIRST (while note_id still
@@ -354,7 +365,12 @@ export function ContactNotesThread({
         .select('id');
 
       if (error || !deleted?.length) {
-        toast.error('Failed to delete note');
+        toast.error(
+          getErrorMessage(
+            error,
+            "Couldn't delete the note. Refresh and try again."
+          )
+        );
       } else {
         setNotes((prev) => prev.filter((n) => n.id !== noteId));
         setFollowUps((current) =>
@@ -364,7 +380,13 @@ export function ContactNotesThread({
               : task
           )
         );
-        toast.success('Note deleted');
+        // Deleting the note retired its open task above — say so, rather
+        // than letting a follow-up the user scheduled vanish silently.
+        toast.success(
+          hadOpenFollowUp
+            ? 'Note deleted. Its open follow-up was cancelled.'
+            : 'Note deleted'
+        );
         notifyFollowUpChanged();
       }
     } finally {
@@ -383,12 +405,12 @@ export function ContactNotesThread({
     if (!contactId) return false;
     const trimmed = text.trim();
     if (!trimmed) {
-      toast.error('Note cannot be empty');
+      toast.error('Write something before saving.');
       return false;
     }
     const due = resolveDueDate(draft, fmt.today());
     if (draft.enabled && !due) {
-      toast.error('Pick a follow-up date');
+      toast.error('Pick a due date');
       return false;
     }
 
@@ -397,7 +419,9 @@ export function ContactNotesThread({
     } = await supabase.auth.getSession();
     const authUser = session?.user;
     if (!authUser || !accountId) {
-      toast.error('Not authenticated');
+      toast.error(
+        'Your session has expired. Sign in again to save your changes.'
+      );
       return false;
     }
 
@@ -406,7 +430,12 @@ export function ContactNotesThread({
       .update({ note_text: trimmed })
       .eq('id', noteId);
     if (error) {
-      toast.error('Failed to update note');
+      toast.error(
+        getErrorMessage(
+          error,
+          "Couldn't save the note. Check your connection and try again."
+        )
+      );
       return false;
     }
 
@@ -430,7 +459,9 @@ export function ContactNotesThread({
           })
           .eq('id', existing.id);
         if (taskError) {
-          toast.error('Note saved, but updating the follow-up failed');
+          toast.error(
+            "Note saved, but the follow-up wasn't updated. Try again."
+          );
         }
       } else {
         const { error: taskError } = await supabase.from('follow_ups').insert({
@@ -452,10 +483,12 @@ export function ContactNotesThread({
         if (taskError) {
           if (isUniqueViolation(taskError)) {
             toast.error(
-              'Note saved — this contact already has an open follow-up, so no new follow-up was created'
+              'Note saved. Only one open follow-up at a time — complete the current one first.'
             );
           } else {
-            toast.error('Note saved, but creating the follow-up failed');
+            toast.error(
+              "Note saved, but the follow-up wasn't created. Try again."
+            );
           }
         }
       }
@@ -479,16 +512,18 @@ export function ContactNotesThread({
   const needsFollowUpDate =
     followUpDraft.enabled && !resolveDueDate(followUpDraft, fmt.today());
   const composerHint = needsFollowUpDate
-    ? 'Pick a follow-up date'
+    ? 'Pick a due date'
     : followUpDraft.enabled && !hasText
-      ? 'Add a note to save this follow-up'
+      ? 'Write a note to save this follow-up'
       : draftSaved
-        ? 'Draft saved'
+        ? // The draft lives in this browser's localStorage — say so, so nobody
+          // expects it on their phone or on a teammate's screen.
+          'Draft saved on this device'
         : null;
 
   return (
     <>
-      {/* pb-4: 16px of air between the composer block (Create note row)
+      {/* pb-4: 16px of air between the composer block (Add note row)
           and the saved notes below. */}
       <div className="grid grid-cols-[auto_1fr] gap-2.5 pb-4">
         <StaffAvatar
@@ -516,9 +551,7 @@ export function ContactNotesThread({
               loading={savingNote}
               size="sm"
             >
-              {followUpDraft.enabled
-                ? 'Create note & follow-up'
-                : 'Create note'}
+              {followUpDraft.enabled ? 'Add note & follow-up' : 'Add note'}
             </Button>
             <div className="flex min-w-0 items-center gap-1">
               {composerHint && (
@@ -549,9 +582,15 @@ export function ContactNotesThread({
             <Loader2 className="text-muted-foreground size-5 animate-spin" />
           </div>
         ) : activityItems.length === 0 ? (
-          <p className="text-muted-foreground py-6 text-center text-sm">
-            No notes or follow-ups yet.
-          </p>
+          <div className="space-y-1 py-6 text-center">
+            <p className="text-foreground text-sm font-medium">
+              No notes or follow-ups yet
+            </p>
+            <p className="text-muted-foreground mx-auto max-w-sm text-sm">
+              Record what happened — a call, a visit, a payment promise — and
+              add a follow-up so it doesn&apos;t get missed.
+            </p>
+          </div>
         ) : (
           <MotionList>
             {activityItems.map((item) => (
@@ -674,7 +713,7 @@ function FollowUpActivityCard({
               </p>
               {followUp.remind_at && followUp.status === 'open' && (
                 <p className="text-muted-foreground text-xs">
-                  Reminder at {fmt.time(followUp.remind_at)}
+                  Reminder at {fmt.time(followUp.remind_at)} on the due date
                 </p>
               )}
               {noteContent && <div className="mt-2">{noteContent}</div>}
@@ -812,7 +851,7 @@ function NoteComposerCard({
             onSubmit?.();
           }
         }}
-        placeholder="Write a note..."
+        placeholder="e.g. Called about renewal — will decide after payday"
         aria-label="Note"
         // The master already grows with its content; the cap keeps a long
         // note from pushing the follow-up fields out of the sheet.
@@ -928,6 +967,13 @@ function NoteCard({
 
   const createdOn = fmt.date(note.created_at);
 
+  // Deleting a note cancels the follow-up attached to it. Say that on the
+  // control itself, so the consequence is visible before the click.
+  const deleteLabel =
+    followUp && followUp.status === 'open'
+      ? 'Delete note and cancel its follow-up'
+      : 'Delete note';
+
   // Both card actions live in the footer strip so they are reachable by
   // keyboard and on touch — the body click stays a mouse shortcut, not the
   // only way in.
@@ -958,10 +1004,10 @@ function NoteCard({
             e.stopPropagation();
             onDelete(note.id);
           }}
-          aria-label="Delete note"
+          aria-label={deleteLabel}
           loading={deleting}
           disabled={deleteBlocked}
-          title="Delete note"
+          title={deleteLabel}
           className={HOVER_ACTION_CLASS}
         >
           <Trash2 className="size-3.5" />
@@ -1004,7 +1050,7 @@ function NoteCard({
 
   if (editing) {
     // Full composer, same as writing a new note — only the footer CTA
-    // differs (Save / Cancel instead of Create note).
+    // differs (Save / Cancel instead of Add note).
     return (
       <div className="grid grid-cols-[auto_1fr] gap-2.5">
         <StaffAvatar name={authorName} src={authorAvatarUrl} />
@@ -1041,7 +1087,7 @@ function NoteCard({
             </div>
             {editNeedsDate && (
               <span role="status" className="text-muted-foreground text-xs">
-                Pick a follow-up date
+                Pick a due date
               </span>
             )}
           </div>

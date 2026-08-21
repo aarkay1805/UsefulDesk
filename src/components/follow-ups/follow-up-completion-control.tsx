@@ -24,12 +24,12 @@ export function FollowUpCompletionControl({
   onMarkDone,
   canAct = true,
   gateReason,
-  ariaLabel = 'Mark as followed up',
+  ariaLabel = 'Complete follow-up',
 }: FollowUpCompletionControlProps) {
   if (status === 'done') {
     return (
       <span
-        title="Followed up"
+        title="Completed"
         className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-white"
       >
         <Check className="size-4" />

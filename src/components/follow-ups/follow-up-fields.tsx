@@ -124,6 +124,7 @@ export function FollowUpFields({
   const { fmt } = useLocale();
   const reasonLabelId = useId();
   const taskLabelId = useId();
+  const dueLabelId = useId();
   const assigneeLabelId = useId();
   const reminderLabelId = useId();
   const presets = duePresets(fmt.today());
@@ -132,12 +133,14 @@ export function FollowUpFields({
     FOLLOW_UP_TASK_TYPES.find((taskType) => taskType.value === draft.type)
       ?.label ?? 'To-do';
   // A custom date renders through the account's formatter — never the raw
-  // 'YYYY-MM-DD' the draft stores.
+  // 'YYYY-MM-DD' the draft stores. Before one is picked the trigger names the
+  // CHOICE ('Custom date'), leaving the instruction to the date field below it
+  // — two stacked controls both reading 'Pick a date' told the user nothing.
   const dueLabel =
     draft.dueId === 'custom'
       ? draft.customDate
         ? fmt.date(draft.customDate)
-        : 'Pick a date'
+        : 'Custom date'
       : (presets.find((preset) => preset.id === draft.dueId)?.label ??
         'Pick a date');
   const effectiveAssignee = draft.assignee || currentUserId;
@@ -194,61 +197,90 @@ export function FollowUpFields({
               </FollowUpField>
             )}
 
-            <FollowUpField label="Follow-up" labelId={taskLabelId}>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={<Button type="button" variant="outline" size="sm" />}
-                >
-                  {typeLabel}
-                  <ChevronDown className="text-muted-foreground" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {FOLLOW_UP_TASK_TYPES.map((taskType) => (
-                    <DropdownMenuItem
-                      key={taskType.value}
-                      onClick={() => onPatch({ type: taskType.value })}
-                    >
-                      {taskType.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={<Button type="button" variant="outline" size="sm" />}
-                >
-                  {dueLabel}
-                  <ChevronDown className="text-muted-foreground" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {presets.map((preset) => (
-                    <DropdownMenuItem
-                      key={preset.id}
-                      onClick={() => onPatch({ dueId: preset.id })}
-                    >
-                      {preset.label}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuItem
-                    onClick={() => onPatch({ dueId: 'custom' })}
+            {/* Task and due date each keep their own caption: "Follow-up" is
+                the product's noun for the work, "Due date" for when it is
+                owed. One shared caption over both reads as neither. */}
+            <div className="flex flex-wrap gap-x-4 gap-y-3">
+              <FollowUpField
+                label="Follow-up"
+                labelId={taskLabelId}
+                className="min-w-0 flex-1 basis-40"
+              >
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-between"
+                      />
+                    }
                   >
-                    Custom date
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <span className="min-w-0 truncate">{typeLabel}</span>
+                    <ChevronDown className="text-muted-foreground" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {FOLLOW_UP_TASK_TYPES.map((taskType) => (
+                      <DropdownMenuItem
+                        key={taskType.value}
+                        onClick={() => onPatch({ type: taskType.value })}
+                      >
+                        {taskType.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </FollowUpField>
 
-              {draft.dueId === 'custom' && (
-                <div className="w-48">
-                  <DatePicker
-                    value={draft.customDate}
-                    min={fmt.today()}
-                    onChange={(value) => onPatch({ customDate: value })}
-                    aria-label="Follow-up date"
-                  />
-                </div>
-              )}
-            </FollowUpField>
+              <FollowUpField
+                label="Due date"
+                labelId={dueLabelId}
+                className="min-w-0 flex-1 basis-40"
+              >
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-between"
+                      />
+                    }
+                  >
+                    <span className="min-w-0 truncate">{dueLabel}</span>
+                    <ChevronDown className="text-muted-foreground" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {presets.map((preset) => (
+                      <DropdownMenuItem
+                        key={preset.id}
+                        onClick={() => onPatch({ dueId: preset.id })}
+                      >
+                        {preset.label}
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuItem
+                      onClick={() => onPatch({ dueId: 'custom' })}
+                    >
+                      Custom date
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {draft.dueId === 'custom' && (
+                  <div className="w-full">
+                    <DatePicker
+                      value={draft.customDate}
+                      min={fmt.today()}
+                      onChange={(value) => onPatch({ customDate: value })}
+                      aria-label="Due date"
+                    />
+                  </div>
+                )}
+              </FollowUpField>
+            </div>
 
             {/* Owner and reminder share a row and collapse to one column in a
                 narrow composer. */}

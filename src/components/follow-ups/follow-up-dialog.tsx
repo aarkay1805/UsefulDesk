@@ -120,7 +120,10 @@ function CreateFollowUpForm({
     if (!dueDate) return toast.error('Pick a due date');
 
     const followUpAccountId = membership?.account_id ?? accountId;
-    if (!followUpAccountId) return toast.error('Not authenticated');
+    if (!followUpAccountId)
+      return toast.error(
+        'Your session has expired. Sign in again to create this follow-up.'
+      );
 
     setSaving(true);
     const { error } = await supabase.from('follow_ups').insert({

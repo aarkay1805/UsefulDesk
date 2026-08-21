@@ -5,14 +5,15 @@
 // created only from a person's row action or their profile Notes section.
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
+import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/hooks/use-auth';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -29,7 +30,7 @@ export function BulkAddNoteDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The leads the note (and optional follow-up) is written to. */
+  /** The people the note is written to — one `contact_notes` row each. */
   contactIds: string[];
   /** Called after a successful write so the page can refresh. */
   onDone?: () => void;
@@ -63,7 +64,7 @@ export function BulkAddNoteDialog({
 
     setSaving(true);
     if (!user || !accountId) {
-      toast.error('Not authenticated');
+      toast.error('Your session has expired. Sign in again to save this note.');
       setSaving(false);
       return;
     }
@@ -82,13 +83,32 @@ export function BulkAddNoteDialog({
       .select('id, contact_id');
 
     if (error || !inserted) {
-      toast.error('Failed to add notes');
+      toast.error(
+        getErrorMessage(
+          error,
+          "Couldn't add the note. Check your connection and try again."
+        )
+      );
       setSaving(false);
       return;
     }
 
+    // An RLS-blocked insert returns no error and fewer rows (repo gotcha), so
+    // `inserted.length` — not the request — decides what the user is told.
+    // Reporting "added to 0 leads" as a success was the previous behaviour.
     const n = inserted.length;
-    toast.success(`Note added to ${n} ${noun}${n === 1 ? '' : 's'}`);
+    if (n === 0) {
+      toast.error("The note wasn't added. Refresh and try again.");
+      setSaving(false);
+      return;
+    }
+    if (n < count) {
+      toast.warning(
+        `Note added to ${n} of ${count} ${noun}s. Refresh and try the rest again.`
+      );
+    } else {
+      toast.success(`Note added to ${n} ${noun}${n === 1 ? '' : 's'}`);
+    }
 
     setSaving(false);
     onOpenChange(false);
@@ -103,6 +123,11 @@ export function BulkAddNoteDialog({
             Add note to {count} {noun}
             {count === 1 ? '' : 's'}
           </DialogTitle>
+          <DialogDescription>
+            {count === 1
+              ? 'The note is added to their profile timeline.'
+              : `The same note is added to each ${noun}'s profile timeline.`}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="py-2">
@@ -110,7 +135,8 @@ export function BulkAddNoteDialog({
             autoFocus
             value={text}
             onChange={(event) => setText(event.target.value)}
-            placeholder="Write a note..."
+            placeholder="e.g. Called about the festive offer — no answer"
+            aria-label="Note"
             className="min-h-28 resize-none"
           />
         </div>
@@ -123,8 +149,11 @@ export function BulkAddNoteDialog({
           >
             Cancel
           </Button>
-          <Button onClick={handleAdd} disabled={!text.trim() || saving}>
-            {saving && <Loader2 className="size-4 animate-spin" />}
+          <Button
+            onClick={handleAdd}
+            disabled={!text.trim() || saving}
+            loading={saving}
+          >
             Add note
           </Button>
         </DialogFooter>
