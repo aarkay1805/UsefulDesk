@@ -3,16 +3,14 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-type TemplateRow = {
-  account_id: string;
-  name: string;
-  language: string;
-  status: string;
-  category: string;
-};
+import type { MessageTemplate } from '@/types';
+import {
+  TEMPLATE_CONTRACTS,
+  type TemplateContractId,
+} from '@/lib/whatsapp/template-contracts';
 
 const database = vi.hoisted(() => ({
-  templates: [] as TemplateRow[],
+  templates: [] as Partial<MessageTemplate>[],
 }));
 
 vi.mock('sonner', () => ({
@@ -20,71 +18,57 @@ vi.mock('sonner', () => ({
 }));
 
 vi.mock('@/hooks/use-auth', () => ({
-  useAuth: () => ({
-    accountId: 'account-1',
-    canEditSettings: true,
-  }),
+  useAuth: () => ({ accountId: 'account-1', canEditSettings: true }),
 }));
 
-type Filter =
-  | { kind: 'eq'; column: string; value: unknown }
-  | { kind: 'in'; column: string; values: unknown[] };
+function approved(id: TemplateContractId): Partial<MessageTemplate> {
+  return {
+    account_id: 'account-1',
+    ...TEMPLATE_CONTRACTS[id].payload,
+    status: 'APPROVED',
+    parameter_format: 'POSITIONAL',
+  };
+}
 
 function makeQuery(table: string) {
-  const filters: Filter[] = [];
-
-  function result() {
-    if (table === 'renewal_reminder_settings') {
-      return {
-        data: {
-          enabled: false,
-          days_before: [7, 3, 1],
-          service_enabled: false,
-          service_days_before: [7, 3, 1],
-        },
-        error: null,
-      };
-    }
-    if (table === 'whatsapp_config') {
-      return { data: { status: 'connected' }, error: null };
-    }
-
-    const rows = database.templates.filter((row) =>
-      filters.every((filter) => {
-        const value = row[filter.column as keyof TemplateRow];
-        return filter.kind === 'eq'
-          ? value === filter.value
-          : filter.values.includes(value);
-      })
-    );
-    return { data: rows, error: null };
-  }
-
   const query = {
     select: () => query,
-    eq(column: string, value: unknown) {
-      filters.push({ kind: 'eq', column, value });
-      return query;
+    eq: () => query,
+    in: () => query,
+    maybeSingle: async () => {
+      if (table === 'renewal_reminder_settings') {
+        return {
+          data: {
+            enabled: false,
+            days_before: [7, 3, 1],
+            service_enabled: false,
+            service_days_before: [7, 3, 1],
+          },
+          error: null,
+        };
+      }
+      if (table === 'whatsapp_config') {
+        return { data: { status: 'connected' }, error: null };
+      }
+      return { data: null, error: null };
     },
-    in(column: string, values: unknown[]) {
-      filters.push({ kind: 'in', column, values });
-      return query;
-    },
-    maybeSingle: async () => result(),
     then(
-      onFulfilled: (value: ReturnType<typeof result>) => unknown,
+      onFulfilled: (value: {
+        data: Partial<MessageTemplate>[];
+        error: null;
+      }) => unknown,
       onRejected?: (reason: unknown) => unknown
     ) {
-      return Promise.resolve(result()).then(onFulfilled, onRejected);
+      return Promise.resolve({ data: database.templates, error: null }).then(
+        onFulfilled,
+        onRejected
+      );
     },
   };
-
   return query;
 }
 
-const supabase = {
-  from: (table: string) => makeQuery(table),
-};
+const supabase = { from: (table: string) => makeQuery(table) };
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => supabase,
@@ -99,58 +83,41 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-describe('RenewalRemindersSettings membership template readiness', () => {
-  it('treats an approved Utility legacy template as ready', async () => {
+describe('RenewalRemindersSettings template readiness', () => {
+  it('reports all four feature contracts independently', async () => {
     database.templates = [
-      {
-        account_id: 'account-1',
-        name: 'gym_renewal_reminder',
-        language: 'en_US',
-        status: 'APPROVED',
-        category: 'Utility',
-      },
+      approved('membership_renewal'),
+      approved('installment_reminder'),
     ];
 
     render(<RenewalRemindersSettings />);
 
-    expect(await screen.findByText('Ready')).toBeTruthy();
+    expect(await screen.findByText('WhatsApp template readiness')).toBeTruthy();
+    expect(
+      screen.getByTestId('readiness-membership_renewal').textContent
+    ).toContain('Ready');
+    expect(
+      screen.getByTestId('readiness-service_renewal').textContent
+    ).toContain('Needs setup');
+    expect(
+      screen.getByTestId('readiness-installment_reminder').textContent
+    ).toContain('Ready');
+    expect(screen.getByTestId('readiness-payment_link').textContent).toContain(
+      'Needs setup'
+    );
   });
 
-  it('explains the replacement path for an approved Marketing template', async () => {
+  it('requires the exact Marketing membership-renewal contract', async () => {
     database.templates = [
-      {
-        account_id: 'account-1',
-        name: 'gym_renewal_reminder',
-        language: 'en_US',
-        status: 'APPROVED',
-        category: 'Marketing',
-      },
+      { ...approved('membership_renewal'), category: 'Utility' },
     ];
 
     render(<RenewalRemindersSettings />);
 
     expect(
-      await screen.findByText('Template category needs repair.')
+      await screen.findAllByText(
+        /does not have the category required by its UsefulDesk contract/
+      )
     ).toBeTruthy();
-    expect(
-      screen.getByText(/gym_membership_expiry_notice.*Utility template/)
-    ).toBeTruthy();
-  });
-
-  it('does not mistake a service-template category for a membership repair', async () => {
-    database.templates = [
-      {
-        account_id: 'account-1',
-        name: 'gym_service_renewal_reminder',
-        language: 'en_US',
-        status: 'APPROVED',
-        category: 'Marketing',
-      },
-    ];
-
-    render(<RenewalRemindersSettings />);
-
-    expect(await screen.findByText('Template approval needed.')).toBeTruthy();
-    expect(screen.queryByText('Template category needs repair.')).toBeNull();
   });
 });

@@ -66,8 +66,9 @@ const STEP_DEFINITIONS: StepDefinition[] = [
   },
   {
     id: 'template',
-    title: 'Approve the renewal reminder template',
-    subtitle: "One-tap renewal reminders need Meta's approval once",
+    title: 'Approve the membership renewal template',
+    subtitle:
+      'Submit the exact Marketing contract to Meta; approval is not guaranteed',
     href: '/settings?tab=templates',
     group: 'messaging',
     isDone: (raw) => raw.templateApproved,

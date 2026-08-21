@@ -131,3 +131,27 @@ describe('GetStartedView dismissed state', () => {
     expect(setup.getAttribute('aria-busy')).toBe('true');
   });
 });
+
+describe('GetStartedView template guidance', () => {
+  it('makes Meta review and delivery limitations explicit', () => {
+    viewState.dismissedAt = null;
+    viewState.onboarding.steps = [
+      {
+        id: 'whatsapp',
+        title: 'Connect WhatsApp',
+        subtitle: 'Link your WhatsApp Business number',
+        href: '/settings?tab=whatsapp',
+        group: 'messaging',
+        done: false,
+      },
+    ];
+    viewState.onboarding.total = 1;
+
+    render(<GetStartedView />);
+
+    expect(screen.getByText(/Submission starts Meta review/)).toBeTruthy();
+    expect(
+      screen.getByText(/approval and delivery are not guaranteed/)
+    ).toBeTruthy();
+  });
+});

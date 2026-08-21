@@ -81,6 +81,31 @@ const HEADER_FORMATS: HeaderFormat[] = [
 type TemplateBadgeVariant =
   'success' | 'danger' | 'warning' | 'info' | 'violet' | 'orange' | 'neutral';
 
+const PRESET_GROUPS: Array<{
+  id: TemplatePreset['galleryGroup'];
+  title: string;
+  description: string;
+}> = [
+  {
+    id: 'feature',
+    title: 'UsefulDesk features',
+    description:
+      'Exact contracts used by member actions, payment links, and scheduled reminders.',
+  },
+  {
+    id: 'account_update',
+    title: 'Account updates',
+    description:
+      'Transactional starting points for a specific existing membership, invoice, or payment.',
+  },
+  {
+    id: 'marketing',
+    title: 'Marketing',
+    description:
+      'Promotional starting points for consented audiences and future purchases.',
+  },
+];
+
 const categoryVariants: Record<string, TemplateBadgeVariant> = {
   Marketing: 'violet',
   Utility: 'info',
@@ -190,9 +215,9 @@ export function TemplateManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   // Preset gallery — pick a ready-made gym template to pre-fill the form.
   const [presetPickerOpen, setPresetPickerOpen] = useState(false);
-  // Set when the pinned gym_membership_expiry_notice preset is applied: locks the
-  // name field so the Remind button / cron wiring can't be renamed away.
-  const [nameLocked, setNameLocked] = useState(false);
+  // Feature-backed presets are exact application contracts. Lock every
+  // provider component while creating one; language remains selectable.
+  const [contractLocked, setContractLocked] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // Template selected for the confirm-delete dialog. The destructive
   // action goes through this two-step so a slip on the trash icon
@@ -304,15 +329,15 @@ export function TemplateManager() {
     };
   }
 
-  // Drop a preset's copy into the create form so the gym can tweak and
-  // submit. Never an edit — presets always mint a new template.
+  // Feature presets retain the exact provider name and payload. Non-feature
+  // presets are copied into an explicitly custom, separately named draft.
   function applyPreset(preset: TemplatePreset) {
     const f = preset.fields;
     setEditingId(null);
-    setNameLocked(!!preset.pinned);
+    setContractLocked(preset.wired);
     setForm({
       ...emptyForm,
-      name: f.name,
+      name: preset.wired ? f.name : '',
       category: f.category,
       language: 'en_US',
       header_format: f.header_format,
@@ -329,7 +354,7 @@ export function TemplateManager() {
 
   function openEdit(template: MessageTemplate) {
     setEditingId(template.id);
-    setNameLocked(false);
+    setContractLocked(false);
     setForm({
       name: template.name,
       category: template.category,
@@ -348,7 +373,7 @@ export function TemplateManager() {
 
   function openCreate() {
     setEditingId(null);
-    setNameLocked(false);
+    setContractLocked(false);
     setForm(emptyForm);
     setDialogOpen(true);
   }
@@ -383,12 +408,14 @@ export function TemplateManager() {
             ? 'Template updated (dry-run — no Meta call)'
             : 'Template saved (dry-run — no Meta call)'
           : isEdit
-            ? 'Edit submitted — Meta typically reviews within 24 hours.'
-            : 'Submitted to Meta — typical review time is 24 hours. Status updates automatically.'
+            ? 'Edit submitted to Meta for review. Sync Templates after Meta decides.'
+            : 'Submitted to Meta for review. Sync Templates after Meta decides.'
       );
+      if (data.warning) toast.error(String(data.warning), { duration: 10000 });
       setDialogOpen(false);
       setForm(emptyForm);
       setEditingId(null);
+      setContractLocked(false);
     } catch (err) {
       console.error('Submit error:', err);
       toast.error(getErrorMessage(err, 'Failed to submit template'));
@@ -786,7 +813,7 @@ export function TemplateManager() {
           setDialogOpen(open);
           if (!open) {
             setEditingId(null);
-            setNameLocked(false);
+            setContractLocked(false);
             setForm(emptyForm);
           }
         }}
@@ -804,6 +831,18 @@ export function TemplateManager() {
           </DialogHeader>
 
           <form className="grid gap-4" onSubmit={handleSubmit}>
+            {contractLocked ? (
+              <Alert>
+                <AlertCircle />
+                <AlertTitle>UsefulDesk feature contract is locked</AlertTitle>
+                <AlertDescription>
+                  Name, category, copy, parameter order, footer, and buttons
+                  must stay exact so the matching UsefulDesk action can use this
+                  template. You can choose the provider language before
+                  submission.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             {form.category === 'Authentication' && (
               <Alert>
                 <AlertCircle />
@@ -824,15 +863,15 @@ export function TemplateManager() {
                   placeholder="e.g. renewal_reminder"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  disabled={editingId !== null || nameLocked}
+                  disabled={editingId !== null || contractLocked}
                   required
                   pattern="[a-z0-9_]{1,512}"
                 />
                 <p className="text-muted-foreground text-xs">
                   {editingId
                     ? 'The name is fixed once the template exists on Meta.'
-                    : nameLocked
-                      ? 'Renewal reminders require this exact template name.'
+                    : contractLocked
+                      ? 'This UsefulDesk feature requires the exact template name.'
                       : 'Lowercase letters, digits, and underscores only.'}
                 </p>
               </div>
@@ -842,6 +881,7 @@ export function TemplateManager() {
                   <Label htmlFor="template-category">Category</Label>
                   <Select
                     value={form.category}
+                    disabled={contractLocked}
                     onValueChange={(val) =>
                       setForm({
                         ...form,
@@ -897,6 +937,7 @@ export function TemplateManager() {
                 <Label htmlFor="template-header-format">Header</Label>
                 <Select
                   value={form.header_format}
+                  disabled={contractLocked}
                   onValueChange={(val) =>
                     // Preserve header_content, header_media_url, and
                     // header_sample across format switches. The submit
@@ -933,6 +974,7 @@ export function TemplateManager() {
                       id="template-header-text"
                       placeholder="Header text (max 60 chars, optional {{1}})"
                       value={form.header_content}
+                      disabled={contractLocked}
                       onChange={(e) =>
                         setForm({ ...form, header_content: e.target.value })
                       }
@@ -948,6 +990,7 @@ export function TemplateManager() {
                           id="template-header-sample"
                           placeholder="Example shown to Meta"
                           value={form.header_sample}
+                          disabled={contractLocked}
                           onChange={(e) =>
                             setForm({ ...form, header_sample: e.target.value })
                           }
@@ -1000,6 +1043,7 @@ export function TemplateManager() {
                       type="url"
                       placeholder="https://…"
                       value={form.header_media_url}
+                      disabled={contractLocked}
                       onChange={(e) =>
                         setForm({ ...form, header_media_url: e.target.value })
                       }
@@ -1033,6 +1077,7 @@ export function TemplateManager() {
                   id="template-body"
                   placeholder="Hello {{1}}, your order {{2}} is confirmed."
                   value={form.body_text}
+                  disabled={contractLocked}
                   onChange={(e) =>
                     setForm({ ...form, body_text: e.target.value })
                   }
@@ -1057,6 +1102,7 @@ export function TemplateManager() {
                           aria-label={`Sample value for body variable {{${i + 1}}}`}
                           placeholder={`Sample for {{${i + 1}}}`}
                           value={val}
+                          disabled={contractLocked}
                           onChange={(e) => {
                             const next = [...form.body_samples];
                             next[i] = e.target.value;
@@ -1076,6 +1122,7 @@ export function TemplateManager() {
                   id="template-footer"
                   placeholder="Optional footer text (max 60 chars)"
                   value={form.footer_text}
+                  disabled={contractLocked}
                   onChange={(e) =>
                     setForm({ ...form, footer_text: e.target.value })
                   }
@@ -1092,6 +1139,7 @@ export function TemplateManager() {
                     size="sm"
                     onClick={addButton}
                     disabled={
+                      contractLocked ||
                       form.buttons.length >= TEMPLATE_LIMITS.maxButtonsTotal
                     }
                   >
@@ -1117,6 +1165,7 @@ export function TemplateManager() {
                         <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[10rem_minmax(0,1fr)_auto]">
                           <Select
                             value={btn.type}
+                            disabled={contractLocked}
                             onValueChange={(val) => {
                               // Same null guard as the Header Select
                               // (per PR 148): @base-ui Select fires
@@ -1151,6 +1200,7 @@ export function TemplateManager() {
                             placeholder="Button label"
                             aria-label={`Button ${i + 1} label`}
                             value={btn.text}
+                            disabled={contractLocked}
                             maxLength={TEMPLATE_LIMITS.buttonTextMaxLength}
                             onChange={(e) =>
                               updateButton(i, { text: e.target.value })
@@ -1163,6 +1213,7 @@ export function TemplateManager() {
                             variant="destructive-ghost"
                             size="icon-sm"
                             onClick={() => removeButton(i)}
+                            disabled={contractLocked}
                             aria-label="Remove template button"
                             className="col-start-2 row-start-1 sm:col-start-3"
                           >
@@ -1175,6 +1226,7 @@ export function TemplateManager() {
                               placeholder="https://example.com/path or with {{1}} suffix"
                               aria-label={`Button ${i + 1} URL`}
                               value={btn.url}
+                              disabled={contractLocked}
                               onChange={(e) =>
                                 updateButton(i, { url: e.target.value })
                               }
@@ -1185,6 +1237,7 @@ export function TemplateManager() {
                                 placeholder="Example value for {{1}} (required when URL has a variable)"
                                 aria-label={`Button ${i + 1} URL sample`}
                                 value={btn.example ?? ''}
+                                disabled={contractLocked}
                                 onChange={(e) =>
                                   updateButton(i, { example: e.target.value })
                                 }
@@ -1198,6 +1251,7 @@ export function TemplateManager() {
                             placeholder="555 123 4567"
                             aria-label={`Button ${i + 1} phone number`}
                             value={btn.phone_number}
+                            disabled={contractLocked}
                             onValueChange={(value) =>
                               updateButton(i, { phone_number: value })
                             }
@@ -1209,6 +1263,7 @@ export function TemplateManager() {
                             placeholder="Example code (e.g. SUMMER20)"
                             aria-label={`Button ${i + 1} example code`}
                             value={btn.example}
+                            disabled={contractLocked}
                             onChange={(e) =>
                               updateButton(i, { example: e.target.value })
                             }
@@ -1259,52 +1314,97 @@ export function TemplateManager() {
           <DialogHeader>
             <DialogTitle size="lg">Use a preset</DialogTitle>
             <DialogDescription>
-              Choose a gym message, adjust the wording, then submit it to Meta.
+              Choose a policy-aware gym contract or copy an optional preset into
+              a custom draft. Submission starts Meta review; approval and
+              recipient delivery are not guaranteed, and Meta may reclassify a
+              template.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
-            {TEMPLATE_PRESETS.map((preset) => (
-              <Card key={preset.id}>
-                <CardHeader>
-                  <CardTitle>
-                    <h4>{preset.title}</h4>
-                  </CardTitle>
-                  <CardDescription className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant={categoryVariants[preset.category] || 'neutral'}
-                    >
-                      {preset.category}
-                    </Badge>
-                    {preset.pinned ? (
-                      <Badge variant="neutral">Used by reminders</Badge>
-                    ) : null}
-                  </CardDescription>
-                  <CardAction>
-                    <GatedButton
-                      size="sm"
-                      onClick={() => applyPreset(preset)}
-                      canAct={canEditSettings}
-                      gateReason="create message templates"
-                    >
-                      Use preset
-                    </GatedButton>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-muted-foreground text-sm">
-                    {preset.blurb}
+          <div className="space-y-6 py-2">
+            {PRESET_GROUPS.map((group) => (
+              <section key={group.id} className="space-y-3">
+                <div>
+                  <h3 className="text-foreground text-sm font-semibold">
+                    {group.title}
+                  </h3>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    {group.description}
                   </p>
-                  <blockquote className="bg-muted/40 text-muted-foreground rounded-lg px-3 py-2.5 text-sm whitespace-pre-wrap">
-                    {preset.fields.body_text}
-                  </blockquote>
-                  {preset.note && (
-                    <p className="text-muted-foreground text-xs leading-relaxed">
-                      {preset.note}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+                </div>
+                {TEMPLATE_PRESETS.filter(
+                  (preset) => preset.galleryGroup === group.id
+                ).map((preset) => (
+                  <Card key={preset.id}>
+                    <CardHeader>
+                      <CardTitle>
+                        <h4>{preset.title}</h4>
+                      </CardTitle>
+                      <CardDescription className="flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant={
+                            categoryVariants[preset.category] || 'neutral'
+                          }
+                        >
+                          {preset.category}
+                        </Badge>
+                        {preset.wired ? (
+                          <Badge variant="neutral">UsefulDesk feature</Badge>
+                        ) : (
+                          <Badge variant="neutral">Custom draft</Badge>
+                        )}
+                      </CardDescription>
+                      <CardAction>
+                        <GatedButton
+                          size="sm"
+                          onClick={() => applyPreset(preset)}
+                          canAct={canEditSettings}
+                          gateReason="create message templates"
+                        >
+                          {preset.wired ? 'Use preset' : 'Use as custom draft'}
+                        </GatedButton>
+                      </CardAction>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-muted-foreground text-sm">
+                        {preset.blurb}
+                      </p>
+                      <blockquote className="bg-muted/40 text-muted-foreground rounded-lg px-3 py-2.5 text-sm whitespace-pre-wrap">
+                        {preset.fields.body_text}
+                      </blockquote>
+                      <dl className="text-muted-foreground grid gap-1 text-xs">
+                        <div>
+                          <dt className="text-foreground inline font-medium">
+                            Parameters:{' '}
+                          </dt>
+                          <dd className="inline">
+                            {preset.parameterLabels.join(' · ')}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-foreground inline font-medium">
+                            Trigger:{' '}
+                          </dt>
+                          <dd className="inline">{preset.trigger}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-foreground inline font-medium">
+                            Consent:{' '}
+                          </dt>
+                          <dd className="inline">
+                            {preset.consentScope === 'whatsapp_marketing'
+                              ? 'Recorded Marketing WhatsApp opt-in'
+                              : 'Recorded account-update WhatsApp opt-in'}
+                          </dd>
+                        </div>
+                      </dl>
+                      <p className="text-muted-foreground text-xs leading-relaxed">
+                        {preset.note}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </section>
             ))}
           </div>
 

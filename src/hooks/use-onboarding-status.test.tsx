@@ -2,13 +2,11 @@
 
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MessageTemplate } from '@/types';
+import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
 const onboardingState = vi.hoisted(() => ({
-  templates: [] as Array<{
-    name: string;
-    status: string;
-    category: string;
-  }>,
+  templates: [] as Partial<MessageTemplate>[],
 }));
 
 vi.mock('next/navigation', () => ({
@@ -136,12 +134,14 @@ describe('OnboardingProvider renewal template readiness', () => {
     vi.unstubAllGlobals();
   });
 
-  it('keeps an approved Marketing canonical template incomplete', async () => {
+  it('keeps an approved but component-drifted Marketing template incomplete', async () => {
     onboardingState.templates = [
       {
-        name: 'gym_membership_expiry_notice',
+        account_id: '00000000-0000-4000-8000-000000000001',
+        ...TEMPLATE_CONTRACTS.membership_renewal.payload,
         status: 'APPROVED',
-        category: 'Marketing',
+        parameter_format: 'POSITIONAL',
+        body_text: 'Changed copy {{1}} {{2}} {{3}} {{4}}',
       },
     ];
 
@@ -156,12 +156,13 @@ describe('OnboardingProvider renewal template readiness', () => {
     });
   });
 
-  it('completes from an approved Utility legacy template', async () => {
+  it('completes only from the exact approved Marketing contract', async () => {
     onboardingState.templates = [
       {
-        name: 'gym_renewal_reminder',
+        account_id: '00000000-0000-4000-8000-000000000001',
+        ...TEMPLATE_CONTRACTS.membership_renewal.payload,
         status: 'APPROVED',
-        category: 'Utility',
+        parameter_format: 'POSITIONAL',
       },
     ];
 

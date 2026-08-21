@@ -222,6 +222,12 @@ export function GetStartedView() {
         </Card>
       )}
 
+      <Card size="sm" className="text-muted-foreground mt-3 px-4 py-3 text-xs">
+        Submission starts Meta review. Meta may reclassify a template, and
+        approval and delivery are not guaranteed. UsefulDesk marks setup ready
+        only after the exact provider contract is approved and synced.
+      </Card>
+
       {/* Setup actions, grouped */}
       {GROUP_LABELS.map(({ key, label }) => (
         <div key={key} className="mt-5">
