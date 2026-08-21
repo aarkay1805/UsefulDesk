@@ -190,7 +190,7 @@ export function TemplateManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   // Preset gallery — pick a ready-made gym template to pre-fill the form.
   const [presetPickerOpen, setPresetPickerOpen] = useState(false);
-  // Set when a pinned preset (gym_renewal_reminder) is applied: locks the
+  // Set when the pinned gym_membership_expiry_notice preset is applied: locks the
   // name field so the Remind button / cron wiring can't be renamed away.
   const [nameLocked, setNameLocked] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);

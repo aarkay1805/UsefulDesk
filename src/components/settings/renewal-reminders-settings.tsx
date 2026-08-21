@@ -24,7 +24,11 @@ import { getErrorMessage } from '@/lib/errors';
 import {
   DEFAULT_DAYS_BEFORE,
   normalizeDaysBefore,
+  RENEWAL_TEMPLATE_CATEGORY,
   RENEWAL_TEMPLATE_NAME,
+  RENEWAL_TEMPLATE_NAMES,
+  selectRenewalTemplate,
+  type RenewalTemplateReadinessRow,
 } from '@/lib/memberships/renewal-reminders';
 import { createClient } from '@/lib/supabase/client';
 import { SettingsPanelHead } from './settings-panel-head';
@@ -103,6 +107,55 @@ function resolveSetupStatus(
     href: '',
     action: '',
   };
+}
+
+function resolveMembershipSetupStatus(
+  whatsappConnected: boolean,
+  templates: readonly RenewalTemplateReadinessRow[]
+): SetupStatus {
+  if (!whatsappConnected) {
+    return resolveSetupStatus(false, false, RENEWAL_TEMPLATE_NAME);
+  }
+
+  if (selectRenewalTemplate(templates)) {
+    return resolveSetupStatus(true, true, RENEWAL_TEMPLATE_NAME);
+  }
+
+  const preferredTemplate = templates.find(
+    (template) => template.name === RENEWAL_TEMPLATE_NAME
+  );
+  if (
+    preferredTemplate?.status === 'PENDING' &&
+    preferredTemplate.category === RENEWAL_TEMPLATE_CATEGORY
+  ) {
+    return {
+      ready: false,
+      badge: 'Approval pending',
+      title: 'Template approval pending',
+      description: `Meta is reviewing “${RENEWAL_TEMPLATE_NAME}”. Sync Templates after approval so reminders can start.`,
+      href: '/settings?tab=templates',
+      action: 'Open Templates',
+    };
+  }
+
+  const categoryMismatch = templates.find(
+    (template) =>
+      RENEWAL_TEMPLATE_NAMES.some((name) => name === template.name) &&
+      template.status === 'APPROVED' &&
+      template.category !== RENEWAL_TEMPLATE_CATEGORY
+  );
+  if (categoryMismatch) {
+    return {
+      ready: false,
+      badge: 'Utility needed',
+      title: 'Template category needs repair',
+      description: `“${categoryMismatch.name ?? RENEWAL_TEMPLATE_NAME}” is approved as ${categoryMismatch.category ?? 'a non-Utility category'}, so renewal sends skip it. Create “${RENEWAL_TEMPLATE_NAME}” from the Renewal reminder preset and get it approved as a Utility template.`,
+      href: '/settings?tab=templates',
+      action: 'Open Templates',
+    };
+  }
+
+  return resolveSetupStatus(true, false, RENEWAL_TEMPLATE_NAME);
 }
 
 function ReminderSchedule({
@@ -184,8 +237,9 @@ export function RenewalRemindersSettings() {
   const [serviceOffsets, setServiceOffsets] =
     useState<number[]>(DEFAULT_DAYS_BEFORE);
   const [whatsappConnected, setWhatsappConnected] = useState(false);
-  const [membershipTemplateApproved, setMembershipTemplateApproved] =
-    useState(false);
+  const [membershipTemplates, setMembershipTemplates] = useState<
+    RenewalTemplateReadinessRow[]
+  >([]);
   const [serviceTemplateApproved, setServiceTemplateApproved] = useState(false);
   const [savedConfigKey, setSavedConfigKey] = useState('');
 
@@ -208,10 +262,14 @@ export function RenewalRemindersSettings() {
             .maybeSingle(),
           supabase
             .from('message_templates')
-            .select('name')
-            .in('name', [RENEWAL_TEMPLATE_NAME, SERVICE_TEMPLATE_NAME])
-            .eq('status', 'APPROVED'),
-          supabase.from('whatsapp_config').select('status').maybeSingle(),
+            .select('name, language, status, category')
+            .eq('account_id', accountId)
+            .in('name', [...RENEWAL_TEMPLATE_NAMES, SERVICE_TEMPLATE_NAME]),
+          supabase
+            .from('whatsapp_config')
+            .select('status')
+            .eq('account_id', accountId)
+            .maybeSingle(),
         ]);
       if (cancelled) return;
 
@@ -241,17 +299,21 @@ export function RenewalRemindersSettings() {
             ? normalizeDaysBefore(data?.service_days_before)
             : DEFAULT_DAYS_BEFORE,
       };
-      const approvedNames = new Set(
-        templatesResult.data?.map((template) => template.name) ?? []
-      );
+      const templates = templatesResult.data ?? [];
 
       setEnabled(nextConfig.enabled);
       setOffsets(nextConfig.offsets);
       setServiceEnabled(nextConfig.serviceEnabled);
       setServiceOffsets(nextConfig.serviceOffsets);
       setWhatsappConnected(whatsappResult.data?.status === 'connected');
-      setMembershipTemplateApproved(approvedNames.has(RENEWAL_TEMPLATE_NAME));
-      setServiceTemplateApproved(approvedNames.has(SERVICE_TEMPLATE_NAME));
+      setMembershipTemplates(templates);
+      setServiceTemplateApproved(
+        templates.some(
+          (template) =>
+            template.name === SERVICE_TEMPLATE_NAME &&
+            template.status === 'APPROVED'
+        )
+      );
       setSavedConfigKey(configKey(nextConfig));
       setLoading(false);
     })();
@@ -268,10 +330,9 @@ export function RenewalRemindersSettings() {
     serviceOffsets,
   };
   const hasChanges = savedConfigKey !== configKey(currentConfig);
-  const membershipStatus = resolveSetupStatus(
+  const membershipStatus = resolveMembershipSetupStatus(
     whatsappConnected,
-    membershipTemplateApproved,
-    RENEWAL_TEMPLATE_NAME
+    membershipTemplates
   );
   const serviceStatus = resolveSetupStatus(
     whatsappConnected,

@@ -888,7 +888,10 @@ export async function editMessageTemplate(
     await throwMetaError(response, `Meta API error: ${response.status}`);
   }
   const data = await response.json().catch(() => ({}));
-  return { success: data?.success !== false };
+  if (data?.success === false) {
+    throw new Error('Meta rejected the template edit.');
+  }
+  return { success: true };
 }
 
 export interface DeleteMessageTemplateArgs {

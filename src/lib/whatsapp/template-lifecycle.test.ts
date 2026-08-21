@@ -191,17 +191,17 @@ describe('editMessageTemplate', () => {
     ).toEqual({ success: true });
   });
 
-  it('treats { success: false } as failure', async () => {
+  it('rejects { success: false } so callers cannot persist an unsent edit', async () => {
     fetchMock.mockResolvedValueOnce(okResponse({ success: false }));
-    expect(
-      await editMessageTemplate({
+    await expect(
+      editMessageTemplate({
         metaTemplateId: 'T',
         accessToken: 't',
         name: 'n',
         language: 'en_US',
         components: [],
       })
-    ).toEqual({ success: false });
+    ).rejects.toThrow('Meta rejected the template edit.');
   });
 });
 

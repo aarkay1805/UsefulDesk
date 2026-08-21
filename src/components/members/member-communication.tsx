@@ -36,6 +36,10 @@ interface MemberCommunicationProps {
  * without a code change.
  */
 const TEMPLATE_REASONS: Record<string, { type: string; subject: string }> = {
+  gym_membership_expiry_notice: {
+    type: 'Renewal reminder',
+    subject: 'Membership expiry reminder — plan, expiry date and fee',
+  },
   gym_renewal_reminder: {
     type: 'Renewal reminder',
     subject: 'Membership expiry reminder — plan, expiry date and fee',

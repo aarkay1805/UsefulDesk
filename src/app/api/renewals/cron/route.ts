@@ -19,8 +19,9 @@ import { isRenewalChaseable } from '@/lib/memberships/pricing';
  * Hit on a schedule (Vercel Cron / external pinger), once a day is
  * plenty. For every account that opted in (renewal_reminder_settings
  * .enabled), it finds memberships expiring at each configured offset
- * and sends the `gym_renewal_reminder` template — the same message the
- * manual "Remind" button sends, just without an owner having to click.
+ * and sends the preferred approved Utility renewal template (with the
+ * approved Utility legacy name as a fallback) — the same message the manual
+ * "Remind" button sends, just without an owner having to click.
  *
  * Guarded by the shared AUTOMATION_CRON_SECRET (same secret the
  * automations cron uses — one less env var to manage).

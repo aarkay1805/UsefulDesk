@@ -38,15 +38,15 @@ migration [`033`](../supabase/migrations/033_renewal_reminders.sql).
 
 ## Status (as of setup)
 
-| Piece                             | State                                   |
-| --------------------------------- | --------------------------------------- |
-| Migration 033 (tables + RLS)      | ✅ applied to prod                      |
-| `/api/renewals/cron` deployed     | ✅ (401 without header, 200 with)       |
-| `AUTOMATION_CRON_SECRET` (Vercel) | ✅ set + redeployed                     |
-| GitHub Action scheduler           | ✅ green                                |
-| `gym_renewal_reminder` approved   | ⬜ **blocked on Meta Business account** |
-| Account opt-in                    | ⬜ off by default                       |
-| Members with expiry dates         | ⬜ business data                        |
+| Piece                                   | State                                   |
+| --------------------------------------- | --------------------------------------- |
+| Migration 033 (tables + RLS)            | ✅ applied to prod                      |
+| `/api/renewals/cron` deployed           | ✅ (401 without header, 200 with)       |
+| `AUTOMATION_CRON_SECRET` (Vercel)       | ✅ set + redeployed                     |
+| GitHub Action scheduler                 | ✅ green                                |
+| `gym_membership_expiry_notice` approved | ⬜ **blocked on Meta Business account** |
+| Account opt-in                          | ⬜ off by default                       |
+| Members with expiry dates               | ⬜ business data                        |
 
 ## Finishing it (when Meta is ready)
 
@@ -98,6 +98,7 @@ Returns `{ sent, failed, skipped_already_sent, accounts_considered, notes }`.
 | 200 but `sent: 0`, `accounts_considered: 0` | no account has `enabled = true`.                                                                                                                                                |
 | 200 but account skipped                     | WhatsApp not connected, or the template is not APPROVED as Utility for that account.                                                                                            |
 | Template APPROVED but Remind stays blocked  | Meta classified it as Marketing and will not let an approved category change. Create the pinned `gym_membership_expiry_notice` Utility preset, then wait for approval and sync. |
+| Settings says **Utility needed**            | The same category guard is active before scheduling. Open Templates, create the renewal preset as Utility, and sync after Meta approves it.                                     |
 | `sent: 0` with members expiring             | check offsets vs the account-local date; only exact `today + offset` matches.                                                                                                   |
 | `accounts_before_send_hour` high            | expected — those accounts' local time hasn't reached 09:00 yet; a later hourly run picks them up.                                                                               |
 
