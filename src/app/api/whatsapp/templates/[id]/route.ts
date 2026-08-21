@@ -161,7 +161,10 @@ export async function PATCH(
         await editMessageTemplate({
           metaTemplateId: existing.meta_template_id,
           accessToken,
+          name: existing.name,
+          language: existing.language,
           components: metaPayload.components,
+          category: metaPayload.category,
         });
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Meta edit failed.';

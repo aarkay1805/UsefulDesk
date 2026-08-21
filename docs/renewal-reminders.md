@@ -1,6 +1,6 @@
 # Auto renewal reminders — operator runbook
 
-Automated WhatsApp renewal reminders (Phase 2). An hourly job handles two separately configured sources: memberships use `gym_renewal_reminder`; renewable services use `gym_service_renewal_reminder`.
+Automated WhatsApp renewal reminders (Phase 2). An hourly job handles two separately configured sources: memberships prefer `gym_membership_expiry_notice` and retain an approved Utility `gym_renewal_reminder` as a legacy fallback; renewable services use `gym_service_renewal_reminder`.
 
 ## How it works
 
@@ -8,7 +8,7 @@ Automated WhatsApp renewal reminders (Phase 2). An hourly job handles two separa
 GitHub Action (hourly at :30)
   └─ GET https://desk.usefulmade.com/api/renewals/cron   (header: x-cron-secret)
        └─ for each account with renewal_reminder_settings.enabled = true
-            ├─ readiness gate: WhatsApp connected AND gym_renewal_reminder APPROVED
+            ├─ readiness gate: WhatsApp connected AND a supported renewal template APPROVED as Utility
             ├─ send window: skip until ≥ 09:00 in the ACCOUNT's timezone (055)
             ├─ for each offset in days_before (e.g. 7, 3, 1):
             │    target end_date = account-local today + offset
@@ -52,7 +52,7 @@ migration [`033`](../supabase/migrations/033_renewal_reminders.sql).
 
 ### 1. Approve the template
 
-Settings → Templates → create **`gym_renewal_reminder`** (Utility), submit to
+Settings → Templates → create **`gym_membership_expiry_notice`** (Utility), submit to
 Meta, wait for **APPROVED**. It needs exactly **4 body params**, in order:
 
 | Param   | Value       | Example    |
@@ -64,10 +64,13 @@ Meta, wait for **APPROVED**. It needs exactly **4 body params**, in order:
 
 Example body:
 
-> Hi {{1}}, your {{2}} membership expires on {{3}}. Renew now for {{4}} to
-> keep training. Reply here to confirm.
+> Hi {{1}}, your {{2}} membership expires on {{3}}. The renewal amount is
+> {{4}}. Reply to this message if you need help completing the renewal.
 
-Until APPROVED, the cron silently skips the account (readiness gate).
+Until the template is both APPROVED and still classified as Utility, the cron
+silently skips the account (readiness gate). Meta can approve a submitted
+template after reclassifying it as Marketing; that does not satisfy the renewal
+reminder contract.
 
 ### 2. Turn it on
 
@@ -88,14 +91,15 @@ Returns `{ sent, failed, skipped_already_sent, accounts_considered, notes }`.
 
 ## Troubleshooting
 
-| Symptom                                     | Cause / fix                                                                                       |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `401 Unauthorized`                          | header value ≠ `AUTOMATION_CRON_SECRET`. Check Vercel env + GH repo secret match.                 |
-| `503 cron not configured`                   | env var not loaded → set in Vercel, **redeploy**.                                                 |
-| 200 but `sent: 0`, `accounts_considered: 0` | no account has `enabled = true`.                                                                  |
-| 200 but account skipped                     | WhatsApp not connected, or template not APPROVED for that account.                                |
-| `sent: 0` with members expiring             | check offsets vs the account-local date; only exact `today + offset` matches.                     |
-| `accounts_before_send_hour` high            | expected — those accounts' local time hasn't reached 09:00 yet; a later hourly run picks them up. |
+| Symptom                                     | Cause / fix                                                                                                                                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `401 Unauthorized`                          | header value ≠ `AUTOMATION_CRON_SECRET`. Check Vercel env + GH repo secret match.                                                                                               |
+| `503 cron not configured`                   | env var not loaded → set in Vercel, **redeploy**.                                                                                                                               |
+| 200 but `sent: 0`, `accounts_considered: 0` | no account has `enabled = true`.                                                                                                                                                |
+| 200 but account skipped                     | WhatsApp not connected, or the template is not APPROVED as Utility for that account.                                                                                            |
+| Template APPROVED but Remind stays blocked  | Meta classified it as Marketing and will not let an approved category change. Create the pinned `gym_membership_expiry_notice` Utility preset, then wait for approval and sync. |
+| `sent: 0` with members expiring             | check offsets vs the account-local date; only exact `today + offset` matches.                                                                                                   |
+| `accounts_before_send_hour` high            | expected — those accounts' local time hasn't reached 09:00 yet; a later hourly run picks them up.                                                                               |
 
 ## Ops
 

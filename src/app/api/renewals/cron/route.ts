@@ -7,6 +7,8 @@ import { buildFormatters, hourInTz, todayInTz } from '@/lib/locale/format';
 import {
   REMINDER_SEND_HOUR_LOCAL,
   RENEWAL_TEMPLATE_NAME,
+  RENEWAL_TEMPLATE_NAMES,
+  selectRenewalTemplate,
   targetEndDates,
 } from '@/lib/memberships/renewal-reminders';
 import { isRenewalChaseable } from '@/lib/memberships/pricing';
@@ -97,7 +99,7 @@ export async function GET(request: Request) {
     // WhatsApp must be connected AND the renewal template approved.
     // Under the service-role client we must scope every lookup by
     // account_id ourselves (no RLS to lean on).
-    const [{ data: config }, { data: template }, { data: account }] =
+    const [{ data: config }, { data: templates }, { data: account }] =
       await Promise.all([
         admin
           .from('whatsapp_config')
@@ -106,11 +108,9 @@ export async function GET(request: Request) {
           .maybeSingle(),
         admin
           .from('message_templates')
-          .select('language, status')
+          .select('name, language, status, category')
           .eq('account_id', accountId)
-          .eq('name', RENEWAL_TEMPLATE_NAME)
-          .eq('status', 'APPROVED')
-          .maybeSingle(),
+          .in('name', [...RENEWAL_TEMPLATE_NAMES]),
         admin
           .from('accounts')
           .select(
@@ -119,6 +119,8 @@ export async function GET(request: Request) {
           .eq('id', accountId)
           .maybeSingle(),
       ]);
+
+    const template = selectRenewalTemplate(templates);
 
     if (!config || config.status !== 'connected' || !template || !account) {
       summary.accounts_skipped++;
@@ -242,7 +244,7 @@ export async function GET(request: Request) {
             userId: ownerUserId,
             conversationId,
             contactId: m.contact_id as string,
-            templateName: RENEWAL_TEMPLATE_NAME,
+            templateName: template.name ?? RENEWAL_TEMPLATE_NAME,
             language,
             params,
             purpose: 'renewal',

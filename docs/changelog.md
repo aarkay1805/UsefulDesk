@@ -6,6 +6,12 @@
 
 ---
 
+## Renewal reminder template category guard
+
+The member-profile Remind action and automated renewal cron now require a supported template to be both **Approved** and **Utility**. Live diagnosis found four Meta-accepted sends to two members later marked failed while the operating account's `gym_renewal_reminder` was classified Marketing; normal WhatsApp text delivery remained healthy. Meta refuses category changes on approved templates, so new setup uses the transactional `gym_membership_expiry_notice` while an already-approved Utility legacy name remains supported. The shared selector lives in `src/lib/memberships/renewal-reminders.ts`, the profile explains the repair in Settings → Templates, and the cron skips misconfigured accounts. The Meta edit client now sends the required name, language, components, and requested category so future template edits cannot drift locally from the provider.
+
+---
+
 ## Consistent pending feedback for delayed actions
 
 Buttons that wait on authentication, Supabase/API/storage work, imports, messaging, automation/flow operations, retries, or cold route transitions now show an in-control spinner and accessible busy state from activation through completion. `Button.loading` is the canonical contract; repeated actions track the clicked item, native controls replace their glyph, and `usePendingNavigation` covers imperative and Link navigation without double-pushing. Key code: `src/components/ui/button.tsx`, `src/hooks/use-pending-navigation.ts`, and the affected auth, member, contact, messaging, broadcast, automation, and flow surfaces. Gotcha: keep successful network-plus-navigation actions pending until the destination mounts; clipboard and explicitly optimistic local removals remain immediate.

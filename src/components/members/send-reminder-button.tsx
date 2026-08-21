@@ -21,7 +21,12 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { RENEWAL_TEMPLATE_NAME } from '@/lib/memberships/renewal-reminders';
+import {
+  RENEWAL_TEMPLATE_CATEGORY,
+  RENEWAL_TEMPLATE_NAME,
+  RENEWAL_TEMPLATE_NAMES,
+  selectRenewalTemplate,
+} from '@/lib/memberships/renewal-reminders';
 
 // RENEWAL_TEMPLATE_NAME now lives in the server-safe lib so the cron can
 // share it; re-exported here to keep existing import sites working.
@@ -44,12 +49,14 @@ export interface ReminderReadiness {
   resolution: ReminderResolution | null;
   /** The approved template's language, passed through on send. */
   templateLanguage: string;
+  /** Current or legacy approved Utility template selected for the send. */
+  templateName: string;
 }
 
 /**
  * One-shot check that the one-tap reminder can actually send: WhatsApp
- * must be connected and the `gym_renewal_reminder` template approved by
- * Meta. Fetched once and shared across every action-list row so we don't
+ * must be connected and a supported renewal template approved by Meta as
+ * Utility. Fetched once and shared across every action-list row so we don't
  * re-query per member.
  */
 export function useReminderReadiness(): ReminderReadiness {
@@ -60,6 +67,7 @@ export function useReminderReadiness(): ReminderReadiness {
     reason: null,
     resolution: null,
     templateLanguage: 'en_US',
+    templateName: RENEWAL_TEMPLATE_NAME,
   });
 
   useEffect(() => {
@@ -68,16 +76,21 @@ export function useReminderReadiness(): ReminderReadiness {
     let cancelled = false;
 
     (async () => {
-      const [{ data: config }, { data: template }] = await Promise.all([
-        supabase.from('whatsapp_config').select('status').maybeSingle(),
+      const [{ data: config }, { data: templates }] = await Promise.all([
+        supabase
+          .from('whatsapp_config')
+          .select('status')
+          .eq('account_id', accountId)
+          .maybeSingle(),
         supabase
           .from('message_templates')
-          .select('language, status')
-          .eq('name', RENEWAL_TEMPLATE_NAME)
-          .eq('status', 'APPROVED')
-          .maybeSingle(),
+          .select('name, language, status, category')
+          .eq('account_id', accountId)
+          .in('name', [...RENEWAL_TEMPLATE_NAMES]),
       ]);
       if (cancelled) return;
+
+      const template = selectRenewalTemplate(templates);
 
       if (!config || config.status !== 'connected') {
         setState({
@@ -90,19 +103,36 @@ export function useReminderReadiness(): ReminderReadiness {
             href: '/settings?tab=whatsapp',
           },
           templateLanguage: 'en_US',
+          templateName: RENEWAL_TEMPLATE_NAME,
         });
         return;
       }
       if (!template) {
+        const preferredTemplate = templates?.find(
+          (candidate) => candidate.name === RENEWAL_TEMPLATE_NAME
+        );
+        const categoryMismatch = templates?.find(
+          (candidate) =>
+            candidate.status === 'APPROVED' &&
+            candidate.category !== RENEWAL_TEMPLATE_CATEGORY
+        );
+        const preferredPending =
+          preferredTemplate?.status === 'PENDING' &&
+          preferredTemplate.category === RENEWAL_TEMPLATE_CATEGORY;
         setState({
           loading: false,
           ready: false,
-          reason: `The "${RENEWAL_TEMPLATE_NAME}" template isn't approved yet. Create it and get Meta approval to send reminders.`,
+          reason: preferredPending
+            ? `The "${RENEWAL_TEMPLATE_NAME}" Utility template is awaiting Meta approval. Reminders will be available after it is approved and Templates is synced.`
+            : categoryMismatch
+              ? `The "${categoryMismatch.name}" template is approved as ${categoryMismatch.category ?? 'a non-Utility category'}. Meta does not allow changing an approved template's category, so create and approve the "${RENEWAL_TEMPLATE_NAME}" Utility template from the Renewal reminder preset.`
+              : `The "${RENEWAL_TEMPLATE_NAME}" Utility template isn't approved yet. Create it and get Meta approval to send reminders.`,
           resolution: {
             label: 'Go to Templates',
             href: '/settings?tab=templates',
           },
           templateLanguage: 'en_US',
+          templateName: RENEWAL_TEMPLATE_NAME,
         });
         return;
       }
@@ -112,6 +142,7 @@ export function useReminderReadiness(): ReminderReadiness {
         reason: null,
         resolution: null,
         templateLanguage: template.language ?? 'en_US',
+        templateName: template.name ?? RENEWAL_TEMPLATE_NAME,
       });
     })();
 
@@ -149,7 +180,7 @@ export async function sendRenewalReminder(
     body: JSON.stringify({
       contact_id: membership.contact_id,
       message_type: 'template',
-      template_name: RENEWAL_TEMPLATE_NAME,
+      template_name: readiness.templateName,
       template_language: readiness.templateLanguage,
       template_message_params: { body: params },
       template_params: params,

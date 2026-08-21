@@ -142,10 +142,12 @@ describe('editMessageTemplate', () => {
     vi.unstubAllGlobals();
   });
 
-  it('POSTs to /{templateId} with only `components` in the body by default', async () => {
+  it('POSTs the complete template identity and components to /{templateId}', async () => {
     await editMessageTemplate({
       metaTemplateId: 'TMPL_42',
       accessToken: 'tok',
+      name: 'renewal_notice',
+      language: 'en_US',
       components: [{ type: 'BODY', text: 'new body' }],
     });
     const [url, init] = fetchMock.mock.calls[0];
@@ -153,6 +155,8 @@ describe('editMessageTemplate', () => {
     expect(url).not.toContain('message_templates');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body)).toEqual({
+      name: 'renewal_notice',
+      language: 'en_US',
       components: [{ type: 'BODY', text: 'new body' }],
     });
   });
@@ -161,11 +165,15 @@ describe('editMessageTemplate', () => {
     await editMessageTemplate({
       metaTemplateId: 'TMPL_42',
       accessToken: 'tok',
+      name: 'renewal_notice',
+      language: 'en_US',
       components: [{ type: 'BODY', text: 'x' }],
       category: 'MARKETING',
     });
     const [, init] = fetchMock.mock.calls[0];
     expect(JSON.parse(init.body)).toEqual({
+      name: 'renewal_notice',
+      language: 'en_US',
       components: [{ type: 'BODY', text: 'x' }],
       category: 'MARKETING',
     });
@@ -176,6 +184,8 @@ describe('editMessageTemplate', () => {
       await editMessageTemplate({
         metaTemplateId: 'T',
         accessToken: 't',
+        name: 'n',
+        language: 'en_US',
         components: [],
       })
     ).toEqual({ success: true });
@@ -187,6 +197,8 @@ describe('editMessageTemplate', () => {
       await editMessageTemplate({
         metaTemplateId: 'T',
         accessToken: 't',
+        name: 'n',
+        language: 'en_US',
         components: [],
       })
     ).toEqual({ success: false });

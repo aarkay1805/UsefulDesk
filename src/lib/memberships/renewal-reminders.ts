@@ -21,11 +21,54 @@ import { istAddDays, istToday } from './expiry';
 import type { MembershipStatus } from '@/types';
 
 /**
- * The Utility template a gym creates + submits in Settings → Templates.
+ * The preferred Utility template a gym creates + submits in Settings → Templates.
  * Lives here (server-safe) rather than in the client button so both the
  * manual send and the cron can import it without pulling client code.
  */
-export const RENEWAL_TEMPLATE_NAME = 'gym_renewal_reminder';
+export const RENEWAL_TEMPLATE_NAME = 'gym_membership_expiry_notice';
+export const LEGACY_RENEWAL_TEMPLATE_NAME = 'gym_renewal_reminder';
+export const RENEWAL_TEMPLATE_NAMES = [
+  RENEWAL_TEMPLATE_NAME,
+  LEGACY_RENEWAL_TEMPLATE_NAME,
+] as const;
+export const RENEWAL_TEMPLATE_CATEGORY = 'Utility';
+
+export type RenewalTemplateReadinessRow = {
+  name?: string | null;
+  language?: string | null;
+  status?: string | null;
+  category?: string | null;
+};
+
+/**
+ * Meta may approve a submitted Utility template after reclassifying it as
+ * Marketing. Those sends can be accepted by the Cloud API and then fail
+ * asynchronously under Marketing delivery controls, so approval alone is
+ * not sufficient readiness for the transactional renewal-reminder path.
+ */
+export function isRenewalTemplateReady(
+  template: RenewalTemplateReadinessRow | null | undefined
+): boolean {
+  return (
+    template?.status === 'APPROVED' &&
+    template.category === RENEWAL_TEMPLATE_CATEGORY
+  );
+}
+
+/** Prefer the current transactional name without breaking gyms whose legacy
+ * template is already approved as Utility. */
+export function selectRenewalTemplate<T extends RenewalTemplateReadinessRow>(
+  templates: readonly T[] | null | undefined
+): T | null {
+  if (!templates) return null;
+  for (const name of RENEWAL_TEMPLATE_NAMES) {
+    const ready = templates.find(
+      (template) => template.name === name && isRenewalTemplateReady(template)
+    );
+    if (ready) return ready;
+  }
+  return null;
+}
 
 /** Hard ceiling on configured offsets — guards the settings UI + cron
  *  against a pathological array blowing up the per-run query count. */

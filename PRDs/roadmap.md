@@ -54,6 +54,8 @@ Engineering maintenance: **Settings → Templates now shows the account-wide Met
 
 Engineering maintenance: **Settings → Renewal reminders now presents membership and service schedules as one concise, responsive save task with labelled switches, keyboard-readable day selections, readiness and recovery guidance, explicit read-only behavior, and unchanged account-local cron, template, WhatsApp, and permission gates**.
 
+Engineering maintenance: **member-profile and automated renewal sends now treat only an Approved Utility renewal template as ready; new setup prefers the transactional `gym_membership_expiry_notice`, existing Approved Utility `gym_renewal_reminder` rows remain supported, and Marketing-classified rows are surfaced with the non-destructive replacement path and skipped by the cron, preventing accepted-then-failed deliveries from being mistaken for working reminder setup. Meta edits also carry the full provider identity and category so local state cannot claim a category change the provider never received**.
+
 Engineering maintenance: **Settings → Lead capture and Fields & tags now use the shared Settings hierarchy with concise copy, explicit loading/recovery/read-only states, current-tenant catalogues, labelled responsive forms, RLS-confirmed writes, and accessible destructive confirmations while preserving public-form, Meta, tag, and custom-field behavior**.
 
 Engineering maintenance: **Settings → Products & services now has concise catalogue guidance, a narrow-phone-safe trainer roster, readable archived items, explicit load recovery and empty-trainer states, reset-on-close drafts, and clearer permission-safe errors while preserving catalogue, trainer-fee, history, and checkout behavior**.

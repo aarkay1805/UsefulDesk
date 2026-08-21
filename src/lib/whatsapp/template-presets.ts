@@ -13,7 +13,7 @@
  *  - **Customisable.** Every field is a plausible default, not a mandate;
  *    the gym edits copy/footer to their brand before submitting.
  *
- * `gym_renewal_reminder` is PINNED: its exact name + 4-variable body
+ * `gym_membership_expiry_notice` is PINNED: its exact name + 4-variable body
  * (name, plan, expiry, fee) is the contract the one-tap Remind button and
  * the renewals cron send against (see RENEWAL_TEMPLATE_NAME). Renaming it
  * breaks that wiring, so the picker locks the name for this one.
@@ -60,13 +60,13 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = [
       'Nudge a member whose plan is about to expire. Powers the one-tap Remind button.',
     category: 'Utility',
     pinned: true,
-    note: 'Keep the name gym_renewal_reminder and the 4 variables in order (name, plan, expiry, fee) — the Remind button and the auto-reminder cron send against exactly this shape.',
+    note: 'Keep the pinned name and the 4 variables in order (name, plan, expiry, fee) — the Remind button and the auto-reminder cron send against exactly this shape. Existing approved Utility gym_renewal_reminder templates remain supported.',
     fields: {
       name: RENEWAL_TEMPLATE_NAME,
       category: 'Utility',
       header_format: 'none',
       body_text:
-        "Hi {{1}}, your {{2}} membership expires on {{3}}. Renew now to keep your training on track — the renewal fee is {{4}}. Reply here and we'll help you renew.",
+        'Hi {{1}}, your {{2}} membership expires on {{3}}. The renewal amount is {{4}}. Reply to this message if you need help completing the renewal.',
       body_samples: ['Rahul', 'Quarterly', '20 Jul 2026', '₹3,999'],
     },
   },

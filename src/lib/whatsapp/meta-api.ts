@@ -846,6 +846,9 @@ export interface EditMessageTemplateArgs {
   /** Meta's template id (stored locally as `meta_template_id`). */
   metaTemplateId: string;
   accessToken: string;
+  /** Template identity must be repeated on edits; Meta validates the full row. */
+  name: string;
+  language: string;
   /** Send the full components array — Meta replaces, not patches. */
   components: MetaTemplateSubmitPayload['components'];
   /** Optional — only certain category transitions are allowed by Meta. */
@@ -869,8 +872,9 @@ export interface EditMessageTemplateResult {
 export async function editMessageTemplate(
   args: EditMessageTemplateArgs
 ): Promise<EditMessageTemplateResult> {
-  const { metaTemplateId, accessToken, components, category } = args;
-  const body: Record<string, unknown> = { components };
+  const { metaTemplateId, accessToken, name, language, components, category } =
+    args;
+  const body: Record<string, unknown> = { name, language, components };
   if (category) body.category = category;
   const response = await fetch(`${META_API_BASE}/${metaTemplateId}`, {
     method: 'POST',

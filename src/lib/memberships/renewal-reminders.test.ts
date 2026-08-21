@@ -5,6 +5,8 @@ import {
   targetEndDates,
   DEFAULT_DAYS_BEFORE,
   MAX_REMINDER_OFFSETS,
+  isRenewalTemplateReady,
+  selectRenewalTemplate,
 } from './renewal-reminders';
 
 describe('normalizeDaysBefore', () => {
@@ -47,6 +49,41 @@ describe('isRemindableStatus', () => {
     expect(isRemindableStatus('frozen')).toBe(false);
     expect(isRemindableStatus('cancelled')).toBe(false);
     expect(isRemindableStatus('expired')).toBe(false);
+  });
+});
+
+describe('isRenewalTemplateReady', () => {
+  it('accepts only an approved Utility template', () => {
+    expect(
+      isRenewalTemplateReady({ status: 'APPROVED', category: 'Utility' })
+    ).toBe(true);
+    expect(
+      isRenewalTemplateReady({ status: 'APPROVED', category: 'Marketing' })
+    ).toBe(false);
+    expect(
+      isRenewalTemplateReady({ status: 'PENDING', category: 'Utility' })
+    ).toBe(false);
+    expect(isRenewalTemplateReady(null)).toBe(false);
+  });
+
+  it('prefers the new Utility expiry notice and falls back to the legacy Utility name', () => {
+    const legacy = {
+      name: 'gym_renewal_reminder',
+      language: 'en_US',
+      status: 'APPROVED',
+      category: 'Utility',
+    };
+    const current = {
+      name: 'gym_membership_expiry_notice',
+      language: 'en_US',
+      status: 'APPROVED',
+      category: 'Utility',
+    };
+
+    expect(selectRenewalTemplate([legacy, current])).toEqual(current);
+    expect(
+      selectRenewalTemplate([legacy, { ...current, category: 'Marketing' }])
+    ).toEqual(legacy);
   });
 });
 
