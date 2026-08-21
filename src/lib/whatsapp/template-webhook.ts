@@ -94,7 +94,10 @@ export async function handleTemplateWebhookChange(
       );
       return;
     case 'message_template_components_update':
-      handleComponentsUpdate(change.value as TemplateComponentsUpdateValue);
+      await handleComponentsUpdate(
+        change.value as TemplateComponentsUpdateValue,
+        supabase
+      );
       return;
   }
 }
@@ -203,11 +206,42 @@ async function handleQualityUpdate(
  * thought they submitted. A future PR could mark the row with a
  * "Meta modified this template" banner.
  */
-function handleComponentsUpdate(value: TemplateComponentsUpdateValue): void {
-  console.info(
-    '[template-webhook] components updated by Meta for template',
-    value.message_template_id,
-    value.message_template_name,
-    '— run "Sync from Meta" in Settings to pull the new components.'
-  );
+async function handleComponentsUpdate(
+  value: TemplateComponentsUpdateValue,
+  supabase: SupabaseClient
+): Promise<void> {
+  const metaTemplateId =
+    value.message_template_id !== undefined
+      ? String(value.message_template_id)
+      : null;
+  if (!metaTemplateId) {
+    console.warn(
+      '[template-webhook] components update missing message_template_id:',
+      value
+    );
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from('message_templates')
+    .update({
+      provider_components_sync_required_at: new Date().toISOString(),
+    })
+    .eq('meta_template_id', metaTemplateId)
+    .select('id');
+  if (error) {
+    console.error(
+      '[template-webhook] components update marker failed for meta_template_id',
+      metaTemplateId,
+      error.message
+    );
+    return;
+  }
+  if (!data || data.length === 0) {
+    console.warn(
+      '[template-webhook] components update received for unknown template:',
+      metaTemplateId,
+      value.message_template_name
+    );
+  }
 }

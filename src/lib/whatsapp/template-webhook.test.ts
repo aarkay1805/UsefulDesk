@@ -223,8 +223,7 @@ describe('handleTemplateWebhookChange — quality update', () => {
 });
 
 describe('handleTemplateWebhookChange — components update', () => {
-  it('is an info-log no-op (does not write to DB)', async () => {
-    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+  it('marks the provider row as requiring a full sync before operational sends', async () => {
     const { stub, calls } = makeSupabaseStub();
     await handleTemplateWebhookChange(
       {
@@ -236,8 +235,28 @@ describe('handleTemplateWebhookChange — components update', () => {
       },
       stub
     );
+    expect(calls).toHaveLength(1);
+    expect(calls[0].filter).toEqual({
+      column: 'meta_template_id',
+      value: '5',
+    });
+    expect(calls[0].update).toEqual({
+      provider_components_sync_required_at: expect.any(String),
+    });
+  });
+
+  it('does not update when Meta omits the template id', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { stub, calls } = makeSupabaseStub();
+    await handleTemplateWebhookChange(
+      {
+        field: 'message_template_components_update',
+        value: { message_template_name: 'x' },
+      },
+      stub
+    );
     expect(calls).toHaveLength(0);
-    expect(info).toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
   });
 });
 
