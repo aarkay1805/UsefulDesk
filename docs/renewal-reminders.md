@@ -1,154 +1,126 @@
-# Auto renewal reminders — operator runbook
+# Renewal reminders — operator runbook
 
-Automated WhatsApp renewal reminders (Phase 2). An hourly job handles two separately configured sources: memberships prefer `gym_membership_expiry_notice` and retain an approved Utility `gym_renewal_reminder` as a legacy fallback; renewable services use `gym_service_renewal_reminder`.
+UsefulDesk has two renewal reminder contracts. Both promote a future purchase,
+so both are Meta **Marketing** templates and require a positive recorded
+`whatsapp_marketing` opt-in for the recipient:
 
-## How it works
+| Feature            | Exact template           | Category  | Body parameters                                            |
+| ------------------ | ------------------------ | --------- | ---------------------------------------------------------- |
+| Membership renewal | `gym_membership_renewal` | Marketing | member name, plan name, end date, current renewal price    |
+| Service renewal    | `gym_service_renewal`    | Marketing | member name, service name, end date, current renewal price |
 
-```
-GitHub Action (hourly at :30)
-  └─ GET https://desk.usefulmade.com/api/renewals/cron   (header: x-cron-secret)
-       └─ for each account with renewal_reminder_settings.enabled = true
-            ├─ readiness gate: WhatsApp connected AND a supported renewal template APPROVED as Utility
-            ├─ send window: skip until ≥ 09:00 in the ACCOUNT's timezone (055)
-            ├─ for each offset in days_before (e.g. 7, 3, 1):
-            │    target end_date = account-local today + offset
-            │    find active memberships expiring exactly then
-            ├─ claim-first dedupe via UNIQUE(membership_id, end_date, days_before)
-            └─ send template (expiry date + fee formatted per the account locale)
-```
+These categories are intentional. An ending membership or service is an
+existing relationship, but asking the member to buy its next term promotes a
+future purchase. Neither template is a Utility account update.
 
-- **Dedupe:** one row per (membership, expiry, offset) in
-  `renewal_reminders_sent`. A member gets at most one message per offset
-  per expiry. Renewing moves `end_date` → fresh cycle automatically.
-- **Idempotent:** hourly runs after the send window re-send nothing —
-  the first run at/after 9am local does the work, the ledger blocks the rest.
-- **Timezone-aware:** "today", the 9am window, and the message's date/fee
-  strings all follow each account's localization (migration 055;
-  `src/lib/locale/*`). `REMINDER_SEND_HOUR_LOCAL` = 9.
-- **Cap:** 200 sends per invocation; overflow waits for the next run.
+## Exact provider contracts
 
-### Service reminders
+`gym_membership_renewal` body:
 
-Settings → Renewal reminders has a separate service toggle and offsets. `claim_service_renewal_reminders` reads `service_renewal_queue`, waits until 09:00 in each account timezone, and claims `(member_service_id, end_date, days_before)` before sending. It requires an active catalogue item/option and a current fixed or trainer-specific renewal rate; missing rates are skipped and remain visible as **Trainer fee not set** in Members → Renewals → Services. The Utility template body parameters are member name, service, expiry, and current renewal price. A reminder never renews a service or changes its dates.
+> Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price
+> of {{4}} will continue your membership. Use the buttons below to respond.
 
-Key code: [`route`](../src/app/api/renewals/cron/route.ts) ·
-[`lib`](../src/lib/memberships/renewal-reminders.ts) ·
-[`settings UI`](../src/components/settings/renewal-reminders-settings.tsx) ·
-migration [`033`](../supabase/migrations/033_renewal_reminders.sql).
+Buttons: `Renew membership`, `Unsubscribe`.
 
-## Status (as of setup)
+`gym_service_renewal` body:
 
-| Piece                                   | State                                                       |
-| --------------------------------------- | ----------------------------------------------------------- |
-| Migration 033 (tables + RLS)            | ✅ applied to prod                                          |
-| `/api/renewals/cron` deployed           | ✅ (401 without header, 200 with)                           |
-| `AUTOMATION_CRON_SECRET` (Vercel)       | ✅ set + redeployed                                         |
-| GitHub Action scheduler                 | ✅ green                                                    |
-| `gym_membership_expiry_notice` approved | ⬜ **Meta create rejects Utility category (`100/2388025`)** |
-| Account opt-in                          | ⬜ off by default                                           |
-| Members with expiry dates               | ⬜ business data                                            |
+> Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of
+> {{4}} will continue this service. Use the buttons below to respond.
 
-## Finishing it (when Meta is ready)
+Buttons: `Renew service`, `Unsubscribe`.
 
-### 1. Approve the template
+Both use the footer `Tap Unsubscribe to stop promotional messages.` and
+POSITIONAL parameters. Dates and money are rendered with the account locale.
+The exact payloads live in `src/lib/whatsapp/template-contracts.ts`; do not
+restate or edit them at a sender.
 
-Settings → Templates → create **`gym_membership_expiry_notice`** (Utility), submit to
-Meta, wait for **APPROVED**. It needs exactly **4 body params**, in order:
+## Readiness and provider review
 
-| Param   | Value       | Example    |
-| ------- | ----------- | ---------- |
-| `{{1}}` | member name | Anil       |
-| `{{2}}` | plan name   | Quarterly  |
-| `{{3}}` | expiry date | 2026-07-11 |
-| `{{4}}` | fee         | ₹2,700     |
+Settings → Templates can create the exact contract and submit it to Meta.
+Submission starts review; approval is not guaranteed, Meta may reclassify the
+template, and delivery is not guaranteed even after approval.
 
-Example body:
+A feature is ready only after **Sync from Meta** proves that the exact
+name/language row is **Approved**, has the expected Marketing category,
+POSITIONAL format, exact body/footer/buttons and parameter order, and no pending
+provider-component sync marker. A merely submitted or **Pending** row is not
+ready. **Rejected**, **Paused**, **Disabled**, reclassified, or drifted rows are
+not ready and retain their exact provider state for an operator to inspect.
 
-> Hi {{1}}, account update: your existing {{2}} membership is scheduled to
-> expire on {{3}}. The membership fee recorded on your account is {{4}}. Reply
-> if you need help with your account.
+Meta returning a `wamid` means the request was accepted, not delivered.
+Delivery-status webhooks remain authoritative for sent, delivered, read, and
+failed outcomes.
 
-Until the template is both APPROVED and still classified as Utility, the cron
-silently skips the account (readiness gate). Meta can approve a submitted
-template after reclassifying it as Marketing; that does not satisfy the renewal
-reminder contract. The shared outbound-send boundary enforces the same rule, so
-Inbox and API sends of a recognized Marketing-classified renewal template fail
-immediately with the Utility replacement path instead of returning a provider
-message id that later changes to failed.
+## How scheduled sends work
 
-The Get Started checklist uses this same readiness contract: an Approved
-Utility `gym_membership_expiry_notice`, or an already-approved Utility legacy
-`gym_renewal_reminder`, completes the template step. Approved Marketing rows do
-not.
+GitHub Actions calls `/api/renewals/cron` hourly at :30. For each enabled
+account the route:
 
-If Meta reclassifies the template as Marketing while it is still Pending, it
-cannot be edited. Do not assume deletion allows an immediate retry: Meta can
-reserve the deleted name for 30 days. If the canonical name is launch-critical,
-either wait for that cooldown or explicitly ship and review support for a
-temporary unique name before creating it. An unrecognized provider name will
-not be selected by member sends or the cron.
+1. checks the exact feature contract and connected WhatsApp account;
+2. waits until at least 09:00 in the account timezone;
+3. finds eligible active recurring memberships or renewable services ending at
+   a configured offset;
+4. requires the recipient's positive `whatsapp_marketing` consent;
+5. claims the `(subject, end_date, days_before)` ledger key before sending;
+6. sends at most 200 messages per invocation and releases failed claims so a
+   later run can retry.
 
-### 2. Turn it on
+Membership and service schedules are independently configurable in Settings →
+Renewal reminders. Service candidates also require an active catalogue option
+and current fixed or trainer-specific rate. A reminder never renews a service
+or changes its dates.
 
-App → Settings → **Renewal reminders** → toggle on → pick days (default
-7 / 3 / 1) → Save. Off by default per account.
+Manual member/service **Remind** actions use the same readiness, consent,
+localized parameter order, and outbound send boundary as the cron.
 
-### 3. Verify a real send
+Key code: [`cron route`](../src/app/api/renewals/cron/route.ts),
+[`contracts`](../src/lib/whatsapp/template-contracts.ts),
+[`readiness`](../src/lib/whatsapp/template-readiness.ts), and
+[`settings UI`](../src/components/settings/renewal-reminders-settings.tsx).
 
-```bash
-curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/renewals/cron
-```
+## Controlled pilot
 
-Returns `{ sent, failed, skipped_already_sent, accounts_considered, notes }`.
+1. Keep both schedules off.
+2. Sync from Meta and inspect the exact category, parameter format, components,
+   and status. Do not silently rename, alias, or reclassify a rejected or
+   reserved name.
+3. Use only a specifically confirmed staff-controlled contact with recorded
+   Marketing opt-in after the relevant template is Approved.
+4. With separate action-time approval to send, use one manual Remind action.
+   Verify the provider id and wait for a delivered/read webhook before testing
+   automation.
+5. With separate approval to enable automation, use one offset, invoke the cron
+   after 09:00 account-local time, then invoke it again to prove dedupe. Disable
+   the schedule after evidence is captured.
 
-- Seed a test member expiring in exactly 7 days first, so `sent > 0`.
-- Run twice → second run `skipped_already_sent` climbs, `sent = 0` (dedupe).
-- Check `renewal_reminders_sent` has a row with `wa_message_id` filled.
-
-## Controlled pilot (after provider readiness)
-
-1. Keep automated renewal reminders off. Sync from Meta and verify the exact
-   template name is supported, status is **Approved**, category is **Utility**,
-   and the four body parameters remain in contract order.
-2. Use one staff-controlled, consented WhatsApp contact in the single pilot
-   account. Give its test membership an expiry matching one configured offset;
-   do not use a real customer's membership or change a collectible balance.
-3. With action-time approval to send, run the member-profile Remind action once.
-   Verify the provider message id is stored and the message advances beyond
-   accepted to delivered/read before testing automation.
-4. With separate approval to enable automation and send, select one offset,
-   enable the account, and invoke the cron after 09:00 account-local time. Run it
-   a second time and verify no second message is created for the same
-   membership, expiry, and offset.
-5. Disable the pilot schedule immediately after evidence is captured. Confirm
-   the reminder ledger has exactly one automated claim, the conversation has
-   the expected messages only, and there are no failed sends or setup notes.
-
-Every provider send, automation enablement, test-record mutation, and cleanup
-remains an explicit production action; this runbook does not pre-authorize it.
+No template submission, real message, automation enablement, test-record
+mutation, or cleanup is authorized by this runbook alone.
 
 ## Troubleshooting
 
-| Symptom                                        | Cause / fix                                                                                                                                                                                                                                          |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `401 Unauthorized`                             | header value ≠ `AUTOMATION_CRON_SECRET`. Check Vercel env + GH repo secret match.                                                                                                                                                                    |
-| `503 cron not configured`                      | env var not loaded → set in Vercel, **redeploy**.                                                                                                                                                                                                    |
-| 200 but `sent: 0`, `accounts_considered: 0`    | no account has `enabled = true`.                                                                                                                                                                                                                     |
-| 200 but account skipped                        | WhatsApp not connected, or the template is not APPROVED as Utility for that account.                                                                                                                                                                 |
-| Template APPROVED but Remind stays blocked     | Meta classified it as Marketing and will not let an approved category change. Create the pinned `gym_membership_expiry_notice` Utility preset, then wait for approval and sync.                                                                      |
-| Settings says **Utility needed**               | The same category guard is active before scheduling. Open Templates, create the renewal preset as Utility, and sync after Meta approves it.                                                                                                          |
-| Inbox rejects a renewal template immediately   | The selected supported renewal name is not Approved as Utility. Create/approve `gym_membership_expiry_notice`, sync Templates, then retry.                                                                                                           |
-| Meta says the selected category does not match | Meta rejected the content/category pairing and created nothing. Keep the canonical renewal template on Utility, remove promotional or renewal-call-to-action wording, then resubmit; use Marketing only for templates that are actually promotional. |
-| `sent: 0` with members expiring                | check offsets vs the account-local date; only exact `today + offset` matches.                                                                                                                                                                        |
-| `accounts_before_send_hour` high               | expected — those accounts' local time hasn't reached 09:00 yet; a later hourly run picks them up.                                                                                                                                                    |
+| Symptom                                    | Cause / fix                                                                                                                                    |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `401 Unauthorized`                         | `x-cron-secret` does not match the configured shared cron secret.                                                                              |
+| `503 cron not configured`                  | Set the secret and redeploy.                                                                                                                   |
+| Account skipped                            | Inspect the structured setup note: connection, provider status, category, POSITIONAL format, components, or sync marker may be blocking.       |
+| Consent required                           | Record explicit Marketing WhatsApp opt-in with source evidence; lead follow-up or account-update consent does not imply Marketing consent.     |
+| Approved but blocked                       | Sync Templates and compare the provider-owned category/components to the exact contract. Do not invent an alias or silently switch categories. |
+| `sent: 0` with expiring rows               | Check feature eligibility, account-local offset/date, current service rate, phone, consent, and claim ledger.                                  |
+| Provider request accepted but later failed | A `wamid` is not delivery evidence; inspect status webhooks and the exact provider failure.                                                    |
 
 ## Ops
 
-- **Secret** lives in two places, must match: Vercel env `AUTOMATION_CRON_SECRET`
-  and GitHub repo secret `AUTOMATION_CRON_SECRET`. Shared with all cron routes —
-  see [automations-and-cron.md](automations-and-cron.md).
-- **Schedule:** [`.github/workflows/renewals-cron.yml`](../.github/workflows/renewals-cron.yml),
-  hourly at :30 (covers every account timezone; the route's 09:00-local
-  window + ledger keep it one send per day). Manual run via Actions tab →
-  Run workflow.
-- **Domain:** `desk.usefulmade.com` (alias `useful-desk.vercel.app`).
+- Secret: Vercel and GitHub both use `AUTOMATION_CRON_SECRET`; see
+  [automations-and-cron.md](automations-and-cron.md).
+- Schedule: `.github/workflows/renewals-cron.yml`, hourly at :30.
+- Domain: `desk.usefulmade.com`.
+
+## Historical provider evidence
+
+The retired Utility experiments `gym_renewal_reminder` and
+`gym_membership_expiry_notice` remain historical evidence only. The connected
+WABA rejected one replacement create as Utility with Meta `100/2388025`, and
+Meta may reserve a deleted name for 30 days. Those rows are preserved as generic
+custom templates when provider-approved, but they no longer satisfy feature
+readiness, onboarding, member actions, or cron selection. The retired
+`gym_service_renewal_reminder` name is treated the same way.

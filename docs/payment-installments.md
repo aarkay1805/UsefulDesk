@@ -10,12 +10,25 @@ Add member and lead conversion can collect the first invoice either in full or a
 
 ## WhatsApp prerequisite
 
-The account must have WhatsApp connected and an approved Meta Utility template named `gym_installment_reminder` with four body parameters, in this order:
+The account must have WhatsApp connected, a positive recorded
+`whatsapp_account_updates` opt-in for the recipient, and the exact approved Meta
+**Utility** contract `gym_installment_reminder`. It uses POSITIONAL body
+parameters in this order:
 
 1. member name
 2. outstanding installment amount
 3. plan name
 4. installment due date
+
+Exact body:
+
+> Hi {{1}}, this is a reminder for your existing {{3}} membership: the
+> remaining installment of {{2}} is due on {{4}}. Reply if you need help with
+> this payment.
+
+Submission starts Meta review; approval and delivery are not guaranteed. Sync
+Templates after review. The cron requires the exact Approved category, format,
+components, and parameter order rather than approval by name alone.
 
 If the template is missing or not approved, joining/conversion and payment collection still work; the cron skips the message and reports the setup issue in its response notes.
 

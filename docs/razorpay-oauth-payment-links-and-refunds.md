@@ -529,7 +529,9 @@ For stale `creating` or `orphaned` rows, recovery calls Razorpay's Standard Paym
 
 ### 10.2 WhatsApp delivery
 
-Use `sendMessageToConversation` through `POST /api/whatsapp/send` with `contact_id` and approved Utility template `gym_payment_link`:
+Use `sendMessageToConversation` through `POST /api/whatsapp/send` with
+`contact_id`, positive `whatsapp_account_updates` consent, and the exact
+Approved/synced Utility contract `gym_payment_link`:
 
 1. Member name
 2. Outstanding amount formatted through the account locale
@@ -537,6 +539,10 @@ Use `sendMessageToConversation` through `POST /api/whatsapp/send` with `contact_
 4. Complete Razorpay short URL
 
 The primary UI action creates or reuses the link and sends it in one step. On success, optionally correlate the Meta message ID and send time on the link row; on failure, retain a bounded error and return the short URL. Always keep **Copy link** available. Do not record Copy as a delivery event.
+
+Submission starts Meta review; approval and recipient delivery are not
+guaranteed. A returned Meta message ID means accepted only. Status webhooks are
+the source for delivered/read/failed truth.
 
 ### 10.3 Settlement
 
@@ -729,7 +735,7 @@ Follow `docs/ui-patterns.md` and reuse existing master components.
 
 ### Parallel delivery dependency — WhatsApp template
 
-- Submit and approve the Meta Utility template `gym_payment_link` with the four parameters in section 10.2.
+- Submit the exact Meta Utility template `gym_payment_link` with the four parameters in section 10.2, record `whatsapp_account_updates` consent, and sync after review; do not treat submission or Pending status as approval.
 - **Verified 2026-08-14:** the apparent 2026-08-12 submissions were synthetic local dry-run rows and never reached Meta. After deleting those exact rows, removing Production dry-run mode, and correcting Meta code `100/2388299` by placing fixed wording after the final parameter, Meta accepted the owner-approved `gym_payment_link` Utility / `en_US` template as numeric ID `1996323644342719`. An authenticated provider sync reports **Pending**. Do not claim or exercise Send until Meta reports **Approved**.
 - **Alternative reminder evidence (2026-08-14):** the separately authorized built-in `gym_payment_due` Utility / `en_US` starter was genuinely accepted by Meta as numeric ID `1528972491789269`; the same authenticated sync reports **Pending**. It asks the member to reply for a link, contains no URL, and does not satisfy or replace the four-parameter Payment Link Send contract. The already-approved provider template `payment_reminder` was deliberately not used because it claims an automatic scheduled payment and possible fees.
 - **Approved 2026-08-15:** a fresh authenticated **Sync from Meta** updated both exact templates and UsefulDesk now shows `gym_payment_link` and `gym_payment_due` **Approved**. This clears the template prerequisite for **Send payment link**; it did not send a message or create a link.

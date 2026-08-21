@@ -12,7 +12,7 @@ UsefulDesk supports a branch-scoped, member-only catalogue alongside membership 
 - Payments and credits allocate across current line balances using deterministic proportional largest-remainder allocation at paise precision. Membership dues and `fee_status` use only the membership line; the generic invoice balance uses all active lines.
 - `member_services` owns dates independently from membership lifecycle. Status is derived as upcoming/active/expired in the account timezone; cancellation is explicit. Assignment segments preserve trainer/rate history.
 - Trainer reassignment retains expiry and prorates the rate difference over remaining package days. A positive delta becomes a due adjustment invoice; a negative delta offsets that service’s outstanding lines and stores any remainder as non-expiring, branch/member-specific credit.
-- Members → Renewals has Memberships and Services sources. Service renewals use the current configured trainer rate. Manual and automatic reminders use the approved `gym_service_renewal_reminder` Utility template.
+- Members → Renewals has Memberships and Services sources. Service renewals use the current configured trainer rate. Manual and automatic reminders use the exact approved `gym_service_renewal` Marketing contract and require recorded `whatsapp_marketing` opt-in.
 - Business → Invoices and member billing reconcile generic invoices; Payments adds immutable purpose `sale`. Revenue category comes from invoice line kind, while payment purpose remains the collection-event axis.
 - All Members is a contact-backed customer directory: service-only customers remain searchable and actionable without a fake membership or Member ID, while membership, attendance, renewal, and AutoPay metrics remain membership-only. Standalone sales and service renewals accept the customer contact directly.
 - Members CSV/XLSX import supports membership-only, service-only, and combined rows. It resolves only active sellable service facts, preserves explicit historical sold price/expiry/cancelled state through one audited atomic transaction per customer, and uses stable idempotency keys for safe retry. Author-private, revisioned drafts resume across devices from a private source-file bucket and expire after 30 days.
@@ -23,7 +23,7 @@ Admin+ manages catalogue, trainers, rates, and price overrides; every override r
 
 ## Reminder contract
 
-`gym_service_renewal_reminder` is a Utility template with four body parameters: member name, service name, expiry date, and current renewal price. Automation is separately opt-in, sends only after 09:00 account-local time, claims before delivery, retries failed/stale claims, and skips services with a missing current trainer rate or an archived item/option.
+`gym_service_renewal` is a Marketing template with four body parameters: member name, service name, expiry date, and current renewal price. Its exact copy, footer, renewal/unsubscribe buttons, POSITIONAL order, Approved provider state, and latest sync are application contracts. Automation is separately opt-in, sends only after 09:00 account-local time, claims before delivery, retries failed/stale claims, and skips services with missing Marketing consent, a missing current trainer rate, or an archived item/option.
 
 ## Explicit non-goals
 

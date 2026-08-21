@@ -176,7 +176,7 @@ webhook's authenticated/halted confirmations.
 
 - `collection_mode='manual'`, or a mandate that is `revoked/failed/expired` →
   the member re-enters the existing renewal cron (`/api/renewals/cron`) →
-  expiring flag → WhatsApp `gym_renewal_reminder` → owner records cash/UPI via
+  expiring flag → consented WhatsApp `gym_membership_renewal` Marketing contract → owner records cash/UPI via
   `RecordPaymentDialog` (`record_membership_payment`, `source='manual'`).
 - **Dunning:** extend the renewal cron to also pick up `collection_mode='auto'`
   members whose **last auto-charge failed**, with a failure-specific WhatsApp

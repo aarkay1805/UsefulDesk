@@ -181,7 +181,7 @@ Linear, phone-first, "owner feels in control in 30 seconds" (product principle):
 2. **Connect WhatsApp** (Embedded Signup) — the activation moment.
 3. Create first **membership plan** (reuse Settings → Membership plans).
 4. Import members (reuse CSV import / `import-wizard`).
-5. See the **Renewals** action list populate → send first reminder (needs approved `gym_renewal_reminder` template).
+5. See the **Renewals** action list populate → send the first reminder only after the exact Marketing `gym_membership_renewal` contract is Approved/synced and the staff-controlled recipient has recorded `whatsapp_marketing` opt-in.
 
 - Progress checklist on the dashboard; skippable; resumable. Activation = WhatsApp connected + ≥1 plan + ≥1 member.
 
@@ -222,14 +222,14 @@ No change to `whatsapp_config` schema — Embedded Signup reuses the existing co
 
 ## 17. Meta / WhatsApp requirements (status)
 
-| Requirement                                                 | Status                    |
-| ----------------------------------------------------------- | ------------------------- |
-| Platform Meta app, Live mode                                | app `1874296123566785`    |
-| Business Verification                                       | ✅ verified               |
-| Advanced Access: messaging, management, business_management | ⏳ App Review in progress |
-| Facebook Login for Business + ES config_id                  | ☐ to set up               |
-| App-level webhook `messages` field                          | ☐ one-time                |
-| Approved `gym_renewal_reminder` utility template            | required for renewals     |
+| Requirement                                                 | Status                           |
+| ----------------------------------------------------------- | -------------------------------- |
+| Platform Meta app, Live mode                                | app `1874296123566785`           |
+| Business Verification                                       | ✅ verified                      |
+| Advanced Access: messaging, management, business_management | ⏳ App Review in progress        |
+| Facebook Login for Business + ES config_id                  | ☐ to set up                      |
+| App-level webhook `messages` field                          | ☐ one-time                       |
+| Approved/synced `gym_membership_renewal` Marketing contract | required for membership renewals |
 
 ## 18. Phased rollout
 

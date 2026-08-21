@@ -6,15 +6,21 @@
 
 ---
 
+## Gym WhatsApp template contract library
+
+UsefulDesk now projects nine policy-aware gym presets from one exact registry: membership/service renewals are Marketing; installment, payment-link, due, receipt, and activation messages are Utility; win-back and festival offers are Marketing. Provider sync persists category, POSITIONAL format, components, and drift markers; feature sends require the exact Approved/synced contract plus positive `whatsapp_account_updates` or `whatsapp_marketing` consent, while unsubscribe text/buttons record durable suppression. Settings groups all nine presets, locks the four feature payloads, reports four independent readiness states, and onboarding requires `gym_membership_renewal`. Key code: `src/lib/whatsapp/template-contracts.ts`, `src/lib/whatsapp/template-readiness.ts`, `src/lib/consent/template-consent.ts`, and the two `20260821…` migrations. Gotcha: Meta owns final category/review state; approval and delivery are never guaranteed, a `wamid` is acceptance only, and rejected/reclassified/reserved names must be reported rather than silently aliased.
+
+---
+
 ## Fresh-account navigation branch context
 
 Get Started now carries the selected account through every setup action and dashboard handoff with `branchHref`, including the pending-navigation target. Dashboard links use the shared `BranchLink` wrapper for KPIs, quick actions, work queues, reports, inbox, and empty-state handoffs. A production smoke on an isolated empty branch exposed that both surfaces rendered the right zero-data state but emitted branchless links; `src/components/onboarding/get-started-view.tsx` and `src/components/layout/branch-link.tsx` now follow the same durable branch-URL contract as the sidebar.
 
 ---
 
-## Renewal reminder template category guard
+## Historical renewal reminder category guard — superseded
 
-The member-profile Remind action, Settings readiness card, Get Started checklist, automated renewal cron, and shared outbound-send boundary now require a supported renewal template to be both **Approved** and **Utility**. Live diagnosis found four Meta-accepted sends to two members later marked failed while the operating account's `gym_renewal_reminder` was classified Marketing; normal WhatsApp text delivery remained healthy. The shared send guard now stops Inbox and API callers before Meta accepts that known-bad configuration and points them to `gym_membership_expiry_notice`; an already-approved Utility legacy name remains supported. Its preset is deliberately an existing-membership account update with no renewal-completion CTA after Meta reclassified the first submitted wording as Marketing. The shared selector lives in `src/lib/memberships/renewal-reminders.ts`; settings, onboarding, member sends, cron, and `src/lib/whatsapp/send-message.ts` all enforce it. Meta edits send the required name, language, components, and requested category, and a false Meta success result now blocks the local category/status update so the provider and local row cannot silently diverge. Category-mismatch responses now name the selected category, explain Utility versus Marketing intent, confirm that Meta made no change, and persist the same actionable guidance on the Draft card. The connected WABA currently rejects creation of the replacement as Utility with Meta `100/2388025`, so do not resubmit it as Marketing under the canonical name; resolve the provider classification first. Meta can also reserve a deleted template name for 30 days, so waiting or a code-reviewed temporary alias is a deliberate launch decision.
+This records the diagnosis that preceded the contract library and is not current operational guidance. The member-profile Remind action, Settings readiness card, Get Started checklist, automated renewal cron, and shared outbound-send boundary temporarily required a supported renewal template to be both **Approved** and **Utility**. Live diagnosis found four Meta-accepted sends to two members later marked failed while the operating account's `gym_renewal_reminder` was classified Marketing; normal WhatsApp text delivery remained healthy. The shared send guard stopped Inbox and API callers and pointed them to `gym_membership_expiry_notice`; an already-approved Utility legacy name remained supported. Meta edits carried provider identity/category and false success blocked local updates. The connected WABA rejected creation of the replacement as Utility with Meta `100/2388025`; Meta can also reserve a deleted name for 30 days. Current behavior is defined by the newer Gym WhatsApp template contract library entry above.
 
 ---
 
@@ -1163,7 +1169,7 @@ The wide sheet (`data-[side=right]:w-full` + `data-[side=right]:sm:max-w-[min(12
 
 Sections: **Membership** (its `⋯` menu carries lifecycle actions — **Change plan** first, then Edit · Freeze/Resume · Cancel/Reactivate) **· Billing** (id `payments` — the invoice table + auto-pay setup; see `docs/gym-domain.md`) **· Notes** (`ContactNotesThread`) **· Attendance** (promoted from the old rail widget to a full section) **· Communication · Personal info · Settings**.
 
-- **Communication** (`member-communication.tsx`) is a **template-send log, deliberately NOT a chat.** Owners talk to members on WhatsApp directly; a full embedded `MessageThread` was built and then **reverted as overkill** — if ever wanted again, the thread is fully host-agnostic and needs only ~150 lines of host glue. It answers "what did the system send, when, did it land": finds the member's conversation by `contact_id`, loads `messages` where `content_type='template'` + `sender_type in (agent,bot)` (newest-first, cap 50), renders Type / Channel / Subject / Status. Type = the reason from `TEMPLATE_REASONS` (`gym_renewal_reminder` → "Renewal reminder"; unknown templates humanise their name) with the send `fmt.dateTime` beneath; Status = a delivery badge (read/delivered/sent/failed → success/info/neutral/danger). Header "Open in Inbox" → `/inbox?c=<id>`. Template sends store `content_text=null`, so Subject comes from the reason map.
+- **Historical communication log behavior:** `member-communication.tsx` is a template-send log, deliberately not a chat. At that time `TEMPLATE_REASONS` mapped the now-retired `gym_renewal_reminder`; the current map preserves it only as a legacy label and uses the canonical contract names for new sends.
 - **Personal info** (`member-personal-info.tsx`) — an editable form over the `056` contact columns, one Save. `name` stays a single field; gender reuses `GENDER_OPTIONS`.
 - **Settings** (`member-danger-zone.tsx`) — Delete member only (Merge deferred).
 
@@ -1338,7 +1344,7 @@ Two predicates in `src/lib/auth/roles.ts`: `canDeleteAnyLead(role)` (admin+, the
 Two small UX gaps on the renewal wedge's setup path.
 
 - **Remind button explains itself.** `SendReminderButton` was disabled-with-a-title-tooltip when WhatsApp/template aren't ready — invisible on touch, easy to miss. Now the blocked button stays clickable (dimmed) and opens a dialog with the reason **and a deep-link CTA to the fix** (`/settings?tab=whatsapp` or `?tab=templates`). `ReminderReadiness` gained a `resolution: {label, href} | null` set by the hook; no-phone is a per-member blocker with no CTA. Covers every call site (payments buckets, renewal + trial action lists).
-- **Template presets** (`src/lib/whatsapp/template-presets.ts`). Ready-made gym templates that pre-fill the New Template form — renewal reminder (the pinned `gym_renewal_reminder`, name locked so the Remind/cron wiring can't be renamed away), payment receipt, payment due, welcome, class booking (Utility); win-back + festival offer (Marketing, flagged as needing opt-in). Written to pass Meta review (transactional Utility copy, contiguous `{{1}}…` with 1:1 samples → clears `validateTemplatePayload`). Surfaced via a "Start from template" gallery dialog + empty-state CTA in `template-manager.tsx`; picking one drops its copy into the create form to customise + submit.
+- **Historical template presets (superseded):** the first gallery pinned the now-retired `gym_renewal_reminder` and offered payment, welcome, booking, win-back, and festival starters. The current nine-contract library and provider-review limitations are recorded near the top of this changelog.
 
 ---
 
@@ -1356,7 +1362,7 @@ Closes the App Review gap: Meta requires a Data Deletion Request URL, and there 
 
 ## Get Started onboarding checklist (migration `067`)
 
-PushPress-style setup guide for freshly created gyms: a `/get-started` page + sidebar item showing 6 auto-detected setup steps (connect WhatsApp, approve `gym_renewal_reminder`, first plan, first member, first paid payment, invite staff), a progress bar, and a "recommended next action" hero card deep-linking each step (`/settings?tab=…`, `/members`).
+Historical launch behavior: the first `/get-started` checklist asked gyms to approve the now-retired `gym_renewal_reminder`. The current checklist requires the exact Approved/synced Marketing `gym_membership_renewal` contract and makes Meta review limitations explicit.
 
 - **State lives in ONE place** — `OnboardingProvider` (`src/hooks/use-onboarding-status.tsx`), mounted in `dashboard-shell.tsx` inside `AuthProvider`. Sidebar badge (`N/6`) and page share the fetch. Pure derivation (step defs, done-rules, recommended-next) is `src/lib/onboarding/steps.ts` + colocated test.
 - **Zero cost for mature accounts.** Provider short-circuits (no queries) unless admin+ AND `accounts.onboarding_dismissed_at IS NULL` (`067`, nullable timestamptz; existing 017 `accounts_update` RLS already covers the write — no new policy/predicate). When all 6 steps are detected complete the provider **auto-stamps the column once** (ref-guarded, `.select('id')` RLS-silent-fail check) — the sidebar item disappears forever; `/get-started` stays reachable and shows an all-done card. Explicit "Hide this page" button = same write early.

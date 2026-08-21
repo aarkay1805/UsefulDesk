@@ -91,4 +91,11 @@ Every account owns `country_code`, `locale`, `timezone`, `date_order`, `time_for
 
 ## Operational dependency
 
-One-tap renewal reminders require an account with WhatsApp connected and an approved Meta Utility template named `gym_membership_expiry_notice` with four body parameters: `{{1}}` member name, `{{2}}` plan, `{{3}}` expiry, and `{{4}}` fee. An already-approved Utility `gym_renewal_reminder` remains a supported legacy fallback; a Marketing-classified row does not satisfy readiness. Joining-installment reminders similarly require an approved `gym_installment_reminder` template with `{{1}}` member name, `{{2}}` outstanding amount, `{{3}}` plan, and `{{4}}` due date. Without the relevant template, other functionality remains available and automated sends skip with a setup note.
+Feature WhatsApp sends require a connected account, positive scoped consent,
+and the exact Approved/synced POSITIONAL contract from
+`src/lib/whatsapp/template-contracts.ts`. Membership
+`gym_membership_renewal` and service `gym_service_renewal` are Marketing and
+use `whatsapp_marketing`; `gym_installment_reminder` and `gym_payment_link` are
+Utility and use `whatsapp_account_updates`. Retired renewal names do not satisfy
+feature readiness. Without a relevant contract, other functionality remains
+available and automated sends skip with a structured setup note.
