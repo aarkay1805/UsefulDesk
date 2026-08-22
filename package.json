@@ -29,6 +29,7 @@
   },
   "packageManager": "npm@11.9.0",
   "scripts": {
+    "prepare": "husky",
     "dev": "next dev",
     "dev:https": "next dev --experimental-https",
     "build": "next build",
@@ -80,6 +81,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "prettier": "^3.9.1",
     "prettier-plugin-tailwindcss": "^0.8.0",

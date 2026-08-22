@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -97,9 +103,7 @@ function makeQuery(table: string) {
     order: () => query,
     limit: () => query,
     maybeSingle: async () =>
-      table === 'memberships'
-        ? resultFor(table)
-        : { data: null, error: null },
+      table === 'memberships' ? resultFor(table) : { data: null, error: null },
     single: async () => ({ data: null, error: null }),
     then(
       onFulfilled: (value: ReturnType<typeof resultFor>) => unknown,

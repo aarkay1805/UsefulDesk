@@ -8,6 +8,11 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **npm installs now configure a Husky pre-push hook
+that runs the exact repository-wide Prettier check used by CI, blocking
+formatting defects before they reach GitHub while CI remains the final
+backstop**.
+
 Engineering maintenance: **Add member and Convert to member no longer collect WhatsApp consent or evidence as part of checkout; scoped consent remains recordable from the member profile's Settings card for audit history, but consent and organization-wide opt-out records no longer block manual, API, broadcast, flow, automation, reminder, installment, or payment-link sends**.
 
 Engineering maintenance: **WhatsApp now uses a grayscale provider mark beside the settings menu label and its brand-green mark beside the panel heading, while Razorpay payments and Meta lead ads use compact marks in their card titles; status and action iconography remains semantic**.

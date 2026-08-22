@@ -6,6 +6,15 @@
 
 ---
 
+## Formatting failures are blocked before push
+
+Husky now installs through npm's `prepare` lifecycle and runs the same
+`npm run format:check` command as CI before every push. The hook blocks the push
+when any tracked source or documentation file is not Prettier-clean. Key code:
+`package.json` and `.husky/pre-push`. Gotcha: clones installed with production
+dependencies only do not install development tooling or Git hooks; CI remains
+the final formatting backstop.
+
 ## Failed WhatsApp sends now retain Meta's delivery reason
 
 Failed status callbacks now retain Meta's bounded error code, title, and detail
