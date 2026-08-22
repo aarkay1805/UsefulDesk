@@ -63,16 +63,16 @@ The codebase is already partially multi-tenant, which is why this is a bridge, n
 
 ## 6. Scope — capability map
 
-| #   | Capability                              | Build size | Depends on      |
-| --- | --------------------------------------- | ---------- | --------------- |
+| #   | Capability                              | Build size | Depends on         |
+| --- | --------------------------------------- | ---------- | ------------------ |
 | 6.1 | WhatsApp Embedded Signup onboarding     | **Large**  | Meta App Review ✅ |
-| 6.2 | Tenant lifecycle & status gating        | Medium     | —               |
-| 6.3 | Billing & subscriptions (INR)           | Large      | Razorpay        |
-| 6.4 | Plan entitlements & quota enforcement   | Medium     | 6.3             |
-| 6.5 | Platform operator console (super-admin) | Medium     | —               |
-| 6.6 | Usage metering (WhatsApp conversations) | Medium     | 6.1             |
-| 6.7 | Onboarding wizard & activation          | Small      | 6.1             |
-| 6.8 | Compliance & data protection (DPDP)     | Small–Med  | —               |
+| 6.2 | Tenant lifecycle & status gating        | Medium     | —                  |
+| 6.3 | Billing & subscriptions (INR)           | Large      | Razorpay           |
+| 6.4 | Plan entitlements & quota enforcement   | Medium     | 6.3                |
+| 6.5 | Platform operator console (super-admin) | Medium     | —                  |
+| 6.6 | Usage metering (WhatsApp conversations) | Medium     | 6.1                |
+| 6.7 | Onboarding wizard & activation          | Small      | 6.1                |
+| 6.8 | Compliance & data protection (DPDP)     | Small–Med  | —                  |
 
 ## 7. Feature spec — 6.1 WhatsApp Embedded Signup (the critical path)
 
