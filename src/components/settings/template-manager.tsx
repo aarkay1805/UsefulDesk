@@ -1413,16 +1413,6 @@ export function TemplateManager() {
                           </dt>
                           <dd className="inline">{preset.trigger}</dd>
                         </div>
-                        <div>
-                          <dt className="text-foreground inline font-medium">
-                            Consent:{' '}
-                          </dt>
-                          <dd className="inline">
-                            {preset.consentScope === 'whatsapp_marketing'
-                              ? 'Recorded Marketing WhatsApp opt-in'
-                              : 'Recorded account-update WhatsApp opt-in'}
-                          </dd>
-                        </div>
                       </dl>
                       <p className="text-muted-foreground text-xs leading-relaxed">
                         {preset.note}

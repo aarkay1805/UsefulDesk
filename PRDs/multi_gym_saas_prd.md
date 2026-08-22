@@ -182,14 +182,14 @@ Linear, phone-first, "owner feels in control in 30 seconds" (product principle):
 2. **Connect WhatsApp** (Embedded Signup) — the activation moment.
 3. Create first **membership plan** (reuse Settings → Membership plans).
 4. Import members (reuse CSV import / `import-wizard`).
-5. See the **Renewals** action list populate → send the first reminder only after the exact Marketing `gym_membership_renewal` contract is Approved/synced and the staff-controlled recipient has recorded `whatsapp_marketing` opt-in.
+5. See the **Renewals** action list populate → send the first reminder only after the exact Marketing `gym_membership_renewal` contract is Approved/synced and the recipient is a staff-controlled test contact.
 
 - Progress checklist on the dashboard; skippable; resumable. Activation = WhatsApp connected + ≥1 plan + ≥1 member.
 
 ## 14. Feature spec — 6.8 Compliance & data protection
 
 - **India DPDP Act:** consent record for member contact; data export + deletion per account; data residency note (Supabase region).
-- **WhatsApp Business / Commerce policy:** opt-in capture for template sends; honor STOP/opt-out; 24-hour window already enforced in the composer.
+- **WhatsApp Business / Commerce policy:** retain opt-in and STOP/opt-out audit records, but UsefulDesk does not enforce them at send time. Operators remain responsible for Meta policy and applicable consent law; the 24-hour free-form window remains enforced in the composer.
 - **Tenant data isolation proof:** RLS test suite covering cross-tenant read/write attempts before GA.
 - **Secrets:** per-tenant access tokens encrypted at rest (existing GCM). Rotating `ENCRYPTION_KEY` orphans all tokens — document as a break-glass procedure.
 

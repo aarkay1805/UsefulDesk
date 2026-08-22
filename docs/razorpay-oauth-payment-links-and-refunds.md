@@ -530,8 +530,9 @@ For stale `creating` or `orphaned` rows, recovery calls Razorpay's Standard Paym
 ### 10.2 WhatsApp delivery
 
 Use `sendMessageToConversation` through `POST /api/whatsapp/send` with
-`contact_id`, positive `whatsapp_account_updates` consent, and the exact
-Approved/synced Utility contract `gym_payment_link`:
+`contact_id` and the exact Approved/synced Utility contract
+`gym_payment_link`. Consent and opt-out rows remain audit history and do not
+block Send:
 
 1. Member name
 2. Outstanding amount formatted through the account locale

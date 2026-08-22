@@ -67,7 +67,10 @@ describe('TemplateManager gym preset library', () => {
     ]) {
       expect(screen.getByRole('heading', { name: title })).toBeTruthy();
     }
-    expect(screen.getAllByText(/Consent:/).length).toBe(9);
+    expect(screen.queryByText(/Consent:/)).toBeNull();
+    expect(
+      screen.queryByText(/Requires recorded .* WhatsApp opt-in/)
+    ).toBeNull();
     expect(screen.getAllByText(/Trigger:/).length).toBe(9);
     expect(
       screen.getAllByText(/approval and recipient delivery are not guaranteed/)

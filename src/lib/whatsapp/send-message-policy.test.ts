@@ -4,7 +4,6 @@ import type { MessageTemplate } from '@/types';
 import { TEMPLATE_CONTRACTS } from './template-contracts';
 
 const h = vi.hoisted(() => ({
-  assertTemplateConsentAllowed: vi.fn(),
   sendTemplateMessage: vi.fn(),
 }));
 
@@ -21,23 +20,8 @@ vi.mock('@/lib/whatsapp/encryption', () => ({
 vi.mock('@/lib/flows/admin-client', () => ({
   supabaseAdmin: () => ({ from: vi.fn() }),
 }));
-vi.mock('@/lib/consent/business-messaging', () => ({
-  assertBusinessMessageAllowed: vi.fn(),
-  MessageSuppressedError: class MessageSuppressedError extends Error {},
-}));
-vi.mock('@/lib/consent/template-consent', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/lib/consent/template-consent')
-  >('@/lib/consent/template-consent');
-  return {
-    ...actual,
-    assertTemplateConsentAllowed: h.assertTemplateConsentAllowed,
-  };
-});
 
 const { sendMessageToConversation } = await import('./send-message');
-const { MessageConsentRequiredError } =
-  await import('@/lib/consent/template-consent');
 
 function membershipRow(
   overrides: Partial<MessageTemplate> = {}
@@ -121,14 +105,13 @@ function dbForTemplate(row: MessageTemplate): SupabaseClient {
 }
 
 beforeEach(() => {
-  h.assertTemplateConsentAllowed.mockReset().mockResolvedValue(undefined);
   h.sendTemplateMessage
     .mockReset()
     .mockRejectedValue(new Error('Meta must not be called'));
 });
 
 describe('sendMessageToConversation template policy', () => {
-  it('stops an Approved wrong-category feature template before consent or Meta', async () => {
+  it('stops an Approved wrong-category feature template before Meta', async () => {
     await expect(
       sendMessageToConversation(
         dbForTemplate(membershipRow({ category: 'Utility' })),
@@ -145,13 +128,11 @@ describe('sendMessageToConversation template policy', () => {
       code: 'wrong_category',
       status: 409,
     });
-    expect(h.assertTemplateConsentAllowed).not.toHaveBeenCalled();
     expect(h.sendTemplateMessage).not.toHaveBeenCalled();
   });
 
-  it('checks the canonical Marketing scope before calling Meta', async () => {
-    const consentError = new MessageConsentRequiredError('whatsapp_marketing');
-    h.assertTemplateConsentAllowed.mockRejectedValueOnce(consentError);
+  it('reaches Meta without consulting a consent RPC', async () => {
+    h.sendTemplateMessage.mockRejectedValueOnce(new Error('Meta send reached'));
     await expect(
       sendMessageToConversation(dbForTemplate(membershipRow()), 'account-1', {
         conversationId: 'conversation-1',
@@ -160,13 +141,11 @@ describe('sendMessageToConversation template policy', () => {
         templateLanguage: 'en_US',
         templateParams: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'],
       })
-    ).rejects.toMatchObject({ code: 'message_consent_required', status: 409 });
-    expect(h.assertTemplateConsentAllowed).toHaveBeenCalledWith(
-      expect.anything(),
-      'account-1',
-      '+919999999999',
-      'whatsapp_marketing'
-    );
-    expect(h.sendTemplateMessage).not.toHaveBeenCalled();
+    ).rejects.toMatchObject({
+      code: 'meta_error',
+      message: 'Meta API error: Meta send reached',
+      status: 502,
+    });
+    expect(h.sendTemplateMessage).toHaveBeenCalledOnce();
   });
 });

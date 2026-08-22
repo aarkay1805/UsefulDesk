@@ -6,11 +6,9 @@ import {
   BroadcastError,
 } from './broadcast-core';
 
-const { sendTemplateMessageMock, assertTemplateConsentAllowedMock } =
-  vi.hoisted(() => ({
-    sendTemplateMessageMock: vi.fn(),
-    assertTemplateConsentAllowedMock: vi.fn(),
-  }));
+const { sendTemplateMessageMock } = vi.hoisted(() => ({
+  sendTemplateMessageMock: vi.fn(),
+}));
 
 vi.mock('@/lib/whatsapp/meta-api', () => ({
   sendTemplateMessage: sendTemplateMessageMock,
@@ -18,10 +16,6 @@ vi.mock('@/lib/whatsapp/meta-api', () => ({
 
 vi.mock('@/lib/whatsapp/encryption', () => ({
   decrypt: vi.fn(() => 'decrypted-access-token'),
-}));
-
-vi.mock('@/lib/consent/template-consent', () => ({
-  assertTemplateConsentAllowed: assertTemplateConsentAllowedMock,
 }));
 
 // These assertions all fire in the pure validation prologue, before
@@ -60,7 +54,6 @@ describe('createBroadcast validation', () => {
 describe('public broadcast recovery', () => {
   it('resumes a persisted pending recipient without the original after() plan', async () => {
     sendTemplateMessageMock.mockResolvedValueOnce({ messageId: 'wamid.123' });
-    assertTemplateConsentAllowedMock.mockResolvedValueOnce(undefined);
 
     const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
       if (name === 'claim_public_broadcast_recipients') {
@@ -139,12 +132,6 @@ describe('public broadcast recovery', () => {
         templateName: 'renewal_reminder',
         params: ['Riya', 'Gold'],
       })
-    );
-    expect(assertTemplateConsentAllowedMock).toHaveBeenCalledWith(
-      expect.anything(),
-      'account-1',
-      '919876543210',
-      'whatsapp_account_updates'
     );
     expect(rpc).toHaveBeenCalledWith(
       'complete_public_broadcast_recipient',

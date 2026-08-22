@@ -135,6 +135,10 @@ curl -X POST https://your-crm.example.com/api/v1/messages \
 `filename`); `text` doubles as the caption. `template` needs a
 `template` object:
 
+Outbound API sends are not blocked by UsefulDesk consent or opt-out records.
+Template policy/readiness validation and Meta's own acceptance and delivery
+rules still apply.
+
 ```jsonc
 {
   "to": "+14155550123",
@@ -255,6 +259,9 @@ curl -X POST https://your-crm.example.com/api/v1/broadcasts \
 Recipients are capped at **1000 per request** — split larger sends.
 Invalid phone numbers are dropped and counted as `rejected`. Response
 (202):
+
+Broadcast delivery likewise does not consult UsefulDesk consent or opt-out
+records; provider template validation still applies.
 
 ```json
 {

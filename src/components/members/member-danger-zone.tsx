@@ -74,8 +74,8 @@ export function MemberDangerZone({
             <div className="min-w-0">
               <p className="text-sm font-medium">WhatsApp consent</p>
               <p className="text-muted-foreground mt-0.5 text-sm">
-                Update account-message or marketing permission, or record an
-                organization-wide opt-out.
+                Record account-message or marketing consent history. These
+                records do not control sending.
               </p>
             </div>
             <div className="self-end sm:self-auto">

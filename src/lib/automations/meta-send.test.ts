@@ -4,24 +4,18 @@ import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
 const h = vi.hoisted(() => ({
   db: null as unknown,
-  assertTemplateConsentAllowed: vi.fn(),
   sendTemplateMessage: vi.fn(),
+  sendTextMessage: vi.fn(),
 }));
 
 vi.mock('./admin-client', () => ({ supabaseAdmin: () => h.db }));
 vi.mock('@/lib/whatsapp/meta-api', () => ({
   sendTemplateMessage: h.sendTemplateMessage,
-  sendTextMessage: vi.fn(),
+  sendTextMessage: h.sendTextMessage,
 }));
 vi.mock('@/lib/whatsapp/encryption', () => ({ decrypt: () => 'token' }));
-vi.mock('@/lib/consent/business-messaging', () => ({
-  assertBusinessMessageAllowed: vi.fn(),
-}));
-vi.mock('@/lib/consent/template-consent', () => ({
-  assertTemplateConsentAllowed: h.assertTemplateConsentAllowed,
-}));
 
-const { engineSendTemplate } = await import('./meta-send');
+const { engineSendTemplate, engineSendText } = await import('./meta-send');
 
 function membershipRow(): MessageTemplate {
   const payload = TEMPLATE_CONTRACTS.membership_renewal.payload;
@@ -96,14 +90,15 @@ function automationDb(row: MessageTemplate) {
 
 beforeEach(() => {
   h.db = automationDb(membershipRow());
-  h.assertTemplateConsentAllowed
-    .mockReset()
-    .mockRejectedValue(new Error('marketing consent required'));
   h.sendTemplateMessage.mockReset();
+  h.sendTextMessage.mockReset();
 });
 
 describe('engineSendTemplate', () => {
-  it('loads the synced row and enforces its canonical consent scope before Meta', async () => {
+  it('loads the synced row and reaches Meta without consulting consent', async () => {
+    h.sendTemplateMessage.mockRejectedValueOnce(
+      new Error('Meta template reached')
+    );
     await expect(
       engineSendTemplate({
         accountId: 'account-1',
@@ -114,13 +109,21 @@ describe('engineSendTemplate', () => {
         language: 'en_US',
         params: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'],
       })
-    ).rejects.toThrow('marketing consent required');
-    expect(h.assertTemplateConsentAllowed).toHaveBeenCalledWith(
-      expect.anything(),
-      'account-1',
-      '+919999999999',
-      'whatsapp_marketing'
-    );
-    expect(h.sendTemplateMessage).not.toHaveBeenCalled();
+    ).rejects.toThrow('Meta template reached');
+    expect(h.sendTemplateMessage).toHaveBeenCalledOnce();
+  });
+
+  it('reaches Meta for proactive text without consulting consent', async () => {
+    h.sendTextMessage.mockRejectedValueOnce(new Error('Meta text reached'));
+    await expect(
+      engineSendText({
+        accountId: 'account-1',
+        userId: 'user-1',
+        conversationId: 'conversation-1',
+        contactId: 'contact-1',
+        text: 'Your class starts soon.',
+      })
+    ).rejects.toThrow('Meta text reached');
+    expect(h.sendTextMessage).toHaveBeenCalledOnce();
   });
 });

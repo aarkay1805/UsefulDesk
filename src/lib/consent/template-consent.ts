@@ -1,36 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TemplateConsentScope } from '@/lib/whatsapp/template-contracts';
 
-export class MessageConsentRequiredError extends Error {
-  readonly code = 'message_consent_required';
-
-  constructor(scope: TemplateConsentScope) {
-    super(
-      scope === 'whatsapp_marketing'
-        ? 'This contact does not have current WhatsApp Marketing opt-in, or has opted out.'
-        : 'This contact does not have current WhatsApp account-update opt-in, or has opted out.'
-    );
-    this.name = 'MessageConsentRequiredError';
-  }
-}
-
-export async function assertTemplateConsentAllowed(
-  db: SupabaseClient,
-  accountId: string,
-  phone: string,
-  scope: TemplateConsentScope
-): Promise<void> {
-  const { data, error } = await db.rpc('business_message_allowed', {
-    p_account_id: accountId,
-    p_phone: phone,
-    p_purpose: scope,
-  });
-  if (error) {
-    throw new Error(`Could not verify WhatsApp consent: ${error.message}`);
-  }
-  if (data !== true) throw new MessageConsentRequiredError(scope);
-}
-
 interface RecordTemplateConsentInput {
   accountId: string;
   contactId: string;

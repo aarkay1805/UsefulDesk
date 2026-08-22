@@ -38,10 +38,6 @@ import {
 import type { MessageTemplate } from '@/types';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import {
-  assertTemplateConsentAllowed,
-  MessageConsentRequiredError,
-} from '@/lib/consent/template-consent';
-import {
   resolveTemplateSendPolicy,
   TemplateSendPolicyError,
 } from '@/lib/whatsapp/template-send-policy';
@@ -313,9 +309,8 @@ export async function sendMessageToConversation(
     }
     templateRow = data ?? null;
 
-    let policy;
     try {
-      policy = resolveTemplateSendPolicy(
+      resolveTemplateSendPolicy(
         templateRow ? [templateRow] : [],
         templateName,
         templateLanguage || 'en_US'
@@ -325,26 +320,6 @@ export async function sendMessageToConversation(
         throw new SendMessageError(error.code, error.message, 409);
       }
       throw error;
-    }
-
-    try {
-      await assertTemplateConsentAllowed(
-        db,
-        accountId,
-        contact.phone,
-        policy.consentScope
-      );
-    } catch (error) {
-      if (error instanceof MessageConsentRequiredError) {
-        throw new SendMessageError(error.code, error.message, 409);
-      }
-      throw new SendMessageError(
-        'consent_check_failed',
-        error instanceof Error
-          ? error.message
-          : 'Could not verify WhatsApp consent',
-        503
-      );
     }
   }
 

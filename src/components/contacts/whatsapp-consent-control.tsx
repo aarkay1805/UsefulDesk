@@ -78,9 +78,8 @@ export function WhatsAppConsentControl({
         <DialogHeader>
           <DialogTitle>Record WhatsApp consent</DialogTitle>
           <DialogDescription>
-            Record explicit permission for {contactName || 'this contact'}.
-            Having a phone number or follow-up permission does not authorize
-            these proactive WhatsApp categories.
+            Keep an audit record for {contactName || 'this contact'}. This
+            record does not control whether UsefulDesk sends a message.
           </DialogDescription>
         </DialogHeader>
 
@@ -123,8 +122,8 @@ export function WhatsAppConsentControl({
               placeholder="Where and when did the member give or withdraw permission?"
             />
             <p className="text-muted-foreground text-xs leading-4">
-              An opt-out suppresses proactive WhatsApp messages across this
-              organization, regardless of the category selected above.
+              Opt-ins and opt-outs are retained as organization-wide history;
+              neither blocks an outbound send.
             </p>
           </div>
         </div>

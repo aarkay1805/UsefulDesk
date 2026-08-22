@@ -436,10 +436,7 @@ export function RenewalRemindersSettings() {
                   </Badge>
                 </div>
                 <p className="text-muted-foreground mt-1 text-xs">
-                  {contract.category} ·{' '}
-                  {contract.consentScope === 'whatsapp_marketing'
-                    ? 'Marketing opt-in'
-                    : 'Account-update opt-in'}
+                  {contract.category} template
                 </p>
                 {!status.ready ? (
                   <p className="text-muted-foreground mt-2 text-xs">

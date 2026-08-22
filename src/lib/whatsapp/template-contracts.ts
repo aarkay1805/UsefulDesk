@@ -259,7 +259,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       purpose:
         'Re-engages a lapsed member and promotes a future membership purchase.',
       trigger:
-        'Manual or broadcast send to a deliberately selected marketing-consented audience.',
+        'Manual or broadcast send to a deliberately selected Marketing audience.',
       category: 'Marketing',
       galleryGroup: 'marketing',
       consentScope: 'whatsapp_marketing',
@@ -287,7 +287,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       purpose:
         'Promotes a discounted future annual-membership purchase during a named campaign.',
       trigger:
-        'Manual or broadcast send to a deliberately selected marketing-consented audience.',
+        'Manual or broadcast send to a deliberately selected Marketing audience.',
       category: 'Marketing',
       galleryGroup: 'marketing',
       consentScope: 'whatsapp_marketing',

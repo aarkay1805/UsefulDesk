@@ -1,8 +1,8 @@
 # Renewal reminders — operator runbook
 
 UsefulDesk has two renewal reminder contracts. Both promote a future purchase,
-so both are Meta **Marketing** templates and require a positive recorded
-`whatsapp_marketing` opt-in for the recipient:
+so both are Meta **Marketing** templates. Their audit category is
+`whatsapp_marketing`, but that consent history does not gate sending:
 
 | Feature            | Exact template           | Category  | Body parameters                                            |
 | ------------------ | ------------------------ | --------- | ---------------------------------------------------------- |
@@ -64,9 +64,8 @@ account the route:
 2. waits until at least 09:00 in the account timezone;
 3. finds eligible active recurring memberships or renewable services ending at
    a configured offset;
-4. requires the recipient's positive `whatsapp_marketing` consent;
-5. claims the `(subject, end_date, days_before)` ledger key before sending;
-6. sends at most 200 messages per invocation and releases failed claims so a
+4. claims the `(subject, end_date, days_before)` ledger key before sending;
+5. sends at most 200 messages per invocation and releases failed claims so a
    later run can retry.
 
 Membership and service schedules are independently configurable in Settings →
@@ -74,8 +73,10 @@ Renewal reminders. Service candidates also require an active catalogue option
 and current fixed or trainer-specific rate. A reminder never renews a service
 or changes its dates.
 
-Manual member/service **Remind** actions use the same readiness, consent,
-localized parameter order, and outbound send boundary as the cron.
+Manual member/service **Remind** actions use the same readiness, localized
+parameter order, and outbound send boundary as the cron. Consent and opt-out
+records are retained for audit history but do not block either manual or
+scheduled sends.
 
 Key code: [`cron route`](../src/app/api/renewals/cron/route.ts),
 [`contracts`](../src/lib/whatsapp/template-contracts.ts),
@@ -88,8 +89,8 @@ Key code: [`cron route`](../src/app/api/renewals/cron/route.ts),
 2. Sync from Meta and inspect the exact category, parameter format, components,
    and status. Do not silently rename, alias, or reclassify a rejected or
    reserved name.
-3. Use only a specifically confirmed staff-controlled contact with recorded
-   Marketing opt-in after the relevant template is Approved.
+3. Use only a specifically confirmed staff-controlled contact after the
+   relevant template is Approved.
 4. With separate action-time approval to send, use one manual Remind action.
    Verify the provider id and wait for a delivered/read webhook before testing
    automation.
@@ -107,10 +108,9 @@ mutation, or cleanup is authorized by this runbook alone.
 | `401 Unauthorized`                         | `x-cron-secret` does not match the configured shared cron secret.                                                                              |
 | `503 cron not configured`                  | Set the secret and redeploy.                                                                                                                   |
 | Account skipped                            | Inspect the structured setup note: connection, provider status, category, POSITIONAL format, components, or sync marker may be blocking.       |
-| Consent required                           | Record explicit Marketing WhatsApp opt-in with source evidence; lead follow-up or account-update consent does not imply Marketing consent.     |
 | Approved but blocked                       | Sync Templates and compare the provider-owned category/components to the exact contract. Do not invent an alias or silently switch categories. |
 | Not on Meta                                | The last complete sync did not return this provider-backed row. Re-create it in Meta or delete the retained local record.                      |
-| `sent: 0` with expiring rows               | Check feature eligibility, account-local offset/date, current service rate, phone, consent, and claim ledger.                                  |
+| `sent: 0` with expiring rows               | Check feature eligibility, account-local offset/date, current service rate, phone, and claim ledger.                                           |
 | Provider request accepted but later failed | A `wamid` is not delivery evidence; inspect status webhooks and the exact provider failure.                                                    |
 
 ## Ops

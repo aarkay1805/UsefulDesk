@@ -105,6 +105,9 @@ describe('RenewalRemindersSettings template readiness', () => {
     expect(screen.getByTestId('readiness-payment_link').textContent).toContain(
       'Needs setup'
     );
+    expect(
+      screen.getByTestId('readiness-membership_renewal').textContent
+    ).not.toMatch(/opt-in/i);
   });
 
   it('requires the exact Marketing membership-renewal contract', async () => {

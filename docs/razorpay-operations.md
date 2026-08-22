@@ -5,11 +5,11 @@ staged OAuth, Payment Link, and refund rollout. Never paste client secrets,
 merchant tokens, webhook secrets, member data, or raw provider payloads here.
 
 Current WhatsApp Send invariant: **Copy link is independent**, while Send
-requires positive `whatsapp_account_updates` consent and the exact
-Approved/synced Utility `gym_payment_link` contract with member, localized
-amount, invoice reference, and complete URL parameters. Submission starts Meta
-review; approval and delivery are not guaranteed. Older Pending/Test evidence
-below is historical and must not override current synced provider state.
+requires the exact Approved/synced Utility `gym_payment_link` contract with
+member, localized amount, invoice reference, and complete URL parameters.
+Consent and opt-out records do not block Send. Submission starts Meta review;
+approval and delivery are not guaranteed. Older Pending/Test evidence below is
+historical and must not override current synced provider state.
 
 ## Stage 0A provider acceptance
 

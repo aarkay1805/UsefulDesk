@@ -30,8 +30,6 @@ import {
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
-import { assertTemplateConsentAllowed } from '@/lib/consent/template-consent';
-import type { TemplateConsentScope } from '@/lib/whatsapp/template-contracts';
 import {
   resolveTemplateSendPolicy,
   TemplateSendPolicyError,
@@ -85,7 +83,6 @@ interface BroadcastDeliveryContext {
   phoneNumberId: string;
   accessToken: string;
   templateRow: MessageTemplate | null;
-  consentScope: TemplateConsentScope;
 }
 
 export interface BroadcastDrainResult {
@@ -430,18 +427,7 @@ async function deliverClaimedBroadcastRecipient(
   let sentMessageId: string | null = null;
   let lastError: string | null = null;
 
-  try {
-    await assertTemplateConsentAllowed(
-      db,
-      recipient.account_id,
-      phone,
-      context.consentScope
-    );
-  } catch (error) {
-    lastError = error instanceof Error ? error.message : 'Consent check failed';
-  }
-
-  for (const variant of lastError ? [] : phoneVariants(phone)) {
+  for (const variant of phoneVariants(phone)) {
     try {
       const sendResult = await sendTemplateMessage({
         phoneNumberId: context.phoneNumberId,
@@ -524,7 +510,7 @@ async function loadBroadcastDeliveryContext(
   }
   const templateRow =
     (templateResult.data as MessageTemplate | null | undefined) ?? null;
-  const policy = resolveTemplateSendPolicy(
+  resolveTemplateSendPolicy(
     templateRow ? [templateRow] : [],
     recipient.template_name,
     recipient.template_language
@@ -534,6 +520,5 @@ async function loadBroadcastDeliveryContext(
     phoneNumberId: configResult.data.phone_number_id as string,
     accessToken: decrypt(configResult.data.access_token as string),
     templateRow,
-    consentScope: policy.consentScope,
   };
 }

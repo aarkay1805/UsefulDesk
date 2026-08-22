@@ -40,14 +40,6 @@ import {
   SendMessageError,
 } from '@/lib/whatsapp/send-message';
 import {
-  assertBusinessMessageAllowed,
-  MessageSuppressedError,
-} from '@/lib/consent/business-messaging';
-import {
-  assertTemplateConsentAllowed,
-  MessageConsentRequiredError,
-} from '@/lib/consent/template-consent';
-import {
   resolveTemplateSendPolicy,
   TemplateSendPolicyError,
 } from '@/lib/whatsapp/template-send-policy';
@@ -99,9 +91,9 @@ export async function POST(request: Request) {
       templateName: typeof template?.name === 'string' ? template.name : null,
     });
 
-    // Check before creating contact/conversation side effects. Templates use
-    // the synced provider category (and exact registry contract when known);
-    // plain text retains the API-purpose suppression policy.
+    // Validate template policy before creating contact/conversation side
+    // effects. Consent records and suppression history are informational and
+    // do not block any outbound send path.
     try {
       if (type === 'template' && typeof template?.name === 'string') {
         const language =
@@ -120,42 +112,21 @@ export async function POST(request: Request) {
             500
           );
         }
-        const policy = resolveTemplateSendPolicy(
+        resolveTemplateSendPolicy(
           rawTemplateRow ? [rawTemplateRow] : [],
           template.name,
           language
         );
-        await assertTemplateConsentAllowed(
-          ctx.supabase,
-          ctx.accountId,
-          to,
-          policy.consentScope
-        );
-      } else {
-        await assertBusinessMessageAllowed(
-          ctx.supabase,
-          ctx.accountId,
-          to,
-          'api'
-        );
       }
     } catch (error) {
-      if (
-        error instanceof MessageSuppressedError ||
-        error instanceof MessageConsentRequiredError
-      ) {
-        throw new SendMessageError(error.code, error.message, 409);
-      }
       if (error instanceof TemplateSendPolicyError) {
         throw new SendMessageError(error.code, error.message, 409);
       }
       if (error instanceof SendMessageError) throw error;
       throw new SendMessageError(
-        'consent_check_failed',
-        error instanceof Error
-          ? error.message
-          : 'Could not verify WhatsApp consent',
-        503
+        'template_check_failed',
+        error instanceof Error ? error.message : 'Could not verify template',
+        500
       );
     }
 

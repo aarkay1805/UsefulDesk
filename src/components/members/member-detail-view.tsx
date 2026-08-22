@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
+import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import {
@@ -64,6 +65,7 @@ import type {
   InvoiceLine,
   Invoice,
   CheckoutSelection,
+  MessageTemplate,
 } from '@/types';
 import {
   Sheet,
@@ -73,6 +75,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { GatedButton } from '@/components/ui/gated-button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -135,6 +138,11 @@ import {
   SendReminderButton,
   type ReminderReadiness,
 } from './send-reminder-button';
+import {
+  TemplatePicker,
+  type TemplateSendValues,
+} from '@/components/inbox/template-picker';
+import { WhatsAppMark } from '@/components/brand/provider-mark';
 import { BmiCard } from './bmi-card';
 import { ChurnRiskCard } from './churn-risk-card';
 import { MemberPersonalInfo } from './member-personal-info';
@@ -286,6 +294,8 @@ function MembershipDetailView({
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [paymentTargetId, setPaymentTargetId] = useState<string | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [sendingTemplate, setSendingTemplate] = useState(false);
   const [autoPayOpen, setAutoPayOpen] = useState(false);
   const [mandate, setMandate] = useState<PaymentMandate | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -796,6 +806,43 @@ function MembershipDetailView({
     router.push(buildMemberPurchaseHref(window.location.href, membership.id));
   }
 
+  async function sendSelectedTemplate(
+    template: MessageTemplate,
+    values: TemplateSendValues
+  ) {
+    if (!membership) return;
+    setSendingTemplate(true);
+    try {
+      const response = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contact_id: membership.contact_id,
+          message_type: 'template',
+          template_name: template.name,
+          template_language: template.language,
+          template_message_params: {
+            body: values.body,
+            headerText: values.headerText,
+            buttonParams: values.buttonParams,
+          },
+          template_params: values.body,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      toast.success(`Template "${template.name}" sent`);
+    } catch (error) {
+      toast.error(
+        `Failed to send template: ${getErrorMessage(error, 'network error')}`
+      );
+    } finally {
+      setSendingTemplate(false);
+    }
+  }
+
   function renewService(service: MemberService) {
     if (!service.catalog_item_id || !service.catalog_option_id) return;
     if (
@@ -981,6 +1028,18 @@ function MembershipDetailView({
                     size="default"
                     variant="outline"
                   />
+                  <GatedButton
+                    type="button"
+                    variant="outline"
+                    canAct={canSendMessages}
+                    gateReason="send WhatsApp templates"
+                    loading={sendingTemplate}
+                    onClick={() => setTemplatePickerOpen(true)}
+                    className="w-full sm:w-auto"
+                  >
+                    <WhatsAppMark className="size-4" />
+                    Template
+                  </GatedButton>
                   {membership.is_trial && canSendMessages && (
                     <Button onClick={() => setConvertOpen(true)}>
                       <UserPlus className="size-4" /> Convert to member
@@ -1945,6 +2004,12 @@ function MembershipDetailView({
               name={membership.contact?.name || 'Member'}
               currentUrl={membership.contact?.avatar_url}
               onSaved={refreshAll}
+            />
+            <TemplatePicker
+              open={templatePickerOpen}
+              onOpenChange={setTemplatePickerOpen}
+              onSelect={sendSelectedTemplate}
+              contact={membership.contact}
             />
             <AttendanceOverrideDialog
               open={!!overrideWarning}

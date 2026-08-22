@@ -91,11 +91,12 @@ Every account owns `country_code`, `locale`, `timezone`, `date_order`, `time_for
 
 ## Operational dependency
 
-Feature WhatsApp sends require a connected account, positive scoped consent,
-and the exact Approved/synced POSITIONAL contract from
+Feature WhatsApp sends require a connected account and the exact
+Approved/synced POSITIONAL contract from
 `src/lib/whatsapp/template-contracts.ts`. Membership
 `gym_membership_renewal` and service `gym_service_renewal` are Marketing and
 use `whatsapp_marketing`; `gym_installment_reminder` and `gym_payment_link` are
 Utility and use `whatsapp_account_updates`. Retired renewal names do not satisfy
-feature readiness. Without a relevant contract, other functionality remains
-available and automated sends skip with a structured setup note.
+feature readiness. Consent and opt-out records remain audit history and do not
+block any outbound send path. Without a relevant contract, other functionality
+remains available and automated sends skip with a structured setup note.

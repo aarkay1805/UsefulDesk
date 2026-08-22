@@ -7,11 +7,6 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
 import { supabaseAdmin } from './admin-client';
-import {
-  assertBusinessMessageAllowed,
-  type BusinessMessagePurpose,
-} from '@/lib/consent/business-messaging';
-import { assertTemplateConsentAllowed } from '@/lib/consent/template-consent';
 import { resolveTemplateSendPolicy } from '@/lib/whatsapp/template-send-policy';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import type { MessageTemplate } from '@/types';
@@ -39,7 +34,6 @@ interface SendTextArgs {
   conversationId: string;
   contactId: string;
   text: string;
-  purpose?: BusinessMessagePurpose;
 }
 
 interface SendTemplateArgs {
@@ -50,7 +44,6 @@ interface SendTemplateArgs {
   templateName: string;
   language?: string;
   params?: string[];
-  purpose?: BusinessMessagePurpose;
 }
 
 export async function engineSendText(
@@ -112,23 +105,10 @@ async function sendViaMeta(
       );
     }
     templateRow = data ?? null;
-    const policy = resolveTemplateSendPolicy(
+    resolveTemplateSendPolicy(
       templateRow ? [templateRow] : [],
       input.templateName,
       language
-    );
-    await assertTemplateConsentAllowed(
-      db,
-      input.accountId,
-      contact.phone,
-      policy.consentScope
-    );
-  } else {
-    await assertBusinessMessageAllowed(
-      db,
-      input.accountId,
-      contact.phone,
-      input.purpose ?? 'automation'
     );
   }
 

@@ -6,6 +6,21 @@
 
 ---
 
+## Member templates are one action away, and consent no longer blocks sends
+
+Member profiles now place a WhatsApp-marked **Template** action beside
+**Remind**. It opens the shared approved-template review picker with the member
+as contact context, then sends through `POST /api/whatsapp/send`. Local consent
+and organization-wide suppression checks have been removed from the shared
+conversation sender, dashboard and public broadcasts, public API messages, and
+automation/template delivery. Consent and opt-out rows remain audit history;
+authorization, exact template policy/readiness, connected-account checks, and
+Meta errors still apply. Key code: `src/components/members/member-detail-view.tsx`,
+`src/lib/whatsapp/send-message.ts`, `src/lib/automations/meta-send.ts`,
+`src/lib/whatsapp/broadcast-core.ts`, and the WhatsApp API routes. Gotcha: do
+not reintroduce `business_message_allowed` or a consent assertion in any send
+path.
+
 ## Sending an approved template is now a review task, not a variable puzzle
 
 The Inbox and contact profile template picker now names known templates by their
