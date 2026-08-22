@@ -7,6 +7,7 @@ import { CalendarClock, IndianRupee, UserRoundX, Wallet } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useLocale } from '@/hooks/use-locale';
 import { loadGymStats, type GymStats } from '@/lib/memberships/stats';
+import { DashboardSection } from '@/components/dashboard/dashboard-section';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { AnimatedNumber } from '@/components/ui/animated-number';
 import { buttonVariants } from '@/components/ui/button';
@@ -41,11 +42,10 @@ export function GymMetrics() {
   }, [fmt, locale.timeZone]);
 
   return (
-    <section>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-foreground text-sm font-semibold">
-          Today at a glance
-        </h2>
+    <DashboardSection
+      id="today-at-a-glance"
+      title="Today at a glance"
+      action={
         <Link
           data-slot="button"
           href="/finance?view=performance"
@@ -53,8 +53,8 @@ export function GymMetrics() {
         >
           See business report
         </Link>
-      </div>
-
+      }
+    >
       {loading || !stats ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -115,7 +115,7 @@ export function GymMetrics() {
           </TileLink>
         </div>
       )}
-    </section>
+    </DashboardSection>
   );
 }
 

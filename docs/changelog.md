@@ -6,6 +6,20 @@
 
 ---
 
+## The dashboard lost two headings and a level
+
+A clarify/distill pass on `/dashboard`. Structural and copy only — no query, permission, or route changed.
+
+**The grouping level is gone.** The page had three heading levels: an h2 group (**Work to do**, **The full picture**), a `CardTitle` inside it, and a queue sub-label inside that. Neither group heading named anything its children didn't already name, so **Lead work**, **Member work**, and **Needs attention** are now top-level sections with their headings outside a headerless `Card`, and the four insight cards stand alone under no wrapper at all. Sub-labels (**Next follow-ups**, **Not contacted yet**, **Expiring memberships**) are now the only heading inside a card. `DashboardInsights` returns a fragment so its cards inherit the page's `space-y-8` — all eight top-level blocks sit on one 32px rhythm with a 24px heading row and 12px to content. The rule is recorded in `docs/ui-patterns.md`; do not reintroduce a grouping heading here.
+
+**Two new shared pieces, three duplicated ones deleted.** `dashboard-section.tsx` owns the heading row for all five sections (`GymMetrics` and `QuickActions` included). `action-queue.tsx` owns `QueueHeading` / `QueueSkeleton` / `QueueEmpty`, which the lead and member lists had defined separately in near-identical copies — including two different heading shapes and two skeleton row heights for the same-height rows.
+
+**Counts say one thing, once.** The truncation count is right-aligned in the queue heading and renders **only when the list is truncated** (`N of M`). Lead work printed a bare total above the rows it counted, and Member work carried a `Showing 8 of 23` footnote below its list; both are the same element now. The **New leads waiting 24+ hours** label became **Not contacted yet** — every row already badges its own `Waiting Nd`, and no page owns that queue, so it correctly has no **See all** (`/leads` routes only `all | followups`; the `first_response` accountability view is not reachable from the tabs).
+
+Gotcha: the section badge lives in `DashboardSection`'s `badge` slot, not concatenated into the title, because a flex container drops a whitespace-only text run — the accessible name read "Lead work1 to do". Verified live in light and dark at 1440px and 375px, with a forced truncated state to confirm the `N of M` placement.
+
+---
+
 ## One follow-up composer everywhere
 
 An audit of every manual follow-up creation path found the product had two of them. The profile **Notes & follow-ups** composer was the base reference; the standalone `FollowUpDialog` opened by `FollowUpButton` was a second, quietly different surface. They are one surface now.

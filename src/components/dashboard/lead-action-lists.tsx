@@ -18,16 +18,17 @@ import { useAccountStaff } from '@/components/members/use-account-staff';
 import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-up-dialog';
 import { FollowUpCompletionControl } from '@/components/follow-ups/follow-up-completion-control';
 import { Badge } from '@/components/ui/badge';
-import { buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { UserAvatar } from '@/components/ui/user-avatar';
-import { Skeleton } from './skeleton';
+import { QueueEmpty, QueueHeading, QueueSkeleton } from './action-queue';
+import { DashboardSection } from './dashboard-section';
 
 // Today's lead actions — the PRD's "smart queue": not a dashboard to
 // admire but a work list to clear. Two queues:
 //   1. Follow-ups — due work first; nearest upcoming work when due is empty.
-//   2. Waiting for first contact — leads still in "New" after 24h.
-// Both deep-link into /leads for the full record.
+//   2. Not contacted yet — leads still in "New" after STALE_HOURS.
+// Rows deep-link into /leads for the full record. Only queue 1 has a page
+// that owns the whole list, so only it carries a "See all".
 
 const STALE_HOURS = 24;
 const LIST_LIMIT = 8;
@@ -148,171 +149,167 @@ export function LeadActionLists() {
   }, [nonce, fmt]);
 
   return (
-    <Card>
-      <CardHeader className="border-b">
-        <CardTitle className="flex items-center gap-2">
-          Lead work
-          {followUps !== null && staleLeads !== null && (
-            <Badge variant={actionTotal > 0 ? 'warning' : 'success'}>
-              {actionTotal} to do
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-
-      <CardContent className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* Queue 1 — due follow-ups, or upcoming when the due queue is empty */}
-        <div>
-          <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
-            <span>
-              {followUpMode === 'upcoming'
-                ? 'Next follow-ups'
-                : 'Follow-ups to do'}
-            </span>
-            <Link
-              data-slot="button"
-              href="/leads?view=followups"
-              className={buttonVariants({ variant: 'link', size: 'xs' })}
-            >
-              See all
-            </Link>
-          </div>
-          {followUps === null ? (
-            <ListSkeleton />
-          ) : followUps.length === 0 ? (
-            <QueueEmpty
-              icon={Inbox}
-              text={
+    <DashboardSection
+      id="lead-work"
+      title="Lead work"
+      badge={
+        followUps !== null && staleLeads !== null ? (
+          <Badge variant={actionTotal > 0 ? 'warning' : 'success'}>
+            {actionTotal} to do
+          </Badge>
+        ) : null
+      }
+    >
+      <Card>
+        <CardContent className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {/* Queue 1 — due follow-ups, or upcoming when the due queue is empty */}
+          <div>
+            <QueueHeading
+              label={
                 followUpMode === 'upcoming'
-                  ? 'No follow-ups are due or coming up.'
-                  : 'No follow-ups are due today.'
+                  ? 'Next follow-ups'
+                  : 'Follow-ups to do'
               }
+              href="/leads?view=followups"
+              shown={followUps?.length}
+              total={followUpTotal}
             />
-          ) : (
-            <ul className="divide-border/60 -mx-2 divide-y">
-              {followUps.map((f) => {
-                const overdueDays = f.overdueDays;
-                const who =
-                  f.contact?.name?.trim() || f.contact?.phone || 'Lead';
-                const assignee = f.assigned_to
-                  ? (nameById.get(f.assigned_to) ?? 'Teammate')
-                  : null;
-                return (
-                  <li
-                    key={f.id}
-                    className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-2 py-2 transition-colors"
-                    tabIndex={0}
-                    aria-label={`Open ${who} details`}
-                    onClick={() => setDetailContactId(f.contact_id)}
-                    onKeyDown={(event) => {
-                      if (event.currentTarget !== event.target) return;
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        setDetailContactId(f.contact_id);
-                      }
-                    }}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <FollowUpTaskSummary
-                        taskType={f.task_type}
-                        note={f.note}
-                        label={who}
-                      />
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {followUpMode === 'upcoming' ? (
-                        <span className="text-muted-foreground text-xs tabular-nums">
-                          {fmt.date(f.due_date)}
-                        </span>
-                      ) : (
-                        <Badge variant={overdueDays > 0 ? 'danger' : 'warning'}>
-                          {overdueDays > 0
-                            ? `Overdue ${overdueDays}d`
-                            : 'Today'}
-                        </Badge>
-                      )}
-                      {assignee && (
-                        <UserAvatar
-                          name={assignee}
-                          src={
-                            f.assigned_to ? avatarById.get(f.assigned_to) : null
-                          }
-                          className="size-5 shrink-0"
-                          fallbackClassName="text-[10px]"
-                          title={`Assigned to ${assignee}`}
-                        />
-                      )}
-                      <FollowUpCompletionControl
-                        status="open"
-                        canAct={canEdit}
-                        gateReason="complete follow-ups"
-                        onMarkDone={(event) => {
-                          event.stopPropagation();
-                          setCompleting(f);
-                        }}
-                        ariaLabel={`Complete follow-up for ${who}`}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        {/* Queue 2 — new leads waiting on first contact */}
-        <div>
-          <p className="text-muted-foreground mb-2 flex items-center justify-between text-xs font-medium">
-            <span>New leads waiting {STALE_HOURS}+ hours</span>
-            {staleTotal > 0 && (
-              <span className="tabular-nums">
-                {staleTotal > LIST_LIMIT
-                  ? `${LIST_LIMIT} of ${staleTotal}`
-                  : staleTotal}
-              </span>
-            )}
-          </p>
-          {staleLeads === null ? (
-            <ListSkeleton />
-          ) : staleLeads.length === 0 ? (
-            <QueueEmpty
-              icon={UserRoundSearch}
-              text="No new leads are waiting."
-            />
-          ) : (
-            <ul className="divide-border/60 -mx-2 divide-y">
-              {staleLeads.map((l) => {
-                const waitingDays = l.waitingDays;
-                const displayName = l.name?.trim() || 'Unnamed lead';
-                return (
-                  <li key={l.id}>
-                    <Link
-                      href={`/leads?contact=${encodeURIComponent(l.id)}&focus=followup`}
-                      className="hover:bg-muted/50 flex items-center gap-3 px-2 py-2.5 transition-colors"
+            {followUps === null ? (
+              <QueueSkeleton />
+            ) : followUps.length === 0 ? (
+              <QueueEmpty
+                icon={Inbox}
+                text={
+                  followUpMode === 'upcoming'
+                    ? 'No follow-ups are due or coming up.'
+                    : 'No follow-ups are due today.'
+                }
+              />
+            ) : (
+              <ul className="divide-border/60 -mx-2 divide-y">
+                {followUps.map((f) => {
+                  const overdueDays = f.overdueDays;
+                  const who =
+                    f.contact?.name?.trim() || f.contact?.phone || 'Lead';
+                  const assignee = f.assigned_to
+                    ? (nameById.get(f.assigned_to) ?? 'Teammate')
+                    : null;
+                  return (
+                    <li
+                      key={f.id}
+                      className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-2 py-2 transition-colors"
+                      tabIndex={0}
+                      aria-label={`Open ${who} details`}
+                      onClick={() => setDetailContactId(f.contact_id)}
+                      onKeyDown={(event) => {
+                        if (event.currentTarget !== event.target) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setDetailContactId(f.contact_id);
+                        }
+                      }}
                     >
-                      <UserAvatar
-                        name={displayName}
-                        src={l.avatarUrl}
-                        className="size-8 shrink-0"
-                        fallbackClassName="text-xs"
-                      />
                       <div className="min-w-0 flex-1">
-                        <p className="text-foreground truncate text-sm font-medium">
-                          {displayName}
-                        </p>
-                        <p className="text-muted-foreground mt-0.5 truncate text-xs">
-                          {l.messagePreview}
-                        </p>
+                        <FollowUpTaskSummary
+                          taskType={f.task_type}
+                          note={f.note}
+                          label={who}
+                        />
                       </div>
-                      <Badge variant="info">Waiting {waitingDays}d</Badge>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </CardContent>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {followUpMode === 'upcoming' ? (
+                          <span className="text-muted-foreground text-xs tabular-nums">
+                            {fmt.date(f.due_date)}
+                          </span>
+                        ) : (
+                          <Badge
+                            variant={overdueDays > 0 ? 'danger' : 'warning'}
+                          >
+                            {overdueDays > 0
+                              ? `Overdue ${overdueDays}d`
+                              : 'Today'}
+                          </Badge>
+                        )}
+                        {assignee && (
+                          <UserAvatar
+                            name={assignee}
+                            src={
+                              f.assigned_to
+                                ? avatarById.get(f.assigned_to)
+                                : null
+                            }
+                            className="size-5 shrink-0"
+                            fallbackClassName="text-[10px]"
+                            title={`Assigned to ${assignee}`}
+                          />
+                        )}
+                        <FollowUpCompletionControl
+                          status="open"
+                          canAct={canEdit}
+                          gateReason="complete follow-ups"
+                          onMarkDone={(event) => {
+                            event.stopPropagation();
+                            setCompleting(f);
+                          }}
+                          ariaLabel={`Complete follow-up for ${who}`}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* Queue 2 — new leads waiting on first contact */}
+          <div>
+            <QueueHeading
+              label="Not contacted yet"
+              shown={staleLeads?.length}
+              total={staleTotal}
+            />
+            {staleLeads === null ? (
+              <QueueSkeleton rowClassName="h-11" />
+            ) : staleLeads.length === 0 ? (
+              <QueueEmpty
+                icon={UserRoundSearch}
+                text="No new leads are waiting."
+              />
+            ) : (
+              <ul className="divide-border/60 -mx-2 divide-y">
+                {staleLeads.map((l) => {
+                  const waitingDays = l.waitingDays;
+                  const displayName = l.name?.trim() || 'Unnamed lead';
+                  return (
+                    <li key={l.id}>
+                      <Link
+                        href={`/leads?contact=${encodeURIComponent(l.id)}&focus=followup`}
+                        className="hover:bg-muted/50 flex items-center gap-3 px-2 py-2.5 transition-colors"
+                      >
+                        <UserAvatar
+                          name={displayName}
+                          src={l.avatarUrl}
+                          className="size-8 shrink-0"
+                          fallbackClassName="text-xs"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-foreground truncate text-sm font-medium">
+                            {displayName}
+                          </p>
+                          <p className="text-muted-foreground mt-0.5 truncate text-xs">
+                            {l.messagePreview}
+                          </p>
+                        </div>
+                        <Badge variant="info">Waiting {waitingDays}d</Badge>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </CardContent>
+      </Card>
       {completing && (
         <CompleteFollowUpDialog
           open={Boolean(completing)}
@@ -341,31 +338,6 @@ export function LeadActionLists() {
         contactId={detailContactId}
         onUpdated={() => setNonce((value) => value + 1)}
       />
-    </Card>
-  );
-}
-
-function ListSkeleton() {
-  return (
-    <div className="space-y-1.5">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <Skeleton key={i} className="h-9 w-full" />
-      ))}
-    </div>
-  );
-}
-
-function QueueEmpty({
-  icon: Icon,
-  text,
-}: {
-  icon: typeof Inbox;
-  text: string;
-}) {
-  return (
-    <div className="text-muted-foreground flex items-center gap-2 py-3 text-xs">
-      <Icon className="size-4 shrink-0" />
-      {text}
-    </div>
+    </DashboardSection>
   );
 }

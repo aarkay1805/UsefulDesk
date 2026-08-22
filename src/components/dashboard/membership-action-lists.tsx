@@ -19,15 +19,15 @@ import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-
 import { FollowUpCompletionControl } from '@/components/follow-ups/follow-up-completion-control';
 import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
 import { Badge } from '@/components/ui/badge';
-import { buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { MemberIdentity } from '@/components/members/member-identity';
 import { MemberDetailView } from '@/components/members/member-detail-view';
 import { MemberForm } from '@/components/members/member-form';
 import { useReminderReadiness } from '@/components/members/send-reminder-button';
 import { useAccountStaff } from '@/components/members/use-account-staff';
 import { UserAvatar } from '@/components/ui/user-avatar';
-import { Skeleton } from './skeleton';
+import { QueueEmpty, QueueHeading, QueueSkeleton } from './action-queue';
+import { DashboardSection } from './dashboard-section';
 
 const LIST_LIMIT = 8;
 const RENEWAL_WINDOW_DAYS = 7;
@@ -126,169 +126,170 @@ export function MembershipActionLists() {
     (followUpMode === 'due' ? followUpTotal : 0) + (expiring?.length ?? 0);
 
   return (
-    <Card>
-      <CardHeader className="border-b">
-        <CardTitle className="flex items-center gap-2">
-          Member work
-          {followUps !== null && expiring !== null && (
-            <Badge variant={actionTotal > 0 ? 'warning' : 'success'}>
-              {actionTotal} to do
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-
-      <CardContent className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <div>
-          <QueueHeading
-            label={
-              followUpMode === 'upcoming'
-                ? 'Next follow-ups'
-                : 'Follow-ups to do'
-            }
-          />
-          {followUps === null ? (
-            <ListSkeleton />
-          ) : followUps.length === 0 ? (
-            <QueueEmpty
-              icon={ClipboardCheck}
-              text={
+    <DashboardSection
+      id="member-work"
+      title="Member work"
+      badge={
+        followUps !== null && expiring !== null ? (
+          <Badge variant={actionTotal > 0 ? 'warning' : 'success'}>
+            {actionTotal} to do
+          </Badge>
+        ) : null
+      }
+    >
+      <Card>
+        <CardContent className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div>
+            <QueueHeading
+              label={
                 followUpMode === 'upcoming'
-                  ? 'No follow-ups are due or coming up.'
-                  : 'No follow-ups are due today.'
+                  ? 'Next follow-ups'
+                  : 'Follow-ups to do'
               }
+              href="/members?view=followups"
+              shown={followUps?.length}
+              total={followUpTotal}
             />
-          ) : (
-            <ul className="divide-border/60 -mx-2 divide-y">
-              {followUps.map((followUp) => {
-                const name =
-                  followUp.contact?.name?.trim() ||
-                  followUp.contact?.phone ||
-                  'Member';
-                const assignee = followUp.assigned_to
-                  ? (nameById.get(followUp.assigned_to) ?? 'Teammate')
-                  : null;
-                return (
-                  <li
-                    key={followUp.id}
-                    className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-2 py-2 transition-colors"
-                    tabIndex={0}
-                    aria-label={`Open ${name} details`}
-                    onClick={() =>
-                      setDetailMembershipId(followUp.membership_id)
-                    }
-                    onKeyDown={(event) => {
-                      if (event.currentTarget !== event.target) return;
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        setDetailMembershipId(followUp.membership_id);
+            {followUps === null ? (
+              <QueueSkeleton rowClassName="h-11" />
+            ) : followUps.length === 0 ? (
+              <QueueEmpty
+                icon={ClipboardCheck}
+                text={
+                  followUpMode === 'upcoming'
+                    ? 'No follow-ups are due or coming up.'
+                    : 'No follow-ups are due today.'
+                }
+              />
+            ) : (
+              <ul className="divide-border/60 -mx-2 divide-y">
+                {followUps.map((followUp) => {
+                  const name =
+                    followUp.contact?.name?.trim() ||
+                    followUp.contact?.phone ||
+                    'Member';
+                  const assignee = followUp.assigned_to
+                    ? (nameById.get(followUp.assigned_to) ?? 'Teammate')
+                    : null;
+                  return (
+                    <li
+                      key={followUp.id}
+                      className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-2 py-2 transition-colors"
+                      tabIndex={0}
+                      aria-label={`Open ${name} details`}
+                      onClick={() =>
+                        setDetailMembershipId(followUp.membership_id)
                       }
-                    }}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <FollowUpTaskSummary
-                        taskType={followUp.task_type}
-                        note={followUp.note}
-                        label={name}
-                        reason={followUp.reason}
-                      />
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {followUpMode === 'upcoming' ? (
-                        <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                          {fmt.date(followUp.due_date)}
-                        </span>
-                      ) : (
-                        <Badge
-                          variant={
-                            followUp.overdueDays > 0 ? 'danger' : 'warning'
-                          }
-                        >
-                          {followUp.overdueDays > 0
-                            ? `Overdue ${followUp.overdueDays}d`
-                            : 'Today'}
-                        </Badge>
-                      )}
-                      {assignee && (
-                        <UserAvatar
-                          name={assignee}
-                          src={
-                            followUp.assigned_to
-                              ? avatarById.get(followUp.assigned_to)
-                              : null
-                          }
-                          className="size-5 shrink-0"
-                          fallbackClassName="text-[10px]"
-                          title={`Assigned to ${assignee}`}
-                        />
-                      )}
-                      <FollowUpCompletionControl
-                        status="open"
-                        canAct={canEdit}
-                        gateReason="complete follow-ups"
-                        onMarkDone={(event) => {
-                          event.stopPropagation();
-                          setCompleting(followUp);
-                        }}
-                        ariaLabel={`Complete follow-up for ${name}`}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        <div>
-          <QueueHeading
-            label="Expiring memberships"
-            href="/members?view=renewals"
-          />
-          {expiring === null ? (
-            <ListSkeleton />
-          ) : expiring.length === 0 ? (
-            <QueueEmpty
-              icon={CalendarClock}
-              text="No memberships expiring in the next 7 days."
-            />
-          ) : (
-            <ul className="divide-border/60 -mx-2 divide-y">
-              {expiring.slice(0, LIST_LIMIT).map((membership) => {
-                const days = daysBetween(fmt.today(), membership.end_date);
-                return (
-                  <li
-                    key={membership.id}
-                    className="hover:bg-muted/50 transition-colors"
-                  >
-                    <Link
-                      href={`/members?view=renewals&member=${encodeURIComponent(membership.id)}`}
-                      className="flex items-center gap-3 px-2 py-2"
+                      onKeyDown={(event) => {
+                        if (event.currentTarget !== event.target) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setDetailMembershipId(followUp.membership_id);
+                        }
+                      }}
                     >
                       <div className="min-w-0 flex-1">
-                        <MemberIdentity
-                          name={membership.contact?.name}
-                          secondary={membership.contact?.phone}
-                          src={membership.contact?.avatar_url}
-                          meta={membership.plan?.name ?? undefined}
+                        <FollowUpTaskSummary
+                          taskType={followUp.task_type}
+                          note={followUp.note}
+                          label={name}
+                          reason={followUp.reason}
                         />
                       </div>
-                      <Badge variant="warning">
-                        {days === 0 ? 'Expires today' : `Expires in ${days}d`}
-                      </Badge>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {renewalTotal > LIST_LIMIT && (
-            <p className="text-muted-foreground mt-2 text-right text-xs tabular-nums">
-              Showing {LIST_LIMIT} of {renewalTotal}
-            </p>
-          )}
-        </div>
-      </CardContent>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {followUpMode === 'upcoming' ? (
+                          <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                            {fmt.date(followUp.due_date)}
+                          </span>
+                        ) : (
+                          <Badge
+                            variant={
+                              followUp.overdueDays > 0 ? 'danger' : 'warning'
+                            }
+                          >
+                            {followUp.overdueDays > 0
+                              ? `Overdue ${followUp.overdueDays}d`
+                              : 'Today'}
+                          </Badge>
+                        )}
+                        {assignee && (
+                          <UserAvatar
+                            name={assignee}
+                            src={
+                              followUp.assigned_to
+                                ? avatarById.get(followUp.assigned_to)
+                                : null
+                            }
+                            className="size-5 shrink-0"
+                            fallbackClassName="text-[10px]"
+                            title={`Assigned to ${assignee}`}
+                          />
+                        )}
+                        <FollowUpCompletionControl
+                          status="open"
+                          canAct={canEdit}
+                          gateReason="complete follow-ups"
+                          onMarkDone={(event) => {
+                            event.stopPropagation();
+                            setCompleting(followUp);
+                          }}
+                          ariaLabel={`Complete follow-up for ${name}`}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div>
+            <QueueHeading
+              label="Expiring memberships"
+              href="/members?view=renewals"
+              shown={Math.min(expiring?.length ?? 0, LIST_LIMIT)}
+              total={renewalTotal}
+            />
+            {expiring === null ? (
+              <QueueSkeleton rowClassName="h-11" />
+            ) : expiring.length === 0 ? (
+              <QueueEmpty
+                icon={CalendarClock}
+                text="No memberships expiring in the next 7 days."
+              />
+            ) : (
+              <ul className="divide-border/60 -mx-2 divide-y">
+                {expiring.slice(0, LIST_LIMIT).map((membership) => {
+                  const days = daysBetween(fmt.today(), membership.end_date);
+                  return (
+                    <li
+                      key={membership.id}
+                      className="hover:bg-muted/50 transition-colors"
+                    >
+                      <Link
+                        href={`/members?view=renewals&member=${encodeURIComponent(membership.id)}`}
+                        className="flex items-center gap-3 px-2 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <MemberIdentity
+                            name={membership.contact?.name}
+                            secondary={membership.contact?.phone}
+                            src={membership.contact?.avatar_url}
+                            meta={membership.plan?.name ?? undefined}
+                          />
+                        </div>
+                        <Badge variant="warning">
+                          {days === 0 ? 'Expires today' : `Expires in ${days}d`}
+                        </Badge>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </CardContent>
+      </Card>
       {completing && (
         <CompleteFollowUpDialog
           open={Boolean(completing)}
@@ -328,52 +329,6 @@ export function MembershipActionLists() {
         member={editing}
         onSaved={() => setNonce((value) => value + 1)}
       />
-    </Card>
-  );
-}
-
-function QueueHeading({
-  label,
-  href = '/members?view=followups',
-}: {
-  label: string;
-  href?: string;
-}) {
-  return (
-    <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
-      <span>{label}</span>
-      <Link
-        data-slot="button"
-        href={href}
-        className={buttonVariants({ variant: 'link', size: 'xs' })}
-      >
-        See all
-      </Link>
-    </div>
-  );
-}
-
-function ListSkeleton() {
-  return (
-    <div className="space-y-1.5">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <Skeleton key={i} className="h-11 w-full" />
-      ))}
-    </div>
-  );
-}
-
-function QueueEmpty({
-  icon: Icon,
-  text,
-}: {
-  icon: typeof CalendarClock;
-  text: string;
-}) {
-  return (
-    <div className="text-muted-foreground flex items-center gap-2 py-3 text-xs">
-      <Icon className="size-4 shrink-0" />
-      {text}
-    </div>
+    </DashboardSection>
   );
 }

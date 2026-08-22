@@ -52,6 +52,14 @@ tailwind-merge only dedupes utilities of the **same variant**. So an override of
 - An overflow-capable tab strip must **keep the lit tab in view** — a scrollspy nav (member sheet) centres the active tab on change, else mobile lights an off-screen tab.
 - Canonical: `/leads` (actions), `/members` (actions + line tabs).
 
+### Section headings inside a page
+
+**Two heading levels, never three.** The shell owns the page title; inside the page, a section heading names one block of work, and a sub-label names a queue inside that block. A grouping heading that only introduces the sections beneath it — the dashboard's former **Work to do** and **The full picture** — is a level that adds a heading without adding meaning. Delete it and let each block stand as its own section.
+
+- A block that contains **named sub-queues** puts its heading outside the card (`DashboardSection`, `components/dashboard/dashboard-section.tsx`) and drops its `CardHeader`; the sub-labels are then the card's only internal heading. A block that is **one self-describing thing** (a chart, a feed) keeps its `CardTitle` — its header already carries the range Toolbar or link that a moved title would strand.
+- `DashboardSection` owns the heading row: `min-h-6` reserves the height of a `size="xs"` link so sections with and without a trailing action leave identical space before their content, and its `badge` slot emits the `{' '}` a flex container drops visually but the accessible name needs (else the section announces "Lead work1 to do").
+- Queue sub-labels are `QueueHeading` (`components/dashboard/action-queue.tsx`) — label, optional **See all**, and a right-aligned `N of M` that appears **only when the list is truncated**. A count printed above the rows it counts is noise; omit `href` where no page owns the whole list.
+
 ## Cursor (base rule — never re-add per component)
 
 Tailwind v4 Preflight sets `button { cursor: default }`. One base rule in `globals.css` owns it:
