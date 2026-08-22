@@ -10,6 +10,13 @@ const migrationPath = resolve(
 const sql = existsSync(migrationPath)
   ? readFileSync(migrationPath, 'utf8')
   : '';
+const indexMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20260822100001_index_meta_page_config_user_id.sql'
+);
+const indexSql = existsSync(indexMigrationPath)
+  ? readFileSync(indexMigrationPath, 'utf8')
+  : '';
 
 describe('Meta Lead Ads self-healing migration contract', () => {
   it('adds the complete Page health state and preserves integrations after audit-user deletion', () => {
@@ -38,6 +45,13 @@ describe('Meta Lead Ads self-healing migration contract', () => {
     expect(sql).toMatch(
       /CREATE INDEX IF NOT EXISTS idx_meta_page_config_health_due[\s\S]*WHERE status IN \('connected', 'error'\)/
     );
+  });
+
+  it('covers the nullable audit-user foreign key for deletion performance', () => {
+    expect(indexSql).toContain(
+      'CREATE INDEX IF NOT EXISTS idx_meta_page_config_user_id'
+    );
+    expect(indexSql).toContain('ON public.meta_page_config (user_id)');
   });
 
   it('claims bounded Page checks with skip-locked owner leases and safe worker fields', () => {
