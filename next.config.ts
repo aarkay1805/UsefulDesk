@@ -1,5 +1,12 @@
 import type { NextConfig } from 'next';
 
+const META_LEADS_REVIEW_BRANCH = 'codex/meta-leads-app-review';
+const metaLeadsReviewConfigId =
+  process.env.VERCEL_ENV === 'preview' &&
+  process.env.VERCEL_GIT_COMMIT_REF === META_LEADS_REVIEW_BRANCH
+    ? '1039026725782445'
+    : undefined;
+
 /**
  * Baseline security headers applied to every response.
  *
@@ -68,6 +75,14 @@ const SECURITY_HEADERS = [
 ] as const;
 
 const nextConfig: NextConfig = {
+  // Meta App Review needs an HTTPS build that can exercise the business-login
+  // popup before Advanced Access is granted. Keep the public Production env
+  // unset; only this exact temporary Vercel Preview branch receives the
+  // non-secret Lead Ads configuration ID.
+  env: {
+    NEXT_PUBLIC_META_LEADS_CONFIG_ID:
+      process.env.NEXT_PUBLIC_META_LEADS_CONFIG_ID ?? metaLeadsReviewConfigId,
+  },
   allowedDevOrigins: ['127.0.0.1'],
   experimental: {
     proxyClientMaxBodySize: '12mb',
