@@ -6,6 +6,102 @@
 
 ---
 
+## Every dashboard card lost its title
+
+The last of the flattening. `CardTitle` no longer appears anywhere on the
+dashboard: every block's name is a `DashboardSection` heading outside its card,
+and a card keeps a `CardHeader` **only when something acts on its content**.
+
+**Titles out, controls in.** Messages keeps its 7/30/90 `Toolbar`; Lead health
+score keeps its source `Select` and range `Toolbar`; the merged follow-up queue
+moved its scope Chips from between the heading and the card into the card
+header, where the control sits on top of the list it filters. Leads by stage and
+Recent work had no controls at all, so their headers are gone — their **See all
+leads** / **Open inbox** links moved to the section's `action` slot beside the
+heading, next to the **See all** that Expiring memberships already had there.
+
+**Two traps.** `CardAction` `justify-self-end`s its child, so a header holding
+only a control right-aligns it against an empty title column; and a bounded
+`Toolbar` dropped straight into the header grid stretches its border across the
+whole card with the segments huddled at the left. Both are fixed by a
+`flex flex-wrap items-center gap-2` header — controls left-aligned and
+content-sized. Messages shipped the stretched version for one build; the
+toolbar is 215px in a 493px header now.
+
+`DashboardSection`'s `badge` slot became `meta`, since it now carries Leads by
+stage's "1 total" and Lead health score's calculation-dialog help trigger as
+well as counts; the help trigger keeps `-ml-1.5` so it sits tight against the
+label it explains rather than at the heading's `gap-2`. The rating card's
+`Dialog` root wraps the section rather than the card, which is fine — Base UI's
+root renders no DOM. `LeadFunnel` gained `sectionId` (default `leads-by-stage`)
+because `app/preview/lead-funnel/page.tsx` renders three of them and would
+otherwise emit three identical heading ids.
+
+Verified live in light and dark at 1120px and 375px: ten sections, zero
+`card-title` nodes, a uniform 32px rhythm across all eight top-level blocks, and
+both side-by-side pairs — Messages/Lead health score and Expiring
+memberships/Not contacted yet — sharing a row at exactly equal card height.
+
+---
+
+## The dashboard is organised by the action, not the audience
+
+Follow-up on the flattening pass below. The page had split its work by _who_ it
+was about — a **Lead work** section and a **Member work** section, each holding
+a follow-up queue plus one unrelated queue. That is not how the work arrives:
+an owner clearing follow-ups wants one list in due order, not two lists to
+reconcile. Scope became a filter; the queues that are not follow-ups became
+sections of their own.
+
+**One merged queue.** `FollowUpQueue` (`components/dashboard/follow-up-queue.tsx`)
+replaces the follow-up half of both old components. `Chip`s filter **All / Leads /
+Members** with live `ChipCount`s, defaulting to All. A row routes by its own
+`membership_id`: member rows open `MemberDetailView` and complete with
+`context="member"`, lead rows open `ContactDetailView` and complete with
+`context="lead"`. Two things render **only under All**, because under a single
+scope they say nothing: the neutral **Lead** / **Member** tag, and — since no
+page owns both queues — the **See all** link, which appears once a chip narrows
+the list to `/leads?view=followups` or `/members?view=followups`. Do not point
+All at one of them.
+
+**The queue stopped changing what it shows.** `loadDashboardFollowUps` used to
+query due work, and re-query for upcoming only when that came back empty — so
+the list silently swapped meaning and its heading had to swap with it
+(**Follow-ups to do** ⇄ **Next follow-ups**). It now takes a `limit` and a
+scope, applies **no date filter**, and returns one list ordered by `due_date`:
+overdue on top, then today, then upcoming. `DashboardFollowUpMode`,
+`DashboardFollowUpContext`, and `DashboardFollowUpResult` are gone;
+`loadDashboardFollowUpCounts` is new and counts each scope with `head: true`
+because the row query is capped at the list limit. Its `today` argument is gone
+— nothing in the query needs it.
+
+**Due state comes from the shared helper now.** Rows resolve through
+`followUpDueState`, so an overdue row reads **Overdue** and a today row **Due
+today**, matching `lead-accountability-view` and `membership-status-badge`. The
+dashboard's old `Overdue 3d` was the only surface in the product counting days,
+which `docs/ui-patterns.md` already forbade re-deriving; sorted-ascending order
+carries relative lateness instead. Upcoming stays badge-free and shows its date.
+
+**The other two queues are sections.** `ExpiringMemberships` and
+`UncontactedLeads` are peer sections sharing one grid row — each with its own
+heading and card, not clubbed under a wrapper. `DashboardSection` gained a
+`className` slot so they can be `flex flex-col` with a `flex-1` card and end up
+equal height. **Expiring memberships** keeps its name rather than becoming
+"Renewals", which would collide with the **Renewals due** KPI tile counting the
+same population one section above.
+
+Gotcha: a follow-up row is `flex-wrap` with `grow basis-48` on the identity
+column. The trailing cluster (kind tag, date, assignee, complete) runs ~194px,
+which on a 375px phone left the person's name 107px; it now drops to a
+right-aligned second line on its own, with no breakpoint class to keep in sync.
+`QueueHeading` was deleted — the sub-label level it served no longer exists —
+and `QueueCount` took its place. Verified live in light and dark at 1440px,
+1120px, and 375px, with `today` temporarily shifted to confirm the Overdue and
+Due today badges, and each chip exercised for filtering, count, See-all target,
+and row routing.
+
+---
+
 ## The dashboard lost two headings and a level
 
 A clarify/distill pass on `/dashboard`. Structural and copy only — no query, permission, or route changed.

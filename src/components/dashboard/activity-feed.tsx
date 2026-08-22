@@ -7,15 +7,9 @@ import type { ComponentType } from 'react';
 import type { ActivityItem, ActivityKind } from '@/lib/dashboard/types';
 import { useLocale } from '@/hooks/use-locale';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { DashboardSection } from './dashboard-section';
 import { EmptyState } from './empty-state';
 import { Skeleton } from './skeleton';
 
@@ -59,89 +53,94 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
     : (items?.slice(0, COLLAPSED_ROWS) ?? []);
 
   return (
-    <Card>
-      <CardHeader className="border-b">
-        <CardTitle>Recent work</CardTitle>
-        <CardAction>
-          <Link
-            data-slot="button"
-            href="/inbox"
-            className={buttonVariants({ variant: 'link', size: 'xs' })}
-          >
-            Open inbox
-          </Link>
-        </CardAction>
-      </CardHeader>
-
-      {loading || !items ? (
-        <CardContent className="space-y-2">
-          {Array.from({ length: COLLAPSED_ROWS }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
-        </CardContent>
-      ) : items.length === 0 ? (
-        <CardContent>
-          <EmptyState
-            icon={Inbox}
-            title="No activity yet"
-            hint="Messages, leads, broadcasts, and automations will show here."
-          />
-        </CardContent>
-      ) : (
-        <>
-          {/* Dividers alone separate the rows: the old alternating stripe
+    <DashboardSection
+      id="recent-work"
+      title="Recent work"
+      action={
+        <Link
+          data-slot="button"
+          href="/inbox"
+          className={buttonVariants({ variant: 'link', size: 'xs' })}
+        >
+          Open inbox
+        </Link>
+      }
+    >
+      {/* No CardHeader: this card has no controls of its own. */}
+      <Card>
+        {loading || !items ? (
+          <CardContent className="space-y-2">
+            {Array.from({ length: COLLAPSED_ROWS }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </CardContent>
+        ) : items.length === 0 ? (
+          <CardContent>
+            <EmptyState
+              icon={Inbox}
+              title="No activity yet"
+              hint="Messages, leads, broadcasts, and automations will show here."
+            />
+          </CardContent>
+        ) : (
+          <>
+            {/* Dividers alone separate the rows: the old alternating stripe
               rode on top of them, so every row carried two separators. */}
-          <ul className="divide-border divide-y">
-            {visible.map((it) => {
-              const theme = KIND_THEME[it.kind];
-              const Icon = theme.icon;
-              const row = (
-                <div className="flex items-center gap-3 px-4 py-2.5">
-                  <span
-                    className={cn(
-                      'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full',
-                      theme.badge
-                    )}
+            <ul className="divide-border divide-y">
+              {visible.map((it) => {
+                const theme = KIND_THEME[it.kind];
+                const Icon = theme.icon;
+                const row = (
+                  <div className="flex items-center gap-3 px-4 py-2.5">
+                    <span
+                      className={cn(
+                        'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full',
+                        theme.badge
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="text-foreground min-w-0 flex-1 truncate text-sm">
+                      {it.text}
+                    </span>
+                    <span className="text-muted-foreground flex-shrink-0 text-xs tabular-nums">
+                      {relativeTime(it.at, fmt.date)}
+                    </span>
+                  </div>
+                );
+                return (
+                  <li
+                    key={it.id}
+                    className="hover:bg-muted/40 transition-colors"
                   >
-                    <Icon className="h-3.5 w-3.5" />
-                  </span>
-                  <span className="text-foreground min-w-0 flex-1 truncate text-sm">
-                    {it.text}
-                  </span>
-                  <span className="text-muted-foreground flex-shrink-0 text-xs tabular-nums">
-                    {relativeTime(it.at, fmt.date)}
-                  </span>
-                </div>
-              );
-              return (
-                <li key={it.id} className="hover:bg-muted/40 transition-colors">
-                  {it.href ? (
-                    <Link href={it.href} className="block">
-                      {row}
-                    </Link>
-                  ) : (
-                    row
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          {totalLoaded > COLLAPSED_ROWS && (
-            <CardFooter className="justify-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setExpanded((open) => !open)}
-              >
-                {expanded
-                  ? 'Show less'
-                  : `Show ${totalLoaded - COLLAPSED_ROWS} more`}
-              </Button>
-            </CardFooter>
-          )}
-        </>
-      )}
-    </Card>
+                    {it.href ? (
+                      <Link href={it.href} className="block">
+                        {row}
+                      </Link>
+                    ) : (
+                      row
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {totalLoaded > COLLAPSED_ROWS && (
+              <CardFooter className="justify-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setExpanded((open) => !open)}
+                >
+                  {expanded
+                    ? 'Show less'
+                    : `Show ${totalLoaded - COLLAPSED_ROWS} more`}
+                </Button>
+              </CardFooter>
+            )}
+          </>
+        )}
+      </Card>
+    </DashboardSection>
   );
 }
 
