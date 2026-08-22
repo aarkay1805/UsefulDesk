@@ -1,7 +1,7 @@
 'use client';
 
 import { BranchLink as Link } from '@/components/layout/branch-link';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   AlertCircle,
   ChevronRight,
@@ -17,9 +17,20 @@ import { loadOwnerAttention } from '@/lib/reports/reporting';
 import type { OwnerAttention } from '@/lib/reports/types';
 import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { DashboardSection } from './dashboard-section';
 import { EmptyState } from './empty-state';
 import { Skeleton } from './skeleton';
+
+/**
+ * The rule between two peers on the one-row layout. Stacked below `sm` the
+ * three already read as separate rows, so it is dropped there rather than
+ * adding a horizontal rule the row spacing does not need. `hidden` takes it
+ * out of grid flow entirely, so the single-column layout stays three items.
+ */
+function ItemDivider() {
+  return <Separator orientation="vertical" className="hidden sm:block" />;
+}
 
 interface AttentionItem {
   label: string;
@@ -92,41 +103,49 @@ export function NeedsAttentionCard() {
   return (
     <DashboardSection id="needs-attention" title="Needs attention">
       <Card>
-        <CardContent className="grid gap-2 sm:grid-cols-3">
+        {/* One track per item with an `auto` rule track between them, so the
+            dividers are real grid items rather than borders hung off each
+            block's edge. */}
+        <CardContent className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
           {failed ? (
             <EmptyState
               icon={AlertCircle}
               title="Could not load these lists"
               hint="Reload the page to try again."
-              className="min-h-32 sm:col-span-3"
+              className="min-h-32 sm:col-span-full"
             />
           ) : attention ? (
-            items.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="hover:bg-muted/60 focus-visible:ring-ring flex min-w-0 items-center gap-3 rounded-lg p-2.5 transition-colors outline-none focus-visible:ring-2"
-              >
-                <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
-                  <item.icon className="size-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="text-foreground block truncate text-sm font-medium">
-                    {item.label}
+            items.map((item, index) => (
+              <Fragment key={item.label}>
+                {index > 0 && <ItemDivider />}
+                <Link
+                  href={item.href}
+                  className="hover:bg-muted/60 focus-visible:ring-ring flex min-w-0 items-center gap-3 rounded-lg p-2.5 transition-colors outline-none focus-visible:ring-2"
+                >
+                  <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+                    <item.icon className="size-4" />
                   </span>
-                  <span className="text-muted-foreground block truncate text-xs">
-                    {item.detail}
+                  <span className="min-w-0 flex-1">
+                    <span className="text-foreground block truncate text-sm font-medium">
+                      {item.label}
+                    </span>
+                    <span className="text-muted-foreground block truncate text-xs">
+                      {item.detail}
+                    </span>
                   </span>
-                </span>
-                <span className="text-foreground shrink-0 text-base font-semibold tabular-nums">
-                  {fmt.number(item.value)}
-                </span>
-                <ChevronRight className="text-muted-foreground size-4 shrink-0" />
-              </Link>
+                  <span className="text-foreground shrink-0 text-base font-semibold tabular-nums">
+                    {fmt.number(item.value)}
+                  </span>
+                  <ChevronRight className="text-muted-foreground size-4 shrink-0" />
+                </Link>
+              </Fragment>
             ))
           ) : (
             Array.from({ length: 3 }, (_, index) => (
-              <Skeleton key={index} className="h-14 w-full" />
+              <Fragment key={index}>
+                {index > 0 && <ItemDivider />}
+                <Skeleton className="h-14 w-full" />
+              </Fragment>
             ))
           )}
         </CardContent>

@@ -6,6 +6,123 @@
 
 ---
 
+## `size-5` was an avatar size nobody had named
+
+Chasing one `text-[10px]` advisory on the dashboard's assignee initial turned
+up its cause. `Avatar` defines `sm` (24px), `default` (32px), and `lg` (40px),
+and its Fallback steps the initial down only for `sm`. But `className="size-5"`
+had quietly become a fourth size at **fifteen** call sites — assignee chips in
+the leads table and board cards, note-row authors, the follow-up queue, an
+invoice line. The Root resized; the Fallback kept its 14px default. So every one
+of those call sites hand-corrected the initial, and landed somewhere different:
+`text-[10px]` twelve times, `text-[9px]` once, and `text-[11px]` on a `size-6`
+avatar whose master value was already correct. Two adjacent dashboard queues
+rendered the same 20px avatar's letter at 10px and 12px.
+
+`Avatar` now has a named `xs` (20px) whose fallback is the on-ramp 12px, and all
+fifteen call sites pass `size="xs"` with no `fallbackClassName` at all. The two
+amber pending-transfer avatars keep the prop for their tint alone, which is what
+it was for. Net: seventeen hand-set or redundant values gone, and the rule is in
+`docs/ui-patterns.md` — a new avatar size belongs in `ui/avatar.tsx`, never as a
+call-site pair of `size-N` and a guessed `text-[Npx]`.
+
+Two visible changes, both deliberate: 20px initials go 10px → 12px, and the
+uncontacted-leads avatar (32px, previously downsized by hand) goes 12px → 14px,
+which is the master's value for that size.
+
+## The dashboard queues were top- and bottom-heavy
+
+Every queue row pads itself so the whole strip is a hover and click target, and
+that padding **added** to `Card`'s `py-4` — text sat 24–28px from the card's top
+and bottom against 16px from its sides. `QueueEmpty` was worse: its own `py-3`
+made an _empty_ queue deeper than one with rows in it.
+
+The fix keeps the rows exactly as tall as they were, because shrinking their
+padding would shrink the tap targets. Instead each list pulls back by its own
+row padding — the vertical twin of the `-mx-2` these lists already carried — so
+the first and last rows' text lands at the same 16px as the sides. It is
+`-my-2` where rows are `py-2` and `-my-2.5` where they are `py-2.5`; the pairing
+is load-bearing and is documented on the shared `QUEUE_LIST` export in
+`action-queue.tsx`. `QueueEmpty` lost its padding entirely: `Card`'s `py-4` is
+the whole inset.
+
+## Needs attention got rules between its three blocks
+
+An `auto` grid track between each pair holding a `Separator orientation="vertical"`,
+rather than `divide-x` or a `border-l` on each block — both of those key off DOM
+order rather than the visual row and paint a stray edge once the grid collapses.
+They are `hidden sm:block`, so the stacked layout keeps exactly its three items
+and gains no horizontal rules it does not need.
+
+One trap: the first attempt added `sm:gap-x-4` for breathing room around the
+rules, which spent ~50px of gutter and pushed "Auto-pay problems" into
+truncation. The existing `gap-2` is enough — each block's own `p-2.5` already
+holds content 18px off the rule.
+
+---
+
+## Leads by stage stopped fighting itself
+
+Three datasets in one card — stage bars, two conversion stats, a source table —
+with no rule between them, seven near-identical spacing values, and empty grey
+tracks on every zero stage. Structural fixes only; nothing was removed.
+
+**The zeros were as loud as the data.** Six full-width `bg-muted/60` tracks with
+two coloured bars on them. An empty stage now draws nothing at all — the shared
+left origin is the scale — and its label goes muted so non-zero rows lead.
+
+**The bar moved to LAST, after the numbers.** With the bar in the middle, an
+empty stage had its label at the left edge and its `0` a quarter of a card away
+with nothing bridging the gap. Label / count / age is now one cluster and the
+bar trails off, capped at `max-w-72` so a full bar is a chart mark rather than a
+slab. Below `sm` the bar is dropped entirely: in the ~50px a phone had left it
+was a stub, and the label takes that space so counts sit on the card's right
+edge.
+
+**`fit-content` label track + `subgrid`, and the two go together.** A fixed 5rem
+track truncated "Waiting on payment link" on every viewport; `fit-content(13rem)`
+sizes to the account's real statuses. But the template had been repeated on each
+`<li>`, so per-row grids resolved `fit-content` against _that row's_ label and
+the counts stepped in and out down the column. One grid now owns the caption row
+and the list, and both re-enter it through `grid-cols-subgrid`. It needs
+`content-start`: as a stretched grid item the rows otherwise spread to match the
+taller right region.
+
+**Two bordered `bg-muted/30` tiles inside a bordered card** became plain
+label/number stacks; a `Separator` (vertical on `lg`, horizontal stacked) now
+carries the split the boxes were faking. `Avg. time` hides entirely until some
+stage can fill it — a column of blanks read as missing data. The caption rows
+dropped their first word: "Stage" under "Leads by stage" and "Source" under
+"Joined by source" restated the heading directly above them.
+
+**Type moved onto the DESIGN.md ramp.** The card was 12px rows with 11px
+captions — an undocumented step, and microscopic next to every other data list
+in the product. Rows are the 14px body step, captions and metadata the 12px
+label step. The Impeccable detector's eight `text-[11px]` advisories were all
+pre-existing and are now zero.
+
+**Then a distill pass took the labels out.** The card carried ten pieces of
+chrome text; it carries four. `Stage` and `Source` restated the headings
+directly above them. `Leads` captioned a column of bold counts inside a card
+named "Leads by stage". `new memberships` restated "Joined this month". The
+source list's whole `Joined` / `Rate` caption row went: under a heading that
+already says "Joined by source", a row reading "22 of 32" then "69%" needs no
+legend to say which is which. `Avg. time` is the only caption left, because
+"13 days" is the one value that does not say what it measures — and it is not
+rendered at all when no stage can fill the column.
+
+`Joined by source` kept its first word on purpose. It looks like the same
+redundancy, but the card's own title says _Leads_, so a bare "By source" would
+read as a lead-count breakdown and its "1 of 1" rows would stop making sense.
+That leaves "Joined this month" / "Leads who joined" / "Joined by source" — one
+word carrying three meanings in ~200px. Reworking that is a `clarify` pass; it
+cannot be done by deletion.
+
+Verified in light and dark at 1280px and 375px across all four
+`app/preview/lead-funnel/page.tsx` cases.
+
+---
+
 ## Every dashboard card lost its title
 
 The last of the flattening. `CardTitle` no longer appears anywhere on the

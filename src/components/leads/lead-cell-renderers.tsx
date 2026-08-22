@@ -32,8 +32,8 @@ export function AssigneeDisplay({
       <UserAvatar
         name={name}
         src={avatarUrl ?? null}
-        className="size-5 shrink-0"
-        fallbackClassName="text-[10px]"
+        size="xs"
+        className="shrink-0"
       />
       <span className="text-foreground truncate text-sm">{name}</span>
     </span>
@@ -55,8 +55,9 @@ export function PendingAssigneeDisplay({ name }: { name: string }) {
       <UserAvatar
         name={name}
         src={null}
-        className="size-5 shrink-0 opacity-90"
-        fallbackClassName="bg-amber-500/15 text-amber-foreground text-[10px]"
+        size="xs"
+        className="shrink-0 opacity-90"
+        fallbackClassName="bg-amber-500/15 text-amber-foreground"
       />
       <span className="min-w-0 truncate text-sm">
         <span className="truncate">{name}</span>
@@ -95,8 +96,8 @@ export function TransferPendingDisplay({
       <UserAvatar
         name={ownerName ?? 'Unassigned'}
         src={ownerAvatarUrl ?? null}
-        className="size-5 shrink-0 opacity-80"
-        fallbackClassName="text-[10px]"
+        size="xs"
+        className="shrink-0 opacity-80"
       />
       <span className="text-muted-foreground min-w-0 truncate text-sm">
         {ownerName ?? 'Unassigned'}

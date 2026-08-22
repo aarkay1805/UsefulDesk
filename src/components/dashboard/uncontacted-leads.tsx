@@ -8,7 +8,12 @@ import { createClient } from '@/lib/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { UserAvatar } from '@/components/ui/user-avatar';
-import { QueueCount, QueueEmpty, QueueSkeleton } from './action-queue';
+import {
+  QUEUE_LIST,
+  QueueCount,
+  QueueEmpty,
+  QueueSkeleton,
+} from './action-queue';
 import { DashboardSection } from './dashboard-section';
 
 /**
@@ -128,7 +133,7 @@ export function UncontactedLeads() {
               text={`Every lead older than ${STALE_HOURS} hours has been picked up.`}
             />
           ) : (
-            <ul className="divide-border/60 -mx-2 divide-y">
+            <ul className={`${QUEUE_LIST} -my-2.5`}>
               {leads.map((lead) => {
                 const displayName = lead.name?.trim() || 'Unnamed lead';
                 return (
@@ -141,7 +146,6 @@ export function UncontactedLeads() {
                         name={displayName}
                         src={lead.avatarUrl}
                         className="size-8 shrink-0"
-                        fallbackClassName="text-xs"
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-foreground truncate text-sm font-medium">

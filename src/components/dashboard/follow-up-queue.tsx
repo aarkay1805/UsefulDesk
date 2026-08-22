@@ -29,7 +29,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { UserAvatar } from '@/components/ui/user-avatar';
-import { QueueEmpty, QueueSkeleton } from './action-queue';
+import { QUEUE_LIST, QueueEmpty, QueueSkeleton } from './action-queue';
 import { DashboardSection } from './dashboard-section';
 
 /**
@@ -176,7 +176,7 @@ export function FollowUpQueue() {
               }
             />
           ) : (
-            <ul className="divide-border/60 -mx-2 divide-y">
+            <ul className={`${QUEUE_LIST} -my-2`}>
               {rows.map((followUp) => {
                 const isMember = isMemberFollowUp(followUp);
                 const who =
@@ -249,8 +249,8 @@ export function FollowUpQueue() {
                               ? avatarById.get(followUp.assigned_to)
                               : null
                           }
-                          className="size-5 shrink-0"
-                          fallbackClassName="text-[10px]"
+                          size="xs"
+                          className="shrink-0"
                           title={`Assigned to ${assignee}`}
                         />
                       )}

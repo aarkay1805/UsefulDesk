@@ -1584,8 +1584,8 @@ export default function LeadsPage() {
                         <UserAvatar
                           name={s.full_name}
                           src={s.avatar_url}
-                          className="size-5 shrink-0"
-                          fallbackClassName="text-[10px]"
+                          size="xs"
+                          className="shrink-0"
                         />
                         <span className="truncate">{s.full_name}</span>
                       </DropdownMenuItem>
@@ -2895,8 +2895,8 @@ export default function LeadsPage() {
           <UserAvatar
             name={s.full_name}
             src={s.avatar_url}
-            className="size-5 shrink-0"
-            fallbackClassName="text-[10px]"
+            size="xs"
+            className="shrink-0"
           />
         ),
       })),
@@ -2943,8 +2943,8 @@ export default function LeadsPage() {
                     <UserAvatar
                       name={s.full_name}
                       src={s.avatar_url}
-                      className="size-5 shrink-0"
-                      fallbackClassName="text-[10px]"
+                      size="xs"
+                      className="shrink-0"
                     />
                   ),
                 })),

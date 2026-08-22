@@ -64,8 +64,8 @@ export function TransferRequestDialog({
           <UserAvatar
             name={targetName}
             src={targetAvatarUrl ?? null}
-            className="size-6 shrink-0"
-            fallbackClassName="text-[11px]"
+            size="sm"
+            className="shrink-0"
           />
           <span className="text-foreground truncate text-sm font-medium">
             {targetName}

@@ -221,8 +221,9 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
         <UserAvatar
           name={lead.pending_assignee_name}
           src={null}
-          className="size-5 shrink-0 opacity-90"
-          fallbackClassName="bg-amber-500/15 text-[10px] text-amber-foreground"
+          size="xs"
+          className="shrink-0 opacity-90"
+          fallbackClassName="bg-amber-500/15 text-amber-foreground"
         />
       </span>
     );
@@ -235,8 +236,8 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
         <UserAvatar
           name={name}
           src={ctx.avatarById.get(lead.assigned_to)}
-          className="size-5 shrink-0"
-          fallbackClassName="text-[10px]"
+          size="xs"
+          className="shrink-0"
         />
       </span>
     );

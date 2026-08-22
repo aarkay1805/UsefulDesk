@@ -894,8 +894,8 @@ export function ContactDetailContent({
                           <UserAvatar
                             name={s.full_name}
                             src={s.avatar_url}
-                            className="size-5 shrink-0"
-                            fallbackClassName="text-[10px]"
+                            size="xs"
+                            className="shrink-0"
                           />
                         ),
                       })),
@@ -908,8 +908,8 @@ export function ContactDetailContent({
                               nameById.get(contact.assigned_to) ?? 'Teammate'
                             }
                             src={avatarById.get(contact.assigned_to) ?? null}
-                            className="size-5 shrink-0"
-                            fallbackClassName="text-[10px]"
+                            size="xs"
+                            className="shrink-0"
                           />
                           <span className="truncate">
                             {nameById.get(contact.assigned_to) ?? 'Teammate'}
@@ -941,8 +941,8 @@ export function ContactDetailContent({
                         <UserAvatar
                           name={name}
                           src={avatarById.get(contact.user_id) ?? null}
-                          className="size-5 shrink-0"
-                          fallbackClassName="text-[10px]"
+                          size="xs"
+                          className="shrink-0"
                         />
                         <span className="truncate">{name}</span>
                       </span>
@@ -969,8 +969,8 @@ export function ContactDetailContent({
                             <UserAvatar
                               name={s.full_name}
                               src={s.avatar_url}
-                              className="size-5 shrink-0"
-                              fallbackClassName="text-[10px]"
+                              size="xs"
+                              className="shrink-0"
                             />
                           ),
                         }))}
@@ -989,8 +989,8 @@ export function ContactDetailContent({
                             <UserAvatar
                               name={name}
                               src={avatarById.get(contact.created_by) ?? null}
-                              className="size-5 shrink-0"
-                              fallbackClassName="text-[10px]"
+                              size="xs"
+                              className="shrink-0"
                             />
                             <span className="truncate">{name}</span>
                           </span>

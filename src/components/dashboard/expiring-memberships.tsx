@@ -12,7 +12,12 @@ import { MemberIdentity } from '@/components/members/member-identity';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { QueueCount, QueueEmpty, QueueSkeleton } from './action-queue';
+import {
+  QUEUE_LIST,
+  QueueCount,
+  QueueEmpty,
+  QueueSkeleton,
+} from './action-queue';
 import { DashboardSection } from './dashboard-section';
 
 /**
@@ -98,7 +103,7 @@ export function ExpiringMemberships() {
               text={`No memberships expiring in the next ${RENEWAL_WINDOW_DAYS} days.`}
             />
           ) : (
-            <ul className="divide-border/60 -mx-2 divide-y">
+            <ul className={`${QUEUE_LIST} -my-2`}>
               {expiring.slice(0, LIST_LIMIT).map((membership) => {
                 const days = daysBetween(fmt.today(), membership.end_date);
                 return (
