@@ -61,7 +61,11 @@ The Page connection contract is:
    `POST /{page-id}/subscribed_apps?subscribed_fields=leadgen`.
 3. `leads_retrieval` permits `GET /{leadgen-id}` and the Page
    `has_lead_access` diagnostic.
-4. The connecting Meta user must retain an eligible Page task and, when Lead
+4. Meta's current Lead Ads install/retrieval contract also requires
+   `pages_manage_ads`, `pages_read_engagement`, and `ads_management`. They are
+   dependency scopes only: UsefulDesk does not expose ad-management features
+   or call unrelated Marketing API endpoints.
+5. The connecting Meta user must retain an eligible Page task and, when Lead
    Access Manager is enabled, explicit lead access.
 
 Primary references:

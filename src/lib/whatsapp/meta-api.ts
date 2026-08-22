@@ -332,7 +332,9 @@ export async function exchangeEmbeddedSignupCode(
 // Facebook/Instagram lead ads deliver on the `page` webhook object, not
 // `whatsapp_business_account` — a different object, a different callback
 // URL, and a different set of permissions (pages_show_list,
-// leads_retrieval, pages_manage_metadata). Same app, same app secret, so
+// pages_manage_metadata, leads_retrieval, plus Meta-required
+// pages_manage_ads, pages_read_engagement, and ads_management). Same app,
+// same app secret, so
 // the signature verification is shared verbatim.
 //
 // `exchangeEmbeddedSignupCode` above is a plain FBLB code exchange and

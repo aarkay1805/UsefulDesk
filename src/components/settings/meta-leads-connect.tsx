@@ -9,9 +9,11 @@
 // (src/lib/meta/fb-sdk.ts) so FB.init runs once.
 //
 // DARK-LAUNCH GATE: renders nothing while NEXT_PUBLIC_META_LEADS_CONFIG_ID
-// is unset. leads_retrieval + pages_manage_metadata require Meta App
-// Review, so until that clears the flow simply cannot work for a real
-// gym — better absent than broken.
+// is unset. The complete provider-required Lead Ads scope
+// (pages_show_list, pages_manage_metadata, leads_retrieval,
+// pages_manage_ads, pages_read_engagement, and ads_management) requires
+// Meta App Review, so until that clears the flow simply cannot work for
+// a real gym — better absent than broken.
 // ============================================================
 
 import { useCallback, useEffect, useState } from 'react';
