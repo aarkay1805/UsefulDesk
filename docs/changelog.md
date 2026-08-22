@@ -6,6 +6,21 @@
 
 ---
 
+## Sending an approved template is now a review task, not a variable puzzle
+
+The Inbox and contact profile template picker now names known templates by their
+customer-facing purpose, fills membership, service, invoice, and active payment
+link details from the selected contact, and leads with the rendered WhatsApp
+message. Fully resolved templates need only review and send; **Edit details**
+reveals the labelled values when an operator needs to override them. Missing or
+ambiguous records fall back to meaningful fields and an explanation instead of
+`Body {{n}}` inputs. Retired provider-approved template names remain sendable as
+clearly marked legacy templates rather than being mistaken for the current
+feature contract. The resolver and presentation contract live in
+`src/lib/whatsapp/template-send-presentation.ts`; the shared picker remains in
+`src/components/inbox/template-picker.tsx`. Do not reintroduce raw positional
+variables into this operator flow.
+
 ## Cash flow drew 2px bars in a card with 136px of dead air
 
 Four things were wrong with the business overview's cash-flow chart at once,

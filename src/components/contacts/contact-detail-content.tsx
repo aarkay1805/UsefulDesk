@@ -1112,6 +1112,7 @@ export function ContactDetailContent({
         open={templatePickerOpen}
         onOpenChange={setTemplatePickerOpen}
         onSelect={handleSendTemplate}
+        contact={contact}
       />
       <MemberForm
         open={convertOpen}
