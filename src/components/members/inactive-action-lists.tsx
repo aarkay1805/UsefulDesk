@@ -265,7 +265,10 @@ function RetentionList({
                       className="shrink-0"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <FollowUpButton onClick={() => onAssign(r)} />
+                      <FollowUpButton
+                        canAct={canFollowUp}
+                        onClick={() => onAssign(r)}
+                      />
                     </div>
                   )}
                 </div>

@@ -11,6 +11,7 @@ import type {
   LeadSourceRatingData,
 } from '@/lib/dashboard/types';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -136,17 +137,10 @@ export function LeadConversionRating({
 
   return (
     <Dialog open={calculationOpen} onOpenChange={setCalculationOpen}>
-      <section className="border-border bg-card flex h-full flex-col rounded-xl border">
-        <header className="border-border flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <div className="flex items-center gap-0.5">
-            <div>
-              <h2 className="text-foreground text-sm font-semibold">
-                Lead health score
-              </h2>
-              <p className="text-muted-foreground mt-0.5 text-xs">
-                See how well new leads are moving.
-              </p>
-            </div>
+      <Card className="h-full">
+        <CardHeader className="flex flex-wrap items-center justify-between gap-2 border-b">
+          <CardTitle className="flex items-center gap-0.5">
+            Lead health score
             <TooltipProvider>
               <Tooltip>
                 <DialogTrigger
@@ -175,7 +169,7 @@ export function LeadConversionRating({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          </div>
+          </CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <Select
               value={selected?.key ?? ALL_LEADS_RATING_KEY}
@@ -217,27 +211,27 @@ export function LeadConversionRating({
               </ToolbarToggleGroup>
             </Toolbar>
           </div>
-        </header>
+        </CardHeader>
 
         {loading || !data ? (
-          <div className="flex flex-1 flex-col p-5">
+          <CardContent className="flex flex-1 flex-col">
             <Skeleton className="h-56 w-full" />
-          </div>
+          </CardContent>
         ) : data.sources.length === 0 || !selected ? (
-          <div className="flex flex-1 flex-col p-5">
+          <CardContent className="flex flex-1 flex-col">
             <EmptyState
               icon={ChartNoAxesCombined}
               title="No new leads in this time"
               hint="The score will show after you add leads."
             />
-          </div>
+          </CardContent>
         ) : (
-          <div className="flex flex-1 flex-col items-center gap-1 px-4 pt-3 pb-1">
+          <CardContent className="flex flex-1 flex-col items-center gap-1">
             <RatingHeadline source={selected} />
             <RadarChart source={selected} />
-          </div>
+          </CardContent>
         )}
-      </section>
+      </Card>
       {data && selected && (
         <RatingCalculationDialogContent source={selected} data={data} />
       )}

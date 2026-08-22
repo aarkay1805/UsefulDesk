@@ -524,6 +524,7 @@ export function PaymentsTable({
           open
           onOpenChange={(open) => !open && setFollowUpFor(null)}
           membership={followUpFor}
+          initialReason="payment"
           onSaved={() => {
             setFollowUpFor(null);
             reload();

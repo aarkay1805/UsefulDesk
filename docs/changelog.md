@@ -6,6 +6,90 @@
 
 ---
 
+## One follow-up composer everywhere
+
+An audit of every manual follow-up creation path found the product had two of them. The profile **Notes & follow-ups** composer was the base reference; the standalone `FollowUpDialog` opened by `FollowUpButton` was a second, quietly different surface. They are one surface now.
+
+**One composer.** `NoteComposerCard` left `contact-notes-thread.tsx` and became `components/follow-ups/follow-up-composer.tsx`. Both entry points mount it: note textarea, then `FollowUpFields` attached by a divider inside one bordered card, ⌘/Ctrl+Enter to submit, one placeholder. The dialog used to invert this — fields first, then a separately labelled note below — and had no keyboard submit. `FollowUpFields` lost its standalone bordered-card branch; it renders only inside the composer now, which is what `docs/ui-patterns.md` already claimed.
+
+**A note is a note.** The dialog wrote its note only to `follow_ups.note`, so completing the task overwrote it with the closing note and the context was gone — while the identical text typed in the profile composer became a durable `contact_notes` row. The dialog now writes the `contact_notes` row first, links it through `note_id`, and copies 200 characters onto the task, exactly like the composer. One card renders on the timeline, not two. Toast follows what happened: **Note and follow-up added** with a note, **Follow-up created** without.
+
+**The blocked case is answered before the form, not after it.** One open follow-up per contact is a partial unique index (migration `036`). Nine of the ten entry points only discovered that on submit, after the user filled the form. `FollowUpDialog` now reads the contact's open task when it opens and, if there is one, shows **Follow-up already open** — the task summary, its due date and due-state badge, and a **Complete follow-up** action that swaps in `CompleteFollowUpDialog` as a sibling dialog. Gotcha: siblings, not nesting — `CompleteFollowUpDialog` renders outside `DialogContent` and Back returns to the blocked state rather than closing everything.
+
+**Same seeds, same gates.** The dialog's private `dueId: 'tomorrow'` and explicit assignee overrides are gone; both surfaces seed from `DEFAULT_FOLLOW_UP_DRAFT` (**In 3 days**, assignee `''` = Me). Reason went the other way: the profile composer always opened on **Other** while the row action inferred from the membership, so `ContactNotesThread` gained `followUpReason` and `MemberDetailView` passes `defaultReason(membership, fmt.today())`. Renewals and Payments now pass their `initialReason` the way Trials and At risk already did. Attendance deliberately does not — a member who just checked in has no single obvious reason.
+
+Renewals, Trials, and At risk rendered their row `FollowUpButton` with no `canAct`, so a viewer saw an enabled button beside a correctly disabled one in the same row's avatar quick view; Services renewals used a bare `disabled`, which kills the Read-only tooltip. All four are gated on the `canFollowUp` those files already computed.
+
+**Elsewhere.** `dueBadge` moved out of `contact-notes-thread.tsx` into `lib/follow-ups/due-state.ts` as `followUpDueState`, shared with the dialog. The automations step said **Create Follow-up Task** over a **Task type** select with hard-coded options — "task" is internal vocabulary and the list could drift; it is **Create Follow-up** over a **Follow-up** select fed by `FOLLOW_UP_TASK_TYPES`. The note-editor's toggle-off cancel now chains `.select('id')` per the repo's RLS gotcha instead of reporting success on zero rows. `FollowUpDialog` adopted `invoice-detail-dialog`'s scroll recipe, because the shared composer's textarea grows to `max-h-56` and the old fixed-height note field did not.
+
+Bulk **Add note** stays note-only. Verified live in light and dark: composer, blocked state, the completion swap, and a create that wrote both rows with `note_id` set.
+
+---
+
+## Notes & follow-ups says what it does
+
+A clarify pass over the profile notes thread and the follow-up dialogs it opens. Copy-only except for one caption split; edits land in the shared components, so lead profiles and the inbox notes panel move with the member profile — `docs/ui-patterns.md` requires they not diverge.
+
+**The field set.** Task type and due date shared one caption reading `Follow-up`, over a control pair that answers _what_ and _when_ — a caption that named neither. They are now two captioned fields, **Follow-up** and **Due date**, in a `w-full justify-between` pair matching the Assign to / Reminder row below. `Due date` is the vocabulary the queues, filters, and the standalone dialog already use; the composer was the one place it was invisible. Splitting them exposed a second defect: with a custom date chosen, the preset trigger and the date field both read `Pick a date`. The trigger now reads **Custom date** — the choice — and the instruction belongs to the date field alone.
+
+**Verbs.** The composer CTA read `Create note` while every toast said "Note added", the quick action said "Add a note", and the bulk dialog said "Add note". The CTA is now **Add note** / **Add note & follow-up**. `Create` remains the standalone follow-up dialog's verb. The completion tick's accessible name was `Mark as followed up`, promising an inline write it never performed — it opens the Complete follow-up dialog, so it is now **Complete follow-up**, matching what both dashboard call sites already passed. A done task's tooltip reads **Completed**, not "Followed up". The dialogs' ghost button is **Cancel follow-up(s)**, not "Cancel task" — "task" is internal.
+
+**Errors and consequences.** `Failed to add note`, `Failed to update note`, and `Failed to delete note` now route through `getErrorMessage` per the repo rule, with fallbacks that name a recovery. `Not authenticated` — accurate and useless — became "Your session has expired. Sign in again to save this note." The open-follow-up unique violation said a contact "already has an open follow-up, so no new follow-up was created"; it now states the rule and the fix: "Only one open follow-up at a time — complete the current one first."
+
+Deleting a note cancels the open follow-up attached to it. That was silent. The delete control now reads **Delete note and cancel its follow-up** when one exists, and the toast confirms it. Gotcha for future work: `hadOpenFollowUp` must be read from state _before_ the update, because the cancel runs first and the local rows are rewritten after.
+
+**States.** The empty state was a bare `No notes or follow-ups yet.` It keeps that as a heading and adds what the surface is for: record a call, a visit, a payment promise, and add a follow-up. The composer placeholder is a worked example rather than `Write a note...`. `Draft saved` became **Draft saved on this device** — it is localStorage, and nobody should expect it on their phone. `Reminder at 8:00 am` gained **on the due date**, which is when it actually fires.
+
+**Bulk Add note, same pass.** The bulk dialog (`leads/bulk-add-note-dialog.tsx`, mounted by both the leads page and the members table) carried the same jargon: `Not authenticated` and a `Failed to add notes` that bypassed `getErrorMessage`. It never said the non-obvious thing either — that _one_ note text is written onto every selected person — so the title gained a description. Its textarea had no accessible name at all (placeholder only) and now sets `aria-label="Note"` like the profile composer. The footer button dropped its hand-built `Loader2` for `Button loading`, which the master pairs with `aria-busy`.
+
+Gotcha worth keeping: the batch insert guarded `!inserted`, but an RLS-blocked insert returns **no error and an empty array**, which is truthy — so a total failure toasted "Note added to 0 leads" as a success. `inserted.length`, not the request, now decides: zero is an error, a short count is a `toast.warning` naming both numbers, and only a full count is success. The repo's documented `.select()` gotcha covers `.delete()` and `.update()`; this is the insert variant of it.
+
+Key code: `src/components/contacts/contact-notes-thread.tsx`, `src/components/follow-ups/follow-up-fields.tsx`, `src/components/follow-ups/follow-up-completion-control.tsx`, `src/components/follow-ups/complete-follow-up-dialog.tsx`, `src/components/follow-ups/follow-up-dialog.tsx`, `src/components/leads/bulk-add-note-dialog.tsx`.
+
+---
+
+## Leads by stage reads as labelled columns
+
+Every number in the card was unlabelled, so the reader had to guess what it counted. The bare total beside the title read as a stage count and now says **N total**. The stage rows became a four-column grid (**Stage** · bar · **Leads** · **Avg. time**) whose caption row shares one `STAGE_GRID` template with the rows, so the headings sit over the numbers they label instead of being eyeballed into place. The count moved out of the bar: at a low `maxCount` the fill was a 4%-wide sliver and the numeral inside it overflowed its own bar, and a zero stage rendered a tinted pill around a `0`, which read as a status badge. Zero stages now show an empty track and a muted `0`. Stage age is formatted (`<1 day`, `1 day`, `4 days`) rather than printing the raw rounded numeric, which produced "1 days here".
+
+The right column keeps its two tiles and gains a base line under each value: **Joined this month** counts _new memberships_ (a renewal opens a period, not a `memberships` row, so the count stays honest), and **Leads who joined** shows `N of N all time` — a percentage over three contacts is noise without its denominator. That needed `convertedTotal` on `LeadFunnelData` (`loadLeadFunnel` already computed `totalMembers` and threw it away). The source list, formerly _Lead source results_ with an unexplained `1/1`, is **Joined by source** with **Source** · **Joined** · **Rate** captions and reads `1 of 1`. The loading skeleton now mirrors the two-column layout instead of five full-width bars.
+
+Key code: `src/components/dashboard/lead-funnel.tsx`, `src/lib/dashboard/queries.ts`, `src/lib/dashboard/types.ts`.
+
+---
+
+## Dashboard distilled to one queue per fact
+
+The Dashboard said the same things twice, so each fact now has exactly one home. **Needs attention** lost Renewals due, Fees to collect, and Inactive members: _Today at a glance_ already carried those three numbers and pointed at the same routes, so the page stated the same work in two visual languages a screen apart. What remains — May leave, Trials to follow up, Auto-pay problems — is the set no other queue owns, and the card moved out of _The full picture_ into **Work to do**, next to Lead work and Member work, because an exception queue is work rather than reading. The **Lead status** donut was deleted (`leads-donut.tsx`, `loadLeadsDonut`, `LeadsDonutData`, `LeadStatusSlice`): _Leads by stage_ groups the same `lead_status` buckets off the same `lead_field_options` columns and adds average days in stage, so the ring only restated counts the bars already had. The ring's one unique value, the lead total, now sits beside the _Leads by stage_ title.
+
+Every section subtitle was cut — each only restated the card titles under it — along with the per-card subtitles on Lead work, Member work, Needs attention, Messages, Lead health score, and Leads by stage. The six hand-rolled `<section className="border-border bg-card rounded-xl border">` shells in `src/components/dashboard/` now use the canonical `Card`/`CardHeader className="border-b"`/`CardContent` composition that the other ~50 card call sites already use; the dashboard was the only place carrying a second card chrome. Inside the action lists the bordered, tinted `<ul>` that sat inside a bordered card is gone — `-mx-2` plus `divide-y` gives flush rows whose dividers and hover bleed into the card padding — and the dashed empty-state box went with it, since after the flattening an empty queue read as _more_ contained than a populated one. Recent work dropped its alternating row stripe (it rode on top of the dividers, so every row carried two separators) and replaced the 5/10/20/50 page-size buttons with one expand control that reveals more than the old maximum in a click.
+
+`conversations-chart.tsx` no longer hard-codes `#3b82f6`/`#7c3aed`; both series resolve through `--chart-1`/`--chart-2`. Gotcha: do not substitute `--primary` for the sent series — this was tried and collides with a fixed blue on a cobalt account. `html[data-theme='violet']` gained the `--chart-2` it was missing (every other accent already shipped a pair), so the default theme no longer falls through to the neutral mode-level gray; this also fixes `report-trend-card.tsx`, which already read that pair.
+
+Key code: `src/app/(dashboard)/dashboard/page.tsx`, `src/components/dashboard/*`, `src/lib/dashboard/queries.ts`, `src/lib/dashboard/types.ts`, `src/app/globals.css`.
+
+---
+
+## Notes & follow-ups composer and timeline polish
+
+The lead/member profile's **Notes & follow-ups** surface was refined without changing its data model or entry points. `FollowUpFields` now renders every value control as the same outline/small menu-trigger under its own `Label size="sm"` caption — Reason, Follow-up, Assign to, and Reminder — replacing the split where owner and reminder sat in a separate bordered strip as ghost buttons; owner and reminder share a row that collapses to one column in a narrow composer. A custom due date renders through `fmt.date` instead of the raw `YYYY-MM-DD`, and the unset reminder trigger reads **No reminder**, matching its own menu.
+
+In `ContactNotesThread`: the composer CTA reads **Create note & follow-up** when a task is attached, uses `Button.loading` instead of a hand-built spinner, and never dead-ends — the status slot beside it says what is still missing (`Pick a follow-up date`, `Add a note to save this follow-up`) instead of only `Draft saved`. ⌘/Ctrl+Enter submits. Note cards gained a keyboard- and touch-reachable **Edit** action beside Delete; both reveal on hover or focus and stay visible under `(hover: none)`, where the previous hover-only Delete was unreachable. The card body's click-to-edit shortcut is no longer a `role="button"` div wrapping a nested button. The footer keeps its `Created on <date>` line and gains a full-timestamp `title`, so same-day notes are distinguishable; the author stays the avatar's job and is deliberately not repeated as text.
+
+Profile follow-up cards now use the shared `TASK_ICON` map exported from `follow-up-task-summary.tsx` (never a second icon vocabulary), show an **Overdue**/**Due today** Badge for open tasks only — matching `lead-accountability-view`'s existing bucket-to-variant mapping, which deliberately has no Upcoming badge — and render `Reminder at <time>` so a reminder the user set is verifiable. Assignee text is `<name> (Me)`, the same order the Assign to field uses. Toasts say **follow-up**, not "follow-up task".
+
+Gotcha: `followUpDueLabel` and `duePresets` still format weekday/month names through hard-coded `en-US` in `src/lib/leads/follow-up-dates.ts`. That predates this pass and is asserted by `follow-up-dates.test.ts`; localizing it means threading formatters into every follow-up queue, not a call-site fix.
+
+---
+
+## Leads Phone column uses the PhoneInput master
+
+The Leads table's built-in Phone column edited through a plain `<input type="text">` and displayed the raw stored string — the last subscriber phone field bypassing `PhoneInput`, contrary to the master-component rule in `docs/ui-patterns.md`. Typed phone _custom_ fields already routed to it via `customEditKind`, so the two phone columns behaved differently in the same table. `EditSpec` in `src/app/(dashboard)/leads/page.tsx` now carries a `{ kind: 'phone'; column: 'phone' }` variant instead of folding phone into the `text` variant, and `liveColumns` overrides the column's render with `accountQualifiedPhoneDisplayValue` so legacy digits-only rows show the account's country code.
+
+Gotcha: the commit path is unchanged on purpose. `PhoneInput`'s `onValueChange` already reports the complete account-qualified value, so `commitCell`'s built-in-column branch still writes `edit.column` directly and the required-phone guard plus the unique-violation toast keep working. Do not re-normalize in `commitCell`.
+
+---
+
 ## Gym WhatsApp template contract library
 
 UsefulDesk now projects nine policy-aware gym presets from one exact registry: membership/service renewals are Marketing; installment, payment-link, due, receipt, and activation messages are Utility; win-back and festival offers are Marketing. Provider sync persists category, POSITIONAL format, components, and drift markers; feature sends require the exact Approved/synced contract plus positive `whatsapp_account_updates` or `whatsapp_marketing` consent, while unsubscribe text/buttons record durable suppression. Settings groups all nine presets, locks the four feature payloads, reports four independent readiness states, and onboarding requires `gym_membership_renewal`. Key code: `src/lib/whatsapp/template-contracts.ts`, `src/lib/whatsapp/template-readiness.ts`, `src/lib/consent/template-consent.ts`, and the two `20260821…` migrations. Gotcha: Meta owns final category/review state; approval and delivery are never guaranteed, a `wamid` is acceptance only, and rejected/reclassified/reserved names must be reported rather than silently aliased.

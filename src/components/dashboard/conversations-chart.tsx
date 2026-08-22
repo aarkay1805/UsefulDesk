@@ -3,13 +3,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MessageSquare } from 'lucide-react';
 import type { ConversationsSeriesPoint } from '@/lib/dashboard/types';
-import { EmptyState } from './empty-state';
-import { Skeleton } from './skeleton';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Toolbar,
   ToolbarToggleGroup,
   ToolbarToggleItem,
 } from '@/components/ui/toolbar';
+import { EmptyState } from './empty-state';
+import { Skeleton } from './skeleton';
+
+// Series colors resolve through the theme's chart ramp, not literals. Every
+// accent ships --chart-1/--chart-2 as a deliberately separated pair, so the
+// two lines stay distinguishable on a blue-accented account — which a plain
+// --primary + fixed blue would not.
+const SENT_STROKE = 'var(--chart-1)';
+const RECEIVED_STROKE = 'var(--chart-2)';
 
 type RangeDays = 7 | 30 | 90;
 type RangeValue = `${RangeDays}`;
@@ -54,32 +69,29 @@ export function ConversationsChart({
   }, [data]);
 
   return (
-    <section className="border-border bg-card flex h-full flex-col rounded-xl border">
-      <header className="border-border flex items-center justify-between border-b px-5 py-4">
-        <div>
-          <h2 className="text-foreground text-sm font-semibold">Messages</h2>
-          <p className="text-muted-foreground mt-0.5 text-xs">
-            Messages sent and received each day
-          </p>
-        </div>
-        <Toolbar aria-label="Conversation range">
-          <ToolbarToggleGroup<RangeValue>
-            value={[String(range) as RangeValue]}
-            onValueChange={(values) => {
-              const nextRange = values[0];
-              if (nextRange) onRangeChange(Number(nextRange) as RangeDays);
-            }}
-          >
-            {([7, 30, 90] as const).map((days) => (
-              <ToolbarToggleItem key={days} value={String(days)}>
-                {days} days
-              </ToolbarToggleItem>
-            ))}
-          </ToolbarToggleGroup>
-        </Toolbar>
-      </header>
+    <Card className="h-full">
+      <CardHeader className="border-b">
+        <CardTitle>Messages</CardTitle>
+        <CardAction>
+          <Toolbar aria-label="Conversation range">
+            <ToolbarToggleGroup<RangeValue>
+              value={[String(range) as RangeValue]}
+              onValueChange={(values) => {
+                const nextRange = values[0];
+                if (nextRange) onRangeChange(Number(nextRange) as RangeDays);
+              }}
+            >
+              {([7, 30, 90] as const).map((days) => (
+                <ToolbarToggleItem key={days} value={String(days)}>
+                  {days} days
+                </ToolbarToggleItem>
+              ))}
+            </ToolbarToggleGroup>
+          </Toolbar>
+        </CardAction>
+      </CardHeader>
 
-      <div className="p-5">
+      <CardContent className="flex-1">
         {loading || !data ? (
           <Skeleton className="h-[240px] w-full" />
         ) : data.every((p) => p.incoming === 0 && p.outgoing === 0) ? (
@@ -91,13 +103,13 @@ export function ConversationsChart({
         ) : (
           <LineSvg data={data} maxY={maxY} ticks={niceTicks} />
         )}
-      </div>
+      </CardContent>
 
-      <footer className="border-border text-muted-foreground flex items-center gap-4 border-t px-5 py-3 text-xs">
-        <LegendDot color="#3b82f6" label="Received" />
-        <LegendDot color="#7c3aed" label="Sent" />
-      </footer>
-    </section>
+      <CardFooter className="text-muted-foreground gap-4 text-xs">
+        <LegendDot color={RECEIVED_STROKE} label="Received" />
+        <LegendDot color={SENT_STROKE} label="Sent" />
+      </CardFooter>
+    </Card>
   );
 }
 
@@ -278,7 +290,7 @@ function LineSvg({
         <path
           d={outgoingPath}
           fill="none"
-          stroke="#7c3aed"
+          stroke={SENT_STROKE}
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -287,7 +299,7 @@ function LineSvg({
         <path
           d={incomingPath}
           fill="none"
-          stroke="#3b82f6"
+          stroke={RECEIVED_STROKE}
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -308,13 +320,13 @@ function LineSvg({
               cx={hoverX}
               cy={yFor(data[hover.idx].incoming)}
               r={3.5}
-              fill="#3b82f6"
+              fill={RECEIVED_STROKE}
             />
             <circle
               cx={hoverX}
               cy={yFor(data[hover.idx].outgoing)}
               r={3.5}
-              fill="#7c3aed"
+              fill={SENT_STROKE}
             />
           </g>
         )}

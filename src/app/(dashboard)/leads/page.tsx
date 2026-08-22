@@ -64,6 +64,7 @@ import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
 import { EditFieldOptionsDialog } from '@/components/leads/edit-field-options-dialog';
 import { formatCustomFieldValue } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
+import { accountQualifiedPhoneDisplayValue } from '@/lib/phone-input';
 import { useLocale } from '@/hooks/use-locale';
 import { dayStartInTz } from '@/lib/locale/format';
 import { istAddDays } from '@/lib/memberships/expiry';
@@ -328,7 +329,10 @@ interface ContactWithData extends Contact {
 // design: `name` (clicking it opens the detail sheet — the row's main
 // affordance) and `created` (system audit column).
 type EditSpec =
-  | { kind: 'text'; column: 'company' | 'phone' }
+  | { kind: 'text'; column: 'company' }
+  // Phone edits through PhoneInput, so the committed value already carries
+  // the account country code — the same shape capture and dedupe store.
+  | { kind: 'phone'; column: 'phone' }
   | { kind: 'email'; column: 'email' }
   | { kind: 'select'; column: 'source' | 'gender' }
   | { kind: 'status' }
@@ -448,10 +452,12 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     defaultWidth: 150,
     minWidth: 110,
     sortColumn: 'phone',
+    // Static fallback; liveColumns overrides it to apply the account's
+    // country code to digits-only stored values.
     render: (c) => (
       <span className="text-muted-foreground font-mono text-sm">{c.phone}</span>
     ),
-    edit: { kind: 'text', column: 'phone' },
+    edit: { kind: 'phone', column: 'phone' },
   },
   {
     key: 'email',
@@ -1312,6 +1318,22 @@ export default function LeadsPage() {
             ),
         };
       }
+      if (col.key === 'phone') {
+        return {
+          ...col,
+          // Accounts created before localization store digits-only phones;
+          // the formatter adds the plus only when the value is genuinely
+          // account-qualified, so national numbers stay as typed.
+          render: (c) => (
+            <span className="text-muted-foreground font-mono text-sm">
+              {accountQualifiedPhoneDisplayValue(
+                c.phone ?? '',
+                locale.phoneCountryCode
+              )}
+            </span>
+          ),
+        };
+      }
       if (col.key === 'gender') {
         return {
           ...col,
@@ -1602,6 +1624,7 @@ export default function LeadsPage() {
     customFields,
     defaultCurrency,
     locale.locale,
+    locale.phoneCountryCode,
     fieldOptions,
     nameById,
     avatarById,
@@ -2409,6 +2432,7 @@ export default function LeadsPage() {
       case 'email':
         return c.email ?? '';
       case 'text':
+      case 'phone':
       case 'select':
         return (c[edit.column] as string | undefined) ?? '';
       case 'tags':
@@ -2525,7 +2549,7 @@ export default function LeadsPage() {
             )
           );
         } else {
-          // Built-in contacts column (text/email/select).
+          // Built-in contacts column (text/phone/email/select).
           const trimmed = rawValue.trim();
           if (edit.column === 'phone' && !trimmed) {
             toast.error('Phone number is required');

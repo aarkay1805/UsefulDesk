@@ -6,7 +6,15 @@ import { MessageSquare, UserPlus, Radio, Zap, Inbox } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { ActivityItem, ActivityKind } from '@/lib/dashboard/types';
 import { useLocale } from '@/hooks/use-locale';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { EmptyState } from './empty-state';
 import { Skeleton } from './skeleton';
@@ -16,8 +24,8 @@ interface ActivityFeedProps {
   loading: boolean;
 }
 
-const PAGE_SIZES = [5, 10, 20, 50] as const;
-type PageSize = (typeof PAGE_SIZES)[number];
+/** Rows shown before the reader asks for the rest. */
+const COLLAPSED_ROWS = 6;
 
 interface KindTheme {
   icon: ComponentType<{ className?: string }>;
@@ -35,61 +43,60 @@ const KIND_THEME: Record<ActivityKind, KindTheme> = {
   automation: { icon: Zap, badge: 'bg-rose-500/10 text-rose-foreground' },
 };
 
+/**
+ * A glance at what just happened. The old footer offered four page sizes
+ * (5/10/20/50) with a disabled-state rule for each — four decisions for a
+ * feed nobody navigates. One expand control replaces them and reveals more
+ * rows than the old maximum in a single click.
+ */
 export function ActivityFeed({ items, loading }: ActivityFeedProps) {
   const { fmt } = useLocale();
-  // Start at 5 — a quick scan of the most recent events without
-  // dominating vertical real estate. User expands explicitly via the
-  // footer control when they want deeper history.
-  const [pageSize, setPageSize] = useState<PageSize>(5);
+  const [expanded, setExpanded] = useState(false);
 
   const totalLoaded = items?.length ?? 0;
-  const visible = items?.slice(0, pageSize) ?? [];
-  // A size option is "useful" if picking it would reveal rows the
-  // smaller option doesn't already show. With PAGE_SIZES=[5,10,20,50]:
-  // "10" is useful only once we've loaded ≥6 items, "20" once ≥11, etc.
-  // The smallest option is always enabled.
-  const isSizeUseful = (size: PageSize, i: number) =>
-    i === 0 || totalLoaded > PAGE_SIZES[i - 1];
+  const visible = expanded
+    ? (items ?? [])
+    : (items?.slice(0, COLLAPSED_ROWS) ?? []);
 
   return (
-    <section className="border-border bg-card rounded-xl border">
-      <header className="border-border flex items-center justify-between border-b px-5 py-4">
-        <h2 className="text-foreground text-sm font-semibold">Recent work</h2>
-        <Link
-          data-slot="button"
-          href="/inbox"
-          className={buttonVariants({ variant: 'link', size: 'xs' })}
-        >
-          Open inbox
-        </Link>
-      </header>
+    <Card>
+      <CardHeader className="border-b">
+        <CardTitle>Recent work</CardTitle>
+        <CardAction>
+          <Link
+            data-slot="button"
+            href="/inbox"
+            className={buttonVariants({ variant: 'link', size: 'xs' })}
+          >
+            Open inbox
+          </Link>
+        </CardAction>
+      </CardHeader>
 
       {loading || !items ? (
-        <div className="space-y-2 p-5">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <CardContent className="space-y-2">
+          {Array.from({ length: COLLAPSED_ROWS }).map((_, i) => (
             <Skeleton key={i} className="h-10 w-full" />
           ))}
-        </div>
+        </CardContent>
       ) : items.length === 0 ? (
-        <div className="p-5">
+        <CardContent>
           <EmptyState
             icon={Inbox}
             title="No activity yet"
             hint="Messages, leads, broadcasts, and automations will show here."
           />
-        </div>
+        </CardContent>
       ) : (
         <>
+          {/* Dividers alone separate the rows: the old alternating stripe
+              rode on top of them, so every row carried two separators. */}
           <ul className="divide-border divide-y">
-            {visible.map((it, i) => {
+            {visible.map((it) => {
               const theme = KIND_THEME[it.kind];
               const Icon = theme.icon;
-              // Alternating row background for scanability. bg-muted/40
-              // keeps the stripe visible in both light and dark modes
-              // (bg-card/40 vanishes against a white card surface in light).
-              const stripe = i % 2 === 0 ? 'bg-transparent' : 'bg-muted/40';
               const row = (
-                <div className="flex items-center gap-3 px-5 py-2.5">
+                <div className="flex items-center gap-3 px-4 py-2.5">
                   <span
                     className={cn(
                       'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full',
@@ -107,10 +114,7 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
                 </div>
               );
               return (
-                <li
-                  key={it.id}
-                  className={cn(stripe, 'hover:bg-muted/40 transition-colors')}
-                >
+                <li key={it.id} className="hover:bg-muted/40 transition-colors">
                   {it.href ? (
                     <Link href={it.href} className="block">
                       {row}
@@ -122,39 +126,22 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
               );
             })}
           </ul>
-          <footer className="border-border flex items-center justify-between border-t px-5 py-3 text-xs">
-            <span className="text-muted-foreground tabular-nums">
-              Showing {visible.length} of {totalLoaded}
-              {totalLoaded === 50 ? '+' : ''}
-            </span>
-            <div className="flex items-center gap-1">
-              <span className="text-muted-foreground mr-1">Show</span>
-              {PAGE_SIZES.map((size, i) => {
-                const disabled = !isSizeUseful(size, i);
-                return (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => setPageSize(size)}
-                    disabled={disabled}
-                    className={cn(
-                      'rounded-md px-2 py-1 font-medium tabular-nums transition-colors',
-                      pageSize === size
-                        ? 'bg-secondary text-secondary-foreground'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                      disabled &&
-                        'hover:text-muted-foreground cursor-not-allowed opacity-40 hover:bg-transparent'
-                    )}
-                  >
-                    {size}
-                  </button>
-                );
-              })}
-            </div>
-          </footer>
+          {totalLoaded > COLLAPSED_ROWS && (
+            <CardFooter className="justify-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setExpanded((open) => !open)}
+              >
+                {expanded
+                  ? 'Show less'
+                  : `Show ${totalLoaded - COLLAPSED_ROWS} more`}
+              </Button>
+            </CardFooter>
+          )}
         </>
       )}
-    </section>
+    </Card>
   );
 }
 

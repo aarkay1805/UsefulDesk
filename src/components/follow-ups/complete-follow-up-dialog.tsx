@@ -166,7 +166,12 @@ function BulkCompleteForm({
         .select('id');
 
       if (error) {
-        toast.error(getErrorMessage(error, 'Failed to update follow-ups'));
+        toast.error(
+          getErrorMessage(
+            error,
+            "These follow-ups couldn't be updated. Refresh and try again."
+          )
+        );
         return;
       }
       if (!data || data.length !== followUpIds.length) {
@@ -195,8 +200,7 @@ function BulkCompleteForm({
         <DialogTitle>Complete selected follow-ups</DialogTitle>
         <DialogDescription>
           Apply one outcome to {followUpIds.length} selected follow-up
-          {followUpIds.length === 1 ? '' : 's'}. Existing task notes are
-          preserved.
+          {followUpIds.length === 1 ? '' : 's'}. Notes already on them are kept.
         </DialogDescription>
       </DialogHeader>
 
@@ -231,7 +235,7 @@ function BulkCompleteForm({
           loading={pendingStatus === 'cancelled'}
           disabled={saving}
         >
-          Cancel tasks
+          Cancel follow-ups
         </Button>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
@@ -291,7 +295,10 @@ function CompleteForm({
 
       if (error || !data) {
         toast.error(
-          getErrorMessage(error, 'This follow-up could not be updated')
+          getErrorMessage(
+            error,
+            "This follow-up couldn't be updated. Refresh and try again."
+          )
         );
         return;
       }
@@ -368,7 +375,7 @@ function CompleteForm({
           loading={pendingStatus === 'cancelled'}
           disabled={saving}
         >
-          Cancel task
+          Cancel follow-up
         </Button>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={onClose}>

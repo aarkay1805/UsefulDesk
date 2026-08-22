@@ -19,6 +19,7 @@ import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-
 import { FollowUpCompletionControl } from '@/components/follow-ups/follow-up-completion-control';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Skeleton } from './skeleton';
 
@@ -147,24 +148,19 @@ export function LeadActionLists() {
   }, [nonce, fmt]);
 
   return (
-    <section className="border-border bg-card rounded-xl border">
-      <header className="border-border border-b px-5 py-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-foreground text-sm font-semibold">Lead work</h2>
-            {followUps !== null && staleLeads !== null && (
-              <Badge variant={actionTotal > 0 ? 'warning' : 'success'}>
-                {actionTotal} to do
-              </Badge>
-            )}
-          </div>
-          <p className="text-muted-foreground mt-0.5 text-xs">
-            Follow-ups to finish and new leads to call.
-          </p>
-        </div>
-      </header>
+    <Card>
+      <CardHeader className="border-b">
+        <CardTitle className="flex items-center gap-2">
+          Lead work
+          {followUps !== null && staleLeads !== null && (
+            <Badge variant={actionTotal > 0 ? 'warning' : 'success'}>
+              {actionTotal} to do
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
 
-      <div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-2">
+      <CardContent className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Queue 1 — due follow-ups, or upcoming when the due queue is empty */}
         <div>
           <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium">
@@ -193,7 +189,7 @@ export function LeadActionLists() {
               }
             />
           ) : (
-            <ul className="border-border/60 divide-border/60 bg-muted/20 divide-y overflow-hidden rounded-lg border">
+            <ul className="divide-border/60 -mx-2 divide-y">
               {followUps.map((f) => {
                 const overdueDays = f.overdueDays;
                 const who =
@@ -204,7 +200,7 @@ export function LeadActionLists() {
                 return (
                   <li
                     key={f.id}
-                    className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-2.5 py-2 transition-colors"
+                    className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-2 py-2 transition-colors"
                     tabIndex={0}
                     aria-label={`Open ${who} details`}
                     onClick={() => setDetailContactId(f.contact_id)}
@@ -284,7 +280,7 @@ export function LeadActionLists() {
               text="No new leads are waiting."
             />
           ) : (
-            <ul className="border-border/60 divide-border/60 bg-muted/20 divide-y overflow-hidden rounded-lg border">
+            <ul className="divide-border/60 -mx-2 divide-y">
               {staleLeads.map((l) => {
                 const waitingDays = l.waitingDays;
                 const displayName = l.name?.trim() || 'Unnamed lead';
@@ -292,7 +288,7 @@ export function LeadActionLists() {
                   <li key={l.id}>
                     <Link
                       href={`/leads?contact=${encodeURIComponent(l.id)}&focus=followup`}
-                      className="hover:bg-muted/50 flex items-center gap-3 px-3 py-2.5 transition-colors"
+                      className="hover:bg-muted/50 flex items-center gap-3 px-2 py-2.5 transition-colors"
                     >
                       <UserAvatar
                         name={displayName}
@@ -316,7 +312,7 @@ export function LeadActionLists() {
             </ul>
           )}
         </div>
-      </div>
+      </CardContent>
       {completing && (
         <CompleteFollowUpDialog
           open={Boolean(completing)}
@@ -345,7 +341,7 @@ export function LeadActionLists() {
         contactId={detailContactId}
         onUpdated={() => setNonce((value) => value + 1)}
       />
-    </section>
+    </Card>
   );
 }
 
@@ -367,7 +363,7 @@ function QueueEmpty({
   text: string;
 }) {
   return (
-    <div className="border-border text-muted-foreground flex items-center gap-2 rounded-lg border border-dashed px-3 py-4 text-xs">
+    <div className="text-muted-foreground flex items-center gap-2 py-3 text-xs">
       <Icon className="size-4 shrink-0" />
       {text}
     </div>

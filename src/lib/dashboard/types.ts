@@ -8,18 +8,6 @@ export interface ConversationsSeriesPoint {
   outgoing: number;
 }
 
-export interface LeadStatusSlice {
-  key: string;
-  label: string;
-  color: string;
-  count: number;
-}
-
-export interface LeadsDonutData {
-  slices: LeadStatusSlice[];
-  total: number;
-}
-
 export interface LeadFunnelStage {
   key: string;
   label: string;
@@ -45,6 +33,8 @@ export interface LeadFunnelData {
   convertedThisMonth: number;
   /** All-time members / (leads + members). Null when no contacts. */
   conversionRate: number | null;
+  /** All-time contacts that became members — the numerator behind `conversionRate`. */
+  convertedTotal: number;
   topSources: LeadSourcePerf[];
 }
 
