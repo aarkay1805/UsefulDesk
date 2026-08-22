@@ -109,6 +109,12 @@ interface WhatsAppWebhookEntry {
         status: string;
         timestamp: string;
         recipient_id: string;
+        errors?: Array<{
+          code?: string | number;
+          title?: string;
+          message?: string;
+          error_data?: { details?: string };
+        }>;
       }>;
     };
     field: string;
@@ -467,6 +473,12 @@ async function handleStatusUpdate(
     status: string;
     timestamp: string;
     recipient_id: string;
+    errors?: Array<{
+      code?: string | number;
+      title?: string;
+      message?: string;
+      error_data?: { details?: string };
+    }>;
   },
   phoneNumberId: string
 ) {
@@ -481,6 +493,11 @@ async function handleStatusUpdate(
   // transaction and puts the predecessor-state predicate directly in
   // each UPDATE, so concurrent or reordered callbacks cannot regress a
   // row after first reading a stale status.
+  const providerFailure =
+    status.status === 'failed'
+      ? sanitizeProviderFailure(status.errors?.[0])
+      : null;
+
   const { data: changedMessages, error } = await supabaseAdmin().rpc(
     'apply_whatsapp_status_callback',
     {
@@ -488,6 +505,13 @@ async function handleStatusUpdate(
       p_message_id: status.id,
       p_status: status.status,
       p_status_at: statusAt.toISOString(),
+      ...(providerFailure
+        ? {
+            p_provider_error_code: providerFailure.code,
+            p_provider_error_title: providerFailure.title,
+            p_provider_error_detail: providerFailure.detail,
+          }
+        : {}),
     }
   );
 
@@ -515,6 +539,34 @@ async function handleStatusUpdate(
       }
     );
   }
+}
+
+function sanitizeProviderFailure(
+  error:
+    | {
+        code?: string | number;
+        title?: string;
+        message?: string;
+        error_data?: { details?: string };
+      }
+    | undefined
+) {
+  if (!error) return null;
+
+  const clean = (value: unknown, maxLength: number) => {
+    if (typeof value !== 'string' && typeof value !== 'number') return null;
+    const normalized = String(value)
+      .replace(/[\u0000-\u001f\u007f]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return normalized ? normalized.slice(0, maxLength) : null;
+  };
+
+  return {
+    code: clean(error.code, 100),
+    title: clean(error.title ?? error.message, 500),
+    detail: clean(error.error_data?.details, 2000),
+  };
 }
 
 /**

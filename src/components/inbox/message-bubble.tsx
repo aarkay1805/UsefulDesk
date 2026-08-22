@@ -380,6 +380,30 @@ export function MessageBubble({
           {isAgent && <StatusIcon status={message.status} />}
         </div>
       </div>
+      {isAgent &&
+        message.status === 'failed' &&
+        (message.provider_error_code ||
+          message.provider_error_title ||
+          message.provider_error_detail) && (
+          <div
+            role="alert"
+            className="text-red-foreground mt-1 max-w-80 space-y-0.5 text-right text-xs"
+          >
+            <div className="flex flex-wrap justify-end gap-x-1.5">
+              <span className="font-medium">
+                {message.provider_error_code
+                  ? `Meta ${message.provider_error_code}`
+                  : 'Meta delivery failure'}
+              </span>
+              {message.provider_error_title && (
+                <span>{message.provider_error_title}</span>
+              )}
+            </div>
+            {message.provider_error_detail && (
+              <p className="text-pretty">{message.provider_error_detail}</p>
+            )}
+          </div>
+        )}
       {reactions && reactions.length > 0 && onToggleReaction && (
         <MessageReactions
           reactions={reactions}

@@ -325,7 +325,11 @@ beforeEach(() => {
   });
 });
 
-function statusRequest(status = 'delivered', phoneNumberId = 'phone-number-1') {
+function statusRequest(
+  status = 'delivered',
+  phoneNumberId = 'phone-number-1',
+  errors?: Array<Record<string, unknown>>
+) {
   const payload = {
     entry: [
       {
@@ -340,6 +344,7 @@ function statusRequest(status = 'delivered', phoneNumberId = 'phone-number-1') {
                   status,
                   timestamp: '1700000000',
                   recipient_id: '15551230000',
+                  ...(errors ? { errors } : {}),
                 },
               ],
             },
@@ -487,6 +492,42 @@ describe('outbound status integrity', () => {
     await runStatusWebhook('delivered');
 
     expect(h.dispatchWebhookEvent).not.toHaveBeenCalled();
+  });
+
+  it('persists sanitized Meta delivery failure details with the status transition', async () => {
+    const response = await POST(
+      statusRequest('failed', 'phone-number-1', [
+        {
+          code: 131042,
+          title: 'Business eligibility payment issue',
+          message: 'Business eligibility payment issue',
+          error_data: {
+            details:
+              'Message failed to send because there were one or more errors related to your payment method.',
+          },
+          href: 'https://developers.facebook.com/docs/whatsapp/cloud-api/',
+        },
+      ])
+    );
+    for (const callback of h.state.afterCallbacks) await callback();
+
+    expect(response).toEqual({
+      body: { status: 'received' },
+      init: { status: 200 },
+    });
+    expect(h.state.rpcCalls).toContainEqual({
+      name: 'apply_whatsapp_status_callback',
+      args: {
+        p_phone_number_id: 'phone-number-1',
+        p_message_id: 'wamid.STATUS1',
+        p_status: 'failed',
+        p_status_at: '2023-11-14T22:13:20.000Z',
+        p_provider_error_code: '131042',
+        p_provider_error_title: 'Business eligibility payment issue',
+        p_provider_error_detail:
+          'Message failed to send because there were one or more errors related to your payment method.',
+      },
+    });
   });
 });
 

@@ -368,6 +368,10 @@ export interface Message {
   template_name?: string;
   message_id?: string;
   status: MessageStatus;
+  /** Sanitized Meta delivery diagnostics, retained only for failed sends. */
+  provider_error_code?: string | null;
+  provider_error_title?: string | null;
+  provider_error_detail?: string | null;
   created_at: string;
   reply_to_message_id?: string;
   /**

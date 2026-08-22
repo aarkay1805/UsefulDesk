@@ -6,6 +6,19 @@
 
 ---
 
+## Failed WhatsApp sends now retain Meta's delivery reason
+
+Failed status callbacks now retain Meta's bounded error code, title, and detail
+on the matching tenant-scoped message before the durable webhook payload is
+erased. The Inbox renders those diagnostics directly beneath the failed
+outbound bubble, and broadcast recipients keep the same actionable detail in
+their existing error field. Migration
+`20260822143108_retain_whatsapp_delivery_failures.sql` is applied to UsefulDesk
+Production. Key code: `src/app/api/whatsapp/webhook/route.ts` and
+`src/components/inbox/message-bubble.tsx`. Gotcha: previously processed failures
+cannot be reconstructed because their receipt payloads were already erased;
+only new failed callbacks carry diagnostics.
+
 ## Member templates are one action away, and consent no longer blocks sends
 
 Member profiles now place a WhatsApp-marked **Template** action beside
