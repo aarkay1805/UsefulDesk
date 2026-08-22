@@ -57,7 +57,7 @@ import type {
   TemplateButton,
   TemplateSampleValues,
 } from '@/types';
-import { templateStatusConfig } from '@/lib/template-status';
+import { resolveTemplateStatusDisplay } from '@/lib/template-status';
 import {
   extractVariableIndices,
   TEMPLATE_LIMITS,
@@ -461,6 +461,12 @@ export function TemplateManager() {
           { duration: 10000 }
         );
       }
+      if (Number(data.newly_missing) > 0) {
+        toast.error(
+          `${data.newly_missing} local template${data.newly_missing === 1 ? ' is' : 's are'} no longer present on Meta. They were disabled and kept for review.`,
+          { duration: 10000 }
+        );
+      }
       setReloadNonce((nonce) => nonce + 1);
     } catch (err) {
       console.error('Template sync error:', err);
@@ -696,7 +702,10 @@ export function TemplateManager() {
         <div className="grid gap-3 xl:grid-cols-2">
           {templates.map((template) => {
             const statusKey = template.status || 'DRAFT';
-            const status = templateStatusConfig[statusKey];
+            const status = resolveTemplateStatusDisplay(
+              statusKey,
+              template.provider_missing_since
+            );
             return (
               <Card key={template.id}>
                 <CardContent className="space-y-3">
@@ -713,7 +722,13 @@ export function TemplateManager() {
                         >
                           {template.category}
                         </Badge>
-                        <Badge variant={statusVariant(statusKey)}>
+                        <Badge
+                          variant={
+                            template.provider_missing_since
+                              ? 'danger'
+                              : statusVariant(statusKey)
+                          }
+                        >
                           {status.label}
                         </Badge>
                         {template.language && (
@@ -766,12 +781,14 @@ export function TemplateManager() {
                         canAct={canEditSettings}
                         gateReason="delete message templates"
                         aria-label={
-                          template.meta_template_id
+                          template.meta_template_id &&
+                          !template.provider_missing_since
                             ? 'Delete template from Meta and locally'
                             : 'Delete template locally'
                         }
                         title={
-                          template.meta_template_id
+                          template.meta_template_id &&
+                          !template.provider_missing_since
                             ? 'Delete from Meta and UsefulDesk'
                             : 'Delete from UsefulDesk'
                         }
@@ -792,14 +809,23 @@ export function TemplateManager() {
                       {template.footer_text}
                     </p>
                   )}
-                  {(template.rejection_reason || template.submission_error) && (
+                  {template.provider_missing_since ? (
+                    <Alert variant="destructive">
+                      <AlertCircle />
+                      <AlertDescription>
+                        This template was not returned by Meta during the last
+                        complete sync. Re-create it in Meta or delete this local
+                        record.
+                      </AlertDescription>
+                    </Alert>
+                  ) : template.rejection_reason || template.submission_error ? (
                     <Alert variant="destructive">
                       <AlertCircle />
                       <AlertDescription>
                         {template.rejection_reason || template.submission_error}
                       </AlertDescription>
                     </Alert>
-                  )}
+                  ) : null}
                 </CardContent>
               </Card>
             );

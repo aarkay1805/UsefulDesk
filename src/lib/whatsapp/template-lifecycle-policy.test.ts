@@ -4,6 +4,7 @@ import {
   ApprovedTemplateCategoryChangeError,
   editCategoryForMeta,
   resolveSubmittedTemplateCategory,
+  shouldDeleteTemplateFromMeta,
 } from './template-lifecycle-policy';
 
 describe('resolveSubmittedTemplateCategory', () => {
@@ -56,5 +57,40 @@ describe('editCategoryForMeta', () => {
     expect(editCategoryForMeta('PAUSED', 'Marketing', 'Utility')).toBe(
       'UTILITY'
     );
+  });
+});
+
+describe('shouldDeleteTemplateFromMeta', () => {
+  it('skips Meta for a template already proven missing from the provider', () => {
+    expect(
+      shouldDeleteTemplateFromMeta(
+        {
+          metaTemplateId: 'meta-1',
+          providerMissingSince: '2026-08-22T00:00:00.000Z',
+        },
+        false
+      )
+    ).toBe(false);
+  });
+
+  it('calls Meta only for a current provider row outside dry-run mode', () => {
+    expect(
+      shouldDeleteTemplateFromMeta(
+        { metaTemplateId: 'meta-1', providerMissingSince: null },
+        false
+      )
+    ).toBe(true);
+    expect(
+      shouldDeleteTemplateFromMeta(
+        { metaTemplateId: 'meta-1', providerMissingSince: null },
+        true
+      )
+    ).toBe(false);
+    expect(
+      shouldDeleteTemplateFromMeta(
+        { metaTemplateId: null, providerMissingSince: null },
+        false
+      )
+    ).toBe(false);
   });
 });

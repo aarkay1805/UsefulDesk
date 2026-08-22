@@ -46,6 +46,10 @@ POSITIONAL format, exact body/footer/buttons and parameter order, and no pending
 provider-component sync marker. A merely submitted or **Pending** row is not
 ready. **Rejected**, **Paused**, **Disabled**, reclassified, or drifted rows are
 not ready and retain their exact provider state for an operator to inspect.
+After a complete provider snapshot, a previously synced row that Meta no longer
+returns is retained as **Not on Meta** and disabled. A pagination-capped sync
+does not infer absence. If Meta returns the row again, the next complete sync
+restores its current provider status and clears the missing marker.
 
 Meta returning a `wamid` means the request was accepted, not delivered.
 Delivery-status webhooks remain authoritative for sent, delivered, read, and
@@ -105,6 +109,7 @@ mutation, or cleanup is authorized by this runbook alone.
 | Account skipped                            | Inspect the structured setup note: connection, provider status, category, POSITIONAL format, components, or sync marker may be blocking.       |
 | Consent required                           | Record explicit Marketing WhatsApp opt-in with source evidence; lead follow-up or account-update consent does not imply Marketing consent.     |
 | Approved but blocked                       | Sync Templates and compare the provider-owned category/components to the exact contract. Do not invent an alias or silently switch categories. |
+| Not on Meta                                | The last complete sync did not return this provider-backed row. Re-create it in Meta or delete the retained local record.                      |
 | `sent: 0` with expiring rows               | Check feature eligibility, account-local offset/date, current service rate, phone, consent, and claim ledger.                                  |
 | Provider request accepted but later failed | A `wamid` is not delivery evidence; inspect status webhooks and the exact provider failure.                                                    |
 

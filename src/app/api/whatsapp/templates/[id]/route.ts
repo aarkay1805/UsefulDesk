@@ -14,6 +14,7 @@ import { ensureImageHeaderHandle } from '@/lib/whatsapp/template-header-handle';
 import {
   ApprovedTemplateCategoryChangeError,
   editCategoryForMeta,
+  shouldDeleteTemplateFromMeta,
 } from '@/lib/whatsapp/template-lifecycle-policy';
 import type { MessageTemplate } from '@/types';
 
@@ -273,7 +274,7 @@ export async function DELETE(
 
     const { data: existing, error: lookupErr } = await supabase
       .from('message_templates')
-      .select('id, name, meta_template_id')
+      .select('id, name, meta_template_id, provider_missing_since')
       .eq('id', id)
       .eq('account_id', accountId)
       .maybeSingle();
@@ -284,7 +285,15 @@ export async function DELETE(
       );
     }
 
-    if (existing.meta_template_id && !isDryRun()) {
+    if (
+      shouldDeleteTemplateFromMeta(
+        {
+          metaTemplateId: existing.meta_template_id,
+          providerMissingSince: existing.provider_missing_since,
+        },
+        isDryRun()
+      )
+    ) {
       const { data: config, error: configError } = await supabase
         .from('whatsapp_config')
         .select('*')
@@ -310,14 +319,15 @@ export async function DELETE(
       }
     }
 
-    const { error: delErr } = await supabase
+    const { data: deleted, error: delErr } = await supabase
       .from('message_templates')
       .delete()
-      .eq('id', id);
-    if (delErr) {
+      .eq('id', id)
+      .select('id');
+    if (delErr || !deleted?.length) {
       return NextResponse.json(
         {
-          error: `Deleted on Meta but failed to delete locally: ${delErr.message}.`,
+          error: `Deleted on Meta but failed to delete locally${delErr ? `: ${delErr.message}` : '.'}`,
         },
         { status: 500 }
       );

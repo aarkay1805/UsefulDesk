@@ -35,6 +35,95 @@ export interface MetaTemplate {
   quality_score?: { score?: string } | string;
 }
 
+export interface LocalProviderTemplate {
+  id: string;
+  name: string;
+  language: string;
+  meta_template_id: string | null;
+  provider_missing_since: string | null;
+}
+
+export function normalizeProviderSyncGeneration(value: unknown): number | null {
+  const generation =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && /^\d+$/.test(value)
+        ? Number(value)
+        : Number.NaN;
+  return Number.isSafeInteger(generation) && generation > 0 ? generation : null;
+}
+
+export function providerSyncCasFilter(syncGeneration: number): string {
+  return `provider_sync_generation.is.null,provider_sync_generation.lte.${syncGeneration}`;
+}
+
+export function findUnsafeMissingReconciliationIds(
+  rows: Array<{
+    id: string;
+    status: string;
+    provider_missing_since: string | null;
+    provider_sync_generation: number | null;
+  }>,
+  syncGeneration: number
+): string[] {
+  return rows
+    .filter((row) => {
+      const safelyMissing =
+        Boolean(row.provider_missing_since) && row.status !== 'APPROVED';
+      const reconciledGeneration = row.provider_sync_generation;
+      const superseded =
+        reconciledGeneration !== null && reconciledGeneration > syncGeneration;
+      return !safelyMissing && !superseded;
+    })
+    .map((row) => row.id);
+}
+
+export function findMissingProviderTemplates<T extends LocalProviderTemplate>(
+  localTemplates: T[],
+  metaTemplates: MetaTemplate[],
+  snapshotComplete: boolean
+): T[] {
+  if (!snapshotComplete) return [];
+  const providerIds = new Set(metaTemplates.map((template) => template.id));
+  const providerKeys = new Set(
+    metaTemplates.map(
+      (template) => `${template.name}\u0000${template.language}`
+    )
+  );
+  return localTemplates.filter(
+    (template) =>
+      template.meta_template_id !== null &&
+      !template.meta_template_id.startsWith('dry-run-') &&
+      !providerIds.has(template.meta_template_id) &&
+      !providerKeys.has(`${template.name}\u0000${template.language}`)
+  );
+}
+
+export function buildMissingProviderTemplateStateUpdate(
+  updatedAt: string,
+  syncGeneration: number
+) {
+  return {
+    status: 'DISABLED' as const,
+    provider_components_sync_required_at: null,
+    quality_score: null,
+    submission_error: null,
+    rejection_reason: null,
+    provider_sync_generation: syncGeneration,
+    updated_at: updatedAt,
+  };
+}
+
+export function buildMissingProviderTemplateUpdate(
+  detectedAt: string,
+  syncGeneration: number
+) {
+  return {
+    ...buildMissingProviderTemplateStateUpdate(detectedAt, syncGeneration),
+    provider_missing_since: detectedAt,
+  };
+}
+
 function normalizeCategory(
   meta: string
 ): 'Marketing' | 'Utility' | 'Authentication' {
@@ -119,6 +208,7 @@ export function buildSyncedTemplateRow(
   template: MetaTemplate,
   accountId: string,
   userId: string,
+  syncGeneration: number,
   updatedAt = new Date().toISOString()
 ) {
   const body = (template.components ?? []).find(
@@ -134,6 +224,7 @@ export function buildSyncedTemplateRow(
     (component) => component.type === 'BUTTONS'
   );
   const parsedButtons = parseButtons(buttons?.buttons);
+  const status = normalizeStatus(template.status);
   const headerFormat = header?.format?.toUpperCase();
   const headerType =
     headerFormat === 'TEXT' ||
@@ -157,10 +248,14 @@ export function buildSyncedTemplateRow(
     footer_text: footer?.text ?? null,
     buttons: parsedButtons.length ? parsedButtons : null,
     sample_values: extractSampleValues(body, header),
-    status: normalizeStatus(template.status),
+    status,
     meta_template_id: template.id,
     quality_score: normalizeQualityScore(template.quality_score),
     provider_components_sync_required_at: null,
+    provider_missing_since: null,
+    provider_sync_generation: syncGeneration,
+    submission_error: null,
+    ...(status !== 'REJECTED' && { rejection_reason: null }),
     updated_at: updatedAt,
   };
 }

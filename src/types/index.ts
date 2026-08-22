@@ -464,6 +464,8 @@ export interface MessageTemplate {
   last_submitted_at?: string;
   parameter_format?: 'POSITIONAL' | 'NAMED';
   provider_components_sync_required_at?: string;
+  provider_missing_since?: string | null;
+  provider_sync_generation?: number | null;
   created_at: string;
 }
 

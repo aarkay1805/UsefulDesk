@@ -51,3 +51,17 @@ export const templateStatusConfig: Record<
     classes: 'bg-slate-700/30 text-slate-foreground',
   },
 };
+
+const PROVIDER_MISSING_STATUS: TemplateStatusDisplay = {
+  label: 'Not on Meta',
+  classes: 'bg-red-600/20 text-red-foreground',
+};
+
+export function resolveTemplateStatusDisplay(
+  status: MessageTemplateStatus,
+  providerMissingSince: string | null | undefined
+): TemplateStatusDisplay {
+  return providerMissingSince
+    ? PROVIDER_MISSING_STATUS
+    : templateStatusConfig[status];
+}

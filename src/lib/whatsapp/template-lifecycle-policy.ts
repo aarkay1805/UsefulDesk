@@ -68,3 +68,15 @@ export function editCategoryForMeta(
   }
   return LOCAL_TO_META[requested];
 }
+
+export function shouldDeleteTemplateFromMeta(
+  template: {
+    metaTemplateId: string | null;
+    providerMissingSince: string | null;
+  },
+  dryRun: boolean
+): boolean {
+  return Boolean(
+    template.metaTemplateId && !template.providerMissingSince && !dryRun
+  );
+}

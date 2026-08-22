@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { requireSettingsAccess, toErrorResponse } from '@/lib/auth/account';
 import { decrypt } from '@/lib/whatsapp/encryption';
+import { isUniqueViolation } from '@/lib/contacts/dedupe';
 import {
+  buildMissingProviderTemplateUpdate,
+  buildMissingProviderTemplateStateUpdate,
   META_TEMPLATE_SYNC_FIELDS,
   buildSyncedTemplateRow,
+  findMissingProviderTemplates,
+  findUnsafeMissingReconciliationIds,
+  normalizeProviderSyncGeneration,
+  providerSyncCasFilter,
   type MetaTemplate,
 } from '@/lib/whatsapp/template-sync';
 
@@ -16,8 +23,9 @@ import {
  * states (PAUSED) from terminal ones (DISABLED) and so webhook events
  * land 1:1 without a translation table.
  *
- * Locally-created templates (no Meta counterpart) are NOT deleted —
- * they remain visible so the user can notice drift and clean up.
+ * Local drafts (no Meta id) are untouched. Provider-backed rows absent from a
+ * complete Meta snapshot are retained, marked DISABLED, and labelled through
+ * provider_missing_since so cached approval can never remain sendable.
  */
 
 const META_API_VERSION = 'v21.0';
@@ -33,6 +41,7 @@ export async function POST() {
 
   try {
     const { supabase, accountId, userId } = ctx;
+    const syncStartedAt = new Date().toISOString();
 
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
@@ -61,6 +70,20 @@ export async function POST() {
     }
 
     const accessToken = decrypt(config.access_token);
+
+    const { data: rawSyncGeneration, error: syncGenerationError } =
+      await supabase.rpc('next_meta_template_sync_generation');
+    const syncGeneration = normalizeProviderSyncGeneration(rawSyncGeneration);
+    if (syncGenerationError || syncGeneration === null) {
+      return NextResponse.json(
+        {
+          error:
+            syncGenerationError?.message ??
+            'Could not allocate a Meta template sync generation.',
+        },
+        { status: 500 }
+      );
+    }
 
     const metaTemplates: MetaTemplate[] = [];
     let nextUrl: string | null =
@@ -95,10 +118,18 @@ export async function POST() {
 
     let inserted = 0;
     let updated = 0;
+    let missing = 0;
+    let newlyMissing = 0;
     const errors: { name: string; language: string; message: string }[] = [];
 
     for (const t of metaTemplates) {
-      const row = buildSyncedTemplateRow(t, accountId, userId);
+      const row = buildSyncedTemplateRow(
+        t,
+        accountId,
+        userId,
+        syncGeneration,
+        syncStartedAt
+      );
 
       const { data: existing, error: lookupErr } = await supabase
         .from('message_templates')
@@ -118,17 +149,19 @@ export async function POST() {
       }
 
       if (existing?.id) {
-        const { error: updErr } = await supabase
+        const { data: changed, error: updErr } = await supabase
           .from('message_templates')
           .update(row)
-          .eq('id', existing.id);
+          .eq('id', existing.id)
+          .or(providerSyncCasFilter(syncGeneration))
+          .select('id');
         if (updErr) {
           errors.push({
             name: t.name,
             language: t.language,
             message: updErr.message,
           });
-        } else {
+        } else if (changed?.length) {
           updated++;
         }
       } else {
@@ -136,13 +169,185 @@ export async function POST() {
           .from('message_templates')
           .insert(row);
         if (insErr) {
-          errors.push({
-            name: t.name,
-            language: t.language,
-            message: insErr.message,
-          });
+          if (isUniqueViolation(insErr)) {
+            const { data: racedRow, error: racedLookupError } = await supabase
+              .from('message_templates')
+              .select('id')
+              .eq('account_id', accountId)
+              .eq('name', t.name)
+              .eq('language', t.language)
+              .maybeSingle();
+
+            if (racedLookupError || !racedRow?.id) {
+              errors.push({
+                name: t.name,
+                language: t.language,
+                message:
+                  racedLookupError?.message ??
+                  'Template was inserted concurrently but could not be reloaded.',
+              });
+              continue;
+            }
+
+            const { data: changed, error: racedUpdateError } = await supabase
+              .from('message_templates')
+              .update(row)
+              .eq('id', racedRow.id)
+              .or(providerSyncCasFilter(syncGeneration))
+              .select('id');
+
+            if (racedUpdateError) {
+              errors.push({
+                name: t.name,
+                language: t.language,
+                message: racedUpdateError.message,
+              });
+            } else if (changed?.length) {
+              updated++;
+            }
+          } else {
+            errors.push({
+              name: t.name,
+              language: t.language,
+              message: insErr.message,
+            });
+          }
         } else {
           inserted++;
+        }
+      }
+    }
+
+    const snapshotComplete = nextUrl === null;
+    if (snapshotComplete) {
+      const { data: localProviderTemplates, error: localLookupError } =
+        await supabase
+          .from('message_templates')
+          .select(
+            'id, name, language, meta_template_id, provider_missing_since'
+          )
+          .eq('account_id', accountId)
+          .not('meta_template_id', 'is', null);
+
+      if (localLookupError) {
+        errors.push({
+          name: 'Provider reconciliation',
+          language: 'all',
+          message: localLookupError.message,
+        });
+      } else {
+        const missingTemplates = findMissingProviderTemplates(
+          localProviderTemplates ?? [],
+          metaTemplates,
+          true
+        );
+        const newlyMissingTemplates = missingTemplates.filter(
+          (template) => !template.provider_missing_since
+        );
+        const alreadyMissingTemplates = missingTemplates.filter(
+          (template) => template.provider_missing_since
+        );
+        const detectedAt = new Date().toISOString();
+        const missingStateUpdate = buildMissingProviderTemplateStateUpdate(
+          detectedAt,
+          syncGeneration
+        );
+
+        for (
+          let index = 0;
+          index < newlyMissingTemplates.length;
+          index += 100
+        ) {
+          const batch = newlyMissingTemplates.slice(index, index + 100);
+          const { data: marked, error: markError } = await supabase
+            .from('message_templates')
+            .update(
+              buildMissingProviderTemplateUpdate(detectedAt, syncGeneration)
+            )
+            .eq('account_id', accountId)
+            .in(
+              'id',
+              batch.map((template) => template.id)
+            )
+            .is('provider_missing_since', null)
+            .or(providerSyncCasFilter(syncGeneration))
+            .select('id');
+
+          if (markError) {
+            errors.push({
+              name: 'Provider reconciliation',
+              language: 'all',
+              message: markError.message,
+            });
+            continue;
+          }
+
+          const markedCount = marked?.length ?? 0;
+          newlyMissing += markedCount;
+        }
+
+        for (
+          let index = 0;
+          index < alreadyMissingTemplates.length;
+          index += 100
+        ) {
+          const batch = alreadyMissingTemplates.slice(index, index + 100);
+          const { error: markError } = await supabase
+            .from('message_templates')
+            .update(missingStateUpdate)
+            .eq('account_id', accountId)
+            .in(
+              'id',
+              batch.map((template) => template.id)
+            )
+            .not('provider_missing_since', 'is', null)
+            .or(providerSyncCasFilter(syncGeneration))
+            .select('id');
+
+          if (markError) {
+            errors.push({
+              name: 'Provider reconciliation',
+              language: 'all',
+              message: markError.message,
+            });
+            continue;
+          }
+        }
+
+        if (missingTemplates.length > 0) {
+          const { data: reconciledRows, error: verifyError } = await supabase
+            .from('message_templates')
+            .select(
+              'id, status, provider_missing_since, provider_sync_generation'
+            )
+            .eq('account_id', accountId)
+            .in(
+              'id',
+              missingTemplates.map((template) => template.id)
+            );
+
+          if (verifyError) {
+            errors.push({
+              name: 'Provider reconciliation verification',
+              language: 'all',
+              message: verifyError.message,
+            });
+          } else {
+            const unsafeIds = findUnsafeMissingReconciliationIds(
+              reconciledRows ?? [],
+              syncGeneration
+            );
+            if (unsafeIds.length > 0) {
+              errors.push({
+                name: 'Provider reconciliation verification',
+                language: 'all',
+                message: `${unsafeIds.length} missing template${unsafeIds.length === 1 ? '' : 's'} remained in stale provider state.`,
+              });
+            }
+            missing = (reconciledRows ?? []).filter(
+              (row) => row.provider_missing_since && row.status !== 'APPROVED'
+            ).length;
+          }
         }
       }
     }
@@ -152,8 +357,10 @@ export async function POST() {
       total: metaTemplates.length,
       inserted,
       updated,
+      missing,
+      newly_missing: newlyMissing,
       errors,
-      truncated: pageCount >= PAGE_CAP && nextUrl !== null,
+      truncated: !snapshotComplete,
     });
   } catch (error) {
     console.error('Error syncing WhatsApp templates:', error);
