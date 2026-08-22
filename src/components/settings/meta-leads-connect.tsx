@@ -16,7 +16,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { AlertTriangle, Loader2, Megaphone, Unplug } from 'lucide-react';
+import {
+  AlertTriangle,
+  Loader2,
+  Megaphone,
+  RefreshCw,
+  Unplug,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -28,6 +34,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { GatedButton } from '@/components/ui/gated-button';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -41,6 +48,8 @@ import { getErrorMessage } from '@/lib/errors';
 import { loadFbSdk, type FbLoginResponse } from '@/lib/meta/fb-sdk';
 import { createClient } from '@/lib/supabase/client';
 import { ProviderMark } from '@/components/brand/provider-mark';
+import { useLocale } from '@/hooks/use-locale';
+import { resolveMetaLeadPageDisplay } from './meta-leads-health';
 
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID;
 const LEADS_CONFIG_ID = process.env.NEXT_PUBLIC_META_LEADS_CONFIG_ID;
@@ -53,17 +62,26 @@ interface PageConfig {
   last_error: string | null;
   last_lead_at: string | null;
   skipped_no_phone: number;
+  health_lease_until: string | null;
+  health_checked_at: string | null;
+  last_healthy_at: string | null;
+  last_repair_at: string | null;
+  health_error_code: string | null;
+  health_error_resolution: string | null;
+  consecutive_health_failures: number;
 }
 
 export function MetaLeadsConnect() {
   const { accountId, canEditSettings } = useAuth();
   const supabase = createClient();
   const canEdit = canEditSettings;
+  const { fmt } = useLocale();
 
   const [pages, setPages] = useState<PageConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [checkingId, setCheckingId] = useState<string | null>(null);
   const [pageToDisconnect, setPageToDisconnect] = useState<PageConfig | null>(
     null
   );
@@ -81,7 +99,7 @@ export function MetaLeadsConnect() {
       const { data, error } = await supabase
         .from('meta_page_config')
         .select(
-          'id, page_id, page_name, status, last_error, last_lead_at, skipped_no_phone'
+          'id, page_id, page_name, status, last_error, last_lead_at, skipped_no_phone, health_lease_until, health_checked_at, last_healthy_at, last_repair_at, health_error_code, health_error_resolution, consecutive_health_failures'
         )
         .eq('account_id', accountId);
 
@@ -173,6 +191,35 @@ export function MetaLeadsConnect() {
     }
   }, [canEdit, pageToDisconnect]);
 
+  const handleCheck = useCallback(
+    async (page: PageConfig) => {
+      if (!canEdit) return;
+      setCheckingId(page.id);
+      try {
+        const response = await fetch('/api/meta/leads/health', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ config_id: page.id }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.error ?? 'Could not check the connection');
+        }
+        toast.success(
+          data.kind === 'repaired'
+            ? 'Lead Ads connection repaired'
+            : 'Lead Ads connection checked'
+        );
+        setNonce((value) => value + 1);
+      } catch (error) {
+        toast.error(getErrorMessage(error, 'Could not check the connection'));
+      } finally {
+        setCheckingId(null);
+      }
+    },
+    [canEdit]
+  );
+
   // The dark-launch gate.
   if (!META_APP_ID || !LEADS_CONFIG_ID) return null;
 
@@ -191,7 +238,7 @@ export function MetaLeadsConnect() {
           </CardTitle>
           <CardDescription>
             Connect your Page and every lead from a Facebook or Instagram lead
-            ad lands in Leads automatically, ready to follow up on WhatsApp.
+            ad lands in Leads automatically, ready for your team to follow up.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -208,35 +255,81 @@ export function MetaLeadsConnect() {
             <>
               {pages.length > 0 && (
                 <ul className="space-y-2">
-                  {pages.map((page) => (
-                    <li
-                      key={page.id}
-                      className="border-border flex items-center justify-between gap-3 rounded-lg border p-3"
-                    >
-                      <div className="min-w-0 space-y-0.5">
-                        <p className="text-foreground truncate text-sm font-medium">
-                          {page.page_name ?? page.page_id}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {page.status === 'error'
-                            ? (page.last_error ?? 'Needs attention')
-                            : page.last_lead_at
-                              ? 'Receiving leads'
-                              : 'Connected — no leads yet'}
-                        </p>
-                      </div>
-                      <GatedButton
-                        canAct={canEdit}
-                        gateReason="disconnect a Facebook Page"
-                        variant="destructive-ghost"
-                        size="sm"
-                        onClick={() => setPageToDisconnect(page)}
+                  {pages.map((page) => {
+                    const display = resolveMetaLeadPageDisplay(page);
+                    return (
+                      <li
+                        key={page.id}
+                        className="border-border flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-start sm:justify-between"
                       >
-                        <Unplug className="size-4" />
-                        Disconnect
-                      </GatedButton>
-                    </li>
-                  ))}
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-foreground truncate text-sm font-medium">
+                              {page.page_name ?? page.page_id}
+                            </p>
+                            <Badge variant={display.variant}>
+                              {display.label}
+                            </Badge>
+                          </div>
+                          <p className="text-muted-foreground text-xs">
+                            {display.detail ?? 'Connection checks are passing.'}
+                          </p>
+                          {page.health_checked_at && (
+                            <p className="text-muted-foreground text-xs">
+                              Last checked{' '}
+                              {fmt.dateTime(page.health_checked_at)}
+                            </p>
+                          )}
+                          {page.last_healthy_at && (
+                            <p className="text-muted-foreground text-xs">
+                              Last healthy {fmt.dateTime(page.last_healthy_at)}
+                            </p>
+                          )}
+                          <p className="text-muted-foreground text-xs">
+                            {page.last_lead_at
+                              ? `Last lead ${fmt.dateTime(page.last_lead_at)}`
+                              : 'No leads received yet'}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {display.reconnect && (
+                            <GatedButton
+                              canAct={canEdit}
+                              gateReason="reconnect Facebook"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleConnect}
+                              loading={connecting}
+                            >
+                              <Megaphone className="size-4" />
+                              Reconnect Facebook
+                            </GatedButton>
+                          )}
+                          <GatedButton
+                            canAct={canEdit}
+                            gateReason="check a Facebook Page"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCheck(page)}
+                            loading={checkingId === page.id}
+                          >
+                            <RefreshCw className="size-4" />
+                            Check now
+                          </GatedButton>
+                          <GatedButton
+                            canAct={canEdit}
+                            gateReason="disconnect a Facebook Page"
+                            variant="destructive-ghost"
+                            size="sm"
+                            onClick={() => setPageToDisconnect(page)}
+                          >
+                            <Unplug className="size-4" />
+                            Disconnect
+                          </GatedButton>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
 
@@ -251,8 +344,8 @@ export function MetaLeadsConnect() {
                   <AlertDescription>
                     <p>
                       Your Meta lead form doesn&apos;t ask for a phone number,
-                      so we can&apos;t reach these people on WhatsApp. Add a
-                      phone question in Ads Manager to capture them.
+                      so your team can&apos;t follow up by phone. Add a phone
+                      question in Ads Manager to capture it next time.
                     </p>
                   </AlertDescription>
                 </Alert>
@@ -262,14 +355,10 @@ export function MetaLeadsConnect() {
                 canAct={canEdit}
                 gateReason="connect a Facebook Page"
                 onClick={handleConnect}
-                disabled={connecting}
+                loading={connecting}
                 variant={pages.length > 0 ? 'outline' : 'default'}
               >
-                {connecting ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Megaphone className="size-4" />
-                )}
+                <Megaphone className="size-4" />
                 {pages.length > 0
                   ? 'Connect another page'
                   : 'Connect Facebook Page'}
@@ -305,12 +394,9 @@ export function MetaLeadsConnect() {
             <Button
               variant="destructive"
               onClick={handleDisconnect}
-              disabled={disconnecting}
+              loading={disconnecting}
             >
-              {disconnecting && (
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              )}
-              {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+              Disconnect
             </Button>
           </DialogFooter>
         </DialogContent>

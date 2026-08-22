@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import type { Notification } from '@/types';
 import {
   ArrowLeftRight,
+  AlertTriangle,
   Ban,
   Bell,
   Check,
@@ -27,6 +28,7 @@ import {
   respondLeadTransfer,
 } from '@/lib/leads/transfers';
 import { branchHref } from '@/lib/auth/branch-context';
+import { notificationDestination } from '@/lib/meta/meta-attention-notification';
 
 // Icon per notification type.
 const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
@@ -41,6 +43,7 @@ const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
   lead_assignment_approved: Check,
   lead_assignment_rejected: X,
   lead_assignment_cancelled: Ban,
+  meta_leads_attention: AlertTriangle,
 };
 
 export default function NotificationsPage() {
@@ -195,7 +198,10 @@ export default function NotificationsPage() {
   const handleClick = useCallback(
     (n: Notification) => {
       if (!n.read_at) markRead(n.id);
-      if (n.conversation_id) {
+      const metaDestination = notificationDestination(n);
+      if (metaDestination) {
+        router.push(metaDestination);
+      } else if (n.conversation_id) {
         router.push(branchHref(`/inbox?c=${n.conversation_id}`, n.account_id));
       } else if (
         n.type === 'lead_assigned' ||

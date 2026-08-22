@@ -90,9 +90,22 @@ describe('operational route authorization contract', () => {
     ['whatsapp/templates/sync', 'requireSettingsAccess', 1],
     ['whatsapp/templates/[id]', 'requireSettingsAccess', 2],
     ['meta/leads/connect', 'requireSettingsAccess', 2],
+    ['meta/leads/health', 'requireSettingsAccess', 1],
   ])('requires the appropriate capability in %s', (path, guard, expected) => {
     expect(count(route(path), new RegExp(`await ${guard}\\(\\)`, 'g'))).toBe(
       expected
     );
   });
+
+  it.each([
+    ['meta/leads/connect', 2],
+    ['meta/leads/health', 1],
+  ])(
+    'requires same-origin requests for Meta mutation route %s',
+    (path, expected) => {
+      expect(count(route(path), /requireSameOriginRequest\(request\)/g)).toBe(
+        expected
+      );
+    }
+  );
 });

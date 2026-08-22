@@ -186,7 +186,7 @@ Member import follow-up: a valid Phone + Service mapping can now reach preview i
 
 **Left:**
 
-- **Meta lead ads: waiting on Meta App Review** (`leads_retrieval` + `pages_manage_metadata` — needs Business Verification). The code is built and tested; the Settings card stays hidden while `NEXT_PUBLIC_META_LEADS_CONFIG_ID` is unset. **Set that env var once review clears — that's the whole launch.**
+- **Meta lead ads: local self-healing implementation complete; launch gates remain.** The separate Lead Ads App Review for `leads_retrieval` + `pages_manage_metadata` is still pending; Business Verification, Meta Tech Provider approval, and the WhatsApp Embedded Signup review for `whatsapp_business_messaging`, `whatsapp_business_management`, and `business_management` are complete. Before activation: apply migration `20260822100000_meta_lead_ads_self_healing.sql` through the approved Supabase migration path, deploy the owned recovery route and 15-minute scheduler, pass disposable Facebook and Instagram canaries, and obtain explicit authorization for a Production canary. Only then set `NEXT_PUBLIC_META_LEADS_CONFIG_ID`; it remains the dark-launch gate.
 - Booking.
 - `received_via='automation'` remains a **reserved, unwired slot** (a future "create contact" automation step) — set it on that insert and the Leads "Received By" column lights up automatically. See `src/lib/leads/attributes.ts` (`autoReceivedLabel`).
 

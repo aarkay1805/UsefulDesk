@@ -264,7 +264,9 @@ export type NotificationType =
   /** The owner rejected your assignment request. */
   | 'lead_assignment_rejected'
   /** A pending assignment request was withdrawn. */
-  | 'lead_assignment_cancelled';
+  | 'lead_assignment_cancelled'
+  /** UsefulDesk cannot automatically restore Meta Lead Ads capture. */
+  | 'meta_leads_attention';
 
 export interface Notification {
   id: string;

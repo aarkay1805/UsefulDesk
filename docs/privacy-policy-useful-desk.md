@@ -1,87 +1,61 @@
 # Privacy Policy — UsefulDesk
 
-_This is the full, standalone privacy policy for the UsefulDesk product. It is separate from any other product's policy on the site. Hand this to the website-repo session as the content source; that session wires the route (suggested path: `/useful-desk/privacy`)._
-_Domain: `usefulmade.com` (product at `desk.usefulmade.com`). The Meta App "Privacy Policy URL", "Data Deletion Request URL", and UsefulDesk's `NEXT_PUBLIC_SITE_URL` must all sit on this domain._
+**Effective date:** 22 August 2026
 
----
-
-**Effective date:** 15 July 2026
 **Product:** UsefulDesk — a WhatsApp CRM for gyms
+
 **Data controller:** UsefulMade, India
 
 ## 1. Who we are
 
-UsefulDesk is a WhatsApp-based customer-relationship tool for gyms and fitness businesses, operated by UsefulMade (India). This policy explains what data UsefulDesk processes, why, who we share it with, and how you can delete it. For any privacy question, contact **contact@usefulmade.com**.
+UsefulDesk is a customer-relationship tool for gyms and fitness businesses, operated by UsefulMade in India. Questions may be sent to **contact@usefulmade.com**.
 
 ## 2. Data we process
 
-- **Your account data:** name, email, and login credentials for the people on your gym's team who use UsefulDesk.
-- **Your contacts' data** that you or your customers provide: name, phone number, email, and any custom fields you record about members and leads.
-- **WhatsApp message content** exchanged between your business and your contacts through the platform.
-- **WhatsApp Business account data** obtained via the Meta / WhatsApp Business API: WhatsApp Business Account (WABA) and phone-number identifiers, and access tokens (stored encrypted).
-- **Facebook Login data:** we use Facebook Login for Business only to connect the WhatsApp Business Account or Facebook Page you administer. We do **not** store your Facebook profile (name, email, friends, or profile details).
-- **Payment data** (only if you enable payments): your customers' name, phone, and email are shared with our payment processor to set up UPI / card mandates.
+- Team account data: names, email addresses, authentication and branch roles.
+- Contact/member data supplied by a gym or its customers: name, phone, email, custom fields, memberships, attendance and payment records.
+- WhatsApp message content and media exchanged through the service.
+- WhatsApp Business data: WABA and phone-number identifiers and encrypted access tokens.
+- Meta Lead Ads data: submitted form answers, form/ad/campaign identifiers, Facebook or Instagram source, Page identifiers, encrypted Page access tokens, and connection-health diagnostics.
+- Facebook Login for Business identifiers needed to connect a WABA or Page. We do not store Facebook friends or an unrelated Facebook profile.
+- Customer name, phone and email shared with Razorpay only when the gym enables payments.
 
-## 3. How we use it
+## 3. How we use data
 
-We process this data solely to operate the service for your business: sending and receiving WhatsApp messages, renewal and payment reminders, managing members and leads, and processing payments you initiate.
+We use data to provide inbox, lead/member management, team follow-up, attendance, renewal/payment reminders, payments, and integrations selected by the gym. We do not sell data and do not use message content to train our own AI models.
 
-We do **not** sell your data or your customers' data, and we do **not** use message content to train our own AI models.
+Capturing a Meta Lead Ads submission does **not** create or imply WhatsApp consent. The gym remains responsible for a lawful basis to contact the person and for recording the separately required WhatsApp consent before applicable messaging.
 
-## 4. Legal basis & consent
+## 4. Legal basis
 
-We process this data to perform our contract with you (providing the service) and on the basis of your and your customers' consent for WhatsApp communication, which is obtained through your business's own opt-in process. You are responsible for having a lawful basis to contact the members and leads you upload.
+We process customer account data to perform our contract with the gym. The gym is responsible for an appropriate lawful basis for contact/member data it collects or uploads, including Lead Ads submissions, and for the opt-in required for WhatsApp communication.
 
 ## 5. Subprocessors
 
-We share data with the following providers strictly to operate the service:
+| Subprocessor                             | Purpose                                                | Data shared                                                                      |
+| ---------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| **Vercel**                               | Production application hosting                         | Data in transit and bounded operational logs                                     |
+| **Supabase**                             | Database, authentication, file storage                 | Contacts, messages, Lead Ads data, encrypted credentials, media and health state |
+| **Meta Platforms / WhatsApp**            | Facebook Login, Lead Ads retrieval, WhatsApp messaging | Relevant identifiers, form/message content, media and credentials                |
+| **Razorpay** _(optional)_                | Payment processing                                     | Customer name, phone and email                                                   |
+| **OpenAI** _(optional, customer key)_    | AI-drafted replies/embeddings                          | Recent conversation text selected by the feature                                 |
+| **Anthropic** _(optional, customer key)_ | AI-drafted replies                                     | Recent conversation text selected by the feature                                 |
+| **Cloudflare** _(optional)_              | Public-form spam protection                            | Requester IP and CAPTCHA token                                                   |
 
-| Subprocessor  | Purpose             | Data shared                           |
-| ------------- | ------------------- | ------------------------------------- |
-| <<<<<<< HEAD  |
-| **Vercel**    | Application hosting | All data in transit; operational logs |
-| =======       |
-| **Hostinger** | Application hosting | All data in transit; operational logs |
-
-> > > > > > > c0d9eb889fff39e43b9547471dc74f236e77cdd2
-> > > > > > > | **Supabase** | Database, authentication, file storage | Contacts, messages, encrypted credentials, media |
-> > > > > > > | **Meta Platforms (WhatsApp Business API)** | Sending and receiving WhatsApp messages | Phone numbers, message content, media |
-> > > > > > > | **Razorpay** _(only if you enable payments)_ | UPI / card payment processing | Customer name, phone, email |
-> > > > > > > | **OpenAI** _(only if you enable the AI assistant with your own key)_ | AI-drafted message replies | Recent conversation message text |
-> > > > > > > | **Anthropic** _(only if you enable the AI assistant with your own key)_ | AI-drafted message replies | Recent conversation message text |
-> > > > > > > | **Cloudflare** | Spam protection on public lead forms | Requester IP, CAPTCHA token |
-
-If you configure outbound webhooks, message and contact data is also sent to the URL **you** specify; you are responsible for that destination.
+Account-configured outbound webhooks send event data to the URL the account selects; the account is responsible for that recipient.
 
 ## 6. Security
 
-WhatsApp access tokens and payment-gateway secrets are encrypted at rest (AES-256-GCM). Each business's data is isolated at the database level (row-level security). Inbound WhatsApp webhooks are cryptographically verified before processing.
+WhatsApp and Meta Page access tokens and payment credentials are encrypted at rest with AES-256-GCM. Database row-level security isolates each business. Inbound Meta/WhatsApp webhooks are cryptographically verified, and privileged recovery operations use tenant-scoped leases.
 
-## 7. Data retention & deletion
+## 7. Retention and deletion
 
-We retain data for as long as your account is active. You can:
+Data remains while the account is active unless deleted earlier. An account may delete individual records or permanently erase its account from **Settings → Members → Delete account**. Facebook Login data-deletion requests may be started at [desk.usefulmade.com/data-deletion](https://desk.usefulmade.com/data-deletion) or by email.
 
-- Delete individual records (contacts, notes, media) at any time.
-- Permanently delete your **entire account and all associated data** from **Settings → Members → Delete account** — this erases every contact, conversation, message, and connected credential, and cannot be undone.
-- Request deletion of data associated with a Facebook Login at **https://desk.usefulmade.com/data-deletion**, or by emailing **contact@usefulmade.com**.
+## 8. Rights, children, and legal requests
 
-## 8. Your rights
+Email **contact@usefulmade.com** to request access, correction or deletion. UsefulDesk is a business tool, not directed at children under 18. We disclose data to authorities only when compelled by valid Indian legal process, limit disclosure to what is required, and challenge improper or overbroad requests where appropriate.
 
-You may request access to, correction of, or deletion of your personal data by emailing **contact@usefulmade.com**. We respond within a reasonable period and, where required, in line with applicable Indian data-protection law.
+## 9. Changes and contact
 
-## 9. Children
-
-UsefulDesk is a business tool intended for gym operators. It is not directed at children under 18, and we do not knowingly collect data directly from children.
-
-## 10. Government & legal requests
-
-We disclose user data to public authorities only when compelled by valid legal process under Indian law, and only the minimum the order requires. We challenge overbroad or improper requests and, where lawful, notify the affected user.
-
-## 11. Changes
-
-We may update this policy; material changes will be reflected by the effective date above.
-
-## 12. Contact
-
-**UsefulMade**, India
-Privacy & data requests: **contact@usefulmade.com**
+Material changes will update the effective date. Privacy and data requests: **contact@usefulmade.com**.

@@ -25,6 +25,10 @@ const route = readFileSync(
   join(root, 'src/app/api/meta/leads/webhook/route.ts'),
   'utf8'
 );
+const ingestion = readFileSync(
+  join(root, 'src/lib/meta/lead-ingestion.ts'),
+  'utf8'
+);
 
 describe('Meta lead capture retry contract', () => {
   it('atomically retains the contact, one note, and original creation state', () => {
@@ -60,33 +64,35 @@ describe('Meta lead capture retry contract', () => {
   });
 
   it('resumes the durable capture before completing the event', () => {
-    const claimAt = route.indexOf(
-      ".rpc(\n        'claim_meta_lead_webhook_event'"
-    );
-    const captureAt = route.indexOf(
-      ".rpc('capture_meta_lead_webhook_event'",
+    const claimAt = route.indexOf("'claim_meta_lead_webhook_event_owned'");
+    const processorAt = route.indexOf(
+      'await processOwnedMetaLeadEvent',
       claimAt
     );
-    const automationAt = route.indexOf(
+    const captureAt = ingestion.indexOf(
+      ".rpc('capture_meta_lead_webhook_event'"
+    );
+    const automationAt = ingestion.indexOf(
       'await runAutomationsForTrigger',
       captureAt
     );
-    const markAt = route.indexOf(
+    const markAt = ingestion.indexOf(
       "'mark_meta_lead_automation_dispatched'",
       automationAt
     );
-    const completeAt = route.indexOf(
-      "'complete_meta_lead_webhook_event'",
+    const completeAt = ingestion.indexOf(
+      "'complete_meta_lead_webhook_event_owned'",
       markAt
     );
 
     expect(claimAt).toBeGreaterThan(0);
-    expect(captureAt).toBeGreaterThan(claimAt);
+    expect(processorAt).toBeGreaterThan(claimAt);
+    expect(captureAt).toBeGreaterThan(0);
     expect(automationAt).toBeGreaterThan(captureAt);
     expect(markAt).toBeGreaterThan(automationAt);
     expect(completeAt).toBeGreaterThan(markAt);
-    expect(route).not.toContain('findOrCreateContact');
-    expect(route).not.toContain("from('contact_notes')");
-    expect(route).not.toContain("from('webhook_events').delete()");
+    expect(ingestion).not.toContain('findOrCreateContact');
+    expect(ingestion).not.toContain("from('contact_notes')");
+    expect(ingestion).not.toContain("from('webhook_events').delete()");
   });
 });

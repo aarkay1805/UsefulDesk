@@ -1,26 +1,16 @@
-// ============================================================
-// POST   /api/meta/leads/connect   — connect Facebook Pages for lead ads
-// DELETE /api/meta/leads/connect   — disconnect one page
-//
-// Mirrors /api/whatsapp/embedded-signup beat for beat, against a SECOND
-// Facebook Login for Business config: the WhatsApp Embedded Signup
-// config is fixed-permission (whatsapp_business_*), so page scopes
-// cannot be bolted onto it. This one carries pages_show_list,
-// leads_retrieval and pages_manage_metadata.
-//
-// No page picker: the FBLB popup already made the user choose which
-// Pages to grant, so /me/accounts returns exactly the granted set. We
-// connect all of them and report any that another account already owns.
-// ============================================================
-
 import { NextResponse } from 'next/server';
 
-import { requireSettingsAccess, toErrorResponse } from '@/lib/auth/account';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { requireSettingsAccess, toErrorResponse } from '@/lib/auth/account';
+import { requireSameOriginRequest } from '@/lib/auth/csrf';
+import { diagnoseAndRepairMetaPage } from '@/lib/meta/lead-ads-health';
 import { decrypt, encrypt } from '@/lib/whatsapp/encryption';
 import {
   exchangeEmbeddedSignupCode,
   exchangeForLongLivedUserToken,
+  getMetaUser,
+  getPageLeadAccess,
+  getPageLeadgenSubscription,
   listPagesWithTokens,
   subscribePageToLeadgen,
   unsubscribePageFromLeadgen,
@@ -28,8 +18,8 @@ import {
 
 export async function POST(request: Request) {
   try {
+    requireSameOriginRequest(request);
     const { accountId, userId } = await requireSettingsAccess();
-
     const appId = process.env.META_APP_ID;
     const appSecret = process.env.META_APP_SECRET;
     if (!appId || !appSecret) {
@@ -47,52 +37,50 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. code → user token. The ES helper is a plain FBLB exchange and
-    //    works for this config too, despite its WhatsApp-ish name.
     const shortLived = await exchangeEmbeddedSignupCode({
       appId,
       appSecret,
       code,
     });
-
-    // 2. ALWAYS long-lived-swap first. Page tokens inherit the lifetime
-    //    of the user token they came from: from a short-lived one they
-    //    die in ~1h and lead ingestion then stops SILENTLY. From a
-    //    long-lived one they don't expire.
     const { accessToken: userToken, expiresIn } =
       await exchangeForLongLivedUserToken({
         appId,
         appSecret,
         shortLivedToken: shortLived,
       });
+    const metaUser = await getMetaUser({ userAccessToken: userToken });
     const tokenExpiresAt = expiresIn
-      ? new Date(Date.now() + expiresIn * 1000).toISOString()
+      ? new Date(Date.now() + expiresIn * 1_000).toISOString()
       : null;
-
     const pages = await listPagesWithTokens({ userAccessToken: userToken });
     if (pages.length === 0) {
       return NextResponse.json(
         {
           error:
-            'No Facebook Pages were granted. Re-run the connect flow and tick at least one Page.',
+            'No Facebook Pages were granted. Re-run the connect flow and select at least one Page.',
         },
         { status: 400 }
       );
     }
 
-    // Service role: a page claimed by a DIFFERENT account is invisible
-    // under the caller's RLS, and we must detect that to report it.
     const admin = supabaseAdmin();
     const connected: { id: string; name: string }[] = [];
     const skipped: { id: string; name: string; reason: string }[] = [];
 
     for (const page of pages) {
-      const { data: existing } = await admin
+      const { data: existing, error: lookupError } = await admin
         .from('meta_page_config')
-        .select('id, account_id')
+        .select('id, account_id, credential_generation')
         .eq('page_id', page.id)
         .maybeSingle();
-
+      if (lookupError) {
+        skipped.push({
+          id: page.id,
+          name: page.name,
+          reason: 'Failed to save.',
+        });
+        continue;
+      }
       if (existing && existing.account_id !== accountId) {
         skipped.push({
           id: page.id,
@@ -103,44 +91,99 @@ export async function POST(request: Request) {
         continue;
       }
 
-      // Subscribe to leadgen. Best-effort: a failure here (usually a
-      // missing pages_manage_metadata grant) must not lose the token we
-      // just obtained — we store it and surface the error instead.
-      let subscribedAt: string | null = null;
-      let lastError: string | null = null;
-      try {
-        await subscribePageToLeadgen({
-          pageId: page.id,
-          pageAccessToken: page.access_token,
+      const health = await diagnoseAndRepairMetaPage({
+        provider: {
+          getLeadAccess: (signal) =>
+            getPageLeadAccess({
+              pageId: page.id,
+              pageAccessToken: page.access_token,
+              userId: metaUser.id,
+              appId,
+              signal,
+            }),
+          getLeadgenSubscription: (signal) =>
+            getPageLeadgenSubscription({
+              pageId: page.id,
+              pageAccessToken: page.access_token,
+              appId,
+              signal,
+            }),
+          subscribeLeadgen: (signal) =>
+            subscribePageToLeadgen({
+              pageId: page.id,
+              pageAccessToken: page.access_token,
+              signal,
+            }),
+        },
+      });
+      if (health.kind !== 'healthy' && health.kind !== 'repaired') {
+        skipped.push({
+          id: page.id,
+          name: page.name,
+          reason:
+            health.resolution ??
+            health.message ??
+            'Meta could not verify this Page for Lead Ads.',
         });
-        subscribedAt = new Date().toISOString();
-      } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
-        console.error('[meta-leads] subscribe failed for page', page.id, error);
+        continue;
       }
 
+      const now = new Date().toISOString();
+      const credentialGeneration = existing
+        ? ((existing.credential_generation as number | null) ?? 1) + 1
+        : 1;
       const row = {
         account_id: accountId,
         user_id: userId,
         page_id: page.id,
         page_name: page.name,
         page_access_token: encrypt(page.access_token),
+        connected_meta_user_id: metaUser.id,
+        credential_generation: credentialGeneration,
         token_expires_at: tokenExpiresAt,
-        status: lastError ? 'error' : 'connected',
-        subscribed_at: subscribedAt,
-        last_error: lastError,
+        status: 'connected',
+        subscribed_at: now,
+        health_checked_at: now,
+        last_healthy_at: now,
+        lead_access_verified_at: now,
+        subscription_verified_at: now,
+        last_repair_at: health.kind === 'repaired' ? now : null,
+        next_health_check_at: new Date(
+          Date.now() + 6 * 60 * 60 * 1_000
+        ).toISOString(),
+        consecutive_health_failures: 0,
+        last_error: null,
+        health_error_code: null,
+        health_error_resolution: null,
+        health_lease_owner: null,
+        health_lease_until: null,
+        attention_started_at: null,
+        attention_notified_at: null,
       };
 
-      const { error: upsertError } = existing
-        ? await admin.from('meta_page_config').update(row).eq('id', existing.id)
-        : await admin.from('meta_page_config').insert(row);
-
-      if (upsertError) {
-        console.error(
-          '[meta-leads] upsert failed for page',
-          page.id,
-          upsertError
-        );
+      const writeResult = existing
+        ? await admin
+            .from('meta_page_config')
+            .update(row)
+            .eq('id', existing.id)
+            .eq('account_id', accountId)
+            .select('id')
+        : await admin.from('meta_page_config').insert(row).select('id');
+      const writeFailed =
+        Boolean(writeResult.error) ||
+        !Array.isArray(writeResult.data) ||
+        writeResult.data.length === 0;
+      if (writeFailed) {
+        if (health.kind === 'repaired') {
+          try {
+            await unsubscribePageFromLeadgen({
+              pageId: page.id,
+              pageAccessToken: page.access_token,
+            });
+          } catch {
+            console.warn('[meta-leads] provider compensation failed');
+          }
+        }
         skipped.push({
           id: page.id,
           name: page.name,
@@ -148,22 +191,18 @@ export async function POST(request: Request) {
         });
         continue;
       }
-
       connected.push({ id: page.id, name: page.name });
     }
 
     return NextResponse.json({ connected, skipped });
-  } catch (err) {
-    if (err instanceof Error && !(err as { status?: number }).status) {
-      console.error('[meta-leads] connect failed:', err);
-      return NextResponse.json({ error: err.message }, { status: 500 });
-    }
-    return toErrorResponse(err);
+  } catch (error) {
+    return toErrorResponse(error);
   }
 }
 
 export async function DELETE(request: Request) {
   try {
+    requireSameOriginRequest(request);
     const { accountId } = await requireSettingsAccess();
     const { page_id: pageId } = (await request.json()) as { page_id?: string };
     if (!pageId) {
@@ -171,44 +210,44 @@ export async function DELETE(request: Request) {
     }
 
     const admin = supabaseAdmin();
-    const { data: config } = await admin
+    const { data: config, error: configError } = await admin
       .from('meta_page_config')
       .select('id, page_access_token')
       .eq('page_id', pageId)
       .eq('account_id', accountId)
       .maybeSingle();
-
-    if (!config) {
+    if (configError || !config) {
       return NextResponse.json(
         { error: 'Page not connected' },
         { status: 404 }
       );
     }
 
-    // Tell Meta to stop sending leads we would only drop. Best-effort:
-    // if the token is already dead, deleting our row is still correct.
     try {
       await unsubscribePageFromLeadgen({
         pageId,
         pageAccessToken: decrypt(config.page_access_token as string),
       });
-    } catch (error) {
-      console.warn('[meta-leads] unsubscribe failed (continuing):', error);
+    } catch {
+      console.warn(
+        '[meta-leads] provider unsubscribe failed; removing local connection'
+      );
     }
 
-    const { error } = await admin
+    const { data: deleted, error } = await admin
       .from('meta_page_config')
       .delete()
-      .eq('id', config.id);
-    if (error) {
+      .eq('id', config.id)
+      .eq('account_id', accountId)
+      .select('id');
+    if (error || !deleted?.length) {
       return NextResponse.json(
         { error: 'Failed to disconnect' },
         { status: 500 }
       );
     }
-
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    return toErrorResponse(err);
+  } catch (error) {
+    return toErrorResponse(error);
   }
 }

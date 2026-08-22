@@ -11,8 +11,9 @@
  * instead of a runtime rejection from Meta.
  */
 
-const META_API_VERSION = 'v21.0';
-const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
+import { META_GRAPH_BASE_URL } from '@/lib/meta/graph-version';
+
+const META_API_BASE = META_GRAPH_BASE_URL;
 
 export interface MetaSendResult {
   messageId: string;
@@ -37,6 +38,22 @@ interface MetaErrorResponse {
   };
 }
 
+const RETRYABLE_META_CODES = new Set([1, 2, 4, 17, 32, 341, 613, 80004]);
+
+export class MetaGraphError extends Error {
+  constructor(
+    message: string,
+    public readonly httpStatus: number,
+    public readonly code: number | null,
+    public readonly subcode: number | null,
+    public readonly providerDetail: string | null,
+    public readonly retryable: boolean
+  ) {
+    super(message);
+    this.name = 'MetaGraphError';
+  }
+}
+
 async function throwMetaError(
   response: Response,
   fallback: string,
@@ -46,6 +63,9 @@ async function throwMetaError(
   ) => string
 ): Promise<never> {
   let message = fallback;
+  let code: number | null = null;
+  let subcode: number | null = null;
+  let providerDetail: string | null = null;
   try {
     const data = (await response.json()) as MetaErrorResponse;
     if (data.error) {
@@ -58,13 +78,13 @@ async function throwMetaError(
       ]
         .map((value) => value?.trim())
         .find((value) => value && value !== providerMessage);
+      code = typeof error.code === 'number' ? error.code : null;
+      subcode =
+        typeof error.error_subcode === 'number' ? error.error_subcode : null;
+      providerDetail = actionableDetail || null;
       const providerCode =
-        typeof error.code === 'number'
-          ? `Meta code ${error.code}${
-              typeof error.error_subcode === 'number'
-                ? `/${error.error_subcode}`
-                : ''
-            }`
+        code !== null
+          ? `Meta code ${code}${subcode !== null ? `/${subcode}` : ''}`
           : null;
 
       message = [providerMessage || fallback, providerCode, actionableDetail]
@@ -77,7 +97,17 @@ async function throwMetaError(
   } catch {
     // response body wasn't JSON — keep the fallback
   }
-  throw new Error(message);
+  throw new MetaGraphError(
+    message,
+    response.status,
+    code,
+    subcode,
+    providerDetail,
+    response.status === 408 ||
+      response.status === 429 ||
+      response.status >= 500 ||
+      (code !== null && RETRYABLE_META_CODES.has(code))
+  );
 }
 
 // ============================================================
@@ -356,10 +386,127 @@ export interface MetaPage {
   id: string;
   name: string;
   access_token: string;
+  tasks?: string[];
+}
+
+export interface GetMetaUserArgs {
+  userAccessToken: string;
+  signal?: AbortSignal;
+}
+
+export interface MetaUser {
+  id: string;
+}
+
+/** Resolve the Meta user whose grant produced the Page tokens. */
+export async function getMetaUser(args: GetMetaUserArgs): Promise<MetaUser> {
+  const { userAccessToken, signal } = args;
+  const response = await fetch(`${META_API_BASE}/me?fields=id`, {
+    headers: { Authorization: `Bearer ${userAccessToken}` },
+    signal,
+  });
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`);
+  }
+  const data = (await response.json()) as { id?: string };
+  if (!data.id) throw new Error('Meta returned no connecting user ID.');
+  return { id: data.id };
+}
+
+export interface MetaPageLeadAccess {
+  app_has_leads_permission?: boolean;
+  can_access_lead: boolean;
+  enabled_lead_access_manager?: boolean;
+  failure_reason?: string;
+  failure_resolution?: string;
+  is_page_admin?: boolean;
+  page_id?: string;
+  user_has_leads_permission?: boolean;
+  user_id?: string;
+}
+
+export interface GetPageLeadAccessArgs extends PageLeadgenSubscriptionArgs {
+  userId: string;
+  appId: string;
+}
+
+/** Read lead access for the exact connecting Meta user and this app. */
+export async function getPageLeadAccess(
+  args: GetPageLeadAccessArgs
+): Promise<MetaPageLeadAccess> {
+  const { pageId, pageAccessToken, userId, appId, signal } = args;
+  const params = new URLSearchParams({
+    fields: `has_lead_access.user_id(${userId}).app_id(${appId})`,
+  });
+  const response = await fetch(
+    `${META_API_BASE}/${pageId}?${params.toString()}`,
+    {
+      headers: { Authorization: `Bearer ${pageAccessToken}` },
+      signal,
+    }
+  );
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`);
+  }
+  const data = (await response.json()) as {
+    has_lead_access?: { data?: MetaPageLeadAccess[] };
+  };
+  return (
+    data.has_lead_access?.data?.[0] ?? {
+      can_access_lead: false,
+      failure_reason: 'Meta returned no lead access diagnostic.',
+      failure_resolution:
+        'Reconnect Facebook and verify Lead Access Manager permissions.',
+    }
+  );
+}
+
+export interface MetaPageSubscribedApp {
+  id: string;
+  subscribed_fields?: string[];
+}
+
+export async function listPageSubscribedApps(
+  args: PageLeadgenSubscriptionArgs
+): Promise<MetaPageSubscribedApp[]> {
+  const { pageId, pageAccessToken, signal } = args;
+  const params = new URLSearchParams({
+    fields: 'id,subscribed_fields',
+    limit: '100',
+  });
+  const response = await fetch(
+    `${META_API_BASE}/${pageId}/subscribed_apps?${params.toString()}`,
+    {
+      headers: { Authorization: `Bearer ${pageAccessToken}` },
+      signal,
+    }
+  );
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`);
+  }
+  const data = (await response.json()) as { data?: MetaPageSubscribedApp[] };
+  return data.data ?? [];
+}
+
+export interface GetPageLeadgenSubscriptionArgs extends PageLeadgenSubscriptionArgs {
+  appId: string;
+}
+
+export async function getPageLeadgenSubscription(
+  args: GetPageLeadgenSubscriptionArgs
+): Promise<{ subscribed: boolean; subscribedFields: string[] }> {
+  const apps = await listPageSubscribedApps(args);
+  const subscribedFields =
+    apps.find((app) => app.id === args.appId)?.subscribed_fields ?? [];
+  return {
+    subscribed: subscribedFields.includes('leadgen'),
+    subscribedFields,
+  };
 }
 
 export interface ListPagesArgs {
   userAccessToken: string;
+  signal?: AbortSignal;
 }
 
 /**
@@ -370,10 +517,15 @@ export interface ListPagesArgs {
 export async function listPagesWithTokens(
   args: ListPagesArgs
 ): Promise<MetaPage[]> {
-  const { userAccessToken } = args;
-  const url = `${META_API_BASE}/me/accounts?fields=id,name,access_token&limit=100`;
+  const { userAccessToken, signal } = args;
+  const params = new URLSearchParams({
+    fields: 'id,name,access_token,tasks',
+    limit: '100',
+  });
+  const url = `${META_API_BASE}/me/accounts?${params.toString()}`;
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${userAccessToken}` },
+    signal,
   });
   if (!response.ok) {
     await throwMetaError(response, `Meta API error: ${response.status}`);
@@ -385,6 +537,7 @@ export async function listPagesWithTokens(
 export interface PageLeadgenSubscriptionArgs {
   pageId: string;
   pageAccessToken: string;
+  signal?: AbortSignal;
 }
 
 /**
@@ -394,13 +547,14 @@ export interface PageLeadgenSubscriptionArgs {
 export async function subscribePageToLeadgen(
   args: PageLeadgenSubscriptionArgs
 ): Promise<void> {
-  const { pageId, pageAccessToken } = args;
+  const { pageId, pageAccessToken, signal } = args;
   const params = new URLSearchParams({ subscribed_fields: 'leadgen' });
   const response = await fetch(
     `${META_API_BASE}/${pageId}/subscribed_apps?${params.toString()}`,
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${pageAccessToken}` },
+      signal,
     }
   );
   if (!response.ok) {
@@ -412,10 +566,11 @@ export async function subscribePageToLeadgen(
 export async function unsubscribePageFromLeadgen(
   args: PageLeadgenSubscriptionArgs
 ): Promise<void> {
-  const { pageId, pageAccessToken } = args;
+  const { pageId, pageAccessToken, signal } = args;
   const response = await fetch(`${META_API_BASE}/${pageId}/subscribed_apps`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${pageAccessToken}` },
+    signal,
   });
   if (!response.ok) {
     await throwMetaError(response, `Meta API error: ${response.status}`);
@@ -444,6 +599,7 @@ export interface MetaLead {
 export interface FetchLeadgenLeadArgs {
   leadgenId: string;
   accessToken: string;
+  signal?: AbortSignal;
 }
 
 /**
@@ -454,12 +610,15 @@ export interface FetchLeadgenLeadArgs {
 export async function fetchLeadgenLead(
   args: FetchLeadgenLeadArgs
 ): Promise<MetaLead> {
-  const { leadgenId, accessToken } = args;
+  const { leadgenId, accessToken, signal } = args;
   const fields =
     'id,created_time,field_data,form_id,ad_id,campaign_id,platform,is_organic';
   const response = await fetch(
     `${META_API_BASE}/${leadgenId}?fields=${fields}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal,
+    }
   );
   if (!response.ok) {
     await throwMetaError(response, `Meta API error: ${response.status}`);

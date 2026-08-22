@@ -1,59 +1,35 @@
 # Privacy — Data Handling & Subprocessors (paste-ready)
 
-_Last reviewed: 2026-07-15. Source text for the public privacy policy's data-handling and subprocessor sections. Mirrors `docs/meta-data-handling.md`; update both together._
-
----
+_Last reviewed: 2026-08-22. This public copy mirrors `docs/meta-data-handling.md`._
 
 ## Data we process
 
-To provide a WhatsApp CRM for gyms, we process:
+UsefulDesk processes team account data; gym contact/member records; WhatsApp messages and media; WhatsApp Business identifiers and encrypted tokens; and, when Meta Lead Ads is connected, submitted form answers, form/ad/campaign identifiers, Facebook or Instagram source, Page identifiers, encrypted Page access tokens, and connection-health diagnostics. Optional payments also process customer name, phone and email.
 
-- **Contact data** you or your customers provide: name, phone number, email, and any custom fields you record.
-- **WhatsApp message content** exchanged between your business and your contacts.
-- **WhatsApp Business account data** obtained via the Meta / WhatsApp Business API: WhatsApp Business Account (WABA) and phone-number identifiers, and access tokens (stored encrypted).
-- **Facebook Login data**: we use Facebook Login for Business only to connect the WhatsApp Business Account or Facebook Page you administer. We do **not** store your Facebook profile (name, email, friends, or profile details).
-- **Payment data** (only if you enable payments): your customers' name, phone, and email are shared with our payment processor to set up UPI / card mandates.
+We use Facebook Login for Business only to connect a WhatsApp Business Account or Facebook Page the user administers. We do not store Facebook friends or unrelated profile details.
 
 ## How we use it
 
-We use this data solely to operate the service for your business: sending and receiving WhatsApp messages, renewal and payment reminders, managing members and leads, and processing payments you initiate. We do not sell your data or your customers' data. We do not use message content to train our own models.
+We use data to provide the CRM, inbox, lead/member operations, team follow-up, reminders, payments, and customer-enabled integrations. We do not sell data or use message content to train our own models.
+
+A Meta Lead Ads submission creates **no WhatsApp consent record**. The gym is responsible for its lawful basis to contact the lead and must separately record the consent required for applicable WhatsApp messaging.
 
 ## Subprocessors
 
-We share data with the following service providers strictly to operate the service:
+| Subprocessor                             | Purpose                                | Data shared                                                                      |
+| ---------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------- |
+| **Vercel**                               | Production application hosting         | Data in transit and bounded operational logs                                     |
+| **Supabase**                             | Database, authentication, file storage | Contacts, messages, Lead Ads data, encrypted credentials, health state and media |
+| **Meta Platforms / WhatsApp**            | Login, Lead Ads and WhatsApp APIs      | Relevant identifiers, form/message content, media and credentials                |
+| **Razorpay** _(optional)_                | Payments                               | Customer name, phone and email                                                   |
+| **OpenAI** _(optional, customer key)_    | Drafting/embeddings                    | Recent conversation text                                                         |
+| **Anthropic** _(optional, customer key)_ | Drafting                               | Recent conversation text                                                         |
+| **Cloudflare** _(optional)_              | Public-form spam protection            | Requester IP and CAPTCHA token                                                   |
 
-| Subprocessor  | Purpose             | Data shared                           |
-| ------------- | ------------------- | ------------------------------------- |
-| <<<<<<< HEAD  |
-| **Vercel**    | Application hosting | All data in transit; operational logs |
-| =======       |
-| **Hostinger** | Application hosting | All data in transit; operational logs |
+Account-configured outbound webhooks also send event data to the account-selected destination.
 
-> > > > > > > c0d9eb889fff39e43b9547471dc74f236e77cdd2
-> > > > > > > | **Supabase** | Database, authentication, file storage | Contacts, messages, encrypted credentials, media |
-> > > > > > > | **Meta Platforms (WhatsApp Business API)** | Sending and receiving WhatsApp messages | Phone numbers, message content, media |
-> > > > > > > | **Razorpay** _(only if you enable payments)_ | UPI / card payment processing | Customer name, phone, email |
-> > > > > > > | **OpenAI** _(only if you enable the AI assistant with your own key)_ | AI-drafted message replies | Recent conversation message text |
-> > > > > > > | **Anthropic** _(only if you enable the AI assistant with your own key)_ | AI-drafted message replies | Recent conversation message text |
-> > > > > > > | **Cloudflare** | Spam protection on public lead forms | Requester IP, CAPTCHA token |
+## Security, retention, and deletion
 
-If you configure outbound webhooks, message and contact data is also sent to the URL **you** specify; you are responsible for that destination.
+WhatsApp and Meta Page tokens and payment credentials are AES-256-GCM encrypted at rest. Database row-level security isolates each business, and inbound Meta/WhatsApp webhooks are cryptographically verified. Data remains while an account is active unless deleted. The account can delete records or permanently erase its account from **Settings → Members → Delete account**. Facebook Login deletion requests are available at [desk.usefulmade.com/data-deletion](https://desk.usefulmade.com/data-deletion).
 
-## Security
-
-WhatsApp access tokens and payment-gateway secrets are encrypted at rest (AES-256-GCM). Access to each business's data is isolated at the database level (row-level security). Inbound WhatsApp webhooks are cryptographically verified before processing.
-
-## Data retention & deletion
-
-We retain data for as long as your account is active. You can delete individual records at any time, or permanently delete your entire account and all associated data from **Settings → Members → Delete account** — this erases every contact, conversation, message, and connected credential and cannot be undone.
-
-To request deletion of data associated with a Facebook Login, visit **[https://desk.usefulmade.com/data-deletion](https://desk.usefulmade.com/data-deletion)** or email us.
-
-## Government requests
-
-We disclose user data to authorities only when compelled by valid legal process, and only the minimum required. See our Government & Legal Data-Request Policy.
-
-## Contact
-
-Data controller: **UsefulMade**, India.
-Privacy & data requests: **contact@usefulmade.com**
+Data controller: **UsefulMade**, India. Privacy requests: **contact@usefulmade.com**.

@@ -1,6 +1,6 @@
 name: ops-crons
 
-# Pings the six high-frequency cron endpoints (the daily renewals job
+# Pings the seven high-frequency cron endpoints (the daily renewals job
 # lives in renewals-cron.yml):
 #
 #   /api/follow-ups/cron   — deliver due follow-up reminder notifications
@@ -9,8 +9,9 @@ name: ops-crons
 #   /api/whatsapp/webhook  — recover durable WhatsApp webhook receipts
 #   /api/v1/broadcasts/cron — recover interrupted public API broadcasts
 #   /api/payments/razorpay/recovery/cron — recover webhooks + scan OAuth tokens
+#   /api/meta/leads/recovery/cron — recover lead events + repair Page health
 #
-# All six are idempotent and claim-first, so overlapping or doubled
+# All seven are idempotent and claim-first, so overlapping or doubled
 # runs are harmless. Native Vercel Cron on the Hobby plan only allows
 # two jobs at daily granularity — so, as with renewals, this GitHub
 # Action is the pinger. Uses the same repo secret AUTOMATION_CRON_SECRET.
@@ -76,3 +77,10 @@ jobs:
           curl --fail --silent --show-error \
             -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
             https://desk.usefulmade.com/api/payments/razorpay/recovery/cron
+
+      - name: Recover Meta Lead Ads events and Page health
+        if: always()
+        run: |
+          curl --fail --silent --show-error \
+            -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
+            https://desk.usefulmade.com/api/meta/leads/recovery/cron

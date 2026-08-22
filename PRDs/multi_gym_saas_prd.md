@@ -65,7 +65,7 @@ The codebase is already partially multi-tenant, which is why this is a bridge, n
 
 | #   | Capability                              | Build size | Depends on      |
 | --- | --------------------------------------- | ---------- | --------------- |
-| 6.1 | WhatsApp Embedded Signup onboarding     | **Large**  | Meta App Review |
+| 6.1 | WhatsApp Embedded Signup onboarding     | **Large**  | Meta App Review ✅ |
 | 6.2 | Tenant lifecycle & status gating        | Medium     | —               |
 | 6.3 | Billing & subscriptions (INR)           | Large      | Razorpay        |
 | 6.4 | Plan entitlements & quota enforcement   | Medium     | 6.3             |
@@ -80,11 +80,12 @@ The codebase is already partially multi-tenant, which is why this is a bridge, n
 
 **Solution:** replace it with Meta **Embedded Signup** (Facebook Login for Business), so a gym connects its own WABA + number to the platform app via a popup.
 
-### 7.1 Prerequisites (Meta — mostly done)
+### 7.1 Prerequisites (Meta)
 
 - Platform Meta app `1874296123566785` in **Live** mode.
 - Business `27242553562081417` (UsefulMade) — **verified** ✅ (confirmed 2026-07-05).
-- App Review **Advanced Access** for `whatsapp_business_messaging`, `whatsapp_business_management`, `business_management` (in progress).
+- UsefulDesk is an approved **Meta Tech Provider** ✅.
+- App Review **Advanced Access** for `whatsapp_business_messaging`, `whatsapp_business_management`, `business_management` — **approved** ✅.
 - **Facebook Login for Business** configured with an **Embedded Signup configuration** → yields a `config_id`.
 - `META_APP_ID` added to env (currently only `META_APP_SECRET` is set).
 
@@ -226,7 +227,8 @@ No change to `whatsapp_config` schema — Embedded Signup reuses the existing co
 | ----------------------------------------------------------- | -------------------------------- |
 | Platform Meta app, Live mode                                | app `1874296123566785`           |
 | Business Verification                                       | ✅ verified                      |
-| Advanced Access: messaging, management, business_management | ⏳ App Review in progress        |
+| Meta Tech Provider status                                   | ✅ approved                      |
+| Advanced Access: messaging, management, business_management | ✅ approved                      |
 | Facebook Login for Business + ES config_id                  | ☐ to set up                      |
 | App-level webhook `messages` field                          | ☐ one-time                       |
 | Approved/synced `gym_membership_renewal` Marketing contract | required for membership renewals |

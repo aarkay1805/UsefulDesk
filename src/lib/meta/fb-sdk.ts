@@ -7,10 +7,11 @@
 // would double-init the SDK and race.
 // ============================================================
 
-// Must match META_API_VERSION in src/lib/whatsapp/meta-api.ts — the
-// popup session and the server-side code exchange should speak the same
+import { META_GRAPH_VERSION } from './graph-version';
+
+// The popup session and server-side code exchange must speak the same
 // Graph version.
-export const FB_SDK_VERSION = 'v21.0';
+export const FB_SDK_VERSION = META_GRAPH_VERSION;
 
 export interface FbLoginResponse {
   authResponse?: { code?: string } | null;
