@@ -8,7 +8,7 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
-Engineering maintenance: **Add member and Convert to member now include one explicit, unchecked WhatsApp opt-in that clearly covers both account updates and Marketing/renewal messages, requires source evidence, and writes both existing audited consent scopes; ongoing consent changes moved from the member-profile header into Settings, while a phone number alone continues to grant no messaging permission**.
+Engineering maintenance: **Add member and Convert to member no longer collect WhatsApp consent or evidence as part of checkout; scoped permission remains manageable from the member profile's Settings card, proactive account-update and Marketing sends remain fail-closed, and a phone number alone continues to grant no messaging permission**.
 
 Engineering maintenance: **WhatsApp now uses a grayscale provider mark beside the settings menu label and its brand-green mark beside the panel heading, while Razorpay payments and Meta lead ads use compact marks in their card titles; status and action iconography remains semantic**.
 

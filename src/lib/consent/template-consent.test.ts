@@ -4,7 +4,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   MessageConsentRequiredError,
   assertTemplateConsentAllowed,
-  recordCombinedWhatsAppOptIn,
   recordTemplateConsent,
 } from './template-consent';
 
@@ -110,40 +109,5 @@ describe('recordTemplateConsent', () => {
       })
     ).rejects.toThrow('Consent evidence note is required.');
     expect(rpc).not.toHaveBeenCalled();
-  });
-});
-
-describe('recordCombinedWhatsAppOptIn', () => {
-  it('records one member opt-in as both account-update and marketing permission', async () => {
-    const { db, rpc } = dbWithRpc({ data: 'event-1', error: null });
-
-    await expect(
-      recordCombinedWhatsAppOptIn(db, {
-        accountId: 'account-1',
-        contactId: 'contact-1',
-        evidenceNote: 'Member agreed at the front desk during signup.',
-      })
-    ).resolves.toEqual(['event-1', 'event-1']);
-
-    expect(rpc).toHaveBeenNthCalledWith(1, 'record_contact_consent', {
-      p_account_id: 'account-1',
-      p_contact_id: 'contact-1',
-      p_purpose: 'whatsapp_account_updates',
-      p_action: 'opt_in',
-      p_source: 'staff_recorded',
-      p_evidence: {
-        note: 'Member agreed at the front desk during signup.',
-      },
-    });
-    expect(rpc).toHaveBeenNthCalledWith(2, 'record_contact_consent', {
-      p_account_id: 'account-1',
-      p_contact_id: 'contact-1',
-      p_purpose: 'whatsapp_marketing',
-      p_action: 'opt_in',
-      p_source: 'staff_recorded',
-      p_evidence: {
-        note: 'Member agreed at the front desk during signup.',
-      },
-    });
   });
 });

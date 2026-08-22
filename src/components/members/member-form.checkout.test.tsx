@@ -258,7 +258,7 @@ describe('MemberForm shared checkout host', () => {
     expect(body.selections).toHaveLength(1);
   });
 
-  it('offers one explicit opt-in and records both WhatsApp permission categories', async () => {
+  it('does not collect WhatsApp consent during member creation', async () => {
     const user = userEvent.setup();
     render(
       <MemberForm
@@ -269,47 +269,16 @@ describe('MemberForm shared checkout host', () => {
       />
     );
 
-    const optIn = await screen.findByRole('checkbox', {
-      name: /WhatsApp opt-in/,
-    });
-    expect(optIn.getAttribute('aria-checked')).toBe('false');
+    await screen.findByTestId('shared-membership-checkout');
     expect(
-      screen.getByText(/account updates and marketing, including renewal/i)
-    ).toBeDefined();
+      screen.queryByRole('checkbox', { name: /WhatsApp opt-in/ })
+    ).toBeNull();
     expect(screen.queryByLabelText(/Consent evidence/)).toBeNull();
 
-    await user.click(optIn);
-    expect(optIn.getAttribute('aria-checked')).toBe('true');
-    const evidence = screen.getByLabelText(/Consent evidence/);
-    expect(screen.getByRole('button', { name: 'Add member' })).toHaveProperty(
-      'disabled',
-      true
-    );
-
-    await user.type(evidence, 'Member agreed during signup at the front desk.');
     await user.click(screen.getByRole('button', { name: 'Configure offer' }));
     await user.click(screen.getByRole('button', { name: 'Add member' }));
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-    expect(rpc).toHaveBeenNthCalledWith(1, 'record_contact_consent', {
-      p_account_id: 'account',
-      p_contact_id: 'contact',
-      p_purpose: 'whatsapp_account_updates',
-      p_action: 'opt_in',
-      p_source: 'staff_recorded',
-      p_evidence: {
-        note: 'Member agreed during signup at the front desk.',
-      },
-    });
-    expect(rpc).toHaveBeenNthCalledWith(2, 'record_contact_consent', {
-      p_account_id: 'account',
-      p_contact_id: 'contact',
-      p_purpose: 'whatsapp_marketing',
-      p_action: 'opt_in',
-      p_source: 'staff_recorded',
-      p_evidence: {
-        note: 'Member agreed during signup at the front desk.',
-      },
-    });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

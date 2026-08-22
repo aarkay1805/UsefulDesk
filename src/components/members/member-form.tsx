@@ -26,7 +26,6 @@ import {
 import { firstCycleFee, optionEndDate } from '@/lib/memberships/pricing';
 import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
-import { recordCombinedWhatsAppOptIn } from '@/lib/consent/template-consent';
 import type { CheckoutResult, Membership } from '@/types';
 import { useMembershipPlans } from './use-membership-plans';
 import { PlanOptionPicker, TRIAL_PLAN_VALUE } from './plan-option-picker';
@@ -43,9 +42,7 @@ import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { PhoneInput } from '@/components/ui/phone-input';
-import { Textarea } from '@/components/ui/textarea';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { InlineEditActions } from '@/components/ui/inline-edit-actions';
 import {
@@ -122,8 +119,6 @@ export function MemberForm({
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [heightCm, setHeightCm] = useState<number | null>(null);
   const [weightKg, setWeightKg] = useState<number | null>(null);
-  const [whatsappOptIn, setWhatsAppOptIn] = useState(false);
-  const [whatsappConsentEvidence, setWhatsAppConsentEvidence] = useState('');
   const [checkoutDraft, setCheckoutDraft] = useState(() =>
     createMembershipCheckoutDraft({ startDate: fmt.today() })
   );
@@ -230,8 +225,6 @@ export function MemberForm({
       setAvatarOpen(false);
       setHeightCm(member?.contact?.height_cm ?? seedContact?.heightCm ?? null);
       setWeightKg(member?.contact?.weight_kg ?? seedContact?.weightKg ?? null);
-      setWhatsAppOptIn(false);
-      setWhatsAppConsentEvidence('');
       setCheckoutDraft(
         createMembershipCheckoutDraft({
           planId: member?.is_trial ? TRIAL_PLAN_VALUE : member?.plan_id,
@@ -657,14 +650,6 @@ export function MemberForm({
         }
       }
 
-      if (whatsappOptIn) {
-        await recordCombinedWhatsAppOptIn(supabase, {
-          accountId,
-          contactId,
-          evidenceNote: whatsappConsentEvidence,
-        });
-      }
-
       const endDate = isTrial ? istAddDays(startDate, trialLen) : endForPaid!;
 
       if (!isTrial) {
@@ -920,54 +905,6 @@ export function MemberForm({
                       </div>
                     </div>
                   )}
-                </div>
-
-                <div className="mt-6">
-                  <p className="text-foreground mb-3 text-sm font-semibold">
-                    Communication permission
-                  </p>
-                  <div className="border-border rounded-lg border p-3">
-                    <Label
-                      htmlFor="mf-whatsapp-opt-in"
-                      className="items-start gap-3"
-                    >
-                      <Checkbox
-                        id="mf-whatsapp-opt-in"
-                        checked={whatsappOptIn}
-                        onCheckedChange={(checked) => {
-                          const optedIn = checked === true;
-                          setWhatsAppOptIn(optedIn);
-                          if (!optedIn) setWhatsAppConsentEvidence('');
-                        }}
-                        className="mt-0.5"
-                      />
-                      <div className="min-w-0">
-                        <span className="block">WhatsApp opt-in</span>
-                        <p className="text-muted-foreground mt-1 text-xs leading-4 font-normal">
-                          Records permission for account updates and marketing,
-                          including renewal reminders and offers.
-                        </p>
-                      </div>
-                    </Label>
-
-                    {whatsappOptIn && (
-                      <div className="mt-3 space-y-2">
-                        <Label htmlFor="mf-whatsapp-consent-evidence">
-                          Consent evidence{' '}
-                          <span className="text-red-foreground">*</span>
-                        </Label>
-                        <Textarea
-                          id="mf-whatsapp-consent-evidence"
-                          value={whatsappConsentEvidence}
-                          onChange={(event) =>
-                            setWhatsAppConsentEvidence(event.target.value)
-                          }
-                          placeholder="Where and when did the member agree?"
-                          required
-                        />
-                      </div>
-                    )}
-                  </div>
                 </div>
 
                 <div className="mt-6">
@@ -1231,11 +1168,7 @@ export function MemberForm({
             </Button>
             <Button
               type="submit"
-              disabled={
-                saving ||
-                checkingDup ||
-                (whatsappOptIn && !whatsappConsentEvidence.trim())
-              }
+              disabled={saving || checkingDup}
               loading={saving}
             >
               {isEdit ? 'Save' : isConvert ? 'Convert to member' : 'Add member'}

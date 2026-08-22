@@ -6,6 +6,12 @@
 
 ---
 
+## Member creation no longer collects WhatsApp consent
+
+Add member and Convert to member no longer show the WhatsApp opt-in or evidence fields and never write consent as a side effect of checkout. Scoped consent remains manageable from the member profile's **Settings** card, and proactive account-update and Marketing templates remain fail-closed at their shared send boundaries. Key code: `src/components/members/member-form.tsx` and `src/lib/consent/template-consent.ts`. Gotcha: creating a member or possessing their phone number does not imply WhatsApp permission.
+
+---
+
 ## Meta Lead Ads recovers and repairs safely
 
 Meta Lead Ads now shares one tenant-owned ingestion processor between the signed webhook and a bounded recovery worker, and checks due Page connections with exact lead-access diagnostics before repairing a missing `leadgen` subscription. Migration `20260822100000_meta_lead_ads_self_healing.sql` adds credential generations, Page/event leases, retry schedules, atomic phone-less completion, service-role-only RPCs, and one generic admin/owner notification per active incident; `20260822100001_index_meta_page_config_user_id.sql` covers the nullable audit-user foreign key identified by post-DDL advisors. Settings exposes localized health, Check now, reconnect, and disconnect actions; `/api/meta/leads/recovery/cron` is scheduled every 15 minutes after event recovery, with aggregate non-PII output. Key code: `src/lib/meta/`, `src/app/api/meta/leads/`, and `src/components/settings/meta-leads-connect.tsx`. Gotcha: both migrations are verified in the non-production UsefulDesk test project; production application, deployment, disposable Meta canaries, Production authorization, and dark-launch activation remain pending.

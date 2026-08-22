@@ -40,12 +40,6 @@ interface RecordTemplateConsentInput {
   evidenceNote: string;
 }
 
-interface RecordCombinedWhatsAppOptInInput {
-  accountId: string;
-  contactId: string;
-  evidenceNote: string;
-}
-
 export async function recordTemplateConsent(
   db: SupabaseClient,
   input: RecordTemplateConsentInput
@@ -71,30 +65,4 @@ export async function recordTemplateConsent(
     );
   }
   return data;
-}
-
-/**
- * Member creation presents one explicit WhatsApp opt-in while preserving the
- * two independently enforced consent scopes underneath.
- */
-export async function recordCombinedWhatsAppOptIn(
-  db: SupabaseClient,
-  input: RecordCombinedWhatsAppOptInInput
-): Promise<[string, string]> {
-  const shared = {
-    accountId: input.accountId,
-    contactId: input.contactId,
-    action: 'opt_in' as const,
-    source: 'staff_recorded',
-    evidenceNote: input.evidenceNote,
-  };
-  const accountUpdatesEvent = await recordTemplateConsent(db, {
-    ...shared,
-    scope: 'whatsapp_account_updates',
-  });
-  const marketingEvent = await recordTemplateConsent(db, {
-    ...shared,
-    scope: 'whatsapp_marketing',
-  });
-  return [accountUpdatesEvent, marketingEvent];
 }
