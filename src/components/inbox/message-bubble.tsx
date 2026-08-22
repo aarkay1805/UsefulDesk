@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Fragment, useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { Message, MessageReaction, MessageReferral } from '@/types';
 import {
+  AlertTriangle,
   Clock,
   Check,
   CheckCheck,
@@ -21,11 +22,13 @@ import { useLocale } from '@/hooks/use-locale';
 import { ReplyQuote } from './reply-quote';
 import { MessageReactions } from './message-reactions';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SourceIcon } from '@/components/leads/source-icon';
 import {
   referralDisplayLabel,
   referralSourceHref,
 } from '@/lib/whatsapp/referral';
+import { splitProviderDetail } from '@/lib/whatsapp/provider-error';
 
 interface MessageBubbleProps {
   message: Message;
@@ -83,6 +86,83 @@ function StatusIcon({ status }: { status: Message['status'] }) {
     default:
       return null;
   }
+}
+
+/**
+ * Retained Meta diagnostics for a failed outbound send.
+ *
+ * The note is subordinate to the bubble it annotates, so it hangs off the
+ * bubble's right edge while its own prose reads left-aligned — the previous
+ * `text-right` block gave five lines of explanation a ragged left edge and
+ * let Meta's Business Manager URL overflow the width cap. Hierarchy runs
+ * status, then cause and recovery, then diagnostics: the Meta code and error
+ * title stay retained without leading the note.
+ */
+function DeliveryFailureNote({ message }: { message: Message }) {
+  const code = message.provider_error_code;
+  const title = message.provider_error_title;
+  const detail = message.provider_error_detail;
+
+  if (!code && !title && !detail) return null;
+
+  // Meta often repeats `title` verbatim as `error_data.details`. Show the
+  // sentence once, and keep the footnote only for a title that adds something.
+  const body = detail || title;
+  const footnote = detail && title && title !== detail ? title : null;
+
+  return (
+    <Alert
+      variant="destructive"
+      className="mt-1.5 w-auto max-w-[min(100%,23rem)] px-2.5 py-2 text-xs"
+    >
+      <AlertTriangle className="size-3.5" />
+      <AlertTitle>Failed to send</AlertTitle>
+      {body && (
+        <AlertDescription className="text-xs break-words">
+          {splitProviderDetail(body).map((segment, index) =>
+            segment.kind === 'text' ? (
+              <Fragment key={index}>{segment.value}</Fragment>
+            ) : (
+              <a
+                key={index}
+                href={segment.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={segment.href}
+                // inline-flex welds the glyph to the hostname — at phone
+                // width the two wrapped onto separate lines. The whole
+                // anchor moves to the next line instead, and a hostname
+                // too long for the note ellipsises rather than overflows.
+                className="inline-flex max-w-full items-baseline gap-0.5 font-medium"
+              >
+                <span className="truncate">{segment.label}</span>
+                <ExternalLink
+                  aria-hidden="true"
+                  className="size-3 shrink-0 self-center"
+                />
+              </a>
+            )
+          )}
+        </AlertDescription>
+      )}
+      {(code || footnote) && (
+        <p
+          className={cn(
+            // Neutral tone plus the rule below carry the demotion; a 1px
+            // type step would only add a value off the ramp for nothing.
+            'text-muted-foreground col-start-2',
+            // The rule separates diagnostics from the explanation above it;
+            // with no explanation there is nothing to divide.
+            body && 'border-border mt-1.5 border-t pt-1.5'
+          )}
+        >
+          {code && <span className="tabular-nums">Meta {code}</span>}
+          {code && footnote && ' \u00b7 '}
+          {footnote}
+        </p>
+      )}
+    </Alert>
+  );
 }
 
 function MediaUnavailable({ label }: { label: string }) {
@@ -380,30 +460,9 @@ export function MessageBubble({
           {isAgent && <StatusIcon status={message.status} />}
         </div>
       </div>
-      {isAgent &&
-        message.status === 'failed' &&
-        (message.provider_error_code ||
-          message.provider_error_title ||
-          message.provider_error_detail) && (
-          <div
-            role="alert"
-            className="text-red-foreground mt-1 max-w-80 space-y-0.5 text-right text-xs"
-          >
-            <div className="flex flex-wrap justify-end gap-x-1.5">
-              <span className="font-medium">
-                {message.provider_error_code
-                  ? `Meta ${message.provider_error_code}`
-                  : 'Meta delivery failure'}
-              </span>
-              {message.provider_error_title && (
-                <span>{message.provider_error_title}</span>
-              )}
-            </div>
-            {message.provider_error_detail && (
-              <p className="text-pretty">{message.provider_error_detail}</p>
-            )}
-          </div>
-        )}
+      {isAgent && message.status === 'failed' && (
+        <DeliveryFailureNote message={message} />
+      )}
       {reactions && reactions.length > 0 && onToggleReaction && (
         <MessageReactions
           reactions={reactions}

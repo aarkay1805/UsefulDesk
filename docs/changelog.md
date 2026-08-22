@@ -28,6 +28,18 @@ Production. Key code: `src/app/api/whatsapp/webhook/route.ts` and
 cannot be reconstructed because their receipt payloads were already erased;
 only new failed callbacks carry diagnostics.
 
+Those diagnostics render as `DeliveryFailureNote`, the shared destructive
+`Alert` hung off the outbound bubble's right edge with its own prose
+left-aligned. Meta's `error_data.details` frequently embeds a Business Manager
+URL long enough to overflow the note's width cap, so
+`splitProviderDetail` (`src/lib/whatsapp/provider-error.ts`) splits the prose
+and the call site links the URL by hostname, keeping the full address in the
+href only. Reading order is status, then cause and recovery, then the Meta code
+and error title in a muted footnote — do not promote the code back to the
+headline. Meta commonly repeats `title` verbatim as `details`; the note prints
+that sentence once. Dev-only visual harness for all six retained-diagnostic
+states: `/preview/message-failure`.
+
 ## Member templates are one action away, and consent no longer blocks sends
 
 Member profiles now place a WhatsApp-marked **Template** action beside
