@@ -6,6 +6,44 @@
 
 ---
 
+## Cash flow drew 2px bars in a card with 136px of dead air
+
+Four things were wrong with the business overview's cash-flow chart at once,
+and they compounded.
+
+**Income was on `--chart-1`.** That token is the account accent, so income
+followed the theme while expenses stayed `--color-red-500`: on the rose accent
+the two series rendered in the same red, and on amber they sat one hue step
+apart. Income and expenses are semantic, not decorative — they are now fixed
+`--color-emerald-500` / `--color-red-500`, the same `-500` data-mark primitives
+invoice health and collection mix already read from. Nothing in this chart may
+go back to `--chart-1`.
+
+**Recharts' default 4px `barGap` ate the band.** With four series over 22 days
+the three gutters took 12px of a 22px band and left **2px per bar**. `barGap`
+is now 1 and `barCategoryGap` 12%; hue separates the income pair from the
+expense pair, not whitespace. Bars doubled to 4–6px daily and reach their
+20/24px cap at weekly grouping. The `[3,3,0,0]` radius that domed a 5px bar into
+a lozenge is now `[2,2,0,0]`, and income no longer renders wider than expenses
+(22 vs 14) — mismatched widths distort area in a paired comparison.
+
+**The four comparison bars were ordered current, current, previous, previous**,
+which put the two halves of each comparison a bar apart. They are now paired
+previous → current so each band reads then → now; the tooltip and the legend
+follow the same order. The previous month is de-emphasised by mixing 55% toward
+`--card` rather than by `fillOpacity`, which let the dashed grid read straight
+through the ghost bars.
+
+**The chart was `h-72` inside an `h-full` card.** Stretched to Invoice health's
+520px, it left 136px of empty card below the axis. `CardContent` is `flex-1`
+and the plot is `h-full min-h-72`, so it takes the slack (288 → 391px), and the
+legend moved into `CardFooter` — the pattern `conversations-chart.tsx` already
+uses for exactly this. Below `sm` the header controls take their own row: side
+by side they outgrew a phone-width card, and `Card`'s `overflow-hidden` was
+clipping the Weekly toggle off the edge.
+
+Also themed: the tooltip cursor, which shipped as Recharts' hard-coded `#ccc`.
+
 ## `size-5` was an avatar size nobody had named
 
 Chasing one `text-[10px]` advisory on the dashboard's assignee initial turned

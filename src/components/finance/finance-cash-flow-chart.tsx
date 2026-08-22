@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useReducedMotion } from 'motion/react';
 import {
   Bar,
   BarChart,
@@ -18,6 +19,7 @@ import {
   Card,
   CardAction,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -39,6 +41,36 @@ type Grouping = 'daily' | 'weekly';
 
 const initialChartDimension = { width: 720, height: 288 };
 
+// Money in / money out are fixed semantic hues, not the account accent:
+// --chart-1 follows the theme, so on the rose accent income rendered in the
+// same red as expenses and on amber it sat one hue step away. Emerald/red also
+// matches the rest of the finance module (invoice health, collection mix),
+// which reads its data marks from the same -500 fill primitives.
+const INCOME_FILL = 'var(--color-emerald-500)';
+const EXPENSE_FILL = 'var(--color-red-500)';
+// The previous month is de-emphasised by mixing toward the card surface rather
+// than by fillOpacity: a translucent bar let the dashed grid read straight
+// through it, and the mix stays correct in both modes because --card flips.
+const PREVIOUS_INCOME_FILL =
+  'color-mix(in oklch, var(--color-emerald-500) 55%, var(--card))';
+const PREVIOUS_EXPENSE_FILL =
+  'color-mix(in oklch, var(--color-red-500) 55%, var(--card))';
+
+function fillFor(tone: 'income' | 'expenses', previous: boolean): string {
+  if (tone === 'income') return previous ? PREVIOUS_INCOME_FILL : INCOME_FILL;
+  return previous ? PREVIOUS_EXPENSE_FILL : EXPENSE_FILL;
+}
+
+// Bars are capped, never sized: at daily grouping a 31-day month leaves ~19px
+// per band, so the cap only takes effect once weekly grouping widens the bands.
+// barGap 1 (Recharts defaults to 4) is what makes the daily bars legible —
+// three 4px gutters ate two thirds of a four-series band. Hue, not whitespace,
+// separates the income pair from the expense pair.
+const BAR_GAP = 1;
+const BAR_CATEGORY_GAP = '12%';
+const BAR_RADIUS: [number, number, number, number] = [2, 2, 0, 0];
+const Y_AXIS_WIDTH = 56;
+
 const tooltipStyle = {
   backgroundColor: 'var(--popover)',
   border: '1px solid var(--border)',
@@ -48,6 +80,8 @@ const tooltipStyle = {
   color: 'var(--popover-foreground)',
   fontSize: 12,
 };
+
+const tooltipCursor = { fill: 'var(--foreground)', fillOpacity: 0.06 };
 
 interface CurrentChartPoint extends FinanceTrendPoint {
   endDate: string;
@@ -131,18 +165,18 @@ function ComparisonCashFlowTooltip({
   return (
     <div style={tooltipStyle} className="min-w-60 space-y-3 p-3">
       <TooltipPeriod
-        label={currentMonthLabel}
-        range={localizedRange(point.currentStart, point.currentEnd, fmt)}
-        income={point.currentIncome}
-        expenses={point.currentExpenses}
-        fmt={fmt}
-      />
-      <TooltipPeriod
         label={previousMonthLabel}
         range={localizedRange(point.previousStart, point.previousEnd, fmt)}
         income={point.previousIncome}
         expenses={point.previousExpenses}
         previous
+        fmt={fmt}
+      />
+      <TooltipPeriod
+        label={currentMonthLabel}
+        range={localizedRange(point.currentStart, point.currentEnd, fmt)}
+        income={point.currentIncome}
+        expenses={point.currentExpenses}
         fmt={fmt}
       />
     </div>
@@ -188,6 +222,23 @@ function TooltipPeriod({
   );
 }
 
+function Swatch({
+  tone,
+  previous,
+}: {
+  tone: 'income' | 'expenses';
+  previous: boolean;
+}) {
+  return (
+    <span
+      // Square with the bars' own 2px cap, so the key reads as a miniature of
+      // the mark it stands for rather than as a generic status dot.
+      className="size-2 shrink-0 rounded-xs"
+      style={{ backgroundColor: fillFor(tone, previous) }}
+    />
+  );
+}
+
 function TooltipValue({
   label,
   value,
@@ -204,14 +255,7 @@ function TooltipValue({
   return (
     <div className="flex items-center justify-between gap-6">
       <span className="text-muted-foreground inline-flex items-center gap-1.5">
-        <span
-          className="size-2 rounded-sm"
-          style={{
-            backgroundColor:
-              tone === 'income' ? 'var(--chart-1)' : 'var(--color-red-500)',
-            opacity: previous ? 0.35 : 1,
-          }}
-        />
+        <Swatch tone={tone} previous={previous} />
         {label}
       </span>
       <span className="tabular-nums">{fmt.money(value)}</span>
@@ -229,15 +273,8 @@ function LegendItem({
   previous?: boolean;
 }) {
   return (
-    <span className="text-muted-foreground inline-flex items-center gap-1.5">
-      <span
-        className="size-2 rounded-sm"
-        style={{
-          backgroundColor:
-            tone === 'income' ? 'var(--chart-1)' : 'var(--color-red-500)',
-          opacity: previous ? 0.35 : 1,
-        }}
-      />
+    <span className="inline-flex items-center gap-1.5">
+      <Swatch tone={tone} previous={previous} />
       {label}
     </span>
   );
@@ -260,6 +297,7 @@ export function FinanceCashFlowChart({
 }) {
   const [grouping, setGrouping] = useState<Grouping>('daily');
   const [comparePrevious, setComparePrevious] = useState(false);
+  const reduceMotion = useReducedMotion();
   const chartData: Array<Record<string, string | number | null>> =
     comparePrevious
       ? alignFinanceCashFlowTrends(
@@ -274,12 +312,20 @@ export function FinanceCashFlowChart({
     Math.max(data.length, previousData.length)
   );
   const hasData = financeCashFlowHasMovement(data, previousData);
+  const barAnimation = {
+    isAnimationActive: !reduceMotion,
+    animationDuration: 420,
+    animationEasing: 'ease-out' as const,
+  };
 
   return (
     <Card className="h-full">
       <CardHeader>
         <CardTitle>Cash flow · {monthLabel}</CardTitle>
-        <CardAction className="flex items-center gap-3">
+        {/* Below sm the controls take their own row: side by side they
+            outgrow a phone-width card, and the card clips its overflow, so
+            the Weekly toggle was cut off at the edge. */}
+        <CardAction className="col-start-1 row-start-2 mt-1 flex w-full flex-wrap items-center justify-start gap-x-3 gap-y-2 sm:col-start-2 sm:row-start-1 sm:mt-0 sm:w-auto sm:justify-end">
           <label className="text-foreground flex items-center gap-2 text-sm">
             <Checkbox
               checked={comparePrevious}
@@ -298,10 +344,13 @@ export function FinanceCashFlowChart({
           </Toolbar>
         </CardAction>
       </CardHeader>
-      <CardContent className="space-y-4">
+      {/* flex-1 + h-full: the card is stretched to its row-mate's height, so
+          the plot takes the slack instead of leaving it dead below the axis.
+          min-h keeps the same floor when the card stacks and sizes to content. */}
+      <CardContent className="flex-1">
         {hasData ? (
           <div
-            className="h-72 w-full"
+            className="h-full min-h-72 w-full"
             role="group"
             aria-label={`${grouping === 'daily' ? 'Daily' : 'Weekly'} cash flow chart${comparePrevious ? ' comparing the selected and previous months' : ''}`}
           >
@@ -315,6 +364,8 @@ export function FinanceCashFlowChart({
                 accessibilityLayer
                 data={chartData}
                 margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                barGap={BAR_GAP}
+                barCategoryGap={BAR_CATEGORY_GAP}
               >
                 <CartesianGrid
                   vertical={false}
@@ -326,6 +377,7 @@ export function FinanceCashFlowChart({
                   axisLine={false}
                   tickLine={false}
                   minTickGap={18}
+                  tickMargin={8}
                   tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
                   tickFormatter={(value) => {
                     if (!comparePrevious) {
@@ -342,11 +394,12 @@ export function FinanceCashFlowChart({
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  width={64}
+                  width={Y_AXIS_WIDTH}
                   tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
                   tickFormatter={(value) => fmt.moneyShort(Number(value))}
                 />
                 <Tooltip
+                  cursor={tooltipCursor}
                   content={(props) =>
                     comparePrevious ? (
                       <ComparisonCashFlowTooltip
@@ -361,36 +414,42 @@ export function FinanceCashFlowChart({
                   }
                 />
                 {comparePrevious ? (
+                  // Previous before selected inside each pair, so every band
+                  // reads left-to-right as then → now. The four series were
+                  // previously ordered current, current, previous, previous,
+                  // which put the two halves of each comparison a bar apart.
                   <>
-                    <Bar
-                      dataKey="currentIncome"
-                      name="Selected income"
-                      fill="var(--chart-1)"
-                      radius={[3, 3, 0, 0]}
-                      maxBarSize={16}
-                    />
-                    <Bar
-                      dataKey="currentExpenses"
-                      name="Selected expenses"
-                      fill="var(--color-red-500)"
-                      radius={[3, 3, 0, 0]}
-                      maxBarSize={12}
-                    />
                     <Bar
                       dataKey="previousIncome"
                       name="Previous income"
-                      fill="var(--chart-1)"
-                      fillOpacity={0.35}
-                      radius={[3, 3, 0, 0]}
-                      maxBarSize={16}
+                      fill={PREVIOUS_INCOME_FILL}
+                      radius={BAR_RADIUS}
+                      maxBarSize={20}
+                      {...barAnimation}
+                    />
+                    <Bar
+                      dataKey="currentIncome"
+                      name="Selected income"
+                      fill={INCOME_FILL}
+                      radius={BAR_RADIUS}
+                      maxBarSize={20}
+                      {...barAnimation}
                     />
                     <Bar
                       dataKey="previousExpenses"
                       name="Previous expenses"
-                      fill="var(--color-red-500)"
-                      fillOpacity={0.35}
-                      radius={[3, 3, 0, 0]}
-                      maxBarSize={12}
+                      fill={PREVIOUS_EXPENSE_FILL}
+                      radius={BAR_RADIUS}
+                      maxBarSize={20}
+                      {...barAnimation}
+                    />
+                    <Bar
+                      dataKey="currentExpenses"
+                      name="Selected expenses"
+                      fill={EXPENSE_FILL}
+                      radius={BAR_RADIUS}
+                      maxBarSize={20}
+                      {...barAnimation}
                     />
                   </>
                 ) : (
@@ -398,16 +457,18 @@ export function FinanceCashFlowChart({
                     <Bar
                       dataKey="income"
                       name="Income"
-                      fill="var(--chart-1)"
-                      radius={[3, 3, 0, 0]}
-                      maxBarSize={22}
+                      fill={INCOME_FILL}
+                      radius={BAR_RADIUS}
+                      maxBarSize={24}
+                      {...barAnimation}
                     />
                     <Bar
                       dataKey="expenses"
                       name="Expenses"
-                      fill="var(--color-red-500)"
-                      radius={[3, 3, 0, 0]}
-                      maxBarSize={14}
+                      fill={EXPENSE_FILL}
+                      radius={BAR_RADIUS}
+                      maxBarSize={24}
+                      {...barAnimation}
                     />
                   </>
                 )}
@@ -417,29 +478,28 @@ export function FinanceCashFlowChart({
         ) : (
           <EmptyState
             icon={BarChart3}
-            className="h-72"
+            className="h-full min-h-72"
             title="No cash movement in either month"
             hint="Recorded income and expenses will appear here by day for comparison."
           />
         )}
-
-        <div className="flex flex-wrap items-center gap-4 text-xs">
-          <LegendItem
-            label={comparePrevious ? 'Selected income' : 'Income'}
-            tone="income"
-          />
-          <LegendItem
-            label={comparePrevious ? 'Selected expenses' : 'Expenses'}
-            tone="expenses"
-          />
-          {comparePrevious ? (
-            <>
-              <LegendItem label="Previous income" tone="income" previous />
-              <LegendItem label="Previous expenses" tone="expenses" previous />
-            </>
-          ) : null}
-        </div>
       </CardContent>
+
+      <CardFooter className="text-muted-foreground flex-wrap gap-x-4 gap-y-1.5 text-xs">
+        {comparePrevious ? (
+          <>
+            <LegendItem label="Previous income" tone="income" previous />
+            <LegendItem label="Selected income" tone="income" />
+            <LegendItem label="Previous expenses" tone="expenses" previous />
+            <LegendItem label="Selected expenses" tone="expenses" />
+          </>
+        ) : (
+          <>
+            <LegendItem label="Income" tone="income" />
+            <LegendItem label="Expenses" tone="expenses" />
+          </>
+        )}
+      </CardFooter>
     </Card>
   );
 }
