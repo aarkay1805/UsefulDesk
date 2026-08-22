@@ -151,9 +151,11 @@ const insertSingle = vi.fn().mockResolvedValue({
   data: { id: 'contact' },
   error: null,
 });
+const rpc = vi.fn().mockResolvedValue({ data: 'event-1', error: null });
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
+    rpc,
     from: (table: string) => ({
       insert: () => ({
         select: () => ({
@@ -254,5 +256,60 @@ describe('MemberForm shared checkout host', () => {
     });
     expect(body.collection).not.toHaveProperty('amount');
     expect(body.selections).toHaveLength(1);
+  });
+
+  it('offers one explicit opt-in and records both WhatsApp permission categories', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemberForm
+        open
+        onOpenChange={vi.fn()}
+        seedContact={{ phone: '+919876543210' }}
+        onSaved={vi.fn()}
+      />
+    );
+
+    const optIn = await screen.findByRole('checkbox', {
+      name: /WhatsApp opt-in/,
+    });
+    expect(optIn.getAttribute('aria-checked')).toBe('false');
+    expect(
+      screen.getByText(/account updates and marketing, including renewal/i)
+    ).toBeDefined();
+    expect(screen.queryByLabelText(/Consent evidence/)).toBeNull();
+
+    await user.click(optIn);
+    expect(optIn.getAttribute('aria-checked')).toBe('true');
+    const evidence = screen.getByLabelText(/Consent evidence/);
+    expect(screen.getByRole('button', { name: 'Add member' })).toHaveProperty(
+      'disabled',
+      true
+    );
+
+    await user.type(evidence, 'Member agreed during signup at the front desk.');
+    await user.click(screen.getByRole('button', { name: 'Configure offer' }));
+    await user.click(screen.getByRole('button', { name: 'Add member' }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    expect(rpc).toHaveBeenNthCalledWith(1, 'record_contact_consent', {
+      p_account_id: 'account',
+      p_contact_id: 'contact',
+      p_purpose: 'whatsapp_account_updates',
+      p_action: 'opt_in',
+      p_source: 'staff_recorded',
+      p_evidence: {
+        note: 'Member agreed during signup at the front desk.',
+      },
+    });
+    expect(rpc).toHaveBeenNthCalledWith(2, 'record_contact_consent', {
+      p_account_id: 'account',
+      p_contact_id: 'contact',
+      p_purpose: 'whatsapp_marketing',
+      p_action: 'opt_in',
+      p_source: 'staff_recorded',
+      p_evidence: {
+        note: 'Member agreed during signup at the front desk.',
+      },
+    });
   });
 });

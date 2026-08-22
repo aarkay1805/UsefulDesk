@@ -140,7 +140,6 @@ import { ChurnRiskCard } from './churn-risk-card';
 import { MemberPersonalInfo } from './member-personal-info';
 import { MemberCommunication } from './member-communication';
 import { MemberDangerZone } from './member-danger-zone';
-import { WhatsAppConsentControl } from '@/components/contacts/whatsapp-consent-control';
 import { ProductServiceSaleDialog } from './product-service-sale-dialog';
 import { ReassignTrainerDialog } from './reassign-trainer-dialog';
 import {
@@ -981,14 +980,6 @@ function MembershipDetailView({
                     onSent={() => {}}
                     size="default"
                     variant="outline"
-                  />
-                  <WhatsAppConsentControl
-                    contactId={membership.contact_id}
-                    contactName={
-                      membership.contact?.name ||
-                      membership.contact?.phone ||
-                      'Member'
-                    }
                   />
                   {membership.is_trial && canSendMessages && (
                     <Button onClick={() => setConvertOpen(true)}>

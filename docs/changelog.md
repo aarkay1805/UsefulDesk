@@ -6,6 +6,12 @@
 
 ---
 
+## Member creation captures WhatsApp opt-in
+
+Add member and Convert to member now offer one explicit, unchecked **WhatsApp opt-in** with a required evidence note. Selecting it records both independently enforced scopes—account updates and Marketing/renewal messages—through the existing audited consent RPC; possessing a phone number still implies nothing. The member-profile header no longer carries the consent action. Ongoing category changes and organization-wide opt-out now live in the profile **Settings** card above Delete member. Key code: `src/components/members/member-form.tsx`, `src/components/members/member-danger-zone.tsx`, and `src/lib/consent/template-consent.ts`. Gotcha: the single creation choice is a UI convenience only; the two durable consent scopes remain separate underneath.
+
+---
+
 ## One follow-up composer everywhere
 
 An audit of every manual follow-up creation path found the product had two of them. The profile **Notes & follow-ups** composer was the base reference; the standalone `FollowUpDialog` opened by `FollowUpButton` was a second, quietly different surface. They are one surface now.
