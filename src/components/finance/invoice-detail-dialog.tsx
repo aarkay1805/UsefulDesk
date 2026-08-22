@@ -572,8 +572,7 @@ function InvoiceDetailBody({
                                     staffNameById.get(payment.user_id) ?? '?'
                                   }
                                   src={staffAvatarById.get(payment.user_id)}
-                                  className="size-5"
-                                  fallbackClassName="text-[9px]"
+                                  size="xs"
                                 />
                                 <span>
                                   {staffNameById.get(payment.user_id)}

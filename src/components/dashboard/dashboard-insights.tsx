@@ -25,7 +25,7 @@ type RangeDays = 7 | 30 | 90;
 
 /**
  * Historical reading, not today's work — the action queues all live above
- * this section. The lead-status ring was removed: "Leads by stage" already
+ * these cards. The lead-status ring was removed: "Leads by stage" already
  * groups the same lead_status buckets and adds how long leads sit in each,
  * so the ring only restated counts the bars already carried.
  */
@@ -140,36 +140,32 @@ export function DashboardInsights() {
     [fmt, locale.timeZone, ratings]
   );
 
+  // No wrapper heading: each card below already names itself, so a grouping
+  // level above them ("The full picture") added a heading without adding
+  // meaning. The fragment lets each card inherit the page's section spacing.
   return (
-    <section aria-labelledby="business-picture-heading" className="space-y-4">
-      <h2
-        id="business-picture-heading"
-        className="text-foreground text-sm font-semibold"
-      >
-        The full picture
-      </h2>
-      {/* The two range-controlled reads sit together, so one 7/30/90 decision
-          reads as one row rather than two unrelated widgets. */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="h-full lg:col-span-3">
-          <ConversationsChart
-            series={series}
-            loading={seriesLoading}
-            range={conversationRange}
-            onRangeChange={handleConversationRangeChange}
-          />
-        </div>
-        <div className="h-full lg:col-span-2">
-          <LeadConversionRating
-            data={ratings[ratingRange]}
-            loading={ratingLoading && ratings[ratingRange] === null}
-            range={ratingRange}
-            onRangeChange={handleRatingRangeChange}
-          />
-        </div>
+    <>
+      {/* Two peer sections sharing a row: one 7/30/90 decision reads as one
+          row rather than two unrelated widgets. Each is its own grid item, so
+          each keeps its own heading — no wrapper heading over the pair. */}
+      <div className="grid grid-cols-1 gap-x-4 gap-y-8 lg:grid-cols-5">
+        <ConversationsChart
+          className="lg:col-span-3"
+          series={series}
+          loading={seriesLoading}
+          range={conversationRange}
+          onRangeChange={handleConversationRangeChange}
+        />
+        <LeadConversionRating
+          className="lg:col-span-2"
+          data={ratings[ratingRange]}
+          loading={ratingLoading && ratings[ratingRange] === null}
+          range={ratingRange}
+          onRangeChange={handleRatingRangeChange}
+        />
       </div>
       <LeadFunnel data={leadFunnel} loading={!leadFunnel} />
       <ActivityFeed items={activity} loading={!activity} />
-    </section>
+    </>
   );
 }

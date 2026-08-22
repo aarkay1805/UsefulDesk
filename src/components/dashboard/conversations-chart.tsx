@@ -5,17 +5,17 @@ import { MessageSquare } from 'lucide-react';
 import type { ConversationsSeriesPoint } from '@/lib/dashboard/types';
 import {
   Card,
-  CardAction,
   CardContent,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import {
   Toolbar,
   ToolbarToggleGroup,
   ToolbarToggleItem,
 } from '@/components/ui/toolbar';
+import { DashboardSection } from './dashboard-section';
+import { cn } from '@/lib/utils';
 import { EmptyState } from './empty-state';
 import { Skeleton } from './skeleton';
 
@@ -35,6 +35,8 @@ interface ConversationsChartProps {
   loading: boolean;
   range: RangeDays;
   onRangeChange: (r: RangeDays) => void;
+  /** External layout only — the grid span this section occupies. */
+  className?: string;
 }
 
 // ------------------------------------------------------------
@@ -53,6 +55,7 @@ export function ConversationsChart({
   loading,
   range,
   onRangeChange,
+  className,
 }: ConversationsChartProps) {
   const data = series[range];
 
@@ -69,10 +72,15 @@ export function ConversationsChart({
   }, [data]);
 
   return (
-    <Card className="h-full">
-      <CardHeader className="border-b">
-        <CardTitle>Messages</CardTitle>
-        <CardAction>
+    <DashboardSection
+      id="messages"
+      title="Messages"
+      className={cn('flex flex-col', className)}
+    >
+      <Card className="flex-1">
+        {/* Header holds the range control only — the card's title lives in the
+            section heading above it. */}
+        <CardHeader className="flex flex-wrap items-center gap-2 border-b">
           <Toolbar aria-label="Conversation range">
             <ToolbarToggleGroup<RangeValue>
               value={[String(range) as RangeValue]}
@@ -88,28 +96,28 @@ export function ConversationsChart({
               ))}
             </ToolbarToggleGroup>
           </Toolbar>
-        </CardAction>
-      </CardHeader>
+        </CardHeader>
 
-      <CardContent className="flex-1">
-        {loading || !data ? (
-          <Skeleton className="h-[240px] w-full" />
-        ) : data.every((p) => p.incoming === 0 && p.outgoing === 0) ? (
-          <EmptyState
-            icon={MessageSquare}
-            title="No messages in this time"
-            hint="Sent and received messages will show here."
-          />
-        ) : (
-          <LineSvg data={data} maxY={maxY} ticks={niceTicks} />
-        )}
-      </CardContent>
+        <CardContent className="flex-1">
+          {loading || !data ? (
+            <Skeleton className="h-[240px] w-full" />
+          ) : data.every((p) => p.incoming === 0 && p.outgoing === 0) ? (
+            <EmptyState
+              icon={MessageSquare}
+              title="No messages in this time"
+              hint="Sent and received messages will show here."
+            />
+          ) : (
+            <LineSvg data={data} maxY={maxY} ticks={niceTicks} />
+          )}
+        </CardContent>
 
-      <CardFooter className="text-muted-foreground gap-4 text-xs">
-        <LegendDot color={RECEIVED_STROKE} label="Received" />
-        <LegendDot color={SENT_STROKE} label="Sent" />
-      </CardFooter>
-    </Card>
+        <CardFooter className="text-muted-foreground gap-4 text-xs">
+          <LegendDot color={RECEIVED_STROKE} label="Received" />
+          <LegendDot color={SENT_STROKE} label="Sent" />
+        </CardFooter>
+      </Card>
+    </DashboardSection>
   );
 }
 

@@ -129,7 +129,11 @@ export default function LeadFunnelPreviewPage() {
             <h2 className="text-muted-foreground text-xs font-medium">
               {c.label}
             </h2>
-            <LeadFunnel data={c.data} loading={c.data === null} />
+            <LeadFunnel
+              sectionId={`lead-funnel-${c.label.replace(/\W+/g, '-').toLowerCase()}`}
+              data={c.data}
+              loading={c.data === null}
+            />
           </section>
         ))}
       </div>

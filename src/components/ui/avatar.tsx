@@ -10,14 +10,21 @@ function Avatar({
   size = 'default',
   ...props
 }: AvatarPrimitive.Root.Props & {
-  size?: 'default' | 'sm' | 'lg';
+  size?: 'default' | 'xs' | 'sm' | 'lg';
 }) {
   return (
     <AvatarPrimitive.Root
       data-slot="avatar"
       data-size={size}
       className={cn(
-        'group/avatar relative flex size-8 shrink-0 rounded-full select-none data-[size=lg]:size-10 data-[size=sm]:size-6',
+        // `xs` (20px) exists because a bare `className="size-5"` was already
+        // the product's fourth avatar size at fifteen call sites — inline
+        // assignee chips in tables, board cards, note rows, queue rows. The
+        // Root resized but the Fallback did not, so each of those call sites
+        // hand-corrected the initial and landed somewhere different: 9px, 10px,
+        // and 11px for what is visually one avatar. Naming the size puts its
+        // initial on the ramp once, here.
+        'group/avatar relative flex size-8 shrink-0 rounded-full select-none data-[size=lg]:size-10 data-[size=sm]:size-6 data-[size=xs]:size-5',
         className,
         // Avatars are intentionally borderless across the product. Keep
         // this invariant after caller classes so local borders/rings cannot
@@ -50,7 +57,7 @@ function AvatarFallback({
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
       className={cn(
-        'bg-muted text-muted-foreground flex size-full items-center justify-center rounded-full text-sm group-data-[size=sm]/avatar:text-xs',
+        'bg-muted text-muted-foreground flex size-full items-center justify-center rounded-full text-sm group-data-[size=sm]/avatar:text-xs group-data-[size=xs]/avatar:text-xs',
         className
       )}
       {...props}

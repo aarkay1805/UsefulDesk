@@ -11,7 +11,7 @@ import type {
   LeadSourceRatingData,
 } from '@/lib/dashboard/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+import { DashboardSection } from './dashboard-section';
 import { EmptyState } from './empty-state';
 import { Skeleton } from './skeleton';
 
@@ -51,6 +53,8 @@ interface LeadConversionRatingProps {
   loading: boolean;
   range: RangeDays;
   onRangeChange: (range: RangeDays) => void;
+  /** External layout only — the grid span this section occupies. */
+  className?: string;
 }
 
 const METRIC_HELP: Record<LeadRatingMetric['key'], string> = {
@@ -125,6 +129,7 @@ export function LeadConversionRating({
   loading,
   range,
   onRangeChange,
+  className,
 }: LeadConversionRatingProps) {
   const [selectedSource, setSelectedSource] = useState(ALL_LEADS_RATING_KEY);
   const [calculationOpen, setCalculationOpen] = useState(false);
@@ -137,101 +142,113 @@ export function LeadConversionRating({
 
   return (
     <Dialog open={calculationOpen} onOpenChange={setCalculationOpen}>
-      <Card className="h-full">
-        <CardHeader className="flex flex-wrap items-center justify-between gap-2 border-b">
-          <CardTitle className="flex items-center gap-0.5">
-            Lead health score
-            <TooltipProvider>
-              <Tooltip>
-                <DialogTrigger
-                  render={
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          aria-label="How does the lead health score work?"
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              setCalculationOpen(true);
-                            }
-                          }}
-                        />
-                      }
-                    />
-                  }
+      <DashboardSection
+        id="lead-health-score"
+        title="Lead health score"
+        className={cn('flex flex-col', className)}
+        meta={
+          <TooltipProvider>
+            <Tooltip>
+              <DialogTrigger
+                render={
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        // Sits tight against the label it explains; the
+                        // heading's own gap-2 is spacing for a count.
+                        className="-ml-1.5"
+                        aria-label="How does the lead health score work?"
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            setCalculationOpen(true);
+                          }
+                        }}
+                      />
+                    }
+                  />
+                }
+              >
+                <CircleHelp />
+              </DialogTrigger>
+              <TooltipContent>
+                How does the lead health score work?
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        }
+      >
+        <Card className="flex-1">
+          {/* Source and range controls only — the title is the section heading. */}
+          <CardHeader className="flex flex-wrap items-center gap-2 border-b">
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={selected?.key ?? ALL_LEADS_RATING_KEY}
+                onValueChange={(value) => value && setSelectedSource(value)}
+              >
+                <SelectTrigger
+                  id="lead-rating-source"
+                  aria-label="Lead source"
+                  className="w-36 max-w-full"
                 >
-                  <CircleHelp />
-                </DialogTrigger>
-                <TooltipContent>
-                  How does the lead health score work?
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </CardTitle>
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={selected?.key ?? ALL_LEADS_RATING_KEY}
-              onValueChange={(value) => value && setSelectedSource(value)}
-            >
-              <SelectTrigger
-                id="lead-rating-source"
-                aria-label="Lead source"
-                className="w-36 max-w-full"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_LEADS_RATING_KEY}>All leads</SelectItem>
-                {data?.sources.map((source) => (
-                  <SelectItem key={source.key} value={source.key}>
-                    {source.label}
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_LEADS_RATING_KEY}>
+                    All leads
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Toolbar aria-label="Time range">
-              <ToolbarToggleGroup<RangeValue>
-                value={[String(range) as RangeValue]}
-                onValueChange={(values) => {
-                  const nextRange = values[0];
-                  if (nextRange) onRangeChange(Number(nextRange) as RangeDays);
-                }}
-              >
-                {RATING_RANGES.map((days) => (
-                  <ToolbarToggleItem
-                    key={days}
-                    value={String(days)}
-                    aria-label={`${days} days`}
-                  >
-                    {days}d
-                  </ToolbarToggleItem>
-                ))}
-              </ToolbarToggleGroup>
-            </Toolbar>
-          </div>
-        </CardHeader>
+                  {data?.sources.map((source) => (
+                    <SelectItem key={source.key} value={source.key}>
+                      {source.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Toolbar aria-label="Time range">
+                <ToolbarToggleGroup<RangeValue>
+                  value={[String(range) as RangeValue]}
+                  onValueChange={(values) => {
+                    const nextRange = values[0];
+                    if (nextRange)
+                      onRangeChange(Number(nextRange) as RangeDays);
+                  }}
+                >
+                  {RATING_RANGES.map((days) => (
+                    <ToolbarToggleItem
+                      key={days}
+                      value={String(days)}
+                      aria-label={`${days} days`}
+                    >
+                      {days}d
+                    </ToolbarToggleItem>
+                  ))}
+                </ToolbarToggleGroup>
+              </Toolbar>
+            </div>
+          </CardHeader>
 
-        {loading || !data ? (
-          <CardContent className="flex flex-1 flex-col">
-            <Skeleton className="h-56 w-full" />
-          </CardContent>
-        ) : data.sources.length === 0 || !selected ? (
-          <CardContent className="flex flex-1 flex-col">
-            <EmptyState
-              icon={ChartNoAxesCombined}
-              title="No new leads in this time"
-              hint="The score will show after you add leads."
-            />
-          </CardContent>
-        ) : (
-          <CardContent className="flex flex-1 flex-col items-center gap-1">
-            <RatingHeadline source={selected} />
-            <RadarChart source={selected} />
-          </CardContent>
-        )}
-      </Card>
+          {loading || !data ? (
+            <CardContent className="flex flex-1 flex-col">
+              <Skeleton className="h-56 w-full" />
+            </CardContent>
+          ) : data.sources.length === 0 || !selected ? (
+            <CardContent className="flex flex-1 flex-col">
+              <EmptyState
+                icon={ChartNoAxesCombined}
+                title="No new leads in this time"
+                hint="The score will show after you add leads."
+              />
+            </CardContent>
+          ) : (
+            <CardContent className="flex flex-1 flex-col items-center gap-1">
+              <RatingHeadline source={selected} />
+              <RadarChart source={selected} />
+            </CardContent>
+          )}
+        </Card>
+      </DashboardSection>
       {data && selected && (
         <RatingCalculationDialogContent source={selected} data={data} />
       )}

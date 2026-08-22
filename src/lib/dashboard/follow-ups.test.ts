@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 
 import {
+  loadDashboardFollowUpCounts,
   loadDashboardFollowUps,
   type DashboardFollowUpRow,
 } from './follow-ups';
@@ -14,49 +15,50 @@ type QueryResult = {
 
 type RecordedCall = [method: string, ...args: unknown[]];
 
-class RecordingQuery {
+/**
+ * A head-count query resolves without ever calling `.limit()`, so the recorder
+ * has to be thenable as well as chainable.
+ */
+class RecordingQuery implements PromiseLike<QueryResult> {
   calls: RecordedCall[] = [];
 
   constructor(private readonly result: QueryResult) {}
 
-  select(...args: unknown[]) {
-    this.calls.push(['select', ...args]);
+  private record(method: string, args: unknown[]) {
+    this.calls.push([method, ...args]);
     return this;
+  }
+
+  select(...args: unknown[]) {
+    return this.record('select', args);
   }
 
   eq(...args: unknown[]) {
-    this.calls.push(['eq', ...args]);
-    return this;
+    return this.record('eq', args);
   }
 
   is(...args: unknown[]) {
-    this.calls.push(['is', ...args]);
-    return this;
+    return this.record('is', args);
   }
 
   not(...args: unknown[]) {
-    this.calls.push(['not', ...args]);
-    return this;
-  }
-
-  lte(...args: unknown[]) {
-    this.calls.push(['lte', ...args]);
-    return this;
-  }
-
-  gt(...args: unknown[]) {
-    this.calls.push(['gt', ...args]);
-    return this;
+    return this.record('not', args);
   }
 
   order(...args: unknown[]) {
-    this.calls.push(['order', ...args]);
-    return this;
+    return this.record('order', args);
   }
 
   limit(...args: unknown[]) {
-    this.calls.push(['limit', ...args]);
-    return Promise.resolve(this.result);
+    return this.record('limit', args);
+  }
+
+  then<Resolved = QueryResult, Rejected = never>(
+    onFulfilled?:
+      ((value: QueryResult) => Resolved | PromiseLike<Resolved>) | null,
+    onRejected?: ((reason: unknown) => Rejected | PromiseLike<Rejected>) | null
+  ): PromiseLike<Resolved | Rejected> {
+    return Promise.resolve(this.result).then(onFulfilled, onRejected);
   }
 }
 
@@ -94,95 +96,57 @@ function database(...results: QueryResult[]) {
   return { db, queries };
 }
 
-const TODAY = '2026-07-25';
 const LIMIT = 8;
 
 describe('loadDashboardFollowUps', () => {
-  it('returns due work without querying upcoming follow-ups', async () => {
-    const due = followUp('due', TODAY);
+  it('returns one chronological list without filtering by date', async () => {
+    const overdue = followUp('overdue', '2026-07-20');
+    const upcoming = followUp('upcoming', '2026-08-02');
     const { db, queries } = database({
-      data: [due],
-      count: 3,
+      data: [overdue, upcoming],
+      count: null,
       error: null,
     });
 
-    await expect(loadDashboardFollowUps(db, TODAY, LIMIT)).resolves.toEqual({
-      rows: [due],
-      total: 3,
-      mode: 'due',
-    });
+    await expect(loadDashboardFollowUps(db, LIMIT)).resolves.toEqual([
+      overdue,
+      upcoming,
+    ]);
+
+    // One query, and no `lte`/`gt` on due_date — a date filter here is what
+    // used to hide upcoming work behind a mode the caller could not see.
     expect(queries).toHaveLength(1);
-    expect(queries[0].calls).toEqual(
-      expect.arrayContaining([
-        ['eq', 'status', 'open'],
-        ['is', 'membership_id', null],
-        ['lte', 'due_date', TODAY],
-        ['order', 'due_date', { ascending: true }],
-        ['limit', LIMIT],
-      ])
-    );
+    expect(queries[0].calls).toEqual([
+      ['select', expect.stringContaining('membership_id')],
+      ['eq', 'status', 'open'],
+      ['order', 'due_date', { ascending: true }],
+      ['order', 'remind_at', { ascending: true, nullsFirst: false }],
+      ['limit', LIMIT],
+    ]);
   });
 
-  it('falls back to upcoming work ordered by nearest date and time', async () => {
-    const nearest = followUp(
-      'nearest',
-      '2026-07-26',
-      '2026-07-26T03:30:00.000Z'
-    );
-    const later = followUp('later', '2026-07-27');
-    const { db, queries } = database(
-      { data: [], count: 0, error: null },
-      { data: [nearest, later], count: 5, error: null }
-    );
+  it('scopes lead work to follow-ups with no membership', async () => {
+    const { db, queries } = database({ data: [], count: null, error: null });
 
-    await expect(loadDashboardFollowUps(db, TODAY, LIMIT)).resolves.toEqual({
-      rows: [nearest, later],
-      total: 5,
-      mode: 'upcoming',
-    });
-    expect(queries).toHaveLength(2);
-    expect(queries[1].calls).toEqual(
-      expect.arrayContaining([
-        ['eq', 'status', 'open'],
-        ['is', 'membership_id', null],
-        ['gt', 'due_date', TODAY],
-        ['order', 'due_date', { ascending: true }],
-        ['order', 'remind_at', { ascending: true, nullsFirst: false }],
-        ['limit', LIMIT],
-      ])
-    );
-  });
+    await loadDashboardFollowUps(db, LIMIT, 'lead');
 
-  it('does not hide a failed due query behind the upcoming fallback', async () => {
-    const error = new Error('due query failed');
-    const { db, queries } = database({
-      data: null,
-      count: null,
-      error,
-    });
-
-    await expect(loadDashboardFollowUps(db, TODAY, LIMIT)).rejects.toBe(error);
-    expect(queries).toHaveLength(1);
+    expect(queries[0].calls).toContainEqual(['is', 'membership_id', null]);
   });
 
   it('scopes member work to membership-linked follow-ups', async () => {
     const memberFollowUp = {
-      ...followUp('member', TODAY),
+      ...followUp('member', '2026-07-25'),
       membership_id: 'membership-1',
     };
     const { db, queries } = database({
       data: [memberFollowUp],
-      count: 1,
+      count: null,
       error: null,
     });
 
-    await expect(
-      loadDashboardFollowUps(db, TODAY, LIMIT, 'member')
-    ).resolves.toEqual({
-      rows: [memberFollowUp],
-      total: 1,
-      mode: 'due',
-    });
+    await expect(loadDashboardFollowUps(db, LIMIT, 'member')).resolves.toEqual([
+      memberFollowUp,
+    ]);
 
     expect(queries[0].calls).toContainEqual([
       'not',
@@ -190,10 +154,62 @@ describe('loadDashboardFollowUps', () => {
       'is',
       null,
     ]);
-    expect(queries[0].calls[0]).toEqual([
-      'select',
-      expect.stringContaining('membership_id'),
-      { count: 'exact' },
+  });
+
+  it('surfaces a failed query instead of returning an empty queue', async () => {
+    const error = new Error('follow-up query failed');
+    const { db } = database({ data: null, count: null, error });
+
+    await expect(loadDashboardFollowUps(db, LIMIT)).rejects.toBe(error);
+  });
+});
+
+describe('loadDashboardFollowUpCounts', () => {
+  it('counts each scope separately and derives the total', async () => {
+    const { db, queries } = database(
+      { data: null, count: 9, error: null },
+      { data: null, count: 14, error: null }
+    );
+
+    await expect(loadDashboardFollowUpCounts(db)).resolves.toEqual({
+      all: 23,
+      lead: 9,
+      member: 14,
+    });
+
+    expect(queries[0].calls).toEqual([
+      ['select', 'id', { count: 'exact', head: true }],
+      ['eq', 'status', 'open'],
+      ['is', 'membership_id', null],
     ]);
+    expect(queries[1].calls).toContainEqual([
+      'not',
+      'membership_id',
+      'is',
+      null,
+    ]);
+  });
+
+  it('treats a missing count as zero rather than NaN', async () => {
+    const { db } = database(
+      { data: null, count: null, error: null },
+      { data: null, count: null, error: null }
+    );
+
+    await expect(loadDashboardFollowUpCounts(db)).resolves.toEqual({
+      all: 0,
+      lead: 0,
+      member: 0,
+    });
+  });
+
+  it('surfaces a failed count query', async () => {
+    const error = new Error('count failed');
+    const { db } = database(
+      { data: null, count: null, error },
+      { data: null, count: 3, error: null }
+    );
+
+    await expect(loadDashboardFollowUpCounts(db)).rejects.toBe(error);
   });
 });

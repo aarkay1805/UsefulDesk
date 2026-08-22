@@ -6,6 +6,271 @@
 
 ---
 
+## Cash flow drew 2px bars in a card with 136px of dead air
+
+Four things were wrong with the business overview's cash-flow chart at once,
+and they compounded.
+
+**Income was on `--chart-1`.** That token is the account accent, so income
+followed the theme while expenses stayed `--color-red-500`: on the rose accent
+the two series rendered in the same red, and on amber they sat one hue step
+apart. Income and expenses are semantic, not decorative — they are now fixed
+`--color-emerald-500` / `--color-red-500`, the same `-500` data-mark primitives
+invoice health and collection mix already read from. Nothing in this chart may
+go back to `--chart-1`.
+
+**Recharts' default 4px `barGap` ate the band.** With four series over 22 days
+the three gutters took 12px of a 22px band and left **2px per bar**. `barGap`
+is now 1 and `barCategoryGap` 12%; hue separates the income pair from the
+expense pair, not whitespace. Bars doubled to 4–6px daily and reach their
+20/24px cap at weekly grouping. The `[3,3,0,0]` radius that domed a 5px bar into
+a lozenge is now `[2,2,0,0]`, and income no longer renders wider than expenses
+(22 vs 14) — mismatched widths distort area in a paired comparison.
+
+**The four comparison bars were ordered current, current, previous, previous**,
+which put the two halves of each comparison a bar apart. They are now paired
+previous → current so each band reads then → now; the tooltip and the legend
+follow the same order. The previous month is de-emphasised by mixing 55% toward
+`--card` rather than by `fillOpacity`, which let the dashed grid read straight
+through the ghost bars.
+
+**The chart was `h-72` inside an `h-full` card.** Stretched to Invoice health's
+520px, it left 136px of empty card below the axis. `CardContent` is `flex-1`
+and the plot is `h-full min-h-72`, so it takes the slack (288 → 391px), and the
+legend moved into `CardFooter` — the pattern `conversations-chart.tsx` already
+uses for exactly this. Below `sm` the header controls take their own row: side
+by side they outgrew a phone-width card, and `Card`'s `overflow-hidden` was
+clipping the Weekly toggle off the edge.
+
+Also themed: the tooltip cursor, which shipped as Recharts' hard-coded `#ccc`.
+
+## `size-5` was an avatar size nobody had named
+
+Chasing one `text-[10px]` advisory on the dashboard's assignee initial turned
+up its cause. `Avatar` defines `sm` (24px), `default` (32px), and `lg` (40px),
+and its Fallback steps the initial down only for `sm`. But `className="size-5"`
+had quietly become a fourth size at **fifteen** call sites — assignee chips in
+the leads table and board cards, note-row authors, the follow-up queue, an
+invoice line. The Root resized; the Fallback kept its 14px default. So every one
+of those call sites hand-corrected the initial, and landed somewhere different:
+`text-[10px]` twelve times, `text-[9px]` once, and `text-[11px]` on a `size-6`
+avatar whose master value was already correct. Two adjacent dashboard queues
+rendered the same 20px avatar's letter at 10px and 12px.
+
+`Avatar` now has a named `xs` (20px) whose fallback is the on-ramp 12px, and all
+fifteen call sites pass `size="xs"` with no `fallbackClassName` at all. The two
+amber pending-transfer avatars keep the prop for their tint alone, which is what
+it was for. Net: seventeen hand-set or redundant values gone, and the rule is in
+`docs/ui-patterns.md` — a new avatar size belongs in `ui/avatar.tsx`, never as a
+call-site pair of `size-N` and a guessed `text-[Npx]`.
+
+Two visible changes, both deliberate: 20px initials go 10px → 12px, and the
+uncontacted-leads avatar (32px, previously downsized by hand) goes 12px → 14px,
+which is the master's value for that size.
+
+## The dashboard queues were top- and bottom-heavy
+
+Every queue row pads itself so the whole strip is a hover and click target, and
+that padding **added** to `Card`'s `py-4` — text sat 24–28px from the card's top
+and bottom against 16px from its sides. `QueueEmpty` was worse: its own `py-3`
+made an _empty_ queue deeper than one with rows in it.
+
+The fix keeps the rows exactly as tall as they were, because shrinking their
+padding would shrink the tap targets. Instead each list pulls back by its own
+row padding — the vertical twin of the `-mx-2` these lists already carried — so
+the first and last rows' text lands at the same 16px as the sides. It is
+`-my-2` where rows are `py-2` and `-my-2.5` where they are `py-2.5`; the pairing
+is load-bearing and is documented on the shared `QUEUE_LIST` export in
+`action-queue.tsx`. `QueueEmpty` lost its padding entirely: `Card`'s `py-4` is
+the whole inset.
+
+## Needs attention got rules between its three blocks
+
+An `auto` grid track between each pair holding a `Separator orientation="vertical"`,
+rather than `divide-x` or a `border-l` on each block — both of those key off DOM
+order rather than the visual row and paint a stray edge once the grid collapses.
+They are `hidden sm:block`, so the stacked layout keeps exactly its three items
+and gains no horizontal rules it does not need.
+
+One trap: the first attempt added `sm:gap-x-4` for breathing room around the
+rules, which spent ~50px of gutter and pushed "Auto-pay problems" into
+truncation. The existing `gap-2` is enough — each block's own `p-2.5` already
+holds content 18px off the rule.
+
+---
+
+## Leads by stage stopped fighting itself
+
+Three datasets in one card — stage bars, two conversion stats, a source table —
+with no rule between them, seven near-identical spacing values, and empty grey
+tracks on every zero stage. Structural fixes only; nothing was removed.
+
+**The zeros were as loud as the data.** Six full-width `bg-muted/60` tracks with
+two coloured bars on them. An empty stage now draws nothing at all — the shared
+left origin is the scale — and its label goes muted so non-zero rows lead.
+
+**The bar moved to LAST, after the numbers.** With the bar in the middle, an
+empty stage had its label at the left edge and its `0` a quarter of a card away
+with nothing bridging the gap. Label / count / age is now one cluster and the
+bar trails off, capped at `max-w-72` so a full bar is a chart mark rather than a
+slab. Below `sm` the bar is dropped entirely: in the ~50px a phone had left it
+was a stub, and the label takes that space so counts sit on the card's right
+edge.
+
+**`fit-content` label track + `subgrid`, and the two go together.** A fixed 5rem
+track truncated "Waiting on payment link" on every viewport; `fit-content(13rem)`
+sizes to the account's real statuses. But the template had been repeated on each
+`<li>`, so per-row grids resolved `fit-content` against _that row's_ label and
+the counts stepped in and out down the column. One grid now owns the caption row
+and the list, and both re-enter it through `grid-cols-subgrid`. It needs
+`content-start`: as a stretched grid item the rows otherwise spread to match the
+taller right region.
+
+**Two bordered `bg-muted/30` tiles inside a bordered card** became plain
+label/number stacks; a `Separator` (vertical on `lg`, horizontal stacked) now
+carries the split the boxes were faking. `Avg. time` hides entirely until some
+stage can fill it — a column of blanks read as missing data. The caption rows
+dropped their first word: "Stage" under "Leads by stage" and "Source" under
+"Joined by source" restated the heading directly above them.
+
+**Type moved onto the DESIGN.md ramp.** The card was 12px rows with 11px
+captions — an undocumented step, and microscopic next to every other data list
+in the product. Rows are the 14px body step, captions and metadata the 12px
+label step. The Impeccable detector's eight `text-[11px]` advisories were all
+pre-existing and are now zero.
+
+**Then a distill pass took the labels out.** The card carried ten pieces of
+chrome text; it carries four. `Stage` and `Source` restated the headings
+directly above them. `Leads` captioned a column of bold counts inside a card
+named "Leads by stage". `new memberships` restated "Joined this month". The
+source list's whole `Joined` / `Rate` caption row went: under a heading that
+already says "Joined by source", a row reading "22 of 32" then "69%" needs no
+legend to say which is which. `Avg. time` is the only caption left, because
+"13 days" is the one value that does not say what it measures — and it is not
+rendered at all when no stage can fill the column.
+
+`Joined by source` kept its first word on purpose. It looks like the same
+redundancy, but the card's own title says _Leads_, so a bare "By source" would
+read as a lead-count breakdown and its "1 of 1" rows would stop making sense.
+That leaves "Joined this month" / "Leads who joined" / "Joined by source" — one
+word carrying three meanings in ~200px. Reworking that is a `clarify` pass; it
+cannot be done by deletion.
+
+Verified in light and dark at 1280px and 375px across all four
+`app/preview/lead-funnel/page.tsx` cases.
+
+---
+
+## Every dashboard card lost its title
+
+The last of the flattening. `CardTitle` no longer appears anywhere on the
+dashboard: every block's name is a `DashboardSection` heading outside its card,
+and a card keeps a `CardHeader` **only when something acts on its content**.
+
+**Titles out, controls in.** Messages keeps its 7/30/90 `Toolbar`; Lead health
+score keeps its source `Select` and range `Toolbar`; the merged follow-up queue
+moved its scope Chips from between the heading and the card into the card
+header, where the control sits on top of the list it filters. Leads by stage and
+Recent work had no controls at all, so their headers are gone — their **See all
+leads** / **Open inbox** links moved to the section's `action` slot beside the
+heading, next to the **See all** that Expiring memberships already had there.
+
+**Two traps.** `CardAction` `justify-self-end`s its child, so a header holding
+only a control right-aligns it against an empty title column; and a bounded
+`Toolbar` dropped straight into the header grid stretches its border across the
+whole card with the segments huddled at the left. Both are fixed by a
+`flex flex-wrap items-center gap-2` header — controls left-aligned and
+content-sized. Messages shipped the stretched version for one build; the
+toolbar is 215px in a 493px header now.
+
+`DashboardSection`'s `badge` slot became `meta`, since it now carries Leads by
+stage's "1 total" and Lead health score's calculation-dialog help trigger as
+well as counts; the help trigger keeps `-ml-1.5` so it sits tight against the
+label it explains rather than at the heading's `gap-2`. The rating card's
+`Dialog` root wraps the section rather than the card, which is fine — Base UI's
+root renders no DOM. `LeadFunnel` gained `sectionId` (default `leads-by-stage`)
+because `app/preview/lead-funnel/page.tsx` renders three of them and would
+otherwise emit three identical heading ids.
+
+Verified live in light and dark at 1120px and 375px: ten sections, zero
+`card-title` nodes, a uniform 32px rhythm across all eight top-level blocks, and
+both side-by-side pairs — Messages/Lead health score and Expiring
+memberships/Not contacted yet — sharing a row at exactly equal card height.
+
+---
+
+## The dashboard is organised by the action, not the audience
+
+Follow-up on the flattening pass below. The page had split its work by _who_ it
+was about — a **Lead work** section and a **Member work** section, each holding
+a follow-up queue plus one unrelated queue. That is not how the work arrives:
+an owner clearing follow-ups wants one list in due order, not two lists to
+reconcile. Scope became a filter; the queues that are not follow-ups became
+sections of their own.
+
+**One merged queue.** `FollowUpQueue` (`components/dashboard/follow-up-queue.tsx`)
+replaces the follow-up half of both old components. `Chip`s filter **All / Leads /
+Members** with live `ChipCount`s, defaulting to All. A row routes by its own
+`membership_id`: member rows open `MemberDetailView` and complete with
+`context="member"`, lead rows open `ContactDetailView` and complete with
+`context="lead"`. Two things render **only under All**, because under a single
+scope they say nothing: the neutral **Lead** / **Member** tag, and — since no
+page owns both queues — the **See all** link, which appears once a chip narrows
+the list to `/leads?view=followups` or `/members?view=followups`. Do not point
+All at one of them.
+
+**The queue stopped changing what it shows.** `loadDashboardFollowUps` used to
+query due work, and re-query for upcoming only when that came back empty — so
+the list silently swapped meaning and its heading had to swap with it
+(**Follow-ups to do** ⇄ **Next follow-ups**). It now takes a `limit` and a
+scope, applies **no date filter**, and returns one list ordered by `due_date`:
+overdue on top, then today, then upcoming. `DashboardFollowUpMode`,
+`DashboardFollowUpContext`, and `DashboardFollowUpResult` are gone;
+`loadDashboardFollowUpCounts` is new and counts each scope with `head: true`
+because the row query is capped at the list limit. Its `today` argument is gone
+— nothing in the query needs it.
+
+**Due state comes from the shared helper now.** Rows resolve through
+`followUpDueState`, so an overdue row reads **Overdue** and a today row **Due
+today**, matching `lead-accountability-view` and `membership-status-badge`. The
+dashboard's old `Overdue 3d` was the only surface in the product counting days,
+which `docs/ui-patterns.md` already forbade re-deriving; sorted-ascending order
+carries relative lateness instead. Upcoming stays badge-free and shows its date.
+
+**The other two queues are sections.** `ExpiringMemberships` and
+`UncontactedLeads` are peer sections sharing one grid row — each with its own
+heading and card, not clubbed under a wrapper. `DashboardSection` gained a
+`className` slot so they can be `flex flex-col` with a `flex-1` card and end up
+equal height. **Expiring memberships** keeps its name rather than becoming
+"Renewals", which would collide with the **Renewals due** KPI tile counting the
+same population one section above.
+
+Gotcha: a follow-up row is `flex-wrap` with `grow basis-48` on the identity
+column. The trailing cluster (kind tag, date, assignee, complete) runs ~194px,
+which on a 375px phone left the person's name 107px; it now drops to a
+right-aligned second line on its own, with no breakpoint class to keep in sync.
+`QueueHeading` was deleted — the sub-label level it served no longer exists —
+and `QueueCount` took its place. Verified live in light and dark at 1440px,
+1120px, and 375px, with `today` temporarily shifted to confirm the Overdue and
+Due today badges, and each chip exercised for filtering, count, See-all target,
+and row routing.
+
+---
+
+## The dashboard lost two headings and a level
+
+A clarify/distill pass on `/dashboard`. Structural and copy only — no query, permission, or route changed.
+
+**The grouping level is gone.** The page had three heading levels: an h2 group (**Work to do**, **The full picture**), a `CardTitle` inside it, and a queue sub-label inside that. Neither group heading named anything its children didn't already name, so **Lead work**, **Member work**, and **Needs attention** are now top-level sections with their headings outside a headerless `Card`, and the four insight cards stand alone under no wrapper at all. Sub-labels (**Next follow-ups**, **Not contacted yet**, **Expiring memberships**) are now the only heading inside a card. `DashboardInsights` returns a fragment so its cards inherit the page's `space-y-8` — all eight top-level blocks sit on one 32px rhythm with a 24px heading row and 12px to content. The rule is recorded in `docs/ui-patterns.md`; do not reintroduce a grouping heading here.
+
+**Two new shared pieces, three duplicated ones deleted.** `dashboard-section.tsx` owns the heading row for all five sections (`GymMetrics` and `QuickActions` included). `action-queue.tsx` owns `QueueHeading` / `QueueSkeleton` / `QueueEmpty`, which the lead and member lists had defined separately in near-identical copies — including two different heading shapes and two skeleton row heights for the same-height rows.
+
+**Counts say one thing, once.** The truncation count is right-aligned in the queue heading and renders **only when the list is truncated** (`N of M`). Lead work printed a bare total above the rows it counted, and Member work carried a `Showing 8 of 23` footnote below its list; both are the same element now. The **New leads waiting 24+ hours** label became **Not contacted yet** — every row already badges its own `Waiting Nd`, and no page owns that queue, so it correctly has no **See all** (`/leads` routes only `all | followups`; the `first_response` accountability view is not reachable from the tabs).
+
+Gotcha: the section badge lives in `DashboardSection`'s `badge` slot, not concatenated into the title, because a flex container drops a whitespace-only text run — the accessible name read "Lead work1 to do". Verified live in light and dark at 1440px and 375px, with a forced truncated state to confirm the `N of M` placement.
+
+---
+
 ## Member creation no longer collects WhatsApp consent
 
 Add member and Convert to member no longer show the WhatsApp opt-in or evidence fields and never write consent as a side effect of checkout. Scoped consent remains manageable from the member profile's **Settings** card, and proactive account-update and Marketing templates remain fail-closed at their shared send boundaries. Key code: `src/components/members/member-form.tsx` and `src/lib/consent/template-consent.ts`. Gotcha: creating a member or possessing their phone number does not imply WhatsApp permission.

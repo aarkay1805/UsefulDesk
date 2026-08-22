@@ -2,8 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { FollowUp } from '@/types';
 
-export type DashboardFollowUpMode = 'due' | 'upcoming';
-export type DashboardFollowUpContext = 'lead' | 'member';
+/** Which side of the business a follow-up belongs to. */
+export type DashboardFollowUpScope = 'all' | 'lead' | 'member';
 
 export interface DashboardFollowUpRow {
   id: string;
@@ -22,71 +22,72 @@ export interface DashboardFollowUpRow {
   } | null;
 }
 
-export interface DashboardFollowUpResult {
-  rows: DashboardFollowUpRow[];
-  total: number;
-  mode: DashboardFollowUpMode;
+/** Open follow-ups per scope, for the queue's filter chips. */
+export interface DashboardFollowUpCounts {
+  all: number;
+  lead: number;
+  member: number;
 }
 
 const COLUMNS =
   'id, contact_id, membership_id, task_type, reason, due_date, remind_at, assigned_to, note, contact:contacts(name, phone, avatar_url)';
 
 /**
- * Load a focused dashboard follow-up queue for leads or members.
+ * One chronological page of open follow-ups — overdue first, then due today,
+ * then upcoming, all in the same list.
  *
- * Due and overdue work always wins. Only an empty due result triggers a
- * second query for the nearest upcoming work, so future tasks never displace
- * something that needs action today.
+ * This deliberately does NOT filter by date. An earlier version queried only
+ * due work and fell back to upcoming when that came back empty, which meant
+ * the queue silently changed what it was showing and its heading had to change
+ * with it. Ascending `due_date` already puts the late work on top, so the
+ * caller can render one list and let each row state its own due state.
  */
 export async function loadDashboardFollowUps(
   db: SupabaseClient,
-  today: string,
   limit: number,
-  context: DashboardFollowUpContext = 'lead'
-): Promise<DashboardFollowUpResult> {
-  let dueQuery = db
-    .from('follow_ups')
-    .select(COLUMNS, { count: 'exact' })
-    .eq('status', 'open');
-  dueQuery =
-    context === 'lead'
-      ? dueQuery.is('membership_id', null)
-      : dueQuery.not('membership_id', 'is', null);
-  const dueResult = await dueQuery
-    .lte('due_date', today)
-    .order('due_date', { ascending: true })
-    .limit(limit);
+  scope: DashboardFollowUpScope = 'all'
+): Promise<DashboardFollowUpRow[]> {
+  const base = db.from('follow_ups').select(COLUMNS).eq('status', 'open');
+  // A lead follow-up carries no membership; a member follow-up always does.
+  const scoped =
+    scope === 'lead'
+      ? base.is('membership_id', null)
+      : scope === 'member'
+        ? base.not('membership_id', 'is', null)
+        : base;
 
-  if (dueResult.error) throw dueResult.error;
-
-  const dueRows = (dueResult.data ?? []) as unknown as DashboardFollowUpRow[];
-  if (dueRows.length > 0) {
-    return {
-      rows: dueRows,
-      total: dueResult.count ?? 0,
-      mode: 'due',
-    };
-  }
-
-  let upcomingQuery = db
-    .from('follow_ups')
-    .select(COLUMNS, { count: 'exact' })
-    .eq('status', 'open');
-  upcomingQuery =
-    context === 'lead'
-      ? upcomingQuery.is('membership_id', null)
-      : upcomingQuery.not('membership_id', 'is', null);
-  const upcomingResult = await upcomingQuery
-    .gt('due_date', today)
+  const result = await scoped
     .order('due_date', { ascending: true })
     .order('remind_at', { ascending: true, nullsFirst: false })
     .limit(limit);
 
-  if (upcomingResult.error) throw upcomingResult.error;
+  if (result.error) throw result.error;
+  return (result.data ?? []) as unknown as DashboardFollowUpRow[];
+}
 
-  return {
-    rows: (upcomingResult.data ?? []) as unknown as DashboardFollowUpRow[],
-    total: upcomingResult.count ?? 0,
-    mode: 'upcoming',
-  };
+/**
+ * Live open-follow-up totals for the queue chips. Counted separately from the
+ * rows because the row query is capped at the dashboard's list limit, and a
+ * chip must report the whole queue it filters to.
+ */
+export async function loadDashboardFollowUpCounts(
+  db: SupabaseClient
+): Promise<DashboardFollowUpCounts> {
+  const open = () =>
+    db
+      .from('follow_ups')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'open');
+
+  const [leadResult, memberResult] = await Promise.all([
+    open().is('membership_id', null),
+    open().not('membership_id', 'is', null),
+  ]);
+
+  if (leadResult.error) throw leadResult.error;
+  if (memberResult.error) throw memberResult.error;
+
+  const lead = leadResult.count ?? 0;
+  const member = memberResult.count ?? 0;
+  return { all: lead + member, lead, member };
 }
