@@ -104,9 +104,9 @@ function FollowUpField({
 }
 
 /**
- * The single manual follow-up field set used by notes and assignment dialogs.
- * Keeping reason, action, date, owner, and reminder here prevents the two
- * entry points from drifting into different task models again.
+ * The single manual follow-up field set, rendered only through
+ * `FollowUpComposer` — so the profile Notes section and the standalone
+ * dialog cannot drift into different task models again.
  *
  * Every value control is the same menu-trigger recipe (outline / small) under
  * its own caption, so no field in the set reads as a lesser control than
@@ -155,14 +155,10 @@ export function FollowUpFields({
     'No reminder';
 
   return (
-    <div
-      className={cn(
-        showEnabledToggle
-          ? 'border-border border-t'
-          : 'border-border bg-card overflow-hidden rounded-lg border',
-        className
-      )}
-    >
+    // Always the attached treatment: this set only ever renders beneath a
+    // note textarea inside `FollowUpComposer`, so the composer owns the
+    // card and this owns the divider.
+    <div className={cn('border-border border-t', className)}>
       <div className="flex flex-col gap-3 p-3">
         {showEnabledToggle && (
           <div className="flex items-center justify-between gap-2">

@@ -326,7 +326,8 @@ export function ServiceRenewalActionLists({
                       <div className="flex justify-end gap-1">
                         <FollowUpButton
                           loading={pendingAction === `${row.id}:followup`}
-                          disabled={!canAct || pendingAction !== null}
+                          canAct={canAct}
+                          disabled={pendingAction !== null}
                           onClick={() => void openAction(row, 'followup')}
                         />
                         <Button

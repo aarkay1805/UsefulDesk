@@ -6,6 +6,26 @@
 
 ---
 
+## One follow-up composer everywhere
+
+An audit of every manual follow-up creation path found the product had two of them. The profile **Notes & follow-ups** composer was the base reference; the standalone `FollowUpDialog` opened by `FollowUpButton` was a second, quietly different surface. They are one surface now.
+
+**One composer.** `NoteComposerCard` left `contact-notes-thread.tsx` and became `components/follow-ups/follow-up-composer.tsx`. Both entry points mount it: note textarea, then `FollowUpFields` attached by a divider inside one bordered card, ⌘/Ctrl+Enter to submit, one placeholder. The dialog used to invert this — fields first, then a separately labelled note below — and had no keyboard submit. `FollowUpFields` lost its standalone bordered-card branch; it renders only inside the composer now, which is what `docs/ui-patterns.md` already claimed.
+
+**A note is a note.** The dialog wrote its note only to `follow_ups.note`, so completing the task overwrote it with the closing note and the context was gone — while the identical text typed in the profile composer became a durable `contact_notes` row. The dialog now writes the `contact_notes` row first, links it through `note_id`, and copies 200 characters onto the task, exactly like the composer. One card renders on the timeline, not two. Toast follows what happened: **Note and follow-up added** with a note, **Follow-up created** without.
+
+**The blocked case is answered before the form, not after it.** One open follow-up per contact is a partial unique index (migration `036`). Nine of the ten entry points only discovered that on submit, after the user filled the form. `FollowUpDialog` now reads the contact's open task when it opens and, if there is one, shows **Follow-up already open** — the task summary, its due date and due-state badge, and a **Complete follow-up** action that swaps in `CompleteFollowUpDialog` as a sibling dialog. Gotcha: siblings, not nesting — `CompleteFollowUpDialog` renders outside `DialogContent` and Back returns to the blocked state rather than closing everything.
+
+**Same seeds, same gates.** The dialog's private `dueId: 'tomorrow'` and explicit assignee overrides are gone; both surfaces seed from `DEFAULT_FOLLOW_UP_DRAFT` (**In 3 days**, assignee `''` = Me). Reason went the other way: the profile composer always opened on **Other** while the row action inferred from the membership, so `ContactNotesThread` gained `followUpReason` and `MemberDetailView` passes `defaultReason(membership, fmt.today())`. Renewals and Payments now pass their `initialReason` the way Trials and At risk already did. Attendance deliberately does not — a member who just checked in has no single obvious reason.
+
+Renewals, Trials, and At risk rendered their row `FollowUpButton` with no `canAct`, so a viewer saw an enabled button beside a correctly disabled one in the same row's avatar quick view; Services renewals used a bare `disabled`, which kills the Read-only tooltip. All four are gated on the `canFollowUp` those files already computed.
+
+**Elsewhere.** `dueBadge` moved out of `contact-notes-thread.tsx` into `lib/follow-ups/due-state.ts` as `followUpDueState`, shared with the dialog. The automations step said **Create Follow-up Task** over a **Task type** select with hard-coded options — "task" is internal vocabulary and the list could drift; it is **Create Follow-up** over a **Follow-up** select fed by `FOLLOW_UP_TASK_TYPES`. The note-editor's toggle-off cancel now chains `.select('id')` per the repo's RLS gotcha instead of reporting success on zero rows. `FollowUpDialog` adopted `invoice-detail-dialog`'s scroll recipe, because the shared composer's textarea grows to `max-h-56` and the old fixed-height note field did not.
+
+Bulk **Add note** stays note-only. Verified live in light and dark: composer, blocked state, the completion swap, and a create that wrote both rows with `note_id` set.
+
+---
+
 ## Notes & follow-ups says what it does
 
 A clarify pass over the profile notes thread and the follow-up dialogs it opens. Copy-only except for one caption split; edits land in the shared components, so lead profiles and the inbox notes panel move with the member profile — `docs/ui-patterns.md` requires they not diverge.

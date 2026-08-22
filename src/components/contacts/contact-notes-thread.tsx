@@ -6,8 +6,9 @@
 // contact, so contact_notes / follow_ups apply unchanged — one thread
 // component, keyed by contactId, everywhere a person's notes render.
 //
-// NoteComposerCard stays private to this profile Notes surface, while its
-// follow-up fields and draft model are shared with the standalone dialog.
+// The composer itself is the shared FollowUpComposer — the same block the
+// standalone Create-follow-up dialog renders, so this surface stays the
+// base reference for every manual follow-up in the product.
 
 import {
   useCallback,
@@ -27,8 +28,8 @@ import { isUniqueViolation } from '@/lib/contacts/dedupe';
 import { getErrorMessage } from '@/lib/errors';
 import { canDeleteAnyNote } from '@/lib/auth/roles';
 import { manualFollowUpReasonForWrite } from '@/lib/follow-ups/manual';
+import { followUpDueState } from '@/lib/follow-ups/due-state';
 import { buildProfileActivity } from '@/lib/follow-ups/profile-activity';
-import { daysBetween } from '@/lib/memberships/expiry';
 import {
   duePresets,
   FOLLOW_UP_TASK_TYPES,
@@ -41,9 +42,9 @@ import {
   useAccountStaff,
   type StaffMember,
 } from '@/components/members/use-account-staff';
+import { FollowUpComposer } from '@/components/follow-ups/follow-up-composer';
 import {
   DEFAULT_FOLLOW_UP_DRAFT,
-  FollowUpFields,
   resolveDueDate,
   type FollowUpDraft,
 } from '@/components/follow-ups/follow-up-fields';
@@ -51,7 +52,6 @@ import type { ContactNote, FollowUp, FollowUpReason } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MotionList, MotionListItem } from '@/components/ui/motion-list';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Tooltip,
   TooltipContent,
@@ -66,21 +66,6 @@ import { TASK_ICON } from '@/components/follow-ups/follow-up-task-summary';
  *  device never hovers — there they are always on. */
 const HOVER_ACTION_CLASS =
   'shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100';
-
-/** Urgency of an OPEN task, using the product's established due buckets.
- *  A closed task never claims urgency. */
-function dueBadge(
-  status: FollowUp['status'],
-  dueDate: string,
-  today: string
-): { label: string; variant: 'danger' | 'warning' } | null {
-  if (status !== 'open') return null;
-  const diff = daysBetween(today, dueDate);
-  if (Number.isNaN(diff)) return null;
-  if (diff < 0) return { label: 'Overdue', variant: 'danger' };
-  if (diff === 0) return { label: 'Due today', variant: 'warning' };
-  return null;
-}
 
 /** The slice of a follow_ups row the profile activity timeline needs. */
 interface ProfileFollowUp {
@@ -111,6 +96,10 @@ interface ContactNotesThreadProps {
   membershipId?: string | null;
   /** Fetch trigger — the hosting sheet's `open`. */
   active: boolean;
+  /** Seeds the composer's member-only Reason chip, so a note-created
+   *  follow-up starts on the same reason the row action would pick.
+   *  Contact/lead profiles omit it and keep the neutral sentinel. */
+  followUpReason?: FollowUpReason;
   /** Focus target for the host's "Note" quick action. */
   textareaRef?: React.Ref<HTMLTextAreaElement>;
   /** Fires after any follow-up-affecting write so the host can re-sync
@@ -122,6 +111,7 @@ export function ContactNotesThread({
   contactId,
   membershipId,
   active,
+  followUpReason,
   textareaRef,
   onFollowUpChanged,
 }: ContactNotesThreadProps) {
@@ -143,10 +133,21 @@ export function ContactNotesThread({
   const [completingFollowUp, setCompletingFollowUp] =
     useState<ProfileFollowUp | null>(null);
 
+  // A fresh draft for this profile. Only Reason is contextual: the host
+  // knows the membership, so the composer and the row-action dialog land
+  // on the same chip for the same member instead of one saying "Other".
+  const emptyDraft = useMemo<FollowUpDraft>(
+    () => ({
+      ...DEFAULT_FOLLOW_UP_DRAFT,
+      reason: followUpReason ?? DEFAULT_FOLLOW_UP_DRAFT.reason,
+    }),
+    [followUpReason]
+  );
+
   // Follow-up bar under the composer: task type + due date, assignee, and
   // optional reminder. Member profiles also show the member-only Reason.
   const [followUpDraft, setFollowUpDraft] = useState<FollowUpDraft>(
-    DEFAULT_FOLLOW_UP_DRAFT
+    () => emptyDraft
   );
   const patchFollowUpDraft = useCallback(
     (patch: Partial<FollowUpDraft>) =>
@@ -198,7 +199,7 @@ export function ContactNotesThread({
     if (draftKey) window.localStorage.removeItem(draftKey);
     setNewNote('');
     setDraftSaved(false);
-    setFollowUpDraft(DEFAULT_FOLLOW_UP_DRAFT);
+    setFollowUpDraft(emptyDraft);
   }
 
   const fetchNotes = useCallback(async () => {
@@ -308,7 +309,7 @@ export function ContactNotesThread({
         }
       } else {
         toast.success('Note and follow-up added');
-        setFollowUpDraft(DEFAULT_FOLLOW_UP_DRAFT);
+        setFollowUpDraft(emptyDraft);
         notifyFollowUpChanged();
       }
     } else {
@@ -493,11 +494,20 @@ export function ContactNotesThread({
         }
       }
     } else if (!draft.enabled && existing && existing.status === 'open') {
-      // Toggled off in the editor — retire the task.
-      await supabase
+      // Toggled off in the editor — retire the task. An RLS-blocked
+      // update returns no error and zero rows, so the returned row (not
+      // the absent error) decides whether the user is told it worked.
+      const { data: cancelled } = await supabase
         .from('follow_ups')
         .update({ status: 'cancelled' })
-        .eq('id', existing.id);
+        .eq('id', existing.id)
+        .select('id')
+        .maybeSingle();
+      if (!cancelled) {
+        toast.error(
+          "Note saved, but the follow-up wasn't cancelled. Refresh and try again."
+        );
+      }
     }
 
     toast.success('Note updated');
@@ -531,7 +541,7 @@ export function ContactNotesThread({
           src={profile?.avatar_url}
         />
         <div className="min-w-0 space-y-2">
-          <NoteComposerCard
+          <FollowUpComposer
             text={newNote}
             onTextChange={setNewNote}
             onSubmit={addNote}
@@ -605,6 +615,7 @@ export function ContactNotesThread({
                     nameById={nameById}
                     staff={staff}
                     showReason={Boolean(membershipId)}
+                    emptyDraft={emptyDraft}
                     canDeleteAny={
                       accountRole ? canDeleteAnyNote(accountRole) : false
                     }
@@ -688,7 +699,7 @@ function FollowUpActivityCard({
   // The icon carries the task type, so the heading can keep the product's
   // one noun for the thing itself and give the row to its urgency instead.
   const TaskIcon = TASK_ICON[followUp.task_type] ?? TASK_ICON.todo;
-  const due = dueBadge(followUp.status, followUp.due_date, fmt.today());
+  const due = followUpDueState(followUp.status, followUp.due_date, fmt.today());
 
   return (
     <div className="grid grid-cols-[auto_1fr] gap-2.5">
@@ -809,65 +820,6 @@ function StaffAvatar({ name, src }: { name: string; src?: string | null }) {
   );
 }
 
-// The composer card — borderless textarea + attached follow-up bar in
-// one bordered container. Shared by "write a note" and a saved note's
-// edit view (which swaps the footer CTA for Save/Cancel).
-function NoteComposerCard({
-  text,
-  onTextChange,
-  onSubmit,
-  draft,
-  onPatch,
-  staff,
-  currentUserId,
-  showReason,
-  textareaRef,
-  autoFocus,
-}: {
-  text: string;
-  onTextChange: (v: string) => void;
-  /** ⌘/Ctrl+Enter accelerator — Enter still inserts a newline. */
-  onSubmit?: () => void;
-  draft: FollowUpDraft;
-  onPatch: (patch: Partial<FollowUpDraft>) => void;
-  staff: StaffMember[];
-  currentUserId: string;
-  showReason: boolean;
-  textareaRef?: React.Ref<HTMLTextAreaElement>;
-  autoFocus?: boolean;
-}) {
-  return (
-    // bg-card (not bg-muted) — the switch's unchecked track is muted
-    // grey and disappears on a grey card.
-    <div className="border-border bg-card focus-within:border-ring focus-within:ring-ring/50 rounded-lg border transition-colors focus-within:ring-3">
-      <Textarea
-        ref={textareaRef}
-        autoFocus={autoFocus}
-        value={text}
-        onChange={(e) => onTextChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            onSubmit?.();
-          }
-        }}
-        placeholder="e.g. Called about renewal — will decide after payday"
-        aria-label="Note"
-        // The master already grows with its content; the cap keeps a long
-        // note from pushing the follow-up fields out of the sheet.
-        className="text-foreground placeholder:text-muted-foreground max-h-56 resize-none overflow-y-auto border-0 bg-transparent text-sm focus-visible:border-transparent focus-visible:ring-0"
-      />
-      <FollowUpFields
-        draft={draft}
-        onPatch={onPatch}
-        staff={staff}
-        currentUserId={currentUserId}
-        showReason={showReason}
-      />
-    </div>
-  );
-}
-
 // One saved note: note-only cards lead with their text; notes attached
 // to follow-ups use the canonical task-first card above. Clicking the text opens
 // the FULL composer edit view for the note's creator (textarea +
@@ -883,6 +835,7 @@ function NoteCard({
   nameById,
   staff,
   showReason,
+  emptyDraft,
   onMarkDone,
   onDelete,
   deleting,
@@ -899,6 +852,8 @@ function NoteCard({
   nameById: Map<string, string>;
   staff: StaffMember[];
   showReason: boolean;
+  /** Seed for "this note has no follow-up yet" — same as the composer's. */
+  emptyDraft: FollowUpDraft;
   onMarkDone: (followUpId: string) => void;
   onDelete: (noteId: string) => void;
   deleting: boolean;
@@ -915,9 +870,7 @@ function NoteCard({
   const isOwner = note.user_id === currentUserId;
   const [editing, setEditing] = useState(false);
   const [draftText, setDraftText] = useState('');
-  const [editDraft, setEditDraft] = useState<FollowUpDraft>(
-    DEFAULT_FOLLOW_UP_DRAFT
-  );
+  const [editDraft, setEditDraft] = useState<FollowUpDraft>(() => emptyDraft);
   const [savingEdit, setSavingEdit] = useState(false);
   // Clamp heuristic — cheap and stable (no layout measurement):
   // long text or 4+ lines gets the 3-line clamp + "See more".
@@ -943,7 +896,7 @@ function NoteCard({
             assignee: followUp.assigned_to ?? '',
             remindSlot: slotFromRemindAt(followUp.remind_at, locale.timeZone),
           }
-        : DEFAULT_FOLLOW_UP_DRAFT
+        : emptyDraft
     );
     setEditing(true);
   }
@@ -1055,7 +1008,7 @@ function NoteCard({
       <div className="grid grid-cols-[auto_1fr] gap-2.5">
         <StaffAvatar name={authorName} src={authorAvatarUrl} />
         <div className="min-w-0 space-y-2">
-          <NoteComposerCard
+          <FollowUpComposer
             text={draftText}
             onTextChange={setDraftText}
             onSubmit={saveEdit}

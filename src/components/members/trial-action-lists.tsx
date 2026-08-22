@@ -250,7 +250,10 @@ function TrialList({
                   onClick={(e) => e.stopPropagation()}
                 >
                   {onFollowUp && (
-                    <FollowUpButton onClick={() => onFollowUp(m)} />
+                    <FollowUpButton
+                      canAct={canFollowUp}
+                      onClick={() => onFollowUp(m)}
+                    />
                   )}
                   <SendReminderButton
                     membership={m}

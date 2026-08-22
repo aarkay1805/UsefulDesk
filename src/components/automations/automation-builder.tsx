@@ -73,6 +73,7 @@ import {
   type ParentScope,
   type StepPath,
 } from '@/lib/automations/builder-tree';
+import { FOLLOW_UP_TASK_TYPES } from '@/lib/leads/follow-up-dates';
 import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
 import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { cn } from '@/lib/utils';
@@ -148,7 +149,7 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
     border: 'border-l-primary',
   },
   create_follow_up: {
-    label: 'Create Follow-up Task',
+    label: 'Create Follow-up',
     icon: ClipboardList,
     border: 'border-l-primary',
   },
@@ -1501,7 +1502,9 @@ function StepEditor({
       return (
         <>
           <div className="grid grid-cols-2 gap-2">
-            <FieldBlock label="Task type">
+            {/* Same caption and option list the manual composer uses —
+                "Follow-up" names the work, never "Task". */}
+            <FieldBlock label="Follow-up">
               <Select
                 value={(cfg.task_type as string) ?? 'call'}
                 onValueChange={(v) => set({ task_type: v })}
@@ -1510,9 +1513,11 @@ function StepEditor({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="call">Call</SelectItem>
-                  <SelectItem value="email">Email</SelectItem>
-                  <SelectItem value="todo">To-do</SelectItem>
+                  {FOLLOW_UP_TASK_TYPES.map((taskType) => (
+                    <SelectItem key={taskType.value} value={taskType.value}>
+                      {taskType.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </FieldBlock>

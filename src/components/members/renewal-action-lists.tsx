@@ -257,6 +257,7 @@ export function RenewalActionLists({
             if (!o) setAssigning(null);
           }}
           membership={assigning}
+          initialReason="renewal"
           onSaved={reload}
         />
       )}
@@ -460,7 +461,10 @@ function RenewalTable({
                     >
                       <div className="flex items-center justify-end gap-1">
                         {onAssign && (
-                          <FollowUpButton onClick={() => onAssign(m)} />
+                          <FollowUpButton
+                            canAct={canFollowUp}
+                            onClick={() => onAssign(m)}
+                          />
                         )}
                         <Button
                           size="sm"

@@ -128,6 +128,7 @@ import { RenewMembershipDialog } from './renew-membership-dialog';
 import { ChangePlanDialog } from './change-plan-dialog';
 import { AvatarEditorDialog } from './avatar-editor-dialog';
 import { SetUpAutoPayDialog } from './set-up-autopay-dialog';
+import { defaultReason } from '@/lib/memberships/follow-ups';
 import { ContactNotesThread } from '@/components/contacts/contact-notes-thread';
 import { CopyUpiLinkButton, useUpiConfig } from './copy-upi-link-button';
 import {
@@ -1703,6 +1704,10 @@ function MembershipDetailView({
                             contactId={membership.contact_id}
                             membershipId={membership.id}
                             active={open}
+                            followUpReason={defaultReason(
+                              membership,
+                              fmt.today()
+                            )}
                             onFollowUpChanged={refreshAll}
                           />
                         </CardContent>
