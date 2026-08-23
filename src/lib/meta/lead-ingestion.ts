@@ -124,7 +124,23 @@ export async function processOwnedMetaLeadEvent(
   }
 
   const mapped = mapMetaLeadFields(lead.field_data ?? []);
-  if (!mapped.phone) {
+  let phone: string | null = null;
+  if (mapped.phone) {
+    const { data: account, error: accountError } = await admin
+      .from('accounts')
+      .select('phone_country_code')
+      .eq('id', event.accountId)
+      .maybeSingle();
+    if (accountError) {
+      throw new Error('Meta lead account locale is unavailable');
+    }
+    phone = normalizeSubmittedPhone(
+      mapped.phone,
+      (account?.phone_country_code as string) ?? ''
+    );
+  }
+
+  if (!phone) {
     const { data: completed, error: completeError } = await admin.rpc(
       'complete_meta_lead_without_phone_owned',
       {
@@ -139,19 +155,6 @@ export async function processOwnedMetaLeadEvent(
     }
     return { status: 'skipped_no_phone' };
   }
-
-  const { data: account, error: accountError } = await admin
-    .from('accounts')
-    .select('phone_country_code')
-    .eq('id', event.accountId)
-    .maybeSingle();
-  if (accountError) throw new Error('Meta lead account locale is unavailable');
-
-  const phone =
-    normalizeSubmittedPhone(
-      mapped.phone,
-      (account?.phone_country_code as string) ?? ''
-    ) ?? mapped.phone;
   const auditUserId = await resolveAuditUserId(admin, event.accountId);
 
   const { data: capture, error: captureError } = await admin
@@ -169,7 +172,9 @@ export async function processOwnedMetaLeadEvent(
     })
     .single();
   if (captureError || !capture) {
-    throw new Error('Atomic Meta lead capture failed');
+    throw new Error(
+      `Atomic Meta lead capture failed${captureError?.code ? ` (${captureError.code})` : ''}`
+    );
   }
 
   const {

@@ -68,14 +68,18 @@ export async function runMetaLeadEventRecovery(args: {
         processingOwner: owner,
       });
       result.processed += 1;
-    } catch {
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message.slice(0, 1_000)
+          : 'Meta lead processing failed';
       const { data: failed, error: failError } = await args.admin.rpc(
         'fail_meta_lead_webhook_event_owned',
         {
           p_event_id: row.event_id,
           p_account_id: row.account_id,
           p_processing_owner: owner,
-          p_error: 'Meta lead processing failed',
+          p_error: message,
         }
       );
       if (failError || failed !== true) {

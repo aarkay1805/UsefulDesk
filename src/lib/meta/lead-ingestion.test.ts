@@ -148,6 +148,29 @@ describe('owned Meta lead ingestion', () => {
     expect(mocks.runAutomationsForTrigger).not.toHaveBeenCalled();
   });
 
+  it('treats Meta test placeholder text as a phone-less lead', async () => {
+    const { admin, rpcCalls } = adminFixture();
+    mocks.mapMetaLeadFields.mockReturnValue({
+      phone: '<test lead: dummy data>',
+      name: '<test lead: dummy data>',
+      email: '<test lead: dummy data>',
+      extras: [],
+    });
+
+    await expect(
+      processOwnedMetaLeadEvent({
+        admin: admin as never,
+        event,
+        processingOwner: 'owner-1',
+      })
+    ).resolves.toEqual({ status: 'skipped_no_phone' });
+
+    expect(rpcCalls.map((call) => call.name)).toEqual([
+      'complete_meta_lead_without_phone_owned',
+    ]);
+    expect(mocks.resolveAuditUserId).not.toHaveBeenCalled();
+  });
+
   it('captures one enquiry, dispatches creation once, enriches non-blockingly, and completes the owned event', async () => {
     const { admin, rpcCalls, updates } = adminFixture();
     mocks.mapMetaLeadFields.mockReturnValue({
