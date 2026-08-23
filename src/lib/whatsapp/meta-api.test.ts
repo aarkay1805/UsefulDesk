@@ -1,9 +1,43 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  exchangeEmbeddedSignupCode,
   INTERACTIVE_LIMITS,
   sendInteractiveButtons,
   sendInteractiveList,
 } from './meta-api';
+
+describe('exchangeEmbeddedSignupCode', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('preserves the exact JS SDK redirect URI when exchanging a Lead Ads code', async () => {
+    const redirectUri =
+      'https://staticxx.facebook.com/x/connect/xd_arbiter/?version=46#frame=test';
+    let requestedUrl = '';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        requestedUrl = url;
+        return new Response(JSON.stringify({ access_token: 'page-token' }), {
+          status: 200,
+        });
+      })
+    );
+
+    await expect(
+      exchangeEmbeddedSignupCode({
+        appId: 'app-id',
+        appSecret: 'app-secret',
+        code: 'one-time-code',
+        redirectUri,
+      })
+    ).resolves.toBe('page-token');
+
+    const params = new URL(requestedUrl).searchParams;
+    expect(params.get('redirect_uri')).toBe(redirectUri);
+  });
+});
 
 // All assertions in this file run BEFORE the network call. We stub fetch
 // to a never-resolving mock so a test that accidentally falls through to

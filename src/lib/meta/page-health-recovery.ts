@@ -101,7 +101,11 @@ export async function retainMetaPageHealthResult(args: {
   if (args.result.kind === 'healthy' || args.result.kind === 'repaired') {
     const { data, error } = await args.admin.rpc(
       'complete_meta_page_health_check',
-      { ...common, p_repaired: args.result.kind === 'repaired' }
+      {
+        ...common,
+        p_repaired: args.result.kind === 'repaired',
+        p_lead_access_verified: args.result.leadAccessVerified !== false,
+      }
     );
     return !error && data === true;
   }

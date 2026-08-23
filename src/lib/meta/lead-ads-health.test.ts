@@ -68,6 +68,25 @@ describe('Meta Lead Ads Page health', () => {
     expect(meta.getLeadgenSubscription).toHaveBeenCalledTimes(2);
   });
 
+  it('verifies the subscription when Meta says the lead-access diagnostic is unavailable', async () => {
+    const meta = provider({
+      access: {
+        page_id: 'page-1',
+        user_id: 'user-1',
+        failure_reason: 'This API is not available.',
+      },
+    });
+
+    await expect(
+      diagnoseAndRepairMetaPage({ provider: meta, timeoutMs: 100 })
+    ).resolves.toMatchObject({
+      kind: 'healthy',
+      leadAccessVerified: false,
+    });
+    expect(meta.getLeadgenSubscription).toHaveBeenCalledOnce();
+    expect(meta.subscribeLeadgen).not.toHaveBeenCalled();
+  });
+
   it('fails closed when the subscription is still absent after the repair request', async () => {
     const meta = provider({ subscriptions: [false, false] });
 

@@ -15,6 +15,7 @@ import {
   processOwnedMetaLeadEvent,
   type LeadgenValue,
 } from '@/lib/meta/lead-ingestion';
+import { resolveMetaLeadgenVerifyToken } from '@/lib/meta/webhook-verify-token';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
 
 export const runtime = 'nodejs';
@@ -23,13 +24,13 @@ export const maxDuration = 30;
 /** Meta's app-level subscription handshake. */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const expected = process.env.META_LEADGEN_VERIFY_TOKEN;
+  const expected = resolveMetaLeadgenVerifyToken();
 
   if (!expected) {
     console.error(
-      '[meta-leads] META_LEADGEN_VERIFY_TOKEN is not set — rejecting the ' +
-        'handshake. Set it, then re-verify the Page webhook in the Meta ' +
-        'App Dashboard.'
+      '[meta-leads] no webhook verification credential is configured — ' +
+        'rejecting the handshake. Set META_LEADGEN_VERIFY_TOKEN or ' +
+        'META_APP_SECRET, then re-verify the Page webhook in Meta.'
     );
     return new Response('Forbidden', { status: 403 });
   }

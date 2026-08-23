@@ -66,7 +66,7 @@ describe('Meta Lead Ads Graph contract', () => {
       user_id: 'user-1',
     };
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({ id: 'page-1', has_lead_access: { data: [access] } })
+      jsonResponse({ id: 'page-1', has_lead_access: access })
     );
 
     await expect(

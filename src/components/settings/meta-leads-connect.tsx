@@ -125,13 +125,37 @@ export function MetaLeadsConnect() {
     setConnecting(true);
     try {
       const FB = await loadFbSdk(META_APP_ID);
-      const response = await new Promise<FbLoginResponse>((resolve) => {
-        FB.login(resolve, {
-          config_id: LEADS_CONFIG_ID,
-          response_type: 'code',
-          override_default_response_type: true,
+      let oauthRedirectUri: string | undefined;
+      const originalWindowOpen = window.open;
+      window.open = ((...args: Parameters<typeof window.open>) => {
+        const [popupUrl] = args;
+        if (popupUrl) {
+          try {
+            const parsed = new URL(String(popupUrl), window.location.href);
+            if (parsed.hostname === 'www.facebook.com') {
+              oauthRedirectUri =
+                parsed.searchParams.get('redirect_uri') ?? undefined;
+            }
+          } catch {
+            // Meta still owns the popup; an unparseable URL simply means the
+            // token exchange will use its legacy no-redirect fallback.
+          }
+        }
+        return originalWindowOpen.apply(window, args);
+      }) as typeof window.open;
+
+      let response: FbLoginResponse;
+      try {
+        response = await new Promise<FbLoginResponse>((resolve) => {
+          FB.login(resolve, {
+            config_id: LEADS_CONFIG_ID,
+            response_type: 'code',
+            override_default_response_type: true,
+          });
         });
-      });
+      } finally {
+        window.open = originalWindowOpen;
+      }
 
       const code = response.authResponse?.code;
       if (!code) {
@@ -143,7 +167,7 @@ export function MetaLeadsConnect() {
       const res = await fetch('/api/meta/leads/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, redirect_uri: oauthRedirectUri }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? 'Could not connect');

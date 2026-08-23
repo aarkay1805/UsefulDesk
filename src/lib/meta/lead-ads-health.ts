@@ -16,6 +16,8 @@ export interface MetaLeadHealthResult {
   resolution: string | null;
   humanAction: boolean;
   transient: boolean;
+  /** False when Meta omits the diagnostic but the leadgen subscription works. */
+  leadAccessVerified?: boolean;
 }
 
 export interface MetaLeadHealthProvider {
@@ -216,7 +218,13 @@ export async function diagnoseAndRepairMetaPage(
     const access = await withTimeout(timeoutMs, (signal) =>
       args.provider.getLeadAccess(signal)
     );
-    if (!access.can_access_lead) return deniedLeadAccess(access);
+    const diagnosticUnavailable =
+      access.can_access_lead === undefined &&
+      access.failure_reason?.trim().toLowerCase() ===
+        'this api is not available.';
+    if (access.can_access_lead !== true && !diagnosticUnavailable) {
+      return deniedLeadAccess(access);
+    }
 
     const before = await withTimeout(timeoutMs, (signal) =>
       args.provider.getLeadgenSubscription(signal)
@@ -229,6 +237,7 @@ export async function diagnoseAndRepairMetaPage(
         resolution: null,
         humanAction: false,
         transient: false,
+        ...(diagnosticUnavailable ? { leadAccessVerified: false } : {}),
       };
     }
 
@@ -256,6 +265,7 @@ export async function diagnoseAndRepairMetaPage(
       resolution: null,
       humanAction: false,
       transient: false,
+      ...(diagnosticUnavailable ? { leadAccessVerified: false } : {}),
     };
   } catch (error) {
     return classifyMetaLeadHealthFailure(error);

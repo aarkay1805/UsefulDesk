@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { requireSameOriginRequest } from './csrf';
 
 describe('same-origin mutation guard', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('accepts same-origin browser requests', () => {
     expect(() =>
       requireSameOriginRequest(
@@ -38,5 +42,45 @@ describe('same-origin mutation guard', () => {
         )
       )
     ).toThrow(/origin|Cross-site/);
+  });
+
+  it('accepts only the exact configured HTTPS development tunnel', () => {
+    vi.stubEnv('META_REVIEW_TUNNEL_HOST', 'review-example.trycloudflare.com');
+
+    const tunnelRequest = (origin: string, forwardedHost: string) =>
+      new Request('http://localhost:3000/api/meta/leads/connect', {
+        method: 'POST',
+        headers: {
+          origin,
+          'sec-fetch-site': 'same-origin',
+          'x-forwarded-host': forwardedHost,
+          'x-forwarded-proto': 'https',
+        },
+      });
+
+    expect(() =>
+      requireSameOriginRequest(
+        tunnelRequest(
+          'https://review-example.trycloudflare.com',
+          'review-example.trycloudflare.com'
+        )
+      )
+    ).not.toThrow();
+    expect(() =>
+      requireSameOriginRequest(
+        tunnelRequest(
+          'https://attacker.example',
+          'review-example.trycloudflare.com'
+        )
+      )
+    ).toThrow(/origin/);
+    expect(() =>
+      requireSameOriginRequest(
+        tunnelRequest(
+          'https://review-example.trycloudflare.com',
+          'attacker.example'
+        )
+      )
+    ).toThrow(/origin/);
   });
 });

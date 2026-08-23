@@ -23,6 +23,11 @@ describe('Meta Lead Ads connection boundary', () => {
     expect(source).toContain('credential_generation');
   });
 
+  it('forwards only an approved JS SDK redirect URI into the code exchange', () => {
+    expect(source).toContain("parsed.hostname !== 'staticxx.facebook.com'");
+    expect(source).toContain('redirectUri,');
+  });
+
   it('compensates a newly installed provider subscription when storage fails', () => {
     const writeFailureAt = source.indexOf('if (writeFailed)');
     expect(writeFailureAt).toBeGreaterThan(0);

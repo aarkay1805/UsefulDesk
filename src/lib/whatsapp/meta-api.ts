@@ -293,24 +293,26 @@ export interface ExchangeEmbeddedSignupCodeArgs {
   appId: string;
   appSecret: string;
   code: string;
+  redirectUri?: string;
 }
 
 /**
  * Exchange the authorization code returned by the Embedded Signup
- * popup (FB.login with response_type:'code') for a business
- * integration system-user access token scoped to the customer's
- * WABA under our app. Per Meta's current behaviour these tokens do
- * not expire. No redirect_uri is involved in the ES exchange.
+ * popup (FB.login with response_type:'code') for a business integration
+ * access token. WhatsApp Embedded Signup still exchanges without a redirect
+ * URI; Lead Ads passes the exact JS SDK popup redirect because Meta binds its
+ * authorization code to that URI.
  */
 export async function exchangeEmbeddedSignupCode(
   args: ExchangeEmbeddedSignupCodeArgs
 ): Promise<string> {
-  const { appId, appSecret, code } = args;
+  const { appId, appSecret, code, redirectUri } = args;
   const params = new URLSearchParams({
     client_id: appId,
     client_secret: appSecret,
     code,
   });
+  if (redirectUri) params.set('redirect_uri', redirectUri);
   const response = await fetch(
     `${META_API_BASE}/oauth/access_token?${params.toString()}`
   );
@@ -417,7 +419,7 @@ export async function getMetaUser(args: GetMetaUserArgs): Promise<MetaUser> {
 
 export interface MetaPageLeadAccess {
   app_has_leads_permission?: boolean;
-  can_access_lead: boolean;
+  can_access_lead?: boolean;
   enabled_lead_access_manager?: boolean;
   failure_reason?: string;
   failure_resolution?: string;
@@ -451,10 +453,15 @@ export async function getPageLeadAccess(
     await throwMetaError(response, `Meta API error: ${response.status}`);
   }
   const data = (await response.json()) as {
-    has_lead_access?: { data?: MetaPageLeadAccess[] };
+    has_lead_access?: MetaPageLeadAccess | { data?: MetaPageLeadAccess[] };
   };
+  const direct = data.has_lead_access;
+  const access =
+    direct && 'data' in direct
+      ? direct.data?.[0]
+      : (direct as MetaPageLeadAccess | undefined);
   return (
-    data.has_lead_access?.data?.[0] ?? {
+    access ?? {
       can_access_lead: false,
       failure_reason: 'Meta returned no lead access diagnostic.',
       failure_resolution:

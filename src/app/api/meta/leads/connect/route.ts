@@ -29,18 +29,42 @@ export async function POST(request: Request) {
       );
     }
 
-    const { code } = (await request.json()) as { code?: string };
+    const { code, redirect_uri: rawRedirectUri } = (await request.json()) as {
+      code?: string;
+      redirect_uri?: string;
+    };
     if (!code) {
       return NextResponse.json(
         { error: 'Missing authorization code' },
         { status: 400 }
       );
     }
+    let redirectUri: string | undefined;
+    if (rawRedirectUri) {
+      try {
+        const parsed = new URL(rawRedirectUri);
+        const requestOrigin = request.headers.get('origin');
+        if (
+          parsed.protocol !== 'https:' ||
+          (parsed.hostname !== 'staticxx.facebook.com' &&
+            parsed.origin !== requestOrigin)
+        ) {
+          throw new Error('Unsupported redirect URI');
+        }
+        redirectUri = rawRedirectUri;
+      } catch {
+        return NextResponse.json(
+          { error: 'Invalid Meta OAuth redirect URI' },
+          { status: 400 }
+        );
+      }
+    }
 
     const shortLived = await exchangeEmbeddedSignupCode({
       appId,
       appSecret,
       code,
+      redirectUri,
     });
     const { accessToken: userToken, expiresIn } =
       await exchangeForLongLivedUserToken({
@@ -145,7 +169,9 @@ export async function POST(request: Request) {
         subscribed_at: now,
         health_checked_at: now,
         last_healthy_at: now,
-        lead_access_verified_at: now,
+        ...(health.leadAccessVerified === false
+          ? {}
+          : { lead_access_verified_at: now }),
         subscription_verified_at: now,
         last_repair_at: health.kind === 'repaired' ? now : null,
         next_health_check_at: new Date(
