@@ -161,12 +161,20 @@ drill pass. Record the exact correction in this runbook before retrying.
 
 Download, verify, decrypt, and extract the matching Storage archive the same
 way. Its `manifest.json` maps every local file under
-`objects/<bucket>/<object-path>` to its byte count and SHA-256. Upload those
-files to the same bucket/path in the disposable project with the Supabase
-service-role client and `upsert: true`, then download a sample of private and
-public objects and verify their manifest hashes. `upsert` is intentional during
-a full drill because restored database metadata can already contain the object
-rows.
+`objects/<bucket>/<object-path>` to its byte count and SHA-256. Restore every
+object with the repository helper, which verifies the archived byte count and
+SHA-256 before upload, preserves the manifest MIME type and cache control, then
+downloads and hashes every restored object again:
+
+```bash
+RESTORE_SUPABASE_URL='https://DISPOSABLE_PROJECT_REF.supabase.co' \
+RESTORE_SUPABASE_SERVICE_ROLE_KEY='<disposable-project service-role key>' \
+node scripts/restore-supabase-storage.mjs storage-restore
+```
+
+The helper uses `upsert: true` intentionally because restored database metadata
+can already contain the object rows. It accepts both the original version 1
+manifest and the metadata-preserving version 2 manifest.
 
 Finally verify, at minimum:
 

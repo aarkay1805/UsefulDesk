@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -46,8 +46,8 @@ function destinationFor(outputDirectory, bucket, objectPath) {
   return destination;
 }
 
-export async function listBucketObjects(bucketClient, bucket) {
-  const objectPaths = [];
+async function listBucketObjectEntries(bucketClient, bucket) {
+  const objects = [];
 
   async function listPrefix(prefix) {
     let offset = 0;
@@ -73,7 +73,11 @@ export async function listBucketObjects(bucketClient, bucket) {
         if (entry.id === null) {
           await listPrefix(objectPath);
         } else {
-          objectPaths.push(objectPath);
+          objects.push({
+            cacheControl: entry.metadata?.cacheControl ?? null,
+            contentType: entry.metadata?.mimetype ?? null,
+            path: objectPath,
+          });
         }
       }
 
@@ -85,7 +89,12 @@ export async function listBucketObjects(bucketClient, bucket) {
   }
 
   await listPrefix('');
-  return objectPaths.sort((left, right) => left.localeCompare(right));
+  return objects.sort((left, right) => left.path.localeCompare(right.path));
+}
+
+export async function listBucketObjects(bucketClient, bucket) {
+  const objects = await listBucketObjectEntries(bucketClient, bucket);
+  return objects.map((object) => object.path);
 }
 
 export async function exportStorageBackup({
@@ -101,15 +110,16 @@ export async function exportStorageBackup({
   const manifest = {
     generated_at: generatedAt,
     objects: [],
-    version: 1,
+    version: 2,
   };
 
   for (const bucket of buckets) {
     assertSafeRelativePath(bucket);
     const bucketClient = supabase.storage.from(bucket);
-    const objectPaths = await listBucketObjects(bucketClient, bucket);
+    const objects = await listBucketObjectEntries(bucketClient, bucket);
 
-    for (const objectPath of objectPaths) {
+    for (const object of objects) {
+      const objectPath = object.path;
       const { data, error } = await bucketClient.download(objectPath);
       if (error || !data) {
         throw new Error(`Could not download an object from bucket ${bucket}`, {
@@ -125,6 +135,8 @@ export async function exportStorageBackup({
       manifest.objects.push({
         bucket,
         bytes: contents.byteLength,
+        cache_control: object.cacheControl,
+        content_type: object.contentType ?? data.type ?? null,
         path: objectPath,
         sha256: createHash('sha256').update(contents).digest('hex'),
       });
@@ -141,6 +153,87 @@ export async function exportStorageBackup({
   );
 
   return manifest;
+}
+
+function cacheControlForUpload(value) {
+  if (typeof value !== 'string' || value.length === 0) {
+    return '3600';
+  }
+
+  const maxAge = value.match(/(?:^|,)\s*max-age=(\d+)(?:,|$)/i);
+  return maxAge?.[1] ?? value;
+}
+
+export async function restoreStorageBackup({ inputDirectory, supabase }) {
+  if (!inputDirectory) {
+    throw new Error('A Storage backup input directory is required');
+  }
+
+  const manifest = JSON.parse(
+    await readFile(join(inputDirectory, 'manifest.json'), 'utf8')
+  );
+  if (![1, 2].includes(manifest.version) || !Array.isArray(manifest.objects)) {
+    throw new Error('Unsupported Supabase Storage backup manifest');
+  }
+
+  let totalBytes = 0;
+  for (const object of manifest.objects) {
+    assertSafeRelativePath(object.bucket);
+    assertSafeRelativePath(object.path);
+
+    const contents = await readFile(
+      destinationFor(inputDirectory, object.bucket, object.path)
+    );
+    const checksum = createHash('sha256').update(contents).digest('hex');
+    if (contents.byteLength !== object.bytes || checksum !== object.sha256) {
+      throw new Error(
+        `Supabase Storage backup object failed verification: ${object.bucket}/${object.path}`
+      );
+    }
+
+    const bucketClient = supabase.storage.from(object.bucket);
+    const { error: uploadError } = await bucketClient.upload(
+      object.path,
+      new Uint8Array(contents),
+      {
+        cacheControl: cacheControlForUpload(object.cache_control),
+        contentType: object.content_type ?? 'application/octet-stream',
+        upsert: true,
+      }
+    );
+    if (uploadError) {
+      throw new Error(
+        `Could not restore Supabase Storage object ${object.bucket}/${object.path}`,
+        { cause: uploadError }
+      );
+    }
+
+    const { data: restoredData, error: downloadError } =
+      await bucketClient.download(object.path);
+    if (downloadError || !restoredData) {
+      throw new Error(
+        `Could not verify restored Supabase Storage object ${object.bucket}/${object.path}`,
+        { cause: downloadError ?? undefined }
+      );
+    }
+
+    const restoredContents = Buffer.from(await restoredData.arrayBuffer());
+    const restoredChecksum = createHash('sha256')
+      .update(restoredContents)
+      .digest('hex');
+    if (
+      restoredContents.byteLength !== object.bytes ||
+      restoredChecksum !== object.sha256
+    ) {
+      throw new Error(
+        `Restored Supabase Storage object failed verification: ${object.bucket}/${object.path}`
+      );
+    }
+
+    totalBytes += contents.byteLength;
+  }
+
+  return { objects: manifest.objects.length, totalBytes };
 }
 
 async function main() {
