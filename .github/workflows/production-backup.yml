@@ -47,7 +47,7 @@ jobs:
       - name: Install project dependencies
         run: npm ci
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: 2.115.0
 
