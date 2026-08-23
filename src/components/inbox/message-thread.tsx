@@ -50,19 +50,16 @@ import {
 import { deleteAccountMedia } from '@/lib/storage/upload-media';
 import { TemplatePicker } from './template-picker';
 import { buildReplyPreview } from './reply-quote';
+import {
+  renderTemplateMessageText,
+  resolveTemplateHeaderMedia,
+} from '@/lib/whatsapp/template-render';
 import { toast } from 'sonner';
 
 interface ReplyDraft {
   id: string;
   authorLabel: string;
   preview: string;
-}
-
-function renderTemplateBody(body: string, params: string[]): string {
-  return body.replace(/\{\{(\d+)\}\}/g, (_, raw) => {
-    const idx = Number(raw) - 1;
-    return params[idx] ?? `{{${raw}}}`;
-  });
 }
 
 interface MessageThreadProps {
@@ -621,7 +618,14 @@ export function MessageThread({
     ) => {
       if (!conversation) return;
 
-      const renderedBody = renderTemplateBody(template.body_text, values.body);
+      // Same renderer the send core uses, so the optimistic bubble and
+      // the persisted row read identically — header line, blank line,
+      // body — instead of drifting the moment either side changes.
+      const paramSource = {
+        messageParams: { body: values.body, headerText: values.headerText },
+      };
+      const renderedText = renderTemplateMessageText(template, paramSource);
+      const headerMedia = resolveTemplateHeaderMedia(template, paramSource);
       const tempId = `temp-${Date.now()}`;
 
       const optimisticMsg: Message = {
@@ -629,7 +633,8 @@ export function MessageThread({
         conversation_id: conversation.id,
         sender_type: 'agent',
         content_type: 'template',
-        content_text: renderedBody,
+        content_text: renderedText ?? undefined,
+        media_url: headerMedia?.url,
         template_name: template.name,
         status: 'sending',
         created_at: new Date().toISOString(),
@@ -655,7 +660,7 @@ export function MessageThread({
               buttonParams: values.buttonParams,
             },
             template_params: values.body,
-            content_text: renderedBody,
+            content_text: renderedText,
           }),
         });
 

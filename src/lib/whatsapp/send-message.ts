@@ -38,6 +38,10 @@ import {
 import type { MessageTemplate } from '@/types';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import {
+  renderTemplateMessageText,
+  resolveTemplateHeaderMedia,
+} from '@/lib/whatsapp/template-render';
+import {
   resolveTemplateSendPolicy,
   TemplateSendPolicyError,
 } from '@/lib/whatsapp/template-send-policy';
@@ -323,6 +327,30 @@ export async function sendMessageToConversation(
     }
   }
 
+  // What the customer will actually read: the template's header line and
+  // body, filled with this send's values. Callers other than the inbox
+  // composer send only the template name + params, so without this the
+  // row persists `content_text = null` and the bubble renders an empty
+  // "Template" tag. An explicit `contentText` still wins — the composer
+  // already rendered the same text client-side for its optimistic bubble.
+  const templateParamSource = {
+    messageParams: templateMessageParams,
+    params: templateParams,
+  };
+  const resolvedText =
+    messageType === 'template'
+      ? (contentText ??
+        renderTemplateMessageText(templateRow, templateParamSource))
+      : (contentText ?? null);
+
+  // An image/video/document header is delivered with the message, so the
+  // row keeps its URL — `content_type` stays `template`, and the bubble
+  // renders the media above the text.
+  const headerMedia =
+    messageType === 'template'
+      ? resolveTemplateHeaderMedia(templateRow, templateParamSource)
+      : null;
+
   const attempt = async (phone: string): Promise<string> => {
     if (messageType === 'template') {
       const result = await sendTemplateMessage({
@@ -414,8 +442,9 @@ export async function sendMessageToConversation(
       conversation_id: conversationId,
       sender_type: 'agent',
       content_type: messageType,
-      content_text: contentText || null,
-      media_url: mediaUrl || null,
+      content_text: resolvedText || null,
+      media_url:
+        (messageType === 'template' ? headerMedia?.url : mediaUrl) || null,
       template_name: templateName || null,
       message_id: waMessageId,
       status: 'sent',
@@ -436,7 +465,7 @@ export async function sendMessageToConversation(
   await db
     .from('conversations')
     .update({
-      last_message_text: contentText || `[${messageType}]`,
+      last_message_text: resolvedText || `[${messageType}]`,
       last_message_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })

@@ -6,6 +6,46 @@
 
 ---
 
+## Template sends persist the message they delivered
+
+Only the inbox composer ever passed `content_text` on a template send, so every
+other path — member detail, Remind, service renewals, payment links, contact
+profile, the public API, and automations/cron — persisted `content_text = null`.
+The inbox rendered a lone **Template** tag with no message under it and the
+conversation list showed `[template]`. `src/lib/whatsapp/template-render.ts` now
+renders the approved header + body against the send's params (structured
+`messageParams.body` / `headerText` first, legacy positional array second);
+`sendMessageToConversation` and `engineSendTemplate` write that text to both
+`messages.content_text` and `conversations.last_message_text`. An explicit
+`contentText` still wins, and the composer's local copy of the renderer is gone
+— it now calls the shared one so the optimistic bubble and the persisted row
+cannot drift.
+
+Header handling follows how Meta delivers it. A TEXT header is folded onto the
+front of `content_text`, blank-line separated, so it stacks above the body (it
+renders in body type, not WhatsApp's bold — the row has no column to mark where
+the header ends, and no separator convention is worth leaking into exports and
+the public API). An image/video/document header keeps its delivered URL in
+`messages.media_url` with `content_type` still `template`; `MessageBubble`
+re-derives the kind from the URL extension (`templateHeaderMediaKind`, falling
+back to a link for anything unrecognised) and renders it above the text.
+Footer and buttons stay out — they are chrome Meta appends, and folding them in
+would turn a bubble into a transcript of every component.
+
+Rows written before this stay bodiless — their params were never stored — so
+`MessageBubble` falls back to the template's business title from
+`getTemplateSendPresentation`. The tag itself left `bg-primary/20
+text-primary-text`: inside the outbound bubble the accent _is_ the fill, so the
+pill measured 3.7:1 (cobalt) and 3.9:1 (rose) against its own tint. It now uses
+the unfilled `BubbleMarker` shared with the **Button reply** tag, measured at
+4.6–8.0:1 across all five accents in both modes; the document-header link is a
+plain underlined link for the same reason (4.6–8.0:1), not the filled row the
+`document` content type uses.
+
+`/preview/template-bubble` is the dev-only harness for all of it: body-only,
+text header, image header, document header, a legacy bodiless row, and the
+inbound neutral variant.
+
 ## Encrypted Cloudflare R2 backups are active and restore-proven
 
 `.github/workflows/production-backup.yml` now creates nightly encrypted

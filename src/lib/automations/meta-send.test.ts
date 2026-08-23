@@ -35,9 +35,30 @@ function membershipRow(): MessageTemplate {
   };
 }
 
-function automationDb(row: MessageTemplate) {
+interface CapturedWrites {
+  message: Record<string, unknown> | null;
+  conversation: Record<string, unknown> | null;
+}
+
+function automationDb(row: MessageTemplate, captured?: CapturedWrites) {
   return {
     from(table: string) {
+      if (table === 'messages') {
+        return {
+          insert: (payload: Record<string, unknown>) => {
+            if (captured) captured.message = payload;
+            return Promise.resolve({ error: null });
+          },
+        };
+      }
+      if (table === 'conversations') {
+        return {
+          update: (payload: Record<string, unknown>) => {
+            if (captured) captured.conversation = payload;
+            return { eq: () => Promise.resolve({ error: null }) };
+          },
+        };
+      }
       if (table === 'contacts') {
         return {
           select: () => ({
@@ -111,6 +132,61 @@ describe('engineSendTemplate', () => {
       })
     ).rejects.toThrow('Meta template reached');
     expect(h.sendTemplateMessage).toHaveBeenCalledOnce();
+  });
+
+  it('persists the rendered body so the inbox shows what the automation sent', async () => {
+    const captured: CapturedWrites = { message: null, conversation: null };
+    h.db = automationDb(membershipRow(), captured);
+    h.sendTemplateMessage.mockResolvedValueOnce({ messageId: 'wamid.1' });
+
+    await engineSendTemplate({
+      accountId: 'account-1',
+      userId: 'user-1',
+      conversationId: 'conversation-1',
+      contactId: 'contact-1',
+      templateName: 'gym_membership_renewal',
+      language: 'en_US',
+      params: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'],
+    });
+
+    const text = captured.message?.content_text as string;
+    expect(text).toContain('Rahul');
+    expect(text).toContain('20 Sep 2026');
+    expect(text).not.toContain('{{');
+    // The conversation list showed a literal "[template:…]" placeholder.
+    expect(captured.conversation?.last_message_text).toBe(text);
+  });
+
+  it('keeps a media header URL on the automated send row', async () => {
+    const captured: CapturedWrites = { message: null, conversation: null };
+    // An account-authored template, not a contract one: the gym contracts
+    // are exact payloads and a header on one is drift, not a header.
+    h.db = automationDb(
+      {
+        ...membershipRow(),
+        name: 'gym_class_schedule',
+        category: 'Utility',
+        body_text: 'Your class is at {{1}}.',
+        footer_text: undefined,
+        buttons: undefined,
+        header_type: 'image',
+        header_media_url: 'https://cdn.example/offer.png',
+      },
+      captured
+    );
+    h.sendTemplateMessage.mockResolvedValueOnce({ messageId: 'wamid.2' });
+
+    await engineSendTemplate({
+      accountId: 'account-1',
+      userId: 'user-1',
+      conversationId: 'conversation-1',
+      contactId: 'contact-1',
+      templateName: 'gym_class_schedule',
+      language: 'en_US',
+      params: ['7 am'],
+    });
+
+    expect(captured.message?.media_url).toBe('https://cdn.example/offer.png');
   });
 
   it('reaches Meta for proactive text without consulting consent', async () => {

@@ -9,6 +9,10 @@ import {
 import { supabaseAdmin } from './admin-client';
 import { resolveTemplateSendPolicy } from '@/lib/whatsapp/template-send-policy';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
+import {
+  renderTemplateMessageText,
+  resolveTemplateHeaderMedia,
+} from '@/lib/whatsapp/template-render';
 import type { MessageTemplate } from '@/types';
 
 // ------------------------------------------------------------
@@ -177,14 +181,31 @@ async function sendViaMeta(
   // Meta message id. sender_type='bot' distinguishes automation sends
   // from manual agent sends.
   const content_type = input.kind === 'template' ? 'template' : 'text';
-  const content_text = input.kind === 'text' ? input.text : null;
+  // Automated template sends carry their rendered header + body too — an
+  // inbox reader should see what the gym's automation said to the member,
+  // not a bare "Template" tag. Null only when the row isn't synced
+  // locally. The engine sends no per-send header override, so a media
+  // header resolves to the template's own stored URL.
+  const templateParamSource = {
+    params: input.kind === 'template' ? input.params : undefined,
+  };
+  const content_text =
+    input.kind === 'text'
+      ? input.text
+      : renderTemplateMessageText(templateRow, templateParamSource);
   const template_name = input.kind === 'template' ? input.templateName : null;
+  const media_url =
+    input.kind === 'template'
+      ? (resolveTemplateHeaderMedia(templateRow, templateParamSource)?.url ??
+        null)
+      : null;
 
   const { error: msgErr } = await db.from('messages').insert({
     conversation_id: input.conversationId,
     sender_type: 'bot',
     content_type,
     content_text,
+    media_url,
     template_name,
     message_id: waMessageId,
     status: 'sent',
@@ -200,7 +221,7 @@ async function sendViaMeta(
     .update({
       last_message_text:
         input.kind === 'template'
-          ? `[template:${input.templateName}]`
+          ? (content_text ?? `[template:${input.templateName}]`)
           : input.text,
       last_message_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

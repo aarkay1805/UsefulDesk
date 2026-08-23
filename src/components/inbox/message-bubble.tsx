@@ -29,6 +29,11 @@ import {
   referralSourceHref,
 } from '@/lib/whatsapp/referral';
 import { splitProviderDetail } from '@/lib/whatsapp/provider-error';
+import { getTemplateSendPresentation } from '@/lib/whatsapp/template-send-presentation';
+import {
+  templateHeaderMediaKind,
+  templateHeaderMediaLabel,
+} from '@/lib/whatsapp/template-render';
 
 interface MessageBubbleProps {
   message: Message;
@@ -283,7 +288,89 @@ function ReferralContext({ referral }: { referral: MessageReferral }) {
   );
 }
 
-function MessageContent({ message }: { message: Message }) {
+/**
+ * Small caps label that tags where a bubble came from — an approved
+ * template send, or a quick-reply button the customer tapped.
+ *
+ * Deliberately unfilled. A translucent chip under the label lightens
+ * the local background, and on the outbound bubble that dropped the
+ * label to 3.7:1 (cobalt) and 3.9:1 (rose) — below AA for 10px text.
+ * Straight on the bubble fill the same label measures 4.6–8.0:1 on
+ * every accent, in both modes. Size and caps carry the demotion
+ * instead of colour, so the tag never has to be dimmed to read as one.
+ */
+function BubbleMarker({
+  icon: Icon,
+  label,
+  onPrimary,
+}: {
+  icon: typeof LayoutTemplate;
+  label: string;
+  onPrimary: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase',
+        onPrimary ? 'text-primary-foreground' : 'text-muted-foreground'
+      )}
+    >
+      <Icon className="h-3 w-3" aria-hidden />
+      {label}
+    </span>
+  );
+}
+
+/**
+ * The image, video, or document a template's header delivered.
+ *
+ * The row keeps only the URL (`content_type` stays `template`), so the
+ * kind is re-derived from it. The document case is a plain underlined
+ * link rather than the filled row the document content-type uses: a
+ * translucent box inside the outbound bubble drops its own label below
+ * AA, the same trap the Template tag fell into.
+ */
+function TemplateHeaderMedia({
+  url,
+  onPrimary,
+}: {
+  url: string;
+  onPrimary: boolean;
+}) {
+  switch (templateHeaderMediaKind(url)) {
+    case 'image':
+      return <MediaImage url={url} alt="Template header image" />;
+    case 'video':
+      return (
+        <video src={url} controls className="max-h-64 max-w-60 rounded-lg" />
+      );
+    case 'document':
+      return (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(
+            'inline-flex max-w-60 items-center gap-2 text-sm underline underline-offset-2',
+            onPrimary ? 'text-primary-foreground' : 'text-foreground'
+          )}
+        >
+          <FileText className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="truncate">{templateHeaderMediaLabel(url)}</span>
+        </a>
+      );
+  }
+}
+
+function MessageContent({
+  message,
+  onPrimary = false,
+}: {
+  message: Message;
+  /** True inside an outbound (primary-filled) bubble — markers must read
+   *  against the accent fill rather than the neutral page foreground. */
+  onPrimary?: boolean;
+}) {
   switch (message.content_type) {
     case 'text':
       return (
@@ -355,20 +442,55 @@ function MessageContent({ message }: { message: Message }) {
         </a>
       );
 
-    case 'template':
+    case 'template': {
+      // The delivered body is persisted by every send path now (see
+      // `renderTemplateMessageText`) — the bubble shows what the member
+      // actually received, tagged as a template rather than replaced by
+      // the tag. Rows written before that landed carry no text at all,
+      // so they fall back to the template's own title; the bubble still
+      // says which message went out.
+      const fallbackTitle = message.template_name
+        ? getTemplateSendPresentation({ name: message.template_name }, 0).title
+        : null;
       return (
-        <div>
-          <span className="bg-primary/20 text-primary-text mb-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium">
-            <LayoutTemplate className="h-3 w-3" />
-            Template
-          </span>
-          {message.content_text && (
-            <p className="mt-1 text-sm break-words whitespace-pre-wrap">
+        <div
+          className={cn(
+            'flex flex-col',
+            message.media_url ? 'gap-1' : 'gap-0.5'
+          )}
+        >
+          <BubbleMarker
+            icon={LayoutTemplate}
+            label="Template"
+            onPrimary={onPrimary}
+          />
+          {message.media_url && (
+            <TemplateHeaderMedia
+              url={message.media_url}
+              onPrimary={onPrimary}
+            />
+          )}
+          {message.content_text ? (
+            <p className="text-sm break-words whitespace-pre-wrap">
               {message.content_text}
             </p>
+          ) : (
+            fallbackTitle && (
+              <p
+                className={cn(
+                  'text-sm break-words',
+                  onPrimary
+                    ? 'text-primary-foreground'
+                    : 'text-muted-foreground'
+                )}
+              >
+                {fallbackTitle}
+              </p>
+            )
           )}
         </div>
       );
+    }
 
     case 'location':
       return (
@@ -386,10 +508,11 @@ function MessageContent({ message }: { message: Message }) {
       // tap rather than the customer typing the same words.
       return (
         <div className="flex flex-col gap-0.5">
-          <span className="text-muted-foreground inline-flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase">
-            <CornerDownLeft className="h-3 w-3" />
-            Button reply
-          </span>
+          <BubbleMarker
+            icon={CornerDownLeft}
+            label="Button reply"
+            onPrimary={onPrimary}
+          />
           <p className="text-sm break-words whitespace-pre-wrap">
             {message.content_text || '[Interactive reply]'}
           </p>
@@ -438,7 +561,7 @@ export function MessageBubble({
           />
         )}
         {message.referral && <ReferralContext referral={message.referral} />}
-        <MessageContent message={message} />
+        <MessageContent message={message} onPrimary={isAgent} />
         <div
           className={cn(
             'mt-1 flex items-center gap-1',

@@ -273,6 +273,7 @@ Settings → Products & services → Trainers shows every registered team member
 - Interactive chips (clickable choices and filters) use **`Chip` inside `ChipGroup`**, not badges. Don't force them into `Badge`.
 - Follow-up due state is a status (`danger` for Overdue, `warning` for Due today, `neutral` for Upcoming); follow-up reason is a category (`neutral`). Their colours communicate different semantics, but both use the exact unmodified Badge geometry and typography.
 - Compact live counters use `Badge size="count"`. This is the canonical segment/filter-chip counter geometry; do not reconstruct it with class overrides.
+- **Inside a message bubble, a provenance tag is `BubbleMarker` (`components/inbox/message-bubble.tsx`), not a Badge.** The outbound bubble is filled with `--primary`, so any translucent chip laid on it lightens the text's own background — the old `bg-primary/20 text-primary-text` Template pill measured 3.7:1 on cobalt and 3.9:1 on rose. The marker is unfilled and takes `text-primary-foreground` on the accent fill / `text-muted-foreground` on the inbound muted bubble (4.6–8.0:1 on all five accents); size and caps carry the demotion instead of colour. **Template** and **Button reply** share it — add a marker there rather than a second recipe, and never re-add a fill.
 
 ## Chips
 
