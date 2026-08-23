@@ -94,6 +94,17 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-soft: var(--primary-soft);
   --color-primary-soft-2: var(--primary-soft-2);
+  /* Inbox chat surfaces. The thread is the one plane in the product that is
+   * neither --background nor --card: like WhatsApp, the conversation sits on a
+   * recessed canvas so the list column reads as a distinct panel above it, and
+   * the two bubble fills step off that canvas in opposite directions. Derived
+   * per mode below; the two meta tokens derive from whatever fill they sit on,
+   * so every account accent stays legible without per-accent tuning. */
+  --color-chat-canvas: var(--chat-canvas);
+  --color-chat-bubble-in: var(--chat-bubble-in);
+  --color-chat-bubble-out: var(--chat-bubble-out);
+  --color-chat-meta: var(--chat-meta);
+  --color-chat-meta-out: var(--chat-meta-out);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -166,6 +177,17 @@ html[data-mode='dark'] {
   --sidebar-accent: oklch(0.22 0.01 260);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.28 0.01 260);
+  /* Chat canvas sits BELOW --background (0.13) so the thread recedes behind
+   * the list panel, matching WhatsApp's darker conversation plane. */
+  --chat-canvas: oklch(0.115 0.012 260);
+  --chat-bubble-in: oklch(0.225 0.012 260);
+  --chat-bubble-out: color-mix(
+    in oklab,
+    var(--primary) 42%,
+    oklch(0.205 0.012 260)
+  );
+  --chat-bubble-shadow: 0 1px 1px oklch(0 0 0 / 0.35);
+  --chat-doodle-opacity: 0.5;
 }
 
 html[data-mode='light'] {
@@ -208,6 +230,15 @@ html[data-mode='light'] {
   --sidebar-accent: oklch(0.96 0.004 260);
   --sidebar-accent-foreground: oklch(0.25 0.01 260);
   --sidebar-border: oklch(0.922 0.004 260);
+  /* Light mode inverts the relationship the same way WhatsApp does: a soft
+   * recessed canvas, a WHITE inbound bubble that rises off it, and a tinted
+   * outbound bubble that settles into it. Both bubbles carry the hairline
+   * shadow, because the white one has almost no fill contrast on its own. */
+  --chat-canvas: oklch(0.962 0.004 260);
+  --chat-bubble-in: oklch(1 0 0);
+  --chat-bubble-out: color-mix(in oklab, var(--primary) 24%, oklch(1 0 0));
+  --chat-bubble-shadow: 0 1px 1.5px oklch(0.2 0.02 260 / 0.14);
+  --chat-doodle-opacity: 0.16;
 }
 
 /* ---- ACCENT: primary color ---- */
@@ -409,6 +440,28 @@ html[data-mode='light'][data-theme='amber'] {
   --primary-text: color-mix(in oklch, var(--primary), var(--foreground) 38%);
 }
 
+/* Chat metadata (timestamp, delivery ticks, provenance markers) is derived
+ * FROM the fill it sits on rather than declared per mode. The outbound bubble
+ * is an accent mix whose lightness ranges from violet's 0.36 to amber's 0.45
+ * on dark, so a fixed grey lands anywhere between 3.6:1 and 7:1 depending on
+ * which accent the gym picked. Blending a fixed share of --foreground into the
+ * bubble's own fill keeps every accent, in both modes, above 4.5:1 for 12px
+ * text with no per-accent table to maintain. Same reason WhatsApp's own
+ * rgba(0,0,0,.6) timestamp is not copied verbatim: on #d9fdd3 it measures
+ * 2.3:1. */
+:root {
+  --chat-meta: color-mix(
+    in oklab,
+    var(--foreground) 68%,
+    var(--chat-bubble-in)
+  );
+  --chat-meta-out: color-mix(
+    in oklab,
+    var(--foreground) 84%,
+    var(--chat-bubble-out)
+  );
+}
+
 /* Dynamic tinted pills (Badge's `color` prop — DB-driven hex colours
  * for lead statuses / tags). The raw hex can't be readable on both a
  * near-white and a near-black tinted surface, so the text colour is
@@ -416,6 +469,54 @@ html[data-mode='light'][data-theme='amber'] {
  * toward black in light mode. 70%/65% keep every preset hue ≥4.5:1
  * over its 10% self-tint (verified against WCAG 2.2 AA). */
 @layer components {
+  /* The inbox doodle wallpaper. It rides a dedicated absolutely-positioned
+   * layer rather than a background-image on the thread root, because the tile
+   * needs a different alpha per mode: the SVG's slate strokes were authored
+   * against the dark canvas and read as noise at full strength over the light
+   * one. Opacity on a layer is the only way to vary a repeating tile's weight
+   * without shipping a second asset. */
+  .chat-doodle {
+    background-image: url('/inbox-doodle.svg');
+    background-repeat: repeat;
+    background-size: 240px 240px;
+    opacity: var(--chat-doodle-opacity);
+  }
+
+  /* Browser chrome inside the inbox panes. Both scrollers are long-lived
+   * surfaces the user stares at all day, so they get the palette's own thumb
+   * instead of the platform default, and the thumb only reaches full strength
+   * while the pane is hovered — the same restraint WhatsApp's own scrollers
+   * use. */
+  .chat-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .chat-scroll:hover {
+    scrollbar-color: var(--border-hover) transparent;
+  }
+  .chat-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .chat-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .chat-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 9999px;
+  }
+  .chat-scroll:hover::-webkit-scrollbar-thumb {
+    background-color: var(--border-hover);
+  }
+
+  /* Selecting message text is a real task here (copying a UPI reference, a
+   * name, an address out of a member's reply), so the highlight is the
+   * account accent rather than the OS blue that belongs to no palette. */
+  .chat-surface ::selection {
+    background-color: var(--primary-soft-2);
+    color: var(--foreground);
+  }
+
   .badge-tinted {
     background-color: color-mix(in srgb, var(--badge-tint) 10%, transparent);
   }

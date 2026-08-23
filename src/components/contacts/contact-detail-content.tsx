@@ -84,6 +84,7 @@ import {
   MessageCircle,
   UserPlus,
   Trash2,
+  X,
 } from 'lucide-react';
 
 const SECTION_IDS = ['details', 'tags', 'notes'];
@@ -131,7 +132,12 @@ interface ContactDetailContentProps {
   initialFocus?: 'followup' | null;
   /** Fires after any write so the host can refresh its own list. */
   onUpdated: () => void;
-  /** Dismiss the host — used when an action navigates away. */
+  /**
+   * Dismiss the host. Used when an action navigates away, and — on the
+   * `panel` variant — rendered as a real Close button in the header. The
+   * sheet variant gets its own X from `SheetContent`, so it must not grow
+   * a second one.
+   */
   onClose?: () => void;
 }
 
@@ -696,6 +702,25 @@ export function ContactDetailContent({
                 )}
               </div>
             </div>
+
+            {/* Close — panel only. The sheet host already carries the X that
+                `SheetContent` renders (plus a backdrop and Escape), so a
+                second one there would be a duplicate control. The inbox panel
+                is an inline column with no chrome of its own: without this it
+                had no visible way out at all, and the only dismissal was a
+                "Hide contact panel" item buried in the thread header's ⋮. */}
+            {!isSheet && onClose && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onClose}
+                aria-label="Close contact panel"
+                title="Close"
+                className="-mt-0.5 shrink-0 self-start"
+              >
+                <X />
+              </Button>
+            )}
           </div>
 
           {/* Quick actions — a primary "Convert" action leads the row

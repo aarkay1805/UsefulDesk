@@ -36,6 +36,12 @@ interface ContactSidebarProps {
    * list can't show a stale name.
    */
   onUpdated?: () => void;
+  /**
+   * Dismiss the panel. Renders the header's Close button — the panel is an
+   * inline column, so unlike the mobile Sheet it has no backdrop or Escape
+   * to fall back on and needs a visible way out of its own.
+   */
+  onClose?: () => void;
 }
 
 /**
@@ -46,7 +52,11 @@ interface ContactSidebarProps {
  * tags, note composer with no author/edit/delete/follow-ups, and an
  * "Active Deals" block for the long-retired pipelines feature).
  */
-export function ContactSidebar({ contact, onUpdated }: ContactSidebarProps) {
+export function ContactSidebar({
+  contact,
+  onUpdated,
+  onClose,
+}: ContactSidebarProps) {
   if (!contact) {
     return (
       <div className="border-border bg-card flex h-full w-90 items-center justify-center border-l">
@@ -67,6 +77,7 @@ export function ContactSidebar({ contact, onUpdated }: ContactSidebarProps) {
         actions={INBOX_ACTIONS}
         collapsedSections={INBOX_COLLAPSED_SECTIONS}
         onUpdated={onUpdated ?? (() => {})}
+        onClose={onClose}
       />
     </div>
   );

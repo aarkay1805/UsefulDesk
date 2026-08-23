@@ -23,6 +23,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
+import { Separator } from '@/components/ui/separator';
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -31,9 +33,17 @@ interface ConversationListProps {
   onConversationsLoaded: (conversations: Conversation[]) => void;
   /**
    * Clicking a row's avatar: select that conversation AND reveal the
-   * contact panel (which is closed by default).
+   * contact panel (which is closed by default). On the row that is
+   * already active the page treats it as a toggle, so the gesture that
+   * opened the panel also closes it.
    */
   onOpenProfile: (conversation: Conversation) => void;
+  /**
+   * Whether the contact panel is currently open. Read only to label the
+   * ACTIVE row's avatar honestly — on that row the button is a disclosure
+   * toggle, not a one-way "open".
+   */
+  contactPanelOpen?: boolean;
   /**
    * Increment to force the fetch effect below to refire. The parent
    * bumps this on realtime reconnect / tab visibility → visible so the
@@ -67,6 +77,7 @@ export function ConversationList({
   conversations,
   onConversationsLoaded,
   onOpenProfile,
+  contactPanelOpen = false,
   resyncToken = 0,
 }: ConversationListProps) {
   const [search, setSearch] = useState('');
@@ -221,6 +232,14 @@ export function ConversationList({
   const hasContactFilters =
     selectedTagIds.length > 0 || selectedCompany !== null;
 
+  // Live count on the Unread chip. It counts the whole account, not the
+  // current filter's slice — the number's job is to say how much is waiting
+  // in total, which is the only reason to reach for that chip.
+  const unreadCount = useMemo(
+    () => conversations.filter((c) => c.unread_count > 0).length,
+    [conversations]
+  );
+
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
   }, []);
@@ -232,58 +251,25 @@ export function ConversationList({
     [onSelect]
   );
 
-  const activeFilter = FILTER_OPTIONS.find((o) => o.value === filter);
-
   return (
-    // w-full on mobile so the list occupies the whole viewport when it's
-    // the single pane showing; fixed 320px on desktop where it shares the
-    // row with the thread + contact sidebar.
-    <div className="border-border bg-card flex h-full w-full min-w-0 flex-col overflow-hidden border-r lg:w-80">
-      {/* Search + Filter */}
-      <div className="border-border space-y-2 border-b p-3">
+    // w-full on mobile so the list occupies the whole viewport when it's the
+    // single pane showing; a fixed column on desktop where it shares the row
+    // with the thread and (on demand) the contact panel. 352px is wide enough
+    // for WhatsApp's 48px avatar plus a preview line that doesn't clip after
+    // four words — the old 320px column truncated almost every preview.
+    <div className="border-border bg-card flex h-full w-full min-w-0 flex-col overflow-hidden border-r lg:w-[22rem]">
+      {/* Search + filters. Two rows, like WhatsApp's: the field owns the
+          first, the queue chips own the second. */}
+      <div className="flex shrink-0 flex-col gap-2 px-3 pt-3 pb-2">
         <SearchInput
           value={search}
           onValueChange={handleSearchChange}
-          placeholder="Search conversations…"
+          placeholder="Search or start a new chat"
           aria-label="Search conversations"
           containerClassName="w-full"
         />
 
-        <div className="flex flex-wrap items-center gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="pill"
-                  size="sm"
-                  aria-pressed={filter !== 'all'}
-                />
-              }
-            >
-              {activeFilter?.label ?? 'All'}
-              <ChevronDown className="h-3 w-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="border-border bg-popover"
-            >
-              {FILTER_OPTIONS.map((opt) => (
-                <DropdownMenuItem
-                  key={opt.value}
-                  onClick={() => setFilter(opt.value)}
-                  className={cn(
-                    'text-sm',
-                    filter === opt.value
-                      ? 'text-primary-text'
-                      : 'text-popover-foreground'
-                  )}
-                >
-                  {opt.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
+        <div className="flex min-w-0 items-center gap-1.5">
           {tags.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -299,7 +285,7 @@ export function ConversationList({
                 {selectedTagIds.length > 0 && (
                   <Badge size="count">{selectedTagIds.length}</Badge>
                 )}
-                <ChevronDown className="h-3 w-3" />
+                <ChevronDown className="size-3" />
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="start"
@@ -330,10 +316,10 @@ export function ConversationList({
                   />
                 }
               >
-                <span className="max-w-28 truncate">
+                <span className="max-w-24 truncate">
                   {selectedCompany ?? 'Company'}
                 </span>
-                <ChevronDown className="h-3 w-3 shrink-0" />
+                <ChevronDown className="size-3 shrink-0" />
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="start"
@@ -367,6 +353,30 @@ export function ConversationList({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+
+          {(tags.length > 0 || companies.length > 0) && (
+            <Separator orientation="vertical" className="h-5" />
+          )}
+
+          {/* The queue filters were a single dropdown that hid six of its
+              seven options behind a click. WhatsApp puts them on the surface
+              as a browsable chip strip, which is also what this product's own
+              list toolbars do everywhere else. */}
+          <ChipGroup<InboxFilter>
+            selectionMode="single"
+            value={[filter]}
+            onValueChange={(values) => values[0] && setFilter(values[0])}
+            aria-label="Conversation filters"
+          >
+            {FILTER_OPTIONS.map((opt) => (
+              <Chip key={opt.value} value={opt.value} size="sm">
+                {opt.label}
+                {opt.value === 'unread' && unreadCount > 0 && (
+                  <ChipCount count={unreadCount} />
+                )}
+              </Chip>
+            ))}
+          </ChipGroup>
         </div>
 
         {hasContactFilters && (
@@ -382,7 +392,7 @@ export function ConversationList({
                   <span className="max-w-24 truncate">
                     {tag?.name ?? 'Tag'}
                   </span>
-                  <X className="h-3 w-3" />
+                  <X className="size-3" />
                 </button>
               );
             })}
@@ -392,26 +402,26 @@ export function ConversationList({
                 className="bg-muted text-foreground hover:bg-muted/70 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
               >
                 <span className="max-w-24 truncate">{selectedCompany}</span>
-                <X className="h-3 w-3" />
+                <X className="size-3" />
               </button>
             )}
-            <button
-              onClick={clearContactFilters}
-              className="text-muted-foreground hover:text-foreground px-1 text-[11px]"
-            >
+            <Button variant="link" size="xs" onClick={clearContactFilters}>
               Clear all
-            </button>
+            </Button>
           </div>
         )}
       </div>
 
-      {/* Conversation Items.
+      {/* Conversation rows.
           `min-h-0` is load-bearing: a flex child defaults to
           min-height:auto, so without it this ScrollArea grows to fit
           every conversation instead of shrinking to the remaining
           space — the list then overflows and gets clipped by the
           parent's overflow-hidden with no scrollbar (issue #229). */}
-      <ScrollArea className="min-h-0 min-w-0 flex-1 overflow-hidden">
+      <ScrollArea
+        scrollbarVisibility="hover"
+        className="min-h-0 min-w-0 flex-1 overflow-hidden"
+      >
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="text-primary-text size-5 animate-spin" />
@@ -425,7 +435,7 @@ export function ConversationList({
             </p>
             <p className="text-muted-foreground mt-1 max-w-56 text-xs">
               {conversations.length === 0
-                ? 'New WhatsApp conversations will appear here.'
+                ? 'New WhatsApp® conversations will appear here.'
                 : 'Try a different search or clear the active filters.'}
             </p>
             {conversations.length > 0 && (
@@ -440,7 +450,7 @@ export function ConversationList({
             )}
           </div>
         ) : (
-          <div className="flex flex-col">
+          <div className="flex flex-col px-2 pb-2">
             {filtered.map((conv) => (
               <ConversationItem
                 key={conv.id}
@@ -448,6 +458,7 @@ export function ConversationList({
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
                 onOpenProfile={onOpenProfile}
+                contactPanelOpen={contactPanelOpen}
               />
             ))}
           </div>
@@ -463,6 +474,8 @@ interface ConversationItemProps {
   onSelect: (conversation: Conversation) => void;
   /** Avatar click — select this conversation AND reveal the contact panel. */
   onOpenProfile: (conversation: Conversation) => void;
+  /** Panel state, used only to label the active row's avatar. */
+  contactPanelOpen: boolean;
 }
 
 function ConversationItem({
@@ -470,9 +483,11 @@ function ConversationItem({
   isActive,
   onSelect,
   onOpenProfile,
+  contactPanelOpen,
 }: ConversationItemProps) {
   const contact = conversation.contact;
   const displayName = contact?.name || contact?.phone || 'Unknown';
+  const unread = conversation.unread_count > 0;
 
   const handleClick = useCallback(() => {
     onSelect(conversation);
@@ -489,6 +504,11 @@ function ConversationItem({
     [onOpenProfile, conversation]
   );
 
+  // On the active row the avatar is a disclosure toggle (the page flips the
+  // panel); on any other row it only ever opens. Label and `aria-expanded`
+  // follow that, so AT never announces "collapse" for a button that expands.
+  const profileOpen = isActive && contactPanelOpen;
+
   const timeAgo = conversation.last_message_at
     ? formatDistanceToNow(new Date(conversation.last_message_at), {
         addSuffix: false,
@@ -503,59 +523,85 @@ function ConversationItem({
     // card's shape: the div's onClick is the pointer convenience, the NAME
     // is the real button that carries the keyboard/AT path. A non-button
     // clickable needs cursor-pointer spelled out, per the base cursor rule.
+    //
+    // The row is a floating rounded block inside the column's own padding,
+    // not a full-bleed strip with a divider under it — WhatsApp's shape, and
+    // the reason a long list reads as a stack of people rather than a table.
     <div
       onClick={handleClick}
       className={cn(
-        'hover:bg-muted/50 flex w-full min-w-0 cursor-pointer items-start gap-3 border-l border-transparent px-3 py-3 text-left transition-colors',
-        isActive && 'border-primary bg-muted/70'
+        'flex h-[72px] w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl px-2.5 text-left transition-colors',
+        isActive ? 'bg-primary-soft' : 'hover:bg-foreground/5'
       )}
     >
       {/* Avatar — opens the contact profile instead of the conversation. */}
       <button
         type="button"
         onClick={handleAvatarClick}
-        aria-label={`Open ${displayName}'s profile`}
-        title="Open profile"
-        className="shrink-0 rounded-full transition-opacity hover:opacity-80"
+        aria-expanded={profileOpen}
+        aria-label={
+          profileOpen
+            ? `Close ${displayName}'s profile`
+            : `Open ${displayName}'s profile`
+        }
+        title={profileOpen ? 'Close profile' : 'Open profile'}
+        className="focus-visible:ring-ring/50 shrink-0 rounded-full transition-opacity outline-none hover:opacity-80 focus-visible:ring-[3px]"
       >
         <UserAvatar
           name={displayName}
           src={contact?.avatar_url}
-          className="size-10"
+          className="size-12"
+          fallbackClassName="text-base"
         />
       </button>
 
       {/* Content */}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="flex min-w-0 items-baseline gap-1.5">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 handleClick();
               }}
-              className="text-foreground min-w-0 truncate text-left text-sm font-medium hover:underline"
+              className="text-foreground focus-visible:ring-ring/50 min-w-0 truncate rounded-sm text-left text-base font-medium outline-none focus-visible:ring-[3px]"
             >
               {displayName}
             </button>
-            {/* Member vs lead — so staff know at a glance who they're
-                replying to. `isMember` is derived from the embedded
-                membership row in CONVERSATION_SELECT. */}
-            <Badge variant={conversation.isMember ? 'success' : 'neutral'}>
-              {conversation.isMember ? 'Member' : 'Lead'}
-            </Badge>
+            {/* Member is the state worth marking. A lead is the unmarked
+                default — pinning a pill to every single row is the noise
+                WhatsApp doesn't have, and the Members / Leads chips above
+                already turn the distinction into a filter. */}
+            {conversation.isMember && (
+              <Badge variant="success" className="shrink-0">
+                Member
+              </Badge>
+            )}
           </div>
-          <span className="text-muted-foreground shrink-0 text-[10px]">
+          <span
+            className={cn(
+              'shrink-0 text-xs tabular-nums',
+              // An unread row lights its timestamp, exactly as WhatsApp does —
+              // a second, quieter signal that the badge is not the only thing
+              // asking for attention.
+              unread ? 'text-primary-text font-medium' : 'text-muted-foreground'
+            )}
+          >
             {timeAgo}
           </span>
         </div>
-        <div className="mt-0.5 flex items-center justify-between gap-2">
-          <p className="text-muted-foreground truncate text-xs">
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <p
+            className={cn(
+              'truncate text-sm',
+              unread ? 'text-foreground' : 'text-muted-foreground'
+            )}
+          >
             {conversation.last_message_text || 'No messages yet'}
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
-            {conversation.unread_count > 0 && (
+            {unread && (
               <Badge
                 size="count"
                 aria-label={`${conversation.unread_count} unread messages`}
@@ -565,7 +611,7 @@ function ConversationItem({
             )}
             <span
               className={cn(
-                'h-2 w-2 rounded-full',
+                'size-2 rounded-full',
                 STATUS_COLORS[conversation.status]
               )}
               title={conversation.status}

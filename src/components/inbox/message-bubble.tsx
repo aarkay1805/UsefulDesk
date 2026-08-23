@@ -42,55 +42,114 @@ interface MessageBubbleProps {
   reactions?: MessageReaction[];
   currentUserId?: string;
   onToggleReaction?: (emoji: string) => void;
+  /**
+   * True when this bubble opens a run — the first message of a same-sender
+   * group, or one far enough after the last to read as a new turn. Only a
+   * run-opening bubble draws a tail; the rest stack tightly beneath it, which
+   * is what turns a column of bubbles into a conversation with a rhythm.
+   * Defaults to true so a lone bubble (tests, previews) still looks finished.
+   */
+  startsRun?: boolean;
 }
 
-// Status ticks render INSIDE the outbound bg-primary bubble, so their
-// colour must contrast with the accent fill — which varies per theme
-// (white-text violet/cobalt/rose vs dark-text emerald/amber). Deriving
-// from primary-foreground is the only recipe that works on all five;
-// fixed grey/blue/red ticks fell below 3:1 on several accents. "Read"
-// is full-strength vs the dimmed pending tier, and every state carries
-// an aria-label so the meaning never rides on colour alone (WCAG 1.4.1).
+// Status ticks sit on the outbound bubble, which is now an accent TINT rather
+// than a solid accent fill, so they resolve against the same derived
+// --chat-meta-out the timestamp uses and stay ≥4.5:1 on every accent in both
+// modes. Read is the one state that changes hue: WhatsApp's blue double-tick
+// is the single most-recognised delivery signal in messaging, and a fixed
+// domain status is exactly what the semantic sky token exists for — it must
+// NOT follow the account accent, or "read" and "brand" become the same colour.
+// Every state still carries an aria-label so the meaning never rides on
+// colour alone (WCAG 1.4.1).
 function StatusIcon({ status }: { status: Message['status'] }) {
   switch (status) {
     case 'sending':
-      return (
-        <Clock
-          aria-label="Sending"
-          className="text-primary-foreground/70 h-3 w-3"
-        />
-      );
+      return <Clock aria-label="Sending" className="size-3.5 opacity-70" />;
     case 'sent':
-      return (
-        <Check
-          aria-label="Sent"
-          className="text-primary-foreground/70 h-3 w-3"
-        />
-      );
+      return <Check aria-label="Sent" className="size-3.5" />;
     case 'delivered':
-      return (
-        <CheckCheck
-          aria-label="Delivered"
-          className="text-primary-foreground/70 h-3 w-3"
-        />
-      );
+      return <CheckCheck aria-label="Delivered" className="size-3.5" />;
     case 'read':
       return (
         <CheckCheck
           aria-label="Read"
-          className="text-primary-foreground h-3 w-3"
+          className="text-sky-foreground size-3.5"
         />
       );
     case 'failed':
       return (
         <XCircle
           aria-label="Failed to send"
-          className="text-primary-foreground h-3 w-3"
+          className="text-destructive size-3.5"
         />
       );
     default:
       return null;
   }
+}
+
+/**
+ * The bubble tail — the single most recognisable shape in a chat client, and
+ * the reason a stack of rounded rectangles reads as "messages" rather than
+ * "cards". It hangs off the TOP outer corner of the first bubble in a run
+ * (WhatsApp's placement; the tail marks where a run starts, not where it
+ * ends), so the matching corner drops its radius and the wedge continues the
+ * fill across the gap. Drawn rather than faked with a CSS triangle: a
+ * hard-edged triangle beside a 10px-radius bubble reads as a glitch.
+ */
+function BubbleTail({ side }: { side: 'left' | 'right' }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 8 12"
+      width={8}
+      height={12}
+      className={cn(
+        'absolute top-0 h-3 w-2',
+        side === 'right'
+          ? 'text-chat-bubble-out -right-2'
+          : 'text-chat-bubble-in -left-2'
+      )}
+    >
+      <path
+        fill="currentColor"
+        d={
+          side === 'right'
+            ? 'M0 0h6.6C7.4 0 8 .6 8 1.4 8 6.9 4.6 11.1 0 12Z'
+            : 'M8 0H1.4C.6 0 0 .6 0 1.4 0 6.9 3.4 11.1 8 12Z'
+        }
+      />
+    </svg>
+  );
+}
+
+/**
+ * Timestamp + delivery state, rendered twice on purpose.
+ *
+ * WhatsApp tucks the metadata into the tail of the message's LAST line rather
+ * than giving it a row of its own — which is why a two-word reply there is one
+ * line tall and the same reply in a naive implementation is two. Reproducing
+ * that needs the meta both reserved in the text flow (so the last line wraps
+ * short of it) and painted at the bubble's bottom-right corner. Rendering the
+ * identical node twice — once invisible inline, once absolutely positioned —
+ * makes the reservation exactly as wide as the thing it reserves for, with no
+ * measurement and no magic number to drift.
+ */
+function BubbleMeta({
+  time,
+  status,
+  showStatus,
+}: {
+  time: string;
+  status: Message['status'];
+  showStatus: boolean;
+}) {
+  return (
+    <>
+      <span className="tabular-nums">{time}</span>
+      {showStatus && <StatusIcon status={status} />}
+    </>
+  );
 }
 
 /**
@@ -172,8 +231,8 @@ function DeliveryFailureNote({ message }: { message: Message }) {
 
 function MediaUnavailable({ label }: { label: string }) {
   return (
-    <div className="bg-muted/40 text-muted-foreground flex items-center gap-2 rounded-lg px-3 py-2 text-xs">
-      <ImageOff className="text-muted-foreground h-4 w-4 shrink-0" />
+    <div className="bg-foreground/5 text-chat-meta flex items-center gap-2 rounded-sm px-3 py-2 text-xs">
+      <ImageOff className="h-4 w-4 shrink-0" />
       <span>{label} unavailable</span>
     </div>
   );
@@ -223,15 +282,15 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
 
   if (error) {
     return (
-      <div className="bg-muted flex h-40 w-60 items-center justify-center rounded-lg">
-        <ImageOff className="text-muted-foreground h-8 w-8" />
+      <div className="bg-foreground/5 flex h-40 w-60 items-center justify-center rounded-sm">
+        <ImageOff className="text-chat-meta h-8 w-8" />
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="bg-muted flex h-40 w-60 items-center justify-center rounded-lg">
+      <div className="bg-foreground/5 flex h-40 w-60 items-center justify-center rounded-sm">
         <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
       </div>
     );
@@ -244,7 +303,7 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
       width={240}
       height={256}
       unoptimized
-      className="h-auto max-h-64 w-auto max-w-60 rounded-lg object-cover"
+      className="h-auto max-h-64 w-auto max-w-60 rounded-sm object-cover"
       onError={() => setError(true)}
     />
   );
@@ -256,7 +315,7 @@ function ReferralContext({ referral }: { referral: MessageReferral }) {
   const sourceKey = referral.source_platform;
 
   return (
-    <div className="border-border/50 mb-2 max-w-60 space-y-1.5 border-b pb-2">
+    <div className="border-border/50 mb-1.5 max-w-60 space-y-1.5 border-b px-1.5 pt-0.5 pb-2">
       <Badge variant="neutral">
         {sourceKey ? (
           <SourceIcon source={sourceKey} label={label} />
@@ -269,9 +328,7 @@ function ReferralContext({ referral }: { referral: MessageReferral }) {
         <p className="text-xs font-medium">{referral.headline}</p>
       )}
       {referral.body && (
-        <p className="text-muted-foreground line-clamp-2 text-xs">
-          {referral.body}
-        </p>
+        <p className="text-chat-meta line-clamp-2 text-xs">{referral.body}</p>
       )}
       {href && (
         <a
@@ -292,27 +349,27 @@ function ReferralContext({ referral }: { referral: MessageReferral }) {
  * Small caps label that tags where a bubble came from — an approved
  * template send, or a quick-reply button the customer tapped.
  *
- * Deliberately unfilled. A translucent chip under the label lightens
- * the local background, and on the outbound bubble that dropped the
- * label to 3.7:1 (cobalt) and 3.9:1 (rose) — below AA for 10px text.
- * Straight on the bubble fill the same label measures 4.6–8.0:1 on
- * every accent, in both modes. Size and caps carry the demotion
- * instead of colour, so the tag never has to be dimmed to read as one.
+ * Deliberately unfilled. A translucent chip under the label lightens the
+ * local background, and even now that the outbound bubble is a tint rather
+ * than a solid accent fill, a second translucent layer on top of it has no
+ * headroom left. Straight on the bubble both bubbles carry `--chat-meta`,
+ * which is derived from the fill it sits on and therefore clears AA on every
+ * accent in both modes. Size and caps carry the demotion, not colour.
  */
 function BubbleMarker({
   icon: Icon,
   label,
-  onPrimary,
+  onOutbound,
 }: {
   icon: typeof LayoutTemplate;
   label: string;
-  onPrimary: boolean;
+  onOutbound: boolean;
 }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 text-[10px] font-medium tracking-wide uppercase',
-        onPrimary ? 'text-primary-foreground' : 'text-muted-foreground'
+        'inline-flex items-center gap-1 px-1.5 pt-0.5 text-[11px] font-medium tracking-wide uppercase',
+        onOutbound ? 'text-chat-meta-out' : 'text-chat-meta'
       )}
     >
       <Icon className="h-3 w-3" aria-hidden />
@@ -330,19 +387,13 @@ function BubbleMarker({
  * translucent box inside the outbound bubble drops its own label below
  * AA, the same trap the Template tag fell into.
  */
-function TemplateHeaderMedia({
-  url,
-  onPrimary,
-}: {
-  url: string;
-  onPrimary: boolean;
-}) {
+function TemplateHeaderMedia({ url }: { url: string }) {
   switch (templateHeaderMediaKind(url)) {
     case 'image':
       return <MediaImage url={url} alt="Template header image" />;
     case 'video':
       return (
-        <video src={url} controls className="max-h-64 max-w-60 rounded-lg" />
+        <video src={url} controls className="max-h-64 max-w-60 rounded-sm" />
       );
     case 'document':
       return (
@@ -350,10 +401,7 @@ function TemplateHeaderMedia({
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className={cn(
-            'inline-flex max-w-60 items-center gap-2 text-sm underline underline-offset-2',
-            onPrimary ? 'text-primary-foreground' : 'text-foreground'
-          )}
+          className="text-foreground mx-1.5 inline-flex max-w-60 items-center gap-2 text-sm underline underline-offset-2"
         >
           <FileText className="h-4 w-4 shrink-0" aria-hidden />
           <span className="truncate">{templateHeaderMediaLabel(url)}</span>
@@ -362,21 +410,99 @@ function TemplateHeaderMedia({
   }
 }
 
+/**
+ * Restores the bubble's reading inset on text rows. The bubble itself pads by
+ * only 4px so nested blocks stay concentric with its corner, so anything that
+ * is plain type carries the remaining 6px / 2px itself.
+ */
+const BUBBLE_TEXT_INSET = 'px-1.5 py-0.5';
+
+/**
+ * A run of message text with the bubble metadata tucked into its last line.
+ *
+ * `meta` is rendered twice: once invisible and inline, so the final line wraps
+ * short of it, and once positioned over the space that reservation opened up.
+ * Anything that is not a bare paragraph (media, documents, locations) opts out
+ * by passing `meta` as a following row instead — WhatsApp does the same, since
+ * there is no text line for the timestamp to ride on.
+ */
+function TextWithMeta({
+  text,
+  meta,
+  metaClassName,
+}: {
+  text: string;
+  meta: React.ReactNode;
+  metaClassName: string;
+}) {
+  return (
+    <div className="relative">
+      <p
+        className={cn(
+          'text-sm break-words whitespace-pre-wrap',
+          BUBBLE_TEXT_INSET
+        )}
+      >
+        {text}
+        <span
+          aria-hidden
+          className={cn(
+            'invisible ml-2 inline-flex items-center gap-1 align-baseline text-[11px] select-none',
+            metaClassName
+          )}
+        >
+          {meta}
+        </span>
+      </p>
+      {/* Pinned to the text's own edge, not the wrapper's, so it lands exactly
+          where the invisible spacer above reserved room for it. */}
+      <span
+        className={cn(
+          'absolute right-1.5 bottom-0.5 flex items-center gap-1 text-[11px] leading-none',
+          metaClassName
+        )}
+      >
+        {meta}
+      </span>
+    </div>
+  );
+}
+
 function MessageContent({
   message,
-  onPrimary = false,
+  onOutbound = false,
+  meta,
+  metaClassName,
 }: {
   message: Message;
-  /** True inside an outbound (primary-filled) bubble — markers must read
-   *  against the accent fill rather than the neutral page foreground. */
-  onPrimary?: boolean;
+  /** True inside an outbound bubble — markers resolve against its tint. */
+  onOutbound?: boolean;
+  /** Timestamp + delivery state. See TextWithMeta for the two-render trick. */
+  meta: React.ReactNode;
+  metaClassName: string;
 }) {
+  // Everything that ends in a paragraph tucks the meta into that paragraph's
+  // last line; everything else hands it back for a trailing row.
+  const trailingMeta = (
+    <span
+      className={cn(
+        'mt-0.5 flex items-center justify-end gap-1 text-[11px] leading-none',
+        BUBBLE_TEXT_INSET,
+        metaClassName
+      )}
+    >
+      {meta}
+    </span>
+  );
+
   switch (message.content_type) {
     case 'text':
       return (
-        <p className="text-sm break-words whitespace-pre-wrap">
-          {message.content_text}
-        </p>
+        <TextWithMeta
+          text={message.content_text ?? ''}
+          meta={meta}
+          metaClassName={metaClassName}
+        />
       );
 
     case 'image':
@@ -387,10 +513,16 @@ function MessageContent({
           ) : (
             <MediaUnavailable label="Image" />
           )}
-          {message.content_text && (
-            <p className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
-            </p>
+          {message.content_text ? (
+            <div className="mt-1">
+              <TextWithMeta
+                text={message.content_text}
+                meta={meta}
+                metaClassName={metaClassName}
+              />
+            </div>
+          ) : (
+            trailingMeta
           )}
         </div>
       );
@@ -402,15 +534,21 @@ function MessageContent({
             <video
               src={message.media_url}
               controls
-              className="max-h-64 max-w-60 rounded-lg"
+              className="max-h-64 max-w-60 rounded-sm"
             />
           ) : (
             <MediaUnavailable label="Video" />
           )}
-          {message.content_text && (
-            <p className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
-            </p>
+          {message.content_text ? (
+            <div className="mt-1">
+              <TextWithMeta
+                text={message.content_text}
+                meta={meta}
+                metaClassName={metaClassName}
+              />
+            </div>
+          ) : (
+            trailingMeta
           )}
         </div>
       );
@@ -419,27 +557,42 @@ function MessageContent({
       return (
         <div>
           {message.media_url ? (
-            <audio src={message.media_url} controls className="max-w-60" />
+            <audio
+              src={message.media_url}
+              controls
+              className="mx-1.5 max-w-60"
+            />
           ) : (
             <MediaUnavailable label="Audio" />
           )}
+          {trailingMeta}
         </div>
       );
 
     case 'document':
       if (!message.media_url) {
-        return <MediaUnavailable label={message.content_text || 'Document'} />;
+        return (
+          <div>
+            <MediaUnavailable label={message.content_text || 'Document'} />
+            {trailingMeta}
+          </div>
+        );
       }
       return (
-        <a
-          href={message.media_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-muted/50 hover:bg-muted flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
-        >
-          <FileText className="text-muted-foreground h-5 w-5 shrink-0" />
-          <span className="truncate">{message.content_text || 'Document'}</span>
-        </a>
+        <div>
+          <a
+            href={message.media_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-foreground/5 hover:bg-foreground/10 flex items-center gap-2 rounded-sm px-3 py-2 text-sm transition-colors"
+          >
+            <FileText className="text-chat-meta h-5 w-5 shrink-0" />
+            <span className="truncate">
+              {message.content_text || 'Document'}
+            </span>
+          </a>
+          {trailingMeta}
+        </div>
       );
 
     case 'template': {
@@ -452,6 +605,7 @@ function MessageContent({
       const fallbackTitle = message.template_name
         ? getTemplateSendPresentation({ name: message.template_name }, 0).title
         : null;
+      const body = message.content_text || fallbackTitle;
       return (
         <div
           className={cn(
@@ -462,31 +616,17 @@ function MessageContent({
           <BubbleMarker
             icon={LayoutTemplate}
             label="Template"
-            onPrimary={onPrimary}
+            onOutbound={onOutbound}
           />
-          {message.media_url && (
-            <TemplateHeaderMedia
-              url={message.media_url}
-              onPrimary={onPrimary}
+          {message.media_url && <TemplateHeaderMedia url={message.media_url} />}
+          {body ? (
+            <TextWithMeta
+              text={body}
+              meta={meta}
+              metaClassName={metaClassName}
             />
-          )}
-          {message.content_text ? (
-            <p className="text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
-            </p>
           ) : (
-            fallbackTitle && (
-              <p
-                className={cn(
-                  'text-sm break-words',
-                  onPrimary
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
-                )}
-              >
-                {fallbackTitle}
-              </p>
-            )
+            trailingMeta
           )}
         </div>
       );
@@ -494,9 +634,14 @@ function MessageContent({
 
     case 'location':
       return (
-        <div className="flex items-center gap-2 text-sm">
-          <MapPin className="text-muted-foreground h-4 w-4 shrink-0" />
-          <span>{message.content_text || 'Location shared'}</span>
+        <div>
+          <div
+            className={cn('flex items-center gap-2 text-sm', BUBBLE_TEXT_INSET)}
+          >
+            <MapPin className="text-chat-meta h-4 w-4 shrink-0" />
+            <span>{message.content_text || 'Location shared'}</span>
+          </div>
+          {trailingMeta}
         </div>
       );
 
@@ -511,20 +656,24 @@ function MessageContent({
           <BubbleMarker
             icon={CornerDownLeft}
             label="Button reply"
-            onPrimary={onPrimary}
+            onOutbound={onOutbound}
           />
-          <p className="text-sm break-words whitespace-pre-wrap">
-            {message.content_text || '[Interactive reply]'}
-          </p>
+          <TextWithMeta
+            text={message.content_text || '[Interactive reply]'}
+            meta={meta}
+            metaClassName={metaClassName}
+          />
         </div>
       );
     }
 
     default:
       return (
-        <p className="text-sm break-words whitespace-pre-wrap">
-          {message.content_text || '[Unsupported message type]'}
-        </p>
+        <TextWithMeta
+          text={message.content_text || '[Unsupported message type]'}
+          meta={meta}
+          metaClassName={metaClassName}
+        />
       );
   }
 }
@@ -535,11 +684,17 @@ export function MessageBubble({
   reactions,
   currentUserId,
   onToggleReaction,
+  startsRun = true,
 }: MessageBubbleProps) {
   const { fmt } = useLocale();
   const isAgent =
     message.sender_type === 'agent' || message.sender_type === 'bot';
   const time = fmt.time(new Date(message.created_at));
+  const metaClassName = isAgent ? 'text-chat-meta-out' : 'text-chat-meta';
+
+  const meta = (
+    <BubbleMeta time={time} status={message.status} showStatus={isAgent} />
+  );
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.
@@ -547,41 +702,33 @@ export function MessageBubble({
     <div className={cn('flex flex-col', isAgent ? 'items-end' : 'items-start')}>
       <div
         className={cn(
-          'relative rounded-2xl px-3 py-2',
-          isAgent
-            ? 'bg-primary text-primary-foreground rounded-br-md'
-            : 'bg-muted text-foreground rounded-bl-md'
+          // Concentricity: the bubble pads by 4px, so a nested block (quote,
+          // media, document row) sits 4px inside a 10px corner and is drawn at
+          // `rounded-sm` — 6 + 4 = 10. Reading inset is restored by
+          // BUBBLE_TEXT_INSET on the text rows rather than by the bubble, which
+          // would otherwise push every nested block 10px in and break the pair.
+          'text-foreground relative w-fit max-w-full rounded-lg p-1 shadow-[var(--chat-bubble-shadow)]',
+          isAgent ? 'bg-chat-bubble-out' : 'bg-chat-bubble-in',
+          // The tail replaces the corner it hangs off, so that corner squares
+          // up and the wedge reads as one continuous shape with the bubble.
+          startsRun && (isAgent ? 'rounded-tr-none' : 'rounded-tl-none')
         )}
       >
+        {startsRun && <BubbleTail side={isAgent ? 'right' : 'left'} />}
         {reply && (
           <ReplyQuote
             authorLabel={reply.authorLabel}
             preview={reply.preview}
-            onPrimary={isAgent}
+            onOutbound={isAgent}
           />
         )}
         {message.referral && <ReferralContext referral={message.referral} />}
-        <MessageContent message={message} onPrimary={isAgent} />
-        <div
-          className={cn(
-            'mt-1 flex items-center gap-1',
-            isAgent ? 'justify-end' : 'justify-start'
-          )}
-        >
-          <span
-            className={cn(
-              'text-[10px]',
-              // Outbound bubbles sit on the primary fill, so the
-              // timestamp must read against that (not the neutral
-              // foreground) — otherwise it goes low-contrast in light
-              // mode. Inbound bubbles use the muted surface.
-              isAgent ? 'text-primary-foreground/70' : 'text-muted-foreground'
-            )}
-          >
-            {time}
-          </span>
-          {isAgent && <StatusIcon status={message.status} />}
-        </div>
+        <MessageContent
+          message={message}
+          onOutbound={isAgent}
+          meta={meta}
+          metaClassName={metaClassName}
+        />
       </div>
       {isAgent && message.status === 'failed' && (
         <DeliveryFailureNote message={message} />

@@ -6,6 +6,174 @@
 
 ---
 
+## The contact panel opens and closes from the same place, and the thread stops yanking the reader
+
+Four inbox-conversation defects, all reported from use.
+
+**The contact panel had no way out.** On desktop it is an inline third column
+with no chrome of its own, and `ContactDetailContent` rendered its Close button
+only for the sheet variant — so the only dismissal was a **Hide contact panel**
+item inside the thread header's ⋮. The panel variant now renders a real Close
+button in its header when the host passes `onClose`; the sheet variant still
+does not, because `SheetContent` already gives it one (plus a backdrop and
+Escape) and a second would be a duplicate. `ContactSidebar` passes it through.
+
+**The avatar was a one-way door.** The thread header's avatar/identity block and
+each conversation row's avatar both ran a reveal-only handler, so clicking the
+same avatar a second time did nothing — the most obvious affordance on the
+surface could summon a panel it could not dismiss. Both now fire the same toggle
+the ⋮ item does (`handleToggleContactPanel`), carry `aria-expanded`, and swap
+their label between Open/Close. A row avatar toggles only on the row that is
+already active; on any other row it still means "show me this person" and always
+selects + reveals. `onOpenContactPanel` is gone from `MessageThread` — one
+handler, one mental model.
+
+**The thread scrolled to the bottom on every `messages` identity change**, not
+just on new messages. Delivery receipts rewrite the array (`sent → delivered →
+read`), and the realtime UPDATE handler `.map`ped for **every** message update in
+the account — including conversations that were not open, which produced a fresh
+array with identical contents. Scrolling back through history was therefore
+undone by traffic anywhere on the account. `MessageThread` now pins only while
+the reader is within `STICK_TO_BOTTOM_PX` (120) of the bottom, tracked by
+`stickToBottomRef` from the scroll event; a **Jump to latest** button appears
+while they are above that band. Both message-update paths in `inbox/page.tsx`
+bail when the id is not in the open thread, so an unrelated receipt no longer
+re-renders the thread at all.
+
+Two scroll subtleties worth not re-litigating: the jump is `scrollTop = `
+`scrollHeight`, **not** `scrollTo({behavior:'smooth'})`, because a smooth scroll
+emits intermediate scroll events that read as "not at the bottom" and flash the
+button back on mid-animation. And toggling the panel re-pins through an effect
+keyed on `contactPanelOpen` — narrowing the thread by 360px re-wraps every
+bubble and grows `scrollHeight` while `scrollTop` stays put, which measured at
+572px of drift on a live thread, silently, just for opening a profile. A
+`ResizeObserver` would cover window resizes too and is the more general
+mechanism; it was dropped because it could not be exercised in the verification
+browser, and an unverifiable mechanism is worse than a narrow proven one.
+
+**Replying did not focus the composer.** Hitting Reply on a bubble armed the
+quote and then left the agent to click into the textarea before they could type
+the reply the button exists to start. `MessageComposer` focuses the textarea
+when `replyTo.id` becomes set.
+
+Reset-on-thread-change uses a synced-prop guard adjusted **during render**, not
+an effect — `react-hooks/set-state-in-effect` is enforced, and the scroll event
+that would otherwise clear the button never fires for a thread short enough to
+have no scrollbar.
+
+## The inbox is now shaped like WhatsApp Desktop
+
+Jacob's Law, applied deliberately: gym owners and front-desk staff already spend
+their day in WhatsApp, so the inbox stops being a generic chat UI built out of
+app cards and adopts WhatsApp Desktop's layout, rhythm, and interaction habits.
+Measured against a live WhatsApp Web session rather than from memory — 72px list
+rows, 48px avatars, 64px thread header, 65% bubble cap, 12px between message
+runs and 2px inside one, an 8×13 tail on the run-opening bubble, a 26px floating
+composer pill. **What was NOT copied: WhatsApp's fixed green.** The account
+accent still owns the outbound bubble, unread counts, and selection, so all five
+themes survive; only the read tick is a fixed hue (`text-sky-foreground`),
+because a blue double-tick is the signal and an accent-coloured one would make
+"read" and "brand" the same colour on emerald and cobalt.
+
+**Five new tokens** in `globals.css` — `--chat-canvas`, `--chat-bubble-in`,
+`--chat-bubble-out`, `--chat-meta`, `--chat-meta-out`. The thread plane is now
+recessed below the list panel in both modes (in light mode `--card` and
+`--background` are both pure white, so the two panes previously differed only by
+a 1px border). The outbound bubble became an accent **tint** rather than a solid
+`bg-primary` fill, which is both closer to WhatsApp and the thing that let both
+bubbles carry ordinary `--foreground` text — the whole `onPrimary` /
+`text-primary-foreground` inversion inside bubbles is gone.
+
+The two meta tokens are `color-mix`ed **from the fill they sit on**, not declared
+per mode. That is the load-bearing decision: the outbound bubble's lightness
+swings from violet's 0.36 to amber's 0.45 on dark, so any fixed grey lands
+between 3.6:1 and 7:1 depending on the gym's accent. Derived, all ten mode ×
+accent combinations measure ≥5.99:1 for meta, ≥7.8:1 for body, ≥4.72:1 for the
+read tick — verified in-browser across every combination, not estimated. Do not
+replace these with literals, and do not copy WhatsApp's own timestamp colour:
+`rgba(0,0,0,.6)` on `#d9fdd3` is 2.3:1.
+
+**Bubble metadata rides the last line.** `BubbleMeta` renders twice — once
+`invisible` inline so the final line wraps short of it, once absolutely
+positioned over the gap that opens. That is how a two-word reply stays one line
+tall. There is no measurement and no magic width; the reservation is the same
+node as the thing reserved for. Content types with no trailing paragraph opt out
+through `trailingMeta`.
+
+**Message runs** (`startsNewRun`, `RUN_BREAK_MINUTES = 5`) replaced the uniform
+`space-y-2`. A run-opening bubble squares its outer top corner and draws the
+tail; the rest stack tight. The tail is authored SVG, not a CSS triangle — a
+hard-edged triangle beside a 10px radius reads as a glitch.
+
+**The queue filter dropdown became a `ChipGroup`.** Six of seven options used to
+be one click away behind a `Button variant="pill"` menu; they are now a
+browsable chip strip with a live Unread count, which is both WhatsApp's shape
+and what every other list toolbar in this product already does.
+
+**Thread header:** avatar + name + phone as one profile target, then Status and
+Assign as pill triggers, then a ⋮ menu holding the 24-hour session window, the
+contact-panel toggle, and manual refresh. Demoting the session countdown hides a
+number, not a state — the composer still shows the amber "session has closed"
+bar with its Templates action, which is where the constraint actually bites.
+
+**Composer:** one `rounded-4xl` (26px — top of the existing radius ramp, and
+WhatsApp's exact value) card floating on the canvas with Control Lift shadow,
+holding attach / textarea / template / AI draft / send. Reply quotes now live
+_inside_ that shell so replying grows one object instead of stacking a second
+card. The "Enter to send · Shift+Enter for a new line" hint is gone: it is the
+one convention the audience already knows, and it cost 16px of every thread.
+
+**Hover toolbar moved beside the bubble** (`right-full mr-2` / `left-full ml-2`,
+vertically centred) instead of floating on its top edge, where it covered the
+first line of every one-line message and collided with the new tail.
+
+Reaction pills overlap the bubble's bottom edge with a canvas-coloured cut-out
+ring, and their fill **must be opaque** — they shipped briefly on
+`--primary-soft` (a 12%-alpha accent), which let the bubble read through the top
+half and the canvas through the bottom, leaving the emoji in a two-tone wash.
+Every pill now takes the opaque `--chat-bubble-in` — white on light, the raised
+surface on dark — and carries no owner marking: `aria-pressed` states whose
+reaction it is, and clicking your own removes it. Hover strengthens the cut-out
+edge instead of moving the fill, so the translucency cannot come back through a
+hover state.
+
+Also:
+the date separator is sticky; the doodle wallpaper moved to its own layer with
+per-mode opacity (its slate strokes were authored for the dark canvas and read
+as noise on light); the list and thread scrollbars are themed; text selection in
+the thread uses the accent.
+
+**DESIGN.md gained a `Meta` type step (400, 11px, 1.45)** — the only step below
+Label, for chat metadata only. It replaced a mix of unnamed 10px and 11px values
+inside bubbles.
+
+**Nested corners are concentric** (`outer = inner + gap`), and the geometry is
+derived from the masters rather than guessed. `Button` is 10px at `icon-lg`, so
+the composer shell pads it by 8px and takes an 18px corner — which lands the
+shell at 52px, WhatsApp's own composer height. The hover toolbar is 14px around
+10px at a 4px gap; a message bubble is 10px around 6px nested blocks at a 4px
+gap, which is why **the bubble pads by only 4px and its text rows carry the
+reading inset themselves** (`BUBBLE_TEXT_INSET`) — padding the bubble to space
+out type would push every nested block out of the pair. The composer shell went
+`rounded-4xl` → `rounded-2xl` in the process: a pill's effective radius is half
+its height, which rarely lands `outer − gap` on the ramp. Two edges moved from
+`border` to `ring-1` for the same reason — a border is layout and throws the
+pair off by one pixel; a ring is not. The general rule, with the full table of
+legal pairs, is in `docs/ui-patterns.md` → **Concentric corners**.
+
+Two deviations from the product's own rules are deliberate and documented in
+`docs/ui-patterns.md` → **Inbox chat surface**: the reply quote's 4px accent
+side bar, and fill-based row hover.
+
+**Fidelity stops at component geometry.** WhatsApp's icon actions are 40px
+circles; ours stay the unmodified `Button` master at named `icon-*` sizes with
+the product's `rounded-lg` geometry, and the pass also converted the hand-rolled
+20px circular buttons in the hover toolbar, the reply-quote dismiss, and the
+**Clear all** link onto that master. A circular shape axis was considered and
+rejected: a variant added to satisfy one screen becomes the override everyone
+reaches for next. Layout, rhythm, and interaction model are what this surface
+borrows — not component geometry.
+
 ## Template sends persist the message they delivered
 
 Only the inbox composer ever passed `content_text` on a template send, so every

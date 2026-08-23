@@ -52,7 +52,11 @@ export function MessageReactions({
   if (groups.length === 0) return null;
 
   return (
-    <div className="mt-1 flex flex-wrap gap-1">
+    // Reaction pills overlap the bubble they belong to rather than sitting in
+    // a row beneath it — the overlap is what makes them read as attached to
+    // that message instead of as a new message. The canvas-coloured ring cuts
+    // them out of the bubble fill so the seam stays crisp on either surface.
+    <div className="relative z-10 -mt-2.5 mr-2 ml-2 flex flex-wrap gap-1">
       {groups.map((g) => (
         <button
           key={g.emoji}
@@ -60,14 +64,22 @@ export function MessageReactions({
           onClick={() => onToggle(g.emoji)}
           aria-pressed={g.byCurrentUser}
           className={cn(
-            'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] leading-none transition-colors',
-            g.byCurrentUser
-              ? 'border-primary/60 bg-primary/15 text-primary-text hover:bg-primary/25'
-              : 'border-border bg-muted/80 text-foreground hover:bg-muted'
+            'inline-flex h-[22px] items-center gap-1 rounded-full border-2 px-1.5 text-[11px] leading-none shadow-[var(--chat-bubble-shadow)] transition-colors',
+            // The fill MUST be opaque, and it is the neutral bubble surface for
+            // everyone. This pill straddles the bubble's bottom edge, so a
+            // translucent fill (it shipped briefly on `--primary-soft`, a
+            // 12%-alpha accent) lets the bubble read through its top half and
+            // the canvas through its bottom — the wash the emoji sat in.
+            'bg-chat-bubble-in text-chat-meta',
+            // Cut-out ring against the canvas at rest; on hover the edge
+            // strengthens and the fill holds still, per the Edge-Strengthening
+            // Rule — a hover that moved the fill would reintroduce exactly the
+            // translucency this pill just got rid of.
+            'border-chat-canvas hover:border-border-hover'
           )}
         >
           <span className="text-sm leading-none">{g.emoji}</span>
-          {g.count > 1 && <span>{g.count}</span>}
+          {g.count > 1 && <span className="tabular-nums">{g.count}</span>}
         </button>
       ))}
     </div>

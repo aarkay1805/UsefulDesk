@@ -48,6 +48,11 @@ typography:
     fontSize: '0.75rem'
     fontWeight: 500
     lineHeight: 1.3333
+  meta:
+    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    fontSize: '0.6875rem'
+    fontWeight: 400
+    lineHeight: 1.4545
   mono:
     fontFamily: 'Geist Mono, ui-monospace, SFMono-Regular, Menlo, monospace'
     fontSize: '0.75rem'
@@ -192,6 +197,7 @@ The palette is a blue-violet-biased neutral workspace whose mode and account acc
 - **Title** (500, 16px, 1.5): card titles, dialog titles, and compact section hierarchy.
 - **Body** (400, 14px, 1.43): default interface copy, tables, controls, and descriptions. Text inputs remain 16px below the medium breakpoint to prevent mobile browser zoom, then settle to 14px.
 - **Label** (500, 12px, 1.33): metadata, compact counts, badges, and secondary labels. Uppercase is exceptional and reserved for genuinely categorical micro-labels.
+- **Meta** (400, 11px, 1.45): the smallest documented step, and the only one below Label. It exists for chat metadata — the timestamp, delivery ticks, and provenance markers riding inside a message bubble — where a 12px run would take space the message itself needs. Do not reach for it to shrink an ordinary label; a label that will not fit at 12px is a layout problem, not a type problem.
 
 ### Named Rules
 

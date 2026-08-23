@@ -24,6 +24,28 @@ When you spot a mismatch: **fix it at the master component** so every call-site 
 
 Every KPI delta uses the shared `MetricCard` direction treatment: upward/positive is `text-emerald-foreground`, downward/negative is `text-red-foreground`, and unchanged is `text-muted-foreground`. The arrow and label always share the same tone. Direction colours are semantic and must never inherit the account accent; sort arrows, disclosure chevrons, and money-flow direction icons are not trend deltas and keep their own established treatments.
 
+## Concentric corners (nested radii)
+
+**A rounded thing inside a rounded thing must be concentric: `outer = inner + gap`.** The gap is the real distance from the outer element's inner edge to the inner element — padding _plus any border_, because a border is layout. Get this wrong and the inner control reads as too square (or too round) for its container even though every value came off the ramp.
+
+The base radius is 10px and the ramp is 6 / 8 / 10 / 14 / 18 / 22 / 26. With the 4px spacing scale that gives a small set of legal pairs — **derive the container's corner from the control it holds, never the other way round**:
+
+| Inner           | Gap | Outer            |
+| --------------- | --- | ---------------- |
+| `rounded-sm` 6  | 4   | `rounded-lg` 10  |
+| `rounded-md` 8  | 6   | `rounded-xl` 14  |
+| `rounded-lg` 10 | 4   | `rounded-xl` 14  |
+| `rounded-lg` 10 | 8   | `rounded-2xl` 18 |
+| `rounded-md` 8  | 10  | `rounded-2xl` 18 |
+| `rounded-xl` 14 | 4   | `rounded-2xl` 18 |
+| `rounded-lg` 10 | 16  | `rounded-4xl` 26 |
+
+- **Start from the master's radius, which you do not get to change.** `Button` is 10px at `icon` / `icon-lg` / default, and 8px at `xs` / `sm` / `icon-xs` / `icon-sm`. Pick the container's padding and corner to suit it.
+- **Use `ring-1`, not `border`, on a container whose padding is doing concentric work.** A border consumes 1px of layout and throws the pair off by one; a ring paints outside the box and leaves the gap exact. The inbox hover toolbar and composer shell both moved to rings for this reason.
+- **A pill container almost never survives this rule.** A fully rounded shell has an effective radius of half its height, which rarely lands `outer − gap` on the ramp. Prefer a rounded rectangle whose corner is derived; the inbox composer went `rounded-4xl` → `rounded-2xl` for exactly this.
+- **Circles and non-corner-adjacent children are exempt.** An avatar centred in a row, or a badge sitting mid-content, has no corner near the container's and needs no pairing.
+- Worked example: an `icon-lg` control is 36px at a 10px corner; pad it by 8px and the shell must be 18px — which also makes the shell 52px tall. Derived geometry, not a guessed value.
+
 ## Clickable cards — hover is the BORDER, never the fill
 
 A clickable card (any bordered box that navigates or acts — nav tile, action row, selectable option) hovers with **`hover:border-border-hover` and nothing else**. The fill does not move: no `hover:bg-*`.
@@ -183,13 +205,24 @@ It is **host-agnostic on purpose** (renders no Sheet chrome) and has exactly two
 
 **Hosts differ ONLY by props, never by forking:**
 
-| Prop                | Purpose                                                                                                                                                                  |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `variant`           | `'sheet'` renders Base UI `SheetTitle`/`SheetDescription` (Dialog parts — they **throw** outside a Sheet root); `'panel'` swaps in plain elements with identical classes |
-| `actions`           | allowlist of `ContactQuickActionId` — the inbox drops `chat` (you're in the thread) and `template` (composer is right there)                                             |
-| `collapsedSections` | inbox collapses `details` (13 label/value rows in a 360px rail is a wall)                                                                                                |
-| `active`            | fetch trigger — sheet passes its `open`, panel passes `true`                                                                                                             |
-| `onClose`           | sheet dismisses; panel doesn't                                                                                                                                           |
+| Prop                | Purpose                                                                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `variant`           | `'sheet'` renders Base UI `SheetTitle`/`SheetDescription` (Dialog parts — they **throw** outside a Sheet root); `'panel'` swaps in plain elements with identical classes        |
+| `actions`           | allowlist of `ContactQuickActionId` — the inbox drops `chat` (you're in the thread) and `template` (composer is right there)                                                    |
+| `collapsedSections` | inbox collapses `details` (13 label/value rows in a 360px rail is a wall)                                                                                                       |
+| `active`            | fetch trigger — sheet passes its `open`, panel passes `true`                                                                                                                    |
+| `onClose`           | dismisses the host. The **panel** renders it as a real Close button in its header; the **sheet** does not, because `SheetContent` already supplies an X, a backdrop, and Escape |
+
+**Every affordance that opens the panel also closes it.** The inbox panel is an
+inline column with no backdrop and no Escape, so it needs visible ways out: its
+header Close button, the thread header's avatar/identity block, the active
+conversation row's avatar, and the thread header's ⋮ item. The avatar targets
+were reveal-only once, which shipped a panel a user could summon and not
+dismiss — never reintroduce a one-way disclosure here. Each toggle carries
+`aria-expanded` and swaps its label between **Open**/**Close** so AT never
+announces "collapse" for a control that expands. A row avatar toggles only on
+the row that is already active; on any other row it selects that conversation
+and reveals the panel.
 
 Adding a lead field once surfaces it in the table, the sheet **and** the inbox. The inbox panel is fully editable (same writes, same RLS, same transfer/assignment approval RPCs) and re-pulls the page's `activeContact` via `onUpdated` so the thread header + conversation list can't go stale.
 
@@ -273,7 +306,78 @@ Settings → Products & services → Trainers shows every registered team member
 - Interactive chips (clickable choices and filters) use **`Chip` inside `ChipGroup`**, not badges. Don't force them into `Badge`.
 - Follow-up due state is a status (`danger` for Overdue, `warning` for Due today, `neutral` for Upcoming); follow-up reason is a category (`neutral`). Their colours communicate different semantics, but both use the exact unmodified Badge geometry and typography.
 - Compact live counters use `Badge size="count"`. This is the canonical segment/filter-chip counter geometry; do not reconstruct it with class overrides.
-- **Inside a message bubble, a provenance tag is `BubbleMarker` (`components/inbox/message-bubble.tsx`), not a Badge.** The outbound bubble is filled with `--primary`, so any translucent chip laid on it lightens the text's own background — the old `bg-primary/20 text-primary-text` Template pill measured 3.7:1 on cobalt and 3.9:1 on rose. The marker is unfilled and takes `text-primary-foreground` on the accent fill / `text-muted-foreground` on the inbound muted bubble (4.6–8.0:1 on all five accents); size and caps carry the demotion instead of colour. **Template** and **Button reply** share it — add a marker there rather than a second recipe, and never re-add a fill.
+- **Inside a message bubble, a provenance tag is `BubbleMarker` (`components/inbox/message-bubble.tsx`), not a Badge.** A translucent chip laid on a bubble lightens the text's own background — the old `bg-primary/20 text-primary-text` Template pill measured 3.7:1 on cobalt and 3.9:1 on rose. The marker is unfilled and takes `text-chat-meta-out` on the outbound bubble / `text-chat-meta` on the inbound one; size and caps carry the demotion instead of colour. **Template** and **Button reply** share it — add a marker there rather than a second recipe, and never re-add a fill. See **Inbox chat surface** below for the tokens.
+
+## Inbox chat surface
+
+The inbox thread is the one place in the product that is deliberately modelled on another product's interface. Gym owners and front-desk staff already run their day inside WhatsApp; every hour they spend not re-learning a chat client is an hour the CRM does not cost them. Jacob's Law is the whole argument, so **fidelity to WhatsApp outranks local invention here** — but never the token layer, the accent system, or contrast.
+
+### Tokens (`globals.css`)
+
+The thread is neither `--background` nor `--card`. It has five of its own, and no chat colour may be written at a call site:
+
+| Token               | What it is                                                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `--chat-canvas`     | The recessed conversation plane. Sits **below** the list panel in both modes, which is what makes the list read as a panel. |
+| `--chat-bubble-in`  | Inbound fill. Rises off the canvas on light, sits above it on dark.                                                         |
+| `--chat-bubble-out` | Outbound fill: `color-mix` of `--primary` into the mode's base — a **tint**, never a solid accent fill.                     |
+| `--chat-meta`       | Derived from `--chat-bubble-in`. Timestamps, ticks, markers on the inbound bubble and on the canvas.                        |
+| `--chat-meta-out`   | Derived from `--chat-bubble-out`. Same job on the outbound bubble.                                                          |
+
+**The Derived-Meta Rule.** The two meta tokens are `color-mix`ed from the fill they sit on, never declared per mode. The outbound bubble's lightness swings from violet's 0.36 to amber's 0.45 on dark, so a fixed grey lands anywhere between 3.6:1 and 7:1 depending on the account's accent. Deriving keeps all ten mode × accent combinations at 5.99:1 or better with no per-accent table. **Do not replace either with a literal, and do not copy WhatsApp's own `rgba(0,0,0,.6)` timestamp — on `#d9fdd3` it measures 2.3:1.**
+
+**Body text on both bubbles is `--foreground`.** Because the outbound bubble is a tint, not a fill, there is no inverted palette inside it; `text-primary-foreground` does not belong on any chat surface.
+
+### Bubbles
+
+- **Geometry:** `rounded-lg` (10px), `px-2.5 py-1.5`, capped at `max-w-[min(65%,30rem)]` by `MessageActions`, with `shadow-[var(--chat-bubble-shadow)]` on both kinds. In light mode the inbound bubble is white on a near-white canvas, so the hairline shadow is load-bearing, not decoration.
+- **Runs and tails.** `startsNewRun` (`message-thread.tsx`) opens a run on a sender change or a gap over `RUN_BREAK_MINUTES`. A run-opening bubble squares its outer **top** corner and draws `BubbleTail`; the rest stack at `mt-0.5` while runs separate at `mt-3`. Those two gaps are the thread's rhythm — **a uniform gap between every bubble is what makes a chat UI read as a list of records.**
+- **Metadata rides the last line.** `BubbleMeta` renders twice: once `invisible` and inline so the final line wraps short of it, once absolutely positioned over the space that opens. Never replace this with a metadata row — a two-word reply would become two lines tall. Content types with no trailing paragraph (media, documents, audio, location) opt out through `trailingMeta`.
+- **Anything that straddles two surfaces needs an OPAQUE fill.** The reaction pill overlaps the bubble's bottom edge, so half of it sits on the bubble and half on the canvas. Given a translucent fill — it shipped briefly on `--primary-soft`, a 12%-alpha accent — both surfaces read through it and the emoji floats in a two-tone wash. Every pill therefore takes the opaque `--chat-bubble-in` (white on light, the raised surface on dark), and every pill looks the same whoever left it — your own reaction is distinguished by `aria-pressed` and by the fact that clicking it removes it, not by a tint or a ring. The `--primary-soft` / `--primary-soft-2` pair stays correct for a chip sitting on ONE known surface; it is wrong the moment an element spans two.
+- **The read tick is `text-sky-foreground`, and must not follow the account accent.** Blue double-ticks are the most recognised delivery signal in messaging; on the emerald or cobalt accent an accent-coloured tick would make "read" and "brand" the same colour. Every delivery state also carries an `aria-label`, so the meaning never rides on colour alone.
+
+### The thread follows the reader, not the other way round
+
+The message pane pins to the newest message **only while the reader is already
+within `STICK_TO_BOTTOM_PX` (120) of the bottom** — tracked by `stickToBottomRef`
+from the scroll event, never derived in render. It used to pin on every
+`messages` identity change, which meant scrolling back through history was
+undone by the next delivery receipt anywhere on the account. Above that band a
+**Jump to latest** button appears; it sets `scrollTop` directly rather than
+`scrollTo({behavior:'smooth'})`, because a smooth scroll emits intermediate
+scroll events that read as "not at the bottom" and flash the button back on
+mid-animation.
+
+Two things must stay pinned alongside it. Toggling the contact panel re-pins
+through an effect keyed on `contactPanelOpen`: narrowing the thread by 360px
+re-wraps every bubble and grows `scrollHeight` while `scrollTop` stays put, so a
+bottom-parked reader drifted hundreds of pixels up just for opening a profile.
+And both message-update paths in `inbox/page.tsx` return `prev` unchanged when
+the id is not in the open thread — the realtime channel carries every message
+UPDATE in the account, and a blind `.map` handed back a fresh array for each one.
+
+**The thread header's Status, Assign, and ⋮ are ghost buttons, not pills.** A pill trigger is the page-level filter idiom and it belongs on the list toolbar; three outlined pills in a row above a conversation put a fence around controls the eye should slide past. Ghost keeps the header as quiet as the one every user already knows, and the assignee's own name is the state readout that the accent tint used to provide.
+
+### Deliberate deviations from the rest of the system
+
+Two, both scoped to `components/inbox/` and both brief-driven. Do not generalise them, and do not "fix" them:
+
+1. **The reply quote keeps a 4px `border-l-primary` bar** (`reply-quote.tsx`). Thick coloured side borders are refused everywhere else; this one is how every messaging client on the market signals a quote, and losing it costs more recognition than the rule protects.
+2. **A conversation row hovers on its fill, not its border** (`hover:bg-foreground/5`, active `bg-primary-soft`). The clickable-card border rule governs bordered cards; a conversation row is a list row, which that rule already leaves on its own idiom.
+
+### Where fidelity stops: our components stay our components
+
+WhatsApp's icon actions are 40px circles. **Ours are not, and that is not a gap to close.** Every icon action on this surface — the header's ⋮ and back arrow, the composer's attach / template / AI / send, the hover toolbar's react / reply / copy, the reply quote's dismiss — is the unmodified `Button` master at a named `icon-*` size, and the product's `rounded-lg` icon geometry is the design language, not a compromise with it.
+
+**Never reintroduce circles here.** Not with `rounded-full` at a call site, and not by adding a circular variant to `ui/button.tsx` for this surface's sake — a shape axis added to satisfy one screen becomes the override everyone reaches for next. Borrowing another product's _layout, rhythm, and interaction model_ is the point of this surface; borrowing its component geometry is where the borrowing ends.
+
+One hand-roll survives, deliberately: the emoji swatches inside the reaction picker (`message-actions.tsx`) are native buttons carrying a glyph and a `hover:scale-125` affordance. They are colour swatches, not icon buttons. **If that picker is ever revisited, decide with the user whether it becomes a master component rather than quietly converting it.**
+
+### Everything else stays canonical
+
+Nested corners on this surface follow **Concentric corners** above: the composer shell is 18px around 10px controls at an 8px gap (52px tall), the hover toolbar 14px around 10px at 4px, and a message bubble is 10px around 6px nested blocks at 4px — which is why the bubble pads by only 4px and its text rows carry the reading inset themselves (`BUBBLE_TEXT_INSET`). Do not add padding to the bubble to space out type; it pushes every nested block out of the pair.
+
+The list uses `SearchInput`, `Chip`/`ChipGroup` for queue filters, `Button variant="pill"` for the Tags and Company menu triggers (page-level filter actions, per **Pill action triggers**), `Button variant="link"` for **Clear all**, `Badge size="count"` for unread, `UserAvatar` for every face, and `ScrollArea`. The 48px list avatar and 11px meta type are the two documented size steps this surface added (`UserAvatar className="size-12"`, DESIGN.md's `Meta` step) — both named, neither guessed.
 
 ## Chips
 

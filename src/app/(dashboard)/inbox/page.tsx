@@ -61,6 +61,12 @@ export default function InboxPage() {
    * header's panel toggle. Once open it's sticky: it follows whichever
    * conversation you select until you close it.
    *
+   * Every affordance that opens it also CLOSES it. The avatar/identity
+   * block used to be reveal-only, which left a panel you could summon and
+   * not dismiss — the only way out was a "Hide contact panel" item buried
+   * in the thread header's ⋮ menu. It now toggles, alongside the panel's
+   * own header Close button.
+   *
    * Deliberately NOT persisted. It used to default `true` and round-trip
    * through localStorage, which meant a stored `true` would re-open it on
    * every load and defeat the default.
@@ -75,10 +81,8 @@ export default function InboxPage() {
     setContactPanelOpen((prev) => !prev);
   }, []);
 
-  // Avatar click in the thread header — reveal, never hide (the toggle
-  // button owns hiding, so a second avatar click can't yank the panel away).
-  const handleOpenContactPanel = useCallback(() => {
-    setContactPanelOpen(true);
+  const handleCloseContactPanel = useCallback(() => {
+    setContactPanelOpen(false);
   }, []);
 
   // Fire the deep-link auto-select exactly once per URL — subsequent
@@ -235,10 +239,19 @@ export default function InboxPage() {
       }
 
       if (event.eventType === 'UPDATE') {
-        // Update message status
-        setMessages((prev) =>
-          prev.map((m) => (m.id === newMsg.id ? { ...m, ...newMsg } : m))
-        );
+        // Update message status. Bail out when the row isn't in the open
+        // thread — the channel carries every message UPDATE in the account,
+        // and a blind `.map` handed back a fresh array for each of them.
+        // That new identity re-rendered the whole thread and (before the
+        // stick-to-bottom guard in MessageThread) scrolled it to the newest
+        // message, so a delivery receipt in an unrelated conversation moved
+        // the one you were reading.
+        setMessages((prev) => {
+          if (!prev.some((m) => m.id === newMsg.id)) return prev;
+          return prev.map((m) =>
+            m.id === newMsg.id ? { ...m, ...newMsg } : m
+          );
+        });
       }
     },
     [activeConversation, hydrateConversation]
@@ -475,15 +488,19 @@ export default function InboxPage() {
     [activeConversation?.id, router]
   );
 
-  // Avatar click in a conversation ROW: select that conversation and reveal
-  // the panel in one go. handleSelectConversation no-ops when the row is
-  // already active, so clicking the active row's avatar just opens the panel.
+  // Avatar click in a conversation ROW. Clicking a DIFFERENT row's avatar
+  // means "show me this person" — always select and reveal. Clicking the
+  // ALREADY-active row's avatar is the same gesture as the thread header's,
+  // so it toggles: the affordance that opened the panel is the one that
+  // closes it again.
   const handleOpenProfileFromList = useCallback(
     (conv: Conversation) => {
+      const wasActive = activeConversation?.id === conv.id;
+      // No-ops when the row is already active — see the guard inside.
       handleSelectConversation(conv);
-      setContactPanelOpen(true);
+      setContactPanelOpen((prev) => (wasActive ? !prev : true));
     },
-    [handleSelectConversation]
+    [handleSelectConversation, activeConversation?.id]
   );
 
   // Mobile "back" — deselect the conversation so the list pane comes
@@ -512,9 +529,13 @@ export default function InboxPage() {
 
   const handleUpdateMessage = useCallback(
     (id: string, updates: Partial<Message>) => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, ...updates } : m))
-      );
+      // Same identity guard as the realtime UPDATE path: an optimistic
+      // message whose id is no longer in the list (the realtime INSERT
+      // already replaced it) must not churn the array.
+      setMessages((prev) => {
+        if (!prev.some((m) => m.id === id)) return prev;
+        return prev.map((m) => (m.id === id ? { ...m, ...updates } : m));
+      });
     },
     []
   );
@@ -606,6 +627,7 @@ export default function InboxPage() {
             conversations={conversations}
             onConversationsLoaded={handleConversationsLoaded}
             onOpenProfile={handleOpenProfileFromList}
+            contactPanelOpen={contactPanelOpen}
             resyncToken={resyncToken}
           />
         </div>
@@ -640,17 +662,18 @@ export default function InboxPage() {
             onRefresh={handleManualRefresh}
             contactPanelOpen={contactPanelOpen}
             onToggleContactPanel={handleToggleContactPanel}
-            onOpenContactPanel={handleOpenContactPanel}
           />
         </div>
 
-        {/* Right panel: contact profile — desktop only, opened on demand by
-            clicking a contact's avatar (or the thread-header toggle, #258). */}
+        {/* Right panel: contact profile — desktop only, toggled by a
+            contact's avatar (in a row or the thread header), the thread
+            header's ⋮ item, and its own header Close button. */}
         {contactPanelOpen && (
           <div className="hidden lg:block">
             <ContactSidebar
               contact={activeContact}
               onUpdated={handleContactUpdated}
+              onClose={handleCloseContactPanel}
             />
           </div>
         )}

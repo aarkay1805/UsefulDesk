@@ -28,10 +28,12 @@ import {
   RefreshCw,
   PanelRightOpen,
   PanelRightClose,
+  MoreVertical,
   Loader2,
 } from 'lucide-react';
 import { format, isToday, isYesterday, differenceInHours } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import {
   DropdownMenu,
@@ -98,16 +100,20 @@ interface MessageThreadProps {
    */
   onRefresh?: () => void;
   /**
-   * Desktop-only contact-panel toggle. The page owns the open/closed
-   * state (it's the one that renders the sidebar), so the thread just
+   * Contact-panel toggle. The page owns the open/closed state (it's the
+   * one that renders the sidebar / mobile Sheet), so the thread just
    * reflects it and asks the page to flip it. Both optional so existing
-   * callers keep working; the toggle button only renders when
+   * callers keep working; the ⋮ item only renders when
    * `onToggleContactPanel` is wired up.
+   *
+   * The header's avatar/identity block fires the SAME toggle. It used to
+   * have a reveal-only handler of its own, which made the most obvious
+   * affordance on the surface a one-way door: clicking the avatar again
+   * did nothing, and dismissing meant finding "Hide contact panel" in the
+   * ⋮ menu. One handler, one mental model.
    */
   contactPanelOpen?: boolean;
   onToggleContactPanel?: () => void;
-  /** Header avatar click — reveal the contact panel (never hide it). */
-  onOpenContactPanel?: () => void;
 }
 
 // Older separators format through the account locale (fmt passed in —
@@ -147,16 +153,72 @@ const STATUS_OPTIONS: {
 ];
 
 /**
- * WhatsApp-style doodle background applied to the chat area (both the
- * active thread and the empty state). The SVG tile lives at
- * `/public/inbox-doodle.svg`; the slate-950 colour sits underneath so
- * the doodles read as a subtle pattern rather than a stark grid.
- *
- * Defined once at module scope so the two render paths can't drift —
- * if we ever switch the asset, both spots update together.
+ * The status dot inside the header's pill trigger. Same three fills the
+ * conversation row uses, so a row and its open thread never disagree about
+ * what colour "pending" is.
  */
-const DOODLE_BG_CLASSES =
-  "bg-background bg-[url('/inbox-doodle.svg')] bg-repeat";
+const STATUS_DOT_COLORS: Record<ConversationStatus, string> = {
+  open: 'bg-primary',
+  pending: 'bg-amber-500',
+  closed: 'bg-muted-foreground',
+};
+
+/**
+ * The chat plane. `bg-chat-canvas` is a recessed surface that is neither the
+ * page background nor a card, so the conversation reads as sitting *under* the
+ * list column — the tonal relationship WhatsApp uses on both light and dark.
+ * `chat-surface` scopes the accent text-selection colour to this pane.
+ *
+ * The doodle wallpaper rides its own absolutely-positioned layer (see
+ * `ChatWallpaper`) rather than a background-image here, because the tile needs
+ * a different alpha per mode.
+ *
+ * Defined once at module scope so the empty state and the live thread can't
+ * drift apart under the user's eye when they select a conversation.
+ */
+const CHAT_CANVAS_CLASSES = 'bg-chat-canvas chat-surface relative';
+
+/** The repeating doodle tile, behind everything and inert to the pointer. */
+function ChatWallpaper() {
+  return (
+    <div
+      aria-hidden
+      className="chat-doodle pointer-events-none absolute inset-0"
+    />
+  );
+}
+
+/**
+ * How long two messages from the same sender can be apart and still read as
+ * one turn. Inside a run bubbles stack 2px apart with a single tail on the
+ * first; across runs they separate by 12px and the next one grows its own
+ * tail. Those two numbers are the whole rhythm of a WhatsApp thread — a
+ * uniform gap between every bubble is what makes a naive chat UI feel like a
+ * list of records instead of a conversation.
+ */
+const RUN_BREAK_MINUTES = 5;
+
+/**
+ * How far off the bottom still counts as "reading the latest". Inside this
+ * band an incoming message may move the viewport; outside it the reader has
+ * deliberately scrolled back through history and the thread must hold still.
+ * Roughly two bubbles' worth, so a half-scrolled last message still pins.
+ */
+const STICK_TO_BOTTOM_PX = 120;
+
+function startsNewRun(
+  message: Message,
+  previous: Message | undefined
+): boolean {
+  if (!previous) return true;
+  const outbound = (m: Message) =>
+    m.sender_type === 'agent' || m.sender_type === 'bot';
+  if (outbound(message) !== outbound(previous)) return true;
+  const gapMs =
+    new Date(message.created_at).getTime() -
+    new Date(previous.created_at).getTime();
+  return gapMs > RUN_BREAK_MINUTES * 60_000;
+}
 
 export function MessageThread({
   conversation,
@@ -172,13 +234,21 @@ export function MessageThread({
   onRefresh,
   contactPanelOpen,
   onToggleContactPanel,
-  onOpenContactPanel,
 }: MessageThreadProps) {
   const { user } = useAuth();
   const { fmt } = useLocale();
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  /**
+   * True while the reader is parked at the newest message — the only state
+   * in which an arriving message is allowed to move the viewport. Written
+   * from the scroll handler and from the thread-change effect, never during
+   * render.
+   */
+  const stickToBottomRef = useRef(true);
+  /** Drives the jump-to-latest button. Mirrors `!stickToBottomRef.current`. */
+  const [scrolledUp, setScrolledUp] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
@@ -274,6 +344,18 @@ export function MessageThread({
 
   const conversationId = conversation?.id;
   const hasUnread = (conversation?.unread_count ?? 0) > 0;
+
+  // Clear the jump-to-latest affordance when the thread changes. Adjusted
+  // during render through a synced-prop guard rather than in an effect —
+  // `react-hooks/set-state-in-effect` is enforced, and the scroll event
+  // that would otherwise correct it never fires for a thread short enough
+  // to have no scrollbar, which would strand the button on an empty thread.
+  const [syncedConversationId, setSyncedConversationId] =
+    useState(conversationId);
+  if (syncedConversationId !== conversationId) {
+    setSyncedConversationId(conversationId);
+    setScrolledUp(false);
+  }
 
   // Fetch messages whenever the selected conversation changes. Kept
   // separate from the unread-reset effect so that incoming messages
@@ -453,12 +535,65 @@ export function MessageThread({
       });
   }, [conversationId, hasUnread]);
 
-  // Auto-scroll to bottom on new messages
+  const scrollToLatest = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottomRef.current = true;
+    setScrolledUp(false);
+    // Instant, not smooth: a smooth scroll emits intermediate scroll events
+    // that read as "not at the bottom", which flips the flag and flashes
+    // this very button back on mid-animation. The thread's other pins are
+    // instant too, so this also stays consistent with them.
+    el.scrollTop = el.scrollHeight;
+  }, []);
+
+  // Track whether the reader is at the bottom. Runs on the scroll event
+  // (never in an effect), so setting state here is allowed.
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = distanceFromBottom <= STICK_TO_BOTTOM_PX;
+    stickToBottomRef.current = atBottom;
+    setScrolledUp((prev) => (prev === !atBottom ? prev : !atBottom));
+  }, []);
+
+  // Opening a different thread always lands on its newest message — a
+  // scroll position carried over from the previous conversation must not
+  // suppress the pin. Declared BEFORE the message effect below so it
+  // resets the flag first when both fire in the same commit.
   useEffect(() => {
-    if (scrollRef.current) {
-      const el = scrollRef.current;
-      el.scrollTop = el.scrollHeight;
-    }
+    stickToBottomRef.current = true;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [conversationId]);
+
+  /**
+   * Keep a bottom-parked reader parked when the PANE reflows. Toggling the
+   * contact panel narrows or widens the thread by 360px, which re-wraps
+   * every bubble and grows `scrollHeight` while `scrollTop` stays put — on
+   * a real thread that left the reader ~570px above the newest message,
+   * silently, just for opening a profile. Before the guard below the next
+   * message hid the damage by re-pinning; now nothing would.
+   */
+  useEffect(() => {
+    if (!stickToBottomRef.current) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [contactPanelOpen]);
+
+  /**
+   * Follow the conversation — but only while the reader is already at the
+   * bottom. This used to pin unconditionally on every `messages` identity
+   * change, which meant scrolling back through history was undone by the
+   * next inbound message *and* by every delivery receipt (a `sent →
+   * delivered → read` tick rewrites the array), so reading a thread from
+   * the top was effectively impossible on a busy account.
+   */
+  useEffect(() => {
+    if (!stickToBottomRef.current) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   const handleSend = useCallback(
@@ -815,22 +950,26 @@ export function MessageThread({
   // Empty state — same WhatsApp-style doodle background as the active
   // thread below, so swapping between empty/selected doesn't change the
   // pattern under the user's eye.
+  // Empty state — the same canvas and wallpaper as the live thread, so
+  // selecting a conversation changes what's on the plane, never the plane.
   if (!conversation || !contact) {
     return (
       <div
         className={cn(
-          'flex flex-1 flex-col items-center justify-center',
-          DOODLE_BG_CLASSES
+          'flex flex-1 flex-col items-center justify-center px-6 text-center',
+          CHAT_CANVAS_CLASSES
         )}
       >
-        <div className="bg-muted flex h-16 w-16 items-center justify-center rounded-full">
-          <MessageSquare className="text-muted-foreground h-8 w-8" />
+        <ChatWallpaper />
+        <div className="bg-chat-bubble-in text-chat-meta relative flex size-16 items-center justify-center rounded-full shadow-[var(--chat-bubble-shadow)]">
+          <MessageSquare className="size-7" />
         </div>
-        <h3 className="text-muted-foreground mt-4 text-sm font-medium">
+        <h3 className="text-foreground relative mt-5 text-base font-medium">
           Select a conversation
         </h3>
-        <p className="text-muted-foreground mt-1 text-xs">
-          Choose a conversation from the left to start messaging
+        <p className="text-chat-meta relative mt-1 max-w-sm text-sm">
+          Pick a member or lead on the left to read the thread and reply on
+          WhatsApp.
         </p>
       </div>
     );
@@ -856,118 +995,81 @@ export function MessageThread({
     // clipped and the hover toolbar overlaps the Tags panel. Letting the
     // root shrink lets the bubbles' break-words / max-w caps apply.
     // Issue #257.
-    <div className={cn('flex min-w-0 flex-1 flex-col', DOODLE_BG_CLASSES)}>
-      {/* Header — solid card surface sits on top of the doodle so the
-          name/avatar/dropdowns stay legible. */}
-      <div className="border-border bg-card flex items-center justify-between gap-2 border-b px-3 py-3 sm:px-4">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          {/* Back-to-list button — mobile only. Hidden on lg+ where the
-              conversation list is always visible next to the thread. */}
+    <div className={cn('flex min-w-0 flex-1 flex-col', CHAT_CANVAS_CLASSES)}>
+      <ChatWallpaper />
+
+      {/* Header — a 64px card bar over the canvas, matching WhatsApp's:
+          avatar, name, one supporting line, then actions. Everything that
+          isn't Status or Assign lives behind the ⋮ menu so the bar stays as
+          quiet as the one every user already knows. */}
+      <div className="border-border bg-card relative flex h-16 shrink-0 items-center gap-2 border-b px-2 sm:px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          {/* Back-to-list — mobile only; on lg+ the list is always beside us. */}
           {onBack && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-lg"
               onClick={onBack}
               aria-label="Back to conversations"
-              className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md lg:hidden"
+              className="lg:hidden"
             >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
+              <ArrowLeft className="size-5" />
+            </Button>
           )}
-          {/* Avatar — opens the contact panel (closed by default). Routed
-              through UserAvatar so the member's uploaded photo shows here
-              too; this used to render the bare initial and ignore it. */}
+          {/* Avatar + identity are one target, the way WhatsApp opens contact
+              info: the whole block toggles the profile panel rather than only
+              a small circle. `aria-expanded` is what makes it read as a
+              disclosure to AT — and it is the honest description, because a
+              second click closes the panel again. */}
           <button
             type="button"
-            onClick={onOpenContactPanel}
-            aria-label={`Open ${displayName}'s profile`}
-            title="Open profile"
-            className="flex-shrink-0 rounded-full transition-opacity hover:opacity-80"
+            onClick={onToggleContactPanel}
+            aria-expanded={contactPanelOpen ?? false}
+            aria-label={
+              contactPanelOpen
+                ? `Close ${displayName}'s profile`
+                : `Open ${displayName}'s profile`
+            }
+            title={contactPanelOpen ? 'Close profile' : 'Open profile'}
+            className="hover:bg-foreground/5 focus-visible:ring-ring/50 -mx-1.5 flex min-w-0 items-center gap-3 rounded-lg px-1.5 py-1 text-left transition-colors outline-none focus-visible:ring-[3px]"
           >
             <UserAvatar
               name={displayName}
               src={contact.avatar_url}
-              className="size-9"
+              size="lg"
+              className="shrink-0"
             />
+            <div className="min-w-0">
+              <div className="text-foreground truncate text-base font-medium">
+                {displayName}
+              </div>
+              <div className="text-muted-foreground truncate text-xs">
+                {contact.phone}
+              </div>
+            </div>
           </button>
-          <div className="min-w-0">
-            <h2 className="text-foreground truncate text-sm font-semibold">
-              {displayName}
-            </h2>
-            <p className="text-muted-foreground truncate text-xs">
-              {contact.phone}
-            </p>
-          </div>
-          {/* Session timer badge — hidden on the narrowest phones so
-              the name + back arrow keep their room. */}
-          <Badge
-            variant={sessionInfo.expired ? 'danger' : 'success'}
-            className="ml-1 hidden sm:ml-2 sm:inline-flex"
-          >
-            <Clock />
-            {sessionInfo.remaining}
-          </Badge>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Contact-panel toggle — desktop only. The contact sidebar
-              eats a chunk of horizontal width that crowds the thread on
-              smaller laptops; this lets agents reclaim it when they just
-              want to read and reply. Hidden on mobile, where the sidebar
-              never renders as a permanent panel anyway. Issue #258. */}
-          {onToggleContactPanel && (
-            <button
-              type="button"
-              onClick={onToggleContactPanel}
-              aria-label={
-                contactPanelOpen ? 'Hide contact panel' : 'Show contact panel'
-              }
-              aria-pressed={contactPanelOpen}
-              title={contactPanelOpen ? 'Hide contact' : 'Show contact'}
-              className={cn(
-                'hover:bg-muted hover:text-foreground hidden h-7 w-7 items-center justify-center rounded-md transition-colors lg:inline-flex',
-                contactPanelOpen ? 'text-primary-text' : 'text-muted-foreground'
-              )}
-            >
-              {contactPanelOpen ? (
-                <PanelRightClose className="h-4 w-4" />
-              ) : (
-                <PanelRightOpen className="h-4 w-4" />
-              )}
-            </button>
-          )}
-
-          {/* Manual refresh — forces a refetch of the messages + the
-              conversation list (the parent bumps its resyncToken). Useful
-              when realtime missed an event or the agent just wants to be
-              sure nothing's stale. Only rendered when the parent wires
-              up `onRefresh`. */}
-          {onRefresh && (
-            <button
-              type="button"
-              onClick={handleRefreshClick}
-              disabled={isRefreshing}
-              aria-label="Refresh conversation"
-              title="Refresh"
-              className={cn(
-                'text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-60'
-              )}
-            >
-              <RefreshCw
-                className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')}
-              />
-            </button>
-          )}
-
-          {/* Status dropdown */}
+        <div className="flex shrink-0 items-center gap-1">
+          {/* Status — daily CRM work, so it stays on the bar rather than in
+              the overflow. Pill trigger: the canonical menu-opening
+              counterpart to a Chip. */}
           <DropdownMenu>
             <DropdownMenuTrigger
-              className={cn(
-                'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
-                currentStatus?.color ?? 'text-muted-foreground'
-              )}
+              render={<Button variant="ghost" size="sm" />}
+              aria-label={`Conversation status. ${currentStatus?.label ?? 'Status'}`}
             >
-              {currentStatus?.label ?? 'Status'}
-              <ChevronDown className="h-3 w-3" />
+              <span
+                aria-hidden
+                className={cn(
+                  'size-1.5 rounded-full',
+                  STATUS_DOT_COLORS[conversation.status]
+                )}
+              />
+              <span className="hidden sm:inline">
+                {currentStatus?.label ?? 'Status'}
+              </span>
+              <ChevronDown className="size-3" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
@@ -985,19 +1087,18 @@ export function MessageThread({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Assign dropdown */}
+          {/* Assign */}
           <DropdownMenu>
             <DropdownMenuTrigger
+              render={<Button variant="ghost" size="sm" />}
               aria-label={`Assign conversation. ${assignLabel}`}
               title={assignLabel}
-              className={cn(
-                'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
-                assignedAgentId ? 'text-primary-text' : 'text-muted-foreground'
-              )}
             >
-              <UserPlus className="h-3 w-3" />
-              <span className="hidden sm:inline">{assignLabel}</span>
-              <ChevronDown className="h-3 w-3" />
+              <UserPlus className="size-3" />
+              <span className="hidden max-w-24 truncate sm:inline">
+                {assignLabel}
+              </span>
+              <ChevronDown className="size-3" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
@@ -1038,7 +1139,7 @@ export function MessageThread({
                         {p.full_name}
                         {p.user_id === user?.id ? ' (me)' : ''}
                       </span>
-                      {isSelected && <Check className="ml-2 h-3 w-3" />}
+                      {isSelected && <Check className="ml-2 size-3" />}
                     </DropdownMenuItem>
                   );
                 })
@@ -1056,35 +1157,107 @@ export function MessageThread({
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Overflow — the session window, a manual resync, and the contact
+              panel toggle. All three are occasional; none of them earns a
+              permanent slot next to the member's name. The 24-hour session
+              still announces itself where it actually bites, in the composer,
+              so demoting the countdown here hides a number, not a state. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="ghost" size="icon-lg" />}
+              aria-label="More conversation actions"
+              title="More"
+            >
+              <MoreVertical className="size-5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="border-border bg-popover w-56"
+            >
+              <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                <span className="text-muted-foreground text-xs">
+                  WhatsApp® session
+                </span>
+                <Badge variant={sessionInfo.expired ? 'danger' : 'success'}>
+                  <Clock />
+                  {sessionInfo.remaining}
+                </Badge>
+              </div>
+              <DropdownMenuSeparator className="bg-border" />
+              {onToggleContactPanel && (
+                <DropdownMenuItem
+                  onClick={onToggleContactPanel}
+                  className="hidden text-sm lg:flex"
+                >
+                  {contactPanelOpen ? (
+                    <PanelRightClose className="mr-2 size-4" />
+                  ) : (
+                    <PanelRightOpen className="mr-2 size-4" />
+                  )}
+                  {contactPanelOpen
+                    ? 'Hide contact panel'
+                    : 'Show contact panel'}
+                </DropdownMenuItem>
+              )}
+              {onRefresh && (
+                <DropdownMenuItem
+                  onClick={handleRefreshClick}
+                  disabled={isRefreshing}
+                  className="text-sm"
+                >
+                  <RefreshCw
+                    className={cn(
+                      'mr-2 size-4',
+                      isRefreshing && 'animate-spin'
+                    )}
+                  />
+                  {isRefreshing ? 'Refreshing…' : 'Refresh conversation'}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {/* Messages Area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="text-primary-text size-5 animate-spin" />
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground text-sm">No messages yet</p>
-            <p className="text-muted-foreground text-xs">
-              Send a template to start the conversation
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messageGroups.map((group) => (
-              <div key={group.date}>
-                {/* Date separator */}
-                <div className="mb-4 flex items-center justify-center">
-                  <span className="bg-muted text-muted-foreground rounded-full px-3 py-1 text-[10px] font-medium">
-                    {formatDateSeparator(group.date, fmt)}
-                  </span>
-                </div>
-                {/* Messages */}
-                <div className="space-y-2">
-                  {group.messages.map((msg) => {
+      {/* Messages. The generous side gutters are WhatsApp's — bubbles capped
+          at 65% of the pane never reach the pane edge, which is what keeps a
+          wide desktop thread readable instead of stretched.
+
+          The wrapper exists so the jump-to-latest button can anchor to the
+          BOTTOM OF THE PANE. Absolutely positioning it inside the scroller
+          would make it scroll away with the content. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="chat-scroll relative flex-1 overflow-x-hidden overflow-y-auto px-4 py-3 sm:px-8 lg:px-12"
+        >
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="text-primary-text size-5 animate-spin" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-1 py-12 text-center">
+              <p className="text-foreground text-sm font-medium">
+                No messages yet
+              </p>
+              <p className="text-chat-meta text-xs">
+                Send a template to start the conversation.
+              </p>
+            </div>
+          ) : (
+            <div>
+              {messageGroups.map((group) => (
+                <div key={group.date}>
+                  {/* Date separator — sticky, like WhatsApp's, so the day you
+                    are reading stays named while you scroll back through it. */}
+                  <div className="sticky top-0 z-10 flex justify-center py-2">
+                    <span className="bg-chat-bubble-in text-chat-meta rounded-md px-3 py-1 text-[11px] font-medium shadow-[var(--chat-bubble-shadow)]">
+                      {formatDateSeparator(group.date, fmt)}
+                    </span>
+                  </div>
+                  {group.messages.map((msg, index) => {
                     const parent = msg.reply_to_message_id
                       ? messagesById.get(msg.reply_to_message_id)
                       : null;
@@ -1095,6 +1268,10 @@ export function MessageThread({
                         }
                       : null;
                     const msgReactions = reactionsByMessageId.get(msg.id);
+                    const opensRun = startsNewRun(
+                      msg,
+                      group.messages[index - 1]
+                    );
                     // Toggle is computed at the call site — `msgReactions`
                     // and `user?.id` are already in scope, no extra hook.
                     const handlePillToggle = (emoji: string) => {
@@ -1106,28 +1283,52 @@ export function MessageThread({
                       void postReaction(msg.id, next);
                     };
                     return (
-                      <MessageActions
+                      <div
                         key={msg.id}
-                        message={msg}
-                        onReply={() => handleStartReply(msg)}
-                        onReact={(emoji) => {
-                          if (emoji) void postReaction(msg.id, emoji);
-                        }}
+                        className={cn(opensRun ? 'mt-3' : 'mt-0.5')}
                       >
-                        <MessageBubble
+                        <MessageActions
                           message={msg}
-                          reply={reply}
-                          reactions={msgReactions}
-                          currentUserId={user?.id}
-                          onToggleReaction={handlePillToggle}
-                        />
-                      </MessageActions>
+                          onReply={() => handleStartReply(msg)}
+                          onReact={(emoji) => {
+                            if (emoji) void postReaction(msg.id, emoji);
+                          }}
+                        >
+                          <MessageBubble
+                            message={msg}
+                            reply={reply}
+                            reactions={msgReactions}
+                            currentUserId={user?.id}
+                            onToggleReaction={handlePillToggle}
+                            startsRun={opensRun}
+                          />
+                        </MessageActions>
+                      </div>
                     );
                   })}
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Jump to latest. The thread no longer yanks a reader who has
+            scrolled back into history down to the newest message, so it owes
+            them a one-click way down — and a visible marker that there IS
+            something below. The unmodified Button master at a named icon
+            size, per the surface's "our components stay our components"
+            rule — no circle, no call-site geometry. */}
+        {scrolledUp && messages.length > 0 && (
+          <Button
+            variant="secondary"
+            size="icon-lg"
+            onClick={scrollToLatest}
+            aria-label="Jump to latest message"
+            title="Jump to latest"
+            className="ring-border absolute right-4 bottom-3 z-20 shadow-md ring-1 sm:right-8 lg:right-12"
+          >
+            <ChevronDown className="size-5" />
+          </Button>
         )}
       </div>
 

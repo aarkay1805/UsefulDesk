@@ -1,6 +1,7 @@
 'use client';
 
 import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/types';
 
@@ -14,60 +15,65 @@ interface ReplyQuoteProps {
   /** Present → renders the composer-chip variant with an X button. Absent →
    *  renders the embedded-in-bubble variant. */
   onDismiss?: () => void;
-  /** True when embedded inside an outbound (primary-filled) bubble, so the
-   *  quote must read against the primary surface rather than the neutral
-   *  foreground — otherwise it goes low-contrast in light mode. */
-  onPrimary?: boolean;
+  /** True when embedded inside an outbound bubble. Only the panel tint and
+   *  the preview tone key off this now — since the outbound bubble became an
+   *  accent tint rather than a solid accent fill, both bubbles carry ordinary
+   *  foreground text and the quote no longer needs an inverted palette. */
+  onOutbound?: boolean;
 }
 
+/**
+ * The quoted-message panel, shaped like WhatsApp's: a rounded block inset in
+ * the bubble, a solid accent bar down its leading edge, the author on top, and
+ * a clamped preview beneath. The bar is the one place a thick coloured edge
+ * earns its keep — it is how every messaging client on the market signals "this
+ * is a quote", and losing it costs more recognition than the rule protects.
+ */
 export function ReplyQuote({
   authorLabel,
   preview,
   onDismiss,
-  onPrimary = false,
+  onOutbound = false,
 }: ReplyQuoteProps) {
   const isChip = !!onDismiss;
   return (
     <div
       className={cn(
-        'flex items-start gap-2 border-l-2 px-2 py-1',
-        onPrimary ? 'border-primary-foreground/50' : 'border-primary',
+        'flex items-start gap-2 overflow-hidden border-l-4 py-1 pr-2 pl-2',
+        'border-l-primary',
+        // Concentric with whichever surface hosts it. In a bubble the gap is
+        // 4px inside a 10px corner (6 + 4 = 10); in the composer shell it is
+        // 8px inside an 18px corner (10 + 8 = 18).
         isChip
-          ? 'bg-muted/80 rounded-md'
-          : onPrimary
-            ? 'bg-primary-foreground/15 mb-1.5 rounded-md'
-            : 'bg-background/20 mb-1.5 rounded-md'
+          ? 'bg-foreground/[0.06] rounded-lg'
+          : cn(
+              'mb-1 rounded-sm',
+              onOutbound ? 'bg-foreground/10' : 'bg-foreground/[0.06]'
+            )
       )}
     >
       <div className="min-w-0 flex-1 overflow-hidden">
-        <div
-          className={cn(
-            'truncate text-[11px] font-medium',
-            onPrimary ? 'text-primary-foreground' : 'text-primary-text'
-          )}
-        >
+        <div className="text-primary-text truncate text-xs font-medium">
           {authorLabel}
         </div>
-        {/* Wrap the preview instead of truncating to a single line.
-         *  `truncate` (white-space: nowrap) forced the quote onto one
-         *  impossibly-wide line and — because the parent flex chain
-         *  lacked `min-w-0` at every step — pushed the entire inbox
-         *  layout wider, shoving the contact sidebar off-screen.
-         *  `break-words` also wraps long URLs that have no whitespace
-         *  to break on. Issue #165. */}
-        <div className="text-foreground/80 text-xs break-words whitespace-pre-wrap">
+        {/* Clamped rather than truncated to one line: a quote is context, so
+         *  two lines of it is the useful amount, and `line-clamp` wraps long
+         *  URLs that `truncate` (white-space: nowrap) used to stretch the
+         *  whole inbox around. Issue #165. */}
+        <div className="text-chat-meta line-clamp-2 text-xs break-words">
           {preview}
         </div>
       </div>
       {onDismiss && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-xs"
           onClick={onDismiss}
           aria-label="Cancel reply"
-          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded"
+          className="-mr-1"
         >
-          <X className="h-3.5 w-3.5" />
-        </button>
+          <X />
+        </Button>
       )}
     </div>
   );

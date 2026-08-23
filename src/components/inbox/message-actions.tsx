@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { CornerUpLeft, Copy, SmilePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import {
   Popover,
   PopoverContent,
@@ -87,23 +88,33 @@ export function MessageActions({
        *  an unbroken URL) push past the cap and shove the row past
        *  100%, which used to bleed across into the contact-sidebar
        *  area. See issue #165. */}
-      <div className="group/actions relative max-w-[min(75%,34rem)] min-w-0">
+      <div className="group/actions relative max-w-[min(65%,30rem)] min-w-0">
         {children}
         <div
           data-touch-open={touchOpen || pickerOpen ? 'true' : undefined}
           className={cn(
-            'border-border bg-popover/95 absolute -top-3 z-10 flex h-7 items-center gap-0.5 rounded-full border px-1 shadow-md backdrop-blur-sm transition-opacity',
+            // The edge is a ring, not a border, for a geometric reason: a 1px border
+            // is layout, so it pushes the buttons 5px inside a 14px corner and
+            // breaks the 10 + 4 pair. A ring paints outside the box and leaves the
+            // gap at exactly 4px. Same idiom as the composer shell.
+            'ring-border bg-popover/95 absolute top-1/2 z-20 flex -translate-y-1/2 items-center gap-0.5 rounded-xl p-1 shadow-md ring-1 backdrop-blur-sm transition-opacity',
             'opacity-0 group-focus-within/actions:opacity-100 group-hover/actions:opacity-100',
             'data-[touch-open=true]:opacity-100',
-            isAgent ? 'right-3' : 'left-3'
+            // Beside the bubble, not over it. Floating the toolbar on the
+            // bubble's top edge covered the first line of every one-line
+            // message — exactly the messages people hover most — and collided
+            // with the tail. Bubbles cap at 65% of the pane, so the inner
+            // gutter is always there to put it in, which is where WhatsApp
+            // Web puts its own react affordance.
+            isAgent ? 'right-full mr-2' : 'left-full ml-2'
           )}
         >
           <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
             <PopoverTrigger
-              className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
+              render={<Button variant="ghost" size="icon" />}
               aria-label="React"
             >
-              <SmilePlus className="h-3.5 w-3.5" />
+              <SmilePlus />
             </PopoverTrigger>
             <PopoverContent
               className="flex w-auto flex-row gap-1 p-1.5"
@@ -122,22 +133,22 @@ export function MessageActions({
               ))}
             </PopoverContent>
           </Popover>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleReply}
-            className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
             aria-label="Reply"
           >
-            <CornerUpLeft className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
+            <CornerUpLeft />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleCopy}
-            className="text-popover-foreground hover:bg-muted hover:text-foreground flex h-5 w-5 items-center justify-center rounded-full"
             aria-label="Copy"
           >
-            <Copy className="h-3.5 w-3.5" />
-          </button>
+            <Copy />
+          </Button>
         </div>
       </div>
     </div>

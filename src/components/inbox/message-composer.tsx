@@ -177,6 +177,16 @@ export function MessageComposer({
     };
   }, [clearTimer, removeStaged]);
 
+  // Staging a reply should put the caret where the reply gets typed.
+  // Without this, hitting Reply on a bubble armed the quote in the composer
+  // and then left the agent to click into the textarea before they could
+  // type — the one action the button exists to start.
+  const replyToId = replyTo?.id ?? null;
+  useEffect(() => {
+    if (!replyToId) return;
+    textareaRef.current?.focus();
+  }, [replyToId]);
+
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -462,29 +472,37 @@ export function MessageComposer({
 
   // ---- Render --------------------------------------------------------
 
+  /**
+   * The composer shell. WhatsApp's composer is not a bar bolted to the bottom
+   * of the window — it is a rounded card floating on the chat canvas, and that
+   * single difference is most of why its chat feels like a document you are
+   * writing into rather than a form you are filling in.
+   *
+   * The corner is set by concentricity, not by taste: an `icon-lg` control is
+   * 36px at a 10px corner, the shell pads it by 8px, so the shell's corner must
+   * be 18px (`rounded-2xl`). That also makes the shell exactly 52px tall —
+   * WhatsApp's own composer height — which is the sort of thing that stops
+   * being a coincidence once the geometry is derived rather than eyeballed.
+   * The lift is the system's Control Lift shadow.
+   */
+  const shellClasses =
+    'bg-card rounded-2xl shadow-sm ring-1 ring-foreground/5 min-w-0 p-2';
+
   return (
-    <div className="border-border bg-card border-t p-2.5 sm:p-3">
-      {replyTo && (
-        <div className="mb-2">
-          <ReplyQuote
-            authorLabel={replyTo.authorLabel}
-            preview={replyTo.preview}
-            onDismiss={onClearReply}
-          />
-        </div>
-      )}
+    <div className="relative shrink-0 px-3 pt-1 pb-3 sm:px-6">
       {sessionExpired && (
-        <div className="mb-2 flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2">
+        <div className="bg-card mb-2 flex items-center justify-between gap-2 rounded-2xl p-2.5 shadow-sm ring-1 ring-amber-500/25">
           <p className="text-amber-foreground text-xs">
-            24-hour session expired. Use a template to re-engage.
+            The 24-hour WhatsApp® session has closed. Send an approved template
+            to reopen it.
           </p>
           <Button
             variant="ghost"
             size="sm"
-            className="text-amber-foreground hover:text-amber-foreground h-7 text-xs"
+            className="text-amber-foreground hover:text-amber-foreground shrink-0"
             onClick={onOpenTemplates}
           >
-            <LayoutTemplate className="mr-1 h-3 w-3" />
+            <LayoutTemplate className="size-3.5" />
             Templates
           </Button>
         </div>
@@ -527,160 +545,172 @@ export function MessageComposer({
           draft={draft}
           busy={busy}
           readOnly={readOnly}
+          shellClasses={shellClasses}
           onCaptionChange={setCaption}
           onDiscard={discardDraft}
           onSend={sendDraft}
         />
       ) : recording ? (
-        // Recording bar — replaces the composer while the mic is live.
-        <div className="border-border bg-muted flex items-center gap-3 rounded-xl border px-4 py-2.5">
-          <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
-          <span className="text-foreground flex-1 text-sm">
+        // Recording bar — takes over the shell while the mic is live.
+        <div
+          className={cn(
+            shellClasses,
+            'flex items-center gap-3 py-2 pr-1.5 pl-4'
+          )}
+        >
+          <span className="flex size-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
+          <span className="text-foreground flex-1 text-sm tabular-nums">
             Recording… {formatDuration(recordSeconds)} /{' '}
             {formatDuration(MAX_RECORDING_SECONDS)}
           </span>
-          <button
-            type="button"
-            onClick={cancelRecording}
-            className="text-muted-foreground hover:bg-card hover:text-foreground rounded-md px-2 py-1 text-xs"
-          >
+          <Button variant="ghost" size="sm" onClick={cancelRecording}>
             Cancel
-          </button>
+          </Button>
           <Button
-            size="sm"
+            size="icon-lg"
             onClick={stopRecording}
-            className="bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 p-0"
+            aria-label="Stop and attach"
             title="Stop and attach"
           >
-            <Square className="h-4 w-4" />
+            <Square className="size-4" />
           </Button>
         </div>
       ) : (
-        <div className="flex items-end gap-2">
-          {/* Attach menu — photo / video / document / voice. */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              disabled={inputsDisabled || busy}
+        <div className={cn(shellClasses, 'flex flex-col gap-1.5')}>
+          {replyTo && (
+            // The quote lives INSIDE the shell, so replying grows the composer
+            // upward as one object instead of stacking a second card above it.
+            // It sits flush in the shell's own 8px padding, which is what keeps
+            // its 10px corner concentric with the shell's 18px one.
+            <ReplyQuote
+              authorLabel={replyTo.authorLabel}
+              preview={replyTo.preview}
+              onDismiss={onClearReply}
+            />
+          )}
+          <div className="flex items-end gap-0.5">
+            {/* Attach menu — photo / video / document / voice. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="ghost" size="icon-lg" />}
+                disabled={inputsDisabled || busy}
+                aria-label="Attach media"
+                title={
+                  readOnly
+                    ? "Read-only — your role can't send messages"
+                    : inputsDisabled
+                      ? undefined
+                      : 'Attach media'
+                }
+              >
+                {busy ? (
+                  <Loader2 className="size-5 animate-spin" />
+                ) : (
+                  <Paperclip className="size-5" />
+                )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="border-border bg-popover"
+              >
+                <DropdownMenuItem
+                  onClick={() => imageInputRef.current?.click()}
+                >
+                  <ImageIcon className="mr-2 size-4" />
+                  Photo
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => videoInputRef.current?.click()}
+                >
+                  <Video className="mr-2 size-4" />
+                  Video
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => documentInputRef.current?.click()}
+                >
+                  <FileText className="mr-2 size-4" />
+                  Document
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void startRecording()}>
+                  <Mic className="mr-2 size-4" />
+                  Voice note
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                readOnly
+                  ? 'Read-only — viewers can browse but not reply'
+                  : sessionExpired
+                    ? 'Send a template to reopen the session'
+                    : 'Type a message'
+              }
+              aria-label="Message"
+              disabled={sessionExpired || readOnly}
+              rows={1}
+              // Textarea keeps its own inline title — the GatedButton
+              // wrapping pattern doesn't apply to non-button inputs.
+              // The placeholder text also surfaces the read-only state.
               title={
                 readOnly
                   ? "Read-only — your role can't send messages"
-                  : inputsDisabled
-                    ? undefined
-                    : 'Attach media'
+                  : undefined
               }
-              className="text-muted-foreground hover:text-foreground inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Paperclip className="h-4 w-4" />
+              className={cn(
+                'text-foreground placeholder:text-muted-foreground min-w-0 flex-1 resize-none self-center overflow-y-hidden border-0 bg-transparent px-2 py-2 text-sm leading-5 outline-none',
+                (sessionExpired || readOnly) && 'cursor-not-allowed opacity-60'
               )}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="border-border bg-popover"
+            />
+
+            <GatedButton
+              variant="ghost"
+              size="icon-lg"
+              canAct={!readOnly}
+              gateReason="send messages"
+              title={readOnly ? undefined : 'Send template'}
+              aria-label="Send template"
+              onClick={onOpenTemplates}
             >
-              <DropdownMenuItem onClick={() => imageInputRef.current?.click()}>
-                <ImageIcon className="mr-2 h-4 w-4" />
-                Photo
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => videoInputRef.current?.click()}>
-                <Video className="mr-2 h-4 w-4" />
-                Video
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => documentInputRef.current?.click()}
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                Document
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void startRecording()}>
-                <Mic className="mr-2 h-4 w-4" />
-                Voice note
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <LayoutTemplate className="size-5" />
+            </GatedButton>
 
-          <GatedButton
-            variant="ghost"
-            size="sm"
-            canAct={!readOnly}
-            gateReason="send messages"
-            title={readOnly ? undefined : 'Send template'}
-            aria-label="Send template"
-            className="text-muted-foreground hover:text-foreground h-9 w-9 shrink-0 p-0"
-            onClick={onOpenTemplates}
-          >
-            <LayoutTemplate className="h-4 w-4" />
-          </GatedButton>
+            <GatedButton
+              variant="ghost"
+              size="icon-lg"
+              canAct={!readOnly}
+              gateReason="send messages"
+              disabled={drafting}
+              title={readOnly ? undefined : 'Draft a reply with AI'}
+              aria-label="Draft a reply with AI"
+              className="hover:text-primary-text"
+              onClick={handleDraft}
+            >
+              {drafting ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                <Sparkles className="size-5" />
+              )}
+            </GatedButton>
 
-          <GatedButton
-            variant="ghost"
-            size="sm"
-            canAct={!readOnly}
-            gateReason="send messages"
-            disabled={drafting}
-            title={readOnly ? undefined : 'Draft a reply with AI'}
-            aria-label="Draft a reply with AI"
-            className="text-muted-foreground hover:text-primary-text h-9 w-9 shrink-0 p-0"
-            onClick={handleDraft}
-          >
-            {drafting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-          </GatedButton>
-
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              readOnly
-                ? 'Read-only — viewers can browse but not reply'
-                : sessionExpired
-                  ? 'Session expired - use a template'
-                  : 'Type a message…'
-            }
-            aria-label="Message"
-            disabled={sessionExpired || readOnly}
-            rows={1}
-            // Textarea keeps its own inline title — the GatedButton
-            // wrapping pattern doesn't apply to non-button inputs.
-            // The placeholder text also surfaces the read-only state.
-            title={
-              readOnly ? "Read-only — your role can't send messages" : undefined
-            }
-            className={cn(
-              'border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 min-w-0 flex-1 resize-none overflow-y-hidden rounded-xl border px-4 py-2.5 text-sm transition-colors outline-none',
-              (sessionExpired || readOnly) && 'cursor-not-allowed opacity-50'
-            )}
-          />
-
-          <GatedButton
-            size="sm"
-            canAct={!readOnly}
-            gateReason="send messages"
-            disabled={!text.trim() || sessionExpired || sending}
-            onClick={handleSend}
-            loading={sending}
-            aria-label="Send message"
-            className="bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 p-0 disabled:opacity-40"
-          >
-            <Send className="h-4 w-4" />
-          </GatedButton>
+            <GatedButton
+              size="icon-lg"
+              canAct={!readOnly}
+              gateReason="send messages"
+              disabled={!text.trim() || sessionExpired || sending}
+              onClick={handleSend}
+              loading={sending}
+              aria-label="Send message"
+              className="disabled:opacity-40"
+            >
+              <Send className="size-4" />
+            </GatedButton>
+          </div>
         </div>
-      )}
-
-      {/* Hint sits outside the flex row so its height doesn't push
-          `items-end` buttons below the textarea. Indented to line up
-          under the textarea left edge. */}
-      {!draft && !recording && (
-        <p className="text-muted-foreground mt-1 hidden pl-[5.5rem] text-[10px] sm:block">
-          Enter to send · Shift+Enter for a new line
-        </p>
       )}
     </div>
   );
@@ -696,6 +726,7 @@ function MediaDraftPreview({
   draft,
   busy,
   readOnly,
+  shellClasses,
   onCaptionChange,
   onDiscard,
   onSend,
@@ -703,12 +734,15 @@ function MediaDraftPreview({
   draft: MediaDraft;
   busy: boolean;
   readOnly: boolean;
+  /** The composer shell recipe, so a staged attachment sits in exactly the
+   *  same floating card the message field does. */
+  shellClasses: string;
   onCaptionChange: (caption: string) => void;
   onDiscard: () => void;
   onSend: () => void | Promise<void>;
 }) {
   return (
-    <div className="border-border bg-muted/40 rounded-xl border p-3">
+    <div className={cn(shellClasses, 'flex flex-col gap-2')}>
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           {draft.kind === 'image' && (
@@ -731,22 +765,23 @@ function MediaDraftPreview({
           )}
           {draft.kind === 'document' && (
             <div className="text-foreground flex items-center gap-2 text-sm">
-              <FileText className="text-muted-foreground h-5 w-5 shrink-0" />
+              <FileText className="text-muted-foreground size-5 shrink-0" />
               <span className="truncate">{draft.filename}</span>
             </div>
           )}
         </div>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={onDiscard}
           aria-label="Remove attachment"
-          className="text-muted-foreground hover:bg-muted hover:text-foreground rounded p-1"
+          title="Remove attachment"
         >
-          <X className="h-4 w-4" />
-        </button>
+          <X className="size-4" />
+        </Button>
       </div>
 
-      <div className="mt-2 flex items-end gap-2">
+      <div className="flex items-end gap-0.5">
         {draft.kind !== 'audio' && (
           <input
             value={draft.caption}
@@ -758,12 +793,12 @@ function MediaDraftPreview({
                 void onSend();
               }
             }}
-            placeholder="Add a caption…"
-            className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 flex-1 rounded-xl border px-4 py-2.5 text-sm transition-colors outline-none"
+            placeholder="Add a caption"
+            className="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 border-0 bg-transparent px-2 py-2 text-sm outline-none"
           />
         )}
         <GatedButton
-          size="sm"
+          size="icon-lg"
           canAct={!readOnly}
           gateReason="send messages"
           disabled={busy}
@@ -771,11 +806,11 @@ function MediaDraftPreview({
           loading={busy}
           aria-label="Send attachment"
           className={cn(
-            'bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 p-0 disabled:opacity-40',
+            'disabled:opacity-40',
             draft.kind === 'audio' && 'ml-auto'
           )}
         >
-          <Send className="h-4 w-4" />
+          <Send className="size-4" />
         </GatedButton>
       </div>
     </div>
