@@ -6,6 +6,7 @@ const metaLeadsReviewConfigId =
   process.env.VERCEL_GIT_COMMIT_REF === META_LEADS_REVIEW_BRANCH
     ? '1039026725782445'
     : undefined;
+const metaReviewTunnelHost = process.env.META_REVIEW_TUNNEL_HOST;
 
 /**
  * Baseline security headers applied to every response.
@@ -83,7 +84,10 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_META_LEADS_CONFIG_ID:
       process.env.NEXT_PUBLIC_META_LEADS_CONFIG_ID ?? metaLeadsReviewConfigId,
   },
-  allowedDevOrigins: ['127.0.0.1'],
+  allowedDevOrigins: [
+    '127.0.0.1',
+    ...(metaReviewTunnelHost ? [metaReviewTunnelHost] : []),
+  ],
   experimental: {
     proxyClientMaxBodySize: '12mb',
   },
