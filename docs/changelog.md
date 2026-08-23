@@ -6,6 +6,10 @@
 
 ---
 
+## Lead profiles no longer carry the remnant WhatsApp consent action
+
+The shared `ContactDetailContent` header no longer renders **WhatsApp consent**, removing it from the Leads sheet and the Inbox contact panel together. Member profiles retain the scoped consent control in **Settings** for audit history, and no consent RPC, stored event, or send behavior changed. Key code: `src/components/contacts/contact-detail-content.tsx` and its UI contract test. Gotcha: both lead hosts share this surface; do not add host-specific consent actions back.
+
 ## The contact panel opens and closes from the same place, and the thread stops yanking the reader
 
 Four inbox-conversation defects, all reported from use.

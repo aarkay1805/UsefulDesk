@@ -228,6 +228,8 @@ Adding a lead field once surfaces it in the table, the sheet **and** the inbox. 
 
 The three overlays (`TemplatePicker` / `MemberForm` / `TransferRequestDialog`) live inside the content and therefore nest inside `SheetContent` on `/leads` — that's the established shape (member-detail nests its invoice/payment dialogs the same way), not a hazard.
 
+The lead/contact header never renders a WhatsApp consent action. Scoped consent audit recording belongs only to the member profile's **Settings** card; the underlying history remains available without adding a competing lead quick action.
+
 **Mobile (`<lg`):** the inbox is single-pane, so the same surface opens as an overlay Sheet via `ContactProfileSheet` (`variant="sheet"`, Details expanded). Gated in JS on `useMatchMedia("(min-width: 1024px)")` — **not CSS**: a Sheet portals to `<body>`, so a `lg:hidden` wrapper would style the wrapper and still let the overlay open on desktop.
 
 ## Notes thread
