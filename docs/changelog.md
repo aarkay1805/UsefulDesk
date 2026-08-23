@@ -27,6 +27,13 @@ verified Page subscription stays healthy. Meta's test tool can also send its
 literal dummy placeholder in the phone field; ingestion now normalizes the
 mapped phone before the atomic capture and completes that event through the
 existing phone-less path instead of retrying it as invalid contact data.
+The production build also exposes the non-secret Facebook Login for Business
+configuration only after authentication resolves to the dedicated Meta review
+account, giving reviewers a stable production-domain walkthrough while every
+customer account remains behind the unset dark-launch environment gate. All
+six permission screencasts are attached and their required Graph API calls
+succeeded; Meta's usage counters may take up to 24 hours to reflect them. Key
+availability code: `src/lib/meta/lead-ads-availability.ts`.
 
 ## Formatting failures are blocked before push
 

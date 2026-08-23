@@ -9,7 +9,8 @@
 // (src/lib/meta/fb-sdk.ts) so FB.init runs once.
 //
 // DARK-LAUNCH GATE: renders nothing while NEXT_PUBLIC_META_LEADS_CONFIG_ID
-// is unset. The complete provider-required Lead Ads scope
+// is unset, except for the dedicated Meta reviewer account. The complete
+// provider-required Lead Ads scope
 // (pages_show_list, pages_manage_metadata, leads_retrieval,
 // pages_manage_ads, pages_read_engagement, and ads_management) requires
 // Meta App Review, so until that clears the flow simply cannot work for
@@ -48,6 +49,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { getErrorMessage } from '@/lib/errors';
 import { loadFbSdk, type FbLoginResponse } from '@/lib/meta/fb-sdk';
+import { resolveMetaLeadsConfigId } from '@/lib/meta/lead-ads-availability';
 import { createClient } from '@/lib/supabase/client';
 import { ProviderMark } from '@/components/brand/provider-mark';
 import { useLocale } from '@/hooks/use-locale';
@@ -78,6 +80,7 @@ export function MetaLeadsConnect() {
   const supabase = createClient();
   const canEdit = canEditSettings;
   const { fmt } = useLocale();
+  const leadsConfigId = resolveMetaLeadsConfigId(LEADS_CONFIG_ID, accountId);
 
   const [pages, setPages] = useState<PageConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +97,7 @@ export function MetaLeadsConnect() {
     void (async () => {
       await Promise.resolve();
       if (cancelled) return;
-      if (!accountId || !LEADS_CONFIG_ID) {
+      if (!accountId || !leadsConfigId) {
         setLoading(false);
         return;
       }
@@ -118,10 +121,10 @@ export function MetaLeadsConnect() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, accountId, nonce]);
+  }, [supabase, accountId, leadsConfigId, nonce]);
 
   const handleConnect = useCallback(async () => {
-    if (!META_APP_ID || !LEADS_CONFIG_ID) return;
+    if (!META_APP_ID || !leadsConfigId) return;
     setConnecting(true);
     try {
       const FB = await loadFbSdk(META_APP_ID);
@@ -148,7 +151,7 @@ export function MetaLeadsConnect() {
       try {
         response = await new Promise<FbLoginResponse>((resolve) => {
           FB.login(resolve, {
-            config_id: LEADS_CONFIG_ID,
+            config_id: leadsConfigId,
             response_type: 'code',
             override_default_response_type: true,
           });
@@ -192,7 +195,7 @@ export function MetaLeadsConnect() {
     } finally {
       setConnecting(false);
     }
-  }, []);
+  }, [leadsConfigId]);
 
   const handleDisconnect = useCallback(async () => {
     if (!canEdit || !pageToDisconnect) return;
@@ -247,7 +250,7 @@ export function MetaLeadsConnect() {
   );
 
   // The dark-launch gate.
-  if (!META_APP_ID || !LEADS_CONFIG_ID) return null;
+  if (!META_APP_ID || !leadsConfigId) return null;
 
   const totalSkipped = pages.reduce(
     (sum, p) => sum + (p.skipped_no_phone ?? 0),
