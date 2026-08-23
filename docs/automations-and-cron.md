@@ -70,6 +70,12 @@ Two workflows ping production (`desk.usefulmade.com`):
   live in different timezones (migration 055); each route sends only
   after 09:00 local, and its sent ledger prevents duplicate messages.
 
+The independent
+[Production backup workflow](../.github/workflows/production-backup.yml) does
+not call an application endpoint. It exports Supabase directly, encrypts the
+result, and copies it to Cloudflare R2. Its credentials, activation checks, and
+restore drill live in the [backup runbook](backups.md).
+
 Refund review is a hard reminder hold. Refund-aware balance views expose
 `collectible_balance=0` while a provider-confirmed refund lacks a safe complete
 classification/allocation, and the joining-installment worker also filters

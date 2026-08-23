@@ -1,0 +1,196 @@
+name: Production backup
+
+on:
+  schedule:
+    # 02:00 IST. Storage is included on the Sunday UTC run (Monday IST).
+    - cron: '30 20 * * 0'
+    - cron: '30 20 * * 1-6'
+  workflow_dispatch:
+    inputs:
+      include_storage:
+        description: Include a full snapshot of the production Storage buckets
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Encrypt and copy to Cloudflare R2
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+      MANUAL_INCLUDE_STORAGE: ${{ inputs.include_storage }}
+      R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+      R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.115.0
+
+      - name: Install encryption utility
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y age
+          age --version
+          aws --version
+
+      - name: Export, encrypt, upload, and verify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SCHEDULE: ${{ github.event.schedule }}
+          GIT_COMMIT: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          required_values=(
+            AWS_ACCESS_KEY_ID
+            AWS_SECRET_ACCESS_KEY
+            BACKUP_AGE_RECIPIENT
+            R2_ACCOUNT_ID
+            R2_BUCKET_NAME
+            SUPABASE_DB_PASSWORD
+            SUPABASE_PROJECT_REF
+            SUPABASE_SERVICE_ROLE_KEY
+          )
+          for variable_name in "${required_values[@]}"; do
+            if [[ -z "${!variable_name:-}" ]]; then
+              echo "Missing required backup configuration: ${variable_name}" >&2
+              exit 1
+            fi
+          done
+          if [[ "${BACKUP_AGE_RECIPIENT}" != age1* ]]; then
+            echo 'BACKUP_AGE_RECIPIENT must be a public age recipient beginning with age1.' >&2
+            exit 1
+          fi
+          export NEXT_PUBLIC_SUPABASE_URL="https://${SUPABASE_PROJECT_REF}.supabase.co"
+
+          backup_tmp="$(mktemp -d)"
+          if [[ -z "${backup_tmp}" || ! -d "${backup_tmp}" ]]; then
+            echo 'Could not create an isolated backup directory.' >&2
+            exit 1
+          fi
+          cleanup() {
+            rm -rf -- "${backup_tmp}"
+          }
+          trap cleanup EXIT
+
+          timestamp="$(date -u +'%Y-%m-%dT%H-%M-%SZ')"
+          year="$(date -u +'%Y')"
+          month="$(date -u +'%m')"
+          r2_endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+          upload_and_verify() {
+            local source_file="$1"
+            local object_key="$2"
+            local local_size
+            local remote_size
+
+            aws s3 cp \
+              "${source_file}" \
+              "s3://${R2_BUCKET_NAME}/${object_key}" \
+              --endpoint-url "${r2_endpoint}" \
+              --only-show-errors
+            local_size="$(stat --format='%s' "${source_file}")"
+            remote_size="$(
+              aws s3api head-object \
+                --bucket "${R2_BUCKET_NAME}" \
+                --key "${object_key}" \
+                --endpoint-url "${r2_endpoint}" \
+                --query ContentLength \
+                --output text
+            )"
+            if [[ "${local_size}" != "${remote_size}" ]]; then
+              echo "R2 verification failed for ${object_key}." >&2
+              exit 1
+            fi
+          }
+
+          database_directory="${backup_tmp}/database"
+          mkdir -p "${database_directory}"
+          supabase db dump \
+            --project-ref "${SUPABASE_PROJECT_REF}" \
+            --file "${database_directory}/roles.sql" \
+            --role-only
+          supabase db dump \
+            --project-ref "${SUPABASE_PROJECT_REF}" \
+            --file "${database_directory}/schema.sql"
+          supabase db dump \
+            --project-ref "${SUPABASE_PROJECT_REF}" \
+            --file "${database_directory}/data.sql" \
+            --data-only \
+            --use-copy \
+            --exclude storage.buckets_vectors \
+            --exclude storage.vector_indexes
+          (
+            cd "${database_directory}"
+            sha256sum roles.sql schema.sql data.sql > SHA256SUMS
+            {
+              echo "created_at=${timestamp}"
+              echo "git_commit=${GIT_COMMIT}"
+              echo 'format=supabase-cli-role-schema-data'
+            } > BACKUP-METADATA
+          )
+
+          database_archive="${backup_tmp}/database-${timestamp}.tar.gz.age"
+          tar -C "${database_directory}" -czf - . | \
+            age --recipient "${BACKUP_AGE_RECIPIENT}" --output "${database_archive}"
+          (
+            cd "${backup_tmp}"
+            sha256sum "$(basename "${database_archive}")" > "${database_archive}.sha256"
+          )
+          database_key="database/${year}/${month}/$(basename "${database_archive}")"
+          upload_and_verify "${database_archive}" "${database_key}"
+          upload_and_verify "${database_archive}.sha256" "${database_key}.sha256"
+
+          include_storage=false
+          if [[ "${EVENT_NAME}" == 'workflow_dispatch' && "${MANUAL_INCLUDE_STORAGE}" == 'true' ]]; then
+            include_storage=true
+          elif [[ "${EVENT_NAME}" == 'schedule' && "${EVENT_SCHEDULE}" == '30 20 * * 0' ]]; then
+            include_storage=true
+          fi
+
+          if [[ "${include_storage}" == 'true' ]]; then
+            storage_directory="${backup_tmp}/storage"
+            node scripts/export-supabase-storage.mjs "${storage_directory}"
+
+            storage_archive="${backup_tmp}/storage-${timestamp}.tar.gz.age"
+            tar -C "${storage_directory}" -czf - . | \
+              age --recipient "${BACKUP_AGE_RECIPIENT}" --output "${storage_archive}"
+            (
+              cd "${backup_tmp}"
+              sha256sum "$(basename "${storage_archive}")" > "${storage_archive}.sha256"
+            )
+            storage_key="storage/${year}/${month}/$(basename "${storage_archive}")"
+            upload_and_verify "${storage_archive}" "${storage_key}"
+            upload_and_verify "${storage_archive}.sha256" "${storage_key}.sha256"
+          fi
+
+          echo "Encrypted database backup verified at ${database_key}."
+          if [[ "${include_storage}" == 'true' ]]; then
+            echo "Encrypted Storage backup verified at ${storage_key}."
+          fi

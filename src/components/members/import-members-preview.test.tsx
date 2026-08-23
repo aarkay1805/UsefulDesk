@@ -215,7 +215,7 @@ describe('ImportMembersPreview conflict resolution', () => {
     );
 
     const phone = within(desktop).getByRole('textbox') as HTMLInputElement;
-    const editor = phone.parentElement?.parentElement;
+    const editor = phone.closest('.shadow-md');
     const save = within(desktop).getByRole('button', { name: 'Save' });
     const cancel = within(desktop).getByRole('button', { name: 'Cancel' });
 
