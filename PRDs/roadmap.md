@@ -9,13 +9,16 @@ Membership plans, including responsive label-free billing-option comparison card
 ## ✅ Phase 2 — India-first workflows
 
 Engineering maintenance: **a Cloudflare R2 backup foundation now exports and
-client-side encrypts nightly Supabase database dumps plus weekly durable Storage
-snapshots, supports manual pre/post-operation recovery points, verifies remote
-objects, and documents a disposable-project restore drill. The bucket,
-lifecycle, credentials, encryption recipient, and first full production run are
-active and verified. Safeguarding an offline copy of the private `age` identity
-and passing the restore drill remain before calling recovery proven. This
-provides daily/weekly pilot recovery, not point-in-time recovery.**
+client-side encrypts nightly Supabase database dumps plus weekly complete
+Storage snapshots, supports manual pre/post-operation recovery points, verifies
+remote objects, and documents a disposable-project restore drill. The bucket,
+lifecycle, credentials, encryption recipient, and production runs are active.
+The 2026-08-23 drill restored every one of 124 dumped table counts and all 30
+Storage objects into a fresh Singapore project, then passed Auth, signed-private-
+object, and cross-tenant RLS checks. Recovery is therefore proven; safeguarding
+a password-manager and offline copy of the private `age` identity remains an
+owner resilience task. This provides daily/weekly pilot recovery, not point-in-
+time recovery.**
 
 Engineering maintenance: **npm installs now configure a Husky pre-push hook
 that runs the exact repository-wide Prettier check used by CI, blocking

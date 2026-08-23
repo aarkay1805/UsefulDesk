@@ -6,21 +6,21 @@
 
 ---
 
-## Encrypted Cloudflare R2 backups are active; restore drill pending
+## Encrypted Cloudflare R2 backups are active and restore-proven
 
 `.github/workflows/production-backup.yml` now creates nightly encrypted
-Supabase role/schema/data archives and weekly encrypted snapshots of the four
-durable Storage buckets, with manual pre/post-operation runs, checksums, R2
-upload verification, non-overlapping execution, and temporary-plaintext
-cleanup. `scripts/export-supabase-storage.mjs` recursively paginates private
-bucket contents and emits per-object hashes; its traversal and pagination
-contracts are covered by `src/lib/backups/storage-export.test.ts`. Setup,
-retention, recovery objectives, and the disposable-project restore drill live
-in `docs/backups.md`. The first production run verified its encrypted database
-archive and six-object Storage snapshot in R2. Gotcha: safeguard the private
-`age` identity and pass the disposable-project restore drill before calling the
-backups proven recoverable; this is daily/weekly recovery, not Supabase
-point-in-time recovery.
+Supabase role/schema/data archives and weekly encrypted snapshots of all five
+Storage buckets, with manual pre/post-operation runs, checksums, R2 upload
+verification, non-overlapping execution, and temporary-plaintext cleanup.
+`scripts/export-supabase-storage.mjs` writes metadata-preserving version 2
+manifests; `scripts/restore-supabase-storage.mjs` verifies every object before
+and after upload. Run `32633426004` produced the drill snapshot, and disposable
+Singapore project `gxwhpraswnkosjibvquz` restored all 124 dumped-table counts
+exactly plus 30/30 Storage objects, then passed Auth, signed-private-object, and
+cross-tenant RLS checks. The retained project is restore training only and must
+not become an application target. Gotcha: the owner still needs a password-
+manager and offline copy of the private `age` identity; this is daily/weekly
+recovery, not Supabase point-in-time recovery.
 
 ## Meta Lead Ads review setup now preserves the exact OAuth and webhook contracts
 

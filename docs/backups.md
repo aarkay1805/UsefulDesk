@@ -2,9 +2,11 @@
 
 UsefulDesk has an active client-side encrypted backup path from Supabase to a
 private Cloudflare R2 bucket. The first full production run succeeded on
-2026-08-23 and verified both its database and Storage objects in R2. Backups are
-**not yet proven recoverable** until the private `age` identity has an offline
-copy and a restore drill is completed against a disposable project.
+2026-08-23 and verified both its database and Storage objects in R2. A fresh
+full snapshot was restored successfully into a disposable project the same day,
+so the backup path is proven recoverable. The private `age` identity still needs
+a password-manager copy and one separate offline copy; losing its current local
+copy would make every retained archive unrecoverable.
 
 ## What runs
 
@@ -91,10 +93,10 @@ connection URL or percent-encoding the password.
 ### 4. Activate and prove it
 
 Activation record: GitHub Actions run
-[`32631148522`](https://github.com/aarkay1805/UsefulDesk/actions/runs/32631148522)
-succeeded on 2026-08-23. It verified the encrypted database archive and a
-551,754-byte Storage snapshot containing six objects across the four durable
-buckets. The restore drill remains pending.
+[`32633426004`](https://github.com/aarkay1805/UsefulDesk/actions/runs/32633426004)
+succeeded on 2026-08-23. It verified the encrypted database archive and an
+1,861,520-byte metadata-preserving Storage snapshot containing 30 objects
+across the five configured buckets.
 
 1. Open **Actions → Production backup → Run workflow** on `main`.
 2. Leave **Include Storage** enabled for the first run.
@@ -103,10 +105,24 @@ buckets. The restore drill remains pending.
 4. Perform the restore drill below. Record the date and destination project in
    the operating log.
 
-A configured schedule is not proof of recovery. Do not call backups operational
-until this first run and restore drill have passed. Treat a failed scheduled run
-as an operational alert: inspect the Action that day, correct the failing
+A configured schedule is not proof of recovery. Treat a failed scheduled run as
+an operational alert: inspect the Action that day, correct the failing
 credential/quota/export, then rerun it manually.
+
+### Restore drill record — 2026-08-23
+
+The owner-authorized drill deleted and replaced `UsefulDesk Razorpay Test` with
+a fresh Singapore project, `gxwhpraswnkosjibvquz`, and restored the exact R2
+archives from run `32633426004`. All 124 dumped tables matched their archived
+row counts, all public base and partitioned tables had RLS enabled with 207
+public policies, and all 30 Storage objects matched their SHA-256 after upload
+and download. A temporary Auth user completed create/sign-in/delete, a private
+signed URL returned the expected hash, and an authenticated RLS probe returned
+281 contacts for its selected branch with zero cross-branch or unauthorized-
+branch rows. Temporary plaintext, service keys, and working credentials were
+removed; the generated database password is stored in the Mac login Keychain.
+The retained project is isolated restore training data, not an application
+target.
 
 ## Restore drill
 
@@ -184,7 +200,7 @@ Finally verify, at minimum:
 - Auth users can sign in and belong to the expected account.
 - Account, branch, member, membership, invoice, payment, attendance, and contact
   counts match the source snapshot.
-- A payment receipt can be opened through a newly generated signed URL.
+- A private object can be opened through a newly generated signed URL.
 - An avatar/chat/flow object from each non-empty backed-up bucket downloads and
   matches its manifest hash.
 - RLS prevents one disposable tenant from reading another tenant's records.
