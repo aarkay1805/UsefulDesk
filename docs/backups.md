@@ -1,9 +1,10 @@
 # Production backups — operator runbook
 
-UsefulDesk has a client-side encrypted backup path from Supabase to a private
-Cloudflare R2 bucket. The implementation is ready, but backups are **not
-operational** until the GitHub configuration below is present, the first manual
-run succeeds, and a restore drill is completed against a disposable project.
+UsefulDesk has an active client-side encrypted backup path from Supabase to a
+private Cloudflare R2 bucket. The first full production run succeeded on
+2026-08-23 and verified both its database and Storage objects in R2. Backups are
+**not yet proven recoverable** until the private `age` identity has an offline
+copy and a restore drill is completed against a disposable project.
 
 ## What runs
 
@@ -85,6 +86,12 @@ the database with `SUPABASE_PROJECT_REF`. This avoids storing a composed
 connection URL or percent-encoding the password.
 
 ### 4. Activate and prove it
+
+Activation record: GitHub Actions run
+[`32631148522`](https://github.com/aarkay1805/UsefulDesk/actions/runs/32631148522)
+succeeded on 2026-08-23. It verified the encrypted database archive and a
+551,754-byte Storage snapshot containing six objects across the four durable
+buckets. The restore drill remains pending.
 
 1. Open **Actions → Production backup → Run workflow** on `main`.
 2. Leave **Include Storage** enabled for the first run.

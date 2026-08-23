@@ -6,7 +6,7 @@
 
 ---
 
-## Encrypted Cloudflare R2 backups are ready for activation
+## Encrypted Cloudflare R2 backups are active; restore drill pending
 
 `.github/workflows/production-backup.yml` now creates nightly encrypted
 Supabase role/schema/data archives and weekly encrypted snapshots of the four
@@ -16,9 +16,11 @@ cleanup. `scripts/export-supabase-storage.mjs` recursively paginates private
 bucket contents and emits per-object hashes; its traversal and pagination
 contracts are covered by `src/lib/backups/storage-export.test.ts`. Setup,
 retention, recovery objectives, and the disposable-project restore drill live
-in `docs/backups.md`. Gotcha: the foundation is inactive until its GitHub
-secrets/variables are configured and the first manual run plus restore drill
-pass; it is daily/weekly recovery, not Supabase point-in-time recovery.
+in `docs/backups.md`. The first production run verified its encrypted database
+archive and six-object Storage snapshot in R2. Gotcha: safeguard the private
+`age` identity and pass the disposable-project restore drill before calling the
+backups proven recoverable; this is daily/weekly recovery, not Supabase
+point-in-time recovery.
 
 ## Meta Lead Ads review setup now preserves the exact OAuth and webhook contracts
 
