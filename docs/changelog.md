@@ -22,6 +22,20 @@ not become an application target. Gotcha: the owner still needs a password-
 manager and offline copy of the private `age` identity; this is daily/weekly
 recovery, not Supabase point-in-time recovery.
 
+## Razorpay client-secret rotation is not a rollout gate
+
+Razorpay support confirmed in writing on 2026-08-21 that Technology Partner
+Application OAuth credentials are static: an existing Application ID has no
+self-service, API, or support-side path to rotate or regenerate its client
+secrets. New secrets require a new application plus manual configuration and
+merchant re-onboarding. Razorpay recommended continuing with the existing
+Development and Production credentials; the owner accepted that recommendation
+and closed ticket `20297340`. The roadmap and `docs/razorpay-operations.md` now
+treat in-place rotation as an unavailable provider capability rather than a
+deferred rollout task. This removes the rotation gate only; another account or
+merchant still requires explicit rollout authority, first-bind enablement,
+exact binding, readiness, and clean operational queues.
+
 ## Meta Lead Ads review setup now preserves the exact OAuth and webhook contracts
 
 Facebook Login for Business now sends the exact JS SDK popup `redirect_uri`
@@ -59,6 +73,17 @@ when any tracked source or documentation file is not Prettier-clean. Key code:
 `package.json` and `.husky/pre-push`. Gotcha: clones installed with production
 dependencies only do not install development tooling or Git hooks; CI remains
 the final formatting backstop.
+
+## Synced WhatsApp template buttons no longer report false contract drift
+
+Feature-template readiness now compares each button by its ordered semantic
+fields instead of serializing the raw JSON objects. PostgreSQL `jsonb` may
+return object keys in a different order than the TypeScript contract even when
+their values are identical; that representation difference previously blocked
+valid Approved templates as `component_drift`. Key code:
+`src/lib/whatsapp/template-readiness.ts`. Gotcha: button array order and every
+button value remain exact contract requirements; only object-key order is
+ignored.
 
 ## Failed WhatsApp sends now retain Meta's delivery reason
 

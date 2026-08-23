@@ -74,7 +74,41 @@ function sameButtons(
   actual: TemplateButton[] | null | undefined,
   expected: TemplateButton[] | undefined
 ): boolean {
-  return JSON.stringify(actual ?? []) === JSON.stringify(expected ?? []);
+  const actualButtons = actual ?? [];
+  const expectedButtons = expected ?? [];
+  if (actualButtons.length !== expectedButtons.length) return false;
+
+  return actualButtons.every((button, index) => {
+    const expectedButton = expectedButtons[index];
+    if (
+      !expectedButton ||
+      button.type !== expectedButton.type ||
+      button.text !== expectedButton.text
+    ) {
+      return false;
+    }
+
+    switch (button.type) {
+      case 'QUICK_REPLY':
+        return true;
+      case 'URL':
+        return (
+          expectedButton.type === 'URL' &&
+          button.url === expectedButton.url &&
+          (button.example ?? null) === (expectedButton.example ?? null)
+        );
+      case 'PHONE_NUMBER':
+        return (
+          expectedButton.type === 'PHONE_NUMBER' &&
+          button.phone_number === expectedButton.phone_number
+        );
+      case 'COPY_CODE':
+        return (
+          expectedButton.type === 'COPY_CODE' &&
+          button.example === expectedButton.example
+        );
+    }
+  });
 }
 
 export function evaluateTemplateReadiness<T extends TemplateReadinessRow>(

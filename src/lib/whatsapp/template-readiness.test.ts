@@ -38,6 +38,19 @@ describe('evaluateTemplateReadiness', () => {
     ).toEqual({ ready: true, code: 'ready', row });
   });
 
+  it('accepts equivalent synced button objects regardless of JSON key order', () => {
+    const row = membershipRow({
+      buttons: [
+        { text: 'Renew membership', type: 'QUICK_REPLY' },
+        { text: 'Unsubscribe', type: 'QUICK_REPLY' },
+      ],
+    });
+
+    expect(
+      evaluateTemplateReadiness([row], 'membership_renewal', 'en_US')
+    ).toEqual({ ready: true, code: 'ready', row });
+  });
+
   it('distinguishes missing and provider review states', () => {
     expect(
       evaluateTemplateReadiness([], 'membership_renewal', 'en_US')

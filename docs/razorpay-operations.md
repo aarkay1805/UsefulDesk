@@ -667,19 +667,24 @@ below. A new Live rollback credential is outside this pilot and requires
 separate owner authority; if ever approved, it must use the encrypted
 version-1 path.
 
-### Owner-approved temporary credential risk
+### Owner-approved static credential constraint
 
-The owner explicitly accepted the low-but-nonzero temporary risk of continuing
-the single Live pilot with the existing Development and Production OAuth
-client secrets. They were disclosed only in a private Codex browser-tool
-transcript and were not committed, published, written to a local environment
-file, or sent to support. Neither was deployed at the decision point; the
-Production secret was later transferred directly into a sensitive
-Production-only Vercel variable without being written locally. They are **not
-rotated**. Ticket `20303463`
-is no longer required; the support reply requested cancellation of the
-callback, closure with no action, and no rotation/regeneration or application
-change. Do not create another Razorpay application.
+The owner explicitly accepted the low-but-nonzero risk of continuing with the
+existing Development and Production OAuth client secrets. They were disclosed
+only in a private Codex browser-tool transcript and were not committed,
+published, written to a local environment file, or sent to support. Neither was
+deployed at the decision point; the Production secret was later transferred
+directly into a sensitive Production-only Vercel variable without being written
+locally. They are **not rotated**. On 2026-08-21 Razorpay support confirmed in
+writing that Technology Partner Application credentials are static and that an
+existing Application ID has no self-service, API, or support-side rotation or
+regeneration mechanism. Its only fresh-secret path is a brand-new application
+with manual configuration and merchant re-onboarding; Razorpay recommended
+continuing with the existing credentials. The owner accepted that recommendation
+and closed support ticket `20297340`; `20303463` was the earlier callback
+reference. Do not treat in-place rotation as pending work or create another
+Razorpay application unless a future compliance decision explicitly chooses
+that migration.
 
 This exception removes only the rotation prerequisite. Never reveal, retrieve,
 print, log, snapshot, commit, or paste either secret. At the production
@@ -1088,9 +1093,9 @@ permanently excluded from this continuation.
    disposition under a separate approval; WhatsApp Send additionally requires
    an actually approved `gym_payment_link` template.
 
-All rollout and acceptance flags remain false at rest. The existing OAuth
-client-secret rotation remains deferred under the recorded owner risk
-acceptance and is not part of this pilot plan.
+All rollout and acceptance flags remain false at rest. In-place OAuth
+client-secret rotation is unavailable for the existing Partner Application per
+Razorpay's 2026-08-21 written confirmation and is not a pilot or rollout gate.
 
 ### Owner-controlled Rajat readiness revalidation
 
@@ -1229,8 +1234,9 @@ The only environment mutation set `RAZORPAY_OAUTH_ENABLED=true`. The existing
 account and merchant pins stayed exact;
 `RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED`, provider acceptance, refund ambiguous
 create acceptance, and refund retry acceptance stayed false. The Stage 6
-manual rollback variable remained absent. The existing OAuth client-secret
-rotation remains deferred under the accepted owner risk and was not touched.
+manual rollback variable remained absent. Razorpay's later 2026-08-21 written
+confirmation establishes that the existing Partner Application's client secret
+cannot be rotated in place; this is not pending rollout work.
 
 Production deployment `dpl_9dcvUKMuTMiXzw8xsC21GQ49cfhp`, built from exact
 commit `26149600cdbe08c028736e8074761505199ecb72`, reached READY, is promoted,

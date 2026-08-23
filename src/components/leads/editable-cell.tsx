@@ -361,24 +361,38 @@ export function EditableCell({
       }}
     >
       {kind === 'phone' ? (
-        <PhoneInput
-          ref={inputRef}
-          defaultValue={value}
-          disabled={saving}
-          onValueChange={(next) => {
-            phoneValueRef.current = next;
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              settle(phoneValueRef.current);
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              cancel();
-            }
-          }}
-          className="bg-card ring-primary h-8 rounded-md pr-13 text-sm ring-2 ring-inset disabled:opacity-60"
-        />
+        // Same single 2px inset outline as the other editors. PhoneInput
+        // wraps the shared Input, which brings its own border plus a 3px
+        // focus ring in a second colour — both are suppressed here, or the
+        // cell would read as a thick two-tone edge that also spills under
+        // the ✕ button. The outline then draws as an overlay rather than a
+        // ring on the field itself, because the +91 compartment is an
+        // absolutely positioned sibling inset 1px and would otherwise cover
+        // the outer half of it.
+        <div className="relative flex h-8 w-full min-w-0 items-center">
+          <PhoneInput
+            ref={inputRef}
+            defaultValue={value}
+            disabled={saving}
+            onValueChange={(next) => {
+              phoneValueRef.current = next;
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                settle(phoneValueRef.current);
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancel();
+              }
+            }}
+            className="bg-card h-8 rounded-md border-transparent pr-13 text-sm focus-visible:border-transparent focus-visible:ring-0 disabled:opacity-60"
+          />
+          <span
+            aria-hidden="true"
+            className="ring-primary pointer-events-none absolute inset-0 z-20 rounded-md ring-2 ring-inset"
+          />
+        </div>
       ) : prefix ? (
         // The ring/bg move to a wrapper so the adornment sits inside the
         // focus outline; box dimensions match the bare input exactly.
