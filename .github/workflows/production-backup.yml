@@ -144,7 +144,6 @@ jobs:
             --file "${database_directory}/data.sql" \
             --data-only \
             --use-copy \
-            --exclude public.member_import_drafts \
             --exclude storage.buckets_vectors \
             --exclude storage.vector_indexes
           (

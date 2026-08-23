@@ -14,12 +14,15 @@ runs at 02:00 IST:
 - Every night: Supabase roles, schema, and data dumps produced by the pinned
   Supabase CLI.
 - Monday IST: a full snapshot of `avatars`, `chat-media`, `flow-media`, and
-  `payment-receipts`, including a per-object SHA-256 manifest.
+  `payment-receipts`, plus `member-import-drafts`, including a per-object
+  SHA-256 manifest.
 - On demand: the same database backup, with an option to include Storage. Run
   this immediately before and after a high-risk member import or migration.
 
-`member-import-drafts` is deliberately excluded. It is temporary, author-private
-working data with its own 30-day cleanup, not durable customer data.
+`member-import-drafts` is temporary, author-private working data with its own
+30-day cleanup. It is nevertheless included so the Storage files remain
+consistent with the database's restored Storage metadata; encryption and the
+same 35-day R2 lifecycle apply.
 
 The runner creates plaintext only in an isolated temporary directory. It
 archives and encrypts each backup with `age` before uploading it, verifies the

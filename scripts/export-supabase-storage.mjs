@@ -11,6 +11,7 @@ export const STORAGE_BACKUP_BUCKETS = [
   'avatars',
   'chat-media',
   'flow-media',
+  'member-import-drafts',
   'payment-receipts',
 ];
 
