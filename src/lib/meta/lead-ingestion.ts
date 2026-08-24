@@ -44,6 +44,10 @@ type MetaLeadCaptureResult = {
   automation_dispatched: boolean;
 };
 
+function provesMetaConnectionFailure(error: MetaGraphError): boolean {
+  return error.code === 190 || error.code === 10 || error.code === 200;
+}
+
 async function recordProvenConnectionFailure(args: {
   admin: AdminClient;
   configId: string;
@@ -111,7 +115,7 @@ export async function processOwnedMetaLeadEvent(
   try {
     lead = await fetchLeadgenLead({ leadgenId, accessToken });
   } catch (error) {
-    if (error instanceof MetaGraphError) {
+    if (error instanceof MetaGraphError && provesMetaConnectionFailure(error)) {
       await recordProvenConnectionFailure({
         admin,
         configId,

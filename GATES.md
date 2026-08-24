@@ -25,16 +25,16 @@ ABANDON: G2 owner chose the no-cost fallback instead of upgrading Supabase to Pr
       EXPECT: production runbook verification passed
       EVIDENCE: 2026-08-24 the oracle and production login probe passed; the runbook names Rajat as owner, documents GitHub/Vercel/Supabase signals and freshness thresholds, limits rollback authority, and defines daily, weekly, release, monthly, and quarterly checks. The separate live delivery gate remains G4.
 
-- [ ] G4: production monitoring, actionable alert delivery, rollback ownership, and runbook access are verified against the live production services
-      EVIDENCE: pending
+- [x] G4: production monitoring, actionable alert delivery, rollback ownership, and runbook access are verified against the live production services
+      EVIDENCE: 2026-08-24 commit 05eca70 was clean on main and Vercel reported its deployment complete; `/login` returned HTTP 200 with the UsefulDesk title, scheduled production-health run 32724746860, ops run 32725040963, and renewals run 32724089661 passed, and GitHub's notification inbox retained prior failed CI and ops-cron alerts. The runbook is live on main and names Rajat as incident and rollback owner. Email/mobile delivery was not asserted.
 
-- [ ] G5: lead-specific Meta Graph failures do not overwrite Page health and the queue-reconciliation and recovery paths pass focused tests
+- [x] G5: lead-specific Meta Graph failures do not overwrite Page health and the queue-reconciliation and recovery paths pass focused tests
       CHECK: npm test -- --run src/lib/meta/lead-ingestion.test.ts src/lib/meta/recovery.test.ts src/lib/meta/lead-ads-health.test.ts src/app/api/meta/leads/recovery/cron/route.test.ts && node -e "const fs=require('node:fs');const s=fs.readFileSync('src/lib/meta/lead-ingestion.test.ts','utf8');if(!s.includes('does not overwrite Page health for a lead-specific Meta Graph error'))process.exit(1);console.log('meta launch blocker verification passed')"
       EXPECT: meta launch blocker verification passed
-      EVIDENCE: pending
+      EVIDENCE: 2026-08-24 the regression reproduced code 100/subcode 33 overwriting Page health, then passed after ingestion restricted connection mutation to proven token/permission codes 190, 10, and 200. The invalid-token preservation test and all 26 focused ingestion, recovery, health, and cron tests passed.
 
 - [ ] G6: the production Meta stale synthetic queue is reconciled, Lead Ads health is restored, and review plus canary verification succeeds without creating a real lead
-      EVIDENCE: pending
+      EVIDENCE: 2026-08-24 read-only production audit found exactly two unprocessed synthetic events, meta:leadgen:4391731824489306 (61 attempts) and meta:leadgen:36213436768848596 (54 attempts), both failing with the stale-object Unsupported get request. The sole Page config is already connected and healthy with zero consecutive failures as of 12:03 UTC. Terminal event reconciliation, deployment of G5, review, and canary evidence remain pending explicit approval.
 
 - [ ] G7: the exact gym_service_renewal repository contract produces the approved positional Meta payload
       CHECK: npm test -- --run src/lib/whatsapp/template-contracts.test.ts && node -e "const fs=require('node:fs');const s=fs.readFileSync('src/lib/whatsapp/template-contracts.test.ts','utf8');if(!s.includes('builds the exact Meta payload for service renewal'))process.exit(1);console.log('service renewal contract verification passed')"
@@ -63,4 +63,4 @@ ABANDON: G2 owner chose the no-cost fallback instead of upgrading Supabase to Pr
 - [x] G13: all shipped changes are documented and the full typecheck, lint, test, and production build suite passes
       CHECK: npm run typecheck && npm run lint && npm test && npm run build && node -e "console.log('full go-live regression verification passed')"
       EXPECT: full go-live regression verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=ebdbae05e4ce/23 entries; output=Not implemented: Window's scrollTo() method | Not implemented: Window's scrollTo() method
+      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=5a5e6a96d778/23 entries; output=Not implemented: Window's scrollTo() method | Not implemented: Window's scrollTo() method

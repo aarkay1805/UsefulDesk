@@ -6,15 +6,27 @@
 
 ---
 
+## Stale Meta leads no longer make a healthy Page look disconnected
+
+Lead ingestion now mutates Page health only when a failed lead fetch proves an
+invalid token or required-permission denial (`190`, `10`, or `200`). A stale or
+missing lead object such as Meta code `100/33` remains an event-level recovery
+failure and cannot overwrite the Page connection. Regression coverage preserves
+the real invalid-token path, and all focused ingestion, recovery, Page-health,
+and cron tests pass. Key code: `src/lib/meta/lead-ingestion.ts` and its colocated
+test. Gotcha: production queue reconciliation and canary evidence remain a
+separate approval-gated operation.
+
 ## Production failures now have an owner and a shortest safe response path
 
 The no-secret `production-health` workflow probes the live login surface, while
 the production runbook ties that signal to existing worker and backup runs,
 Vercel's one-hour Hobby runtime-log window, exact alert thresholds, Rajat's
 rollback ownership, forward-only migration rules, and a daily/weekly/release
-verification cadence. The 2026-08-24 baseline returned HTTP 200 and showed the
-latest ops and renewal runs green. Gotcha: GitHub schedules are best-effort and
-the alert channel is not considered live until the owner verifies delivery.
+verification cadence. After commit `05eca70` reached Production, the login
+probe and latest ops/renewal runs passed, and GitHub's notification inbox proved
+prior failed CI and ops-worker alerts are delivered. Gotcha: GitHub schedules
+are best-effort; email/mobile delivery is optional and was not asserted.
 
 ## Production Auth now uses the strongest no-cost password policy
 

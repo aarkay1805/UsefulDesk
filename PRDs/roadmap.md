@@ -35,8 +35,18 @@ Engineering maintenance: **a no-secret GitHub Actions probe now checks the
 production login surface, and `docs/production-runbook.md` defines the minimum
 observability sources, freshness/error thresholds, GitHub alert destination,
 Rajat's incident and rollback ownership, forward-only database recovery rule,
-and daily/weekly/release verification cadence. The live alert channel remains a
-manual gate until owner notification delivery and rollback access are tested.**
+and daily/weekly/release verification cadence. Commit `05eca70` reached
+Production; the login, ops, and renewal probes passed, and historical failed CI
+and ops-worker alerts are present in the owner's GitHub notification inbox.
+Email/mobile delivery remains optional and was not asserted.**
+
+Engineering maintenance: **Meta Lead Ads ingestion now distinguishes an
+event-specific stale/missing lead (`100/33`) from a proven Page connection
+failure. Only invalid-token or required-permission codes (`190`, `10`, `200`)
+may overwrite Page health during a lead fetch; the stale event remains in its
+owned retry/reconciliation path. Focused ingestion, recovery, health, and cron
+coverage passes. Production queue cleanup and canary evidence remain separately
+approval-gated.**
 
 Engineering maintenance: **the Inbox conversation view no longer traps the contact panel or hijacks the reader — the panel carries a Close button of its own, the thread-header identity block and the active row's avatar toggle it open and closed with matching `aria-expanded` labels, the thread pins to the newest message only while the reader is already at the bottom and offers a Jump to latest control otherwise, delivery receipts from other conversations no longer re-render or re-scroll the open thread, opening the panel keeps a bottom-parked reader parked, and hitting Reply focuses the composer**.
 

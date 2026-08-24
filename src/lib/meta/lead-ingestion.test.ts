@@ -27,6 +27,7 @@ vi.mock('@/lib/leads/meta-field-mapping', () => ({
 }));
 
 import { processOwnedMetaLeadEvent } from './lead-ingestion';
+import { MetaGraphError } from '@/lib/whatsapp/meta-api';
 
 type RpcCall = { name: string; args: Record<string, unknown> };
 
@@ -279,5 +280,56 @@ describe('owned Meta lead ingestion', () => {
         processingOwner: 'owner-1',
       })
     ).rejects.toThrow('Meta Page configuration is unavailable');
+  });
+
+  it('does not overwrite Page health for a lead-specific Meta Graph error', async () => {
+    const { admin, updates } = adminFixture();
+    mocks.fetchLeadgenLead.mockRejectedValueOnce(
+      new MetaGraphError('Unsupported get request', 400, 100, 33, null, false)
+    );
+
+    await expect(
+      processOwnedMetaLeadEvent({
+        admin: admin as never,
+        event,
+        processingOwner: 'owner-1',
+      })
+    ).rejects.toThrow('Unsupported get request');
+
+    expect(updates).toEqual([]);
+  });
+
+  it('retains Page health failure for an invalid connection token', async () => {
+    const { admin, updates } = adminFixture();
+    mocks.fetchLeadgenLead.mockRejectedValueOnce(
+      new MetaGraphError(
+        'Invalid OAuth access token',
+        400,
+        190,
+        null,
+        null,
+        false
+      )
+    );
+
+    await expect(
+      processOwnedMetaLeadEvent({
+        admin: admin as never,
+        event,
+        processingOwner: 'owner-1',
+      })
+    ).rejects.toThrow('Invalid OAuth access token');
+
+    expect(updates).toContainEqual({
+      table: 'meta_page_config',
+      values: {
+        status: 'error',
+        last_error: 'The saved Facebook authorization is no longer valid.',
+        health_error_code: 'token_invalid',
+        health_error_resolution:
+          'Reconnect Facebook to grant Page access again.',
+        next_health_check_at: expect.any(String),
+      },
+    });
   });
 });
