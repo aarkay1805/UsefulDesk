@@ -45,8 +45,11 @@ event-specific stale/missing lead (`100/33`) from a proven Page connection
 failure. Only invalid-token or required-permission codes (`190`, `10`, `200`)
 may overwrite Page health during a lead fetch; the stale event remains in its
 owned retry/reconciliation path. Focused ingestion, recovery, health, and cron
-coverage passes. Production queue cleanup and canary evidence remain separately
-approval-gated.**
+coverage passes. Commit `8c8d51d` passed CI and reached Production; both stale
+synthetic rows were retained and terminally reconciled with audit context, and
+one fresh Meta test lead completed on attempt one as a no-phone skip. The queue
+ended at zero unprocessed/failed events and Page health remained connected with
+zero failures or attention incident.**
 
 Engineering maintenance: **the Inbox conversation view no longer traps the contact panel or hijacks the reader — the panel carries a Close button of its own, the thread-header identity block and the active row's avatar toggle it open and closed with matching `aria-expanded` labels, the thread pins to the newest message only while the reader is already at the bottom and offers a Jump to latest control otherwise, delivery receipts from other conversations no longer re-render or re-scroll the open thread, opening the panel keeps a bottom-parked reader parked, and hitting Reply focuses the composer**.
 

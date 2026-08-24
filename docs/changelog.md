@@ -13,9 +13,13 @@ invalid token or required-permission denial (`190`, `10`, or `200`). A stale or
 missing lead object such as Meta code `100/33` remains an event-level recovery
 failure and cannot overwrite the Page connection. Regression coverage preserves
 the real invalid-token path, and all focused ingestion, recovery, Page-health,
-and cron tests pass. Key code: `src/lib/meta/lead-ingestion.ts` and its colocated
-test. Gotcha: production queue reconciliation and canary evidence remain a
-separate approval-gated operation.
+and cron tests pass. Commit `8c8d51d` passed CI and reached Production. The two
+stale synthetic rows were retained and terminally reconciled with explicit
+audit context; one fresh Meta test lead then completed on its first attempt as
+`skipped=no_phone`. The queue ended at zero unprocessed/failed events while the
+Page remained connected with zero health failures. Key code:
+`src/lib/meta/lead-ingestion.ts` and its colocated test. Gotcha: the provider
+test lead remains Meta-owned test evidence; no customer lead or ad was created.
 
 ## Production failures now have an owner and a shortest safe response path
 
