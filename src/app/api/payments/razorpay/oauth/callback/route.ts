@@ -10,10 +10,10 @@ import {
 } from '@/lib/payments/credentials';
 import {
   assertRazorpayApplicationWebhookConfigured,
-  assertRazorpayLivePilotAccount,
-  authorizeRazorpayLivePilotMerchant,
+  claimRazorpayLiveRolloutMerchant,
   getRazorpayOAuthConfig,
-  type RazorpayLivePilotMerchantAuthorization,
+  loadRazorpayLiveRolloutAuthorization,
+  type RazorpayLiveMerchantAuthorization,
 } from '@/lib/payments/razorpay-config';
 import {
   boundedRazorpayError,
@@ -61,8 +61,11 @@ export async function GET(request: Request) {
       undefined;
     if (!accountId) return settingsRedirect(request, 'invalid_state');
 
-    assertRazorpayLivePilotAccount(accountId);
     await requirePaymentGatewayAccess(accountId);
+    const rollout = await loadRazorpayLiveRolloutAuthorization(
+      admin,
+      accountId
+    );
     const consumed = await consumeRazorpayOAuthState(
       admin,
       rawState,
@@ -90,12 +93,14 @@ export async function GET(request: Request) {
       code,
       encryptedCodeVerifier: consumed.pkce_code_verifier,
     });
-    let merchantAuthorization: RazorpayLivePilotMerchantAuthorization;
+    let merchantAuthorization: RazorpayLiveMerchantAuthorization;
     try {
-      merchantAuthorization = authorizeRazorpayLivePilotMerchant(
+      assertRazorpayApplicationWebhookConfigured();
+      merchantAuthorization = await claimRazorpayLiveRolloutMerchant(
+        admin,
+        rollout,
         tokens.accountId
       );
-      assertRazorpayApplicationWebhookConfigured();
       await beginRazorpayOAuthConnection(admin, accountId, tokens, {
         requireUnboundMerchant: merchantAuthorization === 'enrollment',
       });

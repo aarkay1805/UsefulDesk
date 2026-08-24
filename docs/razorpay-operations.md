@@ -1261,3 +1261,47 @@ conversations, Razorpay events, mandates, or OAuth states during the window.
 VBF/Aakash remains closed. This exact pinned tuple is the only permanently
 active Production scope; onboarding or operating any other gym still requires
 separate authority.
+
+### VBF designated as the non-pinned rollout canary
+
+On 2026-08-24 the owner designated UsefulDesk VBF account
+`9c50dcd9-ed4a-427c-a2fc-07d452f0aec7` as the account for G12: one non-pinned
+Production first bind and provider-readiness verification without moving
+money. This decision supersedes the earlier closed VBF/Aakash continuation only
+for this connection-readiness exercise.
+
+At designation time VBF has no Razorpay credential, merchant binding, or
+active OAuth state. Rajat's permanently pinned account and Live merchant remain
+unchanged. The designation does not itself authorize or prove Razorpay-owner
+consent, and it does not authorize a Payment Link, WhatsApp send, transaction,
+refund, or other money movement.
+
+G12 remains open until VBF's Razorpay owner completes Live OAuth and the
+existing first-bind procedure proves the returned merchant is unbound,
+`read_write`, Live/storage-v1/application-ingress, freshly provider-ready,
+tenant-isolated, and free of merchant-scoped webhook, ledger, link, payment,
+and refund exceptions. Stop after those read-only checks; a later transaction
+or broader rollout requires separate authority.
+
+### Database-owned Rajat + VBF rollout gate installed
+
+On 2026-08-24 the one-account Live environment pins were replaced in the
+application by `razorpay_live_rollout_accounts`. The table is RLS-on with all
+browser privileges revoked. Service role has only `SELECT`/`UPDATE`; the
+`SECURITY INVOKER` merchant-claim RPC is executable only by service role.
+
+Rajat is enabled with exact merchant `acc_TCJwBqanN9LTrK` and first bind off.
+VBF is enabled with no merchant and first bind on. The callback validates the
+server-owned row, rejects a merchant already held by another credential,
+atomically records the first merchant and disables enrollment, then stores the
+encrypted grant. Connect, refresh, and failed-disconnect recovery use the same
+account/merchant authority. Test mode remains isolated and bypasses Live rows.
+
+Migration `20260824154126_razorpay_live_rollout_accounts.sql` was applied as
+`20260824154937` in UsefulDesk Razorpay Test and `20260824155039` in Production.
+Both projects verified RLS, grants, RPC authority, and the exact two seed rows.
+Production preflight found both UsefulDesk accounts, one exact healthy Rajat
+credential, zero VBF credentials, and zero active VBF OAuth states. No claim
+RPC, OAuth consent, Payment Link, message, payment, refund, or money movement
+was performed. G12 now waits on the application release, VBF-owner OAuth, and
+the no-money readiness/isolation/zero-queue closeout.

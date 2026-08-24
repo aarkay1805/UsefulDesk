@@ -5,9 +5,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { decryptPaymentSecret, encryptPaymentSecret } from './payment-secrets';
 import {
-  assertRazorpayLivePilotAccount,
-  assertRazorpayPinnedLivePilotMerchant,
+  authorizeRazorpayLiveRolloutMerchant,
   getRazorpayOAuthConfig,
+  loadRazorpayLiveRolloutAuthorization,
   RAZORPAY_REFRESH_LEASE_SECONDS,
   type RazorpayProviderMode,
 } from './razorpay-config';
@@ -265,7 +265,10 @@ export async function recoverStoredRazorpayDisconnectingConnection(input: {
   accountId: string;
 }): Promise<RazorpayReadiness> {
   const config = getRazorpayOAuthConfig(process.env, { allowDisabled: true });
-  assertRazorpayLivePilotAccount(input.accountId);
+  const rollout = await loadRazorpayLiveRolloutAuthorization(
+    input.admin,
+    input.accountId
+  );
 
   const { data, error } = await input.admin
     .from('account_payment_credentials')
@@ -279,7 +282,7 @@ export async function recoverStoredRazorpayDisconnectingConnection(input: {
       `load Razorpay recovery identity: ${error?.message ?? 'not found'}`
     );
   }
-  assertRazorpayPinnedLivePilotMerchant(data.razorpay_account_id);
+  authorizeRazorpayLiveRolloutMerchant(data.razorpay_account_id, rollout);
   const store = createSupabaseDisconnectRecoveryStore({
     admin: input.admin,
     accountId: input.accountId,

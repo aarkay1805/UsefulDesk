@@ -1,16 +1,52 @@
 import { describe, expect, it } from 'vitest';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 import {
-  authorizeRazorpayLivePilotMerchant,
   assertRazorpayApplicationWebhookConfigured,
-  assertRazorpayLivePilotAccount,
-  assertRazorpayLivePilotMerchant,
-  assertRazorpayPinnedLivePilotMerchant,
   assertRazorpayProviderMode,
+  authorizeRazorpayLiveRolloutMerchant,
+  claimRazorpayLiveRolloutMerchant,
   getRazorpayOAuthConfig,
   getRazorpayProviderMode,
   isRazorpayOAuthEnabled,
+  loadRazorpayLiveRolloutAuthorization,
+  type RazorpayLiveRolloutAuthorization,
 } from './razorpay-config';
+
+const vbfRollout = {
+  accountId: '9c50dcd9-ed4a-427c-a2fc-07d452f0aec7',
+  enabled: true,
+  firstBindEnabled: true,
+  merchantId: null,
+  credentialMerchantId: null,
+} as RazorpayLiveRolloutAuthorization & { credentialMerchantId: null };
+
+function rolloutAdmin(
+  rolloutResult: {
+    data: Record<string, unknown> | null;
+    error: { message: string } | null;
+  },
+  credentialResult: {
+    data: Record<string, unknown> | null;
+    error: { message: string } | null;
+  } = { data: null, error: null }
+): SupabaseClient {
+  return {
+    from: (table: string) => {
+      const result =
+        table === 'razorpay_live_rollout_accounts'
+          ? rolloutResult
+          : credentialResult;
+      const query = {
+        select: () => query,
+        eq: () => query,
+        maybeSingle: async () => result,
+      };
+      return query;
+    },
+  } as unknown as SupabaseClient;
+}
 
 describe('Razorpay rollout configuration', () => {
   it('keeps OAuth disabled unless explicitly true', () => {
@@ -76,30 +112,6 @@ describe('Razorpay rollout configuration', () => {
     ).toThrow(/HTTPS/);
   });
 
-  it('requires and enforces the single Live pilot account', () => {
-    const pilot = '50a9e8f9-d7e5-44d2-ba04-c367509b981e';
-    expect(() =>
-      assertRazorpayLivePilotAccount(pilot, { RAZORPAY_MODE: 'live' })
-    ).toThrow(/must be configured/);
-    expect(() =>
-      assertRazorpayLivePilotAccount('11111111-1111-4111-8111-111111111111', {
-        RAZORPAY_MODE: 'live',
-        RAZORPAY_LIVE_PILOT_ACCOUNT_ID: pilot,
-      })
-    ).toThrow(/not enabled/);
-    expect(() =>
-      assertRazorpayLivePilotAccount(pilot, {
-        RAZORPAY_MODE: 'live',
-        RAZORPAY_LIVE_PILOT_ACCOUNT_ID: pilot,
-      })
-    ).not.toThrow();
-    expect(() =>
-      assertRazorpayLivePilotAccount('any-test-account', {
-        RAZORPAY_MODE: 'test',
-      })
-    ).not.toThrow();
-  });
-
   it('requires a current application webhook secret before OAuth binding', () => {
     expect(() => assertRazorpayApplicationWebhookConfigured({})).toThrow(
       /not configured/
@@ -116,72 +128,132 @@ describe('Razorpay rollout configuration', () => {
     ).not.toThrow();
   });
 
-  it('requires and enforces the single Live pilot merchant', () => {
-    expect(() =>
-      assertRazorpayLivePilotMerchant('acc_expected', {
-        RAZORPAY_MODE: 'live',
-      })
-    ).toThrow(/must be configured/);
-    expect(() =>
-      assertRazorpayLivePilotMerchant('acc_other', {
-        RAZORPAY_MODE: 'live',
-        RAZORPAY_LIVE_PILOT_MERCHANT_ID: 'acc_expected',
-      })
-    ).toThrow(/not enabled/);
-    expect(() =>
-      assertRazorpayLivePilotMerchant('acc_expected', {
-        RAZORPAY_MODE: 'live',
-        RAZORPAY_LIVE_PILOT_MERCHANT_ID: 'acc_expected',
-      })
-    ).not.toThrow();
-    expect(() =>
-      assertRazorpayLivePilotMerchant('any-test-merchant', {
-        RAZORPAY_MODE: 'test',
-      })
-    ).toThrow(/identity is invalid/);
-    expect(() =>
-      assertRazorpayLivePilotMerchant('acc_anytestmerchant', {
-        RAZORPAY_MODE: 'test',
-      })
-    ).not.toThrow();
-  });
-
   it('allows only an explicit Live first-bind enrollment window', () => {
-    const base = {
-      RAZORPAY_MODE: 'live',
-      RAZORPAY_LIVE_PILOT_MERCHANT_ID: 'acc_existingacceptance',
-    };
+    const base = { RAZORPAY_MODE: 'live' };
     expect(
-      authorizeRazorpayLivePilotMerchant('acc_newmerchant', {
-        ...base,
-        RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED: 'true',
-      })
+      authorizeRazorpayLiveRolloutMerchant('acc_newmerchant', vbfRollout, base)
     ).toBe('enrollment');
     expect(() =>
-      authorizeRazorpayLivePilotMerchant('acc_newmerchant', {
-        ...base,
-        RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED: 'false',
-      })
+      authorizeRazorpayLiveRolloutMerchant(
+        'acc_newmerchant',
+        { ...vbfRollout, firstBindEnabled: false },
+        base
+      )
     ).toThrow(/not enabled/);
     expect(
-      authorizeRazorpayLivePilotMerchant('acc_existingacceptance', {
-        ...base,
-        RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED: 'true',
-      })
-    ).toBe('pinned');
+      authorizeRazorpayLiveRolloutMerchant(
+        'acc_existingacceptance',
+        {
+          ...vbfRollout,
+          firstBindEnabled: false,
+          merchantId: 'acc_existingacceptance',
+          credentialMerchantId: 'acc_existingacceptance',
+        },
+        base
+      )
+    ).toBe('bound');
   });
 
-  it('never admits first-bind enrollment at the pinned recovery boundary', () => {
-    const env = {
-      RAZORPAY_MODE: 'live',
-      RAZORPAY_LIVE_PILOT_MERCHANT_ID: 'acc_existingacceptance',
-      RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED: 'true',
-    };
+  it('never lets one rollout account adopt a different bound merchant', () => {
     expect(() =>
-      assertRazorpayPinnedLivePilotMerchant('acc_existingacceptance', env)
-    ).not.toThrow();
-    expect(() =>
-      assertRazorpayPinnedLivePilotMerchant('acc_newmerchant', env)
-    ).toThrow(/pinned pilot/);
+      authorizeRazorpayLiveRolloutMerchant(
+        'acc_differentmerchant',
+        {
+          accountId: '50a9e8f9-d7e5-44d2-ba04-c367509b981e',
+          enabled: true,
+          firstBindEnabled: false,
+          merchantId: 'acc_TCJwBqanN9LTrK',
+          credentialMerchantId: 'acc_TCJwBqanN9LTrK',
+        },
+        { RAZORPAY_MODE: 'live' }
+      )
+    ).toThrow(/not enabled/);
+  });
+
+  it('loads only the exact enabled Live rollout account', async () => {
+    const accountId = '9c50dcd9-ed4a-427c-a2fc-07d452f0aec7';
+    await expect(
+      loadRazorpayLiveRolloutAuthorization(
+        rolloutAdmin({
+          data: {
+            account_id: accountId,
+            enabled: true,
+            first_bind_enabled: true,
+            merchant_id: null,
+          },
+          error: null,
+        }),
+        accountId,
+        { RAZORPAY_MODE: 'live' }
+      )
+    ).resolves.toEqual({
+      accountId,
+      enabled: true,
+      firstBindEnabled: true,
+      merchantId: null,
+      credentialMerchantId: null,
+    });
+
+    await expect(
+      loadRazorpayLiveRolloutAuthorization(
+        rolloutAdmin({ data: null, error: null }),
+        accountId,
+        { RAZORPAY_MODE: 'live' }
+      )
+    ).rejects.toThrow(/not enabled/);
+  });
+
+  it('keeps a claimed merchant in first-bind mode until credentials exist', () => {
+    expect(
+      authorizeRazorpayLiveRolloutMerchant(
+        'acc_vbfmerchant',
+        {
+          ...vbfRollout,
+          firstBindEnabled: false,
+          merchantId: 'acc_vbfmerchant',
+          credentialMerchantId: null,
+        },
+        { RAZORPAY_MODE: 'live' }
+      )
+    ).toBe('enrollment');
+  });
+
+  it('atomically closes first-bind enrollment around the returned merchant', async () => {
+    const accountId = '9c50dcd9-ed4a-427c-a2fc-07d452f0aec7';
+    const admin = {
+      rpc: async () => ({ data: true, error: null }),
+    } as unknown as SupabaseClient;
+    await expect(
+      claimRazorpayLiveRolloutMerchant(
+        admin,
+        {
+          accountId,
+          enabled: true,
+          firstBindEnabled: true,
+          merchantId: null,
+          credentialMerchantId: null,
+        },
+        'acc_vbfmerchant',
+        { RAZORPAY_MODE: 'live' }
+      )
+    ).resolves.toBe('enrollment');
+
+    const rejectedAdmin = {
+      rpc: async () => ({ data: false, error: null }),
+    } as unknown as SupabaseClient;
+    await expect(
+      claimRazorpayLiveRolloutMerchant(
+        rejectedAdmin,
+        {
+          accountId,
+          enabled: true,
+          firstBindEnabled: true,
+          merchantId: null,
+          credentialMerchantId: null,
+        },
+        'acc_vbfmerchant',
+        { RAZORPAY_MODE: 'live' }
+      )
+    ).rejects.toThrow(/could not be claimed/);
   });
 });

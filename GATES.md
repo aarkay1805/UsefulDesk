@@ -53,14 +53,14 @@ ABANDON: G2 owner chose the no-cost fallback instead of upgrading Supabase to Pr
       EVIDENCE: pending
 
 - [x] G11: Razorpay first-bind onboarding is account-agnostic, safely configurable, and covered by OAuth, configuration, and health-scope tests
-      CHECK: npm test -- --run src/lib/payments/razorpay-oauth.test.ts src/lib/payments/razorpay-config.test.ts src/lib/payments/razorpay-health-scope-contract.test.ts src/app/api/payments/razorpay/webhook/route.test.ts && node -e "console.log('razorpay onboarding verification passed')"
+      CHECK: npm test -- --run src/lib/payments/razorpay-config.test.ts src/lib/payments/razorpay-live-rollout-schema-contract.test.ts src/lib/payments/razorpay-rollout-route-contract.test.ts src/lib/payments/razorpay-refresh-route-contract.test.ts src/lib/payments/razorpay-oauth.test.ts src/lib/payments/razorpay-health-scope-contract.test.ts src/app/api/payments/razorpay/webhook/route.test.ts src/lib/payments/razorpay-disconnect-recovery.test.ts && node -e "console.log('razorpay onboarding verification passed')"
       EXPECT: razorpay onboarding verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=ebdbae05e4ce/23 entries; output=- ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json | Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+      EVIDENCE: 2026-08-24 the single-account environment pins were replaced by the RLS-on, browser-denied `razorpay_live_rollout_accounts` authority and service-role-only atomic merchant claim. Connector migrations `20260824154937` (isolated Test) and `20260824155039` (Production) verified Rajat enabled and exactly bound, VBF enabled for one first bind and unbound, browser grants absent, and the claim RPC service-role-only. A claimed merchant remains in strict first-bind mode until its encrypted credential exists, so a persistence retry cannot gain provider-capability fallback. The focused 53-test Razorpay suite and full 2,222-test regression passed before release.
 
 - [ ] G12: a non-pinned production account completes Razorpay first-bind onboarding and provider readiness verification without moving money
-      EVIDENCE: pending
+      EVIDENCE: 2026-08-24 the owner designated VBF account `9c50dcd9-ed4a-427c-a2fc-07d452f0aec7` as the rollout canary and the Production rollout table now enables exactly that unbound account for one atomic first bind while preserving Rajat's exact binding. VBF still has no Razorpay credential, merchant binding, or active OAuth state. The gate remains unmet until the application release is live, VBF's Razorpay owner authorizes Live OAuth, and the existing readiness, isolation, and zero-queue checks pass without creating a Payment Link or moving money.
 
 - [x] G13: all shipped changes are documented and the full typecheck, lint, test, and production build suite passes
       CHECK: npm run typecheck && npm run lint && npm test && npm run build && node -e "console.log('full go-live regression verification passed')"
       EXPECT: full go-live regression verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=5a5e6a96d778/23 entries; output=Not implemented: Window's scrollTo() method | Not implemented: Window's scrollTo() method
+      EVIDENCE: 2026-08-24 `npm run format:check`, `npm run lint`, `npm test`, and `npm run build` exited 0 after the Razorpay rollout work; Vitest passed 2,222 tests across 311 files and Next 16.3.0 completed the 94-route production build. Lint reported zero errors and 152 pre-existing vendored-skill warnings.

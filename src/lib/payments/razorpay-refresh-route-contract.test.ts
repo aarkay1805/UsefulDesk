@@ -14,9 +14,11 @@ describe('Razorpay OAuth refresh route contract', () => {
   it('keeps stale-readiness recovery pinned and verifies provider readiness', () => {
     expect(route).toContain('requirePaymentGatewayAccess()');
     expect(route).toContain('requireSameOriginRequest(request)');
-    expect(route).toContain('assertRazorpayLivePilotAccount(ctx.accountId)');
-    expect(route).toContain(
-      'assertRazorpayPinnedLivePilotMerchant(scope.externalAccountId)'
+    expect(route).toMatch(
+      /loadRazorpayLiveRolloutAuthorization\(\s*admin,\s*ctx\.accountId\s*\)/
+    );
+    expect(route).toMatch(
+      /authorizeRazorpayLiveRolloutMerchant\(\s*scope\.externalAccountId,\s*rollout\s*\)/
     );
     expect(route).toContain('forceRefresh: true');
     expect(route).toContain('allowStaleReadinessForRecovery: true');

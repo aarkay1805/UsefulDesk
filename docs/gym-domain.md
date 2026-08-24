@@ -255,7 +255,9 @@ Dashboard-originated full refunds are imported with no accounting disposition an
 
 **OAuth client-secret status (2026-08-21):** Razorpay support confirmed that Technology Partner Application OAuth credentials are static and that an existing Application ID has no self-service, API, or support-side secret rotation/regeneration mechanism. Fresh client secrets require a new application plus manual configuration and merchant re-onboarding. Razorpay recommended continuing with the existing Development and Production credentials; the owner accepted and closed ticket `20297340`. In-place client-secret rotation is therefore not an open readiness or rollout gate. Stored access and refresh token rotation, exact merchant/mode binding, secret-blind handling, and every other OAuth safety invariant remain unchanged.
 
-**Still open:** separately authorizing any additional gym-owner account and exact Live merchant; enabling first-bind enrollment for that exact scope; broader co-branded rollout; richer `payment.failed` handling; and UsefulDesk-initiated partial refunds. The Rajat real-gym connection and one ₹40 Payment Link delivery/settlement are completed evidence, not blanket authority for the next merchant.
+**Live rollout gate (2026-08-24):** account and merchant eligibility now lives in the server-only, RLS-on `razorpay_live_rollout_accounts` table rather than one-account environment pins. Rajat remains exactly bound; VBF is the sole unbound first-bind canary. The callback atomically claims one returned merchant, closes enrollment, and rejects cross-tenant conflicts before storing the encrypted grant. Connect, callback, refresh, and disconnect recovery share that boundary; browser roles have no table or claim-RPC access.
+
+**Still open:** releasing the new application paths, VBF-owner Live OAuth consent, and the no-money provider-readiness/isolation/zero-queue closeout; broader co-branded rollout; richer `payment.failed` handling; and UsefulDesk-initiated partial refunds. The Rajat real-gym connection and one ₹40 Payment Link delivery/settlement remain evidence, not blanket authority for another transaction.
 
 ---
 

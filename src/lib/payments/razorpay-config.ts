@@ -2,6 +2,8 @@ import 'server-only';
 
 import { createHash } from 'node:crypto';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 export type RazorpayProviderMode = 'test' | 'live';
 
 export const RAZORPAY_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
@@ -19,9 +21,6 @@ interface RazorpayEnv {
   RAZORPAY_OAUTH_CLIENT_ID?: string;
   RAZORPAY_OAUTH_CLIENT_SECRET?: string;
   RAZORPAY_OAUTH_REDIRECT_URI?: string;
-  RAZORPAY_LIVE_PILOT_ACCOUNT_ID?: string;
-  RAZORPAY_LIVE_PILOT_MERCHANT_ID?: string;
-  RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED?: string;
   RAZORPAY_WEBHOOK_SECRET_CURRENT?: string;
 }
 
@@ -58,25 +57,6 @@ export function assertRazorpayProviderMode(
   }
 }
 
-export function assertRazorpayLivePilotAccount(
-  accountId: string,
-  env: RazorpayEnv = process.env
-): void {
-  if (getRazorpayProviderMode(env) !== 'live') return;
-  const pilotAccountId = env.RAZORPAY_LIVE_PILOT_ACCOUNT_ID?.trim();
-  if (
-    !pilotAccountId ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      pilotAccountId
-    )
-  ) {
-    throw new Error('RAZORPAY_LIVE_PILOT_ACCOUNT_ID must be configured');
-  }
-  if (accountId !== pilotAccountId) {
-    throw new Error('Razorpay Live OAuth is not enabled for this account');
-  }
-}
-
 export function assertRazorpayApplicationWebhookConfigured(
   env: RazorpayEnv = process.env
 ): void {
@@ -85,53 +65,148 @@ export function assertRazorpayApplicationWebhookConfigured(
   }
 }
 
-export function assertRazorpayLivePilotMerchant(
-  externalAccountId: string,
-  env: RazorpayEnv = process.env
-): void {
-  authorizeRazorpayLivePilotMerchant(externalAccountId, env);
+export type RazorpayLiveMerchantAuthorization = 'bound' | 'enrollment';
+
+export interface RazorpayLiveRolloutAuthorization {
+  accountId: string;
+  enabled: boolean;
+  firstBindEnabled: boolean;
+  merchantId: string | null;
+  credentialMerchantId: string | null;
 }
 
-/** Require the already-pinned Live merchant; never admit first-bind enrollment. */
-export function assertRazorpayPinnedLivePilotMerchant(
-  externalAccountId: string,
-  env: RazorpayEnv = process.env
-): void {
-  if (getRazorpayProviderMode(env) !== 'live') return;
-  const merchantId = env.RAZORPAY_LIVE_PILOT_MERCHANT_ID?.trim();
-  if (!merchantId || !/^acc_[A-Za-z0-9]+$/.test(merchantId)) {
-    throw new Error('RAZORPAY_LIVE_PILOT_MERCHANT_ID must be configured');
-  }
-  if (externalAccountId !== merchantId) {
-    throw new Error('Razorpay Live merchant does not match the pinned pilot');
-  }
+interface RazorpayLiveRolloutRow {
+  account_id: string;
+  enabled: boolean;
+  first_bind_enabled: boolean;
+  merchant_id: string | null;
 }
 
-export type RazorpayLivePilotMerchantAuthorization = 'pinned' | 'enrollment';
+export async function loadRazorpayLiveRolloutAuthorization(
+  admin: SupabaseClient,
+  accountId: string,
+  env: RazorpayEnv = process.env
+): Promise<RazorpayLiveRolloutAuthorization> {
+  if (getRazorpayProviderMode(env) !== 'live') {
+    return {
+      accountId,
+      enabled: true,
+      firstBindEnabled: false,
+      merchantId: null,
+      credentialMerchantId: null,
+    };
+  }
+
+  const { data, error } = await admin
+    .from('razorpay_live_rollout_accounts')
+    .select('account_id, enabled, first_bind_enabled, merchant_id')
+    .eq('account_id', accountId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`load Razorpay Live rollout account: ${error.message}`);
+  }
+  const row = data as RazorpayLiveRolloutRow | null;
+  if (!row || row.account_id !== accountId || !row.enabled) {
+    throw new Error('Razorpay Live OAuth is not enabled for this account');
+  }
+  if (row.merchant_id && !/^acc_[A-Za-z0-9]+$/.test(row.merchant_id)) {
+    throw new Error('Razorpay Live rollout merchant identity is invalid');
+  }
+  const { data: credentialData, error: credentialError } = await admin
+    .from('account_payment_credentials')
+    .select('razorpay_account_id')
+    .eq('account_id', accountId)
+    .eq('gateway', 'razorpay')
+    .eq('provider_mode', 'live')
+    .maybeSingle();
+  if (credentialError) {
+    throw new Error(
+      `load Razorpay Live credential binding: ${credentialError.message}`
+    );
+  }
+  const credentialMerchantId =
+    (credentialData as { razorpay_account_id: string | null } | null)
+      ?.razorpay_account_id ?? null;
+  if (
+    credentialMerchantId &&
+    (!/^acc_[A-Za-z0-9]+$/.test(credentialMerchantId) ||
+      credentialMerchantId !== row.merchant_id)
+  ) {
+    throw new Error('Razorpay Live rollout credential binding is inconsistent');
+  }
+  return {
+    accountId: row.account_id,
+    enabled: row.enabled,
+    firstBindEnabled: row.first_bind_enabled,
+    merchantId: row.merchant_id,
+    credentialMerchantId,
+  };
+}
 
 /**
- * Live imports must match the operator-pinned merchant. During one explicitly
- * scoped co-branded signup window, the exact allowlisted tenant may instead
- * bind its first provider-issued merchant identity. The credential writer
- * separately requires that tenant to be unbound before accepting that result.
+ * A Live grant must match the server-owned account binding. An explicitly
+ * enabled, unbound rollout account may atomically adopt its first
+ * provider-issued merchant identity.
  */
-export function authorizeRazorpayLivePilotMerchant(
+export function authorizeRazorpayLiveRolloutMerchant(
   externalAccountId: string,
+  rollout: RazorpayLiveRolloutAuthorization,
   env: RazorpayEnv = process.env
-): RazorpayLivePilotMerchantAuthorization {
+): RazorpayLiveMerchantAuthorization {
   if (!/^acc_[A-Za-z0-9]+$/.test(externalAccountId)) {
     throw new Error('Razorpay Live merchant identity is invalid');
   }
-  if (getRazorpayProviderMode(env) !== 'live') return 'pinned';
-  const merchantId = env.RAZORPAY_LIVE_PILOT_MERCHANT_ID?.trim();
-  if (!merchantId || !/^acc_[A-Za-z0-9]+$/.test(merchantId)) {
-    throw new Error('RAZORPAY_LIVE_PILOT_MERCHANT_ID must be configured');
+  if (getRazorpayProviderMode(env) !== 'live') return 'bound';
+  if (!rollout.enabled) {
+    throw new Error('Razorpay Live OAuth is not enabled for this account');
   }
-  if (externalAccountId === merchantId) return 'pinned';
-  if (env.RAZORPAY_LIVE_PILOT_ENROLLMENT_ENABLED === 'true') {
-    return 'enrollment';
+  if (
+    rollout.credentialMerchantId &&
+    rollout.credentialMerchantId !== rollout.merchantId
+  ) {
+    throw new Error('Razorpay Live rollout credential binding is inconsistent');
   }
-  throw new Error('Razorpay Live merchant is not enabled for this pilot');
+  if (rollout.merchantId === externalAccountId) {
+    return rollout.credentialMerchantId === externalAccountId
+      ? 'bound'
+      : 'enrollment';
+  }
+  if (!rollout.merchantId && rollout.firstBindEnabled) return 'enrollment';
+  throw new Error('Razorpay Live merchant is not enabled for this account');
+}
+
+export async function claimRazorpayLiveRolloutMerchant(
+  admin: SupabaseClient,
+  rollout: RazorpayLiveRolloutAuthorization,
+  externalAccountId: string,
+  env: RazorpayEnv = process.env
+): Promise<RazorpayLiveMerchantAuthorization> {
+  const authorization = authorizeRazorpayLiveRolloutMerchant(
+    externalAccountId,
+    rollout,
+    env
+  );
+  if (
+    getRazorpayProviderMode(env) !== 'live' ||
+    authorization !== 'enrollment'
+  ) {
+    return authorization;
+  }
+
+  const { data, error } = await admin.rpc(
+    'claim_razorpay_live_rollout_merchant',
+    {
+      p_account_id: rollout.accountId,
+      p_merchant_id: externalAccountId,
+    }
+  );
+  if (error) {
+    throw new Error(`claim Razorpay Live rollout merchant: ${error.message}`);
+  }
+  if (data !== true) {
+    throw new Error('Razorpay Live rollout merchant could not be claimed');
+  }
+  return authorization;
 }
 
 export function getRazorpayOAuthConfig(

@@ -13,8 +13,8 @@ import {
   getRazorpayDiagnosticScope,
 } from '@/lib/payments/credentials';
 import {
-  assertRazorpayLivePilotAccount,
-  assertRazorpayPinnedLivePilotMerchant,
+  authorizeRazorpayLiveRolloutMerchant,
+  loadRazorpayLiveRolloutAuthorization,
 } from '@/lib/payments/razorpay-config';
 import { verifyRazorpayOAuthReadiness } from '@/lib/payments/razorpay-oauth';
 
@@ -24,8 +24,11 @@ export async function POST(request: Request) {
   try {
     requireSameOriginRequest(request);
     const ctx = await requirePaymentGatewayAccess();
-    assertRazorpayLivePilotAccount(ctx.accountId);
     const admin = supabaseAdmin();
+    const rollout = await loadRazorpayLiveRolloutAuthorization(
+      admin,
+      ctx.accountId
+    );
     const scope = await getRazorpayDiagnosticScope(admin, ctx.accountId);
     if (!scope) {
       return NextResponse.json(
@@ -33,7 +36,7 @@ export async function POST(request: Request) {
         { status: 409 }
       );
     }
-    assertRazorpayPinnedLivePilotMerchant(scope.externalAccountId);
+    authorizeRazorpayLiveRolloutMerchant(scope.externalAccountId, rollout);
     const connection = await getRazorpayConnection(admin, ctx.accountId, {
       forceRefresh: true,
       allowStaleReadinessForRecovery: true,

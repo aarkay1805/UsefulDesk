@@ -6,6 +6,22 @@
 
 ---
 
+## Razorpay Live rollout authority now supports Rajat and VBF safely
+
+The one-account environment pins are replaced by the browser-denied
+`razorpay_live_rollout_accounts` table. Rajat stays exactly bound; VBF account
+`9c50dcd9-ed4a-427c-a2fc-07d452f0aec7` alone may claim its first returned Live
+merchant, which atomically closes enrollment and rejects a merchant already
+bound elsewhere. Connect, callback, refresh, and disconnect recovery share that
+server-owned boundary. If persistence fails after the claim, the missing
+credential keeps the retry in strict first-bind mode, so provider-capability
+fallback remains unavailable. Migration `20260824154126_razorpay_live_rollout_accounts.sql`
+was connector-applied as `20260824154937` in isolated Test and `20260824155039`
+in Production; grants, RLS, seed state, focused tests, and the full regression
+passed. VBF still has no credential, binding, or active OAuth state: G12 awaits
+the application release, VBF-owner consent, and a no-money closeout. Key code:
+`src/lib/payments/razorpay-config.ts` and the three OAuth lifecycle paths.
+
 ## Service renewal has an explicit provider-payload lock
 
 `gym_service_renewal` now has dedicated regression proof for its complete Meta

@@ -7,8 +7,8 @@ import {
 } from '@/lib/auth/account';
 import { requireSameOriginRequest } from '@/lib/auth/csrf';
 import {
-  assertRazorpayLivePilotAccount,
   getRazorpayOAuthConfig,
+  loadRazorpayLiveRolloutAuthorization,
 } from '@/lib/payments/razorpay-config';
 import {
   buildRazorpayAuthorizationUrl,
@@ -22,8 +22,8 @@ export async function POST(request: Request) {
     requireSameOriginRequest(request);
     const ctx = await requirePaymentGatewayAccess();
     const config = getRazorpayOAuthConfig();
-    assertRazorpayLivePilotAccount(ctx.accountId);
     const admin = supabaseAdmin();
+    await loadRazorpayLiveRolloutAuthorization(admin, ctx.accountId);
     const attempt = createRazorpayOAuthAttempt({
       accountId: ctx.accountId,
       initiatedBy: ctx.userId,
