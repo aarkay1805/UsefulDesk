@@ -14,7 +14,10 @@ date/current-price order, the approved body and footer, both quick replies, and
 provider examples. The shared contract itself was already correct; this closes
 the feature-specific payload oracle without changing send behavior. Key code:
 `src/lib/whatsapp/template-contracts.test.ts`. Gotcha: the production template
-must still be created, approved, and synced before service reminders are ready.
+was submitted with the exact locked payload on the owner-approved Rajat Kashyap
+account and is stored with Meta's provider ID and Pending status; it must still
+be approved and synced before service reminders are ready. No WhatsApp message
+was sent.
 
 ## Stale Meta leads no longer make a healthy Page look disconnected
 

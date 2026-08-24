@@ -42,7 +42,7 @@ ABANDON: G2 owner chose the no-cost fallback instead of upgrading Supabase to Pr
       EVIDENCE: 2026-08-24 the dedicated payload regression passed and proves gym_service_renewal is MARKETING/en_US/POSITIONAL with the exact four body parameters, approved body, footer, Renew service button, Unsubscribe button, and provider sample values.
 
 - [ ] G8: gym_service_renewal is approved and synced in the production WhatsApp account with the exact repository contract
-      EVIDENCE: 2026-08-24 read-only production inventory found no gym_service_renewal or retired gym_service_renewal_reminder row. Exact creation/submission is therefore required; no provider mutation has been performed without explicit approval.
+      EVIDENCE: 2026-08-24 Meta accepted the exact gym_service_renewal contract on the owner-approved Rajat Kashyap production account and returned Pending. Production stores the provider ID, Marketing/en_US/POSITIONAL contract, exact four examples, body, footer, and both quick replies with no submission or rejection error. No WhatsApp message was sent. This gate remains unmet until Meta approves it and an authenticated sync records Approved.
 
 - [ ] G9: the exact gym_installment_reminder repository contract produces the approved positional Meta payload
       CHECK: npm test -- --run src/lib/whatsapp/template-contracts.test.ts && node -e "const fs=require('node:fs');const s=fs.readFileSync('src/lib/whatsapp/template-contracts.test.ts','utf8');if(!s.includes('builds the exact Meta payload for installment reminder'))process.exit(1);console.log('installment reminder contract verification passed')"

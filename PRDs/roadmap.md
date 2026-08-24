@@ -54,8 +54,10 @@ zero failures or attention incident.**
 Engineering maintenance: **the exact `gym_service_renewal` Meta payload now has
 a dedicated regression lock covering Marketing classification, `en_US`,
 POSITIONAL parameter order, body, footer, buttons, and provider examples. The
-repository contract is ready; production provider approval and sync remain the
-next manual gate before service reminders can send.**
+owner-approved Rajat Kashyap production account has submitted that exact
+contract and stores Meta's provider ID with Pending status; provider approval
+and an authenticated Approved sync remain the next manual gate before service
+reminders can send. No WhatsApp message was sent.**
 
 Engineering maintenance: **the Inbox conversation view no longer traps the contact panel or hijacks the reader — the panel carries a Close button of its own, the thread-header identity block and the active row's avatar toggle it open and closed with matching `aria-expanded` labels, the thread pins to the newest message only while the reader is already at the bottom and offers a Jump to latest control otherwise, delivery receipts from other conversations no longer re-render or re-scroll the open thread, opening the panel keeps a bottom-parked reader parked, and hitting Reply focuses the composer**.
 
