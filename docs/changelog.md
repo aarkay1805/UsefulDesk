@@ -18,8 +18,9 @@ credential keeps the retry in strict first-bind mode, so provider-capability
 fallback remains unavailable. Migration `20260824154126_razorpay_live_rollout_accounts.sql`
 was connector-applied as `20260824154937` in isolated Test and `20260824155039`
 in Production; grants, RLS, seed state, focused tests, and the full regression
-passed. VBF still has no credential, binding, or active OAuth state: G12 awaits
-the application release, VBF-owner consent, and a no-money closeout. Key code:
+passed. Commit `e635b6c` reached Production and the canonical login smoke check
+passed. VBF still has no credential, binding, or active OAuth state: G12 now
+awaits only VBF-owner consent and the post-consent no-money closeout. Key code:
 `src/lib/payments/razorpay-config.ts` and the three OAuth lifecycle paths.
 
 ## Service renewal has an explicit provider-payload lock

@@ -1303,5 +1303,14 @@ Both projects verified RLS, grants, RPC authority, and the exact two seed rows.
 Production preflight found both UsefulDesk accounts, one exact healthy Rajat
 credential, zero VBF credentials, and zero active VBF OAuth states. No claim
 RPC, OAuth consent, Payment Link, message, payment, refund, or money movement
-was performed. G12 now waits on the application release, VBF-owner OAuth, and
-the no-money readiness/isolation/zero-queue closeout.
+was performed.
+
+Commit `e635b6c` then reached Production through the Vercel Git integration at
+2026-08-24T16:01:04Z. The canonical `https://desk.usefulmade.com/login` smoke
+check returned HTTP 200. A post-deploy, secret-blind database closeout found
+Rajat still exact/ready on OAuth, Live, storage v1, application ingress, and
+`read_write`, with no refresh lease or last error. VBF remained enabled for
+first bind with no merchant, credential, active OAuth state, Payment Link,
+refund, open payment/refund exception, or webhook delivery. G12 now waits only
+on VBF-owner OAuth and the post-consent no-money readiness/isolation/zero-queue
+closeout.
