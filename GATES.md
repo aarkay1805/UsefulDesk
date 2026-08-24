@@ -36,13 +36,13 @@ ABANDON: G2 owner chose the no-cost fallback instead of upgrading Supabase to Pr
 - [x] G6: the production Meta stale synthetic queue is reconciled, Lead Ads health is restored, and review plus canary verification succeeds without creating a real lead
       EVIDENCE: 2026-08-24 commit 8c8d51d passed CI and reached Production. Exact failed synthetic events meta:leadgen:4391731824489306 and meta:leadgen:36213436768848596 were retained and terminally reconciled with stale_synthetic/provider_object_unavailable audit context. Meta accepted no-phone test lead 4509977375915742 once; its webhook processed on attempt 1 with skipped=no_phone. Production then verified zero unprocessed/failed Meta lead events, and the sole Page remained connected with zero consecutive health failures and no attention incident.
 
-- [ ] G7: the exact gym_service_renewal repository contract produces the approved positional Meta payload
+- [x] G7: the exact gym_service_renewal repository contract produces the approved positional Meta payload
       CHECK: npm test -- --run src/lib/whatsapp/template-contracts.test.ts && node -e "const fs=require('node:fs');const s=fs.readFileSync('src/lib/whatsapp/template-contracts.test.ts','utf8');if(!s.includes('builds the exact Meta payload for service renewal'))process.exit(1);console.log('service renewal contract verification passed')"
       EXPECT: service renewal contract verification passed
-      EVIDENCE: pending
+      EVIDENCE: 2026-08-24 the dedicated payload regression passed and proves gym_service_renewal is MARKETING/en_US/POSITIONAL with the exact four body parameters, approved body, footer, Renew service button, Unsubscribe button, and provider sample values.
 
 - [ ] G8: gym_service_renewal is approved and synced in the production WhatsApp account with the exact repository contract
-      EVIDENCE: pending
+      EVIDENCE: 2026-08-24 read-only production inventory found no gym_service_renewal or retired gym_service_renewal_reminder row. Exact creation/submission is therefore required; no provider mutation has been performed without explicit approval.
 
 - [ ] G9: the exact gym_installment_reminder repository contract produces the approved positional Meta payload
       CHECK: npm test -- --run src/lib/whatsapp/template-contracts.test.ts && node -e "const fs=require('node:fs');const s=fs.readFileSync('src/lib/whatsapp/template-contracts.test.ts','utf8');if(!s.includes('builds the exact Meta payload for installment reminder'))process.exit(1);console.log('installment reminder contract verification passed')"

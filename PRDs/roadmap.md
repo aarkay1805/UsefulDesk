@@ -51,6 +51,12 @@ one fresh Meta test lead completed on attempt one as a no-phone skip. The queue
 ended at zero unprocessed/failed events and Page health remained connected with
 zero failures or attention incident.**
 
+Engineering maintenance: **the exact `gym_service_renewal` Meta payload now has
+a dedicated regression lock covering Marketing classification, `en_US`,
+POSITIONAL parameter order, body, footer, buttons, and provider examples. The
+repository contract is ready; production provider approval and sync remain the
+next manual gate before service reminders can send.**
+
 Engineering maintenance: **the Inbox conversation view no longer traps the contact panel or hijacks the reader — the panel carries a Close button of its own, the thread-header identity block and the active row's avatar toggle it open and closed with matching `aria-expanded` labels, the thread pins to the newest message only while the reader is already at the bottom and offers a Jump to latest control otherwise, delivery receipts from other conversations no longer re-render or re-scroll the open thread, opening the panel keeps a bottom-parked reader parked, and hitting Reply focuses the composer**.
 
 Engineering maintenance: **the Inbox now follows WhatsApp Desktop's layout and interaction model — 72px conversation rows on 48px avatars with a fill-tinted active state, an on-surface queue chip strip with a live unread count in place of the old filter dropdown, a 64px thread header carrying Status and Assign inline with the session window, contact panel, and refresh behind a ⋮ menu, tail-bearing message runs on a recessed chat canvas with metadata tucked into each bubble's last line, and a floating composer pill. The account accent still owns outbound bubbles, unread counts, and selection so all five themes survive; only the read tick uses a fixed blue. Five derived chat tokens keep every mode × accent combination above WCAG AA, and DESIGN.md gained an 11px Meta type step for bubble metadata**.

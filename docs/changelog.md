@@ -6,6 +6,16 @@
 
 ---
 
+## Service renewal has an explicit provider-payload lock
+
+`gym_service_renewal` now has dedicated regression proof for its complete Meta
+payload: `MARKETING`, `en_US`, POSITIONAL body parameters in member/service/end
+date/current-price order, the approved body and footer, both quick replies, and
+provider examples. The shared contract itself was already correct; this closes
+the feature-specific payload oracle without changing send behavior. Key code:
+`src/lib/whatsapp/template-contracts.test.ts`. Gotcha: the production template
+must still be created, approved, and synced before service reminders are ready.
+
 ## Stale Meta leads no longer make a healthy Page look disconnected
 
 Lead ingestion now mutates Page health only when a failed lead fetch proves an

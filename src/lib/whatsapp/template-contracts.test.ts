@@ -254,6 +254,39 @@ describe('gym WhatsApp template contracts', () => {
     });
   });
 
+  it('builds the exact Meta payload for service renewal', () => {
+    const contract = getTemplateContractById('service_renewal');
+    expect(contract).toBeDefined();
+
+    expect(buildMetaTemplatePayload(contract!.payload)).toEqual({
+      name: 'gym_service_renewal',
+      category: 'MARKETING',
+      language: 'en_US',
+      components: [
+        {
+          type: 'BODY',
+          text: 'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the buttons below to respond.',
+          example: {
+            body_text: [
+              ['Rahul', 'Personal Training', '20 Sep 2026', '₹4,500'],
+            ],
+          },
+        },
+        {
+          type: 'FOOTER',
+          text: 'Tap Unsubscribe to stop promotional messages.',
+        },
+        {
+          type: 'BUTTONS',
+          buttons: [
+            { type: 'QUICK_REPLY', text: 'Renew service' },
+            { type: 'QUICK_REPLY', text: 'Unsubscribe' },
+          ],
+        },
+      ],
+    });
+  });
+
   it('identifies only the four templates wired into UsefulDesk features', () => {
     expect(FEATURE_TEMPLATE_CONTRACTS.map((contract) => contract.id)).toEqual([
       'membership_renewal',
