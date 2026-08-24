@@ -4,9 +4,14 @@ UsefulDesk has an active client-side encrypted backup path from Supabase to a
 private Cloudflare R2 bucket. The first full production run succeeded on
 2026-08-23 and verified both its database and Storage objects in R2. A fresh
 full snapshot was restored successfully into a disposable project the same day,
-so the backup path is proven recoverable. The private `age` identity still needs
-a password-manager copy and one separate offline copy; losing its current local
-copy would make every retained archive unrecoverable.
+so the backup path is proven recoverable. The original private `age` identity
+was later found to be unavailable; archives encrypted before the replacement
+recipient was activated at 2026-08-23 18:20 UTC must be treated as
+unrecoverable unless that identity resurfaces. The replacement identity is in
+the owner-approved Apple Passwords vault, passed a local encrypt/decrypt round
+trip, and produced remotely verified database and Storage archives in run
+`32657700769`. The owner explicitly declined a physically separate offline copy,
+accepting the resulting single-vault resilience risk.
 
 ## What runs
 
@@ -67,9 +72,10 @@ age-keygen -o usefuldesk-backup-identity.txt
 
 The command prints a public recipient beginning with `age1`. The recipient is
 safe to give GitHub. The identity file contains the private key: put it in the
-owner's password manager and one separate offline copy, then remove the loose
-local file. Never add it to Git, GitHub, Cloudflare, Vercel, or Supabase. Without
-that private key, the backups cannot be decrypted.
+owner's approved password vault and, unless the owner explicitly accepts the
+single-copy risk, one physically separate offline copy, then remove unnecessary
+loose copies. Never add it to Git, GitHub, Cloudflare, Vercel, or Supabase.
+Without that private key, the backups cannot be decrypted.
 
 ### 3. Configure GitHub Actions
 
@@ -97,6 +103,14 @@ Activation record: GitHub Actions run
 succeeded on 2026-08-23. It verified the encrypted database archive and an
 1,861,520-byte metadata-preserving Storage snapshot containing 30 objects
 across the five configured buckets.
+
+Replacement-identity record: after the original private identity could not be
+located, the public recipient was rotated and full run
+[`32657700769`](https://github.com/aarkay1805/UsefulDesk/actions/runs/32657700769)
+succeeded on 2026-08-23. It remotely verified
+`database/2026/08/database-2026-08-23T18-21-00Z.tar.gz.age` and
+`storage/2026/08/storage-2026-08-23T18-21-00Z.tar.gz.age`. Do not represent
+older retained archives as recoverable without the original identity.
 
 1. Open **Actions → Production backup → Run workflow** on `main`.
 2. Leave **Include Storage** enabled for the first run.

@@ -1,0 +1,30 @@
+name: production-health
+
+# A no-secret availability probe for the production login surface. This is
+# deliberately independent of Vercel and Supabase so a provider outage still
+# produces a failed GitHub Actions run. Critical job and database paths are
+# exercised separately by ops-crons.yml and renewals-cron.yml.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-health
+  cancel-in-progress: false
+
+jobs:
+  login-surface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify the production login surface
+        run: |
+          response="$(curl --fail --silent --show-error --location \
+            --connect-timeout 10 --max-time 20 \
+            --retry 2 --retry-delay 5 --retry-all-errors \
+            https://desk.usefulmade.com/login)"
+          grep --fixed-strings --quiet '<title>UsefulDesk' <<<"$response"

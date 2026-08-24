@@ -6,6 +6,36 @@
 
 ---
 
+## Production failures now have an owner and a shortest safe response path
+
+The no-secret `production-health` workflow probes the live login surface, while
+the production runbook ties that signal to existing worker and backup runs,
+Vercel's one-hour Hobby runtime-log window, exact alert thresholds, Rajat's
+rollback ownership, forward-only migration rules, and a daily/weekly/release
+verification cadence. The 2026-08-24 baseline returned HTTP 200 and showed the
+latest ops and renewal runs green. Gotcha: GitHub schedules are best-effort and
+the alert channel is not considered live until the owner verifies delivery.
+
+## Production Auth now uses the strongest no-cost password policy
+
+Supabase Auth now rejects new or changed passwords unless they contain at least
+12 characters with lowercase, uppercase, digits, and symbols. The production
+dashboard was reloaded after saving and showed both values persisted. Gotcha:
+HaveIBeenPwned leaked-password protection remains unavailable on the current
+Free plan; the owner explicitly chose this no-cost fallback and accepted that
+residual risk instead of upgrading to Pro.
+
+## Backup encryption identity rotated after custody loss
+
+The unavailable original `age` identity was replaced, its public GitHub
+recipient was rotated, and full production run `32657700769` remotely verified
+new database and Storage archives. The replacement passed a local
+encrypt/decrypt round trip and is stored in the owner-approved Apple Passwords
+vault. Gotcha: archives before 2026-08-23 18:20 UTC are not considered
+recoverable unless the original identity resurfaces; the owner explicitly
+declined a physically separate offline copy and accepted the single-vault risk.
+Operational evidence lives in `docs/backups.md`.
+
 ## Lead profiles no longer carry the remnant WhatsApp consent action
 
 The shared `ContactDetailContent` header no longer renders **WhatsApp consent**, removing it from the Leads sheet and the Inbox contact panel together. Member profiles retain the scoped consent control in **Settings** for audit history, and no consent RPC, stored event, or send behavior changed. Key code: `src/components/contacts/contact-detail-content.tsx` and its UI contract test. Gotcha: both lead hosts share this surface; do not add host-specific consent actions back.

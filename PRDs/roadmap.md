@@ -16,9 +16,27 @@ lifecycle, credentials, encryption recipient, and production runs are active.
 The 2026-08-23 drill restored every one of 124 dumped table counts and all 30
 Storage objects into a fresh Singapore project, then passed Auth, signed-private-
 object, and cross-tenant RLS checks. Recovery is therefore proven; safeguarding
-a password-manager and offline copy of the private `age` identity remains an
-owner resilience task. This provides daily/weekly pilot recovery, not point-in-
-time recovery.**
+the private `age` identity remains an owner resilience task. After the original
+identity could not be located, the recipient was rotated and full replacement
+run `32657700769` remotely verified new database and Storage archives. The
+replacement is stored in Apple Passwords; the owner explicitly declined a
+physically separate offline copy and accepted that single-vault risk. Archives
+before the rotation are not considered recoverable unless the old identity
+resurfaces. This provides daily/weekly pilot recovery, not point-in-time
+recovery.**
+
+Engineering maintenance: **production Supabase Auth now requires at least 12
+characters with lowercase, uppercase, digits, and symbols for every new or
+changed password. A dashboard reload verified the saved policy. The Pro-only
+HaveIBeenPwned check remains disabled because the owner chose the no-cost
+fallback and accepted the residual breached-password risk.**
+
+Engineering maintenance: **a no-secret GitHub Actions probe now checks the
+production login surface, and `docs/production-runbook.md` defines the minimum
+observability sources, freshness/error thresholds, GitHub alert destination,
+Rajat's incident and rollback ownership, forward-only database recovery rule,
+and daily/weekly/release verification cadence. The live alert channel remains a
+manual gate until owner notification delivery and rollback access are tested.**
 
 Engineering maintenance: **the Inbox conversation view no longer traps the contact panel or hijacks the reader — the panel carries a Close button of its own, the thread-header identity block and the active row's avatar toggle it open and closed with matching `aria-expanded` labels, the thread pins to the newest message only while the reader is already at the bottom and offers a Jump to latest control otherwise, delivery receipts from other conversations no longer re-render or re-scroll the open thread, opening the panel keeps a bottom-parked reader parked, and hitting Reply focuses the composer**.
 
