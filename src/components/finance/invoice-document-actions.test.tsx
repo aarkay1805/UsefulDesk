@@ -102,7 +102,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function pdfResponse(filename: string): Response {
-  return new Response(new Blob(['%PDF-test'], { type: 'application/pdf' }), {
+  return new Response('%PDF-test', {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
