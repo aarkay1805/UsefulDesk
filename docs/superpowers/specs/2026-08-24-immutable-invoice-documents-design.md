@@ -1,8 +1,10 @@
 # Immutable invoice identity and non-tax document sharing
 
-> Status: draft for written review
+> Status: implemented and verified
 > Date: 2026-08-24
 > Scope: human invoice numbering, configurable invoice identity, immutable non-tax PDF documents, download, and WhatsApp sharing
+
+The connected implementation includes the identity and document migrations plus the additive profile-save conflict fix and invoice-document foreign-key indexes. Provider approval and sync for `gym_invoice_document` remain outside this verified application/database status.
 
 ## Decision
 

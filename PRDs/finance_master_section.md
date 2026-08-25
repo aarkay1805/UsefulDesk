@@ -1,6 +1,6 @@
 # Business section
 
-> Status: **Unified Business shell with Overview, Performance, Invoices, Payments, and Expenses built** · Product roadmap · Last updated: 2026-08-01
+> Status: **Unified Business shell plus immutable non-tax invoice documents built** · Product roadmap · Last updated: 2026-08-25
 > Reference audit: FitGymSoftware Finance, inspected in-product on 2026-07-23. The reference is used for capability discovery only; its information architecture and visual design are not implementation targets.
 
 ## 1. Decision
@@ -81,7 +81,7 @@ It is not intended to become payroll, bookkeeping, inventory accounting, statuto
 
 ## 4. Existing UsefulDesk foundation
 
-The generic invoice layer now supports immutable membership, service, merchandise, and service-adjustment lines. Business → Invoices reads `invoice_balances` (total, cash paid, credit applied, balance) rather than assuming one membership period per invoice. Membership analytics and `fee_status` deliberately remain membership-line-only. Payments keep purpose as the collection-event axis—including `sale` for a standalone checkout—while invoice line kind is the revenue-category axis. Human numbering, PDFs, sharing, GST, refunds, and inventory remain deferred.
+The generic invoice layer now supports immutable membership, service, merchandise, and service-adjustment lines. Business → Invoices reads `invoice_balances` (total, cash paid, credit applied, balance) rather than assuming one membership period per invoice. Membership analytics and `fee_status` deliberately remain membership-line-only. Payments keep purpose as the collection-event axis—including `sale` for a standalone checkout—while invoice line kind is the revenue-category axis. Human numbering, Invoice details snapshots, private non-tax PDFs, authenticated download, and application-side WhatsApp sharing are built. The WhatsApp registry contains ten exact contracts, including the invoice document contract. GST-ready/statutory documents and inventory remain deferred.
 
 UsefulDesk already has the difficult “money in” primitives:
 
@@ -101,8 +101,8 @@ The master section should move and compose these capabilities. It must not dupli
 - Financial and business-performance analysis was split between the former Finance and Reports destinations, with overlapping revenue summaries and trends.
 - Payment history is capped to a client-loaded latest set instead of a server-paged full ledger.
 - AutoPay failures are counted but are not yet a focused recovery workflow.
-- There is no stable human-facing invoice number or account-wide invoice export.
 - There is no GST-ready immutable tax snapshot or compliant invoice document.
+- The exact invoice-document WhatsApp contract still needs provider approval and sync before delivery can run.
 
 ## 5. Information architecture and UX
 
@@ -209,7 +209,7 @@ Built:
 - selecting a row opens the existing `InvoiceDetailDialog`;
 - a collectible invoice can open `RecordPaymentDialog` against that exact persisted period.
 
-The first release labels the first eight characters of the immutable billing-period UUID as an **internal billing record reference**. It is stable and searchable, but it is not presented as a legal or sequential invoice number. PDF and WhatsApp document actions remain unavailable until an approved migration adds immutable human invoice identity and document snapshots.
+Every persisted invoice now carries an immutable account-scoped number such as `INV-000001`. The internal UUID remains the database identity, not a competing customer-facing reference. The detail flow lets every branch member download the private non-tax PDF and lets agents or higher roles use application-side WhatsApp sharing when every provider readiness check passes.
 
 Columns:
 
@@ -238,7 +238,7 @@ Row behavior:
 - selecting a row opens the existing invoice detail treatment;
 - due invoices offer Record payment, Copy UPI, and Send reminder;
 - paid invoices offer View payment and View proof;
-- PDF/WhatsApp actions appear only after a stable invoice document exists;
+- PDF/WhatsApp actions appear only for a persisted numbered invoice whose immutable document is ready or safely generatable;
 - void/correction is admin-only and must remain append-preserving.
 
 Do not build separate “Today invoices” or “Tax invoices” pages. **Today** is a date chip; **Taxed** becomes a filter only if the tax phase ships.
@@ -357,17 +357,19 @@ Built RPCs:
 
 Both must be idempotent and transactional. Direct client deletes are not allowed.
 
-### 7.2 Invoice identity
+### 7.2 Invoice identity and documents
 
-Before PDF or WhatsApp invoice sharing:
+Built:
 
-- add an immutable account-scoped human invoice number;
-- backfill persisted periods deterministically;
-- allocate numbers transactionally and never reuse them;
-- snapshot the legal/business identity used on the issued document;
-- keep Upcoming projections numberless.
+- immutable account-scoped `INV-000001` numbers, deterministic backfill, transactional allocation, and no reuse;
+- versioned seller/customer/charge snapshots that later profile, contact, payment, or refund changes cannot rewrite;
+- admin/owner Invoice details configuration with viewer/agent read access;
+- one private checksummed non-tax PDF in the `invoice-documents` bucket at `account-<account_id>/<invoice_id>/invoice-<invoice_number>.pdf`;
+- viewer+ authenticated download and agent+ application-side WhatsApp sharing through named capabilities;
+- ready-artifact reuse by document row, path, byte count, and SHA-256 checksum;
+- numberless synthetic Upcoming projections.
 
-Invoice number format is a later product decision. Do not encode branch or fiscal-year assumptions before the multi-branch and tax phases are designed.
+The document is an immutable charge snapshot. It excludes payment status, balance, receipt claims, refunds, and GST/statutory fields. Missing or corrupt ready objects fail loudly and retain their recovery evidence; they are never silently regenerated or overwritten.
 
 ### 7.3 Named capabilities
 
@@ -379,6 +381,9 @@ Add capability predicates in `src/lib/auth/roles.ts`, tests, and matching RLS/RP
 - `canRecordExpenses` — admin+ for the first release (**built**);
 - `canManageExpenseCategories` — admin+ (**built**);
 - `canVoidExpenses` — admin+ (**built**).
+- `canManageInvoiceProfile` — admin+ (**built**);
+- `canDownloadInvoiceDocuments` — viewer+ (**built**);
+- `canShareInvoiceDocuments` — agent+ (**built**).
 
 Buttons should be gated with a reason, not hidden. Viewers remain read-only.
 
@@ -441,12 +446,15 @@ Built:
 - search, lifecycle chips, payment/plan/collection filters, shared sorting, paging, and complete filtered CSV export;
 - reused invoice payment/lifecycle helpers, `MemberIdentity`, `InvoiceDetailDialog`, and period-specific `RecordPaymentDialog`;
 - Upcoming is reserved for persisted future periods and remains visually distinct.
+- immutable human invoice numbers and seller/customer snapshots;
+- configurable Invoice details under Settings → Payments;
+- one immutable non-tax PDF with private Storage, authenticated download, and integrity verification;
+- application-side WhatsApp sharing through the exact `gym_invoice_document` Utility contract.
 
 Remaining:
 
-- add immutable human invoice numbers for persisted periods through an approved migration path;
-- Add a non-tax receipt/invoice document only after immutable business/member snapshots are defined.
-- Add WhatsApp sharing through the existing send pipeline.
+- obtain provider approval and sync for the exact `gym_invoice_document`, `en_US`, POSITIONAL document-header contract;
+- validate and build the separate GST/statutory phase.
 
 Exit criteria:
 
@@ -454,7 +462,8 @@ Exit criteria:
 - Billed, paid, and balance reconcile exactly with the payment ledger. (**built**)
 - Upcoming periods cannot be mistaken for issued/current periods. (**built**)
 - Voided and no-charge periods remain visible and correctly labelled. (**built**)
-- Shared invoice documents have immutable human identity and snapshots. (**pending**)
+- Shared invoice documents have immutable human identity and snapshots. (**built**)
+- Provider delivery stays unavailable until the exact contract is Approved and synced. (**pending external dependency**)
 
 ### Phase D — Expense ledger
 
@@ -544,4 +553,4 @@ Each phase must cover:
 
 Overview, its immutable revenue attribution, Performance with its ad-performance cohort and All-staff expense/net-cash export, the account-wide issued-invoice master, the analytical Payments ledger, the classified Expenses ledger, and expense-category settings are built. Posted expense totals now flow through Overview, Profit, cash flow, Performance ad spend, both applicable CSV exports, and the combined recent-transactions timeline.
 
-Keep AutoPay recovery under Members → Payments, where staff can act on the member. Only add document sharing or GST behavior after immutable invoice identity and snapshots are proven.
+Keep AutoPay recovery under Members → Payments, where staff can act on the member. Immutable non-tax invoice documents are proven and built; keep GST/statutory behavior deferred until compliance validation defines its separate immutable tax snapshot and correction model.
