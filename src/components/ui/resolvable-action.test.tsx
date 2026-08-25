@@ -236,6 +236,35 @@ describe('ResolvableAction', () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it('passes the outside-press reason and preserves the clicked focus target', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    render(
+      <>
+        <ResolvableAction
+          trigger={<Button type="button">Send invoice</Button>}
+          blocker={{
+            title: "Invoice template isn't ready",
+            description: 'Approve the invoice template before sending.',
+          }}
+          onOpenChange={onOpenChange}
+        />
+        <input aria-label="Invoice caption" />
+      </>
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Send invoice' }));
+    const caption = screen.getByRole('textbox', { name: 'Invoice caption' });
+    await user.click(caption);
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(caption);
+    expect(onOpenChange).toHaveBeenLastCalledWith(
+      false,
+      expect.objectContaining({ reason: 'outside-press' })
+    );
+  });
+
   it('runs a callback resolution but not the original action', async () => {
     const onAction = vi.fn();
     const onResolve = vi.fn();

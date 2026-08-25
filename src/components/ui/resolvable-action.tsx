@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import type { PopoverRootChangeEventDetails } from '@base-ui/react/popover';
 
 import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { cn } from '@/lib/utils';
@@ -30,13 +31,18 @@ export interface ActionBlocker {
   resolution?: ActionResolution;
 }
 
+export type ResolvableActionOpenChangeDetails = PopoverRootChangeEventDetails;
+
 interface ResolvableActionProps {
   trigger: React.ReactElement;
   onAction?: React.MouseEventHandler<HTMLElement>;
   blocker?: ActionBlocker | null;
   disabled?: boolean;
   open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  onOpenChange?: (
+    open: boolean,
+    eventDetails?: ResolvableActionOpenChangeDetails
+  ) => void;
   side?: 'top' | 'right' | 'bottom' | 'left';
   align?: 'start' | 'center' | 'end';
   /** Override for a custom trigger whose rendered element cannot be
@@ -94,11 +100,11 @@ export function ResolvableAction({
   const nativeTrigger = triggerUsesNativeButton(trigger, triggerNativeButton);
 
   const setResolvedOpen = React.useCallback(
-    (nextOpen: boolean) => {
+    (nextOpen: boolean, eventDetails?: ResolvableActionOpenChangeDetails) => {
       if (open === undefined) {
         setUncontrolledOpen(nextOpen);
       }
-      onOpenChange?.(nextOpen);
+      onOpenChange?.(nextOpen, eventDetails);
     },
     [onOpenChange, open]
   );

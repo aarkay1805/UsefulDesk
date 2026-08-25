@@ -31,6 +31,7 @@ import {
 import {
   ResolvableAction,
   type ActionBlocker,
+  type ResolvableActionOpenChangeDetails,
 } from '@/components/ui/resolvable-action';
 import { useCan } from '@/hooks/use-can';
 import { cn } from '@/lib/utils';
@@ -824,8 +825,12 @@ function MediaDraftPreview({
     void onSend();
   }
 
-  function trackBlockerOpen(open: boolean) {
-    const restoreTriggerFocus = blockerOpenRef.current && !open;
+  function trackBlockerOpen(
+    open: boolean,
+    eventDetails?: ResolvableActionOpenChangeDetails
+  ) {
+    const restoreTriggerFocus =
+      blockerOpenRef.current && !open && eventDetails?.reason === 'escape-key';
     blockerOpenRef.current = open;
     if (restoreTriggerFocus) sendTriggerRef.current?.focus();
   }

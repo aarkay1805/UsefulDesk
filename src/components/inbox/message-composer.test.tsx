@@ -495,6 +495,18 @@ describe('MessageComposer blocked actions', () => {
     expect(
       screen.getByRole('dialog', { name: 'Admin access required' })
     ).toBeTruthy();
+
+    await user.click(caption);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(caption);
+    expect((caption as HTMLInputElement).value).toBe('Keep this caption');
+    expect(screen.getByRole('img', { name: 'member.jpg' })).toBeTruthy();
+    expect(onSendMedia).not.toHaveBeenCalled();
+
+    await user.click(returningPermissionTrigger);
+    expect(
+      screen.getByRole('dialog', { name: 'Admin access required' })
+    ).toBeTruthy();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() =>
