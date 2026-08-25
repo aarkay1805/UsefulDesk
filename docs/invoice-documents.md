@@ -21,15 +21,17 @@ Open **Settings → Payments → Invoice details** before generating the first d
 
 Admin and owner roles can save Invoice details. Agent and viewer roles can inspect the profile but cannot change it. Until the required fields are complete, billing and human numbering continue, but document actions show `Finish Invoice details in Settings -> Payments first.`
 
-The first complete save fills only missing seller snapshots on historical invoices. Later profile edits apply to future invoices and do not rewrite a populated seller snapshot or an existing document.
+Seller snapshots remain null after backfill until the first complete Invoice details save. That save fills only missing seller snapshots on existing invoices. Later profile edits apply to future invoices and do not rewrite a populated seller snapshot or an existing document.
 
 ## Human numbering and identity snapshots
 
-Every persisted invoice receives one account-scoped sequence and stored number in the form `INV-000001`. More than six digits expand naturally. Numbers are allocated transactionally, never reused, and immutable after assignment. Upcoming projections remain numberless because they are not persisted invoices.
+Migration backfill assigns every persisted invoice one account-scoped sequence, a stored number in the form `INV-000001`, and a customer identity snapshot. More than six digits expand naturally. Numbers are allocated transactionally, never reused, and immutable after assignment. Upcoming projections remain numberless because they are not persisted invoices.
 
-Each invoice snapshots the seller, customer, line, issue-date, currency, subtotal, immutable adjustments, and total facts used by the document. The database constructs and validates these snapshots. Browser-authored snapshot JSON is not trusted.
+The backfill does not invent a seller identity, V1 payload, or document row. Seller identity becomes immutable when the first complete profile save fills a missing invoice seller snapshot.
 
-Historical backfill orders invoices within each account by `issued_at`, then `created_at`, then `id`. Connected verification found all 557 persisted invoices numbered and sequenced, with no malformed identity or customer snapshot.
+When generation is reserved, `reserve_invoice_document` authors the immutable V1 `payload_snapshot` and creates or claims the `invoice_documents` row. That database-authored payload freezes the seller, customer, lines, issue date, currency, subtotal, immutable adjustments, and total used by the document. Browser-authored snapshot JSON is not trusted.
+
+Historical backfill orders invoices within each account by `issued_at`, then `created_at`, then `id`. Connected verification found 557 invoices numbered and customer-snapshotted, zero profiles, zero invoice documents, and all 557 seller snapshots still null. This is the expected pre-profile, pre-generation state.
 
 ## Authorization matrix
 

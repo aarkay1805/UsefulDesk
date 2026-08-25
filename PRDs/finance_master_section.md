@@ -362,7 +362,7 @@ Both must be idempotent and transactional. Direct client deletes are not allowed
 Built:
 
 - immutable account-scoped `INV-000001` numbers, deterministic backfill, transactional allocation, and no reuse;
-- versioned seller/customer/charge snapshots that later profile, contact, payment, or refund changes cannot rewrite;
+- versioned customer snapshots at issuance/backfill, seller snapshots when Invoice details first become complete, and charge payloads when document generation is reserved;
 - admin/owner Invoice details configuration with viewer/agent read access;
 - one private checksummed non-tax PDF in the `invoice-documents` bucket at `account-<account_id>/<invoice_id>/invoice-<invoice_number>.pdf`;
 - viewer+ authenticated download and agent+ application-side WhatsApp sharing through named capabilities;
@@ -446,7 +446,7 @@ Built:
 - search, lifecycle chips, payment/plan/collection filters, shared sorting, paging, and complete filtered CSV export;
 - reused invoice payment/lifecycle helpers, `MemberIdentity`, `InvoiceDetailDialog`, and period-specific `RecordPaymentDialog`;
 - Upcoming is reserved for persisted future periods and remains visually distinct.
-- immutable human invoice numbers and seller/customer snapshots;
+- immutable human invoice numbers, customer identity snapshots, and first-complete-profile seller finalization;
 - configurable Invoice details under Settings → Payments;
 - one immutable non-tax PDF with private Storage, authenticated download, and integrity verification;
 - application-side WhatsApp sharing through the exact `gym_invoice_document` Utility contract.

@@ -121,6 +121,30 @@ describe('gym WhatsApp template documentation contract', () => {
     expect(runbook).toMatch(/later payments[^\n]*do not change/i);
   });
 
+  it('distinguishes backfill, seller finalization, and document reservation', () => {
+    const runbook = read('docs/invoice-documents.md');
+    const domain = read('docs/gym-domain.md');
+
+    for (const current of [runbook, domain]) {
+      expect(current).toMatch(
+        /backfill[^.]*number[^.]*customer identity snapshot/i
+      );
+      expect(current).toMatch(
+        /seller snapshots[^.]*remain null[^.]*first complete Invoice details save/i
+      );
+      expect(current).toMatch(
+        /reserve[^.]*authors[^.]*payload_snapshot[^.]*invoice_documents/i
+      );
+      expect(current).not.toMatch(
+        /every persisted invoice has[^.]*seller\/customer identity snapshots[^.]*V1 charge-document payload/i
+      );
+    }
+
+    expect(runbook).toMatch(
+      /557[^.]*numbered[^.]*customer[^.]*zero profiles[^.]*zero invoice documents[^.]*557 seller snapshots[^.]*null/i
+    );
+  });
+
   it('records shipped invoice documents without overstating provider delivery', () => {
     const changelog = read('docs/changelog.md');
     const roadmap = read('PRDs/roadmap.md');
