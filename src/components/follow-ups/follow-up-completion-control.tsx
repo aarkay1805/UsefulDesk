@@ -24,7 +24,7 @@ export function FollowUpCompletionControl({
   status,
   onMarkDone,
   canAct = true,
-  gateReason,
+  gateReason = 'complete follow-ups',
   ariaLabel = 'Complete follow-up',
 }: FollowUpCompletionControlProps) {
   if (status === 'done') {

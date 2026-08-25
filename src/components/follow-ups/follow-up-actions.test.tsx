@@ -74,7 +74,7 @@ describe('FollowUpCompletionControl', () => {
       <FollowUpCompletionControl
         status="open"
         canAct={false}
-        gateReason="complete follow-ups"
+        gateReason="close assigned follow-ups"
         onMarkDone={onMarkDone}
       />
     );
@@ -94,9 +94,31 @@ describe('FollowUpCompletionControl', () => {
       name: 'Admin access required',
     });
     expect(
-      within(blocker).getByText('Ask an admin or owner to complete follow-ups.')
+      within(blocker).getByText(
+        'Ask an admin or owner to close assigned follow-ups.'
+      )
     ).toBeTruthy();
     expect(within(blocker).queryAllByRole('button')).toHaveLength(0);
+  });
+
+  it('uses the canonical completion reason when a blocked caller omits one', async () => {
+    render(
+      <FollowUpCompletionControl
+        status="open"
+        canAct={false}
+        onMarkDone={vi.fn()}
+      />
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Complete follow-up' })
+    );
+
+    expect(
+      within(screen.getByRole('dialog')).getByText(
+        'Ask an admin or owner to complete follow-ups.'
+      )
+    ).toBeTruthy();
   });
 
   it('keeps completed and cancelled follow-ups terminal', () => {
