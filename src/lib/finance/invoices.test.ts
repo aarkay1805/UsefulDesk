@@ -235,34 +235,75 @@ describe('finance invoice filtering and totals', () => {
     expect(result.map((row) => row.reference)).toEqual(['#AAAAAAAA']);
   });
 
-  it('sorts invoice references by their human invoice number', () => {
-    const result = filterFinanceInvoices(
-      normalizeFinanceInvoiceRows(
-        [
-          invoice({
-            id: 'aaaaaaaa-1234-1234-1234-123456789abc',
-            invoice_number: 'INV-000010',
-          }),
-          invoice({
-            id: 'bbbbbbbb-1234-1234-1234-123456789abc',
-            invoice_number: 'INV-000002',
-          }),
-        ],
-        [membership()],
-        TODAY
-      ),
-      {
-        search: '',
-        lifecycle: 'all',
-        filters: EMPTY_FINANCE_INVOICE_FILTERS,
-        sort: { key: 'reference', dir: 'asc' },
-      }
+  it('sorts persisted invoice sequences numerically across the display rollover', () => {
+    const numberedRows = normalizeFinanceInvoiceRows(
+      [
+        invoice({
+          id: 'aaaaaaaa-1234-1234-1234-123456789abc',
+          invoice_sequence: 999_999,
+          invoice_number: 'INV-999999',
+        }),
+        invoice({
+          id: 'bbbbbbbb-1234-1234-1234-123456789abc',
+          invoice_sequence: 1_000_000,
+          invoice_number: 'INV-1000000',
+        }),
+      ],
+      [membership()],
+      TODAY
     );
 
-    expect(result.map((row) => row.reference)).toEqual([
-      'INV-000002',
-      'INV-000010',
-    ]);
+    for (const [dir, expected] of [
+      ['asc', ['INV-999999', 'INV-1000000']],
+      ['desc', ['INV-1000000', 'INV-999999']],
+    ] as const) {
+      expect(
+        filterFinanceInvoices(numberedRows, {
+          search: '',
+          lifecycle: 'all',
+          filters: EMPTY_FINANCE_INVOICE_FILTERS,
+          sort: { key: 'reference', dir },
+        }).map((row) => row.reference)
+      ).toEqual(expected);
+    }
+  });
+
+  it('uses reference ordering whenever either invoice lacks a persisted sequence', () => {
+    const mixedRows = normalizeFinanceInvoiceRows(
+      [
+        invoice({
+          id: 'cccccccc-1234-1234-1234-123456789abc',
+          invoice_sequence: 10,
+          invoice_number: 'INV-000010',
+        }),
+        invoice({
+          id: 'bbbbbbbb-1234-1234-1234-123456789abc',
+          invoice_sequence: null,
+          invoice_number: null,
+        }),
+        invoice({
+          id: 'aaaaaaaa-1234-1234-1234-123456789abc',
+          invoice_sequence: null,
+          invoice_number: null,
+        }),
+      ],
+      [membership()],
+      TODAY
+    );
+
+    for (const [dir, expected] of [
+      ['asc', ['#AAAAAAAA', '#BBBBBBBB', 'INV-000010']],
+      ['desc', ['INV-000010', '#BBBBBBBB', '#AAAAAAAA']],
+    ] as const) {
+      expect(
+        filterFinanceInvoices(mixedRows, {
+          search: '',
+          lifecycle: 'all',
+          filters: EMPTY_FINANCE_INVOICE_FILTERS,
+          sort: { key: 'reference', dir },
+        }).map((row) => row.reference)
+      ).toEqual(expected);
+    }
   });
 
   it('groups invoices into action-first queues without hiding review cases', () => {

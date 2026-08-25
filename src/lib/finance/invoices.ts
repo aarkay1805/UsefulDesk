@@ -294,7 +294,14 @@ export function filterFinanceInvoices(
   return [...filtered].sort((left, right) => {
     let comparison = 0;
     if (sort.key === 'reference') {
-      comparison = left.reference.localeCompare(right.reference);
+      if (left.invoice_sequence !== null && right.invoice_sequence !== null) {
+        comparison = left.invoice_sequence - right.invoice_sequence;
+      }
+      if (comparison === 0) {
+        // Legacy rows have no persisted sequence. Keep their migration-safe
+        // references deterministic rather than inventing an identity value.
+        comparison = left.reference.localeCompare(right.reference);
+      }
     } else if (sort.key === 'name') {
       comparison = (left.membership?.contact?.name ?? '').localeCompare(
         right.membership?.contact?.name ?? ''
