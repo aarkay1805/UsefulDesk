@@ -255,7 +255,8 @@ const styles = StyleSheet.create({
   },
   partyLine: {
     color: '#465466',
-    lineHeight: 1.45,
+    // Inherit the page's resolved 9pt line height. React PDF resolves a
+    // unitless child lineHeight against its 18pt default before inheritance.
   },
   table: {
     borderBottomColor: '#cdd3dc',

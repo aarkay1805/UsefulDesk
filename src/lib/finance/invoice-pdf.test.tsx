@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { inflateSync } from 'node:zlib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { InvoiceDocumentPayloadV1 } from './invoice-documents';
 import {
@@ -287,6 +288,38 @@ describe('renderInvoicePdf', () => {
     ]) {
       expect(chargeClaimsOnly).not.toMatch(forbidden);
     }
+  }, 30_000);
+
+  it('keeps consecutive party details on the inherited 9pt line height', async () => {
+    const buffer = await renderInvoicePdf(oneLinePayload());
+    const source = buffer.toString('latin1');
+    const pageContent = Array.from(
+      source.matchAll(
+        /\/Filter \/FlateDecode[\s\S]*?stream\r?\n([\s\S]*?)\r?\nendstream/g
+      ),
+      (match) =>
+        inflateSync(Buffer.from(match[1] ?? '', 'latin1')).toString('latin1')
+    ).find((content) => content.includes('/F2 28 Tf'));
+    if (!pageContent) throw new Error('Missing first-page PDF content stream');
+
+    const sellerStart = pageContent.indexOf('1 0 0 1 46 163.699997 cm');
+    const customerStart = pageContent.indexOf(
+      '1 0 0 1 270.640015 0 cm',
+      sellerStart
+    );
+    const sellerContent = pageContent.slice(sellerStart, customerStart);
+    const detailOffsets = Array.from(
+      sellerContent.matchAll(
+        /1 0 0 1 0 ([\d.]+) cm\s+q\s+1 0 0 1 0 9\.621 cm/g
+      ),
+      (match) => Number(match[1])
+    );
+
+    expect(detailOffsets).toHaveLength(8);
+    expect((detailOffsets[1] ?? 0) - (detailOffsets[0] ?? 0)).toBeCloseTo(
+      13.05,
+      1
+    );
   }, 30_000);
 
   it('embeds major Indian-script fonts and renders bounded unbroken content', async () => {
