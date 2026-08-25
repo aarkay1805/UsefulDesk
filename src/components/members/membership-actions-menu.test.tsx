@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -45,6 +45,72 @@ async function openMenu() {
   await userEvent.click(
     screen.getByRole('button', { name: 'Membership actions' })
   );
+}
+
+const BUSINESS_CALLBACKS = [
+  'onRenew',
+  'onChangePlan',
+  'onEdit',
+  'onFreeze',
+  'onResume',
+  'onCancel',
+  'onReactivate',
+] as const;
+
+const ACTION_CASES: Array<{
+  item: string;
+  status: React.ComponentProps<typeof MembershipActionsMenu>['status'];
+  isTrial: boolean;
+  callback: (typeof BUSINESS_CALLBACKS)[number];
+}> = [
+  {
+    item: 'Renew membership',
+    status: 'active',
+    isTrial: false,
+    callback: 'onRenew',
+  },
+  {
+    item: 'Change plan',
+    status: 'active',
+    isTrial: false,
+    callback: 'onChangePlan',
+  },
+  {
+    item: 'Edit membership',
+    status: 'active',
+    isTrial: false,
+    callback: 'onEdit',
+  },
+  {
+    item: 'Freeze membership',
+    status: 'active',
+    isTrial: false,
+    callback: 'onFreeze',
+  },
+  {
+    item: 'Resume membership',
+    status: 'frozen',
+    isTrial: false,
+    callback: 'onResume',
+  },
+  {
+    item: 'Cancel membership',
+    status: 'active',
+    isTrial: false,
+    callback: 'onCancel',
+  },
+  {
+    item: 'Reactivate membership',
+    status: 'cancelled',
+    isTrial: false,
+    callback: 'onReactivate',
+  },
+];
+
+function expectNoBusinessCallbacks(actions: ReturnType<typeof renderMenu>) {
+  for (const callback of BUSINESS_CALLBACKS) {
+    expect(actions[callback]).not.toHaveBeenCalled();
+  }
 }
 
 describe('MembershipActionsMenu', () => {
@@ -98,17 +164,23 @@ describe('MembershipActionsMenu', () => {
     }
   );
 
-  it('runs an allowed lifecycle callback through the existing menu semantics', async () => {
-    const actions = renderMenu();
+  it.each(ACTION_CASES)(
+    'routes $item only to $callback when allowed',
+    async ({ item, status, isTrial, callback }) => {
+      const actions = renderMenu({ status, isTrial });
 
-    await openMenu();
-    await userEvent.click(
-      screen.getByRole('menuitem', { name: 'Freeze membership' })
-    );
+      await openMenu();
+      await userEvent.click(screen.getByRole('menuitem', { name: item }));
 
-    expect(actions.onFreeze).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('menu')).toBeNull();
-  });
+      expect(actions[callback]).toHaveBeenCalledOnce();
+      for (const otherCallback of BUSINESS_CALLBACKS) {
+        if (otherCallback !== callback) {
+          expect(actions[otherCallback]).not.toHaveBeenCalled();
+        }
+      }
+      expect(actions.onOpenBilling).not.toHaveBeenCalled();
+    }
+  );
 
   it('keeps a mandate-blocked action selectable and anchors its resolution to the persistent trigger', async () => {
     const actions = renderMenu({
@@ -132,39 +204,63 @@ describe('MembershipActionsMenu', () => {
     expect(actions.onOpenBilling).toHaveBeenCalledOnce();
   });
 
-  it('does not run a protected lifecycle callback while AutoPay is blocking it', async () => {
-    const actions = renderMenu({
-      lifecycleBlockReason:
-        "Resolve this member's AutoPay mandate before changing this membership.",
-    });
+  it.each(ACTION_CASES)(
+    'keeps $item selectable and resolves only through Billing when AutoPay blocks it',
+    async ({ item, status, isTrial }) => {
+      const actions = renderMenu({
+        status,
+        isTrial,
+        lifecycleBlockReason:
+          "Resolve this member's AutoPay mandate before changing this membership.",
+      });
 
-    await openMenu();
-    await userEvent.click(
-      screen.getByRole('menuitem', { name: 'Freeze membership' })
-    );
+      await openMenu();
+      const menuItem = screen.getByRole('menuitem', { name: item });
+      expect(menuItem.getAttribute('aria-disabled')).toBeNull();
+      await userEvent.click(menuItem);
 
-    expect(actions.onFreeze).not.toHaveBeenCalled();
-    expect(screen.getByText('AutoPay must be resolved first')).toBeTruthy();
-  });
+      expectNoBusinessCallbacks(actions);
+      expect(screen.getByText('AutoPay must be resolved first')).toBeTruthy();
+      const dialog = screen.getByRole('dialog');
+      expect(
+        within(dialog)
+          .getAllByRole('button')
+          .map((button) => button.textContent?.trim())
+      ).toEqual(['Open billing']);
 
-  it('prioritizes permission, omits an escalation CTA, and never runs the selected action', async () => {
-    const actions = renderMenu({
-      canManage: false,
-      lifecycleBlockReason:
-        "Resolve this member's AutoPay mandate before changing this membership.",
-    });
+      await userEvent.click(
+        within(dialog).getByRole('button', { name: 'Open billing' })
+      );
+      expect(actions.onOpenBilling).toHaveBeenCalledOnce();
+      expectNoBusinessCallbacks(actions);
+    }
+  );
 
-    await openMenu();
-    const cancel = screen.getByRole('menuitem', {
-      name: 'Cancel membership',
-    });
-    expect(cancel.getAttribute('aria-disabled')).toBeNull();
-    await userEvent.click(cancel);
+  it.each(ACTION_CASES)(
+    'keeps $item selectable with no resolution when permission blocks it',
+    async ({ item, status, isTrial }) => {
+      const actions = renderMenu({
+        status,
+        isTrial,
+        canManage: false,
+        lifecycleBlockReason:
+          "Resolve this member's AutoPay mandate before changing this membership.",
+      });
 
-    expect(actions.onCancel).not.toHaveBeenCalled();
-    expect(screen.getByText('Admin access required')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Open billing' })).toBeNull();
-  });
+      await openMenu();
+      const menuItem = screen.getByRole('menuitem', { name: item });
+      expect(menuItem.getAttribute('aria-disabled')).toBeNull();
+      await userEvent.click(menuItem);
+
+      expectNoBusinessCallbacks(actions);
+      expect(actions.onOpenBilling).not.toHaveBeenCalled();
+      expect(screen.getByText('Admin access required')).toBeTruthy();
+      expect(
+        within(screen.getByRole('dialog')).queryAllByRole('button')
+      ).toHaveLength(0);
+      expect(screen.queryByRole('button', { name: 'Open billing' })).toBeNull();
+    }
+  );
 
   it('keeps busy lifecycle items genuinely disabled without disabling unrelated menu actions', async () => {
     const actions = renderMenu({ busy: true });
