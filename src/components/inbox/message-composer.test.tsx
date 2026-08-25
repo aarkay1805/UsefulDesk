@@ -682,6 +682,51 @@ describe('MessageComposer blocked actions', () => {
     expect(onOpenTemplates).toHaveBeenCalledOnce();
   });
 
+  it('keeps the expired-session banner permission blocker authoritative for viewers', async () => {
+    permissions.canSendMessages = false;
+    const onOpenTemplates = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired
+        onSend={vi.fn()}
+        onSendMedia={vi.fn()}
+        onOpenTemplates={onOpenTemplates}
+      />
+    );
+
+    const bannerAction = screen.getByRole('button', { name: 'Templates' });
+    expect((bannerAction as HTMLButtonElement).disabled).toBe(false);
+    expect(bannerAction.getAttribute('aria-disabled')).toBe('true');
+    await user.click(bannerAction);
+
+    const dialogs = screen.getAllByRole('dialog');
+    expect(dialogs).toHaveLength(1);
+    expect(dialogs[0].getAttribute('aria-labelledby')).toBeTruthy();
+    expect(within(dialogs[0]).getByText('Admin access required')).toBeTruthy();
+    expect(within(dialogs[0]).queryAllByRole('button')).toHaveLength(0);
+    expect(onOpenTemplates).not.toHaveBeenCalled();
+  });
+
+  it('keeps the expired-session banner a direct template action for send-capable roles', async () => {
+    const onOpenTemplates = vi.fn();
+    render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired
+        onSend={vi.fn()}
+        onSendMedia={vi.fn()}
+        onOpenTemplates={onOpenTemplates}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Templates' }));
+
+    expect(onOpenTemplates).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('explains read-only send actions without inventing a CTA', async () => {
     permissions.canSendMessages = false;
     const user = userEvent.setup();

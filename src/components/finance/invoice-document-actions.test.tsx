@@ -641,6 +641,70 @@ describe('InvoiceDocumentActions', () => {
     expect(screen.getByText(reason)).toBeTruthy();
   });
 
+  it('offers the parent refund-review resolution to an authorized admin', async () => {
+    accountRole = 'admin';
+    const onResolveRefundReview = vi.fn();
+    render(
+      <InvoiceDocumentActions
+        invoice={invoice({ requires_refund_review: true })}
+        customerPhone="+919999999999"
+        onResolveRefundReview={onResolveRefundReview}
+      />
+    );
+    await screen.findByRole('button', {
+      name: 'Download invoice',
+    });
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole('button', { name: 'Download invoice' })
+          .getAttribute('aria-disabled')
+      ).toBe('true')
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Download invoice' })
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Resolve refund review' })
+    );
+
+    expect(onResolveRefundReview).toHaveBeenCalledOnce();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('keeps refund-review explanation-only for a lower operational role', async () => {
+    accountRole = 'agent';
+    const onResolveRefundReview = vi.fn();
+    render(
+      <InvoiceDocumentActions
+        invoice={invoice({ requires_refund_review: true })}
+        customerPhone="+919999999999"
+        onResolveRefundReview={onResolveRefundReview}
+      />
+    );
+    await screen.findByRole('button', {
+      name: 'Download invoice',
+    });
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole('button', { name: 'Download invoice' })
+          .getAttribute('aria-disabled')
+      ).toBe('true')
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Download invoice' })
+    );
+
+    expect(screen.getByText('Refund review required')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Resolve refund review' })
+    ).toBeNull();
+    expect(onResolveRefundReview).not.toHaveBeenCalled();
+  });
+
   it('allows audit download of an already-ready void document', async () => {
     documentStatus = 'ready';
     const fetchMock = vi

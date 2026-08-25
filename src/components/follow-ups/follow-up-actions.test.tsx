@@ -10,7 +10,11 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { FollowUpButton } from './follow-up-button';
-import { FollowUpCompletionControl } from './follow-up-completion-control';
+import {
+  FollowUpCompletionButton,
+  FollowUpCompletionControl,
+} from './follow-up-completion-control';
+import { CheckCircle2 } from 'lucide-react';
 
 afterEach(() => {
   cleanup();
@@ -135,5 +139,94 @@ describe('FollowUpCompletionControl', () => {
 
     expect(screen.getByText('Cancelled')).toBeTruthy();
     expect(screen.queryByRole('button')).toBeNull();
+  });
+});
+
+describe('FollowUpCompletionButton queue semantics', () => {
+  it('runs the allowed row completion callback', async () => {
+    const onComplete = vi.fn();
+    render(
+      <FollowUpCompletionButton
+        canAct
+        onComplete={onComplete}
+        icon={<CheckCircle2 />}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Complete' }));
+
+    expect(onComplete).toHaveBeenCalledOnce();
+  });
+
+  it('keeps viewer row completion focusable and suppresses its callback', async () => {
+    const onComplete = vi.fn();
+    render(
+      <FollowUpCompletionButton
+        canAct={false}
+        onComplete={onComplete}
+        icon={<CheckCircle2 />}
+      />
+    );
+
+    const complete = screen.getByRole('button', { name: 'Complete' });
+    expect((complete as HTMLButtonElement).disabled).toBe(false);
+    expect(complete.getAttribute('aria-disabled')).toBe('true');
+    await userEvent.click(complete);
+
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('dialog', { name: 'Admin access required' })
+    ).toBeTruthy();
+  });
+
+  it('preserves bulk-selection semantics by opening only the supplied bulk callback', async () => {
+    const onOpenBulkComplete = vi.fn();
+    const onCompleteRow = vi.fn();
+    render(
+      <>
+        <FollowUpCompletionButton
+          canAct
+          onComplete={onOpenBulkComplete}
+          icon={<CheckCircle2 />}
+        >
+          Complete selected
+        </FollowUpCompletionButton>
+        <FollowUpCompletionButton
+          canAct
+          onComplete={onCompleteRow}
+          icon={<CheckCircle2 />}
+        />
+      </>
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Complete selected' })
+    );
+
+    expect(onOpenBulkComplete).toHaveBeenCalledOnce();
+    expect(onCompleteRow).not.toHaveBeenCalled();
+  });
+
+  it('suppresses a viewer bulk completion callback behind one explanation', async () => {
+    const onOpenBulkComplete = vi.fn();
+    render(
+      <FollowUpCompletionButton
+        canAct={false}
+        onComplete={onOpenBulkComplete}
+        icon={<CheckCircle2 />}
+      >
+        Complete selected
+      </FollowUpCompletionButton>
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Complete selected' })
+    );
+
+    expect(onOpenBulkComplete).not.toHaveBeenCalled();
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(
+      screen.getByRole('dialog', { name: 'Admin access required' })
+    ).toBeTruthy();
   });
 });

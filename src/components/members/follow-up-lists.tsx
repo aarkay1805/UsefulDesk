@@ -47,7 +47,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { GatedButton } from '@/components/ui/gated-button';
 import {
   Table,
   TableBody,
@@ -79,6 +78,7 @@ import {
   type FollowUpQueueScope,
 } from '@/components/follow-ups/follow-up-queue-controls';
 import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
+import { FollowUpCompletionButton } from '@/components/follow-ups/follow-up-completion-control';
 import {
   SendReminderButton,
   type ReminderReadiness,
@@ -473,16 +473,11 @@ export function FollowUpLists({
       case 'actions':
         return (
           <div className="flex items-center gap-1">
-            <GatedButton
-              size="sm"
-              variant="ghost"
+            <FollowUpCompletionButton
               canAct={canEdit}
-              gateReason="complete follow-ups"
-              onClick={() => setCompleting(followUp)}
-            >
-              <CircleCheck className="size-3.5" />
-              Complete
-            </GatedButton>
+              onComplete={() => setCompleting(followUp)}
+              icon={<CircleCheck className="size-3.5" />}
+            />
             {followUp.membership && (
               <SendReminderButton
                 membership={followUp.membership}
@@ -784,16 +779,11 @@ export function FollowUpLists({
 
             <div className="bg-border mx-0.5 h-4 w-px" />
 
-            <GatedButton
-              variant="ghost"
-              size="sm"
+            <FollowUpCompletionButton
               canAct={canEdit}
-              gateReason="complete follow-ups"
-              onClick={() => setBulkCompleteOpen(true)}
-            >
-              <CircleCheck />
-              Complete
-            </GatedButton>
+              onComplete={() => setBulkCompleteOpen(true)}
+              icon={<CircleCheck />}
+            />
 
             <Button
               variant="ghost"

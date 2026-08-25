@@ -55,7 +55,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { GatedButton } from '@/components/ui/gated-button';
 import { SearchInput } from '@/components/ui/search-input';
 import {
   Table,
@@ -102,6 +101,7 @@ import {
 import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
 import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
 import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
+import { FollowUpCompletionButton } from '@/components/follow-ups/follow-up-completion-control';
 
 const FETCH_BATCH = 500;
 const PAGE_SIZE = 25;
@@ -822,16 +822,11 @@ export function LeadAccountabilityView({
         return renderAssignee(row.ownerId);
       case 'actions':
         return followUp ? (
-          <GatedButton
-            variant="ghost"
-            size="sm"
+          <FollowUpCompletionButton
             canAct={canEdit}
-            gateReason="complete follow-ups"
-            onClick={() => setCompleting({ followUp, lead: row.lead })}
-          >
-            <CheckCircle2 className="size-4" />
-            Complete
-          </GatedButton>
+            onComplete={() => setCompleting({ followUp, lead: row.lead })}
+            icon={<CheckCircle2 className="size-4" />}
+          />
         ) : (
           <FollowUpButton
             canAct={canEdit}
@@ -1008,16 +1003,11 @@ export function LeadAccountabilityView({
 
               <div className="bg-border mx-0.5 h-4 w-px" />
 
-              <GatedButton
-                variant="ghost"
-                size="sm"
+              <FollowUpCompletionButton
                 canAct={canEdit}
-                gateReason="complete follow-ups"
-                onClick={() => setBulkCompleteOpen(true)}
-              >
-                <CheckCircle2 />
-                Complete
-              </GatedButton>
+                onComplete={() => setBulkCompleteOpen(true)}
+                icon={<CheckCircle2 />}
+              />
 
               <Button
                 variant="ghost"

@@ -1099,6 +1099,9 @@ export function InvoiceDetailDialog({
             <InvoiceDocumentActions
               key={activeInvoice.id}
               invoice={activeInvoice}
+              onResolveRefundReview={
+                canVoid ? focusCurrentRefundReview : undefined
+              }
               customerPhone={
                 member?.contact?.phone ??
                 activeInvoice.membership?.contact?.phone ??

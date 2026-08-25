@@ -1,11 +1,56 @@
 'use client';
 
 import { Check } from 'lucide-react';
-import type { MouseEventHandler } from 'react';
+import type { MouseEventHandler, ReactNode } from 'react';
 
 import type { FollowUp } from '@/types';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ResolvableAction } from '@/components/ui/resolvable-action';
+
+export const FOLLOW_UP_PERMISSION_BLOCKER_CODE = 'permission' as const;
+
+export function followUpPermissionBlocker(
+  canAct: boolean,
+  gateReason = 'complete follow-ups'
+) {
+  return canAct
+    ? null
+    : {
+        code: FOLLOW_UP_PERMISSION_BLOCKER_CODE,
+        title: 'Admin access required',
+        description: `Ask an admin or owner to ${gateReason}.`,
+      };
+}
+
+interface FollowUpCompletionButtonProps {
+  canAct: boolean;
+  onComplete: MouseEventHandler<HTMLButtonElement>;
+  icon: ReactNode;
+  children?: ReactNode;
+}
+
+/** Canonical row and bulk completion action used by both follow-up queues. */
+export function FollowUpCompletionButton({
+  canAct,
+  onComplete,
+  icon,
+  children = 'Complete',
+}: FollowUpCompletionButtonProps) {
+  const blocker = followUpPermissionBlocker(canAct);
+  return (
+    <ResolvableAction
+      trigger={
+        <Button type="button" variant="ghost" size="sm">
+          {icon}
+          {children}
+        </Button>
+      }
+      onAction={onComplete}
+      blocker={blocker}
+    />
+  );
+}
 
 interface FollowUpCompletionControlProps {
   status: FollowUp['status'];
@@ -42,12 +87,7 @@ export function FollowUpCompletionControl({
     return <Badge variant="neutral">Cancelled</Badge>;
   }
 
-  const blocker = canAct
-    ? null
-    : {
-        title: 'Admin access required',
-        description: `Ask an admin or owner to ${gateReason}.`,
-      };
+  const blocker = followUpPermissionBlocker(canAct, gateReason);
 
   return (
     <ResolvableAction

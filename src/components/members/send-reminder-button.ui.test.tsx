@@ -1,12 +1,22 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Membership } from '@/types';
 import type { ReminderReadiness } from './send-reminder-button';
 import { SendReminderButton } from './send-reminder-button';
+
+const auth = vi.hoisted(() => ({
+  canSendMessages: true,
+  canEditSettings: false,
+  profileLoading: false,
+}));
+
+vi.mock('@/hooks/use-auth', () => ({
+  useAuth: () => auth,
+}));
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/members',
@@ -25,6 +35,9 @@ vi.mock('@/hooks/use-locale', () => ({
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  auth.canSendMessages = true;
+  auth.canEditSettings = false;
+  auth.profileLoading = false;
 });
 
 const membership: Membership = {
@@ -80,6 +93,23 @@ function readiness(
 }
 
 describe('SendReminderButton blockers', () => {
+  it('keeps the ready reminder action available to an agent', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    });
+    vi.stubGlobal('fetch', fetch);
+
+    render(
+      <SendReminderButton membership={membership} readiness={readiness()} />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remind' }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('explains a missing phone without disabling the Remind trigger', async () => {
     const fetch = vi.fn();
     vi.stubGlobal('fetch', fetch);
@@ -110,6 +140,7 @@ describe('SendReminderButton blockers', () => {
     const fetch = vi.fn();
     vi.stubGlobal('fetch', fetch);
     const user = userEvent.setup();
+    auth.canEditSettings = true;
 
     render(
       <SendReminderButton
@@ -136,6 +167,79 @@ describe('SendReminderButton blockers', () => {
       name: 'Open template setup',
     });
     expect(resolution.getAttribute('href')).toBe('/settings?tab=templates');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('prioritizes viewer permission over phone and provider blockers', async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    auth.canSendMessages = false;
+    auth.canEditSettings = false;
+
+    render(
+      <SendReminderButton
+        membership={{ ...membership, contact: undefined }}
+        readiness={readiness({
+          ready: false,
+          reason: 'Connect WhatsApp before sending.',
+          resolution: {
+            label: 'Connect WhatsApp',
+            href: '/settings?tab=whatsapp',
+          },
+        })}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remind' }));
+
+    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(screen.queryByText('Phone number required')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Connect WhatsApp' })
+    ).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('explains provider setup to an agent without exposing an admin settings CTA', async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+
+    render(
+      <SendReminderButton
+        membership={membership}
+        readiness={readiness({
+          ready: false,
+          reason: 'Connect WhatsApp before sending.',
+          resolution: {
+            label: 'Connect WhatsApp',
+            href: '/settings?tab=whatsapp',
+          },
+        })}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remind' }));
+
+    expect(screen.getByText("WhatsApp reminder isn't ready")).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Connect WhatsApp' })
+    ).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('stays natively inert while the authenticated profile is loading', async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    auth.profileLoading = true;
+
+    render(
+      <SendReminderButton membership={membership} readiness={readiness()} />
+    );
+
+    const remind = screen.getByRole('button', { name: 'Remind' });
+    expect((remind as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(remind);
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(fetch).not.toHaveBeenCalled();
   });
 });

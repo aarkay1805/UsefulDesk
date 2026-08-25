@@ -56,6 +56,7 @@ type TriggerProps = React.AriaAttributes & {
   render?: React.ReactElement;
   className?: string;
   onClick?: React.MouseEventHandler<HTMLElement>;
+  id?: string;
 };
 
 function triggerUsesNativeButton(
@@ -94,10 +95,64 @@ export function ResolvableAction({
 }: ResolvableActionProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
   const { startNavigation, isPending } = usePendingNavigation();
-  const resolvedOpen = open ?? uncontrolledOpen;
   const triggerProps = trigger.props as TriggerProps;
+  const generatedTriggerId = React.useId();
+  const triggerId = triggerProps.id ?? generatedTriggerId;
+  const blockerPresent = Boolean(blocker);
+  const [blockerTransition, setBlockerTransition] = React.useState(() => ({
+    blockerPresent,
+    controlledOpen: open,
+    suppressControlledOpen: false,
+    closeGeneration: 0,
+  }));
+
+  let suppressControlledOpen = blockerTransition.suppressControlledOpen;
+  if (
+    blockerTransition.blockerPresent !== blockerPresent ||
+    blockerTransition.controlledOpen !== open
+  ) {
+    const blockerWasRemoved =
+      blockerTransition.blockerPresent && !blockerPresent;
+    if (blockerWasRemoved && open === true) {
+      // A controlled parent may not be able to clear `open` until our close
+      // notification runs. Mask that stale intent until it acknowledges false;
+      // otherwise A -> null -> A reopens an explanation nobody requested.
+      suppressControlledOpen = true;
+    }
+    if (open === false) suppressControlledOpen = false;
+
+    const shouldNotifyClose =
+      blockerWasRemoved && Boolean(open ?? uncontrolledOpen);
+    if (shouldNotifyClose) {
+      if (open === undefined && uncontrolledOpen) setUncontrolledOpen(false);
+    }
+
+    setBlockerTransition({
+      blockerPresent,
+      controlledOpen: open,
+      suppressControlledOpen,
+      closeGeneration:
+        blockerTransition.closeGeneration + (shouldNotifyClose ? 1 : 0),
+    });
+  }
+
+  const resolvedOpen = blockerPresent
+    ? open === undefined
+      ? uncontrolledOpen
+      : open && !suppressControlledOpen
+    : false;
   const trulyDisabled = disabled || Boolean(triggerProps.disabled);
   const nativeTrigger = triggerUsesNativeButton(trigger, triggerNativeButton);
+
+  const notifyBlockerRemoved = React.useEffectEvent(() => {
+    onOpenChange?.(false);
+    document.getElementById(triggerId)?.focus();
+  });
+
+  React.useLayoutEffect(() => {
+    if (blockerTransition.closeGeneration === 0) return;
+    notifyBlockerRemoved();
+  }, [blockerTransition.closeGeneration]);
 
   const setResolvedOpen = React.useCallback(
     (nextOpen: boolean, eventDetails?: ResolvableActionOpenChangeDetails) => {
@@ -113,6 +168,7 @@ export function ResolvableAction({
     trigger as React.ReactElement<TriggerProps>,
     {
       disabled: trulyDisabled || undefined,
+      id: triggerId,
       className: blocker
         ? cn(
             triggerProps.className,
@@ -132,7 +188,11 @@ export function ResolvableAction({
         TriggerProps & { onClick?: React.MouseEventHandler<HTMLElement> }
       >,
       {
-        onClick: trulyDisabled ? undefined : onAction,
+        // `onAction` is the wrapper's authoritative business callback. When
+        // it is supplied it takes precedence over a trigger handler so one
+        // activation cannot execute the same action twice. Handler-only
+        // triggers keep working when no wrapper callback is supplied.
+        onClick: trulyDisabled ? undefined : (onAction ?? triggerProps.onClick),
       }
     );
   }

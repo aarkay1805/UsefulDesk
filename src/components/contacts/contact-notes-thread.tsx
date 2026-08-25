@@ -26,7 +26,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
 import { getErrorMessage } from '@/lib/errors';
-import { canDeleteAnyNote } from '@/lib/auth/roles';
+import { canDeleteAnyNote, canSendMessages } from '@/lib/auth/roles';
 import { manualFollowUpReasonForWrite } from '@/lib/follow-ups/manual';
 import { followUpDueState } from '@/lib/follow-ups/due-state';
 import { buildProfileActivity } from '@/lib/follow-ups/profile-activity';
@@ -117,6 +117,9 @@ export function ContactNotesThread({
 }: ContactNotesThreadProps) {
   const supabase = createClient();
   const { accountId, accountRole, user, profile } = useAuth();
+  const canCompleteFollowUps = accountRole
+    ? canSendMessages(accountRole)
+    : false;
   const { locale, fmt } = useLocale();
   const { staff, nameById, avatarById } = useAccountStaff();
 
@@ -619,6 +622,7 @@ export function ContactNotesThread({
                     canDeleteAny={
                       accountRole ? canDeleteAnyNote(accountRole) : false
                     }
+                    canCompleteFollowUps={canCompleteFollowUps}
                     onMarkDone={completeFollowUp}
                     onDelete={deleteNote}
                     deleting={deletingNoteId === item.note.id}
@@ -636,6 +640,7 @@ export function ContactNotesThread({
                     }
                     currentUserId={user?.id ?? ''}
                     nameById={nameById}
+                    canCompleteFollowUps={canCompleteFollowUps}
                     onMarkDone={completeFollowUp}
                   />
                 )}
@@ -669,12 +674,13 @@ export function ContactNotesThread({
  * Canonical profile card for every follow-up source. The task is always the
  * primary row; optional note content sits beneath it before shared metadata.
  */
-function FollowUpActivityCard({
+export function FollowUpActivityCard({
   followUp,
   authorName,
   authorAvatarUrl,
   currentUserId,
   nameById,
+  canCompleteFollowUps,
   onMarkDone,
   noteContent,
   footerAction,
@@ -684,6 +690,7 @@ function FollowUpActivityCard({
   authorAvatarUrl: string | null;
   currentUserId: string;
   nameById: Map<string, string>;
+  canCompleteFollowUps: boolean;
   onMarkDone: (followUpId: string) => void;
   noteContent?: ReactNode;
   footerAction?: ReactNode;
@@ -733,6 +740,7 @@ function FollowUpActivityCard({
           <FollowUpCompletionControl
             status={followUp.status}
             onMarkDone={() => onMarkDone(followUp.id)}
+            canAct={canCompleteFollowUps}
           />
         </div>
         <div className="text-muted-foreground border-border/50 flex min-w-0 items-center justify-between gap-2 border-t px-3 py-2 text-xs">
@@ -768,6 +776,7 @@ function StandaloneFollowUpCard({
   authorAvatarUrl,
   currentUserId,
   nameById,
+  canCompleteFollowUps,
   onMarkDone,
 }: {
   followUp: ProfileFollowUp;
@@ -775,6 +784,7 @@ function StandaloneFollowUpCard({
   authorAvatarUrl: string | null;
   currentUserId: string;
   nameById: Map<string, string>;
+  canCompleteFollowUps: boolean;
   onMarkDone: (followUpId: string) => void;
 }) {
   return (
@@ -784,6 +794,7 @@ function StandaloneFollowUpCard({
       authorAvatarUrl={authorAvatarUrl}
       currentUserId={currentUserId}
       nameById={nameById}
+      canCompleteFollowUps={canCompleteFollowUps}
       onMarkDone={onMarkDone}
       noteContent={
         followUp.note ? (
@@ -832,6 +843,7 @@ function NoteCard({
   authorAvatarUrl,
   currentUserId,
   canDeleteAny,
+  canCompleteFollowUps,
   nameById,
   staff,
   showReason,
@@ -849,6 +861,7 @@ function NoteCard({
   currentUserId: string;
   /** Admin/owner moderation: may delete notes authored by others. */
   canDeleteAny: boolean;
+  canCompleteFollowUps: boolean;
   nameById: Map<string, string>;
   staff: StaffMember[];
   showReason: boolean;
@@ -1057,6 +1070,7 @@ function NoteCard({
         authorAvatarUrl={authorAvatarUrl}
         currentUserId={currentUserId}
         nameById={nameById}
+        canCompleteFollowUps={canCompleteFollowUps}
         onMarkDone={onMarkDone}
         noteContent={noteContent}
         footerAction={cardActions}

@@ -320,6 +320,108 @@ describe('MembershipActionsMenu', () => {
     ).toHaveLength(0);
   });
 
+  it('derives an open explanation from live permission and lifecycle props', async () => {
+    const actions = {
+      onRenew: vi.fn(),
+      onChangePlan: vi.fn(),
+      onEdit: vi.fn(),
+      onFreeze: vi.fn(),
+      onResume: vi.fn(),
+      onCancel: vi.fn(),
+      onReactivate: vi.fn(),
+      onOpenBilling: vi.fn(),
+    };
+    const view = render(
+      <MembershipActionsMenu
+        status="active"
+        isTrial={false}
+        canManage={false}
+        lifecycleBlockReason="Resolve the current mandate."
+        busy={false}
+        {...actions}
+      />
+    );
+
+    await openMenu();
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: 'Renew membership' })
+    );
+    expect(screen.getByText('Admin access required')).toBeTruthy();
+
+    view.rerender(
+      <MembershipActionsMenu
+        status="active"
+        isTrial={false}
+        canManage
+        lifecycleBlockReason="Resolve the current mandate."
+        busy={false}
+        {...actions}
+      />
+    );
+    expect(screen.queryByText('Admin access required')).toBeNull();
+    expect(screen.getByText('AutoPay must be resolved first')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open billing' })).toBeTruthy();
+
+    view.rerender(
+      <MembershipActionsMenu
+        status="active"
+        isTrial={false}
+        canManage
+        lifecycleBlockReason={null}
+        busy={false}
+        {...actions}
+      />
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Membership actions' })
+    );
+    expectNoBusinessCallbacks(actions);
+  });
+
+  it('closes an explanation when its selected action becomes inapplicable', async () => {
+    const actions = {
+      onRenew: vi.fn(),
+      onChangePlan: vi.fn(),
+      onEdit: vi.fn(),
+      onFreeze: vi.fn(),
+      onResume: vi.fn(),
+      onCancel: vi.fn(),
+      onReactivate: vi.fn(),
+      onOpenBilling: vi.fn(),
+    };
+    const view = render(
+      <MembershipActionsMenu
+        status="active"
+        isTrial={false}
+        canManage={false}
+        lifecycleBlockReason={null}
+        busy={false}
+        {...actions}
+      />
+    );
+
+    await openMenu();
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: 'Renew membership' })
+    );
+    expect(screen.getByRole('dialog')).toBeTruthy();
+
+    view.rerender(
+      <MembershipActionsMenu
+        status="cancelled"
+        isTrial={false}
+        canManage={false}
+        lifecycleBlockReason={null}
+        busy={false}
+        {...actions}
+      />
+    );
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expectNoBusinessCallbacks(actions);
+  });
+
   it('closes the menu after an allowed business callback', async () => {
     const actions = renderMenu();
 

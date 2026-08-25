@@ -45,6 +45,43 @@ describe('ResolvableAction', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('preserves a supplied trigger handler when onAction is absent', async () => {
+    const triggerAction = vi.fn();
+    render(
+      <ResolvableAction
+        trigger={
+          <Button type="button" onClick={triggerAction}>
+            Send invoice
+          </Button>
+        }
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send invoice' }));
+
+    expect(triggerAction).toHaveBeenCalledOnce();
+  });
+
+  it('uses onAction as the single authoritative handler when both are supplied', async () => {
+    const onAction = vi.fn();
+    const triggerAction = vi.fn();
+    render(
+      <ResolvableAction
+        trigger={
+          <Button type="button" onClick={triggerAction}>
+            Send invoice
+          </Button>
+        }
+        onAction={onAction}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send invoice' }));
+
+    expect(onAction).toHaveBeenCalledOnce();
+    expect(triggerAction).not.toHaveBeenCalled();
+  });
+
   it('opens the blocker without running the business action', async () => {
     const onAction = vi.fn();
     render(
@@ -332,6 +369,109 @@ describe('ResolvableAction', () => {
       expect.objectContaining({ reason: 'outside-press' })
     );
     expect(onOpenChange.mock.lastCall?.[1]?.isCanceled).toBe(true);
+  });
+
+  it('clears uncontrolled open intent when a blocker is removed and later restored', async () => {
+    const blocker = {
+      title: "Invoice template isn't ready",
+      description: 'Approve the invoice template before sending.',
+    };
+    const onOpenChange = vi.fn();
+    const { rerender } = render(
+      <ResolvableAction
+        trigger={<Button type="button">Send invoice</Button>}
+        blocker={blocker}
+        onOpenChange={onOpenChange}
+      />
+    );
+    const trigger = screen.getByRole('button', { name: 'Send invoice' });
+
+    await userEvent.click(trigger);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+
+    rerender(
+      <ResolvableAction
+        trigger={<Button type="button">Send invoice</Button>}
+        blocker={null}
+        onOpenChange={onOpenChange}
+      />
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Send invoice' })
+    );
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+
+    rerender(
+      <ResolvableAction
+        trigger={<Button type="button">Send invoice</Button>}
+        blocker={blocker}
+        onOpenChange={onOpenChange}
+      />
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send invoice' }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('invalidates stale controlled open intent across blocker removal', () => {
+    const blocker = {
+      title: "Invoice template isn't ready",
+      description: 'Approve the invoice template before sending.',
+    };
+    const onOpenChange = vi.fn();
+    const { rerender } = render(
+      <ResolvableAction
+        trigger={<Button type="button">Send invoice</Button>}
+        blocker={blocker}
+        open
+        onOpenChange={onOpenChange}
+      />
+    );
+    expect(screen.getByRole('dialog')).toBeTruthy();
+
+    rerender(
+      <ResolvableAction
+        trigger={<Button type="button">Send invoice</Button>}
+        blocker={null}
+        open
+        onOpenChange={onOpenChange}
+      />
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Send invoice' })
+    );
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+
+    rerender(
+      <ResolvableAction
+        trigger={<Button type="button">Send invoice</Button>}
+        blocker={blocker}
+        open
+        onOpenChange={onOpenChange}
+      />
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    rerender(
+      <ResolvableAction
+        trigger={<Button type="button">Send invoice</Button>}
+        blocker={blocker}
+        open={false}
+        onOpenChange={onOpenChange}
+      />
+    );
+    rerender(
+      <ResolvableAction
+        trigger={<Button type="button">Send invoice</Button>}
+        blocker={blocker}
+        open
+        onOpenChange={onOpenChange}
+      />
+    );
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
   it('runs a callback resolution but not the original action', async () => {

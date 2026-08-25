@@ -5,6 +5,7 @@ import { ListPlus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { ResolvableAction } from '@/components/ui/resolvable-action';
+import { followUpPermissionBlocker } from './follow-up-completion-control';
 
 type FollowUpButtonProps = Omit<
   ComponentProps<typeof Button>,
@@ -21,12 +22,7 @@ export function FollowUpButton({
   onClick,
   ...props
 }: FollowUpButtonProps) {
-  const blocker = canAct
-    ? null
-    : {
-        title: 'Admin access required',
-        description: `Ask an admin or owner to ${gateReason}.`,
-      };
+  const blocker = followUpPermissionBlocker(canAct, gateReason);
 
   return (
     <ResolvableAction

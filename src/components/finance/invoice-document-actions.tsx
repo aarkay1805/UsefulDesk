@@ -12,6 +12,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import {
   canDownloadInvoiceDocuments,
+  canCorrectPayments,
   canEditSettings,
   canManageInvoiceProfile,
   canShareInvoiceDocuments,
@@ -84,6 +85,8 @@ function documentBlocker(
   capabilities: {
     canManageInvoiceProfile: boolean;
     canEditSettings: boolean;
+    canResolveRefundReview: boolean;
+    onResolveRefundReview?: () => void;
   }
 ): ActionBlocker | null {
   if (!code || code === 'document_preparing') return null;
@@ -100,6 +103,15 @@ function documentBlocker(
         description:
           description ??
           'Resolve the invoice refund review before creating a document.',
+        ...(capabilities.canResolveRefundReview &&
+        capabilities.onResolveRefundReview
+          ? {
+              resolution: {
+                label: 'Resolve refund review',
+                onResolve: capabilities.onResolveRefundReview,
+              },
+            }
+          : {}),
       };
     case 'invoice_profile':
       return {
@@ -162,9 +174,11 @@ interface LoadedInvoiceDocumentReadiness {
 export function InvoiceDocumentActions({
   invoice,
   customerPhone,
+  onResolveRefundReview,
 }: {
   invoice: InvoiceDocumentActionsInvoice;
   customerPhone: string | null | undefined;
+  onResolveRefundReview?: () => void;
 }) {
   const { accountId, accountRole } = useAuth();
   const [loadedReadiness, setLoadedReadiness] =
@@ -258,6 +272,10 @@ export function InvoiceDocumentActions({
       ? canManageInvoiceProfile(accountRole)
       : false,
     canEditSettings: accountRole ? canEditSettings(accountRole) : false,
+    canResolveRefundReview: accountRole
+      ? canCorrectPayments(accountRole)
+      : false,
+    onResolveRefundReview,
   };
   const downloadBlocker = !canDownload
     ? PERMISSION_BLOCKER

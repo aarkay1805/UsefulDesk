@@ -533,15 +533,20 @@ export function MessageComposer({
             The 24-hour WhatsApp® session has closed. Send an approved template
             to reopen it.
           </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-amber-foreground hover:text-amber-foreground shrink-0"
-            onClick={onOpenTemplates}
-          >
-            <LayoutTemplate className="size-3.5" />
-            Templates
-          </Button>
+          <ResolvableAction
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-amber-foreground hover:text-amber-foreground shrink-0"
+              >
+                <LayoutTemplate className="size-3.5" />
+                Templates
+              </Button>
+            }
+            onAction={onOpenTemplates}
+            blocker={permissionBlocker}
+          />
         </div>
       )}
 

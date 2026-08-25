@@ -203,6 +203,7 @@ export function SendReminderButton({
   variant = 'ghost',
 }: SendReminderButtonProps) {
   const { fmt } = useLocale();
+  const { canSendMessages, canEditSettings, profileLoading } = useAuth();
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
@@ -226,23 +227,33 @@ export function SendReminderButton({
   const blockedReason = !hasPhone
     ? "This member has no phone number, so there's nothing to send the reminder to. Add a phone number to their contact first."
     : readiness.reason;
-  const resolution = !hasPhone ? null : readiness.resolution;
-  const blocked = !hasPhone || !readiness.ready;
-  const blocker: ActionBlocker | null = blocked
-    ? {
-        title: !hasPhone
-          ? 'Phone number required'
-          : "WhatsApp reminder isn't ready",
-        description: blockedReason ?? 'Complete WhatsApp setup before sending.',
-        resolution: resolution
-          ? { label: resolution.label, href: resolution.href }
-          : undefined,
-      }
-    : null;
+  const resolution = hasPhone && canEditSettings ? readiness.resolution : null;
+  const permissionBlocker: ActionBlocker | null = canSendMessages
+    ? null
+    : {
+        title: 'Admin access required',
+        description:
+          'Only an agent, admin, or owner can send renewal reminders from this account.',
+      };
+  const reminderBlocker: ActionBlocker | null =
+    !hasPhone || !readiness.ready
+      ? {
+          title: !hasPhone
+            ? 'Phone number required'
+            : "WhatsApp reminder isn't ready",
+          description:
+            blockedReason ?? 'Complete WhatsApp setup before sending.',
+          resolution: resolution
+            ? { label: resolution.label, href: resolution.href }
+            : undefined,
+        }
+      : null;
+  const blocker = permissionBlocker ?? reminderBlocker;
+  const blocked = blocker !== null;
 
   // While the readiness check is in flight, sit inert rather than pretend
   // to be blocked.
-  const disabled = sending || sent || readiness.loading;
+  const disabled = sending || sent || readiness.loading || profileLoading;
 
   const send = useCallback(async () => {
     if (blocked) return;
