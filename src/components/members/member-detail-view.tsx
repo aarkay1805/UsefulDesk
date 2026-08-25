@@ -162,6 +162,31 @@ import { ServiceCustomerDetailView } from './service-customer-detail-view';
 
 type MemberInvoiceBalance = Invoice;
 
+export function memberInvoiceDetail(
+  invoice: MemberInvoiceBalance
+): InvoiceDetail {
+  return {
+    id: invoice.id,
+    reference: financeInvoiceReference(invoice),
+    invoice_number: invoice.invoice_number,
+    seller_snapshot: invoice.seller_snapshot,
+    customer_snapshot: invoice.customer_snapshot,
+    source: invoice.source,
+    created_at: invoice.issued_at,
+    fee_amount: Number(invoice.total),
+    amount_paid: Number(invoice.amount_paid),
+    credit_applied: Number(invoice.credit_applied),
+    balance: Number(invoice.balance),
+    gross_amount_paid: Number(invoice.gross_amount_paid),
+    processed_refund_amount: Number(invoice.processed_refund_amount),
+    invoice_adjustment_amount: Number(invoice.invoice_adjustment_amount),
+    accounting_balance: Number(invoice.accounting_balance),
+    collectible_balance: Number(invoice.collectible_balance),
+    requires_refund_review: Boolean(invoice.requires_refund_review),
+    state: invoice.state,
+  };
+}
+
 /** Jump-nav sections, in scroll order. Ids double as `#sec-<id>`. */
 const SECTIONS = [
   { id: 'membership', label: 'Membership' },
@@ -431,29 +456,7 @@ function MembershipDetailView({
       setGenericInvoices(
         (
           (genericBillingResult.data?.invoices as MemberInvoiceBalance[]) ?? []
-        ).map((invoice) => ({
-          id: invoice.id,
-          reference: financeInvoiceReference({
-            id: invoice.id,
-            invoice_number: null,
-          }),
-          source: invoice.source,
-          created_at: invoice.issued_at,
-          fee_amount: Number(invoice.total),
-          amount_paid: Number(invoice.amount_paid),
-          credit_applied: Number(invoice.credit_applied),
-          balance: Number(invoice.balance),
-          gross_total: Number(invoice.gross_total),
-          gross_amount_paid: Number(invoice.gross_amount_paid),
-          processed_refund_amount: Number(invoice.processed_refund_amount),
-          net_amount_paid: Number(invoice.net_amount_paid),
-          invoice_adjustment_amount: Number(invoice.invoice_adjustment_amount),
-          net_total: Number(invoice.net_total),
-          accounting_balance: Number(invoice.accounting_balance),
-          collectible_balance: Number(invoice.collectible_balance),
-          requires_refund_review: Boolean(invoice.requires_refund_review),
-          state: invoice.state,
-        }))
+        ).map(memberInvoiceDetail)
       );
       setMandate((mandateResult.data as PaymentMandate | null) ?? null);
 

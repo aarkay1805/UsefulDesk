@@ -116,6 +116,7 @@ export function paymentLinkDefaults(
   contactName: string | null | undefined,
   invoice: {
     id: string;
+    invoice_number: string | null;
     collectible_balance: number;
     currency?: string | null;
   },
@@ -128,7 +129,7 @@ export function paymentLinkDefaults(
       Number(invoice.collectible_balance),
       invoice.currency ?? undefined
     ),
-    financeInvoiceReference({ id: invoice.id, invoice_number: null }),
+    financeInvoiceReference(invoice),
     shortUrl?.trim() || '',
   ];
 }

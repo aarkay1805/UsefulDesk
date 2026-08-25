@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { PaymentRefund } from '@/types';
 import {
+  invoiceDocumentActionPresentation,
   invoiceHeadline,
   invoiceSummaryRows,
   paymentRefundEventAt,
@@ -132,6 +133,78 @@ describe('invoice detail presentation', () => {
       ['collection', undefined],
       ['balance', undefined],
     ]);
+  });
+});
+
+describe('invoice document action presentation', () => {
+  const complete = {
+    lifecycle: 'current' as const,
+    state: 'open' as const,
+    requires_refund_review: false,
+    seller_snapshot: { business_name: 'FitZone' },
+    customer_snapshot: { customer_name: 'Asha' },
+    document_status: null,
+    has_customer_phone: true,
+    whatsapp_connected: true,
+    template_ready: true,
+  };
+
+  it('keeps one exact recovery vocabulary for profile, phone, connection, and template setup', () => {
+    expect(
+      invoiceDocumentActionPresentation({
+        ...complete,
+        seller_snapshot: null,
+      }).download.reason
+    ).toBe('Finish Invoice details in Settings -> Payments first.');
+    expect(
+      invoiceDocumentActionPresentation({
+        ...complete,
+        has_customer_phone: false,
+      }).share.reason
+    ).toBe('Add a phone number before sending on WhatsApp.');
+    expect(
+      invoiceDocumentActionPresentation({
+        ...complete,
+        whatsapp_connected: false,
+      }).share.reason
+    ).toBe('Connect WhatsApp in Settings before sending.');
+    expect(
+      invoiceDocumentActionPresentation({
+        ...complete,
+        template_ready: false,
+      }).share.reason
+    ).toBe('Approve and sync gym_invoice_document in en_US before sending.');
+  });
+
+  it('allows ready audit downloads without allowing void or review sharing', () => {
+    for (const patch of [
+      { state: 'void' as const },
+      { requires_refund_review: true },
+    ]) {
+      const presentation = invoiceDocumentActionPresentation({
+        ...complete,
+        ...patch,
+        document_status: 'ready',
+      });
+      expect(presentation.download).toEqual({
+        show: true,
+        enabled: true,
+        reason: null,
+      });
+      expect(presentation.share.enabled).toBe(false);
+    }
+  });
+
+  it('keeps upcoming projections numberless and actionless', () => {
+    expect(
+      invoiceDocumentActionPresentation({
+        ...complete,
+        lifecycle: 'upcoming',
+      })
+    ).toEqual({
+      download: { show: false, enabled: false, reason: null },
+      share: { show: false, enabled: false, reason: null },
+    });
   });
 });
 

@@ -264,7 +264,9 @@ export function TemplatePicker({
           .maybeSingle(),
         supabase
           .from('invoice_balances')
-          .select('id, collectible_balance, currency, issued_at')
+          .select(
+            'id, invoice_number, collectible_balance, currency, issued_at'
+          )
           .eq('contact_id', contact.id)
           .eq('state', 'open')
           .gt('collectible_balance', 0)

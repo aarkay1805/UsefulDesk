@@ -50,6 +50,101 @@ export interface InvoiceSummaryRow {
   };
 }
 
+export type InvoiceDocumentStatus = 'generating' | 'ready' | 'failed' | null;
+
+export interface InvoiceDocumentActionFacts {
+  lifecycle?: 'current' | 'past' | 'upcoming' | 'void' | null;
+  state: 'open' | 'void';
+  requires_refund_review?: boolean | null;
+  seller_snapshot: object | null;
+  customer_snapshot: object | null;
+  document_status: InvoiceDocumentStatus;
+  has_customer_phone: boolean;
+  whatsapp_connected: boolean;
+  template_ready: boolean;
+}
+
+export interface InvoiceDocumentActionState {
+  show: boolean;
+  enabled: boolean;
+  reason: string | null;
+}
+
+export interface InvoiceDocumentActionPresentation {
+  download: InvoiceDocumentActionState;
+  share: InvoiceDocumentActionState;
+}
+
+const INVOICE_PROFILE_RECOVERY =
+  'Finish Invoice details in Settings -> Payments first.';
+const VOID_DOCUMENT_RECOVERY = 'Voided invoices cannot generate documents';
+const REFUND_REVIEW_RECOVERY =
+  'Resolve the invoice refund review before generating a document';
+const DOCUMENT_PREPARING_RECOVERY =
+  'Invoice document generation is already in progress. Please retry shortly.';
+const PHONE_RECOVERY = 'Add a phone number before sending on WhatsApp.';
+const WHATSAPP_RECOVERY = 'Connect WhatsApp in Settings before sending.';
+const TEMPLATE_RECOVERY =
+  'Approve and sync gym_invoice_document in en_US before sending.';
+
+/**
+ * The single owner of invoice-document action readiness and recovery copy.
+ * Both actions intentionally read the same immutable/current facts so the
+ * dialog never explains one state differently from another surface.
+ */
+export function invoiceDocumentActionPresentation(
+  facts: InvoiceDocumentActionFacts
+): InvoiceDocumentActionPresentation {
+  if (facts.lifecycle === 'upcoming') {
+    const hidden = { show: false, enabled: false, reason: null } as const;
+    return { download: hidden, share: hidden };
+  }
+
+  const ready = facts.document_status === 'ready';
+  const profileComplete = Boolean(
+    facts.seller_snapshot && facts.customer_snapshot
+  );
+  const generationBlock =
+    facts.state === 'void'
+      ? VOID_DOCUMENT_RECOVERY
+      : facts.requires_refund_review
+        ? REFUND_REVIEW_RECOVERY
+        : !profileComplete
+          ? INVOICE_PROFILE_RECOVERY
+          : facts.document_status === 'generating'
+            ? DOCUMENT_PREPARING_RECOVERY
+            : null;
+  const shareBlock =
+    facts.state === 'void'
+      ? VOID_DOCUMENT_RECOVERY
+      : facts.requires_refund_review
+        ? REFUND_REVIEW_RECOVERY
+        : !profileComplete
+          ? INVOICE_PROFILE_RECOVERY
+          : !facts.has_customer_phone
+            ? PHONE_RECOVERY
+            : !facts.whatsapp_connected
+              ? WHATSAPP_RECOVERY
+              : !facts.template_ready
+                ? TEMPLATE_RECOVERY
+                : facts.document_status === 'generating'
+                  ? DOCUMENT_PREPARING_RECOVERY
+                  : null;
+
+  return {
+    download: {
+      show: true,
+      enabled: ready || generationBlock === null,
+      reason: ready ? null : generationBlock,
+    },
+    share: {
+      show: true,
+      enabled: shareBlock === null,
+      reason: shareBlock,
+    },
+  };
+}
+
 export function invoiceHeadline(
   invoice: InvoiceFinancialSnapshot
 ): InvoiceHeadlinePresentation {

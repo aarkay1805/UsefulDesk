@@ -36,6 +36,15 @@ const serviceRenewalTemplate: MessageTemplate = {
     'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the buttons below to respond.',
 };
 
+const paymentLinkTemplate: MessageTemplate = {
+  ...canonicalTemplate,
+  id: 'template-payment-link',
+  name: 'gym_payment_link',
+  category: 'Utility',
+  body_text:
+    'Hi {{1}}, your payment of {{2}} for invoice {{3}} is ready. Complete it here: {{4}}. Reply if you need help.',
+};
+
 const contact: Contact = {
   id: 'contact-1',
   account_id: 'account-1',
@@ -92,6 +101,7 @@ const membership = {
 const templateResult = vi.fn();
 const membershipResult = vi.fn();
 const invoiceResult = vi.fn();
+const paymentLinkResult = vi.fn();
 const invoiceQuery = {
   eq: vi.fn(),
   gt: vi.fn(),
@@ -135,6 +145,15 @@ const supabase = {
     if (table === 'member_service_details') {
       return {
         select: () => serviceQuery,
+      };
+    }
+    if (table === 'razorpay_payment_links') {
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({ maybeSingle: paymentLinkResult }),
+          }),
+        }),
       };
     }
     throw new Error(`Unexpected table: ${table}`);
@@ -183,8 +202,14 @@ beforeEach(() => {
         issued_at: '2026-08-20',
         currency: 'INR',
         collectible_balance: 2_700,
+        invoice_number: 'INV-000042',
       },
     ],
+    error: null,
+  });
+  paymentLinkResult.mockReset();
+  paymentLinkResult.mockResolvedValue({
+    data: { short_url: 'https://pay.example/invoice-42' },
     error: null,
   });
   serviceResult.mockReset();
@@ -308,6 +333,21 @@ describe('TemplatePicker', () => {
       screen.getByText('Ready to send using Asha Rao’s latest open invoice.')
     ).toBeTruthy();
     expect(screen.queryByLabelText('Due amount')).toBeNull();
+  });
+
+  it('uses the immutable invoice number in a payment-link preview', async () => {
+    const user = userEvent.setup();
+    renderPicker(paymentLinkTemplate);
+
+    await user.click(
+      await screen.findByRole('button', { name: /Payment link/i })
+    );
+
+    expect(
+      await screen.findByText(
+        'Hi Asha Rao, your payment of ₹2,700 for invoice INV-000042 is ready. Complete it here: https://pay.example/invoice-42. Reply if you need help.'
+      )
+    ).toBeTruthy();
   });
 
   it('fills a service renewal when exactly one renewable service is available', async () => {

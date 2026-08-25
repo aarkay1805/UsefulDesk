@@ -35,7 +35,10 @@ import {
   paymentRefundOutcome,
 } from '@/lib/finance/invoice-detail-presentation';
 import type { FinanceInvoiceRow } from '@/lib/finance/invoices';
-import { invoiceSourceLabel } from '@/lib/finance/invoices';
+import {
+  financeInvoiceReference,
+  invoiceSourceLabel,
+} from '@/lib/finance/invoices';
 import {
   invoicePaymentState,
   isChargeableAmount,
@@ -65,6 +68,7 @@ import { PaymentProofLink } from '../members/payment-proof-link';
 import { useAccountStaff } from '../members/use-account-staff';
 import { PaymentLinkActions } from './payment-link-actions';
 import { GatewayRefundDialog } from './gateway-refund-dialog';
+import { InvoiceDocumentActions } from './invoice-document-actions';
 
 export type InvoiceDetail = Pick<
   FinanceInvoiceRow,
@@ -83,6 +87,9 @@ export type InvoiceDetail = Pick<
   | 'accounting_balance'
   | 'collectible_balance'
   | 'requires_refund_review'
+  | 'invoice_number'
+  | 'seller_snapshot'
+  | 'customer_snapshot'
 > & {
   membership?: Membership | null;
   contact?: Contact | null;
@@ -186,6 +193,10 @@ function InvoiceDetailBody({
       setPayments(loadedPayments);
       setPeriods((periodResult.data as MembershipPeriodInvoice[]) ?? []);
       const financialPatch: Partial<InvoiceDetail> = {
+        reference: financeInvoiceReference(invoiceResult.data),
+        invoice_number: invoiceResult.data.invoice_number,
+        seller_snapshot: invoiceResult.data.seller_snapshot,
+        customer_snapshot: invoiceResult.data.customer_snapshot,
         fee_amount: Number(invoiceResult.data.total),
         amount_paid: Number(invoiceResult.data.amount_paid),
         credit_applied: Number(invoiceResult.data.credit_applied),
@@ -895,6 +906,17 @@ export function InvoiceDetailDialog({
         </div>
 
         <DialogFooter className="min-w-0 sm:flex-wrap">
+          {activeInvoice ? (
+            <InvoiceDocumentActions
+              key={activeInvoice.id}
+              invoice={activeInvoice}
+              customerPhone={
+                member?.contact?.phone ??
+                activeInvoice.membership?.contact?.phone ??
+                activeInvoice.contact?.phone
+              }
+            />
+          ) : null}
           {collectible ? (
             <>
               <PaymentLinkActions
