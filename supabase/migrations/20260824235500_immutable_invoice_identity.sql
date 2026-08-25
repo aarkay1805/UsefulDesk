@@ -66,6 +66,20 @@ CREATE TABLE IF NOT EXISTS public.account_invoice_number_counters (
 
 ALTER TABLE public.account_invoice_number_counters ENABLE ROW LEVEL SECURITY;
 
+-- A transaction-scoped capability for the one allowed legacy seller-snapshot
+-- transition. Browser and service roles cannot mint it, and the profile RPC
+-- removes it before returning so later SECURITY DEFINER work cannot inherit it.
+CREATE TABLE IF NOT EXISTS private.invoice_profile_save_guards (
+  transaction_id BIGINT NOT NULL,
+  account_id UUID NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
+  seller_snapshot JSONB NOT NULL,
+  PRIMARY KEY (transaction_id, account_id)
+);
+
+ALTER TABLE private.invoice_profile_save_guards ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON private.invoice_profile_save_guards
+  FROM PUBLIC, anon, authenticated, service_role;
+
 REVOKE ALL ON public.invoice_profiles FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.invoice_profiles TO authenticated;
 GRANT ALL ON public.invoice_profiles TO service_role;
@@ -317,29 +331,41 @@ CREATE TRIGGER trg_assign_invoice_identity
 CREATE OR REPLACE FUNCTION public.prevent_invoice_identity_mutation()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  IF OLD.invoice_sequence IS NOT NULL
-     AND NEW.invoice_sequence IS DISTINCT FROM OLD.invoice_sequence THEN
+  IF NEW.invoice_sequence IS DISTINCT FROM OLD.invoice_sequence THEN
     RAISE EXCEPTION 'Invoice sequence is immutable' USING ERRCODE = '22000';
   END IF;
-  IF OLD.invoice_number IS NOT NULL
-     AND NEW.invoice_number IS DISTINCT FROM OLD.invoice_number THEN
+  IF NEW.invoice_number IS DISTINCT FROM OLD.invoice_number THEN
     RAISE EXCEPTION 'Invoice number is immutable' USING ERRCODE = '22000';
   END IF;
-  IF OLD.seller_snapshot IS NOT NULL
-     AND NEW.seller_snapshot IS DISTINCT FROM OLD.seller_snapshot THEN
-    RAISE EXCEPTION 'Invoice seller snapshot is immutable' USING ERRCODE = '22000';
-  END IF;
-  IF OLD.customer_snapshot IS NOT NULL
-     AND NEW.customer_snapshot IS DISTINCT FROM OLD.customer_snapshot THEN
+  IF NEW.customer_snapshot IS DISTINCT FROM OLD.customer_snapshot THEN
     RAISE EXCEPTION 'Invoice customer snapshot is immutable' USING ERRCODE = '22000';
   END IF;
-  IF OLD.identity_snapshot_version IS NOT NULL
-     AND NEW.identity_snapshot_version IS DISTINCT FROM OLD.identity_snapshot_version THEN
+  IF NEW.identity_snapshot_version IS DISTINCT FROM OLD.identity_snapshot_version THEN
     RAISE EXCEPTION 'Invoice snapshot version is immutable' USING ERRCODE = '22000';
+  END IF;
+
+  IF NEW.seller_snapshot IS DISTINCT FROM OLD.seller_snapshot THEN
+    IF OLD.seller_snapshot IS NOT NULL THEN
+      RAISE EXCEPTION 'Invoice seller snapshot is immutable'
+        USING ERRCODE = '22000';
+    END IF;
+
+    IF NOT EXISTS (
+         SELECT 1
+         FROM private.invoice_profile_save_guards guard
+         WHERE guard.transaction_id = pg_catalog.txid_current()
+           AND guard.account_id = NEW.account_id
+           AND guard.seller_snapshot = NEW.seller_snapshot
+       )
+       OR NEW.seller_snapshot IS DISTINCT FROM
+          public.build_invoice_seller_snapshot(NEW.account_id) THEN
+      RAISE EXCEPTION 'Invoice seller snapshot can only be finalized by Invoice details save'
+        USING ERRCODE = '22000';
+    END IF;
   END IF;
 
   RETURN NEW;
@@ -449,12 +475,23 @@ BEGIN
 
   v_seller_snapshot := public.build_invoice_seller_snapshot($1);
 
+  INSERT INTO private.invoice_profile_save_guards (
+    transaction_id,
+    account_id,
+    seller_snapshot
+  )
+  VALUES (pg_catalog.txid_current(), $1, v_seller_snapshot)
+  ON CONFLICT (transaction_id, account_id) DO UPDATE
+  SET seller_snapshot = EXCLUDED.seller_snapshot;
+
   UPDATE public.invoices i
-  SET
-    seller_snapshot = v_seller_snapshot,
-    identity_snapshot_version = COALESCE(i.identity_snapshot_version, 1)
+  SET seller_snapshot = v_seller_snapshot
   WHERE i.account_id = $1
     AND i.seller_snapshot IS NULL;
+
+  DELETE FROM private.invoice_profile_save_guards guard
+  WHERE guard.transaction_id = pg_catalog.txid_current()
+    AND guard.account_id = $1;
 
   RETURN v_profile;
 END;

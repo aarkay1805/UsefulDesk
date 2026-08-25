@@ -45,6 +45,63 @@ describe('immutable invoice identity migration contract', () => {
     expect(sql).toContain('identity_snapshot_version');
   });
 
+  it('rejects null identity forgery and gates seller finalization to the profile RPC', () => {
+    const mutationGuard = sql.match(
+      /CREATE OR REPLACE FUNCTION public\.prevent_invoice_identity_mutation\(\)[\s\S]*?\n\$\$;/i
+    )?.[0];
+    const profileSave = sql.match(
+      /CREATE OR REPLACE FUNCTION public\.save_invoice_profile\([\s\S]*?\n\$\$;/i
+    )?.[0];
+
+    expect(mutationGuard).toBeDefined();
+    for (const field of [
+      'invoice_sequence',
+      'invoice_number',
+      'customer_snapshot',
+      'identity_snapshot_version',
+    ]) {
+      expect(mutationGuard).toMatch(
+        new RegExp(
+          `IF NEW\\.${field} IS DISTINCT FROM OLD\\.${field} THEN`,
+          'i'
+        )
+      );
+      expect(mutationGuard).not.toMatch(
+        new RegExp(
+          `OLD\\.${field} IS NOT NULL\\s+AND NEW\\.${field} IS DISTINCT`,
+          'i'
+        )
+      );
+    }
+
+    expect(sql).toContain(
+      'CREATE TABLE IF NOT EXISTS private.invoice_profile_save_guards'
+    );
+    expect(sql).toMatch(
+      /REVOKE ALL ON private\.invoice_profile_save_guards\s+FROM PUBLIC, anon, authenticated, service_role/i
+    );
+    expect(mutationGuard).toContain(
+      'FROM private.invoice_profile_save_guards guard'
+    );
+    expect(mutationGuard).toContain('SECURITY DEFINER');
+    expect(mutationGuard).toContain(
+      'guard.transaction_id = pg_catalog.txid_current()'
+    );
+    expect(mutationGuard).toContain(
+      'guard.seller_snapshot = NEW.seller_snapshot'
+    );
+    expect(mutationGuard).toContain(
+      'build_invoice_seller_snapshot(NEW.account_id)'
+    );
+    expect(profileSave).toContain(
+      'INSERT INTO private.invoice_profile_save_guards'
+    );
+    expect(profileSave).toContain(
+      'DELETE FROM private.invoice_profile_save_guards'
+    );
+    expect(sql).not.toContain('app.invoice_profile_save');
+  });
+
   it('preserves the complete refund-aware invoice balance view', () => {
     const view = sql.match(
       /CREATE OR REPLACE VIEW public\.invoice_balances[\s\S]*?FROM public\.invoices i[\s\S]*?GROUP BY i\.id[^;]*;/i
