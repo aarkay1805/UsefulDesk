@@ -371,13 +371,8 @@ const styles = StyleSheet.create({
 
 type ViewStyle = ComponentProps<typeof View>['style'];
 
-function fontFamilyFor(character: string): string {
-  const codePoint = character.codePointAt(0) ?? 0;
-  if (
-    (codePoint >= 0x0900 && codePoint <= 0x097f) ||
-    (codePoint >= 0x1cd0 && codePoint <= 0x1cff) ||
-    codePoint === 0x20b9
-  ) {
+function indianScriptFamilyForCodePoint(codePoint: number): string | null {
+  if (codePoint >= 0x0900 && codePoint <= 0x097f) {
     return 'Noto Sans Devanagari';
   }
   if (codePoint >= 0x0980 && codePoint <= 0x09ff) {
@@ -404,28 +399,112 @@ function fontFamilyFor(character: string): string {
   if (codePoint >= 0x0d00 && codePoint <= 0x0d7f) {
     return 'Noto Sans Malayalam';
   }
+  return null;
+}
+
+function fontFamilyForCodePoint(codePoint: number): string {
+  const indianFamily = indianScriptFamilyForCodePoint(codePoint);
+  if (indianFamily) return indianFamily;
+  if (codePoint === 0x0307 || codePoint === 0x0323) {
+    return 'Noto Sans Malayalam';
+  }
+  if (codePoint === 0x262c) return 'Noto Sans Gurmukhi';
+  if ((codePoint >= 0x1cd0 && codePoint <= 0x1cff) || codePoint === 0x20b9) {
+    return 'Noto Sans Devanagari';
+  }
+  if (
+    (codePoint >= 0xa830 && codePoint <= 0xa839) ||
+    (codePoint >= 0xa8e0 && codePoint <= 0xa8ff) ||
+    (codePoint >= 0x11b00 && codePoint <= 0x11b09) ||
+    codePoint === 0x20a8 ||
+    codePoint === 0x20f0 ||
+    codePoint === 0x25cc
+  ) {
+    return 'Noto Sans Devanagari';
+  }
   if (
     (codePoint >= 0x0100 && codePoint <= 0x02ff) ||
+    (codePoint >= 0x1d00 && codePoint <= 0x1dbf) ||
     (codePoint >= 0x1e00 && codePoint <= 0x1eff) ||
-    (codePoint >= 0x20a0 && codePoint <= 0x20cf)
+    (codePoint >= 0x20a0 && codePoint <= 0x20cf) ||
+    (codePoint >= 0x2c60 && codePoint <= 0x2c7f) ||
+    (codePoint >= 0xa720 && codePoint <= 0xa7ff)
   ) {
     return 'Noto Sans Extended';
   }
   return 'Noto Sans';
 }
 
-function unicodeRuns(value: string): { family: string; text: string }[] {
-  const runs: { family: string; text: string }[] = [];
-  for (const character of Array.from(value)) {
+export interface InvoicePdfTextRun {
+  family: string;
+  text: string;
+}
+
+function contextualIndianFamily(
+  graphemes: readonly string[],
+  index: number
+): string | null {
+  for (let distance = 1; distance < graphemes.length; distance += 1) {
+    const before = graphemes[index - distance];
+    if (before) {
+      for (const character of Array.from(before).reverse()) {
+        const family = indianScriptFamilyForCodePoint(
+          character.codePointAt(0) ?? 0
+        );
+        if (family) return family;
+      }
+    }
+
+    const after = graphemes[index + distance];
+    if (after) {
+      for (const character of Array.from(after)) {
+        const family = indianScriptFamilyForCodePoint(
+          character.codePointAt(0) ?? 0
+        );
+        if (family) return family;
+      }
+    }
+  }
+  return null;
+}
+
+function fontFamilyForGrapheme(
+  grapheme: string,
+  graphemes: readonly string[],
+  index: number
+): string {
+  for (const character of Array.from(grapheme)) {
+    const family = indianScriptFamilyForCodePoint(
+      character.codePointAt(0) ?? 0
+    );
+    if (family) return family;
+  }
+
+  if (/\p{M}|[\u200c\u200d]/u.test(grapheme)) {
+    const contextualFamily = contextualIndianFamily(graphemes, index);
+    if (contextualFamily) return contextualFamily;
+  }
+
+  return fontFamilyForCodePoint(grapheme.codePointAt(0) ?? 0);
+}
+
+export function buildInvoicePdfTextRuns(value: string): InvoicePdfTextRun[] {
+  const runs: InvoicePdfTextRun[] = [];
+  const graphemes = Array.from(
+    graphemeSegmenter.segment(value),
+    ({ segment }) => segment
+  );
+
+  for (const [index, grapheme] of graphemes.entries()) {
     const current = runs.at(-1);
     const family =
-      /^\s$/u.test(character) && current
+      /^\s+$/u.test(grapheme) && current
         ? current.family
-        : fontFamilyFor(character);
+        : fontFamilyForGrapheme(grapheme, graphemes, index);
     if (current?.family === family) {
-      current.text += character;
+      current.text += grapheme;
     } else {
-      runs.push({ family, text: character });
+      runs.push({ family, text: grapheme });
     }
   }
   return runs;
@@ -480,7 +559,7 @@ function UnicodeTextLine({
   style?: ViewStyle;
   value: string;
 }): ReactElement {
-  const runs = unicodeRuns(value);
+  const runs = buildInvoicePdfTextRuns(value);
   if (runs.length === 1) {
     return (
       <Text
@@ -526,7 +605,7 @@ function MoneyText({
         },
       ]}
     >
-      {unicodeRuns(children).map((run, index) => (
+      {buildInvoicePdfTextRuns(children).map((run, index) => (
         <Text
           key={`${run.family}-${index}`}
           style={{ fontFamily: [run.family, 'Noto Sans'] }}
@@ -706,7 +785,9 @@ function firstPageRowBudget(model: InvoicePdfRenderModel): number {
   );
 }
 
-function paginateLines(model: InvoicePdfRenderModel): InvoicePdfRenderLine[][] {
+export function buildInvoicePdfPages(
+  model: InvoicePdfRenderModel
+): InvoicePdfRenderLine[][] {
   const pages: InvoicePdfRenderLine[][] = [];
   let currentPage: InvoicePdfRenderLine[] = [];
   let usedHeight = 0;
@@ -737,23 +818,32 @@ function paginateLines(model: InvoicePdfRenderModel): InvoicePdfRenderLine[][] {
   const lastPage = pages.at(-1);
   if (!lastPage) return pages;
 
-  const lastPageBudget =
-    (pages.length === 1
-      ? FIRST_PAGE_ROW_BUDGET
-      : CONTINUATION_PAGE_ROW_BUDGET) - TOTALS_HEIGHT_RESERVE;
-  const movedLines: InvoicePdfRenderLine[] = [];
-  let lastPageHeight = lastPage.reduce(
+  const lastPageRowBudget =
+    pages.length === 1
+      ? firstPageRowBudget(model)
+      : CONTINUATION_PAGE_ROW_BUDGET;
+  const lastPageTotalsBudget = Math.max(
+    0,
+    lastPageRowBudget - TOTALS_HEIGHT_RESERVE
+  );
+  const lastPageHeight = lastPage.reduce(
     (total, line) => total + estimatedRowHeight(line),
     0
   );
+  if (lastPageHeight <= lastPageTotalsBudget) return pages;
 
-  while (lastPage.length > 1 && lastPageHeight > lastPageBudget) {
-    const movedLine = lastPage.pop();
-    if (!movedLine) break;
-    movedLines.unshift(movedLine);
-    lastPageHeight -= estimatedRowHeight(movedLine);
+  const finalLine = lastPage.at(-1);
+  if (!finalLine) return pages;
+  const continuationTotalsBudget =
+    CONTINUATION_PAGE_ROW_BUDGET - TOTALS_HEIGHT_RESERVE;
+  if (estimatedRowHeight(finalLine) > continuationTotalsBudget) {
+    pages.push([]);
+    return pages;
   }
-  if (movedLines.length > 0) pages.push(movedLines);
+
+  lastPage.pop();
+  if (lastPage.length === 0 && pages.length > 1) pages.pop();
+  pages.push([finalLine]);
 
   return pages;
 }
@@ -849,7 +939,7 @@ function InvoicePdfDocument({
 }: {
   model: InvoicePdfRenderModel;
 }): ReactElement {
-  const pages = paginateLines(model);
+  const pages = buildInvoicePdfPages(model);
 
   return (
     <Document

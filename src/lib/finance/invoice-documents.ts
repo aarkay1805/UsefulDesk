@@ -135,8 +135,52 @@ const TEXT_LIMITS = {
   partyCombined: 480,
 } as const;
 
-const SUPPORTED_TEXT_SCRIPTS =
-  /^[\p{Script=Latin}\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Gujarati}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Common}\p{Script=Inherited}]*$/u;
+const REGISTERED_FONT_RANGES: readonly (readonly [number, number])[] = [
+  [0x0000, 0x02cc],
+  [0x02ce, 0x02d7],
+  [0x02da, 0x02da],
+  [0x02dc, 0x02ff],
+  [0x0304, 0x0304],
+  [0x0307, 0x0308],
+  [0x0323, 0x0323],
+  [0x0329, 0x0329],
+  [0x0900, 0x097f],
+  [0x0980, 0x09fe],
+  [0x0a01, 0x0a76],
+  [0x0a80, 0x0aff],
+  [0x0b01, 0x0b77],
+  [0x0b82, 0x0bfa],
+  [0x0c00, 0x0c7f],
+  [0x0c80, 0x0cf3],
+  [0x0d00, 0x0d7f],
+  [0x1cd0, 0x1cf9],
+  [0x1d00, 0x1dbf],
+  [0x1e00, 0x1e9f],
+  [0x1ef2, 0x1eff],
+  [0x2000, 0x206f],
+  [0x20a0, 0x20c0],
+  [0x2113, 0x2113],
+  [0x2122, 0x2122],
+  [0x2191, 0x2191],
+  [0x2193, 0x2193],
+  [0x2212, 0x2212],
+  [0x2215, 0x2215],
+  [0x25cc, 0x25cc],
+  [0x262c, 0x262c],
+  [0x2c60, 0x2c7f],
+  [0xa720, 0xa7ff],
+  [0xa830, 0xa839],
+  [0xa8e0, 0xa8ff],
+  [0xfeff, 0xfeff],
+  [0xfffd, 0xfffd],
+  [0x11b00, 0x11b09],
+];
+
+function hasRegisteredGlyph(codePoint: number): boolean {
+  return REGISTERED_FONT_RANGES.some(
+    ([start, end]) => codePoint >= start && codePoint <= end
+  );
+}
 
 function fail(message: string): never {
   throw new TypeError(`Invalid invoice document payload: ${message}`);
@@ -229,7 +273,9 @@ function assertRenderableText(
     fail(`${label} must not contain control characters`);
   }
   if (
-    !SUPPORTED_TEXT_SCRIPTS.test(value) ||
+    Array.from(value).some(
+      (character) => !hasRegisteredGlyph(character.codePointAt(0) ?? -1)
+    ) ||
     /\p{Extended_Pictographic}/u.test(value)
   ) {
     fail(`${label} contains a script without a supported V1 font`);

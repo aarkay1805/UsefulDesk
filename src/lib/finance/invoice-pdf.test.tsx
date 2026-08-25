@@ -3,7 +3,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { InvoiceDocumentPayloadV1 } from './invoice-documents';
-import { buildInvoicePdfRenderModel, renderInvoicePdf } from './invoice-pdf';
+import {
+  buildInvoicePdfPages,
+  buildInvoicePdfRenderModel,
+  buildInvoicePdfTextRuns,
+  renderInvoicePdf,
+} from './invoice-pdf';
 
 const tempRoot = join(process.cwd(), 'tmp', 'pdfs');
 let fixtureDirectory = '';
@@ -123,7 +128,91 @@ function adversarialUnicodePayload(): InvoiceDocumentPayloadV1 {
   };
 }
 
+function oneLinePayload(
+  overrides: Partial<InvoiceDocumentPayloadV1> = {}
+): InvoiceDocumentPayloadV1 {
+  const base = longPayload();
+  const [firstLine] = base.lines;
+  if (!firstLine) throw new Error('long fixture must contain a line');
+
+  return {
+    ...base,
+    invoice_number: 'INV-000044',
+    lines: [firstLine],
+    subtotal_minor: firstLine.amount_minor,
+    adjustments_minor: 0,
+    total_minor: firstLine.amount_minor,
+    ...overrides,
+  };
+}
+
+function exactBoundPartyPayload(): InvoiceDocumentPayloadV1 {
+  const base = oneLinePayload({ invoice_number: 'INV-000045' });
+  const teluguName = 'ఫిట్‌నెస్';
+  const seller = {
+    business_name: teluguName + 'క'.repeat(100 - Array.from(teluguName).length),
+    legal_name: 'గ'.repeat(100),
+    branch_name: 'జ'.repeat(100),
+    phone: '1'.repeat(50),
+    email: 'a'.repeat(50),
+    address: {
+      line1: 'త'.repeat(30),
+      line2: null,
+      city: 'న'.repeat(20),
+      state: null,
+      postal_code: null,
+      country: 'భ'.repeat(30),
+    },
+  };
+
+  expect(
+    [
+      seller.business_name,
+      seller.legal_name,
+      seller.branch_name,
+      seller.phone,
+      seller.email,
+      seller.address.line1,
+      seller.address.city,
+      seller.address.country,
+    ].reduce((total, value) => total + Array.from(value).length, 0)
+  ).toBe(480);
+
+  return { ...base, seller };
+}
+
 describe('renderInvoicePdf', () => {
+  it('keeps inherited marks and join controls in their surrounding Indian-script font run', () => {
+    expect(buildInvoicePdfTextRuns('ఫిట్‌నెస్')).toEqual([
+      { family: 'Noto Sans Telugu', text: 'ఫిట్‌నెస్' },
+    ]);
+    expect(buildInvoicePdfTextRuns('త᳚')).toEqual([
+      { family: 'Noto Sans Telugu', text: 'త᳚' },
+    ]);
+    expect(buildInvoicePdfTextRuns('\u{11B00}')).toEqual([
+      { family: 'Noto Sans Devanagari', text: '\u{11B00}' },
+    ]);
+    expect(buildInvoicePdfTextRuns('ᴀꜲ')).toEqual([
+      { family: 'Noto Sans Extended', text: 'ᴀꜲ' },
+    ]);
+    expect(buildInvoicePdfTextRuns('☬')).toEqual([
+      { family: 'Noto Sans Gurmukhi', text: '☬' },
+    ]);
+  });
+
+  it('adds a totals-only continuation when a sole final row consumes the continuation frame', () => {
+    const model = buildInvoicePdfRenderModel(oneLinePayload());
+    const [line] = model.lines;
+    if (!line) throw new Error('one-line fixture must contain a line');
+    const tallLine = { ...line, description: 'x'.repeat(720), period: null };
+
+    expect(buildInvoicePdfPages({ ...model, lines: [tallLine] })).toEqual([
+      [],
+      [tallLine],
+      [],
+    ]);
+  });
+
   it('renders a Unicode, multipage, charge-only A4 invoice', async () => {
     const buffer = await renderInvoicePdf(longPayload());
     const model = buildInvoicePdfRenderModel(longPayload());
@@ -205,5 +294,50 @@ describe('renderInvoicePdf', () => {
     ]) {
       expect(pdfSource).toContain(family);
     }
+  }, 30_000);
+
+  it('moves a sole row when dynamic first-page space cannot also hold totals', async () => {
+    const base = oneLinePayload();
+    const shortLine = {
+      description: 'Gym service',
+      period: null,
+      quantity: 1,
+      unit_amount_minor: 12_345,
+      amount_minor: 12_345,
+    };
+    const payload = {
+      ...base,
+      lines: [shortLine],
+      seller: {
+        ...base.seller,
+        business_name: 'S'.repeat(40),
+        legal_name: 'L'.repeat(60),
+        branch_name: 'B'.repeat(60),
+      },
+    };
+    const buffer = await renderInvoicePdf(payload);
+    const pdfPath = join(fixtureDirectory, 'invoice-INV-000044-dynamic.pdf');
+    writeFileSync(pdfPath, buffer);
+
+    const metadata = execFileSync('pdfinfo', [pdfPath], { encoding: 'utf8' });
+    expect(metadata).toContain('Pages:           2');
+  }, 30_000);
+
+  it('renders the exact 480-code-point party bound without sharing its page with rows', async () => {
+    const buffer = await renderInvoicePdf(exactBoundPartyPayload());
+    const pdfPath = join(
+      fixtureDirectory,
+      'invoice-INV-000045-exact-bound.pdf'
+    );
+    writeFileSync(pdfPath, buffer);
+    if (process.env.INVOICE_PDF_EXACT_BOUND_PATH) {
+      mkdirSync(dirname(process.env.INVOICE_PDF_EXACT_BOUND_PATH), {
+        recursive: true,
+      });
+      writeFileSync(process.env.INVOICE_PDF_EXACT_BOUND_PATH, buffer);
+    }
+
+    const metadata = execFileSync('pdfinfo', [pdfPath], { encoding: 'utf8' });
+    expect(metadata).toContain('Pages:           2');
   }, 30_000);
 });

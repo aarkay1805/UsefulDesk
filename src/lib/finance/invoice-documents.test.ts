@@ -273,6 +273,24 @@ describe('assertInvoiceDocumentPayload', () => {
         },
       })
     ).toThrow(/script.*supported|supported.*script/i);
+    expect(() =>
+      assertInvoiceDocumentPayload({
+        ...validPayload,
+        lines: [{ ...line, description: 'Music symbol \u{1D11E}' }],
+      })
+    ).toThrow(/font|supported/i);
+    expect(() =>
+      assertInvoiceDocumentPayload({
+        ...validPayload,
+        lines: [{ ...line, description: 'Math letter \u{1D400}' }],
+      })
+    ).toThrow(/font|supported/i);
+    expect(() =>
+      assertInvoiceDocumentPayload({
+        ...validPayload,
+        lines: [{ ...line, description: 'Latin extension \u{1DF00}' }],
+      })
+    ).toThrow(/font|supported/i);
   });
 
   it.each([
