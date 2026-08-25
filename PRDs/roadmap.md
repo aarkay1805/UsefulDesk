@@ -8,6 +8,8 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Shipped addition: **one canonical Resolvable action across WhatsApp messaging, renewals, invoice delivery and collection, payments, membership lifecycle actions, and follow-ups. High-value actions blocked by a changeable prerequisite remain focusable and tappable, explain the highest-priority reason in place, and offer the nearest resolution CTA when one exists; pending work, explained validation, empty input, and obvious boundaries remain truly disabled.**
+
 Engineering maintenance: **a Cloudflare R2 backup foundation now exports and
 client-side encrypts nightly Supabase database dumps plus weekly complete
 Storage snapshots, supports manual pre/post-operation recovery points, verifies

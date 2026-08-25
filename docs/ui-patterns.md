@@ -106,6 +106,12 @@ Any button that waits for a network request, storage operation, other asynchrono
 
 Set pending state before the first awaited operation and clear it in `finally`. If success starts navigation, keep the button pending until the destination replaces the current view. Repeated rows use an item/action identifier so only the pressed control spins; unrelated row actions remain available unless concurrent work would be unsafe. Native buttons that cannot use the master must set `aria-busy`, prevent repeat activation, and replace their glyph with the same compact spinner. Instant local toggles, clipboard writes, and explicitly optimistic removals do not need a spinner when their visible result is immediate.
 
+## Resolvable actions
+
+Use `ResolvableAction` when an action is unavailable because a user or administrator can change a prerequisite. A blocker stays focusable and tappable, opens one anchored reason with at most one resolution CTA, and never invokes the original action. Use `disabled`/`loading` only for pending work, field validation already explained beside its field, empty input, and obvious boundaries. Actions that are no longer applicable are omitted rather than blocked. Permission, missing local data, conflicting workflow state, then provider setup is the blocker priority.
+
+The master owns blocked styling, focus treatment, tooltip, and popover behavior. Call sites may control external layout only; they must not override that blocked treatment or hand-roll a competing tooltip or popover.
+
 ## Text-link actions
 
 `Button` (`ui/button.tsx`) with `variant="link"` is the canonical compact text-link action, including anchors styled through `buttonVariants`. It uses the account primary text colour without an underline at rest or on hover. Do not restore a hover underline or recreate this treatment at a call site. `AccordionContent` keeps underlines on ordinary prose links but excludes `[data-slot="button"]`; an anchor using `buttonVariants` inside an accordion must carry that slot marker so the two masters do not collide.

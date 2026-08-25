@@ -6,6 +6,10 @@
 
 ---
 
+## Blocked high-value actions now explain the way forward
+
+`src/components/ui/resolvable-action.tsx` now owns one focusable, tappable blocker popover across WhatsApp messaging, renewals, invoice delivery and collection, payments, membership lifecycle actions, and follow-ups. Gotcha: `disabled`/`loading` is only for pending work, explained validation, empty input, and obvious boundaries; a resolvable business prerequisite stays interactive, suppresses the original action, and offers at most one resolution CTA.
+
 ## Immutable invoice identity and non-tax document sharing are live
 
 Persisted invoices now have backfilled account-scoped `INV-000001` numbers and customer identity snapshots; the first complete **Invoice details** save finalizes only missing seller snapshots, and document reservation authors each V1 payload/document row. The feature adds one private checksummed immutable non-tax PDF, authenticated download, and agent+ application-side WhatsApp sharing. The connected database has all four verified migrations: `20260824235500_immutable_invoice_identity.sql`, `20260824235600_immutable_invoice_documents.sql`, `20260825093309_fix_invoice_profile_save_guard_conflict.sql`, and `20260825093752_index_invoice_document_foreign_keys.sql`. The renderer and document service live in `src/lib/finance/`; authenticated download/share routes live under `src/app/api/invoices/[invoiceId]/`; settings and invoice-detail actions live under `src/components/settings/` and `src/components/finance/`. Gotcha: a ready artifact always reuses its private Storage bytes and checksum; never regenerate or overwrite it when its object is missing. The registry now has ten exact Meta payloads, but `gym_invoice_document` is not present or Approved and synced at the provider, so provider delivery remains gated. GST-ready and statutory documents remain deferred. No Meta submission or customer send occurred. Operational details live in `docs/invoice-documents.md`.
