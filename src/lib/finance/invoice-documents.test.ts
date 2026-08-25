@@ -345,6 +345,30 @@ describe('assertInvoiceDocumentPayload', () => {
   );
 
   it.each([
+    ['Latin base plus Malayalam-only dot above', 'A\u0307'],
+    ['Telugu base plus Devanagari-only Vedic mark', 'త\u1cd1'],
+  ])(
+    'rejects a %s grapheme with no common registered font owner',
+    (_name, value) => {
+      expect(() =>
+        assertInvoiceDocumentPayload({
+          ...validPayload,
+          lines: [{ ...line, description: value }],
+        })
+      ).toThrow(/font|supported|grapheme/i);
+    }
+  );
+
+  it('accepts a Latin combining mark when one registered font owns the whole grapheme', () => {
+    expect(() =>
+      assertInvoiceDocumentPayload({
+        ...validPayload,
+        lines: [{ ...line, description: 'A\u0301' }],
+      })
+    ).not.toThrow();
+  });
+
+  it.each([
     ['Bengali', 'শক্তি ফিটনেস'],
     ['Gurmukhi', 'ਸ਼ਕਤੀ ਫਿਟਨੈਸ'],
     ['Gujarati', 'શક્તિ ફિટનેસ'],

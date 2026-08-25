@@ -204,6 +204,16 @@ describe('renderInvoicePdf', () => {
     expect(buildInvoicePdfTextRuns('\u1cf7')).toEqual([
       { family: 'Noto Sans Bengali', text: '\u1cf7' },
     ]);
+    expect(buildInvoicePdfTextRuns('A\u0301 क')).toEqual([
+      { family: 'Noto Sans', text: 'A\u0301 ' },
+      { family: 'Noto Sans Devanagari', text: 'क' },
+    ]);
+    expect(() => buildInvoicePdfTextRuns('A\u0307')).toThrow(
+      /common.*font|font.*grapheme/i
+    );
+    expect(() => buildInvoicePdfTextRuns('త\u1cd1')).toThrow(
+      /common.*font|font.*grapheme/i
+    );
   });
 
   it('adds a totals-only continuation when a sole final row consumes the continuation frame', () => {

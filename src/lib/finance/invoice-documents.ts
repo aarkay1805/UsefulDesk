@@ -152,10 +152,12 @@ type CodePointRange = readonly [start: number, end: number];
 
 // Generated from fontkit characterSet values for the eleven registered regular
 // WOFFs. Ranges exclude Cc/Cs/Cf/Cn and the existing pictographic exclusion.
-// Overlaps are assigned to the first family that owns the code point.
+// `ranges` assign a preferred owner; `overlapRanges` retain every other owner
+// so grapheme validation can require one font to cover all visible code points.
 const REGISTERED_FONT_CMAPS: readonly {
   family: InvoiceDocumentFontFamily;
   ranges: readonly CodePointRange[];
+  overlapRanges?: readonly CodePointRange[];
 }[] = [
   {
     family: 'Noto Sans',
@@ -192,6 +194,16 @@ const REGISTERED_FONT_CMAPS: readonly {
   },
   {
     family: 'Noto Sans Extended',
+    overlapRanges: [
+      [0x20, 0x20],
+      [0xa0, 0xa0],
+      [0x2bc, 0x2bc],
+      [0x300, 0x301],
+      [0x303, 0x304],
+      [0x308, 0x309],
+      [0x323, 0x323],
+      [0x329, 0x329],
+    ],
     ranges: [
       [0x100, 0x130],
       [0x132, 0x151],
@@ -217,6 +229,12 @@ const REGISTERED_FONT_CMAPS: readonly {
   },
   {
     family: 'Noto Sans Devanagari',
+    overlapRanges: [
+      [0x20, 0x20],
+      [0xa0, 0xa0],
+      [0x2bc, 0x2bc],
+      [0x20b9, 0x20b9],
+    ],
     ranges: [
       [0x900, 0x97f],
       [0x1cd0, 0x1cf6],
@@ -230,6 +248,25 @@ const REGISTERED_FONT_CMAPS: readonly {
   },
   {
     family: 'Noto Sans Bengali',
+    overlapRanges: [
+      [0x20, 0x20],
+      [0xa0, 0xa0],
+      [0x2bc, 0x2bc],
+      [0x951, 0x952],
+      [0x964, 0x965],
+      [0x1cd0, 0x1cd0],
+      [0x1cd2, 0x1cd2],
+      [0x1cd5, 0x1cd6],
+      [0x1cd8, 0x1cd8],
+      [0x1ce1, 0x1ce1],
+      [0x1cea, 0x1cea],
+      [0x1ced, 0x1ced],
+      [0x1cf2, 0x1cf2],
+      [0x1cf5, 0x1cf6],
+      [0x20b9, 0x20b9],
+      [0x25cc, 0x25cc],
+      [0xa8f1, 0xa8f1],
+    ],
     ranges: [
       [0x980, 0x983],
       [0x985, 0x98c],
@@ -250,6 +287,15 @@ const REGISTERED_FONT_CMAPS: readonly {
   },
   {
     family: 'Noto Sans Gurmukhi',
+    overlapRanges: [
+      [0x20, 0x20],
+      [0xa0, 0xa0],
+      [0x951, 0x952],
+      [0x964, 0x965],
+      [0x20b9, 0x20b9],
+      [0x25cc, 0x25cc],
+      [0xa830, 0xa839],
+    ],
     ranges: [
       [0xa01, 0xa03],
       [0xa05, 0xa0a],
@@ -272,6 +318,15 @@ const REGISTERED_FONT_CMAPS: readonly {
   },
   {
     family: 'Noto Sans Gujarati',
+    overlapRanges: [
+      [0x20, 0x20],
+      [0xa0, 0xa0],
+      [0x951, 0x952],
+      [0x964, 0x965],
+      [0x20b9, 0x20b9],
+      [0x25cc, 0x25cc],
+      [0xa830, 0xa839],
+    ],
     ranges: [
       [0xa81, 0xa83],
       [0xa85, 0xa8d],
@@ -291,6 +346,13 @@ const REGISTERED_FONT_CMAPS: readonly {
   },
   {
     family: 'Noto Sans Oriya',
+    overlapRanges: [
+      [0x20, 0x20],
+      [0xa0, 0xa0],
+      [0x964, 0x965],
+      [0x20b9, 0x20b9],
+      [0x25cc, 0x25cc],
+    ],
     ranges: [
       [0xb01, 0xb03],
       [0xb05, 0xb0c],
@@ -310,6 +372,13 @@ const REGISTERED_FONT_CMAPS: readonly {
   },
   {
     family: 'Noto Sans Tamil',
+    overlapRanges: [
+      [0x20, 0x20],
+      [0xa0, 0xa0],
+      [0x964, 0x965],
+      [0x20b9, 0x20b9],
+      [0x25cc, 0x25cc],
+    ],
     ranges: [
       [0xb82, 0xb83],
       [0xb85, 0xb8a],
@@ -331,6 +400,15 @@ const REGISTERED_FONT_CMAPS: readonly {
   },
   {
     family: 'Noto Sans Telugu',
+    overlapRanges: [
+      [0x20, 0x20],
+      [0xa0, 0xa0],
+      [0x951, 0x952],
+      [0x964, 0x965],
+      [0x1cda, 0x1cda],
+      [0x1cf2, 0x1cf2],
+      [0x25cc, 0x25cc],
+    ],
     ranges: [
       [0xc00, 0xc0c],
       [0xc0e, 0xc10],
@@ -349,6 +427,20 @@ const REGISTERED_FONT_CMAPS: readonly {
   },
   {
     family: 'Noto Sans Kannada',
+    overlapRanges: [
+      [0x20, 0x20],
+      [0xa0, 0xa0],
+      [0x951, 0x952],
+      [0x964, 0x965],
+      [0x1cd0, 0x1cd0],
+      [0x1cd2, 0x1cd2],
+      [0x1cda, 0x1cda],
+      [0x1cf2, 0x1cf2],
+      [0x1cf4, 0x1cf4],
+      [0x20b9, 0x20b9],
+      [0x25cc, 0x25cc],
+      [0xa830, 0xa835],
+    ],
     ranges: [
       [0xc80, 0xc8c],
       [0xc8e, 0xc90],
@@ -367,6 +459,17 @@ const REGISTERED_FONT_CMAPS: readonly {
   },
   {
     family: 'Noto Sans Malayalam',
+    overlapRanges: [
+      [0x20, 0x20],
+      [0xa0, 0xa0],
+      [0x323, 0x323],
+      [0x951, 0x952],
+      [0x964, 0x965],
+      [0x1cda, 0x1cda],
+      [0x20b9, 0x20b9],
+      [0x25cc, 0x25cc],
+      [0xa830, 0xa832],
+    ],
     ranges: [
       [0x307, 0x307],
       [0xd00, 0xd0c],
@@ -380,15 +483,27 @@ const REGISTERED_FONT_CMAPS: readonly {
   },
 ];
 
+function rangesContainCodePoint(
+  ranges: readonly CodePointRange[],
+  codePoint: number
+): boolean {
+  return ranges.some(([start, end]) => codePoint >= start && codePoint <= end);
+}
+
+export function invoiceDocumentFontFamiliesForCodePoint(
+  codePoint: number
+): InvoiceDocumentFontFamily[] {
+  return REGISTERED_FONT_CMAPS.filter(
+    ({ ranges, overlapRanges = [] }) =>
+      rangesContainCodePoint(ranges, codePoint) ||
+      rangesContainCodePoint(overlapRanges, codePoint)
+  ).map(({ family }) => family);
+}
+
 export function invoiceDocumentFontFamilyForCodePoint(
   codePoint: number
 ): InvoiceDocumentFontFamily | null {
-  for (const { family, ranges } of REGISTERED_FONT_CMAPS) {
-    if (ranges.some(([start, end]) => codePoint >= start && codePoint <= end)) {
-      return family;
-    }
-  }
-  return null;
+  return invoiceDocumentFontFamiliesForCodePoint(codePoint)[0] ?? null;
 }
 
 const documentTextSegmenter = new Intl.Segmenter('und', {
@@ -408,6 +523,44 @@ function hasSupportedIndicBase(grapheme: string): boolean {
       invoiceDocumentFontFamilyForCodePoint(character.codePointAt(0) ?? -1)
     );
   });
+}
+
+export function invoiceDocumentFontFamilyForGrapheme(
+  grapheme: string
+): InvoiceDocumentFontFamily | null {
+  const visibleCharacters = Array.from(grapheme).filter((character) => {
+    const codePoint = character.codePointAt(0) ?? -1;
+    return codePoint !== 0x200c && codePoint !== 0x200d;
+  });
+  const firstCharacter = visibleCharacters[0];
+  if (!firstCharacter) return null;
+
+  let commonFamilies = invoiceDocumentFontFamiliesForCodePoint(
+    firstCharacter.codePointAt(0) ?? -1
+  );
+  for (const character of visibleCharacters.slice(1)) {
+    const owners = new Set(
+      invoiceDocumentFontFamiliesForCodePoint(character.codePointAt(0) ?? -1)
+    );
+    commonFamilies = commonFamilies.filter((family) => owners.has(family));
+  }
+  if (commonFamilies.length === 0) return null;
+
+  const indicBaseOwners = new Set<InvoiceDocumentFontFamily>();
+  for (const character of visibleCharacters) {
+    if (!/[\p{L}\p{N}]/u.test(character)) continue;
+    for (const family of invoiceDocumentFontFamiliesForCodePoint(
+      character.codePointAt(0) ?? -1
+    )) {
+      if (isIndianFontFamily(family)) indicBaseOwners.add(family);
+    }
+  }
+
+  return (
+    commonFamilies.find((family) => indicBaseOwners.has(family)) ??
+    commonFamilies[0] ??
+    null
+  );
 }
 
 function fail(message: string): never {
@@ -520,6 +673,9 @@ function assertRenderableText(
       ) {
         fail(`${label} contains a script without a supported V1 font`);
       }
+    }
+    if (invoiceDocumentFontFamilyForGrapheme(grapheme) === null) {
+      fail(`${label} contains a grapheme without a common supported V1 font`);
     }
   }
   if (Array.from(value).length > maxCodePoints) {

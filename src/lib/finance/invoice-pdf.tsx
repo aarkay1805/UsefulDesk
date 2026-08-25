@@ -15,7 +15,7 @@ import type { ComponentProps, ReactElement } from 'react';
 import { formatCurrencyExact } from '@/lib/currency';
 import {
   assertInvoiceDocumentPayload,
-  invoiceDocumentFontFamilyForCodePoint,
+  invoiceDocumentFontFamilyForGrapheme,
   type InvoiceDocumentAddress,
   type InvoiceDocumentFontFamily,
   type InvoiceDocumentPayloadV1,
@@ -373,78 +373,19 @@ const styles = StyleSheet.create({
 
 type ViewStyle = ComponentProps<typeof View>['style'];
 
-function indianScriptFamilyForCodePoint(
-  codePoint: number
-): InvoiceDocumentFontFamily | null {
-  const family = invoiceDocumentFontFamilyForCodePoint(codePoint);
-  return family === 'Noto Sans' || family === 'Noto Sans Extended'
-    ? null
-    : family;
-}
-
-function fontFamilyForCodePoint(codePoint: number): InvoiceDocumentFontFamily {
-  return invoiceDocumentFontFamilyForCodePoint(codePoint) ?? 'Noto Sans';
-}
-
 export interface InvoicePdfTextRun {
   family: InvoiceDocumentFontFamily;
   text: string;
 }
 
-function contextualIndianFamily(
-  graphemes: readonly string[],
-  index: number
-): InvoiceDocumentFontFamily | null {
-  for (let distance = 1; distance < graphemes.length; distance += 1) {
-    const before = graphemes[index - distance];
-    if (before) {
-      for (const character of Array.from(before).reverse()) {
-        const family = indianScriptFamilyForCodePoint(
-          character.codePointAt(0) ?? 0
-        );
-        if (family) return family;
-      }
-    }
-
-    const after = graphemes[index + distance];
-    if (after) {
-      for (const character of Array.from(after)) {
-        const family = indianScriptFamilyForCodePoint(
-          character.codePointAt(0) ?? 0
-        );
-        if (family) return family;
-      }
-    }
-  }
-  return null;
-}
-
-function fontFamilyForGrapheme(
-  grapheme: string,
-  graphemes: readonly string[],
-  index: number
-): InvoiceDocumentFontFamily {
-  for (const character of Array.from(grapheme)) {
-    if (!/[\p{L}\p{N}]/u.test(character)) continue;
-    const family = indianScriptFamilyForCodePoint(
-      character.codePointAt(0) ?? 0
+function fontFamilyForGrapheme(grapheme: string): InvoiceDocumentFontFamily {
+  const family = invoiceDocumentFontFamilyForGrapheme(grapheme);
+  if (!family) {
+    throw new TypeError(
+      'Invalid invoice document payload: grapheme has no common supported font'
     );
-    if (family) return family;
   }
-
-  for (const character of Array.from(grapheme)) {
-    const family = indianScriptFamilyForCodePoint(
-      character.codePointAt(0) ?? 0
-    );
-    if (family) return family;
-  }
-
-  if (/\p{M}|[\u200c\u200d]/u.test(grapheme)) {
-    const contextualFamily = contextualIndianFamily(graphemes, index);
-    if (contextualFamily) return contextualFamily;
-  }
-
-  return fontFamilyForCodePoint(grapheme.codePointAt(0) ?? 0);
+  return family;
 }
 
 export function buildInvoicePdfTextRuns(value: string): InvoicePdfTextRun[] {
@@ -454,12 +395,12 @@ export function buildInvoicePdfTextRuns(value: string): InvoicePdfTextRun[] {
     ({ segment }) => segment
   );
 
-  for (const [index, grapheme] of graphemes.entries()) {
+  for (const grapheme of graphemes) {
     const current = runs.at(-1);
     const family =
       /^\s+$/u.test(grapheme) && current
         ? current.family
-        : fontFamilyForGrapheme(grapheme, graphemes, index);
+        : fontFamilyForGrapheme(grapheme);
     if (current?.family === family) {
       current.text += grapheme;
     } else {
