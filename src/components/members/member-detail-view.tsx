@@ -16,16 +16,13 @@ import {
   CalendarDays,
   RefreshCw,
   Wallet,
-  Pencil,
   Snowflake,
-  Play,
   UserCheck,
   UserPlus,
   Plus,
   MoreHorizontal,
   Camera,
   Ban,
-  RotateCcw,
   Repeat,
   ArrowLeftRight,
   Hash,
@@ -159,6 +156,7 @@ import { VoidInvoicePaymentDialog } from '@/components/finance/void-invoice-paym
 import { financeInvoiceReference } from '@/lib/finance/invoices';
 import { buildMemberPurchaseHref } from '@/lib/members/member-purchase-navigation';
 import { ServiceCustomerDetailView } from './service-customer-detail-view';
+import { MembershipActionsMenu } from './membership-actions-menu';
 
 type MemberInvoiceBalance = Invoice;
 
@@ -264,6 +262,32 @@ function Section({ id, children }: { id: string; children: ReactNode }) {
   );
 }
 
+export function revealMemberBilling({
+  scrollRoot,
+  billingSection,
+  billingHeading,
+  navHeight,
+  reducedMotion,
+}: {
+  scrollRoot: HTMLElement | null;
+  billingSection: HTMLElement | null;
+  billingHeading: HTMLElement | null;
+  navHeight: number;
+  reducedMotion: boolean;
+}) {
+  if (!scrollRoot || !billingSection) return;
+  const top =
+    billingSection.getBoundingClientRect().top -
+    scrollRoot.getBoundingClientRect().top +
+    scrollRoot.scrollTop -
+    navHeight;
+  scrollRoot.scrollTo({
+    top,
+    behavior: reducedMotion ? 'auto' : 'smooth',
+  });
+  billingHeading?.focus({ preventScroll: true });
+}
+
 export function MemberDetailView(props: MemberDetailViewProps) {
   if (props.contactId && !props.membershipId) {
     return (
@@ -344,6 +368,7 @@ function MembershipDetailView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const navContainerRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
+  const billingHeadingRef = useRef<HTMLDivElement>(null);
   const jumpTargetRef = useRef<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>('membership');
 
@@ -562,6 +587,19 @@ function MembershipDetailView({
       behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
         ? 'auto'
         : 'smooth',
+    });
+  }
+
+  function openBillingResolution() {
+    jumpTargetRef.current = 'payments';
+    setActiveSection('payments');
+    revealMemberBilling({
+      scrollRoot: scrollRef.current,
+      billingSection: document.getElementById('sec-payments'),
+      billingHeading: billingHeadingRef.current,
+      navHeight: navContainerRef.current?.offsetHeight ?? 0,
+      reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)')
+        .matches,
     });
   }
 
@@ -1101,175 +1139,25 @@ function MembershipDetailView({
                         <CardHeader>
                           <CardTitle>Membership</CardTitle>
                           <CardAction>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger
-                                render={
-                                  <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    aria-label="Membership actions"
-                                  />
-                                }
-                              >
-                                <MoreHorizontal className="size-4" />
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                align="end"
-                                className="min-w-52"
-                              >
-                                {/* Renew — opens the next billing cycle. Lives
-                                    here (not as a header primary) because it's
-                                    only the right move near/after expiry; the
-                                    Billing section's Upcoming invoice offers it
-                                    too, but that row is absent once a
-                                    membership has lapsed, so this is the path
-                                    that always works. */}
-                                {membership.status === 'active' &&
-                                  !membership.is_trial && (
-                                    <DropdownMenuItem
-                                      onClick={() => setRenewOpen(true)}
-                                      disabled={
-                                        !canSendMessages ||
-                                        !!membershipLifecycleBlockReason
-                                      }
-                                      title={
-                                        membershipLifecycleBlockReason ??
-                                        (!canSendMessages
-                                          ? 'You need member-management access to renew memberships.'
-                                          : undefined)
-                                      }
-                                    >
-                                      <RefreshCw className="size-4" /> Renew
-                                      membership
-                                    </DropdownMenuItem>
-                                  )}
-                                {/* Plan swap/upgrade — the intent behind most
-                                    "edit" clicks. Only an active paid cycle
-                                    can be switched mid-flight. */}
-                                {membership.status === 'active' &&
-                                  !membership.is_trial && (
-                                    <DropdownMenuItem
-                                      onClick={() => setChangePlanOpen(true)}
-                                      disabled={
-                                        !canSendMessages ||
-                                        !!membershipLifecycleBlockReason
-                                      }
-                                      title={
-                                        membershipLifecycleBlockReason ??
-                                        (!canSendMessages
-                                          ? 'You need member-management access to change plans.'
-                                          : undefined)
-                                      }
-                                    >
-                                      <ArrowLeftRight className="size-4" />{' '}
-                                      Change plan
-                                    </DropdownMenuItem>
-                                  )}
-                                <DropdownMenuItem
-                                  onClick={() => onEdit(membership)}
-                                  disabled={
-                                    !canSendMessages ||
-                                    !!membershipLifecycleBlockReason
-                                  }
-                                  title={
-                                    membershipLifecycleBlockReason ??
-                                    (!canSendMessages
-                                      ? 'You need member-management access to edit memberships.'
-                                      : undefined)
-                                  }
-                                >
-                                  <Pencil className="size-4" /> Edit membership
-                                </DropdownMenuItem>
-                                {membership.status === 'frozen' ? (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      setPendingLifecycle('resume')
-                                    }
-                                    disabled={
-                                      busy ||
-                                      !canSendMessages ||
-                                      !!membershipLifecycleBlockReason
-                                    }
-                                    title={
-                                      membershipLifecycleBlockReason ??
-                                      (!canSendMessages
-                                        ? 'You need member-management access to resume memberships.'
-                                        : undefined)
-                                    }
-                                  >
-                                    <Play className="size-4" /> Resume
-                                    membership
-                                  </DropdownMenuItem>
-                                ) : (
-                                  membership.status === 'active' && (
-                                    <DropdownMenuItem
-                                      onClick={() =>
-                                        setPendingLifecycle('freeze')
-                                      }
-                                      disabled={
-                                        busy ||
-                                        !canSendMessages ||
-                                        !!membershipLifecycleBlockReason
-                                      }
-                                      title={
-                                        membershipLifecycleBlockReason ??
-                                        (!canSendMessages
-                                          ? 'You need member-management access to freeze memberships.'
-                                          : undefined)
-                                      }
-                                    >
-                                      <Snowflake className="size-4" /> Freeze
-                                      membership
-                                    </DropdownMenuItem>
-                                  )
-                                )}
-                                {membership.status === 'cancelled' ? (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      setPendingLifecycle('reactivate')
-                                    }
-                                    disabled={
-                                      busy ||
-                                      !canSendMessages ||
-                                      !!membershipLifecycleBlockReason
-                                    }
-                                    title={
-                                      membershipLifecycleBlockReason ??
-                                      (!canSendMessages
-                                        ? 'You need member-management access to reactivate memberships.'
-                                        : undefined)
-                                    }
-                                  >
-                                    <RotateCcw className="size-4" /> Reactivate
-                                    membership
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      variant="destructive"
-                                      onClick={() =>
-                                        setPendingLifecycle('cancel')
-                                      }
-                                      disabled={
-                                        busy ||
-                                        !canSendMessages ||
-                                        !!membershipLifecycleBlockReason
-                                      }
-                                      title={
-                                        membershipLifecycleBlockReason ??
-                                        (!canSendMessages
-                                          ? 'You need member-management access to cancel memberships.'
-                                          : undefined)
-                                      }
-                                    >
-                                      <Ban className="size-4" /> Cancel
-                                      membership
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <MembershipActionsMenu
+                              status={membership.status}
+                              isTrial={!!membership.is_trial}
+                              canManage={canSendMessages}
+                              lifecycleBlockReason={
+                                membershipLifecycleBlockReason
+                              }
+                              busy={busy}
+                              onRenew={() => setRenewOpen(true)}
+                              onChangePlan={() => setChangePlanOpen(true)}
+                              onEdit={() => onEdit(membership)}
+                              onFreeze={() => setPendingLifecycle('freeze')}
+                              onResume={() => setPendingLifecycle('resume')}
+                              onCancel={() => setPendingLifecycle('cancel')}
+                              onReactivate={() =>
+                                setPendingLifecycle('reactivate')
+                              }
+                              onOpenBilling={openBillingResolution}
+                            />
                           </CardAction>
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4">
@@ -1553,7 +1441,13 @@ function MembershipDetailView({
                     <Section id="payments">
                       <Card>
                         <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
+                          <CardTitle
+                            ref={billingHeadingRef}
+                            role="heading"
+                            aria-level={2}
+                            tabIndex={-1}
+                            className="flex items-center gap-2"
+                          >
                             Billing
                             {membership.plan?.plan_type && (
                               <PlanTypeBadge type={membership.plan.plan_type} />

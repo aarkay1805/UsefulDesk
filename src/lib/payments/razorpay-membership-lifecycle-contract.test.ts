@@ -70,18 +70,16 @@ describe('Razorpay membership lifecycle boundary', () => {
     );
   });
 
-  it('disables the known member UI mutation surfaces when a mandate blocks them', () => {
+  it('guards the known member UI mutation surfaces when a mandate blocks them', () => {
     expect(memberDetail).toContain(
       'const membershipLifecycleBlockReason = mandate'
     );
     expect(memberDetail).toContain(
       'blockedReason={membershipLifecycleBlockReason}'
     );
-    expect(
-      memberDetail.match(
-        /disabled=\{[\s\S]*?!!membershipLifecycleBlockReason[\s\S]*?\}/g
-      )
-    ).toHaveLength(7);
+    expect(memberDetail).toMatch(
+      /<MembershipActionsMenu[\s\S]*?lifecycleBlockReason=\{[\s\S]*?membershipLifecycleBlockReason[\s\S]*?\}/
+    );
     expect(dangerZone).toContain('blockedReason?: string | null;');
     expect(dangerZone).toContain('disabled={!canDelete || !!blockedReason}');
   });

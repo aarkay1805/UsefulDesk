@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest';
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { memberInvoiceDetail } from './member-detail-view';
+import { memberInvoiceDetail, revealMemberBilling } from './member-detail-view';
 import { SERVICE_CUSTOMER_SECTIONS } from './service-customer-detail-view';
+
+afterEach(() => {
+  document.body.innerHTML = '';
+});
 
 describe('service customer detail', () => {
   it('keeps contact-backed service, billing, and follow-up sections', () => {
@@ -40,5 +45,37 @@ describe('member invoice presentation', () => {
         identity_snapshot_version: 1,
       }).reference
     ).toBe('INV-000042');
+  });
+});
+
+describe('member billing resolution', () => {
+  it('scrolls the existing Billing section below the sticky nav and focuses its heading', () => {
+    const scrollRoot = document.createElement('div');
+    const billingSection = document.createElement('section');
+    const billingHeading = document.createElement('div');
+    billingHeading.tabIndex = -1;
+    billingSection.appendChild(billingHeading);
+    scrollRoot.appendChild(billingSection);
+    document.body.appendChild(scrollRoot);
+
+    Object.defineProperty(scrollRoot, 'scrollTop', {
+      configurable: true,
+      value: 120,
+    });
+    scrollRoot.getBoundingClientRect = () => ({ top: 100 }) as DOMRect;
+    billingSection.getBoundingClientRect = () => ({ top: 500 }) as DOMRect;
+    const scrollTo = vi.fn();
+    scrollRoot.scrollTo = scrollTo;
+
+    revealMemberBilling({
+      scrollRoot,
+      billingSection,
+      billingHeading,
+      navHeight: 36,
+      reducedMotion: true,
+    });
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 484, behavior: 'auto' });
+    expect(document.activeElement).toBe(billingHeading);
   });
 });
