@@ -44,6 +44,7 @@ interface ResolvableActionProps {
 type TriggerProps = React.AriaAttributes & {
   disabled?: boolean;
   className?: string;
+  onClick?: React.MouseEventHandler<HTMLElement>;
 };
 
 export function ResolvableAction({
@@ -77,8 +78,12 @@ export function ResolvableAction({
     {
       disabled: trulyDisabled || undefined,
       className: blocker
-        ? cn(triggerProps.className, 'aria-disabled:opacity-60')
+        ? cn(
+            triggerProps.className,
+            'aria-disabled:opacity-60 [&:not(button)]:cursor-pointer focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+          )
         : triggerProps.className,
+      onClick: blocker && !trulyDisabled ? undefined : triggerProps.onClick,
       'aria-disabled': blocker && !trulyDisabled ? true : undefined,
       'aria-haspopup': blocker && !trulyDisabled ? 'dialog' : undefined,
       'aria-expanded': blocker && !trulyDisabled ? resolvedOpen : undefined,
@@ -117,7 +122,9 @@ export function ResolvableAction({
       <Tooltip>
         <TooltipTrigger
           disabled={resolvedOpen}
-          render={<PopoverTrigger render={resolvedTrigger} />}
+          render={
+            <PopoverTrigger nativeButton={false} render={resolvedTrigger} />
+          }
         />
         <TooltipContent>{activeBlocker.title}</TooltipContent>
       </Tooltip>

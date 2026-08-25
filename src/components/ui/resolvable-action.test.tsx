@@ -51,6 +51,59 @@ describe('ResolvableAction', () => {
     expect(screen.getByText("Invoice template isn't ready")).toBeTruthy();
   });
 
+  it('suppresses action handlers attached to a blocked supplied trigger', async () => {
+    const onAction = vi.fn();
+    const triggerAction = vi.fn();
+    render(
+      <ResolvableAction
+        trigger={
+          <Button type="button" onClick={triggerAction}>
+            Send invoice
+          </Button>
+        }
+        onAction={onAction}
+        blocker={{
+          title: "Invoice template isn't ready",
+          description: 'Approve the invoice template before sending.',
+        }}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send invoice' }));
+
+    expect(triggerAction).not.toHaveBeenCalled();
+    expect(onAction).not.toHaveBeenCalled();
+    expect(screen.getByText("Invoice template isn't ready")).toBeTruthy();
+  });
+
+  it('keeps a non-Button blocked trigger visibly interactive', async () => {
+    const onAction = vi.fn();
+    render(
+      <ResolvableAction
+        trigger={
+          <div role="button" tabIndex={0}>
+            Send invoice
+          </div>
+        }
+        onAction={onAction}
+        blocker={{
+          title: "Invoice template isn't ready",
+          description: 'Approve the invoice template before sending.',
+        }}
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Send invoice' });
+    expect(trigger.getAttribute('aria-disabled')).toBe('true');
+    expect(trigger.className).toContain('[&:not(button)]:cursor-pointer');
+    expect(trigger.className).toContain('focus-visible:ring-3');
+
+    await userEvent.click(trigger);
+
+    expect(onAction).not.toHaveBeenCalled();
+    expect(screen.getByText("Invoice template isn't ready")).toBeTruthy();
+  });
+
   it('opens from Enter and restores focus after Escape', async () => {
     const user = userEvent.setup();
     render(
