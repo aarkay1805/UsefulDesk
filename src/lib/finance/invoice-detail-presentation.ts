@@ -65,10 +65,20 @@ export interface InvoiceDocumentActionFacts {
   template_ready: boolean;
 }
 
+export type InvoiceDocumentBlockerCode =
+  | 'void'
+  | 'refund_review'
+  | 'invoice_profile'
+  | 'document_preparing'
+  | 'missing_phone'
+  | 'whatsapp_disconnected'
+  | 'template_unavailable';
+
 export interface InvoiceDocumentActionState {
   show: boolean;
   enabled: boolean;
   reason: string | null;
+  blocker: InvoiceDocumentBlockerCode | null;
 }
 
 export interface InvoiceDocumentActionPresentation {
@@ -97,7 +107,12 @@ export function invoiceDocumentActionPresentation(
   facts: InvoiceDocumentActionFacts
 ): InvoiceDocumentActionPresentation {
   if (facts.is_projected) {
-    const hidden = { show: false, enabled: false, reason: null } as const;
+    const hidden = {
+      show: false,
+      enabled: false,
+      reason: null,
+      blocker: null,
+    } as const;
     return { download: hidden, share: hidden };
   }
 
@@ -115,6 +130,16 @@ export function invoiceDocumentActionPresentation(
           : facts.document_status === 'generating'
             ? DOCUMENT_PREPARING_RECOVERY
             : null;
+  const generationBlocker: InvoiceDocumentBlockerCode | null =
+    facts.state === 'void'
+      ? 'void'
+      : facts.requires_refund_review
+        ? 'refund_review'
+        : !profileComplete
+          ? 'invoice_profile'
+          : facts.document_status === 'generating'
+            ? 'document_preparing'
+            : null;
   const shareBlock =
     facts.state === 'void'
       ? VOID_DOCUMENT_RECOVERY
@@ -131,17 +156,35 @@ export function invoiceDocumentActionPresentation(
                 : facts.document_status === 'generating'
                   ? DOCUMENT_PREPARING_RECOVERY
                   : null;
+  const shareBlocker: InvoiceDocumentBlockerCode | null =
+    facts.state === 'void'
+      ? 'void'
+      : facts.requires_refund_review
+        ? 'refund_review'
+        : !profileComplete
+          ? 'invoice_profile'
+          : !facts.has_customer_phone
+            ? 'missing_phone'
+            : !facts.whatsapp_connected
+              ? 'whatsapp_disconnected'
+              : !facts.template_ready
+                ? 'template_unavailable'
+                : facts.document_status === 'generating'
+                  ? 'document_preparing'
+                  : null;
 
   return {
     download: {
       show: true,
       enabled: ready || generationBlock === null,
       reason: ready ? null : generationBlock,
+      blocker: ready ? null : generationBlocker,
     },
     share: {
       show: true,
       enabled: shareBlock === null,
       reason: shareBlock,
+      blocker: shareBlocker,
     },
   };
 }

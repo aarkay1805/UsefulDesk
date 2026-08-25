@@ -177,6 +177,42 @@ describe('invoice document action presentation', () => {
     ).toBe('Approve and sync gym_invoice_document in en_US before sending.');
   });
 
+  it.each([
+    ['download', { state: 'void' as const }, 'void'],
+    ['download', { requires_refund_review: true }, 'refund_review'],
+    ['download', { seller_snapshot: null }, 'invoice_profile'],
+    [
+      'download',
+      { document_status: 'generating' as const },
+      'document_preparing',
+    ],
+    ['share', { state: 'void' as const }, 'void'],
+    ['share', { requires_refund_review: true }, 'refund_review'],
+    ['share', { seller_snapshot: null }, 'invoice_profile'],
+    ['share', { has_customer_phone: false }, 'missing_phone'],
+    ['share', { whatsapp_connected: false }, 'whatsapp_disconnected'],
+    ['share', { template_ready: false }, 'template_unavailable'],
+    ['share', { document_status: 'generating' as const }, 'document_preparing'],
+  ] as const)(
+    'returns a stable blocker code for the %s action',
+    (action, patch, blocker) => {
+      expect(
+        invoiceDocumentActionPresentation({ ...complete, ...patch })[action]
+          .blocker
+      ).toBe(blocker);
+    }
+  );
+
+  it('returns no blocker for ready actions', () => {
+    const presentation = invoiceDocumentActionPresentation({
+      ...complete,
+      document_status: 'ready',
+    });
+
+    expect(presentation.download.blocker).toBeNull();
+    expect(presentation.share.blocker).toBeNull();
+  });
+
   it('allows ready audit downloads without allowing void or review sharing', () => {
     for (const patch of [
       { state: 'void' as const },
@@ -191,6 +227,7 @@ describe('invoice document action presentation', () => {
         show: true,
         enabled: true,
         reason: null,
+        blocker: null,
       });
       expect(presentation.share.enabled).toBe(false);
     }
@@ -207,11 +244,13 @@ describe('invoice document action presentation', () => {
       show: true,
       enabled: true,
       reason: null,
+      blocker: null,
     });
     expect(presentation.share).toEqual({
       show: true,
       enabled: true,
       reason: null,
+      blocker: null,
     });
   });
 
@@ -223,8 +262,8 @@ describe('invoice document action presentation', () => {
         is_projected: true,
       })
     ).toEqual({
-      download: { show: false, enabled: false, reason: null },
-      share: { show: false, enabled: false, reason: null },
+      download: { show: false, enabled: false, reason: null, blocker: null },
+      share: { show: false, enabled: false, reason: null, blocker: null },
     });
   });
 });

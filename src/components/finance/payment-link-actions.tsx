@@ -1,11 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Copy, Link2, Loader2, MessageCircle } from 'lucide-react';
+import { Check, Copy, Link2, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
-import { GatedButton } from '@/components/ui/gated-button';
+import { Button } from '@/components/ui/button';
+import {
+  ResolvableAction,
+  type ActionBlocker,
+} from '@/components/ui/resolvable-action';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { canManagePaymentLinks } from '@/lib/auth/roles';
@@ -31,6 +35,78 @@ interface BrowserPaymentLink {
     | 'expired'
     | 'orphaned'
     | 'failed';
+}
+
+const PAYMENT_LINK_PERMISSION_BLOCKER: ActionBlocker = {
+  title: 'Admin access required',
+  description:
+    'Only an agent, admin, or owner can create and send payment links.',
+};
+
+const PHONE_BLOCKER: ActionBlocker = {
+  title: 'Phone number required',
+  description:
+    'Add a phone number to this member before sending a payment link on WhatsApp.',
+};
+
+function paymentProviderBlocker(reason: string | null): ActionBlocker {
+  const normalized = reason?.toLowerCase() ?? '';
+  if (
+    normalized.includes('reconnect razorpay') ||
+    normalized.includes('razorpay needs attention')
+  ) {
+    return {
+      title: 'Payment setup required',
+      description: reason ?? 'Open payment setup to restore Razorpay.',
+      resolution: {
+        label: 'Open payment setup',
+        href: '/settings?tab=payments',
+      },
+    };
+  }
+  if (
+    normalized.includes('connect razorpay') ||
+    normalized.includes("razorpay isn't connected")
+  ) {
+    return {
+      title: "Razorpay isn't connected",
+      description:
+        reason === "Razorpay isn't connected"
+          ? 'Connect Razorpay before creating a payment link.'
+          : (reason ?? 'Connect Razorpay before creating a payment link.'),
+      resolution: {
+        label: 'Connect Razorpay',
+        href: '/settings?tab=payments',
+      },
+    };
+  }
+  return {
+    title: 'Payment link unavailable',
+    description: reason ?? 'Payment Link status is unavailable.',
+  };
+}
+
+function whatsappBlocker(reason: string | null): ActionBlocker {
+  if (reason?.toLowerCase().includes('connect whatsapp')) {
+    return {
+      title: "WhatsApp isn't connected",
+      description: reason,
+      resolution: {
+        label: 'Connect WhatsApp',
+        href: '/settings?tab=whatsapp',
+      },
+    };
+  }
+  return {
+    title: "Payment link template isn't ready",
+    description:
+      reason ??
+      `Approve and sync the exact ${PAYMENT_LINK_TEMPLATE_NAME} template before sending.`,
+    resolution: {
+      label: 'Open template setup',
+      href: '/settings?tab=templates',
+    },
+  };
 }
 
 function PaymentLinkStatusBadge({
@@ -225,15 +301,24 @@ export function PaymentLinkActions({
   }
 
   const hasPhone = Boolean(member?.contact?.phone?.trim());
+  const providerBlocker = providerReady
+    ? null
+    : paymentProviderBlocker(providerReason);
   const sendReady = providerReady && templateReady && hasPhone;
-  const sendReason = !providerReady
-    ? providerReason
-    : !hasPhone
-      ? 'Add a phone number before sending on WhatsApp'
-      : !templateReady
-        ? (templateReason ??
-          `Connect WhatsApp and approve the ${PAYMENT_LINK_TEMPLATE_NAME} template`)
-        : null;
+  const copyBlocker = !canManage
+    ? PAYMENT_LINK_PERMISSION_BLOCKER
+    : providerBlocker;
+  const sendBlocker = !canManage
+    ? PAYMENT_LINK_PERMISSION_BLOCKER
+    : sendReady
+      ? null
+      : !hasPhone
+        ? PHONE_BLOCKER
+        : providerBlocker
+          ? providerBlocker
+          : !templateReady
+            ? whatsappBlocker(templateReason)
+            : null;
   const active = link?.status === 'created' && link.shortUrl;
   const showStatus =
     link && !['paid', 'cancelled', 'expired', 'failed'].includes(link.status);
@@ -250,52 +335,42 @@ export function PaymentLinkActions({
           ) : null}
         </span>
       ) : null}
-      <GatedButton
-        type="button"
-        variant="outline"
-        canAct={canManage}
-        gateReason="create payment links"
-        disabled={readinessLoading || creatingFor !== null || !providerReady}
-        aria-busy={readinessLoading || creatingFor === 'copy'}
-        title={
-          readinessLoading
-            ? 'Checking payment-link availability'
-            : (providerReason ?? undefined)
+      <ResolvableAction
+        trigger={
+          <Button
+            type="button"
+            variant="outline"
+            disabled={canManage && creatingFor !== null}
+            loading={canManage && (readinessLoading || creatingFor === 'copy')}
+          >
+            {copied ? (
+              <Check className="size-4" />
+            ) : active ? (
+              <Copy className="size-4" />
+            ) : (
+              <Link2 className="size-4" />
+            )}
+            Copy link
+          </Button>
         }
-        onClick={copyLink}
-      >
-        {readinessLoading || creatingFor === 'copy' ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : copied ? (
-          <Check className="size-4" />
-        ) : active ? (
-          <Copy className="size-4" />
-        ) : (
-          <Link2 className="size-4" />
-        )}
-        Copy link
-      </GatedButton>
-      <GatedButton
-        type="button"
-        variant="outline"
-        canAct={canManage}
-        gateReason="send payment links"
-        disabled={readinessLoading || creatingFor !== null || !sendReady}
-        aria-busy={readinessLoading || creatingFor === 'send'}
-        title={
-          readinessLoading
-            ? 'Checking payment-link availability'
-            : (sendReason ?? undefined)
+        onAction={() => void copyLink()}
+        blocker={copyBlocker}
+      />
+      <ResolvableAction
+        trigger={
+          <Button
+            type="button"
+            variant="outline"
+            disabled={canManage && creatingFor !== null}
+            loading={canManage && (readinessLoading || creatingFor === 'send')}
+          >
+            <MessageCircle className="size-4" />
+            Send payment link
+          </Button>
         }
-        onClick={sendLink}
-      >
-        {readinessLoading || creatingFor === 'send' ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <MessageCircle className="size-4" />
-        )}
-        Send payment link
-      </GatedButton>
+        onAction={() => void sendLink()}
+        blocker={sendBlocker}
+      />
     </>
   );
 }

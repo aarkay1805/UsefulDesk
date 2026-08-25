@@ -118,9 +118,13 @@ describe('Razorpay Payment Link safety contract', () => {
       /const sendReady = providerReady && templateReady && hasPhone/
     );
     expect(actions).toContain('Copy link');
-    expect(actions).toContain(
-      'disabled={readinessLoading || creatingFor !== null || !providerReady}'
+    expect(actions).toMatch(
+      /const providerBlocker = providerReady\s+\? null\s+: paymentProviderBlocker\(providerReason\)/
     );
+    expect(actions).toMatch(
+      /const copyBlocker = !canManage\s+\? PAYMENT_LINK_PERMISSION_BLOCKER\s+: providerBlocker/
+    );
+    expect(actions).toContain('blocker={copyBlocker}');
     expect(constants).toContain('TEMPLATE_CONTRACTS.payment_link.payload.name');
   });
 });

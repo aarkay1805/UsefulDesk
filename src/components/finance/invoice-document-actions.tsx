@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react';
 import { Download, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { GatedButton } from '@/components/ui/gated-button';
+import { Button } from '@/components/ui/button';
+import {
+  ResolvableAction,
+  type ActionBlocker,
+} from '@/components/ui/resolvable-action';
 import { useAuth } from '@/hooks/use-auth';
 import {
   canDownloadInvoiceDocuments,
@@ -13,6 +17,7 @@ import {
 import { getErrorMessage } from '@/lib/errors';
 import {
   invoiceDocumentActionPresentation,
+  type InvoiceDocumentBlockerCode,
   type InvoiceDocumentStatus,
 } from '@/lib/finance/invoice-detail-presentation';
 import { isProjectedInvoice } from '@/lib/memberships/periods';
@@ -63,6 +68,70 @@ export function attachmentFilename(
   if (quoted) return quoted.replace(/\\(["\\])/g, '$1');
   const unquoted = disposition.match(/filename=([^;]+)/i)?.[1]?.trim();
   return unquoted || fallback;
+}
+
+const PERMISSION_BLOCKER: ActionBlocker = {
+  title: 'Admin access required',
+  description:
+    'Only an agent, admin, or owner can send invoice documents from this account.',
+};
+
+function documentBlocker(
+  code: InvoiceDocumentBlockerCode | null,
+  description: string | null
+): ActionBlocker | null {
+  if (!code || code === 'document_preparing') return null;
+
+  switch (code) {
+    case 'void':
+      return {
+        title: 'Invoice document unavailable',
+        description: description ?? 'Voided invoices cannot be shared.',
+      };
+    case 'refund_review':
+      return {
+        title: 'Refund review required',
+        description:
+          description ??
+          'Resolve the invoice refund review before creating a document.',
+      };
+    case 'invoice_profile':
+      return {
+        title: 'Invoice setup required',
+        description:
+          description ?? 'Finish invoice setup before creating a document.',
+        resolution: {
+          label: 'Finish invoice setup',
+          href: '/settings?tab=payments',
+        },
+      };
+    case 'missing_phone':
+      return {
+        title: 'Phone number required',
+        description:
+          description ?? 'Add a phone number before sending on WhatsApp.',
+      };
+    case 'whatsapp_disconnected':
+      return {
+        title: "WhatsApp isn't connected",
+        description:
+          description ?? 'Connect WhatsApp before sending this invoice.',
+        resolution: {
+          label: 'Connect WhatsApp',
+          href: '/settings?tab=whatsapp',
+        },
+      };
+    case 'template_unavailable':
+      return {
+        title: "Invoice template isn't ready",
+        description:
+          description ?? 'Approve the invoice template before sending.',
+        resolution: {
+          label: 'Open template setup',
+          href: '/settings?tab=templates',
+        },
+      };
+  }
 }
 
 export function InvoiceDocumentActions({
@@ -147,6 +216,16 @@ export function InvoiceDocumentActions({
     ? canDownloadInvoiceDocuments(accountRole)
     : false;
   const canShare = accountRole ? canShareInvoiceDocuments(accountRole) : false;
+  const downloadBlocker = !canDownload
+    ? PERMISSION_BLOCKER
+    : documentBlocker(
+        presentation.download.blocker,
+        presentation.download.reason
+      );
+  const shareBlocker = !canShare
+    ? PERMISSION_BLOCKER
+    : documentBlocker(presentation.share.blocker, presentation.share.reason);
+  const documentPreparing = documentStatus === 'generating';
 
   if (!presentation.download.show && !presentation.share.show) return null;
 
@@ -208,32 +287,36 @@ export function InvoiceDocumentActions({
   return (
     <>
       {presentation.download.show ? (
-        <GatedButton
-          type="button"
-          variant="outline"
-          canAct={canDownload}
-          gateReason="download invoice documents"
-          disabled={!presentation.download.enabled}
-          title={presentation.download.reason ?? undefined}
-          loading={downloading}
-          onClick={downloadInvoice}
-        >
-          <Download /> Download invoice
-        </GatedButton>
+        <ResolvableAction
+          trigger={
+            <Button
+              type="button"
+              variant="outline"
+              disabled={canDownload && documentPreparing}
+              loading={downloading}
+            >
+              <Download /> Download invoice
+            </Button>
+          }
+          onAction={() => void downloadInvoice()}
+          blocker={downloadBlocker}
+        />
       ) : null}
       {presentation.share.show ? (
-        <GatedButton
-          type="button"
-          variant="outline"
-          canAct={canShare}
-          gateReason="share invoice documents"
-          disabled={!presentation.share.enabled}
-          title={presentation.share.reason ?? undefined}
-          loading={sharing}
-          onClick={shareInvoice}
-        >
-          <MessageCircle /> Send on WhatsApp
-        </GatedButton>
+        <ResolvableAction
+          trigger={
+            <Button
+              type="button"
+              variant="outline"
+              disabled={canShare && documentPreparing}
+              loading={sharing}
+            >
+              <MessageCircle /> Send on WhatsApp
+            </Button>
+          }
+          onAction={() => void shareInvoice()}
+          blocker={shareBlocker}
+        />
       ) : null}
     </>
   );

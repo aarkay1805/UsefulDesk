@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,6 +15,7 @@ import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 import type { InvoicePartySnapshot } from '@/types';
 
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
+const navigation = vi.hoisted(() => ({ pathname: '/invoices', push: vi.fn() }));
 let accountRole: 'owner' | 'admin' | 'agent' | 'viewer' = 'agent';
 let documentStatus: 'generating' | 'ready' | 'failed' | null = null;
 let whatsappConnected = true;
@@ -15,6 +23,10 @@ let templateReady = true;
 let queriedTables: string[] = [];
 
 vi.mock('sonner', () => ({ toast }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => navigation.pathname,
+  useRouter: () => ({ push: navigation.push }),
+}));
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({ accountId: 'account-id', accountRole }),
 }));
@@ -138,6 +150,7 @@ beforeEach(() => {
   queriedTables = [];
   toast.error.mockReset();
   toast.success.mockReset();
+  navigation.push.mockReset();
   vi.stubGlobal('fetch', vi.fn());
   vi.stubGlobal('URL', {
     ...URL,
@@ -164,10 +177,14 @@ describe('InvoiceDocumentActions', () => {
     const download = screen.getByRole('button', { name: 'Download invoice' });
     const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
     expect(download.hasAttribute('disabled')).toBe(false);
-    expect(share.hasAttribute('disabled')).toBe(true);
-    expect(share.closest('span')?.getAttribute('title')).toBe(
-      "Read-only — your role can't share invoice documents"
-    );
+    expect(share.getAttribute('aria-disabled')).toBe('true');
+
+    await userEvent.click(share);
+    const blocker = screen.getByRole('dialog', {
+      name: 'Admin access required',
+    });
+    expect(within(blocker).queryByRole('button')).toBeNull();
+    expect(within(blocker).queryByRole('link')).toBeNull();
 
     await userEvent.click(download);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -265,35 +282,36 @@ describe('InvoiceDocumentActions', () => {
     expect(queriedTables).toEqual([]);
   });
 
-  it.each([
-    [
-      'incomplete invoice profile',
-      { invoice: invoice({ seller_snapshot: null }) },
-      'Finish Invoice details in Settings -> Payments first.',
-    ],
-    [
-      'missing customer phone',
-      { customerPhone: null },
-      'Add a phone number before sending on WhatsApp.',
-    ],
-  ])('shows the exact recovery for %s', async (_name, patch, reason) => {
-    const props = patch as Partial<
-      Parameters<typeof InvoiceDocumentActions>[0]
-    >;
+  it('links an incomplete invoice profile to payment settings', async () => {
     render(
       <InvoiceDocumentActions
-        invoice={props.invoice ?? invoice()}
-        customerPhone={
-          'customerPhone' in props ? props.customerPhone : '+919999999999'
-        }
+        invoice={invoice({ seller_snapshot: null })}
+        customerPhone="+919999999999"
       />
     );
 
+    const download = screen.getByRole('button', { name: 'Download invoice' });
+    expect(download.getAttribute('aria-disabled')).toBe('true');
+    await userEvent.click(download);
+
+    const resolution = screen.getByRole('button', {
+      name: 'Finish invoice setup',
+    });
+    expect(resolution.tagName).toBe('A');
+    expect(resolution.getAttribute('href')).toBe('/settings?tab=payments');
+  });
+
+  it('explains a missing phone without offering a settings CTA', async () => {
+    render(<InvoiceDocumentActions invoice={invoice()} customerPhone={null} />);
+
     const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
-    await waitFor(() =>
-      expect(share.closest('span')?.getAttribute('title')).toBe(reason)
-    );
-    expect(share.hasAttribute('disabled')).toBe(true);
+    await userEvent.click(share);
+
+    const blocker = screen.getByRole('dialog', {
+      name: 'Phone number required',
+    });
+    expect(within(blocker).queryByRole('button')).toBeNull();
+    expect(within(blocker).queryByRole('link')).toBeNull();
   });
 
   it.each([
@@ -301,26 +319,96 @@ describe('InvoiceDocumentActions', () => {
       'disconnected WhatsApp',
       false,
       true,
-      'Connect WhatsApp in Settings before sending.',
+      'Connect WhatsApp',
+      '/settings?tab=whatsapp',
     ],
     [
       'unavailable template',
       true,
       false,
-      'Approve and sync gym_invoice_document in en_US before sending.',
+      'Open template setup',
+      '/settings?tab=templates',
     ],
   ])(
-    'shows the exact recovery for %s',
-    async (_name, connected, approved, reason) => {
+    'links %s to its existing settings tab',
+    async (_name, connected, approved, label, href) => {
       whatsappConnected = connected;
       templateReady = approved;
       await renderReady();
 
       const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
-      expect(share.hasAttribute('disabled')).toBe(true);
-      expect(share.closest('span')?.getAttribute('title')).toBe(reason);
+      expect(share.getAttribute('aria-disabled')).toBe('true');
+      await userEvent.click(share);
+      const resolution = screen.getByRole('button', { name: label });
+      expect(resolution.tagName).toBe('A');
+      expect(resolution.getAttribute('href')).toBe(href);
     }
   );
+
+  it('keeps document generation natively disabled without a blocker popover', async () => {
+    documentStatus = 'generating';
+    render(
+      <InvoiceDocumentActions
+        invoice={invoice()}
+        customerPhone="+919999999999"
+      />
+    );
+
+    const download = screen.getByRole('button', { name: 'Download invoice' });
+    await waitFor(() => {
+      expect(
+        screen
+          .getByRole('button', { name: 'Download invoice' })
+          .hasAttribute('disabled')
+      ).toBe(true);
+      expect(
+        screen
+          .getByRole('button', { name: 'Send on WhatsApp' })
+          .hasAttribute('disabled')
+      ).toBe(true);
+    });
+    const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
+    expect(download.getAttribute('aria-disabled')).toBeNull();
+    expect(share.getAttribute('aria-disabled')).toBeNull();
+
+    await userEvent.click(download);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('keeps permission higher priority than document generation', async () => {
+    accountRole = 'viewer';
+    documentStatus = 'generating';
+    render(
+      <InvoiceDocumentActions
+        invoice={invoice()}
+        customerPhone="+919999999999"
+      />
+    );
+
+    await waitFor(() => {
+      expect(
+        screen
+          .getByRole('button', { name: 'Download invoice' })
+          .hasAttribute('disabled')
+      ).toBe(true);
+      expect(
+        screen
+          .getByRole('button', { name: 'Send on WhatsApp' })
+          .getAttribute('aria-disabled')
+      ).toBe('true');
+      expect(
+        screen
+          .getByRole('button', { name: 'Send on WhatsApp' })
+          .hasAttribute('disabled')
+      ).toBe(false);
+    });
+    const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
+    expect(share.hasAttribute('disabled')).toBe(false);
+    await userEvent.click(share);
+    expect(
+      screen.getByRole('dialog', { name: 'Admin access required' })
+    ).toBeTruthy();
+  });
 
   it.each([
     [
@@ -344,10 +432,12 @@ describe('InvoiceDocumentActions', () => {
       name: 'Download invoice',
     });
     const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
-    await waitFor(() => expect(download.hasAttribute('disabled')).toBe(true));
-    expect(download.closest('span')?.getAttribute('title')).toBe(reason);
-    expect(share.hasAttribute('disabled')).toBe(true);
-    expect(share.closest('span')?.getAttribute('title')).toBe(reason);
+    await waitFor(() =>
+      expect(download.getAttribute('aria-disabled')).toBe('true')
+    );
+    expect(share.getAttribute('aria-disabled')).toBe('true');
+    await userEvent.click(download);
+    expect(screen.getByText(reason)).toBeTruthy();
   });
 
   it('allows audit download of an already-ready void document', async () => {
@@ -366,8 +456,8 @@ describe('InvoiceDocumentActions', () => {
     expect(
       screen
         .getByRole('button', { name: 'Send on WhatsApp' })
-        .hasAttribute('disabled')
-    ).toBe(true);
+        .getAttribute('aria-disabled')
+    ).toBe('true');
   });
 
   it('surfaces API errors through the standard toast path', async () => {
