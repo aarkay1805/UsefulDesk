@@ -78,6 +78,35 @@ const SORT_COLUMNS: {
   { key: 'reference', label: 'Invoice' },
 ];
 
+export function FinanceInvoiceListRecordAction({
+  invoice,
+  canRecord,
+  canResolveRefundReview,
+  onRecord,
+  onOpenRefundReview,
+  compact = false,
+}: {
+  invoice: FinanceInvoiceRow;
+  canRecord: boolean;
+  canResolveRefundReview: boolean;
+  onRecord: (invoice: FinanceInvoiceRow) => void;
+  onOpenRefundReview: (invoice: FinanceInvoiceRow) => void;
+  compact?: boolean;
+}) {
+  return (
+    <InvoiceRecordPaymentAction
+      invoice={invoice}
+      canRecord={canRecord}
+      canResolveRefundReview={canResolveRefundReview}
+      onRecord={() => onRecord(invoice)}
+      onResolveRefundReview={() => onOpenRefundReview(invoice)}
+      variant={compact ? 'ghost' : 'default'}
+      size="sm"
+      compact={compact}
+    />
+  );
+}
+
 export function FinanceInvoices({
   reloadKey,
   month,
@@ -116,6 +145,9 @@ export function FinanceInvoices({
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [paymentTargetId, setPaymentTargetId] = useState<string | null>(null);
   const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
+  const [refundReviewFocusInvoiceId, setRefundReviewFocusInvoiceId] = useState<
+    string | null
+  >(null);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -223,6 +255,13 @@ export function FinanceInvoices({
     filters.collectionModes.length > 0;
 
   function openInvoice(row: FinanceInvoiceRow) {
+    setRefundReviewFocusInvoiceId(null);
+    setSelectedInvoiceId(row.id);
+    setInvoiceOpen(true);
+  }
+
+  function openRefundReview(row: FinanceInvoiceRow) {
+    setRefundReviewFocusInvoiceId(row.id);
     setSelectedInvoiceId(row.id);
     setInvoiceOpen(true);
   }
@@ -461,13 +500,12 @@ export function FinanceInvoices({
                           >
                             View details
                           </Button>
-                          <InvoiceRecordPaymentAction
+                          <FinanceInvoiceListRecordAction
                             invoice={row}
                             canRecord={mayRecordPayments}
                             canResolveRefundReview={mayCorrectPayments}
-                            onRecord={() => recordInvoice(row)}
-                            onResolveRefundReview={() => openInvoice(row)}
-                            size="sm"
+                            onRecord={recordInvoice}
+                            onOpenRefundReview={openRefundReview}
                           />
                         </CardFooter>
                       </Card>
@@ -631,14 +669,12 @@ export function FinanceInvoices({
                                 >
                                   View
                                 </Button>
-                                <InvoiceRecordPaymentAction
+                                <FinanceInvoiceListRecordAction
                                   invoice={row}
                                   canRecord={mayRecordPayments}
                                   canResolveRefundReview={mayCorrectPayments}
-                                  onRecord={() => recordInvoice(row)}
-                                  onResolveRefundReview={() => openInvoice(row)}
-                                  variant="ghost"
-                                  size="sm"
+                                  onRecord={recordInvoice}
+                                  onOpenRefundReview={openRefundReview}
                                   compact
                                 />
                               </div>
@@ -690,11 +726,20 @@ export function FinanceInvoices({
 
       <InvoiceDetailDialog
         open={invoiceOpen}
-        onOpenChange={setInvoiceOpen}
+        onOpenChange={(nextOpen) => {
+          setInvoiceOpen(nextOpen);
+          if (!nextOpen) setRefundReviewFocusInvoiceId(null);
+        }}
         invoice={selectedInvoice}
         canRecord={mayRecordPayments}
         canVoid={mayCorrectPayments}
         onVoidPayment={setPaymentToVoid}
+        focusRefundReview={selectedInvoice?.id === refundReviewFocusInvoiceId}
+        onRefundReviewFocusConsumed={() =>
+          setRefundReviewFocusInvoiceId((current) =>
+            current === selectedInvoice?.id ? null : current
+          )
+        }
         onRecord={() => {
           if (selectedInvoice) recordInvoice(selectedInvoice);
         }}

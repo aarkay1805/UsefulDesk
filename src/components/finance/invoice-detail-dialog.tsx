@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Link2,
   Loader2,
@@ -265,18 +265,60 @@ export function InvoicePaymentActions({
   );
 }
 
+export function InvoiceRefundReviewFocusIntent({
+  invoiceId,
+  active,
+  ready,
+  onConsumed,
+}: {
+  invoiceId: string;
+  active: boolean;
+  ready: boolean;
+  onConsumed?: () => void;
+}) {
+  const consumedInvoiceId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!active) {
+      consumedInvoiceId.current = null;
+      return;
+    }
+    if (consumedInvoiceId.current === invoiceId) return;
+    if (!ready) {
+      consumedInvoiceId.current = invoiceId;
+      onConsumed?.();
+      return;
+    }
+    const target = document.getElementById(
+      `invoice-refund-review-${invoiceId}`
+    );
+    if (!target) return;
+
+    consumedInvoiceId.current = invoiceId;
+    target.scrollIntoView({ block: 'center' });
+    target.focus();
+    onConsumed?.();
+  }, [active, invoiceId, onConsumed, ready]);
+
+  return null;
+}
+
 function InvoiceDetailBody({
   invoice,
   member,
   onFinancialChange,
   canVoid,
   onVoidPayment,
+  focusRefundReview,
+  onRefundReviewFocusConsumed,
 }: {
   invoice: InvoiceDetail;
   member?: Membership | null;
   onFinancialChange: (patch: Partial<InvoiceDetail>) => void;
   canVoid: boolean;
   onVoidPayment?: (payment: Payment) => void;
+  focusRefundReview: boolean;
+  onRefundReviewFocusConsumed?: () => void;
 }) {
   const { fmt } = useLocale();
   const { accountRole } = useAuth();
@@ -483,6 +525,12 @@ function InvoiceDetailBody({
 
   return (
     <div className="min-w-0 space-y-5">
+      <InvoiceRefundReviewFocusIntent
+        invoiceId={currentInvoice.id}
+        active={focusRefundReview}
+        ready={Boolean(currentInvoice.requires_refund_review)}
+        onConsumed={onRefundReviewFocusConsumed}
+      />
       {currentInvoice.requires_refund_review ? (
         <Alert id={`invoice-refund-review-${currentInvoice.id}`} tabIndex={-1}>
           <ShieldAlert />
@@ -959,6 +1007,8 @@ export function InvoiceDetailDialog({
   member,
   onRecord,
   onVoidPayment,
+  focusRefundReview = false,
+  onRefundReviewFocusConsumed,
 }: {
   invoice: InvoiceDetail | null;
   open: boolean;
@@ -968,6 +1018,8 @@ export function InvoiceDetailDialog({
   member?: Membership | null;
   onRecord: () => void;
   onVoidPayment?: (payment: Payment) => void;
+  focusRefundReview?: boolean;
+  onRefundReviewFocusConsumed?: () => void;
 }) {
   const { fmt } = useLocale();
   const upi = useUpiConfig();
@@ -989,7 +1041,7 @@ export function InvoiceDetailDialog({
   const collectionState = activeInvoice
     ? invoiceCollectionActionState(activeInvoice, canRecord)
     : null;
-  const focusRefundReview = useCallback(() => {
+  const focusCurrentRefundReview = useCallback(() => {
     if (!activeInvoice) return;
     const target = document.getElementById(
       `invoice-refund-review-${activeInvoice.id}`
@@ -998,7 +1050,11 @@ export function InvoiceDetailDialog({
     target?.focus();
   }, [activeInvoice]);
   const collectionBlocker = collectionState
-    ? invoiceActionBlocker(collectionState.blocker, canVoid, focusRefundReview)
+    ? invoiceActionBlocker(
+        collectionState.blocker,
+        canVoid,
+        focusCurrentRefundReview
+      )
     : null;
 
   return (
@@ -1032,6 +1088,8 @@ export function InvoiceDetailDialog({
               onFinancialChange={handleFinancialChange}
               canVoid={canVoid}
               onVoidPayment={onVoidPayment}
+              focusRefundReview={focusRefundReview}
+              onRefundReviewFocusConsumed={onRefundReviewFocusConsumed}
             />
           ) : null}
         </div>
@@ -1070,7 +1128,7 @@ export function InvoiceDetailDialog({
                 canRecord={canRecord}
                 canResolveRefundReview={canVoid}
                 onRecord={onRecord}
-                onResolveRefundReview={focusRefundReview}
+                onResolveRefundReview={focusCurrentRefundReview}
               />
             </>
           ) : null}

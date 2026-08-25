@@ -1,14 +1,17 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Payment, PaymentRefund } from '@/types';
+import type { FinanceInvoiceRow } from '@/lib/finance/invoices';
 import {
   InvoicePaymentActions,
   InvoiceRecordPaymentAction,
+  InvoiceRefundReviewFocusIntent,
 } from './invoice-detail-dialog';
+import { FinanceInvoiceListRecordAction } from './finance-invoices';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/finance',
@@ -137,6 +140,108 @@ describe('InvoiceRecordPaymentAction', () => {
       />
     );
     expect(screen.queryByRole('button', { name: 'Record payment' })).toBeNull();
+  });
+});
+
+describe('invoice-list refund-review resolution', () => {
+  const row = {
+    id: 'invoice-1',
+    state: 'open',
+    fee_amount: 100,
+    amount_paid: 0,
+    balance: 0,
+    accounting_balance: 35,
+    requires_refund_review: true,
+  } as FinanceInvoiceRow;
+
+  it.each([
+    ['mobile', false, 'Record payment'],
+    ['desktop', true, 'Record'],
+  ] as const)(
+    'carries a one-shot focus intent from the %s action',
+    async (_surface, compact, actionName) => {
+      const onOpenRefundReview = vi.fn();
+      render(
+        <FinanceInvoiceListRecordAction
+          invoice={row}
+          canRecord
+          canResolveRefundReview
+          onRecord={vi.fn()}
+          onOpenRefundReview={onOpenRefundReview}
+          compact={compact}
+        />
+      );
+
+      await userEvent.click(screen.getByRole('button', { name: actionName }));
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Resolve refund review' })
+      );
+      expect(onOpenRefundReview).toHaveBeenCalledWith(row);
+    }
+  );
+
+  it('focuses and scrolls the existing alert only after the intent is ready', async () => {
+    const onConsumed = vi.fn();
+    const scrollIntoView = vi.fn();
+    const { rerender } = render(<></>);
+    const target = document.createElement('div');
+    target.id = 'invoice-refund-review-invoice-1';
+    target.tabIndex = -1;
+    target.scrollIntoView = scrollIntoView;
+    document.body.appendChild(target);
+
+    rerender(
+      <InvoiceRefundReviewFocusIntent
+        invoiceId="invoice-1"
+        active
+        ready
+        onConsumed={onConsumed}
+      />
+    );
+
+    await waitFor(() => expect(document.activeElement).toBe(target));
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' });
+    expect(onConsumed).toHaveBeenCalledOnce();
+
+    target.blur();
+    rerender(
+      <InvoiceRefundReviewFocusIntent
+        invoiceId="invoice-1"
+        active
+        ready
+        onConsumed={onConsumed}
+      />
+    );
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(target);
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+    expect(onConsumed).toHaveBeenCalledOnce();
+    target.remove();
+  });
+
+  it('does not focus the refund-review target during a normal detail open', async () => {
+    const onConsumed = vi.fn();
+    const scrollIntoView = vi.fn();
+    const target = document.createElement('div');
+    target.id = 'invoice-refund-review-invoice-1';
+    target.tabIndex = -1;
+    target.scrollIntoView = scrollIntoView;
+    document.body.appendChild(target);
+
+    render(
+      <InvoiceRefundReviewFocusIntent
+        invoiceId="invoice-1"
+        active={false}
+        ready
+        onConsumed={onConsumed}
+      />
+    );
+    await Promise.resolve();
+
+    expect(document.activeElement).not.toBe(target);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(onConsumed).not.toHaveBeenCalled();
+    target.remove();
   });
 });
 
