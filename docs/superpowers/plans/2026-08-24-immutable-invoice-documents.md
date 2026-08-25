@@ -77,11 +77,13 @@
 ### Task 1: Database-owned invoice identity and profile
 
 **Files:**
+
 - Create: `supabase/migrations/20260824235500_immutable_invoice_identity.sql`
 - Create: `src/lib/finance/invoice-identity-schema-contract.test.ts`
 - Modify: `src/types/index.ts`
 
 **Interfaces:**
+
 - Consumes: existing `accounts`, `profiles`, `contacts`, `members`, `memberships`, `invoices`, `invoice_lines`, `legal_entities`, `is_account_member(account_id, min_role)`, and `update_updated_at_column()`.
 - Produces: `invoice_profiles`; private `account_invoice_number_counters`; invoice columns `invoice_sequence`, `invoice_number`, `seller_snapshot`, `customer_snapshot`, `identity_snapshot_version`; RPC `save_invoice_profile(...)`; helper functions `build_invoice_seller_snapshot(account_id)` and `build_invoice_customer_snapshot(invoice)`; refreshed `invoice_balances` view carrying all identity columns.
 
@@ -91,7 +93,9 @@ Create a Vitest test which reads the migration as text and asserts all irreversi
 
 ```ts
 expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.invoice_profiles');
-expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.account_invoice_number_counters');
+expect(sql).toContain(
+  'CREATE TABLE IF NOT EXISTS public.account_invoice_number_counters'
+);
 expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS invoice_sequence BIGINT/i);
 expect(sql).toMatch(/UNIQUE \(account_id, invoice_sequence\)/i);
 expect(sql).toMatch(/UNIQUE \(account_id, invoice_number\)/i);
@@ -99,7 +103,7 @@ expect(sql).toContain("'INV-' || LPAD");
 expect(sql).toContain('ORDER BY issued_at, created_at, id');
 expect(sql).toContain('FOR UPDATE');
 expect(sql).toContain('save_invoice_profile');
-expect(sql).toContain("seller_snapshot IS NULL");
+expect(sql).toContain('seller_snapshot IS NULL');
 expect(sql).toContain('prevent_invoice_identity_mutation');
 expect(sql).toContain("is_account_member(account_id, 'admin')");
 ```
@@ -173,10 +177,12 @@ git commit -m "feat: add immutable invoice identity"
 ### Task 2: Document lease, metadata, and private Storage boundary
 
 **Files:**
+
 - Create: `supabase/migrations/20260824235600_immutable_invoice_documents.sql`
 - Create: `src/lib/finance/invoice-document-schema-contract.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 invoice identity/profile schema, existing invoice lifecycle/refund-review facts, `is_account_member`.
 - Produces: enum `invoice_document_status`; table `invoice_documents`; private bucket `invoice-documents`; RPCs `reserve_invoice_document(p_invoice_id UUID)`, `finalize_invoice_document(p_invoice_id UUID, p_generation_token UUID, p_sha256 TEXT, p_byte_count BIGINT)`, and `fail_invoice_document(p_invoice_id UUID, p_generation_token UUID, p_error TEXT)`.
 
@@ -191,10 +197,12 @@ expect(sql).toContain("'ready'");
 expect(sql).toContain("'failed'");
 expect(sql).toContain('reserve_invoice_document');
 expect(sql).toContain('generation_token = p_generation_token');
-expect(sql).toContain("account-" );
-expect(sql).toContain("invoice-documents");
-expect(sql).toContain("application/pdf");
-expect(sql).toContain('REVOKE ALL ON public.invoice_documents FROM authenticated');
+expect(sql).toContain('account-');
+expect(sql).toContain('invoice-documents');
+expect(sql).toContain('application/pdf');
+expect(sql).toContain(
+  'REVOKE ALL ON public.invoice_documents FROM authenticated'
+);
 ```
 
 - [ ] **Step 2: Run the test and confirm it fails**
@@ -217,7 +225,15 @@ Construct the JSON payload in SQL with integer minor units:
   "currency": "INR",
   "seller": {},
   "customer": {},
-  "lines": [{"description":"Monthly membership","period":null,"quantity":1,"unit_amount_minor":250000,"amount_minor":250000}],
+  "lines": [
+    {
+      "description": "Monthly membership",
+      "period": null,
+      "quantity": 1,
+      "unit_amount_minor": 250000,
+      "amount_minor": 250000
+    }
+  ],
   "subtotal_minor": 250000,
   "adjustments_minor": 0,
   "total_minor": 250000
@@ -246,6 +262,7 @@ git commit -m "feat: add invoice document state machine"
 ### Task 3: Shared authorization, profile validation, exact money, and human references
 
 **Files:**
+
 - Create: `src/lib/finance/invoice-profile.ts`
 - Create: `src/lib/finance/invoice-profile.test.ts`
 - Modify: `src/lib/auth/roles.ts`
@@ -258,6 +275,7 @@ git commit -m "feat: add invoice document state machine"
 - Modify: `src/lib/finance/invoices.test.ts`
 
 **Interfaces:**
+
 - Produces: `canManageInvoiceProfile(role)`, `canDownloadInvoiceDocuments(role)`, `canShareInvoiceDocuments(role)`; `InvoiceProfileInput`; `normalizeInvoiceProfile(input)`; `validateInvoiceProfile(input): Record<string,string>`; `formatCurrencyExact(value,currency,locale?)`; `LocaleFormatters.moneyExact`; `financeInvoiceReference(invoice: Pick<MembershipPeriodInvoice,'id'|'invoice_number'>)`.
 
 - [ ] **Step 1: Add failing predicate and validation tests**
@@ -270,7 +288,9 @@ expect(canManageInvoiceProfile('agent')).toBe(false);
 expect(canDownloadInvoiceDocuments('viewer')).toBe(true);
 expect(canShareInvoiceDocuments('viewer')).toBe(false);
 expect(validateInvoiceProfile(validProfile)).toEqual({});
-expect(validateInvoiceProfile({ ...validProfile, email: 'bad@' })).toEqual({ email: 'Enter a valid email address.' });
+expect(validateInvoiceProfile({ ...validProfile, email: 'bad@' })).toEqual({
+  email: 'Enter a valid email address.',
+});
 ```
 
 - [ ] **Step 2: Add failing exact-money and reference tests**
@@ -313,11 +333,13 @@ git commit -m "feat: expose invoice identity capabilities"
 ### Task 4: Invoice details Settings card
 
 **Files:**
+
 - Create: `src/components/settings/invoice-details-card.tsx`
 - Create: `src/components/settings/invoice-details-card.test.tsx`
 - Modify: `src/components/settings/deals-settings.tsx`
 
 **Interfaces:**
+
 - Consumes: `InvoiceProfileInput`, `normalizeInvoiceProfile`, `validateInvoiceProfile`, `canManageInvoiceProfile`, `useAuth()`, account locale/country context, Supabase RLS select, and RPC `save_invoice_profile`.
 - Produces: `<InvoiceDetailsCard />` mounted after existing Payments configuration cards.
 
@@ -362,6 +384,7 @@ git commit -m "feat: add invoice details settings"
 ### Task 5: Renderer-independent document contract and PDF renderer
 
 **Files:**
+
 - Create: `src/lib/finance/invoice-documents.ts`
 - Create: `src/lib/finance/invoice-documents.test.ts`
 - Create: `src/lib/finance/invoice-pdf.tsx`
@@ -371,6 +394,7 @@ git commit -m "feat: add invoice details settings"
 - Modify: `next.config.ts`
 
 **Interfaces:**
+
 - Produces: `InvoiceDocumentPayloadV1`, `InvoiceDocumentReservation`, `invoiceDocumentFilename(number)`, `invoiceDocumentRoute(id)`, `assertInvoiceDocumentPayload(value)`, `renderInvoicePdf(payload): Promise<Buffer>`.
 
 - [ ] **Step 1: Read the required local Next.js 16 documentation**
@@ -393,9 +417,13 @@ Use a frozen V1 fixture and assert filename sanitization, stable route, strict i
 
 ```ts
 expect(invoiceDocumentFilename('INV-000042')).toBe('invoice-INV-000042.pdf');
-expect(invoiceDocumentRoute(invoiceId)).toBe(`/api/invoices/${invoiceId}/document`);
+expect(invoiceDocumentRoute(invoiceId)).toBe(
+  `/api/invoices/${invoiceId}/document`
+);
 expect(() => assertInvoiceDocumentPayload(validPayload)).not.toThrow();
-expect(() => assertInvoiceDocumentPayload({ ...validPayload, balance_minor: 0 })).toThrow();
+expect(() =>
+  assertInvoiceDocumentPayload({ ...validPayload, balance_minor: 0 })
+).toThrow();
 ```
 
 - [ ] **Step 4: Write a failing renderer test**
@@ -432,12 +460,14 @@ git commit -m "feat: render immutable invoice PDFs"
 ### Task 6: Document generation service and authenticated download route
 
 **Files:**
+
 - Create: `src/lib/finance/invoice-document-service.ts`
 - Create: `src/lib/finance/invoice-document-service.test.ts`
 - Create: `src/app/api/invoices/[invoiceId]/document/route.ts`
 - Create: `src/app/api/invoices/[invoiceId]/document/route.test.ts`
 
 **Interfaces:**
+
 - Consumes: `renderInvoicePdf`, `assertInvoiceDocumentPayload`, Task 2 RPC fixed result shape, private Storage bucket, `getCurrentAccount`, `canDownloadInvoiceDocuments`.
 - Produces: `ensureInvoiceDocument({ accountId, invoiceId, userId }): Promise<ReadyInvoiceDocument>` and a Node.js GET route streaming the stable artifact.
 
@@ -492,6 +522,7 @@ git commit -m "feat: generate and download invoice documents"
 ### Task 7: Exact WhatsApp contract and stable media persistence
 
 **Files:**
+
 - Modify: `src/lib/whatsapp/template-contracts.ts`
 - Modify: `src/lib/whatsapp/template-contracts.test.ts`
 - Modify: `src/lib/whatsapp/template-presets.test.ts`
@@ -503,6 +534,7 @@ git commit -m "feat: generate and download invoice documents"
 - Modify: `src/lib/whatsapp/send-message.test.ts`
 
 **Interfaces:**
+
 - Produces: contract ID `invoice_document`; presentation builder returning document header plus exactly four body values; optional `persistedMediaUrl?: string` on the internal send request, permitted only with an actual provider `headerMediaUrl`.
 
 - [ ] **Step 1: Add failing tenth-contract tests**
@@ -522,7 +554,12 @@ expect(contract).toMatchObject({
     header_type: 'document',
   },
 });
-expect(contract.parameterLabels).toEqual(['Customer name', 'Invoice number', 'Invoice total', 'Business name']);
+expect(contract.parameterLabels).toEqual([
+  'Customer name',
+  'Invoice number',
+  'Invoice total',
+  'Business name',
+]);
 ```
 
 Snapshot the exact proposed body from the spec and update gallery/documentation expectations from nine to ten without loosening the other nine contracts. The managed preset leaves the creation-time document sample URL/handle empty so Settings requires the operator to upload a harmless sample document before an authorized Meta submission; the runtime invoice route supplies the real signed document URL only at send time.
@@ -563,6 +600,7 @@ git commit -m "feat: define invoice document WhatsApp contract"
 ### Task 8: Share route with readiness and signed provider URL
 
 **Files:**
+
 - Create: `src/lib/whatsapp/resolve-contact-conversation.ts`
 - Create: `src/lib/whatsapp/resolve-contact-conversation.test.ts`
 - Modify: `src/app/api/whatsapp/send/route.ts`
@@ -570,6 +608,7 @@ git commit -m "feat: define invoice document WhatsApp contract"
 - Create: `src/app/api/invoices/[invoiceId]/share/route.test.ts`
 
 **Interfaces:**
+
 - Consumes: `requireOperationalAccess`/account auth, `canShareInvoiceDocuments`, `ensureInvoiceDocument`, `evaluateTemplateReadiness('invoice_document', ...)`, Storage `createSignedUrl`, invoice presentation builder, `sendMessageToConversation(db, accountId, params)` with stable `persistedMediaUrl`.
 - Produces: `resolveContactConversation(db, accountId, userId, contactId): Promise<string>` shared by the generic send and invoice-share routes; POST route returning the existing send-success shape or `{ error }`.
 
@@ -641,6 +680,7 @@ git commit -m "feat: share invoice documents on WhatsApp"
 ### Task 9: Human invoice number and document actions in the UI
 
 **Files:**
+
 - Create: `src/components/finance/invoice-document-actions.tsx`
 - Create: `src/components/finance/invoice-document-actions.test.tsx`
 - Modify: `src/components/finance/invoice-detail-dialog.tsx`
@@ -651,6 +691,7 @@ git commit -m "feat: share invoice documents on WhatsApp"
 - Modify: `src/components/members/member-detail-view.test.tsx`
 
 **Interfaces:**
+
 - Consumes: human `reference`, invoice status/refund-review/customer phone, role capabilities, authenticated GET and POST routes, `getErrorMessage`.
 - Produces: shared `<InvoiceDocumentActions invoice={...} />` inside persisted invoice detail only.
 
@@ -692,9 +733,11 @@ git commit -m "feat: expose invoice documents in billing UI"
 ### Task 10: Full local verification and live migration verification
 
 **Files:**
+
 - Modify only files required by failures attributable to this feature.
 
 **Interfaces:**
+
 - Consumes: all prior task outputs.
 - Produces: repeatable local and connected-database evidence; no provider template submission and no customer send.
 
@@ -787,6 +830,7 @@ Skip this commit when no files changed.
 ### Task 11: Product documentation and final evidence
 
 **Files:**
+
 - Modify: `docs/changelog.md`
 - Modify: `PRDs/roadmap.md`
 - Modify: `PRDs/finance_master_section.md`
@@ -796,6 +840,7 @@ Skip this commit when no files changed.
 - Modify: `docs/superpowers/specs/2026-08-24-immutable-invoice-documents-design.md`
 
 **Interfaces:**
+
 - Consumes: verified shipped behavior and live/provider readiness state.
 - Produces: honest Built/Pending status and future-agent operational guidance.
 
