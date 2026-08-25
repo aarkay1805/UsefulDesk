@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from '@testing-library/react';
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -237,14 +243,13 @@ describe('MembershipActionsMenu', () => {
   );
 
   it.each(ACTION_CASES)(
-    'keeps $item selectable with no resolution when permission blocks it',
+    'keeps $item selectable with no resolution when permission alone blocks it',
     async ({ item, status, isTrial }) => {
       const actions = renderMenu({
         status,
         isTrial,
         canManage: false,
-        lifecycleBlockReason:
-          "Resolve this member's AutoPay mandate before changing this membership.",
+        lifecycleBlockReason: null,
       });
 
       await openMenu();
@@ -261,6 +266,43 @@ describe('MembershipActionsMenu', () => {
       expect(screen.queryByRole('button', { name: 'Open billing' })).toBeNull();
     }
   );
+
+  it('prioritizes permission over an overlapping AutoPay blocker without exposing a resolution', async () => {
+    const actions = renderMenu({
+      canManage: false,
+      lifecycleBlockReason:
+        "Resolve this member's AutoPay mandate before changing this membership.",
+    });
+
+    await openMenu();
+    const cancel = screen.getByRole('menuitem', {
+      name: 'Cancel membership',
+    });
+    expect(cancel.getAttribute('aria-disabled')).toBeNull();
+    await userEvent.click(cancel);
+
+    expectNoBusinessCallbacks(actions);
+    expect(actions.onOpenBilling).not.toHaveBeenCalled();
+    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(
+      within(screen.getByRole('dialog')).queryAllByRole('button')
+    ).toHaveLength(0);
+  });
+
+  it('closes the menu after an allowed business callback', async () => {
+    const actions = renderMenu();
+
+    await openMenu();
+    const activeMenu = screen.getByRole('menu');
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: 'Freeze membership' })
+    );
+
+    expect(actions.onFreeze).toHaveBeenCalledOnce();
+    await waitFor(() =>
+      expect(document.getElementById(activeMenu.id)).toBeNull()
+    );
+  });
 
   it('keeps busy lifecycle items genuinely disabled without disabling unrelated menu actions', async () => {
     const actions = renderMenu({ busy: true });
