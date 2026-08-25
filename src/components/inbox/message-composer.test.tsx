@@ -8,7 +8,7 @@ import {
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MessageComposer } from './message-composer';
 
@@ -40,12 +40,15 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-afterEach(() => {
-  cleanup();
+beforeEach(() => {
   permissions.canSendMessages = true;
   mediaStorage.uploadAccountMedia.mockReset();
   mediaStorage.deleteAccountMedia.mockReset();
   mediaStorage.deleteAccountMedia.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  cleanup();
 });
 
 describe('MessageComposer pending feedback', () => {
@@ -395,6 +398,155 @@ describe('MessageComposer blocked actions', () => {
     });
     expect(onSendMedia).not.toHaveBeenCalled();
     expect(within(blocker).queryAllByRole('button')).toHaveLength(1);
+    await user.click(
+      within(blocker).getByRole('button', { name: 'Send template' })
+    );
+    expect(onOpenTemplates).toHaveBeenCalledOnce();
+  });
+
+  it('does not reopen a returning staged-media blocker without a new activation', async () => {
+    mediaStorage.uploadAccountMedia.mockResolvedValue({
+      publicUrl: 'https://example.test/member.jpg',
+      path: 'account-1/member.jpg',
+    });
+    const onSendMedia = vi.fn();
+    const user = userEvent.setup();
+    const view = render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={vi.fn()}
+      />
+    );
+    const fileInput = view.container.querySelector<HTMLInputElement>(
+      'input[type="file"][accept^="image/"]'
+    );
+    if (!fileInput) throw new Error('Missing image input');
+    await user.upload(
+      fileInput,
+      new File(['image'], 'member.jpg', { type: 'image/jpeg' })
+    );
+    await screen.findByRole('img', { name: 'member.jpg' });
+    const caption = screen.getByPlaceholderText('Add a caption');
+    await user.type(caption, 'Keep this caption');
+
+    permissions.canSendMessages = false;
+    view.rerender(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={vi.fn()}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Send attachment' }));
+    expect(
+      screen.getByRole('dialog', { name: 'Admin access required' })
+    ).toBeTruthy();
+
+    permissions.canSendMessages = true;
+    view.rerender(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={vi.fn()}
+      />
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('img', { name: 'member.jpg' })).toBeTruthy();
+    expect((caption as HTMLInputElement).value).toBe('Keep this caption');
+
+    caption.focus();
+    permissions.canSendMessages = false;
+    view.rerender(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={vi.fn()}
+      />
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(caption);
+    expect(onSendMedia).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Send attachment' }));
+    expect(
+      screen.getByRole('dialog', { name: 'Admin access required' })
+    ).toBeTruthy();
+  });
+
+  it('resets an open permission explanation when the staged-media blocker changes to session', async () => {
+    mediaStorage.uploadAccountMedia.mockResolvedValue({
+      publicUrl: 'https://example.test/member.jpg',
+      path: 'account-1/member.jpg',
+    });
+    const onSendMedia = vi.fn();
+    const onOpenTemplates = vi.fn();
+    const user = userEvent.setup();
+    const view = render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={onOpenTemplates}
+      />
+    );
+    const fileInput = view.container.querySelector<HTMLInputElement>(
+      'input[type="file"][accept^="image/"]'
+    );
+    if (!fileInput) throw new Error('Missing image input');
+    await user.upload(
+      fileInput,
+      new File(['image'], 'member.jpg', { type: 'image/jpeg' })
+    );
+    await screen.findByRole('img', { name: 'member.jpg' });
+
+    permissions.canSendMessages = false;
+    view.rerender(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={onOpenTemplates}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Send attachment' }));
+    expect(
+      screen.getByRole('dialog', { name: 'Admin access required' })
+    ).toBeTruthy();
+
+    permissions.canSendMessages = true;
+    view.rerender(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={onOpenTemplates}
+      />
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('img', { name: 'member.jpg' })).toBeTruthy();
+
+    const caption = screen.getByPlaceholderText('Add a caption');
+    caption.focus();
+    expect(document.activeElement).toBe(caption);
+    await user.keyboard('{Enter}');
+
+    const blocker = screen.getByRole('dialog', {
+      name: 'WhatsApp session has closed',
+    });
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(onSendMedia).not.toHaveBeenCalled();
     await user.click(
       within(blocker).getByRole('button', { name: 'Send template' })
     );

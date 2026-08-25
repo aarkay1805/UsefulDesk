@@ -176,6 +176,11 @@ export function MessageComposer({
       }
     : null;
   const sendBlocker = permissionBlocker ?? closedSessionBlocker;
+  const sendBlockerIdentity = permissionBlocker
+    ? 'permission'
+    : closedSessionBlocker
+      ? 'session'
+      : 'allowed';
   const sendDisabled = sending || (!sendBlocker && !text.trim());
 
   const clearTimer = useCallback(() => {
@@ -569,6 +574,7 @@ export function MessageComposer({
           draft={draft}
           busy={busy}
           blocker={sendBlocker}
+          blockerIdentity={sendBlockerIdentity}
           shellClasses={shellClasses}
           onCaptionChange={setCaption}
           onDiscard={discardDraft}
@@ -776,6 +782,7 @@ function MediaDraftPreview({
   draft,
   busy,
   blocker,
+  blockerIdentity,
   shellClasses,
   onCaptionChange,
   onDiscard,
@@ -784,6 +791,7 @@ function MediaDraftPreview({
   draft: MediaDraft;
   busy: boolean;
   blocker: ActionBlocker | null;
+  blockerIdentity: 'allowed' | 'permission' | 'session';
   /** The composer shell recipe, so a staged attachment sits in exactly the
    *  same floating card the message field does. */
   shellClasses: string;
@@ -791,15 +799,10 @@ function MediaDraftPreview({
   onDiscard: () => void;
   onSend: () => void | Promise<void>;
 }) {
-  const [blockerOpen, setBlockerOpen] = useState(false);
+  const sendTriggerRef = useRef<HTMLButtonElement>(null);
 
   function attemptSend() {
-    if (busy) return;
-    if (blocker) {
-      setBlockerOpen(true);
-      return;
-    }
-    setBlockerOpen(false);
+    if (busy || blocker) return;
     void onSend();
   }
 
@@ -852,7 +855,7 @@ function MediaDraftPreview({
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                attemptSend();
+                sendTriggerRef.current?.click();
               }
             }}
             placeholder="Add a caption"
@@ -860,8 +863,13 @@ function MediaDraftPreview({
           />
         )}
         <ResolvableAction
+          // Popover intent belongs to one blocker identity. Remount only this
+          // action when readiness changes; the staged draft and caption input
+          // stay mounted while stale overlay state is discarded.
+          key={blockerIdentity}
           trigger={
             <Button
+              ref={sendTriggerRef}
               size="icon-lg"
               disabled={busy}
               loading={busy}
@@ -876,8 +884,6 @@ function MediaDraftPreview({
           }
           onAction={attemptSend}
           blocker={blocker}
-          open={Boolean(blocker) && blockerOpen}
-          onOpenChange={setBlockerOpen}
         />
       </div>
     </div>
