@@ -60,7 +60,7 @@ describe('SendReminderButton blockers', () => {
       <SendReminderButton
         membership={{
           ...membership,
-          contact: { ...membership.contact!, phone: '' },
+          contact: undefined,
         }}
         readiness={readiness()}
       />
