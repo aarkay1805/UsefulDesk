@@ -25,14 +25,17 @@ import {
   canManageMandates,
   canManagePaymentLinks,
   canConfigurePaymentGateway,
+  canDownloadInvoiceDocuments,
   canEditSettings,
   canEditAuthoredContent,
   canCompleteBranchSetup,
   canManageMembers,
+  canManageInvoiceProfile,
   canReassignLeadsDirectly,
   canRequestLeadTransfer,
   canResolveAnyLeadTransfer,
   canSendMessages,
+  canShareInvoiceDocuments,
   canTransferOwnership,
   canDeleteOrganization,
   canManageBranchLifecycle,
@@ -129,6 +132,24 @@ describe('capability predicates', () => {
     expect(canEditSettings('admin')).toBe(true);
     expect(canEditSettings('agent')).toBe(false);
     expect(canEditSettings('viewer')).toBe(false);
+  });
+
+  it('invoice document capabilities mirror their access tiers', () => {
+    for (const role of ['owner', 'admin'] as const) {
+      expect(canManageInvoiceProfile(role)).toBe(true);
+    }
+    for (const role of ['agent', 'viewer'] as const) {
+      expect(canManageInvoiceProfile(role)).toBe(false);
+    }
+
+    for (const role of ACCOUNT_ROLES) {
+      expect(canDownloadInvoiceDocuments(role)).toBe(true);
+    }
+
+    for (const role of ['owner', 'admin', 'agent'] as const) {
+      expect(canShareInvoiceDocuments(role)).toBe(true);
+    }
+    expect(canShareInvoiceDocuments('viewer')).toBe(false);
   });
 
   it('canSendMessages: agent+ only', () => {

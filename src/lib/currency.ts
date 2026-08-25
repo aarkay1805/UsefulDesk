@@ -113,6 +113,34 @@ export function formatCurrency(
 }
 
 /**
+ * Format an immutable monetary amount using the currency's native minor-unit
+ * precision. Unlike `formatCurrency`, this preserves paise/cents and uses
+ * zero decimals for currencies such as JPY.
+ */
+export function formatCurrencyExact(
+  value: number,
+  currency: string = DEFAULT_CURRENCY,
+  locale?: string
+): string {
+  const code = (currency || DEFAULT_CURRENCY).trim();
+  const amount = Number(value) || 0;
+  const opts: Intl.NumberFormatOptions = {
+    style: 'currency',
+    currency: code,
+  };
+  try {
+    try {
+      return new Intl.NumberFormat(locale, opts).format(amount);
+    } catch (err) {
+      if (locale === undefined) throw err;
+      return new Intl.NumberFormat(undefined, opts).format(amount);
+    }
+  } catch {
+    return `${code} ${new Intl.NumberFormat(undefined).format(amount)}`;
+  }
+}
+
+/**
  * Compact currency for tight spaces (donut center, legend rows):
  * "$1.2M" / "€34.5k" / "₹900". Uses the currency's symbol from
  * CURRENCIES, falling back to the code when we don't carry a symbol.

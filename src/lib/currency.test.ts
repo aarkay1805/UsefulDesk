@@ -4,6 +4,7 @@ import {
   currencySymbol,
   DEFAULT_CURRENCY,
   formatCurrency,
+  formatCurrencyExact,
   formatCurrencyShort,
 } from './currency';
 
@@ -62,6 +63,19 @@ describe('formatCurrency', () => {
     for (const c of CURRENCIES) {
       expect(() => formatCurrency(1000, c.code)).not.toThrow();
     }
+  });
+});
+
+describe('formatCurrencyExact', () => {
+  it('uses the currency native minor units', () => {
+    expect(formatCurrencyExact(1234.5, 'INR', 'en-IN')).toContain('1,234.50');
+    expect(formatCurrencyExact(1234.5, 'JPY', 'en-US')).toContain('1,235');
+    expect(formatCurrencyExact(1234.5, 'JPY', 'en-US')).not.toContain('.');
+  });
+
+  it('falls back safely for invalid currencies', () => {
+    expect(() => formatCurrencyExact(1234.5, 'bad currency')).not.toThrow();
+    expect(formatCurrencyExact(1234.5, 'bad currency')).toContain('1,234.5');
   });
 });
 

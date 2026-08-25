@@ -146,6 +146,12 @@ describe('number / money', () => {
     expect(IN.money(500, 'USD')).toContain('$');
   });
 
+  it('moneyExact retains the currency native minor units', () => {
+    expect(IN.moneyExact(1234.5).replace(/\u00a0/g, '')).toBe('₹1,234.50');
+    expect(US.moneyExact(1234.5, 'JPY')).toContain('1,235');
+    expect(US.moneyExact(1234.5, 'JPY')).not.toContain('.');
+  });
+
   it('DEFAULT_FORMATTERS is India-shaped', () => {
     expect(DEFAULT_FORMATTERS.config.currency).toBe('INR');
     expect(DEFAULT_FORMATTERS.today()).toMatch(/^\d{4}-\d{2}-\d{2}$/);

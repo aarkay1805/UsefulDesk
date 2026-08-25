@@ -84,6 +84,21 @@ export function canEditSettings(role: AccountRole): boolean {
   return hasMinRole(role, 'admin');
 }
 
+/** Owner / admin: save the account's immutable invoice identity profile. */
+export function canManageInvoiceProfile(role: AccountRole): boolean {
+  return hasMinRole(role, 'admin');
+}
+
+/** Every account member may retrieve an already-generated invoice document. */
+export function canDownloadInvoiceDocuments(role: AccountRole): boolean {
+  return hasMinRole(role, 'viewer');
+}
+
+/** Owner / admin / agent: share an invoice document with a customer. */
+export function canShareInvoiceDocuments(role: AccountRole): boolean {
+  return hasMinRole(role, 'agent');
+}
+
 /**
  * Owner / admin / agent: write operational data — send messages,
  * create contacts, move deals, run broadcasts, edit automations.

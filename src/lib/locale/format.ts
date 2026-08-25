@@ -17,7 +17,11 @@
 
 import type { AccountLocale } from './config';
 import { DEFAULT_ACCOUNT_LOCALE } from './config';
-import { formatCurrency, formatCurrencyShort } from '@/lib/currency';
+import {
+  formatCurrency,
+  formatCurrencyExact,
+  formatCurrencyShort,
+} from '@/lib/currency';
 
 const PLAIN_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -233,6 +237,8 @@ export interface LocaleFormatters {
   number(value: number): string;
   /** Currency in the account's locale grouping; defaults to its currency. */
   money(value: number, currency?: string): string;
+  /** Currency retaining its native minor units; intended for immutable amounts. */
+  moneyExact(value: number, currency?: string): string;
   /** Compact currency — "₹2.5M" — for tiles/legends. */
   moneyShort(value: number, currency?: string): string;
 }
@@ -343,6 +349,10 @@ export function buildFormatters(
 
     money(value, currency = cfg.currency) {
       return formatCurrency(value, currency, cfg.locale);
+    },
+
+    moneyExact(value, currency = cfg.currency) {
+      return formatCurrencyExact(value, currency, cfg.locale);
     },
 
     moneyShort(value, currency = cfg.currency) {

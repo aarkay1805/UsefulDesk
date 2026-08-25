@@ -433,7 +433,10 @@ function MembershipDetailView({
           (genericBillingResult.data?.invoices as MemberInvoiceBalance[]) ?? []
         ).map((invoice) => ({
           id: invoice.id,
-          reference: financeInvoiceReference(invoice.id),
+          reference: financeInvoiceReference({
+            id: invoice.id,
+            invoice_number: null,
+          }),
           source: invoice.source,
           created_at: invoice.issued_at,
           fee_amount: Number(invoice.total),

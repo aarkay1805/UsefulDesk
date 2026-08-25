@@ -83,8 +83,11 @@ function membership(overrides: Partial<Membership> = {}): Membership {
 }
 
 describe('finance invoice identity and lifecycle', () => {
-  it('uses a stable internal reference without claiming a document number', () => {
-    expect(financeInvoiceReference(invoice().id)).toBe('#12345678');
+  it('prefers the human invoice number, retaining a UUID fallback for legacy rows', () => {
+    expect(
+      financeInvoiceReference(invoice({ invoice_number: 'INV-000123' }))
+    ).toBe('INV-000123');
+    expect(financeInvoiceReference(invoice())).toBe('#12345678');
   });
 
   it('derives void, upcoming, current, and past from persisted facts', () => {
@@ -186,7 +189,21 @@ describe('finance invoice filtering and totals', () => {
     TODAY
   );
 
-  it('searches reference, member identity, phone, and Member ID', () => {
+  it('searches the human invoice number, member identity, phone, and Member ID', () => {
+    const numberedRows = normalizeFinanceInvoiceRows(
+      [invoice({ invoice_number: 'INV-000123' })],
+      [membership()],
+      TODAY
+    );
+    expect(
+      filterFinanceInvoices(numberedRows, {
+        search: 'inv-000123',
+        lifecycle: 'all',
+        filters: EMPTY_FINANCE_INVOICE_FILTERS,
+        sort: { key: 'issued_on', dir: 'desc' },
+      })
+    ).toHaveLength(1);
+
     for (const [search, expected] of [
       ['#1234', 1],
       ['aarav', 2],
@@ -216,6 +233,36 @@ describe('finance invoice filtering and totals', () => {
       sort: { key: 'total', dir: 'desc' },
     });
     expect(result.map((row) => row.reference)).toEqual(['#AAAAAAAA']);
+  });
+
+  it('sorts invoice references by their human invoice number', () => {
+    const result = filterFinanceInvoices(
+      normalizeFinanceInvoiceRows(
+        [
+          invoice({
+            id: 'aaaaaaaa-1234-1234-1234-123456789abc',
+            invoice_number: 'INV-000010',
+          }),
+          invoice({
+            id: 'bbbbbbbb-1234-1234-1234-123456789abc',
+            invoice_number: 'INV-000002',
+          }),
+        ],
+        [membership()],
+        TODAY
+      ),
+      {
+        search: '',
+        lifecycle: 'all',
+        filters: EMPTY_FINANCE_INVOICE_FILTERS,
+        sort: { key: 'reference', dir: 'asc' },
+      }
+    );
+
+    expect(result.map((row) => row.reference)).toEqual([
+      'INV-000002',
+      'INV-000010',
+    ]);
   });
 
   it('groups invoices into action-first queues without hiding review cases', () => {
@@ -316,18 +363,20 @@ describe('finance invoice filtering and totals', () => {
     expect(financeInvoiceSummary([row]).overdue).toBe(1);
   });
 
-  it('exports the internal record reference and reconciled values', () => {
+  it('exports the human invoice number and reconciled values', () => {
     const csv = financeInvoicesCsv([
       {
         ...rows[0],
         source: 'sale',
+        invoice_number: 'INV-000123',
+        reference: 'INV-000123',
         lineKinds: ['service', 'merchandise'],
         credit_applied: 250,
       },
       ...rows.slice(1),
     ]);
-    expect(csv).toContain('Invoice record,Member ID,Name');
-    expect(csv).toContain('#12345678,1001,Aarav Shah');
+    expect(csv).toContain('Invoice number,Member ID,Name');
+    expect(csv).toContain('INV-000123,1001,Aarav Shah');
     expect(csv).toContain('Invoice source,Revenue categories');
     expect(csv).toContain('sale,service + merchandise');
     expect(csv).toContain(
@@ -336,7 +385,6 @@ describe('finance invoice filtering and totals', () => {
     expect(csv).toContain(
       'Gateway payment IDs,Gateway refund IDs,Refund dispositions'
     );
-    expect(csv).not.toContain('Invoice number');
   });
 
   it('exports paise-exact net totals after a partial refund adjustment', () => {

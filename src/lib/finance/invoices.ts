@@ -140,8 +140,10 @@ async function fetchAll<T>(
   }
 }
 
-export function financeInvoiceReference(id: string): string {
-  return `#${id.replaceAll('-', '').slice(0, 8).toUpperCase()}`;
+export function financeInvoiceReference(
+  invoice: Pick<MembershipPeriodInvoice, 'id' | 'invoice_number'>
+): string {
+  return invoice.invoice_number ?? `#${invoice.id.slice(0, 8).toUpperCase()}`;
 }
 
 const INVOICE_SOURCE_LABEL: Record<Invoice['source'], string> = {
@@ -225,7 +227,7 @@ export function normalizeFinanceInvoiceRows(
         invoice.state === 'open' &&
         paymentState === 'due' &&
         invoice.period_end < today,
-      reference: financeInvoiceReference(invoice.id),
+      reference: financeInvoiceReference(invoice),
     };
   });
 }
@@ -630,7 +632,7 @@ function csvCell(value: string | number): string {
 export function financeInvoicesCsv(rows: FinanceInvoiceRow[]): string {
   const lines: Array<Array<string | number>> = [
     [
-      'Invoice record',
+      'Invoice number',
       'Member ID',
       'Name',
       'Phone',

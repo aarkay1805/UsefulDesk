@@ -222,7 +222,10 @@ export function ServiceCustomerDetailView({
                           {invoices.map((invoice) => (
                             <TableRow key={invoice.id}>
                               <TableCell className="font-medium">
-                                {financeInvoiceReference(invoice.id)}
+                                {financeInvoiceReference({
+                                  id: invoice.id,
+                                  invoice_number: null,
+                                })}
                               </TableCell>
                               <TableCell className="text-muted-foreground">
                                 {fmt.date(invoice.issued_at.slice(0, 10))}
