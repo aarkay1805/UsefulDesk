@@ -45,6 +45,7 @@ import {
   resolveTemplateSendPolicy,
   TemplateSendPolicyError,
 } from '@/lib/whatsapp/template-send-policy';
+import { getTemplateContract } from '@/lib/whatsapp/template-contracts';
 
 export const MEDIA_KINDS = ['image', 'video', 'document', 'audio'] as const;
 export const VALID_MESSAGE_TYPES = [
@@ -397,6 +398,26 @@ export async function sendMessageToConversation(
     messageType === 'template'
       ? resolveTemplateHeaderMedia(templateRow, templateParamSource)
       : null;
+
+  if (persistedMediaUrl) {
+    const contract = templateName ? getTemplateContract(templateName) : null;
+    const providerHeaderMediaUrl = (
+      templateMessageParams as { headerMediaUrl: string }
+    ).headerMediaUrl.trim();
+    if (
+      contract?.id !== 'invoice_document' ||
+      contract.payload.header_type !== 'document' ||
+      templateRow?.header_type !== 'document' ||
+      headerMedia?.kind !== 'document' ||
+      headerMedia.url !== providerHeaderMediaUrl
+    ) {
+      throw new SendMessageError(
+        'bad_request',
+        'persistedMediaUrl is only available for the exact invoice document contract with resolved provider media',
+        400
+      );
+    }
+  }
 
   const attempt = async (phone: string): Promise<string> => {
     if (messageType === 'template') {

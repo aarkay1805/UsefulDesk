@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MessageTemplate } from '@/types';
 
@@ -184,7 +184,10 @@ const invoiceTemplate: MessageTemplate = {
   created_at: '2026-08-24T00:00:00.000Z',
 };
 
-function invoiceSendDb(captured: { inserted: Record<string, unknown> | null }) {
+function invoiceSendDb(
+  captured: { inserted: Record<string, unknown> | null },
+  template: MessageTemplate = invoiceTemplate
+) {
   return {
     from(table: string) {
       switch (table) {
@@ -231,7 +234,7 @@ function invoiceSendDb(captured: { inserted: Record<string, unknown> | null }) {
                 eq: () => ({
                   eq: () => ({
                     maybeSingle: () =>
-                      Promise.resolve({ data: invoiceTemplate, error: null }),
+                      Promise.resolve({ data: template, error: null }),
                   }),
                 }),
               }),
@@ -260,6 +263,88 @@ function invoiceSendDb(captured: { inserted: Record<string, unknown> | null }) {
 }
 
 describe('sendMessageToConversation — stable invoice history media', () => {
+  beforeEach(() => {
+    h.sendTemplateMessage.mockReset();
+  });
+
+  it('rejects a stable invoice route for a non-document custom template even when raw params claim provider media', async () => {
+    const captured: { inserted: Record<string, unknown> | null } = {
+      inserted: null,
+    };
+    const customTextTemplate: MessageTemplate = {
+      ...invoiceTemplate,
+      id: 'template-text',
+      name: 'custom_account_notice',
+      header_type: 'text',
+      header_content: 'Account notice',
+      body_text: 'Hi {{1}}, your account has been updated.',
+    };
+    h.sendTemplateMessage.mockResolvedValueOnce({ messageId: 'wamid.fake' });
+
+    await expect(
+      sendMessageToConversation(
+        invoiceSendDb(captured, customTextTemplate),
+        'account-1',
+        {
+          conversationId: 'conversation-1',
+          messageType: 'template',
+          templateName: 'custom_account_notice',
+          templateLanguage: 'en_US',
+          templateMessageParams: {
+            headerMediaUrl: 'https://storage.example/fake.pdf?token=short',
+            body: ['Asha'],
+          },
+          persistedMediaUrl:
+            '/api/invoices/11111111-1111-4111-8111-111111111111/document',
+        }
+      )
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringMatching(/exact invoice document contract/i),
+    });
+
+    expect(h.sendTemplateMessage).not.toHaveBeenCalled();
+    expect(captured.inserted).toBeNull();
+  });
+
+  it('rejects a stable invoice route for a custom document template even when provider media resolves', async () => {
+    const captured: { inserted: Record<string, unknown> | null } = {
+      inserted: null,
+    };
+    const customDocumentTemplate: MessageTemplate = {
+      ...invoiceTemplate,
+      id: 'template-custom-document',
+      name: 'custom_account_document',
+      body_text: 'Hi {{1}}, here is your account document.',
+    };
+    h.sendTemplateMessage.mockResolvedValueOnce({ messageId: 'wamid.fake' });
+
+    await expect(
+      sendMessageToConversation(
+        invoiceSendDb(captured, customDocumentTemplate),
+        'account-1',
+        {
+          conversationId: 'conversation-1',
+          messageType: 'template',
+          templateName: 'custom_account_document',
+          templateLanguage: 'en_US',
+          templateMessageParams: {
+            headerMediaUrl: 'https://storage.example/custom.pdf?token=short',
+            body: ['Asha'],
+          },
+          persistedMediaUrl:
+            '/api/invoices/11111111-1111-4111-8111-111111111111/document',
+        }
+      )
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringMatching(/exact invoice document contract/i),
+    });
+
+    expect(h.sendTemplateMessage).not.toHaveBeenCalled();
+    expect(captured.inserted).toBeNull();
+  });
+
   it('sends the signed provider URL while persisting the stable authenticated route', async () => {
     h.sendTemplateMessage.mockResolvedValueOnce({ messageId: 'wamid.1' });
     const captured: { inserted: Record<string, unknown> | null } = {
