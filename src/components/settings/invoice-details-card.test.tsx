@@ -26,8 +26,25 @@ const database = vi.hoisted(() => ({
     legal_name: string | null;
   } | null,
   profileError: null as Error | null,
+  profileRequest: null as Promise<{
+    data: Record<string, string> | null;
+    error: Error | null;
+  }> | null,
   legalEntityError: null as Error | null,
+  prefill: [
+    {
+      business_name: 'Iron Fitness Andheri',
+      legal_name: 'Iron Fitness Private Limited',
+      country_code: 'IN',
+    },
+  ] as Array<{
+    business_name: string;
+    legal_name: string | null;
+    country_code: string | null;
+  }> | null,
+  prefillError: null as Error | null,
   rpcData: { account_id: 'account-id' } as Record<string, string> | null,
+  from: vi.fn(),
   rpc: vi.fn(),
 }));
 
@@ -45,18 +62,7 @@ vi.mock('@/hooks/use-locale', () => ({
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
-    from: (table: string) => {
-      const result =
-        table === 'invoice_profiles'
-          ? { data: database.profile, error: database.profileError }
-          : { data: database.legalEntity, error: database.legalEntityError };
-      const builder = {
-        select: () => builder,
-        eq: () => builder,
-        maybeSingle: () => Promise.resolve(result),
-      };
-      return builder;
-    },
+    from: database.from,
     rpc: database.rpc,
   }),
 }));
@@ -78,6 +84,14 @@ function validProfile() {
   setField('Country', 'India');
 }
 
+function deferred<T>() {
+  let resolve: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve: resolve! };
+}
+
 beforeEach(() => {
   auth.accountRole = 'owner';
   auth.profileLoading = false;
@@ -87,12 +101,45 @@ beforeEach(() => {
     legal_entity_id: 'entity-id',
   };
   database.profile = null;
+  database.profileRequest = null;
   database.legalEntity = { legal_name: 'Iron Fitness Private Limited' };
   database.profileError = null;
   database.legalEntityError = null;
+  database.prefill = [
+    {
+      business_name: 'Iron Fitness Andheri',
+      legal_name: 'Iron Fitness Private Limited',
+      country_code: 'IN',
+    },
+  ];
+  database.prefillError = null;
   database.rpcData = { account_id: 'account-id' };
+  database.from.mockReset();
+  database.from.mockImplementation((table: string) => {
+    if (table === 'legal_entities') {
+      throw new Error('legal_entities is owner-only');
+    }
+    const result = {
+      data: database.profile,
+      error: database.profileError,
+    };
+    const builder = {
+      select: () => builder,
+      eq: () => builder,
+      maybeSingle: () => database.profileRequest ?? Promise.resolve(result),
+    };
+    return builder;
+  });
   database.rpc.mockReset();
-  database.rpc.mockResolvedValue({ data: database.rpcData, error: null });
+  database.rpc.mockImplementation((name) => {
+    if (name === 'get_invoice_profile_prefill') {
+      return Promise.resolve({
+        data: database.prefill,
+        error: database.prefillError,
+      });
+    }
+    return Promise.resolve({ data: database.rpcData, error: null });
+  });
   toast.error.mockReset();
   toast.success.mockReset();
 });
@@ -100,6 +147,20 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('InvoiceDetailsCard', () => {
+  it('uses the member-readable prefill RPC instead of directly reading legal entities', async () => {
+    renderCard();
+
+    expect(
+      await screen.findByDisplayValue('Iron Fitness Private Limited')
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(database.rpc).toHaveBeenCalledWith('get_invoice_profile_prefill', {
+        p_account_id: 'account-id',
+      });
+    });
+    expect(database.from).not.toHaveBeenCalledWith('legal_entities');
+  });
+
   it('prefills a missing profile from the selected branch, legal entity, and country preset', async () => {
     renderCard();
 
@@ -170,7 +231,10 @@ describe('InvoiceDetailsCard', () => {
     expect(screen.getByText('Address line 1 is required.')).toBeTruthy();
     expect(screen.getByText('City is required.')).toBeTruthy();
     expect(screen.getByText('Enter a valid email address.')).toBeTruthy();
-    expect(database.rpc).not.toHaveBeenCalled();
+    expect(database.rpc).not.toHaveBeenCalledWith(
+      'save_invoice_profile',
+      expect.anything()
+    );
   });
 
   it.each(['owner', 'admin'] as const)(
@@ -205,9 +269,14 @@ describe('InvoiceDetailsCard', () => {
   );
 
   it('keeps entered values and offers retry when a save fails', async () => {
-    database.rpc.mockResolvedValue({
-      data: null,
-      error: new Error('Profile save failed'),
+    database.rpc.mockImplementation((name) => {
+      if (name === 'save_invoice_profile') {
+        return Promise.resolve({
+          data: null,
+          error: new Error('Profile save failed'),
+        });
+      }
+      return Promise.resolve({ data: database.prefill, error: null });
     });
     renderCard();
     await screen.findByDisplayValue('Iron Fitness Andheri');
@@ -224,7 +293,12 @@ describe('InvoiceDetailsCard', () => {
   });
 
   it('treats an RPC save without a returned row as a failure', async () => {
-    database.rpc.mockResolvedValue({ data: null, error: null });
+    database.rpc.mockImplementation((name) =>
+      Promise.resolve({
+        data: name === 'save_invoice_profile' ? [] : database.prefill,
+        error: null,
+      })
+    );
     renderCard();
     await screen.findByDisplayValue('Iron Fitness Andheri');
     validProfile();
@@ -254,5 +328,102 @@ describe('InvoiceDetailsCard', () => {
     expect(
       await screen.findByDisplayValue('Iron Fitness Andheri')
     ).toBeTruthy();
+  });
+
+  it('shows a prefill RPC error through the standard recovery path', async () => {
+    database.prefillError = new Error('Prefill unavailable');
+    renderCard();
+
+    expect(await screen.findByText('Prefill unavailable')).toBeTruthy();
+    expect(
+      screen.getByText('Finish Invoice details in Settings -> Payments first.')
+    ).toBeTruthy();
+  });
+
+  it('keeps a deferred prior-account load hidden after account resolution changes', async () => {
+    const oldLoad = deferred<{
+      data: Record<string, string> | null;
+      error: Error | null;
+    }>();
+    database.profileRequest = oldLoad.promise;
+    const view = renderCard();
+    expect(await screen.findByText('Loading invoice details…')).toBeTruthy();
+
+    auth.accountId = 'account-b';
+    auth.account = {
+      id: 'account-b',
+      name: 'Iron Fitness Bandra',
+      legal_entity_id: 'entity-b',
+    };
+    auth.profileLoading = true;
+    view.rerender(<InvoiceDetailsCard />);
+    oldLoad.resolve({
+      data: {
+        business_name: 'Old branch',
+        legal_name: 'Old entity',
+        address_line1: 'Old road',
+        address_line2: '',
+        city: 'Mumbai',
+        state: '',
+        postal_code: '',
+        country: 'India',
+        phone: '',
+        email: '',
+      },
+      error: null,
+    });
+
+    await Promise.resolve();
+    expect(screen.getByText('Loading invoice details…')).toBeTruthy();
+    expect(screen.queryByDisplayValue('Old branch')).toBeNull();
+  });
+
+  it('hides a loaded branch profile while the next account is resolving', async () => {
+    const view = renderCard();
+    await screen.findByDisplayValue('Iron Fitness Andheri');
+
+    auth.accountId = 'account-b';
+    auth.account = {
+      id: 'account-b',
+      name: 'Iron Fitness Bandra',
+      legal_entity_id: 'entity-b',
+    };
+    auth.profileLoading = true;
+    view.rerender(<InvoiceDetailsCard />);
+
+    expect(screen.getByText('Loading invoice details…')).toBeTruthy();
+    expect(screen.queryByDisplayValue('Iron Fitness Andheri')).toBeNull();
+  });
+
+  it('ignores a previous account save that settles after an account transition', async () => {
+    const save = deferred<{
+      data: Array<{ account_id: string }>;
+      error: null;
+    }>();
+    database.rpc.mockImplementation((name) => {
+      if (name === 'save_invoice_profile') return save.promise;
+      return Promise.resolve({ data: database.prefill, error: null });
+    });
+    const view = renderCard();
+    await screen.findByDisplayValue('Iron Fitness Andheri');
+    validProfile();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save invoice details' })
+    );
+
+    auth.accountId = 'account-b';
+    auth.account = {
+      id: 'account-b',
+      name: 'Iron Fitness Bandra',
+      legal_entity_id: 'entity-b',
+    };
+    auth.profileLoading = true;
+    view.rerender(<InvoiceDetailsCard />);
+    save.resolve({ data: [{ account_id: 'account-id' }], error: null });
+
+    expect(await screen.findByText('Loading invoice details…')).toBeTruthy();
+    await Promise.resolve();
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

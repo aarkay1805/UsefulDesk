@@ -84,6 +84,34 @@ REVOKE ALL ON public.invoice_profiles FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.invoice_profiles TO authenticated;
 GRANT ALL ON public.invoice_profiles TO service_role;
 
+CREATE OR REPLACE FUNCTION public.get_invoice_profile_prefill(
+  p_account_id UUID
+)
+RETURNS TABLE (
+  business_name TEXT,
+  legal_name TEXT,
+  country_code TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF NOT public.is_account_member(p_account_id, 'viewer') THEN
+    RAISE EXCEPTION 'You do not have access to this account';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    a.name,
+    COALESCE(le.legal_name, le.name),
+    a.country_code
+  FROM public.accounts a
+  JOIN public.legal_entities le ON le.id = a.legal_entity_id
+  WHERE a.id = p_account_id;
+END;
+$$;
+
 REVOKE ALL ON public.account_invoice_number_counters FROM PUBLIC, anon, authenticated;
 GRANT ALL ON public.account_invoice_number_counters TO service_role;
 
@@ -550,6 +578,10 @@ GRANT EXECUTE ON FUNCTION public.build_invoice_seller_snapshot(UUID),
 REVOKE ALL ON FUNCTION public.save_invoice_profile(
   UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
 ) FROM PUBLIC, anon, service_role;
+REVOKE ALL ON FUNCTION public.get_invoice_profile_prefill(UUID)
+  FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.save_invoice_profile(
   UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
 ) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_invoice_profile_prefill(UUID)
+  TO authenticated;

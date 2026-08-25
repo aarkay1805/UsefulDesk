@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -16,7 +16,6 @@ import { GatedButton } from '@/components/ui/gated-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/use-auth';
-import { useLocale } from '@/hooks/use-locale';
 import { canManageInvoiceProfile } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
 import {
@@ -57,6 +56,12 @@ const PROFILE_FIELDS = [
 
 type InvoiceProfileRow = Partial<InvoiceProfileInput> | null;
 
+interface InvoiceProfilePrefill {
+  business_name: string;
+  legal_name: string | null;
+  country_code: string | null;
+}
+
 function asInput(profile: InvoiceProfileRow): InvoiceProfileInput {
   return {
     business_name: profile?.business_name ?? '',
@@ -78,11 +83,70 @@ function hasReturnedRow(data: unknown): boolean {
     : data !== null && data !== undefined;
 }
 
+function asPrefill(data: unknown): InvoiceProfilePrefill | null {
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== 'object') return null;
+  const prefill = row as Partial<InvoiceProfilePrefill>;
+  if (typeof prefill.business_name !== 'string') return null;
+  return {
+    business_name: prefill.business_name,
+    legal_name:
+      typeof prefill.legal_name === 'string' ? prefill.legal_name : null,
+    country_code:
+      typeof prefill.country_code === 'string' ? prefill.country_code : null,
+  };
+}
+
 export function InvoiceDetailsCard() {
+  const { accountId, accountRole, profileLoading } = useAuth();
+
+  if (profileLoading || !accountId) {
+    return <InvoiceDetailsCardLoading />;
+  }
+
+  return (
+    <InvoiceDetailsCardForAccount
+      key={accountId}
+      accountId={accountId}
+      accountRole={accountRole}
+    />
+  );
+}
+
+function InvoiceDetailsCardLoading() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Invoice details</CardTitle>
+        <CardDescription>
+          These details appear on new invoices. Existing invoice documents keep
+          the details they were issued with.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div
+          className="text-muted-foreground flex items-center gap-2 py-4 text-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          Loading invoice details…
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InvoiceDetailsCardForAccount({
+  accountId,
+  accountRole,
+}: {
+  accountId: string;
+  accountRole: ReturnType<typeof useAuth>['accountRole'];
+}) {
   const supabase = useMemo(() => createClient(), []);
-  const { accountId, accountRole, account, profileLoading } = useAuth();
-  const { locale } = useLocale();
   const mayManage = accountRole ? canManageInvoiceProfile(accountRole) : false;
+  const requestToken = useRef(0);
 
   const [profile, setProfile] = useState<InvoiceProfileInput>(EMPTY_PROFILE);
   const [loaded, setLoaded] = useState<InvoiceProfileInput | null>(null);
@@ -94,8 +158,8 @@ export function InvoiceDetailsCard() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (profileLoading) return;
     let cancelled = false;
+    const token = ++requestToken.current;
 
     void (async () => {
       await Promise.resolve();
@@ -112,34 +176,34 @@ export function InvoiceDetailsCard() {
           )
           .eq('account_id', accountId)
           .maybeSingle();
-        const legalEntityQuery = account?.legal_entity_id
-          ? supabase
-              .from('legal_entities')
-              .select('legal_name')
-              .eq('id', account.legal_entity_id)
-              .maybeSingle()
-          : Promise.resolve({ data: null, error: null });
-        const [profileResult, legalEntityResult] = await Promise.all([
+        const prefillQuery = supabase.rpc('get_invoice_profile_prefill', {
+          p_account_id: accountId,
+        });
+        const [profileResult, prefillResult] = await Promise.all([
           profileQuery,
-          legalEntityQuery,
+          prefillQuery,
         ]);
         if (profileResult.error) throw profileResult.error;
-        if (cancelled) return;
+        if (prefillResult.error) throw prefillResult.error;
+        const prefill = asPrefill(prefillResult.data);
+        if (!prefill) {
+          throw new Error('Invoice details are unavailable for this account.');
+        }
+        if (cancelled || requestToken.current !== token) return;
 
         const saved = normalizeInvoiceProfile(
           asInput(profileResult.data as InvoiceProfileRow)
         );
         const country =
-          COUNTRY_PRESETS[locale.countryCode]?.label ?? locale.countryCode;
+          COUNTRY_PRESETS[prefill.country_code ?? '']?.label ??
+          prefill.country_code ??
+          '';
         const initial = profileResult.data
           ? saved
           : {
               ...saved,
-              business_name: account?.name ?? '',
-              legal_name:
-                legalEntityResult.error === null
-                  ? (legalEntityResult.data?.legal_name ?? '')
-                  : '',
+              business_name: prefill.business_name,
+              legal_name: prefill.legal_name ?? '',
               country,
             };
         const normalizedInitial = normalizeInvoiceProfile(initial);
@@ -148,28 +212,21 @@ export function InvoiceDetailsCard() {
         setErrors({});
         setSaveError(null);
       } catch (error) {
-        if (!cancelled) {
+        if (!cancelled && requestToken.current === token) {
           setLoadError(
             getErrorMessage(error, "Invoice details couldn't load. Try again.")
           );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && requestToken.current === token) setLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
+      requestToken.current += 1;
     };
-  }, [
-    account?.legal_entity_id,
-    account?.name,
-    accountId,
-    locale.countryCode,
-    profileLoading,
-    reloadNonce,
-    supabase,
-  ]);
+  }, [accountId, reloadNonce, supabase]);
 
   const normalized = normalizeInvoiceProfile(profile);
   const dirty = loaded
@@ -186,6 +243,8 @@ export function InvoiceDetailsCard() {
 
   async function saveProfile() {
     if (!accountId || !mayManage || saving) return;
+    const token = ++requestToken.current;
+    const saveAccountId = accountId;
     const next = normalizeInvoiceProfile(profile);
     const nextErrors = validateInvoiceProfile(next);
     setErrors(nextErrors);
@@ -211,11 +270,17 @@ export function InvoiceDetailsCard() {
       if (!hasReturnedRow(data)) {
         throw new Error('Invoice details were not saved.');
       }
+      if (requestToken.current !== token || accountId !== saveAccountId) {
+        return;
+      }
       setProfile(next);
       setLoaded(next);
       setErrors({});
       toast.success('Invoice details updated');
     } catch (error) {
+      if (requestToken.current !== token || accountId !== saveAccountId) {
+        return;
+      }
       const message = getErrorMessage(
         error,
         "Invoice details couldn't be saved. Try again."
@@ -223,7 +288,9 @@ export function InvoiceDetailsCard() {
       setSaveError(message);
       toast.error(message);
     } finally {
-      setSaving(false);
+      if (requestToken.current === token && accountId === saveAccountId) {
+        setSaving(false);
+      }
     }
   }
 

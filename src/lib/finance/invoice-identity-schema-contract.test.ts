@@ -26,6 +26,29 @@ describe('immutable invoice identity migration contract', () => {
     );
   });
 
+  it('exposes only invoice-profile prefill values through a viewer-gated definer RPC', () => {
+    const prefill = sql.match(
+      /CREATE OR REPLACE FUNCTION public\.get_invoice_profile_prefill\([\s\S]*?\n\$\$;/i
+    )?.[0];
+
+    expect(prefill).toBeDefined();
+    expect(prefill).toContain('SECURITY DEFINER');
+    expect(prefill).toContain("SET search_path = ''");
+    expect(prefill).toContain(
+      "public.is_account_member(p_account_id, 'viewer')"
+    );
+    expect(prefill).toContain('public.accounts');
+    expect(prefill).toContain('public.legal_entities');
+    expect(prefill).toContain('COALESCE(le.legal_name, le.name)');
+    expect(prefill).toContain('a.country_code');
+    expect(sql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.get_invoice_profile_prefill\(UUID\)\s+FROM PUBLIC, anon, service_role;/i
+    );
+    expect(sql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.get_invoice_profile_prefill\(UUID\)\s+TO authenticated;/i
+    );
+  });
+
   it('allocates deterministic immutable invoice identities', () => {
     expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS invoice_sequence BIGINT/i);
     expect(sql).toMatch(/UNIQUE \(account_id, invoice_sequence\)/i);
