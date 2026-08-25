@@ -89,7 +89,7 @@ export function MembershipActionsMenu({
       onOpenChange={(nextOpen, eventDetails) => {
         if (!nextOpen) {
           setMenuOpen(false);
-        } else if (eventDetails.event.type === 'keydown') {
+        } else if (!blocker && eventDetails.event.type === 'keydown') {
           setMenuOpen(true);
         }
       }}

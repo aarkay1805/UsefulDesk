@@ -210,6 +210,37 @@ describe('MembershipActionsMenu', () => {
     expect(actions.onOpenBilling).toHaveBeenCalledOnce();
   });
 
+  it('keeps the blocker dialog as the sole overlay when Arrow Down is pressed on its trigger', async () => {
+    const user = userEvent.setup();
+    const actions = renderMenu({
+      lifecycleBlockReason:
+        "Resolve this member's AutoPay mandate before changing this membership.",
+    });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Membership actions' })
+    );
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Renew membership' })
+    );
+
+    const trigger = screen.getByRole('button', {
+      name: 'Membership actions',
+    });
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(screen.queryByRole('menu')).toBeNull();
+
+    trigger.focus();
+    await user.keyboard('{ArrowDown}');
+
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(trigger.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expectNoBusinessCallbacks(actions);
+    expect(actions.onOpenBilling).not.toHaveBeenCalled();
+  });
+
   it.each(ACTION_CASES)(
     'keeps $item selectable and resolves only through Billing when AutoPay blocks it',
     async ({ item, status, isTrial }) => {
