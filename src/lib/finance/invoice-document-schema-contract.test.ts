@@ -29,6 +29,29 @@ describe('immutable invoice document migration contract', () => {
     expect(sql).toContain('payload_snapshot @> \'{"format_version": 1}\'');
   });
 
+  it('makes payload and deterministic-path checks total for malformed JSON', () => {
+    const table = sql.match(
+      /CREATE TABLE IF NOT EXISTS public\.invoice_documents \([\s\S]*?\n\);/i
+    )?.[0];
+
+    expect(table).toBeDefined();
+    expect(table).toMatch(
+      /COALESCE\(\s*jsonb_typeof\(payload_snapshot->'lines'\) = 'array',\s*FALSE\s*\)/i
+    );
+    expect(table).toMatch(
+      /COALESCE\(\s*jsonb_array_length\(payload_snapshot->'lines'\),\s*0\s*\) > 0/i
+    );
+    expect(table).toMatch(
+      /COALESCE\(\s*jsonb_typeof\(payload_snapshot->'invoice_number'\) = 'string',\s*FALSE\s*\)/i
+    );
+    expect(table).toMatch(
+      /length\(btrim\(COALESCE\(\s*payload_snapshot->>'invoice_number',\s*''\s*\)\)\) > 0/i
+    );
+    expect(table).toMatch(
+      /COALESCE\(\s*storage_path =[\s\S]*?\.pdf'\s*,\s*FALSE\s*\)/i
+    );
+  });
+
   it('reserves only eligible invoices and authors the immutable V1 payload in SQL', () => {
     const reserve = sql.match(
       /CREATE OR REPLACE FUNCTION public\.reserve_invoice_document\([\s\S]*?\n\$\$;/i

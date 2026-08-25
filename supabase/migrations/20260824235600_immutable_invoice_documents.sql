@@ -47,18 +47,38 @@ CREATE TABLE IF NOT EXISTS public.invoice_documents (
   CONSTRAINT invoice_documents_payload_v1
     CHECK (
       payload_snapshot @> '{"format_version": 1}'::JSONB
-      AND jsonb_typeof(payload_snapshot->'lines') = 'array'
-      AND jsonb_array_length(payload_snapshot->'lines') > 0
+      AND COALESCE(
+        jsonb_typeof(payload_snapshot->'lines') = 'array',
+        FALSE
+      )
+      AND CASE
+        WHEN jsonb_typeof(payload_snapshot->'lines') = 'array'
+          THEN COALESCE(
+            jsonb_array_length(payload_snapshot->'lines'),
+            0
+          ) > 0
+        ELSE FALSE
+      END
     ),
   CONSTRAINT invoice_documents_storage_path_present
     CHECK (length(btrim(storage_path)) > 0),
   CONSTRAINT invoice_documents_storage_path_deterministic
     CHECK (
-      payload_snapshot ? 'invoice_number'
-      AND storage_path =
-        'account-' || account_id::TEXT
-        || '/' || invoice_id::TEXT
-        || '/invoice-' || (payload_snapshot->>'invoice_number') || '.pdf'
+      COALESCE(
+        jsonb_typeof(payload_snapshot->'invoice_number') = 'string',
+        FALSE
+      )
+      AND length(btrim(COALESCE(
+        payload_snapshot->>'invoice_number',
+        ''
+      ))) > 0
+      AND COALESCE(
+        storage_path =
+          'account-' || account_id::TEXT
+          || '/' || invoice_id::TEXT
+          || '/invoice-' || (payload_snapshot->>'invoice_number') || '.pdf',
+        FALSE
+      )
     ),
   CONSTRAINT invoice_documents_sha256_hex
     CHECK (sha256 IS NULL OR sha256 ~ '^[0-9a-f]{64}$'),
