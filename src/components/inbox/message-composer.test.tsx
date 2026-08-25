@@ -442,10 +442,17 @@ describe('MessageComposer blocked actions', () => {
         onOpenTemplates={vi.fn()}
       />
     );
-    await user.click(screen.getByRole('button', { name: 'Send attachment' }));
+    const permissionTrigger = screen.getByRole('button', {
+      name: 'Send attachment',
+    });
+    await user.click(permissionTrigger);
+    const permissionDialog = screen.getByRole('dialog', {
+      name: 'Admin access required',
+    });
     expect(
-      screen.getByRole('dialog', { name: 'Admin access required' })
-    ).toBeTruthy();
+      permissionDialog.contains(document.activeElement) ||
+        document.activeElement === permissionTrigger
+    ).toBe(true);
 
     permissions.canSendMessages = true;
     view.rerender(
@@ -458,6 +465,11 @@ describe('MessageComposer blocked actions', () => {
       />
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const allowedTrigger = screen.getByRole('button', {
+      name: 'Send attachment',
+    });
+    expect(allowedTrigger).not.toBe(permissionTrigger);
+    expect(document.activeElement).toBe(allowedTrigger);
     expect(screen.getByRole('img', { name: 'member.jpg' })).toBeTruthy();
     expect((caption as HTMLInputElement).value).toBe('Keep this caption');
 
@@ -476,10 +488,18 @@ describe('MessageComposer blocked actions', () => {
     expect(document.activeElement).toBe(caption);
     expect(onSendMedia).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole('button', { name: 'Send attachment' }));
+    const returningPermissionTrigger = screen.getByRole('button', {
+      name: 'Send attachment',
+    });
+    await user.click(returningPermissionTrigger);
     expect(
       screen.getByRole('dialog', { name: 'Admin access required' })
     ).toBeTruthy();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(returningPermissionTrigger)
+    );
   });
 
   it('resets an open permission explanation when the staged-media blocker changes to session', async () => {
@@ -508,6 +528,8 @@ describe('MessageComposer blocked actions', () => {
       new File(['image'], 'member.jpg', { type: 'image/jpeg' })
     );
     await screen.findByRole('img', { name: 'member.jpg' });
+    const caption = screen.getByPlaceholderText('Add a caption');
+    await user.type(caption, 'Keep session caption');
 
     permissions.canSendMessages = false;
     view.rerender(
@@ -519,10 +541,17 @@ describe('MessageComposer blocked actions', () => {
         onOpenTemplates={onOpenTemplates}
       />
     );
-    await user.click(screen.getByRole('button', { name: 'Send attachment' }));
+    const permissionTrigger = screen.getByRole('button', {
+      name: 'Send attachment',
+    });
+    await user.click(permissionTrigger);
+    const permissionDialog = screen.getByRole('dialog', {
+      name: 'Admin access required',
+    });
     expect(
-      screen.getByRole('dialog', { name: 'Admin access required' })
-    ).toBeTruthy();
+      permissionDialog.contains(document.activeElement) ||
+        document.activeElement === permissionTrigger
+    ).toBe(true);
 
     permissions.canSendMessages = true;
     view.rerender(
@@ -535,9 +564,14 @@ describe('MessageComposer blocked actions', () => {
       />
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const sessionTrigger = screen.getByRole('button', {
+      name: 'Send attachment',
+    });
+    expect(sessionTrigger).not.toBe(permissionTrigger);
+    expect(document.activeElement).toBe(sessionTrigger);
     expect(screen.getByRole('img', { name: 'member.jpg' })).toBeTruthy();
+    expect((caption as HTMLInputElement).value).toBe('Keep session caption');
 
-    const caption = screen.getByPlaceholderText('Add a caption');
     caption.focus();
     expect(document.activeElement).toBe(caption);
     await user.keyboard('{Enter}');
@@ -546,9 +580,18 @@ describe('MessageComposer blocked actions', () => {
       name: 'WhatsApp session has closed',
     });
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(within(blocker).getAllByRole('button')).toHaveLength(1);
     expect(onSendMedia).not.toHaveBeenCalled();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(sessionTrigger));
+
+    await user.keyboard('{Enter}');
+    const reopenedBlocker = screen.getByRole('dialog', {
+      name: 'WhatsApp session has closed',
+    });
     await user.click(
-      within(blocker).getByRole('button', { name: 'Send template' })
+      within(reopenedBlocker).getByRole('button', { name: 'Send template' })
     );
     expect(onOpenTemplates).toHaveBeenCalledOnce();
   });

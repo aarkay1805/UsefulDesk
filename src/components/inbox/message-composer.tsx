@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect, KeyboardEvent } from 'react';
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  KeyboardEvent,
+} from 'react';
 import {
   Send,
   LayoutTemplate,
@@ -800,10 +807,27 @@ function MediaDraftPreview({
   onSend: () => void | Promise<void>;
 }) {
   const sendTriggerRef = useRef<HTMLButtonElement>(null);
+  const blockerOpenRef = useRef(false);
+  const previousBlockerIdentityRef = useRef(blockerIdentity);
+
+  useLayoutEffect(() => {
+    if (previousBlockerIdentityRef.current === blockerIdentity) return;
+
+    const restoreTriggerFocus = blockerOpenRef.current;
+    previousBlockerIdentityRef.current = blockerIdentity;
+    blockerOpenRef.current = false;
+    if (restoreTriggerFocus) sendTriggerRef.current?.focus();
+  }, [blockerIdentity]);
 
   function attemptSend() {
     if (busy || blocker) return;
     void onSend();
+  }
+
+  function trackBlockerOpen(open: boolean) {
+    const restoreTriggerFocus = blockerOpenRef.current && !open;
+    blockerOpenRef.current = open;
+    if (restoreTriggerFocus) sendTriggerRef.current?.focus();
   }
 
   return (
@@ -884,6 +908,7 @@ function MediaDraftPreview({
           }
           onAction={attemptSend}
           blocker={blocker}
+          onOpenChange={trackBlockerOpen}
         />
       </div>
     </div>
