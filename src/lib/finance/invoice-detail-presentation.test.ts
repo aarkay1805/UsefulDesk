@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { PaymentRefund } from '@/types';
 import {
+  invoiceCollectionActionState,
   invoiceDocumentActionPresentation,
   invoiceHeadline,
+  invoiceRefundActionState,
   invoiceSummaryRows,
+  invoiceVoidActionState,
   paymentRefundEventAt,
   paymentRefundOutcome,
 } from './invoice-detail-presentation';
@@ -41,6 +44,168 @@ function refund(patch: Partial<PaymentRefund> = {}): PaymentRefund {
     ...patch,
   };
 }
+
+function payment(patch: Record<string, unknown> = {}) {
+  return {
+    id: 'payment-1',
+    account_id: 'account-1',
+    membership_id: 'membership-1',
+    contact_id: 'contact-1',
+    plan_id: 'plan-1',
+    user_id: 'user-1',
+    amount: 100,
+    method: 'cash' as const,
+    status: 'paid' as const,
+    paid_at: '2026-08-10T10:00:00.000Z',
+    source: 'manual' as const,
+    payment_purpose: 'due' as const,
+    created_at: '2026-08-10T10:00:00.000Z',
+    ...patch,
+  };
+}
+
+describe('invoice resolvable action states', () => {
+  it('shows an allowed collection action for an open balance', () => {
+    expect(invoiceCollectionActionState(invoice(), true)).toEqual({
+      show: true,
+      pending: false,
+      blocker: null,
+    });
+  });
+
+  it('keeps an accounting balance visible while refund review blocks collection', () => {
+    expect(
+      invoiceCollectionActionState(
+        invoice({
+          balance: 0,
+          accounting_balance: 35,
+          requires_refund_review: true,
+        }),
+        true
+      )
+    ).toEqual({ show: true, pending: false, blocker: 'refund_review' });
+  });
+
+  it.each([
+    invoice({ amount_paid: 100, balance: 0 }),
+    invoice({ state: 'void' }),
+    invoice({ fee_amount: 0, balance: 0 }),
+  ])('hides collection when the invoice is not collectible', (input) => {
+    expect(invoiceCollectionActionState(input, false)).toEqual({
+      show: false,
+      pending: false,
+      blocker: null,
+    });
+  });
+
+  it('uses permission only after collection is otherwise applicable', () => {
+    expect(invoiceCollectionActionState(invoice(), false).blocker).toBe(
+      'permission'
+    );
+    expect(
+      invoiceCollectionActionState(
+        invoice({ amount_paid: 100, balance: 0 }),
+        false
+      ).blocker
+    ).toBeNull();
+  });
+
+  it('keeps refund pending while the historical scan is incomplete', () => {
+    expect(
+      invoiceRefundActionState(
+        payment({
+          source: 'payment_link',
+          gateway_payment_id: 'pay_123',
+        }),
+        [],
+        false,
+        true
+      )
+    ).toEqual({ show: true, pending: true, blocker: null });
+  });
+
+  it('hides refund when no refundable capacity remains', () => {
+    expect(
+      invoiceRefundActionState(
+        payment({ source: 'auto', gateway_payment_id: 'pay_123' }),
+        [refund({ amount: 100 })],
+        true,
+        false
+      )
+    ).toEqual({ show: false, pending: false, blocker: null });
+  });
+
+  it('requires line targeting before another refund', () => {
+    expect(
+      invoiceRefundActionState(
+        payment({
+          amount: 150,
+          source: 'payment_link',
+          gateway_payment_id: 'pay_123',
+        }),
+        [
+          refund({
+            amount: 50,
+            status: 'processed',
+            allocation_complete: false,
+          }),
+        ],
+        true,
+        true
+      )
+    ).toEqual({
+      show: true,
+      pending: false,
+      blocker: 'line_target_required',
+    });
+  });
+
+  it('keeps manual Void applicable and routes gateway payments to Refund', () => {
+    expect(invoiceVoidActionState(payment(), true)).toEqual({
+      show: true,
+      pending: false,
+      blocker: null,
+    });
+    expect(
+      invoiceVoidActionState(
+        payment({ source: 'auto', gateway_payment_id: 'pay_123' }),
+        true
+      )
+    ).toEqual({ show: false, pending: false, blocker: null });
+    expect(
+      invoiceVoidActionState(
+        payment({ gateway_payment_id: 'pay_legacy' }),
+        true
+      )
+    ).toEqual({ show: false, pending: false, blocker: null });
+    expect(
+      invoiceRefundActionState(
+        payment({ source: 'auto', gateway_payment_id: 'pay_123' }),
+        [],
+        true,
+        true
+      ).show
+    ).toBe(true);
+  });
+
+  it('uses payment permissions only for otherwise applicable actions', () => {
+    expect(invoiceVoidActionState(payment(), false).blocker).toBe('permission');
+    expect(
+      invoiceVoidActionState(payment({ status: 'void' }), false).blocker
+    ).toBeNull();
+    expect(
+      invoiceRefundActionState(
+        payment({ source: 'auto', gateway_payment_id: 'pay_123' }),
+        [],
+        true,
+        false
+      ).blocker
+    ).toBe('permission');
+    expect(
+      invoiceRefundActionState(payment(), [], true, false).blocker
+    ).toBeNull();
+  });
+});
 
 describe('invoice detail presentation', () => {
   it.each([

@@ -157,9 +157,11 @@ function PaymentLinkStatusBadge({
 export function PaymentLinkActions({
   invoice,
   member,
+  collectionBlocker,
 }: {
   invoice: { id: string; reference: string; balance: number };
   member: Membership | null;
+  collectionBlocker?: ActionBlocker | null;
 }) {
   const { accountId, accountRole } = useAuth();
   const { fmt } = useLocale();
@@ -337,18 +339,20 @@ export function PaymentLinkActions({
   const sendReady = providerReady && templateReady && hasPhone;
   const copyBlocker = !canManage
     ? PAYMENT_LINK_PERMISSION_BLOCKER
-    : providerBlocker;
+    : (collectionBlocker ?? providerBlocker);
   const sendBlocker = !canManage
     ? PAYMENT_LINK_PERMISSION_BLOCKER
-    : sendReady
-      ? null
-      : !hasPhone
-        ? PHONE_BLOCKER
-        : providerBlocker
-          ? providerBlocker
-          : !templateReady
-            ? whatsappBlocker(templateReason, canManageSettings)
-            : null;
+    : collectionBlocker
+      ? collectionBlocker
+      : sendReady
+        ? null
+        : !hasPhone
+          ? PHONE_BLOCKER
+          : providerBlocker
+            ? providerBlocker
+            : !templateReady
+              ? whatsappBlocker(templateReason, canManageSettings)
+              : null;
   const active = link?.status === 'created' && link.shortUrl;
   const showStatus =
     link && !['paid', 'cancelled', 'expired', 'failed'].includes(link.status);

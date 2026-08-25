@@ -12,6 +12,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Membership } from '@/types';
+import type { ActionBlocker } from '@/components/ui/resolvable-action';
 import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
 const fetchPaymentLink = vi.hoisted(() => vi.fn());
@@ -81,11 +82,15 @@ const member = {
   contact: { name: 'Member', phone: '919999999999' },
 } as Membership;
 
-function renderActions(memberValue: Membership | null = member) {
+function renderActions(
+  memberValue: Membership | null = member,
+  collectionBlocker?: ActionBlocker | null
+) {
   render(
     <PaymentLinkActions
       invoice={{ id: 'invoice-id', reference: '#INVOICE', balance: 50 }}
       member={memberValue}
+      collectionBlocker={collectionBlocker}
     />
   );
 }
@@ -141,6 +146,43 @@ afterEach(() => {
 });
 
 describe('PaymentLinkActions readiness', () => {
+  it('applies an external collection blocker to Copy and Send without invoking either action', async () => {
+    const onResolve = vi.fn();
+    renderActions(member, {
+      title: 'Refund review blocks collection',
+      description: 'Resolve the refund review before collecting again.',
+      resolution: { label: 'Resolve refund review', onResolve },
+    });
+    await resolveReadiness();
+
+    const copy = screen.getByRole('button', { name: 'Copy link' });
+    const send = screen.getByRole('button', { name: 'Send payment link' });
+    expect(copy.getAttribute('aria-disabled')).toBe('true');
+    expect(send.getAttribute('aria-disabled')).toBe('true');
+    await userEvent.click(copy);
+    expect(fetchPaymentLink).toHaveBeenCalledTimes(1);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Resolve refund review' })
+    );
+    expect(onResolve).toHaveBeenCalledOnce();
+  });
+
+  it('keeps permission ahead of an external blocker and withholds its CTA', async () => {
+    accountRole = 'viewer';
+    renderActions(member, {
+      title: 'Refund review blocks collection',
+      description: 'Resolve the refund review before collecting again.',
+      resolution: { label: 'Resolve refund review', onResolve: vi.fn() },
+    });
+    await resolveReadiness();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Resolve refund review' })
+    ).toBeNull();
+  });
+
   it('shows busy spinners until payment-link readiness resolves', async () => {
     renderActions();
 

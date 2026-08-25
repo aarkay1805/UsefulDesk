@@ -9,6 +9,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { buildUpiLink, upiAvailableFor } from '@/lib/payments/upi';
 import { Button } from '@/components/ui/button';
+import {
+  ResolvableAction,
+  type ActionBlocker,
+} from '@/components/ui/resolvable-action';
 
 export interface UpiConfig {
   vpa: string | null;
@@ -59,11 +63,13 @@ export function CopyUpiLinkButton({
   amount,
   note,
   size = 'sm',
+  blocker,
 }: {
   upi: UpiConfig | null;
   amount: number;
   note?: string;
   size?: 'sm' | 'default';
+  blocker?: ActionBlocker | null;
 }) {
   const { locale } = useLocale();
   // UPI is INR-only — non-INR accounts never see the button.
@@ -81,8 +87,15 @@ export function CopyUpiLinkButton({
   }
 
   return (
-    <Button type="button" variant="outline" size={size} onClick={copy}>
-      <IndianRupee className={size === 'sm' ? 'size-3.5' : 'size-4'} /> UPI link
-    </Button>
+    <ResolvableAction
+      trigger={
+        <Button type="button" variant="outline" size={size}>
+          <IndianRupee className={size === 'sm' ? 'size-3.5' : 'size-4'} /> UPI
+          link
+        </Button>
+      }
+      onAction={() => void copy()}
+      blocker={blocker}
+    />
   );
 }

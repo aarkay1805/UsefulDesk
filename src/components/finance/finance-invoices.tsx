@@ -18,7 +18,10 @@ import { FinanceMonthActions } from '@/components/finance/finance-month-actions'
 import { LeadsSort, type SortState } from '@/components/leads/leads-sort';
 import { MemberIdentity } from '@/components/members/member-identity';
 import { FinanceInvoiceStatusBadge } from '@/components/members/membership-status-badge';
-import { InvoiceDetailDialog } from '@/components/finance/invoice-detail-dialog';
+import {
+  InvoiceDetailDialog,
+  InvoiceRecordPaymentAction,
+} from '@/components/finance/invoice-detail-dialog';
 import { RecordInvoicePaymentDialog } from '@/components/finance/record-invoice-payment-dialog';
 import { VoidInvoicePaymentDialog } from '@/components/finance/void-invoice-payment-dialog';
 import { ColumnHeader } from '@/components/table/column-header';
@@ -26,7 +29,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
-import { GatedButton } from '@/components/ui/gated-button';
 import { SearchInput } from '@/components/ui/search-input';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -374,10 +376,6 @@ export function FinanceInvoices({
                 <div className="space-y-2 p-2 lg:hidden">
                   {pageRows.map((row) => {
                     const contact = row.contact ?? row.membership?.contact;
-                    const collectible =
-                      row.state === 'open' &&
-                      !row.requires_refund_review &&
-                      isChargeableAmount(row.balance);
                     return (
                       <Card
                         key={row.id}
@@ -463,17 +461,14 @@ export function FinanceInvoices({
                           >
                             View details
                           </Button>
-                          {collectible ? (
-                            <GatedButton
-                              type="button"
-                              size="sm"
-                              canAct={mayRecordPayments}
-                              gateReason="record payments"
-                              onClick={() => recordInvoice(row)}
-                            >
-                              <Wallet /> Record payment
-                            </GatedButton>
-                          ) : null}
+                          <InvoiceRecordPaymentAction
+                            invoice={row}
+                            canRecord={mayRecordPayments}
+                            canResolveRefundReview={mayCorrectPayments}
+                            onRecord={() => recordInvoice(row)}
+                            onResolveRefundReview={() => openInvoice(row)}
+                            size="sm"
+                          />
                         </CardFooter>
                       </Card>
                     );
@@ -536,10 +531,6 @@ export function FinanceInvoices({
                     <TableBody>
                       {pageRows.map((row) => {
                         const contact = row.contact ?? row.membership?.contact;
-                        const collectible =
-                          row.state === 'open' &&
-                          !row.requires_refund_review &&
-                          isChargeableAmount(row.balance);
                         return (
                           <TableRow
                             key={row.id}
@@ -640,18 +631,16 @@ export function FinanceInvoices({
                                 >
                                   View
                                 </Button>
-                                {collectible ? (
-                                  <GatedButton
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    canAct={mayRecordPayments}
-                                    gateReason="record payments"
-                                    onClick={() => recordInvoice(row)}
-                                  >
-                                    <Wallet /> Record
-                                  </GatedButton>
-                                ) : null}
+                                <InvoiceRecordPaymentAction
+                                  invoice={row}
+                                  canRecord={mayRecordPayments}
+                                  canResolveRefundReview={mayCorrectPayments}
+                                  onRecord={() => recordInvoice(row)}
+                                  onResolveRefundReview={() => openInvoice(row)}
+                                  variant="ghost"
+                                  size="sm"
+                                  compact
+                                />
                               </div>
                             </TableCell>
                           </TableRow>

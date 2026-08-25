@@ -23,13 +23,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { UserAvatar } from '@/components/ui/user-avatar';
+import {
+  ResolvableAction,
+  type ActionBlocker,
+} from '@/components/ui/resolvable-action';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { canRefundGatewayPayments } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
 import {
+  invoiceCollectionActionState,
   invoiceHeadline,
+  invoiceRefundActionState,
   invoiceSummaryRows,
+  invoiceVoidActionState,
   PAYMENT_REFUND_STATUS_PRESENTATION,
   paymentRefundEventAt,
   paymentRefundOutcome,
@@ -104,6 +111,159 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
   bank: 'Bank transfer',
   other: 'Other',
 };
+
+function invoiceActionBlocker(
+  blocker: ReturnType<typeof invoiceCollectionActionState>['blocker'],
+  canResolveRefundReview: boolean,
+  onResolveRefundReview: () => void
+): ActionBlocker | null {
+  if (blocker === 'permission') {
+    return {
+      title: 'Admin access required',
+      description:
+        'Only an agent, admin, or owner can record payments for this invoice.',
+    };
+  }
+  if (blocker === 'refund_review') {
+    return {
+      title: 'Refund review blocks collection',
+      description:
+        'An admin must resolve the processed refund before this invoice can collect another payment.',
+      ...(canResolveRefundReview
+        ? {
+            resolution: {
+              label: 'Resolve refund review',
+              onResolve: onResolveRefundReview,
+            },
+          }
+        : {}),
+    };
+  }
+  return null;
+}
+
+export function InvoiceRecordPaymentAction({
+  invoice,
+  canRecord,
+  canResolveRefundReview,
+  onRecord,
+  onResolveRefundReview,
+  variant = 'default',
+  size = 'default',
+  compact = false,
+}: {
+  invoice: Parameters<typeof invoiceCollectionActionState>[0];
+  canRecord: boolean;
+  canResolveRefundReview: boolean;
+  onRecord: () => void;
+  onResolveRefundReview: () => void;
+  variant?: 'default' | 'ghost';
+  size?: 'default' | 'sm';
+  compact?: boolean;
+}) {
+  const state = invoiceCollectionActionState(invoice, canRecord);
+  if (!state.show) return null;
+  return (
+    <ResolvableAction
+      trigger={
+        <Button type="button" variant={variant} size={size}>
+          <Wallet className={size === 'sm' ? 'size-3.5' : 'size-4'} />
+          {compact ? 'Record' : 'Record payment'}
+        </Button>
+      }
+      onAction={onRecord}
+      blocker={invoiceActionBlocker(
+        state.blocker,
+        canResolveRefundReview,
+        onResolveRefundReview
+      )}
+    />
+  );
+}
+
+export function InvoicePaymentActions({
+  payment,
+  refunds,
+  refundScanComplete,
+  canRefund,
+  canVoid,
+  onRefund,
+  onVoid,
+  onResolveLineTarget,
+}: {
+  payment: Payment;
+  refunds: PaymentRefund[];
+  refundScanComplete: boolean;
+  canRefund: boolean;
+  canVoid: boolean;
+  onRefund: () => void;
+  onVoid?: () => void;
+  onResolveLineTarget: (refund: PaymentRefund) => void;
+}) {
+  const voidState = invoiceVoidActionState(payment, canVoid);
+  const refundState = invoiceRefundActionState(
+    payment,
+    refunds,
+    refundScanComplete,
+    canRefund
+  );
+  const unresolvedRefund = refunds.find(
+    (refund) => refund.status === 'processed' && !refund.allocation_complete
+  );
+  const permissionBlocker: ActionBlocker = {
+    title: 'Admin access required',
+    description: 'Only an admin or owner can correct recorded payments.',
+  };
+  const refundBlocker: ActionBlocker | null =
+    refundState.blocker === 'permission'
+      ? permissionBlocker
+      : refundState.blocker === 'line_target_required' && unresolvedRefund
+        ? {
+            title: 'Refund review required',
+            description:
+              'Assign the processed refund to invoice lines before issuing another refund.',
+            resolution: {
+              label: 'Resolve refund review',
+              onResolve: () => onResolveLineTarget(unresolvedRefund),
+            },
+          }
+        : null;
+
+  return (
+    <>
+      {voidState.show && onVoid ? (
+        <ResolvableAction
+          trigger={
+            <Button type="button" variant="ghost" size="sm">
+              <RotateCcw className="size-3.5" /> Void
+            </Button>
+          }
+          onAction={onVoid}
+          blocker={
+            voidState.blocker === 'permission' ? permissionBlocker : null
+          }
+        />
+      ) : null}
+      {refundState.show ? (
+        <ResolvableAction
+          trigger={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              loading={refundState.pending}
+            >
+              <RotateCcw className="size-3.5" /> Refund
+            </Button>
+          }
+          onAction={onRefund}
+          blocker={refundBlocker}
+          disabled={refundState.pending}
+        />
+      ) : null}
+    </>
+  );
+}
 
 function InvoiceDetailBody({
   invoice,
@@ -324,7 +484,7 @@ function InvoiceDetailBody({
   return (
     <div className="min-w-0 space-y-5">
       {currentInvoice.requires_refund_review ? (
-        <Alert>
+        <Alert id={`invoice-refund-review-${currentInvoice.id}`} tabIndex={-1}>
           <ShieldAlert />
           <AlertTitle>Refund review</AlertTitle>
           <AlertDescription>
@@ -512,28 +672,6 @@ function InvoiceDetailBody({
           <div className="border-border divide-border divide-y rounded-lg border">
             {payments.map((payment) => {
               const refunds = refundsByPayment.get(payment.id) ?? [];
-              const capacityUsed = refunds
-                .filter((refund) => refund.status !== 'failed')
-                .reduce((total, refund) => total + Number(refund.amount), 0);
-              const remaining = Math.max(
-                0,
-                Number(payment.amount) - capacityUsed
-              );
-              const hasUnallocatedProcessed = refunds.some(
-                (refund) =>
-                  refund.status === 'processed' && !refund.allocation_complete
-              );
-              const gatewayPayment = Boolean(
-                payment.gateway_payment_id &&
-                (payment.source === 'auto' || payment.source === 'payment_link')
-              );
-              const refundDisabledReason = !refundScanComplete
-                ? 'Historical Razorpay refunds are still being reconciled.'
-                : hasUnallocatedProcessed
-                  ? 'Line targeting is required before another refund can be safely allocated.'
-                  : !isChargeableAmount(remaining)
-                    ? 'This payment has no remaining refundable amount.'
-                    : null;
               return (
                 <div
                   key={payment.id}
@@ -635,35 +773,22 @@ function InvoiceDetailBody({
                       >
                         {fmt.money(payment.amount)}
                       </p>
-                      {payment.status === 'paid' &&
-                      payment.source !== 'auto' &&
-                      payment.source !== 'payment_link' &&
-                      !payment.gateway_payment_id &&
-                      canVoid &&
-                      onVoidPayment ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onVoidPayment(payment)}
-                        >
-                          <RotateCcw className="size-3.5" /> Void
-                        </Button>
-                      ) : null}
-                      {payment.status === 'paid' &&
-                      gatewayPayment &&
-                      canRefund ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          disabled={Boolean(refundDisabledReason)}
-                          title={refundDisabledReason ?? undefined}
-                          onClick={() => setRefundPayment(payment)}
-                        >
-                          <RotateCcw className="size-3.5" /> Refund
-                        </Button>
-                      ) : null}
+                      <InvoicePaymentActions
+                        payment={payment}
+                        refunds={refunds}
+                        refundScanComplete={refundScanComplete}
+                        canRefund={canRefund}
+                        canVoid={canVoid}
+                        onRefund={() => setRefundPayment(payment)}
+                        onVoid={
+                          onVoidPayment
+                            ? () => onVoidPayment(payment)
+                            : undefined
+                        }
+                        onResolveLineTarget={(refund) =>
+                          setClassification({ payment, refund })
+                        }
+                      />
                     </div>
                   </div>
                   {refunds.length > 0 ? (
@@ -861,14 +986,20 @@ export function InvoiceDetailDialog({
     },
     [invoice]
   );
-  const collectible =
-    !!activeInvoice &&
-    activeInvoice.state === 'open' &&
-    !activeInvoice.requires_refund_review &&
-    isChargeableAmount(
-      activeInvoice.collectible_balance ?? activeInvoice.balance
-    ) &&
-    canRecord;
+  const collectionState = activeInvoice
+    ? invoiceCollectionActionState(activeInvoice, canRecord)
+    : null;
+  const focusRefundReview = useCallback(() => {
+    if (!activeInvoice) return;
+    const target = document.getElementById(
+      `invoice-refund-review-${activeInvoice.id}`
+    );
+    target?.scrollIntoView({ block: 'center' });
+    target?.focus();
+  }, [activeInvoice]);
+  const collectionBlocker = collectionState
+    ? invoiceActionBlocker(collectionState.blocker, canVoid, focusRefundReview)
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -917,24 +1048,30 @@ export function InvoiceDetailDialog({
               }
             />
           ) : null}
-          {collectible ? (
+          {activeInvoice && collectionState?.show ? (
             <>
               <PaymentLinkActions
-                key={invoice!.id}
-                invoice={activeInvoice!}
-                member={member ?? activeInvoice!.membership ?? null}
+                key={activeInvoice.id}
+                invoice={activeInvoice}
+                member={member ?? activeInvoice.membership ?? null}
+                collectionBlocker={collectionBlocker}
               />
               <CopyUpiLinkButton
                 upi={upi}
                 amount={Number(
-                  activeInvoice!.collectible_balance ?? activeInvoice!.balance
+                  activeInvoice.collectible_balance ?? activeInvoice.balance
                 )}
-                note={`Invoice ${activeInvoice!.reference}`}
+                note={`Invoice ${activeInvoice.reference}`}
                 size="default"
+                blocker={collectionBlocker}
               />
-              <Button type="button" onClick={onRecord}>
-                <Wallet className="size-4" /> Record payment
-              </Button>
+              <InvoiceRecordPaymentAction
+                invoice={activeInvoice}
+                canRecord={canRecord}
+                canResolveRefundReview={canVoid}
+                onRecord={onRecord}
+                onResolveRefundReview={focusRefundReview}
+              />
             </>
           ) : null}
         </DialogFooter>

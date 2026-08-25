@@ -1,4 +1,4 @@
-import type { PaymentRefund, PaymentRefundStatus } from '@/types';
+import type { Payment, PaymentRefund, PaymentRefundStatus } from '@/types';
 import {
   invoicePaymentState,
   isChargeableAmount,
@@ -15,6 +15,99 @@ export interface InvoiceFinancialSnapshot {
   invoice_adjustment_amount?: number | null;
   accounting_balance?: number | null;
   requires_refund_review?: boolean | null;
+}
+
+export interface InvoiceResolvableActionState {
+  show: boolean;
+  pending: boolean;
+  blocker: 'permission' | 'refund_review' | 'line_target_required' | null;
+}
+
+const HIDDEN_INVOICE_ACTION: InvoiceResolvableActionState = {
+  show: false,
+  pending: false,
+  blocker: null,
+};
+
+export function invoiceCollectionActionState(
+  invoice: InvoiceFinancialSnapshot & { collectible_balance?: number | null },
+  permitted: boolean
+): InvoiceResolvableActionState {
+  const balance = invoice.requires_refund_review
+    ? Number(invoice.accounting_balance ?? invoice.balance)
+    : Number(invoice.collectible_balance ?? invoice.balance);
+  const applicable =
+    invoice.state === 'open' &&
+    isChargeableAmount(invoice.fee_amount) &&
+    isChargeableAmount(balance);
+
+  if (!applicable) return HIDDEN_INVOICE_ACTION;
+  if (!permitted) {
+    return { show: true, pending: false, blocker: 'permission' };
+  }
+  return {
+    show: true,
+    pending: false,
+    blocker: invoice.requires_refund_review ? 'refund_review' : null,
+  };
+}
+
+function isGatewayPayment(payment: Payment): boolean {
+  return Boolean(
+    payment.gateway_payment_id &&
+    (payment.source === 'auto' || payment.source === 'payment_link')
+  );
+}
+
+export function invoiceRefundActionState(
+  payment: Payment,
+  refunds: PaymentRefund[],
+  refundScanComplete: boolean,
+  permitted: boolean
+): InvoiceResolvableActionState {
+  const applicable =
+    payment.status === 'paid' &&
+    isGatewayPayment(payment) &&
+    isChargeableAmount(payment.amount);
+  if (!applicable) return HIDDEN_INVOICE_ACTION;
+  if (!refundScanComplete) {
+    return { show: true, pending: true, blocker: null };
+  }
+
+  const capacityUsed = refunds
+    .filter((refund) => refund.status !== 'failed')
+    .reduce((total, refund) => total + Number(refund.amount), 0);
+  if (!isChargeableAmount(Number(payment.amount) - capacityUsed)) {
+    return HIDDEN_INVOICE_ACTION;
+  }
+  if (!permitted) {
+    return { show: true, pending: false, blocker: 'permission' };
+  }
+  const needsLineTarget = refunds.some(
+    (refund) => refund.status === 'processed' && !refund.allocation_complete
+  );
+  return {
+    show: true,
+    pending: false,
+    blocker: needsLineTarget ? 'line_target_required' : null,
+  };
+}
+
+export function invoiceVoidActionState(
+  payment: Payment,
+  permitted: boolean
+): InvoiceResolvableActionState {
+  const applicable =
+    payment.status === 'paid' &&
+    payment.source !== 'auto' &&
+    payment.source !== 'payment_link' &&
+    !payment.gateway_payment_id;
+  if (!applicable) return HIDDEN_INVOICE_ACTION;
+  return {
+    show: true,
+    pending: false,
+    blocker: permitted ? null : 'permission',
+  };
 }
 
 export type InvoiceHeadlineDetail =
