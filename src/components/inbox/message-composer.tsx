@@ -176,7 +176,7 @@ export function MessageComposer({
       }
     : null;
   const sendBlocker = permissionBlocker ?? closedSessionBlocker;
-  const sendDisabled = sending || (!sessionExpired && !text.trim());
+  const sendDisabled = sending || (!sendBlocker && !text.trim());
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -457,7 +457,10 @@ export function MessageComposer({
   // ---- Draft send / discard -----------------------------------------
 
   const sendDraft = useCallback(async () => {
-    if (!draft || busy) return;
+    // The UI routes every activation through the same blocker popover, but
+    // keep the send boundary fail-closed in case another internal path calls
+    // this callback while permission or session readiness has changed.
+    if (!draft || busy || sendBlocker) return;
     setBusy(true);
     try {
       await onSendMedia({
@@ -479,7 +482,7 @@ export function MessageComposer({
     } finally {
       setBusy(false);
     }
-  }, [draft, busy, onSendMedia, replyTo?.id, onClearReply]);
+  }, [draft, busy, sendBlocker, onSendMedia, replyTo?.id, onClearReply]);
 
   // Discard GCs the staged object — it was uploaded but never sent.
   const discardDraft = useCallback(() => {
@@ -788,6 +791,18 @@ function MediaDraftPreview({
   onDiscard: () => void;
   onSend: () => void | Promise<void>;
 }) {
+  const [blockerOpen, setBlockerOpen] = useState(false);
+
+  function attemptSend() {
+    if (busy) return;
+    if (blocker) {
+      setBlockerOpen(true);
+      return;
+    }
+    setBlockerOpen(false);
+    void onSend();
+  }
+
   return (
     <div className={cn(shellClasses, 'flex flex-col gap-2')}>
       <div className="flex items-start gap-3">
@@ -837,7 +852,7 @@ function MediaDraftPreview({
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                void onSend();
+                attemptSend();
               }
             }}
             placeholder="Add a caption"
@@ -859,8 +874,10 @@ function MediaDraftPreview({
               <Send className="size-4" />
             </Button>
           }
-          onAction={() => void onSend()}
+          onAction={attemptSend}
           blocker={blocker}
+          open={Boolean(blocker) && blockerOpen}
+          onOpenChange={setBlockerOpen}
         />
       </div>
     </div>

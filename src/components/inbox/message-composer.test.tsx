@@ -86,6 +86,32 @@ describe('MessageComposer pending feedback', () => {
 });
 
 describe('MessageComposer blocked actions', () => {
+  it('explains permission before empty-input validation on the text Send action', async () => {
+    permissions.canSendMessages = false;
+    const onSend = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={onSend}
+        onSendMedia={vi.fn()}
+        onOpenTemplates={vi.fn()}
+      />
+    );
+
+    const send = screen.getByRole('button', { name: 'Send message' });
+    expect((send as HTMLButtonElement).disabled).toBe(false);
+    expect(send.getAttribute('aria-disabled')).toBe('true');
+    await user.click(send);
+
+    const blocker = screen.getByRole('dialog', {
+      name: 'Admin access required',
+    });
+    expect(within(blocker).queryAllByRole('button')).toHaveLength(0);
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
   it('opens the allowed attachment menu by pointer and keyboard without a competing popover', async () => {
     const user = userEvent.setup();
     const consoleError = vi
@@ -274,6 +300,155 @@ describe('MessageComposer blocked actions', () => {
     );
     expect(onOpenTemplates).toHaveBeenCalledOnce();
   });
+
+  it('blocks caption Enter when permission is lost and anchors the permission explanation to Send attachment', async () => {
+    mediaStorage.uploadAccountMedia.mockResolvedValue({
+      publicUrl: 'https://example.test/member.jpg',
+      path: 'account-1/member.jpg',
+    });
+    const onSendMedia = vi.fn();
+    const user = userEvent.setup();
+    const view = render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={vi.fn()}
+      />
+    );
+    const fileInput = view.container.querySelector<HTMLInputElement>(
+      'input[type="file"][accept^="image/"]'
+    );
+    if (!fileInput) throw new Error('Missing image input');
+    await user.upload(
+      fileInput,
+      new File(['image'], 'member.jpg', { type: 'image/jpeg' })
+    );
+    await screen.findByRole('img', { name: 'member.jpg' });
+
+    permissions.canSendMessages = false;
+    view.rerender(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={vi.fn()}
+      />
+    );
+    const sendAttachment = screen.getByRole('button', {
+      name: 'Send attachment',
+    });
+    screen.getByPlaceholderText('Add a caption').focus();
+    await user.keyboard('{Enter}');
+
+    const blocker = screen.getByRole('dialog', {
+      name: 'Admin access required',
+    });
+    expect(sendAttachment.getAttribute('aria-expanded')).toBe('true');
+    expect(within(blocker).queryAllByRole('button')).toHaveLength(0);
+    expect(onSendMedia).not.toHaveBeenCalled();
+  });
+
+  it('blocks caption Enter after session close and reuses the template resolution', async () => {
+    mediaStorage.uploadAccountMedia.mockResolvedValue({
+      publicUrl: 'https://example.test/member.jpg',
+      path: 'account-1/member.jpg',
+    });
+    const onSendMedia = vi.fn();
+    const onOpenTemplates = vi.fn();
+    const user = userEvent.setup();
+    const view = render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={onOpenTemplates}
+      />
+    );
+    const fileInput = view.container.querySelector<HTMLInputElement>(
+      'input[type="file"][accept^="image/"]'
+    );
+    if (!fileInput) throw new Error('Missing image input');
+    await user.upload(
+      fileInput,
+      new File(['image'], 'member.jpg', { type: 'image/jpeg' })
+    );
+    await screen.findByRole('img', { name: 'member.jpg' });
+
+    view.rerender(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={onOpenTemplates}
+      />
+    );
+    screen.getByPlaceholderText('Add a caption').focus();
+    await user.keyboard('{Enter}');
+
+    const blocker = screen.getByRole('dialog', {
+      name: 'WhatsApp session has closed',
+    });
+    expect(onSendMedia).not.toHaveBeenCalled();
+    expect(within(blocker).queryAllByRole('button')).toHaveLength(1);
+    await user.click(
+      within(blocker).getByRole('button', { name: 'Send template' })
+    );
+    expect(onOpenTemplates).toHaveBeenCalledOnce();
+  });
+
+  it.each(['caption Enter', 'Send attachment button'])(
+    'keeps allowed staged-media sending through %s',
+    async (activation) => {
+      mediaStorage.uploadAccountMedia.mockResolvedValue({
+        publicUrl: 'https://example.test/member.jpg',
+        path: 'account-1/member.jpg',
+      });
+      const onSendMedia = vi.fn();
+      const user = userEvent.setup();
+      const view = render(
+        <MessageComposer
+          conversationId="conversation-1"
+          sessionExpired={false}
+          onSend={vi.fn()}
+          onSendMedia={onSendMedia}
+          onOpenTemplates={vi.fn()}
+        />
+      );
+      const fileInput = view.container.querySelector<HTMLInputElement>(
+        'input[type="file"][accept^="image/"]'
+      );
+      if (!fileInput) throw new Error('Missing image input');
+      await user.upload(
+        fileInput,
+        new File(['image'], 'member.jpg', { type: 'image/jpeg' })
+      );
+      await screen.findByRole('img', { name: 'member.jpg' });
+
+      if (activation === 'caption Enter') {
+        screen.getByPlaceholderText('Add a caption').focus();
+        await user.keyboard('{Enter}');
+      } else {
+        await user.click(
+          screen.getByRole('button', { name: 'Send attachment' })
+        );
+      }
+
+      await waitFor(() => expect(onSendMedia).toHaveBeenCalledOnce());
+      expect(onSendMedia).toHaveBeenCalledWith({
+        kind: 'image',
+        mediaUrl: 'https://example.test/member.jpg',
+        path: 'account-1/member.jpg',
+        caption: undefined,
+        filename: undefined,
+        replyToId: undefined,
+      });
+    }
+  );
 
   it('resolves a closed session through the template picker', async () => {
     const onOpenTemplates = vi.fn();
