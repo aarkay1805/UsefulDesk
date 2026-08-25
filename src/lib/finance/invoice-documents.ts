@@ -123,6 +123,21 @@ const LINE_KEYS = [
   'amount_minor',
 ] as const;
 
+const TEXT_LIMITS = {
+  primaryName: 100,
+  legalOrBranchName: 120,
+  memberNumber: 80,
+  phone: 80,
+  email: 254,
+  addressField: 140,
+  lineDescription: 320,
+  linePeriod: 120,
+  partyCombined: 480,
+} as const;
+
+const SUPPORTED_TEXT_SCRIPTS =
+  /^[\p{Script=Latin}\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Gujarati}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Common}\p{Script=Inherited}]*$/u;
+
 function fail(message: string): never {
   throw new TypeError(`Invalid invoice document payload: ${message}`);
 }
@@ -183,19 +198,44 @@ function assertNoMutableFacts(
 
 function assertRequiredText(
   value: unknown,
-  label: string
+  label: string,
+  maxCodePoints: number
 ): asserts value is string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     fail(`${label} must be a non-empty string`);
   }
+  assertRenderableText(value, label, maxCodePoints);
 }
 
 function assertNullableText(
   value: unknown,
-  label: string
+  label: string,
+  maxCodePoints: number
 ): asserts value is string | null {
   if (value !== null && typeof value !== 'string') {
     fail(`${label} must be a string or null`);
+  }
+  if (typeof value === 'string') {
+    assertRenderableText(value, label, maxCodePoints);
+  }
+}
+
+function assertRenderableText(
+  value: string,
+  label: string,
+  maxCodePoints: number
+): void {
+  if (/\p{Cc}|\p{Cs}/u.test(value)) {
+    fail(`${label} must not contain control characters`);
+  }
+  if (
+    !SUPPORTED_TEXT_SCRIPTS.test(value) ||
+    /\p{Extended_Pictographic}/u.test(value)
+  ) {
+    fail(`${label} contains a script without a supported V1 font`);
+  }
+  if (Array.from(value).length > maxCodePoints) {
+    fail(`${label} must contain at most ${maxCodePoints} code points`);
   }
 }
 
@@ -221,11 +261,22 @@ function assertAddress(
   assertExactKeys(value, ADDRESS_KEYS, label);
 
   for (const key of ADDRESS_KEYS) {
-    assertNullableText(value[key], `${label}.${key}`);
+    assertNullableText(value[key], `${label}.${key}`, TEXT_LIMITS.addressField);
   }
   for (const key of required) {
-    assertRequiredText(value[key], `${label}.${key}`);
+    assertRequiredText(value[key], `${label}.${key}`, TEXT_LIMITS.addressField);
   }
+}
+
+function combinedTextLength(values: readonly (string | null)[]): number {
+  return values.reduce(
+    (length, value) => length + (value ? Array.from(value).length : 0),
+    0
+  );
+}
+
+function addressValues(address: InvoiceDocumentAddress): (string | null)[] {
+  return ADDRESS_KEYS.map((key) => address[key]);
 }
 
 function assertSeller(
@@ -233,12 +284,38 @@ function assertSeller(
 ): asserts value is InvoiceDocumentSellerSnapshot {
   assertRecord(value, 'seller');
   assertExactKeys(value, SELLER_KEYS, 'seller');
-  assertRequiredText(value.business_name, 'seller.business_name');
-  assertNullableText(value.legal_name, 'seller.legal_name');
-  assertNullableText(value.branch_name, 'seller.branch_name');
-  assertNullableText(value.phone, 'seller.phone');
-  assertNullableText(value.email, 'seller.email');
+  assertRequiredText(
+    value.business_name,
+    'seller.business_name',
+    TEXT_LIMITS.primaryName
+  );
+  assertNullableText(
+    value.legal_name,
+    'seller.legal_name',
+    TEXT_LIMITS.legalOrBranchName
+  );
+  assertNullableText(
+    value.branch_name,
+    'seller.branch_name',
+    TEXT_LIMITS.legalOrBranchName
+  );
+  assertNullableText(value.phone, 'seller.phone', TEXT_LIMITS.phone);
+  assertNullableText(value.email, 'seller.email', TEXT_LIMITS.email);
   assertAddress(value.address, 'seller.address', ['line1', 'city', 'country']);
+  if (
+    combinedTextLength([
+      value.business_name,
+      value.legal_name,
+      value.branch_name,
+      value.phone,
+      value.email,
+      ...addressValues(value.address),
+    ]) > TEXT_LIMITS.partyCombined
+  ) {
+    fail(
+      `seller combined text must contain at most ${TEXT_LIMITS.partyCombined} code points`
+    );
+  }
 }
 
 function assertCustomer(
@@ -246,11 +323,32 @@ function assertCustomer(
 ): asserts value is InvoiceDocumentCustomerSnapshot {
   assertRecord(value, 'customer');
   assertExactKeys(value, CUSTOMER_KEYS, 'customer');
-  assertRequiredText(value.customer_name, 'customer.customer_name');
-  assertNullableText(value.member_number, 'customer.member_number');
-  assertNullableText(value.phone, 'customer.phone');
-  assertNullableText(value.email, 'customer.email');
+  assertRequiredText(
+    value.customer_name,
+    'customer.customer_name',
+    TEXT_LIMITS.primaryName
+  );
+  assertNullableText(
+    value.member_number,
+    'customer.member_number',
+    TEXT_LIMITS.memberNumber
+  );
+  assertNullableText(value.phone, 'customer.phone', TEXT_LIMITS.phone);
+  assertNullableText(value.email, 'customer.email', TEXT_LIMITS.email);
   assertAddress(value.address, 'customer.address', []);
+  if (
+    combinedTextLength([
+      value.customer_name,
+      value.member_number,
+      value.phone,
+      value.email,
+      ...addressValues(value.address),
+    ]) > TEXT_LIMITS.partyCombined
+  ) {
+    fail(
+      `customer combined text must contain at most ${TEXT_LIMITS.partyCombined} code points`
+    );
+  }
 }
 
 function isIsoCalendarDate(value: string): boolean {
@@ -317,8 +415,12 @@ export function assertInvoiceDocumentPayload(
     const label = `lines[${index}]`;
     assertRecord(line, label);
     assertExactKeys(line, LINE_KEYS, label);
-    assertRequiredText(line.description, `${label}.description`);
-    assertNullableText(line.period, `${label}.period`);
+    assertRequiredText(
+      line.description,
+      `${label}.description`,
+      TEXT_LIMITS.lineDescription
+    );
+    assertNullableText(line.period, `${label}.period`, TEXT_LIMITS.linePeriod);
     if (
       typeof line.quantity !== 'number' ||
       !Number.isFinite(line.quantity) ||

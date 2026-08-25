@@ -71,6 +71,58 @@ function longPayload(): InvoiceDocumentPayloadV1 {
   };
 }
 
+function adversarialUnicodePayload(): InvoiceDocumentPayloadV1 {
+  const repeat = (value: string, count: number) => value.repeat(count);
+  const scripts = ['A', 'क', 'ক', 'ਸ', 'શ', 'ଶ', 'க', 'శ', 'ಶ', 'ശ'];
+  const lines = scripts.map((script, index) => ({
+    description: repeat(script, 320),
+    period: repeat(scripts[(index + 1) % scripts.length] ?? 'A', 120),
+    quantity: 1,
+    unit_amount_minor: 8_630,
+    amount_minor: 8_630,
+  }));
+
+  return {
+    format_version: 1,
+    invoice_number: 'INV-000043',
+    issued_at: '2026-08-25',
+    currency: 'INR',
+    seller: {
+      business_name: repeat('শ', 36),
+      legal_name: repeat('ਸ਼', 36),
+      branch_name: repeat('શ', 36),
+      phone: '+91 20 5555 0101',
+      email: 'unicode@example.com',
+      address: {
+        line1: repeat('ଶ', 36),
+        line2: repeat('க', 36),
+        city: repeat('శ', 24),
+        state: repeat('ಶ', 24),
+        postal_code: '411001',
+        country: repeat('ശ', 24),
+      },
+    },
+    customer: {
+      customer_name: repeat('ശ', 36),
+      member_number: '1043',
+      phone: '+91 98765 43210',
+      email: 'member@example.com',
+      address: {
+        line1: repeat('க', 36),
+        line2: repeat('শ', 36),
+        city: repeat('શ', 24),
+        state: repeat('ਸ਼', 24),
+        postal_code: '411002',
+        country: repeat('ಶ', 24),
+      },
+    },
+    lines,
+    subtotal_minor: 86_300,
+    adjustments_minor: 0,
+    total_minor: 86_300,
+  };
+}
+
 describe('renderInvoicePdf', () => {
   it('renders a Unicode, multipage, charge-only A4 invoice', async () => {
     const buffer = await renderInvoicePdf(longPayload());
@@ -118,6 +170,40 @@ describe('renderInvoicePdf', () => {
       /\bReceipt\b/i,
     ]) {
       expect(chargeClaimsOnly).not.toMatch(forbidden);
+    }
+  }, 30_000);
+
+  it('embeds major Indian-script fonts and renders bounded unbroken content', async () => {
+    const buffer = await renderInvoicePdf(adversarialUnicodePayload());
+    const pdfPath = join(
+      fixtureDirectory,
+      'invoice-INV-000043-adversarial.pdf'
+    );
+    writeFileSync(pdfPath, buffer);
+    if (process.env.INVOICE_PDF_ADVERSARIAL_PATH) {
+      mkdirSync(dirname(process.env.INVOICE_PDF_ADVERSARIAL_PATH), {
+        recursive: true,
+      });
+      writeFileSync(process.env.INVOICE_PDF_ADVERSARIAL_PATH, buffer);
+    }
+
+    const metadata = execFileSync('pdfinfo', [pdfPath], { encoding: 'utf8' });
+    const pdfSource = buffer.toString('latin1');
+
+    expect(metadata).toContain('Title:           Invoice INV-000043');
+    expect(metadata).toContain('Page size:       595.28 x 841.89 pts (A4)');
+    expect(metadata).toContain('Pages:           11');
+    for (const family of [
+      'NotoSansBengali',
+      'NotoSansGurmukhi',
+      'NotoSansGujarati',
+      'NotoSansOriya',
+      'NotoSansTamil',
+      'NotoSansTelugu',
+      'NotoSansKannada',
+      'NotoSansMalayalam',
+    ]) {
+      expect(pdfSource).toContain(family);
     }
   }, 30_000);
 });

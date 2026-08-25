@@ -207,4 +207,89 @@ describe('assertInvoiceDocumentPayload', () => {
       })
     ).toThrow(/lines/i);
   });
+
+  it('rejects text that can exceed the V1 render frame', () => {
+    expect(() =>
+      assertInvoiceDocumentPayload({
+        ...validPayload,
+        lines: [{ ...line, description: 'x'.repeat(321) }],
+      })
+    ).toThrow(/description.*320/i);
+    expect(() =>
+      assertInvoiceDocumentPayload({
+        ...validPayload,
+        lines: [{ ...line, period: 'x'.repeat(121) }],
+      })
+    ).toThrow(/period.*120/i);
+    expect(() =>
+      assertInvoiceDocumentPayload({
+        ...validPayload,
+        seller: {
+          ...validPayload.seller,
+          business_name: 'x'.repeat(101),
+        },
+      })
+    ).toThrow(/business_name.*100/i);
+  });
+
+  it('rejects individually valid party fields whose combined block is too tall', () => {
+    const repeated = 'x'.repeat(80);
+
+    expect(() =>
+      assertInvoiceDocumentPayload({
+        ...validPayload,
+        seller: {
+          business_name: repeated,
+          legal_name: repeated,
+          branch_name: repeated,
+          phone: repeated,
+          email: repeated,
+          address: {
+            line1: repeated,
+            line2: repeated,
+            city: repeated,
+            state: repeated,
+            postal_code: repeated,
+            country: repeated,
+          },
+        },
+      })
+    ).toThrow(/seller.*combined.*480/i);
+  });
+
+  it('rejects control characters and scripts without a registered V1 font', () => {
+    expect(() =>
+      assertInvoiceDocumentPayload({
+        ...validPayload,
+        lines: [{ ...line, description: 'first line\nsecond line' }],
+      })
+    ).toThrow(/control/i);
+    expect(() =>
+      assertInvoiceDocumentPayload({
+        ...validPayload,
+        customer: {
+          ...validPayload.customer,
+          customer_name: '健身会员',
+        },
+      })
+    ).toThrow(/script.*supported|supported.*script/i);
+  });
+
+  it.each([
+    ['Bengali', 'শক্তি ফিটনেস'],
+    ['Gurmukhi', 'ਸ਼ਕਤੀ ਫਿਟਨੈਸ'],
+    ['Gujarati', 'શક્તિ ફિટનેસ'],
+    ['Odia', 'ଶକ୍ତି ଫିଟନେସ'],
+    ['Tamil', 'சக்தி உடற்பயிற்சி'],
+    ['Telugu', 'శక్తి ఫిట్‌నెస్'],
+    ['Kannada', 'ಶಕ್ತಿ ಫಿಟ್ನೆಸ್'],
+    ['Malayalam', 'ശക്തി ഫിറ്റ്നസ്'],
+  ])('accepts %s party snapshots backed by a V1 font', (_script, name) => {
+    expect(() =>
+      assertInvoiceDocumentPayload({
+        ...validPayload,
+        seller: { ...validPayload.seller, business_name: name },
+      })
+    ).not.toThrow();
+  });
 });

@@ -75,7 +75,96 @@ Font.register({
   ],
 });
 
-Font.registerHyphenationCallback((word) => [word]);
+function registerIndianScriptFont(
+  family: string,
+  regularSource: string,
+  boldSource: string
+): void {
+  Font.register({
+    family,
+    fonts: [
+      { src: regularSource, fontWeight: 400 },
+      { src: boldSource, fontWeight: 700 },
+    ],
+  });
+}
+
+registerIndianScriptFont(
+  'Noto Sans Bengali',
+  packageRequire.resolve(
+    '@fontsource/noto-sans-bengali/files/noto-sans-bengali-bengali-400-normal.woff'
+  ),
+  packageRequire.resolve(
+    '@fontsource/noto-sans-bengali/files/noto-sans-bengali-bengali-700-normal.woff'
+  )
+);
+registerIndianScriptFont(
+  'Noto Sans Gurmukhi',
+  packageRequire.resolve(
+    '@fontsource/noto-sans-gurmukhi/files/noto-sans-gurmukhi-gurmukhi-400-normal.woff'
+  ),
+  packageRequire.resolve(
+    '@fontsource/noto-sans-gurmukhi/files/noto-sans-gurmukhi-gurmukhi-700-normal.woff'
+  )
+);
+registerIndianScriptFont(
+  'Noto Sans Gujarati',
+  packageRequire.resolve(
+    '@fontsource/noto-sans-gujarati/files/noto-sans-gujarati-gujarati-400-normal.woff'
+  ),
+  packageRequire.resolve(
+    '@fontsource/noto-sans-gujarati/files/noto-sans-gujarati-gujarati-700-normal.woff'
+  )
+);
+registerIndianScriptFont(
+  'Noto Sans Oriya',
+  packageRequire.resolve(
+    '@fontsource/noto-sans-oriya/files/noto-sans-oriya-oriya-400-normal.woff'
+  ),
+  packageRequire.resolve(
+    '@fontsource/noto-sans-oriya/files/noto-sans-oriya-oriya-700-normal.woff'
+  )
+);
+registerIndianScriptFont(
+  'Noto Sans Tamil',
+  packageRequire.resolve(
+    '@fontsource/noto-sans-tamil/files/noto-sans-tamil-tamil-400-normal.woff'
+  ),
+  packageRequire.resolve(
+    '@fontsource/noto-sans-tamil/files/noto-sans-tamil-tamil-700-normal.woff'
+  )
+);
+registerIndianScriptFont(
+  'Noto Sans Telugu',
+  packageRequire.resolve(
+    '@fontsource/noto-sans-telugu/files/noto-sans-telugu-telugu-400-normal.woff'
+  ),
+  packageRequire.resolve(
+    '@fontsource/noto-sans-telugu/files/noto-sans-telugu-telugu-700-normal.woff'
+  )
+);
+registerIndianScriptFont(
+  'Noto Sans Kannada',
+  packageRequire.resolve(
+    '@fontsource/noto-sans-kannada/files/noto-sans-kannada-kannada-400-normal.woff'
+  ),
+  packageRequire.resolve(
+    '@fontsource/noto-sans-kannada/files/noto-sans-kannada-kannada-700-normal.woff'
+  )
+);
+registerIndianScriptFont(
+  'Noto Sans Malayalam',
+  packageRequire.resolve(
+    '@fontsource/noto-sans-malayalam/files/noto-sans-malayalam-malayalam-400-normal.woff'
+  ),
+  packageRequire.resolve(
+    '@fontsource/noto-sans-malayalam/files/noto-sans-malayalam-malayalam-700-normal.woff'
+  )
+);
+
+const graphemeSegmenter = new Intl.Segmenter('und', {
+  granularity: 'grapheme',
+});
 
 const styles = StyleSheet.create({
   page: {
@@ -291,6 +380,30 @@ function fontFamilyFor(character: string): string {
   ) {
     return 'Noto Sans Devanagari';
   }
+  if (codePoint >= 0x0980 && codePoint <= 0x09ff) {
+    return 'Noto Sans Bengali';
+  }
+  if (codePoint >= 0x0a00 && codePoint <= 0x0a7f) {
+    return 'Noto Sans Gurmukhi';
+  }
+  if (codePoint >= 0x0a80 && codePoint <= 0x0aff) {
+    return 'Noto Sans Gujarati';
+  }
+  if (codePoint >= 0x0b00 && codePoint <= 0x0b7f) {
+    return 'Noto Sans Oriya';
+  }
+  if (codePoint >= 0x0b80 && codePoint <= 0x0bff) {
+    return 'Noto Sans Tamil';
+  }
+  if (codePoint >= 0x0c00 && codePoint <= 0x0c7f) {
+    return 'Noto Sans Telugu';
+  }
+  if (codePoint >= 0x0c80 && codePoint <= 0x0cff) {
+    return 'Noto Sans Kannada';
+  }
+  if (codePoint >= 0x0d00 && codePoint <= 0x0d7f) {
+    return 'Noto Sans Malayalam';
+  }
   if (
     (codePoint >= 0x0100 && codePoint <= 0x02ff) ||
     (codePoint >= 0x1e00 && codePoint <= 0x1eff) ||
@@ -304,8 +417,11 @@ function fontFamilyFor(character: string): string {
 function unicodeRuns(value: string): { family: string; text: string }[] {
   const runs: { family: string; text: string }[] = [];
   for (const character of Array.from(value)) {
-    const family = fontFamilyFor(character);
     const current = runs.at(-1);
+    const family =
+      /^\s$/u.test(character) && current
+        ? current.family
+        : fontFamilyFor(character);
     if (current?.family === family) {
       current.text += character;
     } else {
@@ -315,18 +431,65 @@ function unicodeRuns(value: string): { family: string; text: string }[] {
   return runs;
 }
 
+function hardWrapWords(value: string, maxGraphemes: number): string {
+  return value
+    .split(/(\s+)/u)
+    .map((part) => {
+      if (/^\s+$/u.test(part)) return part;
+      const graphemes = Array.from(
+        graphemeSegmenter.segment(part),
+        ({ segment }) => segment
+      );
+      const lines: string[] = [];
+      for (let index = 0; index < graphemes.length; index += maxGraphemes) {
+        lines.push(graphemes.slice(index, index + maxGraphemes).join(''));
+      }
+      return lines.join('\n');
+    })
+    .join('');
+}
+
 function UnicodeText({
   children,
+  maxWordGraphemes = 24,
   style,
 }: {
   children: string;
+  maxWordGraphemes?: number;
   style?: ViewStyle;
 }): ReactElement {
-  const runs = unicodeRuns(children);
+  const displayText = hardWrapWords(children, maxWordGraphemes);
+  const displayLines = displayText.split('\n');
+  if (displayLines.length > 1) {
+    return (
+      <View style={style}>
+        {displayLines.map((line, index) => (
+          <UnicodeTextLine key={`${line}-${index}`} value={line} />
+        ))}
+      </View>
+    );
+  }
+
+  return <UnicodeTextLine style={style} value={displayText} />;
+}
+
+function UnicodeTextLine({
+  style,
+  value,
+}: {
+  style?: ViewStyle;
+  value: string;
+}): ReactElement {
+  const runs = unicodeRuns(value);
   if (runs.length === 1) {
     return (
-      <Text style={[style, { fontFamily: runs[0]?.family ?? 'Noto Sans' }]}>
-        {children}
+      <Text
+        style={[
+          style,
+          { fontFamily: [runs[0]?.family ?? 'Noto Sans', 'Noto Sans'] },
+        ]}
+      >
+        {value}
       </Text>
     );
   }
@@ -334,7 +497,10 @@ function UnicodeText({
   return (
     <Text style={style}>
       {runs.map((run, index) => (
-        <Text key={`${run.family}-${index}`} style={{ fontFamily: run.family }}>
+        <Text
+          key={`${run.family}-${index}`}
+          style={{ fontFamily: [run.family, 'Noto Sans'] }}
+        >
           {run.text}
         </Text>
       ))}
@@ -361,7 +527,10 @@ function MoneyText({
       ]}
     >
       {unicodeRuns(children).map((run, index) => (
-        <Text key={`${run.family}-${index}`} style={{ fontFamily: run.family }}>
+        <Text
+          key={`${run.family}-${index}`}
+          style={{ fontFamily: [run.family, 'Noto Sans'] }}
+        >
           {run.text}
         </Text>
       ))}
@@ -479,7 +648,11 @@ function PartyLines({ lines }: { lines: (string | null)[] }): ReactElement {
       {lines
         .filter((line): line is string => Boolean(line?.trim()))
         .map((line, index) => (
-          <UnicodeText key={`${line}-${index}`} style={styles.partyLine}>
+          <UnicodeText
+            key={`${line}-${index}`}
+            maxWordGraphemes={22}
+            style={styles.partyLine}
+          >
             {line}
           </UnicodeText>
         ))}
@@ -490,29 +663,66 @@ function PartyLines({ lines }: { lines: (string | null)[] }): ReactElement {
 const FIRST_PAGE_ROW_BUDGET = 180;
 const CONTINUATION_PAGE_ROW_BUDGET = 430;
 const TOTALS_HEIGHT_RESERVE = 92;
+const BASELINE_PARTY_HEIGHT = 216;
+const PARTY_CHARACTERS_PER_LINE = 22;
+const PARTY_NAME_CHARACTERS_PER_LINE = 18;
 
 function wrappedLineCount(value: string, charactersPerLine: number): number {
   return value.split('\n').reduce((count, segment) => {
-    return count + Math.max(1, Math.ceil(segment.length / charactersPerLine));
+    return (
+      count +
+      Math.max(1, Math.ceil(Array.from(segment).length / charactersPerLine))
+    );
   }, 0);
 }
 
 function estimatedRowHeight(line: InvoicePdfRenderLine): number {
-  const descriptionHeight = wrappedLineCount(line.description, 42) * 12.6;
+  const descriptionHeight = wrappedLineCount(line.description, 24) * 12.6;
   const periodHeight = line.period
-    ? 3 + wrappedLineCount(line.period, 48) * 10.9
+    ? 3 + wrappedLineCount(line.period, 24) * 10.9
     : 0;
   return 18 + descriptionHeight + periodHeight;
+}
+
+function estimatedPartyHeight(name: string, lines: readonly string[]): number {
+  const nameHeight =
+    wrappedLineCount(name, PARTY_NAME_CHARACTERS_PER_LINE) * 15.4 + 4;
+  const detailHeight = lines.reduce(
+    (height, line) =>
+      height + wrappedLineCount(line, PARTY_CHARACTERS_PER_LINE) * 13.05,
+    0
+  );
+  return 17 + nameHeight + detailHeight + 28;
+}
+
+function firstPageRowBudget(model: InvoicePdfRenderModel): number {
+  const partyHeight = Math.max(
+    estimatedPartyHeight(model.sellerName, model.sellerLines),
+    estimatedPartyHeight(model.customerName, model.customerLines)
+  );
+  return Math.max(
+    0,
+    FIRST_PAGE_ROW_BUDGET - Math.max(0, partyHeight - BASELINE_PARTY_HEIGHT)
+  );
 }
 
 function paginateLines(model: InvoicePdfRenderModel): InvoicePdfRenderLine[][] {
   const pages: InvoicePdfRenderLine[][] = [];
   let currentPage: InvoicePdfRenderLine[] = [];
   let usedHeight = 0;
-  let budget = FIRST_PAGE_ROW_BUDGET;
+  let budget = firstPageRowBudget(model);
 
   for (const line of model.lines) {
     const rowHeight = estimatedRowHeight(line);
+    if (pages.length === 0 && currentPage.length === 0 && rowHeight > budget) {
+      pages.push([]);
+      budget = CONTINUATION_PAGE_ROW_BUDGET;
+    }
+    if (rowHeight > CONTINUATION_PAGE_ROW_BUDGET) {
+      throw new TypeError(
+        'Invalid invoice document payload: a line exceeds the V1 page frame'
+      );
+    }
     if (currentPage.length > 0 && usedHeight + rowHeight > budget) {
       pages.push(currentPage);
       currentPage = [];
@@ -573,11 +783,13 @@ function TableRows({ lines }: { lines: InvoicePdfRenderLine[] }): ReactElement {
           wrap={false}
         >
           <View style={styles.descriptionColumn}>
-            <UnicodeText style={styles.description}>
+            <UnicodeText maxWordGraphemes={24} style={styles.description}>
               {line.description}
             </UnicodeText>
             {line.period ? (
-              <UnicodeText style={styles.period}>{line.period}</UnicodeText>
+              <UnicodeText maxWordGraphemes={24} style={styles.period}>
+                {line.period}
+              </UnicodeText>
             ) : null}
           </View>
           <Text style={styles.quantityColumn}>{line.quantity}</Text>
@@ -681,14 +893,14 @@ function InvoicePdfDocument({
                 <View style={styles.parties} wrap={false}>
                   <View style={styles.party}>
                     <Text style={styles.eyebrow}>{model.sellerLabel}</Text>
-                    <UnicodeText style={styles.partyName}>
+                    <UnicodeText maxWordGraphemes={18} style={styles.partyName}>
                       {model.sellerName}
                     </UnicodeText>
                     <PartyLines lines={model.sellerLines} />
                   </View>
                   <View style={styles.party}>
                     <Text style={styles.eyebrow}>{model.customerLabel}</Text>
-                    <UnicodeText style={styles.partyName}>
+                    <UnicodeText maxWordGraphemes={18} style={styles.partyName}>
                       {model.customerName}
                     </UnicodeText>
                     <PartyLines lines={model.customerLines} />
