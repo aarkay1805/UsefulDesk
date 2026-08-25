@@ -21,6 +21,8 @@ let documentStatus: 'generating' | 'ready' | 'failed' | null = null;
 let whatsappConnected = true;
 let templateReady = true;
 let queriedTables: string[] = [];
+let deferReadiness = false;
+let readinessResolvers: Array<() => void> = [];
 
 vi.mock('sonner', () => ({ toast }));
 vi.mock('next/navigation', () => ({
@@ -38,20 +40,19 @@ vi.mock('@/lib/supabase/client', () => ({
         select: () => builder,
         eq: () => builder,
         maybeSingle: () => {
+          let result;
           if (table === 'invoice_documents') {
-            return Promise.resolve({
+            result = {
               data: documentStatus ? { status: documentStatus } : null,
               error: null,
-            });
-          }
-          if (table === 'whatsapp_config') {
-            return Promise.resolve({
+            };
+          } else if (table === 'whatsapp_config') {
+            result = {
               data: whatsappConnected ? { status: 'connected' } : null,
               error: null,
-            });
-          }
-          if (table === 'message_templates') {
-            return Promise.resolve({
+            };
+          } else if (table === 'message_templates') {
+            result = {
               data: templateReady
                 ? {
                     ...TEMPLATE_CONTRACTS.invoice_document.payload,
@@ -60,9 +61,14 @@ vi.mock('@/lib/supabase/client', () => ({
                   }
                 : null,
               error: null,
-            });
+            };
+          } else {
+            throw new Error(`Unexpected table: ${table}`);
           }
-          throw new Error(`Unexpected table: ${table}`);
+          if (!deferReadiness) return Promise.resolve(result);
+          return new Promise((resolve) => {
+            readinessResolvers.push(() => resolve(result));
+          });
         },
       };
       return builder;
@@ -142,12 +148,22 @@ async function renderReady(
   );
 }
 
+async function settleReadiness() {
+  await waitFor(() => expect(readinessResolvers).toHaveLength(3));
+  const resolvers = readinessResolvers.splice(0);
+  await act(async () => {
+    resolvers.forEach((resolve) => resolve());
+  });
+}
+
 beforeEach(() => {
   accountRole = 'agent';
   documentStatus = null;
   whatsappConnected = true;
   templateReady = true;
   queriedTables = [];
+  deferReadiness = false;
+  readinessResolvers = [];
   toast.error.mockReset();
   toast.success.mockReset();
   navigation.push.mockReset();
@@ -282,7 +298,8 @@ describe('InvoiceDocumentActions', () => {
     expect(queriedTables).toEqual([]);
   });
 
-  it('links an incomplete invoice profile to payment settings', async () => {
+  it('does not promise invoice-profile setup to a viewer', async () => {
+    accountRole = 'viewer';
     render(
       <InvoiceDocumentActions
         invoice={invoice({ seller_snapshot: null })}
@@ -290,9 +307,43 @@ describe('InvoiceDocumentActions', () => {
       />
     );
 
-    const download = screen.getByRole('button', { name: 'Download invoice' });
-    expect(download.getAttribute('aria-disabled')).toBe('true');
-    await userEvent.click(download);
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole('button', { name: 'Download invoice' })
+          .getAttribute('aria-disabled')
+      ).toBe('true')
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Download invoice' })
+    );
+
+    const blocker = screen.getByRole('dialog', {
+      name: 'Invoice setup required',
+    });
+    expect(within(blocker).queryByRole('button')).toBeNull();
+    expect(within(blocker).queryByRole('link')).toBeNull();
+  });
+
+  it('links an incomplete invoice profile to payment settings for an admin', async () => {
+    accountRole = 'admin';
+    render(
+      <InvoiceDocumentActions
+        invoice={invoice({ seller_snapshot: null })}
+        customerPhone="+919999999999"
+      />
+    );
+
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole('button', { name: 'Download invoice' })
+          .getAttribute('aria-disabled')
+      ).toBe('true')
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Download invoice' })
+    );
 
     const resolution = screen.getByRole('button', {
       name: 'Finish invoice setup',
@@ -304,8 +355,16 @@ describe('InvoiceDocumentActions', () => {
   it('explains a missing phone without offering a settings CTA', async () => {
     render(<InvoiceDocumentActions invoice={invoice()} customerPhone={null} />);
 
-    const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
-    await userEvent.click(share);
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole('button', { name: 'Send on WhatsApp' })
+          .getAttribute('aria-disabled')
+      ).toBe('true')
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Send on WhatsApp' })
+    );
 
     const blocker = screen.getByRole('dialog', {
       name: 'Phone number required',
@@ -332,6 +391,7 @@ describe('InvoiceDocumentActions', () => {
   ])(
     'links %s to its existing settings tab',
     async (_name, connected, approved, label, href) => {
+      accountRole = 'admin';
       whatsappConnected = connected;
       templateReady = approved;
       await renderReady();
@@ -345,7 +405,133 @@ describe('InvoiceDocumentActions', () => {
     }
   );
 
+  it('keeps unresolved readiness inert, then enables ready actions', async () => {
+    deferReadiness = true;
+    const fetchMock = vi
+      .mocked(fetch)
+      .mockResolvedValue(pdfResponse('invoice-INV-000042.pdf'));
+    render(
+      <InvoiceDocumentActions
+        invoice={invoice()}
+        customerPhone="+919999999999"
+      />
+    );
+
+    const download = screen.getByRole('button', { name: 'Download invoice' });
+    const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
+    expect(download.hasAttribute('disabled')).toBe(true);
+    expect(download.getAttribute('aria-busy')).toBe('true');
+    expect(share.hasAttribute('disabled')).toBe(true);
+    expect(share.getAttribute('aria-busy')).toBe('true');
+
+    await userEvent.click(download);
+    await userEvent.click(share);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await settleReadiness();
+    await waitFor(() => expect(download.hasAttribute('disabled')).toBe(false));
+    expect(share.hasAttribute('disabled')).toBe(false);
+    expect(download.getAttribute('aria-busy')).toBeNull();
+
+    await userEvent.click(download);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/invoices/12345678-1234-4234-9234-123456789abc/document',
+      { cache: 'no-store' }
+    );
+  });
+
+  it.each([
+    [false, true, "WhatsApp isn't connected"],
+    [true, false, "Invoice template isn't ready"],
+  ])(
+    'keeps unresolved readiness inert, then exposes the settled blocker without an agent CTA',
+    async (connected, approved, title) => {
+      deferReadiness = true;
+      whatsappConnected = connected;
+      templateReady = approved;
+      render(
+        <InvoiceDocumentActions
+          invoice={invoice()}
+          customerPhone="+919999999999"
+        />
+      );
+
+      const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
+      expect(share.hasAttribute('disabled')).toBe(true);
+      await userEvent.click(share);
+      expect(screen.queryByRole('dialog')).toBeNull();
+
+      await settleReadiness();
+      await waitFor(() =>
+        expect(
+          screen
+            .getByRole('button', { name: 'Send on WhatsApp' })
+            .getAttribute('aria-disabled')
+        ).toBe('true')
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Send on WhatsApp' })
+      );
+
+      const blocker = screen.getByRole('dialog', { name: title });
+      expect(within(blocker).queryByRole('button')).toBeNull();
+      expect(within(blocker).queryByRole('link')).toBeNull();
+    }
+  );
+
+  it('does not reuse settled readiness after the invoice identity changes', async () => {
+    const fetchMock = vi
+      .mocked(fetch)
+      .mockResolvedValue(pdfResponse('invoice.pdf'));
+    const view = render(
+      <InvoiceDocumentActions
+        invoice={invoice()}
+        customerPhone="+919999999999"
+      />
+    );
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole('button', { name: 'Download invoice' })
+          .hasAttribute('disabled')
+      ).toBe(false)
+    );
+
+    deferReadiness = true;
+    whatsappConnected = false;
+    view.rerender(
+      <InvoiceDocumentActions
+        invoice={invoice({ id: '87654321-4321-4321-8321-cba987654321' })}
+        customerPhone="+919999999999"
+      />
+    );
+
+    const download = screen.getByRole('button', { name: 'Download invoice' });
+    const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
+    expect(download.hasAttribute('disabled')).toBe(true);
+    expect(download.getAttribute('aria-busy')).toBe('true');
+    expect(share.hasAttribute('disabled')).toBe(true);
+    await userEvent.click(download);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await settleReadiness();
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole('button', { name: 'Send on WhatsApp' })
+          .getAttribute('aria-disabled')
+      ).toBe('true')
+    );
+    expect(
+      screen
+        .getByRole('button', { name: 'Download invoice' })
+        .hasAttribute('disabled')
+    ).toBe(false);
+  });
+
   it('keeps document generation natively disabled without a blocker popover', async () => {
+    deferReadiness = true;
     documentStatus = 'generating';
     render(
       <InvoiceDocumentActions
@@ -355,6 +541,8 @@ describe('InvoiceDocumentActions', () => {
     );
 
     const download = screen.getByRole('button', { name: 'Download invoice' });
+    expect(download.getAttribute('aria-busy')).toBe('true');
+    await settleReadiness();
     await waitFor(() => {
       expect(
         screen
@@ -368,11 +556,15 @@ describe('InvoiceDocumentActions', () => {
       ).toBe(true);
     });
     const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
+    expect(download.getAttribute('aria-busy')).toBeNull();
+    expect(share.getAttribute('aria-busy')).toBeNull();
     expect(download.getAttribute('aria-disabled')).toBeNull();
     expect(share.getAttribute('aria-disabled')).toBeNull();
 
     await userEvent.click(download);
+    await userEvent.click(share);
     expect(screen.queryByRole('dialog')).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('keeps permission higher priority than document generation', async () => {
@@ -428,20 +620,32 @@ describe('InvoiceDocumentActions', () => {
         customerPhone="+919999999999"
       />
     );
-    const download = await screen.findByRole('button', {
+    await screen.findByRole('button', {
       name: 'Download invoice',
     });
-    const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
     await waitFor(() =>
-      expect(download.getAttribute('aria-disabled')).toBe('true')
+      expect(
+        screen
+          .getByRole('button', { name: 'Download invoice' })
+          .getAttribute('aria-disabled')
+      ).toBe('true')
     );
-    expect(share.getAttribute('aria-disabled')).toBe('true');
-    await userEvent.click(download);
+    expect(
+      screen
+        .getByRole('button', { name: 'Send on WhatsApp' })
+        .getAttribute('aria-disabled')
+    ).toBe('true');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Download invoice' })
+    );
     expect(screen.getByText(reason)).toBeTruthy();
   });
 
   it('allows audit download of an already-ready void document', async () => {
     documentStatus = 'ready';
+    const fetchMock = vi
+      .mocked(fetch)
+      .mockResolvedValue(pdfResponse('invoice-INV-000042.pdf'));
     render(
       <InvoiceDocumentActions
         invoice={invoice({ state: 'void' })}
@@ -458,6 +662,13 @@ describe('InvoiceDocumentActions', () => {
         .getByRole('button', { name: 'Send on WhatsApp' })
         .getAttribute('aria-disabled')
     ).toBe('true');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Download invoice' })
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/invoices/12345678-1234-4234-9234-123456789abc/document',
+      { cache: 'no-store' }
+    );
   });
 
   it('surfaces API errors through the standard toast path', async () => {

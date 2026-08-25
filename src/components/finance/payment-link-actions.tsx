@@ -12,7 +12,11 @@ import {
 } from '@/components/ui/resolvable-action';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
-import { canManagePaymentLinks } from '@/lib/auth/roles';
+import {
+  canConfigurePaymentGateway,
+  canEditSettings,
+  canManagePaymentLinks,
+} from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
 import { PAYMENT_LINK_TEMPLATE_NAME } from '@/lib/payments/payment-link-constants';
 import { createClient } from '@/lib/supabase/client';
@@ -49,7 +53,10 @@ const PHONE_BLOCKER: ActionBlocker = {
     'Add a phone number to this member before sending a payment link on WhatsApp.',
 };
 
-function paymentProviderBlocker(reason: string | null): ActionBlocker {
+function paymentProviderBlocker(
+  reason: string | null,
+  canConfigureGateway: boolean
+): ActionBlocker {
   const normalized = reason?.toLowerCase() ?? '';
   if (
     normalized.includes('reconnect razorpay') ||
@@ -58,10 +65,14 @@ function paymentProviderBlocker(reason: string | null): ActionBlocker {
     return {
       title: 'Payment setup required',
       description: reason ?? 'Open payment setup to restore Razorpay.',
-      resolution: {
-        label: 'Open payment setup',
-        href: '/settings?tab=payments',
-      },
+      ...(canConfigureGateway
+        ? {
+            resolution: {
+              label: 'Open payment setup',
+              href: '/settings?tab=payments',
+            },
+          }
+        : {}),
     };
   }
   if (
@@ -74,10 +85,14 @@ function paymentProviderBlocker(reason: string | null): ActionBlocker {
         reason === "Razorpay isn't connected"
           ? 'Connect Razorpay before creating a payment link.'
           : (reason ?? 'Connect Razorpay before creating a payment link.'),
-      resolution: {
-        label: 'Connect Razorpay',
-        href: '/settings?tab=payments',
-      },
+      ...(canConfigureGateway
+        ? {
+            resolution: {
+              label: 'Connect Razorpay',
+              href: '/settings?tab=payments',
+            },
+          }
+        : {}),
     };
   }
   return {
@@ -86,15 +101,22 @@ function paymentProviderBlocker(reason: string | null): ActionBlocker {
   };
 }
 
-function whatsappBlocker(reason: string | null): ActionBlocker {
+function whatsappBlocker(
+  reason: string | null,
+  canManageSettings: boolean
+): ActionBlocker {
   if (reason?.toLowerCase().includes('connect whatsapp')) {
     return {
       title: "WhatsApp isn't connected",
       description: reason,
-      resolution: {
-        label: 'Connect WhatsApp',
-        href: '/settings?tab=whatsapp',
-      },
+      ...(canManageSettings
+        ? {
+            resolution: {
+              label: 'Connect WhatsApp',
+              href: '/settings?tab=whatsapp',
+            },
+          }
+        : {}),
     };
   }
   return {
@@ -102,10 +124,14 @@ function whatsappBlocker(reason: string | null): ActionBlocker {
     description:
       reason ??
       `Approve and sync the exact ${PAYMENT_LINK_TEMPLATE_NAME} template before sending.`,
-    resolution: {
-      label: 'Open template setup',
-      href: '/settings?tab=templates',
-    },
+    ...(canManageSettings
+      ? {
+          resolution: {
+            label: 'Open template setup',
+            href: '/settings?tab=templates',
+          },
+        }
+      : {}),
   };
 }
 
@@ -138,6 +164,10 @@ export function PaymentLinkActions({
   const { accountId, accountRole } = useAuth();
   const { fmt } = useLocale();
   const canManage = accountRole ? canManagePaymentLinks(accountRole) : false;
+  const canConfigureGateway = accountRole
+    ? canConfigurePaymentGateway(accountRole)
+    : false;
+  const canManageSettings = accountRole ? canEditSettings(accountRole) : false;
   const [link, setLink] = useState<BrowserPaymentLink | null>(null);
   const [providerReady, setProviderReady] = useState(false);
   const [providerReason, setProviderReason] = useState<string | null>(null);
@@ -303,7 +333,7 @@ export function PaymentLinkActions({
   const hasPhone = Boolean(member?.contact?.phone?.trim());
   const providerBlocker = providerReady
     ? null
-    : paymentProviderBlocker(providerReason);
+    : paymentProviderBlocker(providerReason, canConfigureGateway);
   const sendReady = providerReady && templateReady && hasPhone;
   const copyBlocker = !canManage
     ? PAYMENT_LINK_PERMISSION_BLOCKER
@@ -317,7 +347,7 @@ export function PaymentLinkActions({
         : providerBlocker
           ? providerBlocker
           : !templateReady
-            ? whatsappBlocker(templateReason)
+            ? whatsappBlocker(templateReason, canManageSettings)
             : null;
   const active = link?.status === 'created' && link.shortUrl;
   const showStatus =

@@ -12,6 +12,8 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import {
   canDownloadInvoiceDocuments,
+  canEditSettings,
+  canManageInvoiceProfile,
   canShareInvoiceDocuments,
 } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
@@ -78,7 +80,11 @@ const PERMISSION_BLOCKER: ActionBlocker = {
 
 function documentBlocker(
   code: InvoiceDocumentBlockerCode | null,
-  description: string | null
+  description: string | null,
+  capabilities: {
+    canManageInvoiceProfile: boolean;
+    canEditSettings: boolean;
+  }
 ): ActionBlocker | null {
   if (!code || code === 'document_preparing') return null;
 
@@ -100,10 +106,14 @@ function documentBlocker(
         title: 'Invoice setup required',
         description:
           description ?? 'Finish invoice setup before creating a document.',
-        resolution: {
-          label: 'Finish invoice setup',
-          href: '/settings?tab=payments',
-        },
+        ...(capabilities.canManageInvoiceProfile
+          ? {
+              resolution: {
+                label: 'Finish invoice setup',
+                href: '/settings?tab=payments',
+              },
+            }
+          : {}),
       };
     case 'missing_phone':
       return {
@@ -116,22 +126,37 @@ function documentBlocker(
         title: "WhatsApp isn't connected",
         description:
           description ?? 'Connect WhatsApp before sending this invoice.',
-        resolution: {
-          label: 'Connect WhatsApp',
-          href: '/settings?tab=whatsapp',
-        },
+        ...(capabilities.canEditSettings
+          ? {
+              resolution: {
+                label: 'Connect WhatsApp',
+                href: '/settings?tab=whatsapp',
+              },
+            }
+          : {}),
       };
     case 'template_unavailable':
       return {
         title: "Invoice template isn't ready",
         description:
           description ?? 'Approve the invoice template before sending.',
-        resolution: {
-          label: 'Open template setup',
-          href: '/settings?tab=templates',
-        },
+        ...(capabilities.canEditSettings
+          ? {
+              resolution: {
+                label: 'Open template setup',
+                href: '/settings?tab=templates',
+              },
+            }
+          : {}),
       };
   }
+}
+
+interface LoadedInvoiceDocumentReadiness {
+  identity: string;
+  documentStatus: InvoiceDocumentStatus;
+  whatsappConnected: boolean;
+  templateReady: boolean;
 }
 
 export function InvoiceDocumentActions({
@@ -142,16 +167,27 @@ export function InvoiceDocumentActions({
   customerPhone: string | null | undefined;
 }) {
   const { accountId, accountRole } = useAuth();
-  const [documentStatus, setDocumentStatus] =
-    useState<InvoiceDocumentStatus>(null);
-  const [whatsappConnected, setWhatsappConnected] = useState(false);
-  const [templateReady, setTemplateReady] = useState(false);
+  const [loadedReadiness, setLoadedReadiness] =
+    useState<LoadedInvoiceDocumentReadiness | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const projected = isProjectedInvoice(invoice.id);
+  const readinessIdentity =
+    accountId && !projected ? `${accountId}:${invoice.id}` : null;
+  const readinessLoaded =
+    readinessIdentity !== null &&
+    loadedReadiness?.identity === readinessIdentity;
+  const documentStatus = readinessLoaded
+    ? loadedReadiness.documentStatus
+    : null;
+  const whatsappConnected = readinessLoaded
+    ? loadedReadiness.whatsappConnected
+    : false;
+  const templateReady = readinessLoaded ? loadedReadiness.templateReady : false;
+  const readinessLoading = !projected && !readinessLoaded;
 
   useEffect(() => {
-    if (!accountId || projected) return;
+    if (!accountId || !readinessIdentity) return;
     let cancelled = false;
     void (async () => {
       const supabase = createClient();
@@ -178,14 +214,6 @@ export function InvoiceDocumentActions({
         ]);
       if (cancelled) return;
 
-      setDocumentStatus(
-        documentResult.error
-          ? null
-          : ((documentResult.data?.status as InvoiceDocumentStatus) ?? null)
-      );
-      setWhatsappConnected(
-        !connectionResult.error && connectionResult.data?.status === 'connected'
-      );
       const readiness = evaluateTemplateReadiness(
         templateResult.error || !templateResult.data
           ? []
@@ -193,12 +221,21 @@ export function InvoiceDocumentActions({
         'invoice_document',
         'en_US'
       );
-      setTemplateReady(readiness.ready);
+      setLoadedReadiness({
+        identity: readinessIdentity,
+        documentStatus: documentResult.error
+          ? null
+          : ((documentResult.data?.status as InvoiceDocumentStatus) ?? null),
+        whatsappConnected:
+          !connectionResult.error &&
+          connectionResult.data?.status === 'connected',
+        templateReady: readiness.ready,
+      });
     })();
     return () => {
       cancelled = true;
     };
-  }, [accountId, invoice.id, projected]);
+  }, [accountId, invoice.id, readinessIdentity]);
 
   const presentation = invoiceDocumentActionPresentation({
     is_projected: projected,
@@ -216,15 +253,26 @@ export function InvoiceDocumentActions({
     ? canDownloadInvoiceDocuments(accountRole)
     : false;
   const canShare = accountRole ? canShareInvoiceDocuments(accountRole) : false;
+  const blockerCapabilities = {
+    canManageInvoiceProfile: accountRole
+      ? canManageInvoiceProfile(accountRole)
+      : false,
+    canEditSettings: accountRole ? canEditSettings(accountRole) : false,
+  };
   const downloadBlocker = !canDownload
     ? PERMISSION_BLOCKER
     : documentBlocker(
         presentation.download.blocker,
-        presentation.download.reason
+        presentation.download.reason,
+        blockerCapabilities
       );
   const shareBlocker = !canShare
     ? PERMISSION_BLOCKER
-    : documentBlocker(presentation.share.blocker, presentation.share.reason);
+    : documentBlocker(
+        presentation.share.blocker,
+        presentation.share.reason,
+        blockerCapabilities
+      );
   const documentPreparing = documentStatus === 'generating';
 
   if (!presentation.download.show && !presentation.share.show) return null;
@@ -253,7 +301,11 @@ export function InvoiceDocumentActions({
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(objectUrl);
-      setDocumentStatus('ready');
+      setLoadedReadiness((current) =>
+        current?.identity === readinessIdentity
+          ? { ...current, documentStatus: 'ready' }
+          : current
+      );
     } catch (error) {
       toast.error(getErrorMessage(error, 'Invoice could not be downloaded'));
     } finally {
@@ -273,7 +325,11 @@ export function InvoiceDocumentActions({
           responseErrorMessage(body, 'Invoice could not be sent on WhatsApp')
         );
       }
-      setDocumentStatus('ready');
+      setLoadedReadiness((current) =>
+        current?.identity === readinessIdentity
+          ? { ...current, documentStatus: 'ready' }
+          : current
+      );
       toast.success('Invoice sent on WhatsApp');
     } catch (error) {
       toast.error(
@@ -292,8 +348,8 @@ export function InvoiceDocumentActions({
             <Button
               type="button"
               variant="outline"
-              disabled={canDownload && documentPreparing}
-              loading={downloading}
+              disabled={readinessLoading || (canDownload && documentPreparing)}
+              loading={readinessLoading || downloading}
             >
               <Download /> Download invoice
             </Button>
@@ -308,8 +364,8 @@ export function InvoiceDocumentActions({
             <Button
               type="button"
               variant="outline"
-              disabled={canShare && documentPreparing}
-              loading={sharing}
+              disabled={readinessLoading || (canShare && documentPreparing)}
+              loading={readinessLoading || sharing}
             >
               <MessageCircle /> Send on WhatsApp
             </Button>

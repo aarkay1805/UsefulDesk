@@ -195,6 +195,7 @@ describe('PaymentLinkActions readiness', () => {
   });
 
   it('opens payment setup when Razorpay is not connected', async () => {
+    accountRole = 'admin';
     renderActions();
     await resolveReadiness({
       providerReady: false,
@@ -214,6 +215,7 @@ describe('PaymentLinkActions readiness', () => {
   });
 
   it('opens existing payment setup for a recoverable provider state', async () => {
+    accountRole = 'admin';
     renderActions();
     await resolveReadiness({
       providerReady: false,
@@ -304,6 +306,7 @@ describe('PaymentLinkActions readiness', () => {
   });
 
   it('resolves WhatsApp connection before template readiness', async () => {
+    accountRole = 'admin';
     whatsappConnected = false;
     templateReady = false;
     renderActions();
@@ -321,6 +324,7 @@ describe('PaymentLinkActions readiness', () => {
   });
 
   it('links an unavailable exact template to template setup', async () => {
+    accountRole = 'admin';
     templateReady = false;
     renderActions();
     await resolveReadiness();
@@ -335,6 +339,45 @@ describe('PaymentLinkActions readiness', () => {
     expect(resolution.tagName).toBe('A');
     expect(resolution.getAttribute('href')).toBe('/settings?tab=templates');
   });
+
+  it('does not promise Razorpay setup to an agent', async () => {
+    accountRole = 'agent';
+    renderActions();
+    await resolveReadiness({
+      providerReady: false,
+      providerReason: "Razorpay isn't connected",
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+
+    const blocker = screen.getByRole('dialog', {
+      name: "Razorpay isn't connected",
+    });
+    expect(within(blocker).queryByRole('button')).toBeNull();
+    expect(within(blocker).queryByRole('link')).toBeNull();
+  });
+
+  it.each([
+    [false, true, "WhatsApp isn't connected"],
+    [true, false, "Payment link template isn't ready"],
+  ])(
+    'does not promise WhatsApp or template setup to an agent',
+    async (connected, approved, title) => {
+      accountRole = 'agent';
+      whatsappConnected = connected;
+      templateReady = approved;
+      renderActions();
+      await resolveReadiness();
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Send payment link' })
+      );
+
+      const blocker = screen.getByRole('dialog', { name: title });
+      expect(within(blocker).queryByRole('button')).toBeNull();
+      expect(within(blocker).queryByRole('link')).toBeNull();
+    }
+  );
 
   it('keeps Copy link available when only WhatsApp readiness is blocked', async () => {
     whatsappConnected = false;
