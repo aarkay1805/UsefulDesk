@@ -15,7 +15,9 @@ import type { ComponentProps, ReactElement } from 'react';
 import { formatCurrencyExact } from '@/lib/currency';
 import {
   assertInvoiceDocumentPayload,
+  invoiceDocumentFontFamilyForCodePoint,
   type InvoiceDocumentAddress,
+  type InvoiceDocumentFontFamily,
   type InvoiceDocumentPayloadV1,
 } from './invoice-documents';
 
@@ -371,79 +373,28 @@ const styles = StyleSheet.create({
 
 type ViewStyle = ComponentProps<typeof View>['style'];
 
-function indianScriptFamilyForCodePoint(codePoint: number): string | null {
-  if (codePoint >= 0x0900 && codePoint <= 0x097f) {
-    return 'Noto Sans Devanagari';
-  }
-  if (codePoint >= 0x0980 && codePoint <= 0x09ff) {
-    return 'Noto Sans Bengali';
-  }
-  if (codePoint >= 0x0a00 && codePoint <= 0x0a7f) {
-    return 'Noto Sans Gurmukhi';
-  }
-  if (codePoint >= 0x0a80 && codePoint <= 0x0aff) {
-    return 'Noto Sans Gujarati';
-  }
-  if (codePoint >= 0x0b00 && codePoint <= 0x0b7f) {
-    return 'Noto Sans Oriya';
-  }
-  if (codePoint >= 0x0b80 && codePoint <= 0x0bff) {
-    return 'Noto Sans Tamil';
-  }
-  if (codePoint >= 0x0c00 && codePoint <= 0x0c7f) {
-    return 'Noto Sans Telugu';
-  }
-  if (codePoint >= 0x0c80 && codePoint <= 0x0cff) {
-    return 'Noto Sans Kannada';
-  }
-  if (codePoint >= 0x0d00 && codePoint <= 0x0d7f) {
-    return 'Noto Sans Malayalam';
-  }
-  return null;
+function indianScriptFamilyForCodePoint(
+  codePoint: number
+): InvoiceDocumentFontFamily | null {
+  const family = invoiceDocumentFontFamilyForCodePoint(codePoint);
+  return family === 'Noto Sans' || family === 'Noto Sans Extended'
+    ? null
+    : family;
 }
 
-function fontFamilyForCodePoint(codePoint: number): string {
-  const indianFamily = indianScriptFamilyForCodePoint(codePoint);
-  if (indianFamily) return indianFamily;
-  if (codePoint === 0x0307 || codePoint === 0x0323) {
-    return 'Noto Sans Malayalam';
-  }
-  if (codePoint === 0x262c) return 'Noto Sans Gurmukhi';
-  if ((codePoint >= 0x1cd0 && codePoint <= 0x1cff) || codePoint === 0x20b9) {
-    return 'Noto Sans Devanagari';
-  }
-  if (
-    (codePoint >= 0xa830 && codePoint <= 0xa839) ||
-    (codePoint >= 0xa8e0 && codePoint <= 0xa8ff) ||
-    (codePoint >= 0x11b00 && codePoint <= 0x11b09) ||
-    codePoint === 0x20a8 ||
-    codePoint === 0x20f0 ||
-    codePoint === 0x25cc
-  ) {
-    return 'Noto Sans Devanagari';
-  }
-  if (
-    (codePoint >= 0x0100 && codePoint <= 0x02ff) ||
-    (codePoint >= 0x1d00 && codePoint <= 0x1dbf) ||
-    (codePoint >= 0x1e00 && codePoint <= 0x1eff) ||
-    (codePoint >= 0x20a0 && codePoint <= 0x20cf) ||
-    (codePoint >= 0x2c60 && codePoint <= 0x2c7f) ||
-    (codePoint >= 0xa720 && codePoint <= 0xa7ff)
-  ) {
-    return 'Noto Sans Extended';
-  }
-  return 'Noto Sans';
+function fontFamilyForCodePoint(codePoint: number): InvoiceDocumentFontFamily {
+  return invoiceDocumentFontFamilyForCodePoint(codePoint) ?? 'Noto Sans';
 }
 
 export interface InvoicePdfTextRun {
-  family: string;
+  family: InvoiceDocumentFontFamily;
   text: string;
 }
 
 function contextualIndianFamily(
   graphemes: readonly string[],
   index: number
-): string | null {
+): InvoiceDocumentFontFamily | null {
   for (let distance = 1; distance < graphemes.length; distance += 1) {
     const before = graphemes[index - distance];
     if (before) {
@@ -472,7 +423,15 @@ function fontFamilyForGrapheme(
   grapheme: string,
   graphemes: readonly string[],
   index: number
-): string {
+): InvoiceDocumentFontFamily {
+  for (const character of Array.from(grapheme)) {
+    if (!/[\p{L}\p{N}]/u.test(character)) continue;
+    const family = indianScriptFamilyForCodePoint(
+      character.codePointAt(0) ?? 0
+    );
+    if (family) return family;
+  }
+
   for (const character of Array.from(grapheme)) {
     const family = indianScriptFamilyForCodePoint(
       character.codePointAt(0) ?? 0

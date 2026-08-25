@@ -135,51 +135,279 @@ const TEXT_LIMITS = {
   partyCombined: 480,
 } as const;
 
-const REGISTERED_FONT_RANGES: readonly (readonly [number, number])[] = [
-  [0x0000, 0x02cc],
-  [0x02ce, 0x02d7],
-  [0x02da, 0x02da],
-  [0x02dc, 0x02ff],
-  [0x0304, 0x0304],
-  [0x0307, 0x0308],
-  [0x0323, 0x0323],
-  [0x0329, 0x0329],
-  [0x0900, 0x097f],
-  [0x0980, 0x09fe],
-  [0x0a01, 0x0a76],
-  [0x0a80, 0x0aff],
-  [0x0b01, 0x0b77],
-  [0x0b82, 0x0bfa],
-  [0x0c00, 0x0c7f],
-  [0x0c80, 0x0cf3],
-  [0x0d00, 0x0d7f],
-  [0x1cd0, 0x1cf9],
-  [0x1d00, 0x1dbf],
-  [0x1e00, 0x1e9f],
-  [0x1ef2, 0x1eff],
-  [0x2000, 0x206f],
-  [0x20a0, 0x20c0],
-  [0x2113, 0x2113],
-  [0x2122, 0x2122],
-  [0x2191, 0x2191],
-  [0x2193, 0x2193],
-  [0x2212, 0x2212],
-  [0x2215, 0x2215],
-  [0x25cc, 0x25cc],
-  [0x262c, 0x262c],
-  [0x2c60, 0x2c7f],
-  [0xa720, 0xa7ff],
-  [0xa830, 0xa839],
-  [0xa8e0, 0xa8ff],
-  [0xfeff, 0xfeff],
-  [0xfffd, 0xfffd],
-  [0x11b00, 0x11b09],
+export type InvoiceDocumentFontFamily =
+  | 'Noto Sans'
+  | 'Noto Sans Extended'
+  | 'Noto Sans Devanagari'
+  | 'Noto Sans Bengali'
+  | 'Noto Sans Gurmukhi'
+  | 'Noto Sans Gujarati'
+  | 'Noto Sans Oriya'
+  | 'Noto Sans Tamil'
+  | 'Noto Sans Telugu'
+  | 'Noto Sans Kannada'
+  | 'Noto Sans Malayalam';
+
+type CodePointRange = readonly [start: number, end: number];
+
+// Generated from fontkit characterSet values for the eleven registered regular
+// WOFFs. Ranges exclude Cc/Cs/Cf/Cn and the existing pictographic exclusion.
+// Overlaps are assigned to the first family that owns the code point.
+const REGISTERED_FONT_CMAPS: readonly {
+  family: InvoiceDocumentFontFamily;
+  ranges: readonly CodePointRange[];
+}[] = [
+  {
+    family: 'Noto Sans',
+    ranges: [
+      [0x20, 0x7e],
+      [0xa0, 0xa8],
+      [0xaa, 0xac],
+      [0xaf, 0xff],
+      [0x131, 0x131],
+      [0x152, 0x153],
+      [0x2bb, 0x2bc],
+      [0x2c6, 0x2c6],
+      [0x2da, 0x2da],
+      [0x2dc, 0x2dc],
+      [0x300, 0x301],
+      [0x303, 0x304],
+      [0x308, 0x309],
+      [0x323, 0x323],
+      [0x329, 0x329],
+      [0x2002, 0x2002],
+      [0x2009, 0x2009],
+      [0x2013, 0x2014],
+      [0x2018, 0x201a],
+      [0x201c, 0x201e],
+      [0x2022, 0x2022],
+      [0x2026, 0x2026],
+      [0x2032, 0x2033],
+      [0x2039, 0x203a],
+      [0x2044, 0x2044],
+      [0x20ac, 0x20ac],
+      [0x2212, 0x2212],
+      [0xfffd, 0xfffd],
+    ],
+  },
+  {
+    family: 'Noto Sans Extended',
+    ranges: [
+      [0x100, 0x130],
+      [0x132, 0x151],
+      [0x154, 0x2ba],
+      [0x2bd, 0x2c5],
+      [0x2c7, 0x2cc],
+      [0x2ce, 0x2d7],
+      [0x2dd, 0x2ff],
+      [0x1d00, 0x1dbf],
+      [0x1e00, 0x1e9f],
+      [0x1ef2, 0x1eff],
+      [0x2020, 0x2020],
+      [0x20a0, 0x20ab],
+      [0x20ad, 0x20c0],
+      [0x2113, 0x2113],
+      [0x2c60, 0x2c7f],
+      [0xa720, 0xa7ca],
+      [0xa7d0, 0xa7d1],
+      [0xa7d3, 0xa7d3],
+      [0xa7d5, 0xa7d9],
+      [0xa7f2, 0xa7ff],
+    ],
+  },
+  {
+    family: 'Noto Sans Devanagari',
+    ranges: [
+      [0x900, 0x97f],
+      [0x1cd0, 0x1cf6],
+      [0x1cf8, 0x1cf9],
+      [0x20f0, 0x20f0],
+      [0x25cc, 0x25cc],
+      [0xa830, 0xa839],
+      [0xa8e0, 0xa8ff],
+      [0x11b00, 0x11b09],
+    ],
+  },
+  {
+    family: 'Noto Sans Bengali',
+    ranges: [
+      [0x980, 0x983],
+      [0x985, 0x98c],
+      [0x98f, 0x990],
+      [0x993, 0x9a8],
+      [0x9aa, 0x9b0],
+      [0x9b2, 0x9b2],
+      [0x9b6, 0x9b9],
+      [0x9bc, 0x9c4],
+      [0x9c7, 0x9c8],
+      [0x9cb, 0x9ce],
+      [0x9d7, 0x9d7],
+      [0x9dc, 0x9dd],
+      [0x9df, 0x9e3],
+      [0x9e6, 0x9fe],
+      [0x1cf7, 0x1cf7],
+    ],
+  },
+  {
+    family: 'Noto Sans Gurmukhi',
+    ranges: [
+      [0xa01, 0xa03],
+      [0xa05, 0xa0a],
+      [0xa0f, 0xa10],
+      [0xa13, 0xa28],
+      [0xa2a, 0xa30],
+      [0xa32, 0xa33],
+      [0xa35, 0xa36],
+      [0xa38, 0xa39],
+      [0xa3c, 0xa3c],
+      [0xa3e, 0xa42],
+      [0xa47, 0xa48],
+      [0xa4b, 0xa4d],
+      [0xa51, 0xa51],
+      [0xa59, 0xa5c],
+      [0xa5e, 0xa5e],
+      [0xa66, 0xa76],
+      [0x262c, 0x262c],
+    ],
+  },
+  {
+    family: 'Noto Sans Gujarati',
+    ranges: [
+      [0xa81, 0xa83],
+      [0xa85, 0xa8d],
+      [0xa8f, 0xa91],
+      [0xa93, 0xaa8],
+      [0xaaa, 0xab0],
+      [0xab2, 0xab3],
+      [0xab5, 0xab9],
+      [0xabc, 0xac5],
+      [0xac7, 0xac9],
+      [0xacb, 0xacd],
+      [0xad0, 0xad0],
+      [0xae0, 0xae3],
+      [0xae6, 0xaf1],
+      [0xaf9, 0xaff],
+    ],
+  },
+  {
+    family: 'Noto Sans Oriya',
+    ranges: [
+      [0xb01, 0xb03],
+      [0xb05, 0xb0c],
+      [0xb0f, 0xb10],
+      [0xb13, 0xb28],
+      [0xb2a, 0xb30],
+      [0xb32, 0xb33],
+      [0xb35, 0xb39],
+      [0xb3c, 0xb44],
+      [0xb47, 0xb48],
+      [0xb4b, 0xb4d],
+      [0xb55, 0xb57],
+      [0xb5c, 0xb5d],
+      [0xb5f, 0xb63],
+      [0xb66, 0xb77],
+    ],
+  },
+  {
+    family: 'Noto Sans Tamil',
+    ranges: [
+      [0xb82, 0xb83],
+      [0xb85, 0xb8a],
+      [0xb8e, 0xb90],
+      [0xb92, 0xb95],
+      [0xb99, 0xb9a],
+      [0xb9c, 0xb9c],
+      [0xb9e, 0xb9f],
+      [0xba3, 0xba4],
+      [0xba8, 0xbaa],
+      [0xbae, 0xbb9],
+      [0xbbe, 0xbc2],
+      [0xbc6, 0xbc8],
+      [0xbca, 0xbcd],
+      [0xbd0, 0xbd0],
+      [0xbd7, 0xbd7],
+      [0xbe6, 0xbfa],
+    ],
+  },
+  {
+    family: 'Noto Sans Telugu',
+    ranges: [
+      [0xc00, 0xc0c],
+      [0xc0e, 0xc10],
+      [0xc12, 0xc28],
+      [0xc2a, 0xc39],
+      [0xc3c, 0xc44],
+      [0xc46, 0xc48],
+      [0xc4a, 0xc4d],
+      [0xc55, 0xc56],
+      [0xc58, 0xc5a],
+      [0xc5d, 0xc5d],
+      [0xc60, 0xc63],
+      [0xc66, 0xc6f],
+      [0xc77, 0xc7f],
+    ],
+  },
+  {
+    family: 'Noto Sans Kannada',
+    ranges: [
+      [0xc80, 0xc8c],
+      [0xc8e, 0xc90],
+      [0xc92, 0xca8],
+      [0xcaa, 0xcb3],
+      [0xcb5, 0xcb9],
+      [0xcbc, 0xcc4],
+      [0xcc6, 0xcc8],
+      [0xcca, 0xccd],
+      [0xcd5, 0xcd6],
+      [0xcdd, 0xcde],
+      [0xce0, 0xce3],
+      [0xce6, 0xcef],
+      [0xcf1, 0xcf3],
+    ],
+  },
+  {
+    family: 'Noto Sans Malayalam',
+    ranges: [
+      [0x307, 0x307],
+      [0xd00, 0xd0c],
+      [0xd0e, 0xd10],
+      [0xd12, 0xd44],
+      [0xd46, 0xd48],
+      [0xd4a, 0xd4f],
+      [0xd54, 0xd63],
+      [0xd66, 0xd7f],
+    ],
+  },
 ];
 
-function hasRegisteredGlyph(codePoint: number): boolean {
-  return REGISTERED_FONT_RANGES.some(
-    ([start, end]) => codePoint >= start && codePoint <= end
+export function invoiceDocumentFontFamilyForCodePoint(
+  codePoint: number
+): InvoiceDocumentFontFamily | null {
+  for (const { family, ranges } of REGISTERED_FONT_CMAPS) {
+    if (ranges.some(([start, end]) => codePoint >= start && codePoint <= end)) {
+      return family;
+    }
+  }
+  return null;
+}
+
+const documentTextSegmenter = new Intl.Segmenter('und', {
+  granularity: 'grapheme',
+});
+
+function isIndianFontFamily(family: InvoiceDocumentFontFamily | null): boolean {
+  return (
+    family !== null && family !== 'Noto Sans' && family !== 'Noto Sans Extended'
   );
+}
+
+function hasSupportedIndicBase(grapheme: string): boolean {
+  return Array.from(grapheme).some((character) => {
+    if (!/[\p{L}\p{N}]/u.test(character)) return false;
+    return isIndianFontFamily(
+      invoiceDocumentFontFamilyForCodePoint(character.codePointAt(0) ?? -1)
+    );
+  });
 }
 
 function fail(message: string): never {
@@ -272,13 +500,27 @@ function assertRenderableText(
   if (/\p{Cc}|\p{Cs}/u.test(value)) {
     fail(`${label} must not contain control characters`);
   }
-  if (
-    Array.from(value).some(
-      (character) => !hasRegisteredGlyph(character.codePointAt(0) ?? -1)
-    ) ||
-    /\p{Extended_Pictographic}/u.test(value)
-  ) {
-    fail(`${label} contains a script without a supported V1 font`);
+
+  for (const { segment: grapheme } of documentTextSegmenter.segment(value)) {
+    const indicJoinerContext = hasSupportedIndicBase(grapheme);
+    for (const character of Array.from(grapheme)) {
+      const codePoint = character.codePointAt(0) ?? -1;
+      if (/\p{Cf}/u.test(character)) {
+        if (
+          (codePoint === 0x200c || codePoint === 0x200d) &&
+          indicJoinerContext
+        ) {
+          continue;
+        }
+        fail(`${label} must not contain format control characters`);
+      }
+      if (
+        invoiceDocumentFontFamilyForCodePoint(codePoint) === null ||
+        /\p{Extended_Pictographic}/u.test(character)
+      ) {
+        fail(`${label} contains a script without a supported V1 font`);
+      }
+    }
   }
   if (Array.from(value).length > maxCodePoints) {
     fail(`${label} must contain at most ${maxCodePoints} code points`);

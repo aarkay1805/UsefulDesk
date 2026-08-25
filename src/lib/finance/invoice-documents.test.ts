@@ -294,6 +294,57 @@ describe('assertInvoiceDocumentPayload', () => {
   });
 
   it.each([
+    ['right-to-left override', '\u202e'],
+    ['left-to-right isolate', '\u2066'],
+    ['right-to-left isolate', '\u2067'],
+    ['first-strong isolate', '\u2068'],
+    ['pop directional isolate', '\u2069'],
+    ['zero-width no-break space', 'x\ufeff'],
+    ['zero-width space', '\u200b'],
+    ['standalone ZWNJ', '\u200c'],
+    ['standalone ZWJ', '\u200d'],
+    ['Latin ZWJ', 'A\u200d'],
+  ])('rejects the %s format-control sequence', (_name, value) => {
+    expect(() =>
+      assertInvoiceDocumentPayload({
+        ...validPayload,
+        lines: [{ ...line, description: value }],
+      })
+    ).toThrow(/control|font|supported/i);
+  });
+
+  it.each([
+    ['interrobang', '\u203d'],
+    ['reference mark', '\u203b'],
+    ['Latin letter outside the bundled cmap', '\ua7cb'],
+  ])(
+    'rejects the assigned %s missing from every registered cmap',
+    (_name, value) => {
+      expect(() =>
+        assertInvoiceDocumentPayload({
+          ...validPayload,
+          lines: [{ ...line, description: `unsupported ${value}` }],
+        })
+      ).toThrow(/font|supported/i);
+    }
+  );
+
+  it.each([
+    ['Telugu ZWNJ', 'ఫిట్‌నెస్'],
+    ['Devanagari ZWJ', 'क्‍ष'],
+  ])(
+    'accepts a %s attached inside a supported Indic grapheme',
+    (_name, value) => {
+      expect(() =>
+        assertInvoiceDocumentPayload({
+          ...validPayload,
+          lines: [{ ...line, description: value }],
+        })
+      ).not.toThrow();
+    }
+  );
+
+  it.each([
     ['Bengali', 'শক্তি ফিটনেস'],
     ['Gurmukhi', 'ਸ਼ਕਤੀ ਫਿਟਨੈਸ'],
     ['Gujarati', 'શક્તિ ફિટનેસ'],
