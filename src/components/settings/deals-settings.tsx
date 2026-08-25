@@ -23,6 +23,7 @@ import {
 import { SettingsPanelHead } from './settings-panel-head';
 import { RazorpaySettingsCard } from './razorpay-settings-card';
 import { ExpenseCategoriesCard } from './expense-categories-card';
+import { InvoiceDetailsCard } from './invoice-details-card';
 
 /**
  * Payment collection settings — UPI and Razorpay.
@@ -42,6 +43,7 @@ export function DealsSettings() {
         <UpiCard />
         <RazorpaySettingsCard />
         <ExpenseCategoriesCard />
+        <InvoiceDetailsCard />
       </div>
     </section>
   );
