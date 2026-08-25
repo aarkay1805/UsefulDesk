@@ -5,6 +5,7 @@ import type { MouseEventHandler } from 'react';
 
 import type { FollowUp } from '@/types';
 import { Badge } from '@/components/ui/badge';
+import { ResolvableAction } from '@/components/ui/resolvable-action';
 
 interface FollowUpCompletionControlProps {
   status: FollowUp['status'];
@@ -41,29 +42,27 @@ export function FollowUpCompletionControl({
     return <Badge variant="neutral">Cancelled</Badge>;
   }
 
-  const button = (
-    <button
-      type="button"
-      onClick={onMarkDone}
-      disabled={!canAct}
-      aria-label={ariaLabel}
-      title={canAct ? ariaLabel : undefined}
-      className="border-border text-muted-foreground hover:text-green-foreground flex size-7 shrink-0 items-center justify-center rounded-full border transition-colors hover:border-green-500 disabled:pointer-events-none disabled:opacity-50"
-    >
-      <Check className="size-4" />
-    </button>
-  );
-
-  if (canAct) return button;
+  const blocker = canAct
+    ? null
+    : {
+        title: 'Admin access required',
+        description: `Ask an admin or owner to ${gateReason}.`,
+      };
 
   return (
-    <span
-      className="inline-flex cursor-not-allowed"
-      title={
-        gateReason ? `Read-only — your role can't ${gateReason}` : undefined
+    <ResolvableAction
+      trigger={
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          title={canAct ? ariaLabel : undefined}
+          className="border-border text-muted-foreground hover:text-green-foreground flex size-7 shrink-0 items-center justify-center rounded-full border transition-colors hover:border-green-500 disabled:pointer-events-none disabled:opacity-50"
+        >
+          <Check className="size-4" />
+        </button>
       }
-    >
-      {button}
-    </span>
+      onAction={onMarkDone}
+      blocker={blocker}
+    />
   );
 }

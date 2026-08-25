@@ -3,28 +3,41 @@
 import type { ComponentProps } from 'react';
 import { ListPlus } from 'lucide-react';
 
-import { GatedButton } from '@/components/ui/gated-button';
+import { Button } from '@/components/ui/button';
+import { ResolvableAction } from '@/components/ui/resolvable-action';
 
 type FollowUpButtonProps = Omit<
-  ComponentProps<typeof GatedButton>,
+  ComponentProps<typeof Button>,
   'children' | 'variant' | 'size'
->;
+> & {
+  canAct?: boolean;
+  gateReason?: string;
+};
 
 /** Canonical manual follow-up trigger for lead and member action rows. */
 export function FollowUpButton({
+  canAct = true,
   gateReason = 'create follow-ups',
+  onClick,
   ...props
 }: FollowUpButtonProps) {
+  const blocker = canAct
+    ? null
+    : {
+        title: 'Admin access required',
+        description: `Ask an admin or owner to ${gateReason}.`,
+      };
+
   return (
-    <GatedButton
-      type="button"
-      variant="ghost"
-      size="sm"
-      gateReason={gateReason}
-      {...props}
-    >
-      <ListPlus className="size-3.5" />
-      Follow up
-    </GatedButton>
+    <ResolvableAction
+      trigger={
+        <Button type="button" variant="ghost" size="sm" {...props}>
+          <ListPlus className="size-3.5" />
+          Follow up
+        </Button>
+      }
+      onAction={onClick}
+      blocker={blocker}
+    />
   );
 }
