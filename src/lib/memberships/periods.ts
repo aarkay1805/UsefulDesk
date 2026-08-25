@@ -114,6 +114,15 @@ export const INVOICE_STATUS_LABEL: Record<InvoiceStatus, string> = {
  */
 export const PROJECTED_INVOICE_PREFIX = 'upcoming:';
 
+export type ProjectedMembershipPeriodInvoice = Omit<
+  MembershipPeriodInvoice,
+  | 'invoice_sequence'
+  | 'invoice_number'
+  | 'seller_snapshot'
+  | 'customer_snapshot'
+  | 'identity_snapshot_version'
+>;
+
 export function isProjectedInvoice(id: string): boolean {
   return id.startsWith(PROJECTED_INVOICE_PREFIX);
 }
@@ -147,7 +156,7 @@ export function projectNextInvoice(
     | 'pricing_option'
   >,
   today: string = istToday()
-): MembershipPeriodInvoice | null {
+): ProjectedMembershipPeriodInvoice | null {
   if (membership.is_trial) return null;
   if (membership.status === 'cancelled') return null;
   // An early renewal moves the membership pointer to a persisted future

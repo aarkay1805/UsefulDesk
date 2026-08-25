@@ -1202,6 +1202,11 @@ export interface MembershipPeriodInvoice {
   accounting_balance?: number;
   collectible_balance?: number;
   requires_refund_review?: boolean;
+  invoice_sequence: number | null;
+  invoice_number: string | null;
+  seller_snapshot: InvoicePartySnapshot | null;
+  customer_snapshot: InvoicePartySnapshot | null;
+  identity_snapshot_version: number | null;
 }
 
 // ============================================================
@@ -1308,6 +1313,24 @@ export interface InvoiceLine {
   updated_at: string;
 }
 
+export interface InvoicePartySnapshot {
+  business_name?: string | null;
+  legal_name?: string | null;
+  branch_name?: string | null;
+  customer_name?: string | null;
+  member_number?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address: {
+    line1: string | null;
+    line2: string | null;
+    city: string | null;
+    state: string | null;
+    postal_code: string | null;
+    country: string | null;
+  };
+}
+
 export interface Invoice {
   id: string;
   account_id: string;
@@ -1343,6 +1366,11 @@ export interface Invoice {
   accounting_balance?: number;
   collectible_balance?: number;
   requires_refund_review?: boolean;
+  invoice_sequence: number | null;
+  invoice_number: string | null;
+  seller_snapshot: InvoicePartySnapshot | null;
+  customer_snapshot: InvoicePartySnapshot | null;
+  identity_snapshot_version: number | null;
 }
 
 export interface MemberService {

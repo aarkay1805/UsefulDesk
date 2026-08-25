@@ -58,6 +58,11 @@ interface GenericInvoiceRow {
   state: 'open' | 'void';
   issued_at: string;
   created_at: string;
+  invoice_sequence: number | null;
+  invoice_number: string | null;
+  seller_snapshot: Invoice['seller_snapshot'];
+  customer_snapshot: Invoice['customer_snapshot'];
+  identity_snapshot_version: number | null;
   total: number;
   amount_paid: number;
   credit_applied: number;
@@ -533,6 +538,11 @@ export async function loadFinanceInvoices(
       accounting_balance: Number(invoice.accounting_balance),
       collectible_balance: Number(invoice.collectible_balance),
       requires_refund_review: Boolean(invoice.requires_refund_review),
+      invoice_sequence: invoice.invoice_sequence,
+      invoice_number: invoice.invoice_number,
+      seller_snapshot: invoice.seller_snapshot,
+      customer_snapshot: invoice.customer_snapshot,
+      identity_snapshot_version: invoice.identity_snapshot_version,
     };
   });
 

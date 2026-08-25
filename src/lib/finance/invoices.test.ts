@@ -33,6 +33,11 @@ function invoice(
     created_at: '2026-07-01T06:00:00.000Z',
     amount_paid: 500,
     balance: 1_500,
+    invoice_sequence: null,
+    invoice_number: null,
+    seller_snapshot: null,
+    customer_snapshot: null,
+    identity_snapshot_version: null,
     ...overrides,
   };
 }
