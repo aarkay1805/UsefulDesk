@@ -1,12 +1,27 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { MessageComposer } from './message-composer';
 
-vi.mock('@/hooks/use-can', () => ({ useCan: () => true }));
+const permissions = vi.hoisted(() => ({ canSendMessages: true }));
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/inbox',
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock('@/hooks/use-can', () => ({
+  useCan: () => permissions.canSendMessages,
+}));
 vi.mock('@/lib/storage/upload-media', () => ({
   MEDIA_MAX_BYTES_BY_KIND: {
     image: 5_000_000,
@@ -21,7 +36,10 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  permissions.canSendMessages = true;
+});
 
 describe('MessageComposer pending feedback', () => {
   it('keeps the send button busy until the async send callback settles', async () => {
@@ -57,5 +75,51 @@ describe('MessageComposer pending feedback', () => {
     }
 
     await waitFor(() => expect(send.getAttribute('aria-busy')).toBeNull());
+  });
+});
+
+describe('MessageComposer blocked actions', () => {
+  it('resolves a closed session through the template picker', async () => {
+    const onOpenTemplates = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired
+        onSend={vi.fn()}
+        onSendMedia={vi.fn()}
+        onOpenTemplates={onOpenTemplates}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Send message' }));
+
+    const blocker = screen.getByRole('dialog', {
+      name: 'WhatsApp session has closed',
+    });
+    expect(blocker).toBeTruthy();
+    await user.click(
+      within(blocker).getByRole('button', { name: 'Send template' })
+    );
+    expect(onOpenTemplates).toHaveBeenCalledOnce();
+  });
+
+  it('explains read-only send actions without inventing a CTA', async () => {
+    permissions.canSendMessages = false;
+    const user = userEvent.setup();
+    render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={vi.fn()}
+        onOpenTemplates={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Send template' }));
+
+    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /ask|request/i })).toBeNull();
   });
 });

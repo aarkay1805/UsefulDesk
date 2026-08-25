@@ -1,26 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { toast } from 'sonner';
-import { Loader2, MessageCircle, Check, ArrowRight } from 'lucide-react';
+import { MessageCircle, Check } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
-import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import type { LocaleFormatters } from '@/lib/locale/format';
 import type { Membership } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
+  ResolvableAction,
+  type ActionBlocker,
+} from '@/components/ui/resolvable-action';
 import {
   RENEWAL_TEMPLATE_NAME,
   RENEWAL_TEMPLATE_NAMES,
@@ -210,10 +203,8 @@ export function SendReminderButton({
   variant = 'ghost',
 }: SendReminderButtonProps) {
   const { fmt } = useLocale();
-  const { startNavigation, isPending } = usePendingNavigation();
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
-  const [blockerOpen, setBlockerOpen] = useState(false);
 
   const phone = membership.contact?.phone?.trim();
   const hasPhone = !!phone;
@@ -237,17 +228,24 @@ export function SendReminderButton({
     : readiness.reason;
   const resolution = !hasPhone ? null : readiness.resolution;
   const blocked = !hasPhone || !readiness.ready;
+  const blocker: ActionBlocker | null = blocked
+    ? {
+        title: !hasPhone
+          ? 'Phone number required'
+          : "WhatsApp reminder isn't ready",
+        description: blockedReason ?? 'Complete WhatsApp setup before sending.',
+        resolution: resolution
+          ? { label: resolution.label, href: resolution.href }
+          : undefined,
+      }
+    : null;
 
   // While the readiness check is in flight, sit inert rather than pretend
   // to be blocked.
   const disabled = sending || sent || readiness.loading;
 
   const send = useCallback(async () => {
-    // Blocked? Explain why (and how to fix) instead of failing silently.
-    if (blocked) {
-      setBlockerOpen(true);
-      return;
-    }
+    if (blocked) return;
     setSending(true);
     try {
       await sendRenewalReminder(membership, readiness, fmt);
@@ -264,53 +262,26 @@ export function SendReminderButton({
   }, [blocked, readiness, membership, fmt, onSent]);
 
   return (
-    <>
-      <Button
-        type="button"
-        variant={variant}
-        size={size}
-        onClick={send}
-        disabled={disabled}
-        // Blocked buttons stay clickable so the reason dialog can open;
-        // dim them so they still read as not-ready.
-        className={blocked && !sent ? 'opacity-60' : undefined}
-        title={blockedReason ?? 'Send a WhatsApp renewal reminder'}
-      >
-        {sending ? (
-          <Loader2 className="size-3.5 animate-spin" />
-        ) : sent ? (
-          <Check className="size-3.5" />
-        ) : (
-          <MessageCircle className="size-3.5" />
-        )}
-        {sent ? 'Reminded' : 'Remind'}
-      </Button>
-
-      <Dialog open={blockerOpen} onOpenChange={setBlockerOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Can&apos;t send this reminder yet</DialogTitle>
-            <DialogDescription>{blockedReason}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>
-              Close
-            </DialogClose>
-            {resolution && (
-              <Button
-                render={<Link href={resolution.href} />}
-                onClick={() => {
-                  startNavigation(resolution.href);
-                }}
-                loading={isPending(resolution.href)}
-              >
-                {resolution.label}
-                <ArrowRight className="size-3.5" />
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <ResolvableAction
+      trigger={
+        <Button
+          type="button"
+          variant={variant}
+          size={size}
+          disabled={disabled}
+          title={blockedReason ?? 'Send a WhatsApp renewal reminder'}
+          loading={sending}
+        >
+          {sent ? (
+            <Check className="size-3.5" />
+          ) : (
+            <MessageCircle className="size-3.5" />
+          )}
+          {sent ? 'Reminded' : 'Remind'}
+        </Button>
+      }
+      onAction={send}
+      blocker={blocker}
+    />
   );
 }

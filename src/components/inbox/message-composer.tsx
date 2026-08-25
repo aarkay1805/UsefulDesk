@@ -22,6 +22,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  ResolvableAction,
+  type ActionBlocker,
+} from '@/components/ui/resolvable-action';
 import { useCan } from '@/hooks/use-can';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -156,6 +160,23 @@ export function MessageComposer({
   const readOnly = !canSend;
   // Media (like free-form text) is only allowed inside the 24h window.
   const inputsDisabled = readOnly || sessionExpired;
+  const permissionBlocker: ActionBlocker | null = readOnly
+    ? {
+        title: 'Admin access required',
+        description:
+          'Only an admin or owner can send WhatsApp messages from this account.',
+      }
+    : null;
+  const closedSessionBlocker: ActionBlocker | null = sessionExpired
+    ? {
+        title: 'WhatsApp session has closed',
+        description:
+          'Send an approved template to reopen the 24-hour WhatsApp session.',
+        resolution: { label: 'Send template', onResolve: onOpenTemplates },
+      }
+    : null;
+  const sendBlocker = permissionBlocker ?? closedSessionBlocker;
+  const sendDisabled = sending || (!sessionExpired && !text.trim());
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -667,48 +688,54 @@ export function MessageComposer({
               )}
             />
 
-            <GatedButton
-              variant="ghost"
-              size="icon-lg"
-              canAct={!readOnly}
-              gateReason="send messages"
-              title={readOnly ? undefined : 'Send template'}
-              aria-label="Send template"
-              onClick={onOpenTemplates}
-            >
-              <LayoutTemplate className="size-5" />
-            </GatedButton>
+            <ResolvableAction
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon-lg"
+                  title={readOnly ? undefined : 'Send template'}
+                  aria-label="Send template"
+                >
+                  <LayoutTemplate className="size-5" />
+                </Button>
+              }
+              onAction={onOpenTemplates}
+              blocker={permissionBlocker}
+            />
 
-            <GatedButton
-              variant="ghost"
-              size="icon-lg"
-              canAct={!readOnly}
-              gateReason="send messages"
-              disabled={drafting}
-              title={readOnly ? undefined : 'Draft a reply with AI'}
-              aria-label="Draft a reply with AI"
-              className="hover:text-primary-text"
-              onClick={handleDraft}
-            >
-              {drafting ? (
-                <Loader2 className="size-5 animate-spin" />
-              ) : (
-                <Sparkles className="size-5" />
-              )}
-            </GatedButton>
+            <ResolvableAction
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon-lg"
+                  disabled={drafting}
+                  loading={drafting}
+                  title={readOnly ? undefined : 'Draft a reply with AI'}
+                  aria-label="Draft a reply with AI"
+                  className="hover:text-primary-text"
+                >
+                  <Sparkles className="size-5" />
+                </Button>
+              }
+              onAction={() => void handleDraft()}
+              blocker={permissionBlocker}
+            />
 
-            <GatedButton
-              size="icon-lg"
-              canAct={!readOnly}
-              gateReason="send messages"
-              disabled={!text.trim() || sessionExpired || sending}
-              onClick={handleSend}
-              loading={sending}
-              aria-label="Send message"
-              className="disabled:opacity-40"
-            >
-              <Send className="size-4" />
-            </GatedButton>
+            <ResolvableAction
+              trigger={
+                <Button
+                  size="icon-lg"
+                  disabled={sendDisabled}
+                  loading={sending}
+                  aria-label="Send message"
+                  className="disabled:opacity-40"
+                >
+                  <Send className="size-4" />
+                </Button>
+              }
+              onAction={() => void handleSend()}
+              blocker={sendBlocker}
+            />
           </div>
         </div>
       )}
