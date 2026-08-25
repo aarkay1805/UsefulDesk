@@ -268,23 +268,23 @@ describe('finance invoice filtering and totals', () => {
     }
   });
 
-  it('uses reference ordering whenever either invoice lacks a persisted sequence', () => {
+  it('partitions sequenced and legacy rows across the rollover cycle', () => {
     const mixedRows = normalizeFinanceInvoiceRows(
       [
         invoice({
-          id: 'cccccccc-1234-1234-1234-123456789abc',
-          invoice_sequence: 10,
-          invoice_number: 'INV-000010',
+          id: 'aaaaaaaa-1234-1234-1234-123456789abc',
+          invoice_sequence: 999_999,
+          invoice_number: 'INV-999999',
         }),
         invoice({
           id: 'bbbbbbbb-1234-1234-1234-123456789abc',
-          invoice_sequence: null,
-          invoice_number: null,
+          invoice_sequence: 1_000_000,
+          invoice_number: 'INV-1000000',
         }),
         invoice({
-          id: 'aaaaaaaa-1234-1234-1234-123456789abc',
+          id: 'cccccccc-1234-1234-1234-123456789abc',
           invoice_sequence: null,
-          invoice_number: null,
+          invoice_number: 'INV-500000',
         }),
       ],
       [membership()],
@@ -292,11 +292,99 @@ describe('finance invoice filtering and totals', () => {
     );
 
     for (const [dir, expected] of [
-      ['asc', ['#AAAAAAAA', '#BBBBBBBB', 'INV-000010']],
-      ['desc', ['INV-000010', '#BBBBBBBB', '#AAAAAAAA']],
+      ['asc', ['INV-999999', 'INV-1000000', 'INV-500000']],
+      ['desc', ['INV-1000000', 'INV-999999', 'INV-500000']],
     ] as const) {
       expect(
         filterFinanceInvoices(mixedRows, {
+          search: '',
+          lifecycle: 'all',
+          filters: EMPTY_FINANCE_INVOICE_FILTERS,
+          sort: { key: 'reference', dir },
+        }).map((row) => row.reference)
+      ).toEqual(expected);
+    }
+  });
+
+  it('keeps a sequenced invoice ahead of a legacy row in both directions', () => {
+    const rows = normalizeFinanceInvoiceRows(
+      [
+        invoice({ invoice_sequence: 10, invoice_number: 'INV-000010' }),
+        invoice({
+          id: 'aaaaaaaa-1234-1234-1234-123456789abc',
+          invoice_sequence: null,
+          invoice_number: 'INV-500000',
+        }),
+      ],
+      [membership()],
+      TODAY
+    );
+
+    for (const dir of ['asc', 'desc'] as const) {
+      expect(
+        filterFinanceInvoices(rows, {
+          search: '',
+          lifecycle: 'all',
+          filters: EMPTY_FINANCE_INVOICE_FILTERS,
+          sort: { key: 'reference', dir },
+        }).map((row) => row.reference)
+      ).toEqual(['INV-000010', 'INV-500000']);
+    }
+  });
+
+  it('orders multiple legacy references within their partition', () => {
+    const rows = normalizeFinanceInvoiceRows(
+      [
+        invoice({
+          id: 'bbbbbbbb-1234-1234-1234-123456789abc',
+          invoice_sequence: null,
+          invoice_number: 'INV-500001',
+        }),
+        invoice({
+          id: 'aaaaaaaa-1234-1234-1234-123456789abc',
+          invoice_sequence: null,
+          invoice_number: 'INV-500000',
+        }),
+      ],
+      [membership()],
+      TODAY
+    );
+
+    for (const [dir, expected] of [
+      ['asc', ['INV-500000', 'INV-500001']],
+      ['desc', ['INV-500001', 'INV-500000']],
+    ] as const) {
+      expect(
+        filterFinanceInvoices(rows, {
+          search: '',
+          lifecycle: 'all',
+          filters: EMPTY_FINANCE_INVOICE_FILTERS,
+          sort: { key: 'reference', dir },
+        }).map((row) => row.reference)
+      ).toEqual(expected);
+    }
+  });
+
+  it('uses the reference as a deterministic equal-sequence tie-break', () => {
+    const rows = normalizeFinanceInvoiceRows(
+      [
+        invoice({ invoice_sequence: 10, invoice_number: 'INV-000010' }),
+        invoice({
+          id: 'aaaaaaaa-1234-1234-1234-123456789abc',
+          invoice_sequence: 10,
+          invoice_number: 'INV-000009',
+        }),
+      ],
+      [membership()],
+      TODAY
+    );
+
+    for (const [dir, expected] of [
+      ['asc', ['INV-000009', 'INV-000010']],
+      ['desc', ['INV-000010', 'INV-000009']],
+    ] as const) {
+      expect(
+        filterFinanceInvoices(rows, {
           search: '',
           lifecycle: 'all',
           filters: EMPTY_FINANCE_INVOICE_FILTERS,

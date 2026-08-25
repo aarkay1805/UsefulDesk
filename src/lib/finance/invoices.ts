@@ -294,12 +294,21 @@ export function filterFinanceInvoices(
   return [...filtered].sort((left, right) => {
     let comparison = 0;
     if (sort.key === 'reference') {
-      if (left.invoice_sequence !== null && right.invoice_sequence !== null) {
-        comparison = left.invoice_sequence - right.invoice_sequence;
+      const leftSequence = left.invoice_sequence;
+      const rightSequence = right.invoice_sequence;
+      const leftHasSequence = leftSequence !== null;
+      const rightHasSequence = rightSequence !== null;
+      if (leftHasSequence !== rightHasSequence) {
+        // Persisted identities always precede migration-safe legacy fallbacks;
+        // direction only changes ordering inside either partition.
+        return leftHasSequence ? -1 : 1;
+      }
+      if (leftSequence !== null && rightSequence !== null) {
+        comparison = leftSequence - rightSequence;
       }
       if (comparison === 0) {
-        // Legacy rows have no persisted sequence. Keep their migration-safe
-        // references deterministic rather than inventing an identity value.
+        // Equal sequences and legacy rows use their existing references as a
+        // deterministic tie-break without inventing an identity value.
         comparison = left.reference.localeCompare(right.reference);
       }
     } else if (sort.key === 'name') {
