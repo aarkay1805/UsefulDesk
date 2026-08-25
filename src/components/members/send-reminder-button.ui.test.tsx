@@ -27,14 +27,43 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const membership = {
+const membership: Membership = {
   id: 'membership-1',
+  account_id: 'account-1',
   contact_id: 'contact-1',
+  member_number: 101,
+  user_id: 'user-1',
+  plan_id: 'plan-1',
+  pricing_option_id: 'pricing-option-1',
+  start_date: '2026-06-20',
   end_date: '2026-09-20',
+  status: 'active',
   fee_amount: 3_999,
-  contact: { name: 'Asha Rao', phone: '+919876543210' },
-  plan: { name: 'Quarterly' },
-} as Membership;
+  fee_status: 'paid',
+  is_trial: false,
+  created_at: '2026-06-20T00:00:00.000Z',
+  updated_at: '2026-06-20T00:00:00.000Z',
+  contact: {
+    id: 'contact-1',
+    account_id: 'account-1',
+    user_id: 'user-1',
+    name: 'Asha Rao',
+    phone: '+919876543210',
+    created_at: '2026-06-20T00:00:00.000Z',
+    updated_at: '2026-06-20T00:00:00.000Z',
+  },
+  plan: {
+    id: 'plan-1',
+    account_id: 'account-1',
+    name: 'Quarterly',
+    price: 3_999,
+    duration_days: 90,
+    plan_type: 'recurring',
+    is_active: true,
+    created_at: '2026-06-20T00:00:00.000Z',
+    updated_at: '2026-06-20T00:00:00.000Z',
+  },
+};
 
 function readiness(
   overrides: Partial<ReminderReadiness> = {}
