@@ -216,6 +216,17 @@ describe('renderInvoicePdf', () => {
     );
   });
 
+  it('routes Noto Sans-only whitespace through its actual font owner', () => {
+    expect(buildInvoicePdfTextRuns('క\u2002A')).toEqual([
+      { family: 'Noto Sans Telugu', text: 'క' },
+      { family: 'Noto Sans', text: '\u2002A' },
+    ]);
+    expect(buildInvoicePdfTextRuns('క\u2009A')).toEqual([
+      { family: 'Noto Sans Telugu', text: 'క' },
+      { family: 'Noto Sans', text: '\u2009A' },
+    ]);
+  });
+
   it('adds a totals-only continuation when a sole final row consumes the continuation frame', () => {
     const model = buildInvoicePdfRenderModel(oneLinePayload());
     const [line] = model.lines;

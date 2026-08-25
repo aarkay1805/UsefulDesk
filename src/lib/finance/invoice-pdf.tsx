@@ -397,10 +397,7 @@ export function buildInvoicePdfTextRuns(value: string): InvoicePdfTextRun[] {
 
   for (const grapheme of graphemes) {
     const current = runs.at(-1);
-    const family =
-      /^\s+$/u.test(grapheme) && current
-        ? current.family
-        : fontFamilyForGrapheme(grapheme);
+    const family = fontFamilyForGrapheme(grapheme);
     if (current?.family === family) {
       current.text += grapheme;
     } else {
