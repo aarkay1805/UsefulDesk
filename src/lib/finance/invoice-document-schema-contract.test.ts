@@ -62,6 +62,9 @@ describe('immutable invoice document migration contract', () => {
     )?.[0];
 
     expect(reserve).toBeDefined();
+    if (!reserve) {
+      throw new Error('reserve_invoice_document function fragment is missing');
+    }
     expect(reserve).toMatch(
       /RETURNS TABLE \(\s*outcome TEXT,\s*document_id UUID,\s*document_status public\.invoice_document_status,\s*generation_token UUID,\s*payload_snapshot JSONB,\s*storage_path TEXT,\s*sha256 TEXT,\s*byte_count BIGINT,\s*last_error TEXT\s*\)/i
     );
