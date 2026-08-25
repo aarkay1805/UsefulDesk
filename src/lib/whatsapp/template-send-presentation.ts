@@ -1,4 +1,5 @@
 import type { LocaleFormatters } from '@/lib/locale/format';
+import type { InvoiceDocumentPayloadV1 } from '@/lib/finance/invoice-documents';
 import { financeInvoiceReference } from '@/lib/finance/invoices';
 import type { MemberService, Membership, MessageTemplate } from '@/types';
 
@@ -13,6 +14,11 @@ export interface TemplateSendPresentation {
   parameterLabels: string[];
   contextKind: TemplateContractId | 'legacy_membership_renewal' | null;
   legacy: boolean;
+}
+
+export interface InvoiceDocumentTemplateParams {
+  headerMediaUrl: string;
+  body: [string, string, string, string];
 }
 
 const LEGACY_PRESENTATIONS: Record<
@@ -143,4 +149,20 @@ export function serviceRenewalDefaults(
       ? ''
       : fmt.money(Number(service.current_renewal_price)),
   ];
+}
+
+export function invoiceDocumentTemplateParams(
+  payload: InvoiceDocumentPayloadV1,
+  headerMediaUrl: string,
+  fmt: Pick<LocaleFormatters, 'moneyExact'>
+): InvoiceDocumentTemplateParams {
+  return {
+    headerMediaUrl,
+    body: [
+      payload.customer.customer_name,
+      payload.invoice_number,
+      fmt.moneyExact(payload.total_minor / 100, payload.currency),
+      payload.seller.business_name,
+    ],
+  };
 }

@@ -10,6 +10,7 @@ describe('gym template preset projection', () => {
       'gym_service_renewal',
       'gym_installment_reminder',
       'gym_payment_link',
+      'gym_invoice_document',
       'gym_payment_due',
       'gym_payment_receipt',
       'gym_membership_activation',
@@ -28,6 +29,18 @@ describe('gym template preset projection', () => {
         ].includes(preset.fields.name)
       )
     ).toBe(false);
+  });
+
+  it('projects the invoice contract as a document header with no creation-time media sample', () => {
+    const preset = TEMPLATE_PRESETS.find(
+      (candidate) => candidate.fields.name === 'gym_invoice_document'
+    );
+
+    expect(preset?.fields).toMatchObject({
+      header_format: 'document',
+      header_sample: undefined,
+    });
+    expect(preset?.fields).not.toHaveProperty('header_media_url');
   });
 
   it('projects every body parameter into one ordered sample value', () => {

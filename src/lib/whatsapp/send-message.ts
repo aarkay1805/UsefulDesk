@@ -81,6 +81,12 @@ export interface SendMessageParams {
   templateParams?: string[];
   /** Structured template params (header/body/buttons). */
   templateMessageParams?: unknown;
+  /**
+   * Stable authenticated media route stored in UsefulDesk history after a
+   * template send. Internal invoice-share callers only; Meta still receives
+   * the short-lived `templateMessageParams.headerMediaUrl`.
+   */
+  persistedMediaUrl?: string;
   replyToMessageId?: string | null;
 }
 
@@ -111,8 +117,17 @@ export function validateSendMessageParams(params: {
   contentText?: string | null;
   mediaUrl?: string | null;
   templateName?: string | null;
+  templateMessageParams?: unknown;
+  persistedMediaUrl?: string;
 }): void {
-  const { messageType, contentText, mediaUrl, templateName } = params;
+  const {
+    messageType,
+    contentText,
+    mediaUrl,
+    templateName,
+    templateMessageParams,
+    persistedMediaUrl,
+  } = params;
 
   if (!messageType) {
     throw new SendMessageError('bad_request', 'message_type is required', 400);
@@ -142,6 +157,35 @@ export function validateSendMessageParams(params: {
       'template_name is required for template messages',
       400
     );
+  }
+
+  if (persistedMediaUrl !== undefined) {
+    const providerHeaderMediaUrl =
+      templateMessageParams && typeof templateMessageParams === 'object'
+        ? (templateMessageParams as { headerMediaUrl?: unknown }).headerMediaUrl
+        : undefined;
+    if (
+      messageType !== 'template' ||
+      typeof providerHeaderMediaUrl !== 'string' ||
+      !providerHeaderMediaUrl.trim()
+    ) {
+      throw new SendMessageError(
+        'bad_request',
+        'persistedMediaUrl requires an actual provider header media URL',
+        400
+      );
+    }
+    if (
+      !/^\/api\/invoices\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/document$/i.test(
+        persistedMediaUrl
+      )
+    ) {
+      throw new SendMessageError(
+        'bad_request',
+        'persistedMediaUrl must be a valid invoice document route',
+        400
+      );
+    }
   }
 
   if (isMediaKind && !mediaUrl) {
@@ -182,6 +226,7 @@ export async function sendMessageToConversation(
     templateLanguage,
     templateParams,
     templateMessageParams,
+    persistedMediaUrl,
     replyToMessageId,
   } = params;
 
@@ -198,6 +243,8 @@ export async function sendMessageToConversation(
     contentText,
     mediaUrl,
     templateName,
+    templateMessageParams,
+    persistedMediaUrl,
   });
 
   const isMediaKind = (MEDIA_KINDS as readonly string[]).includes(messageType);
@@ -444,7 +491,9 @@ export async function sendMessageToConversation(
       content_type: messageType,
       content_text: resolvedText || null,
       media_url:
-        (messageType === 'template' ? headerMedia?.url : mediaUrl) || null,
+        (messageType === 'template'
+          ? (persistedMediaUrl ?? headerMedia?.url)
+          : mediaUrl) || null,
       template_name: templateName || null,
       message_id: waMessageId,
       status: 'sent',

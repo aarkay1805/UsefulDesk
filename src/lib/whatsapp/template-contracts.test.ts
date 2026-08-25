@@ -90,6 +90,24 @@ const expected = [
     body: 'Hi {{1}}, your payment of {{2}} for invoice {{3}} is due. Pay securely using this link: {{4}}. Please contact us if you need help.',
   },
   {
+    id: 'invoice_document',
+    name: 'gym_invoice_document',
+    title: 'Invoice document',
+    category: 'Utility',
+    galleryGroup: 'feature',
+    consentScope: 'whatsapp_account_updates',
+    wired: true,
+    parameterLabels: [
+      'Customer name',
+      'Invoice number',
+      'Invoice total',
+      'Business name',
+    ],
+    samples: ['Asha', 'INV-000042', '₹2,500.00', 'FitZone Gym'],
+    body: 'Hi {{1}}, here is invoice {{2}} for {{3}} from {{4}}. Please keep this document for your records and reply if any invoice detail looks incorrect.',
+    headerType: 'document',
+  },
+  {
     id: 'payment_due',
     name: 'gym_payment_due',
     title: 'Payment due',
@@ -190,7 +208,7 @@ const expected = [
 
 describe('gym WhatsApp template contracts', () => {
   it('defines every exact operational payload and policy classification', () => {
-    expect(Object.keys(TEMPLATE_CONTRACTS)).toHaveLength(9);
+    expect(Object.keys(TEMPLATE_CONTRACTS)).toHaveLength(10);
 
     for (const wanted of expected) {
       const contract = getTemplateContractById(wanted.id);
@@ -216,6 +234,9 @@ describe('gym WhatsApp template contracts', () => {
       );
       expect(contract?.payload.buttons).toEqual(
         'buttons' in wanted ? wanted.buttons : undefined
+      );
+      expect(contract?.payload.header_type).toBe(
+        'headerType' in wanted ? wanted.headerType : undefined
       );
       expect(contract?.purpose.length).toBeGreaterThan(20);
       expect(contract?.trigger.length).toBeGreaterThan(20);
@@ -287,12 +308,34 @@ describe('gym WhatsApp template contracts', () => {
     });
   });
 
-  it('identifies only the four templates wired into UsefulDesk features', () => {
+  it('builds the exact creation payload for the document-header invoice contract without inventing a sample', () => {
+    const contract = getTemplateContractById('invoice_document');
+    expect(contract).toBeDefined();
+
+    expect(buildMetaTemplatePayload(contract!.payload)).toEqual({
+      name: 'gym_invoice_document',
+      category: 'UTILITY',
+      language: 'en_US',
+      components: [
+        { type: 'HEADER', format: 'DOCUMENT' },
+        {
+          type: 'BODY',
+          text: 'Hi {{1}}, here is invoice {{2}} for {{3}} from {{4}}. Please keep this document for your records and reply if any invoice detail looks incorrect.',
+          example: {
+            body_text: [['Asha', 'INV-000042', '₹2,500.00', 'FitZone Gym']],
+          },
+        },
+      ],
+    });
+  });
+
+  it('identifies only the five templates wired into UsefulDesk features', () => {
     expect(FEATURE_TEMPLATE_CONTRACTS.map((contract) => contract.id)).toEqual([
       'membership_renewal',
       'service_renewal',
       'installment_reminder',
       'payment_link',
+      'invoice_document',
     ]);
   });
 });

@@ -1,5 +1,32 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { MessageTemplate } from '@/types';
+
+const h = vi.hoisted(() => ({
+  sendTemplateMessage: vi.fn(),
+}));
+
+vi.mock('@/lib/whatsapp/meta-api', () => ({
+  sendTemplateMessage: h.sendTemplateMessage,
+  sendTextMessage: vi.fn(),
+  sendMediaMessage: vi.fn(),
+}));
+vi.mock('@/lib/whatsapp/encryption', () => ({
+  decrypt: () => 'token',
+  encrypt: (value: string) => value,
+  isLegacyFormat: () => false,
+}));
+vi.mock('@/lib/flows/admin-client', () => ({
+  supabaseAdmin: () => ({
+    from: () => ({
+      update: () => ({
+        eq: () => ({
+          eq: () => ({ eq: () => Promise.resolve({ error: null }) }),
+        }),
+      }),
+    }),
+  }),
+}));
 
 import {
   sendMessageToConversation,
@@ -104,6 +131,167 @@ describe('sendMessageToConversation — param validation (pre-DB)', () => {
       })
     ).rejects.toThrow('reached DB');
     expect(spy).toHaveBeenCalledWith('conversations');
+  });
+
+  it('rejects a persisted invoice route unless a provider media URL is supplied', async () => {
+    await expectSendError(
+      {
+        ...base,
+        messageType: 'template',
+        templateName: 'gym_invoice_document',
+        persistedMediaUrl:
+          '/api/invoices/11111111-1111-4111-8111-111111111111/document',
+      },
+      400,
+      /provider header media URL/
+    );
+  });
+
+  it.each([
+    '/api/invoices//document',
+    '/api/invoices/111/document/extra/document',
+    '/api/invoices/111/document?download=1',
+    'https://example.com/api/invoices/111/document',
+  ])('rejects an invalid persisted invoice media route: %s', async (url) => {
+    await expectSendError(
+      {
+        ...base,
+        messageType: 'template',
+        templateName: 'gym_invoice_document',
+        templateMessageParams: {
+          headerMediaUrl: 'https://storage.example/signed.pdf?token=short',
+        },
+        persistedMediaUrl: url,
+      },
+      400,
+      /valid invoice document route/
+    );
+  });
+});
+
+const invoiceTemplate: MessageTemplate = {
+  id: 'template-1',
+  account_id: 'account-1',
+  user_id: 'user-1',
+  name: 'gym_invoice_document',
+  category: 'Utility',
+  language: 'en_US',
+  header_type: 'document',
+  body_text:
+    'Hi {{1}}, here is invoice {{2}} for {{3}} from {{4}}. Please keep this document for your records and reply if any invoice detail looks incorrect.',
+  status: 'APPROVED',
+  parameter_format: 'POSITIONAL',
+  created_at: '2026-08-24T00:00:00.000Z',
+};
+
+function invoiceSendDb(captured: { inserted: Record<string, unknown> | null }) {
+  return {
+    from(table: string) {
+      switch (table) {
+        case 'conversations':
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  single: () =>
+                    Promise.resolve({
+                      data: {
+                        id: 'conversation-1',
+                        contact: { id: 'contact-1', phone: '+919999999999' },
+                      },
+                      error: null,
+                    }),
+                }),
+              }),
+            }),
+            update: () => ({
+              eq: () => Promise.resolve({ error: null }),
+            }),
+          };
+        case 'whatsapp_config':
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'config-1',
+                      phone_number_id: 'phone-number-1',
+                      access_token: 'encrypted',
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        case 'message_templates':
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    maybeSingle: () =>
+                      Promise.resolve({ data: invoiceTemplate, error: null }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        case 'messages':
+          return {
+            insert: (payload: Record<string, unknown>) => {
+              captured.inserted = payload;
+              return {
+                select: () => ({
+                  single: () =>
+                    Promise.resolve({
+                      data: { id: 'message-1' },
+                      error: null,
+                    }),
+                }),
+              };
+            },
+          };
+        default:
+          throw new Error(`Unexpected table ${table}`);
+      }
+    },
+  } as unknown as SupabaseClient;
+}
+
+describe('sendMessageToConversation — stable invoice history media', () => {
+  it('sends the signed provider URL while persisting the stable authenticated route', async () => {
+    h.sendTemplateMessage.mockResolvedValueOnce({ messageId: 'wamid.1' });
+    const captured: { inserted: Record<string, unknown> | null } = {
+      inserted: null,
+    };
+    const signedUrl =
+      'https://storage.example/signed-invoice.pdf?token=short-lived';
+    const persistedMediaUrl =
+      '/api/invoices/11111111-1111-4111-8111-111111111111/document';
+
+    await sendMessageToConversation(invoiceSendDb(captured), 'account-1', {
+      conversationId: 'conversation-1',
+      messageType: 'template',
+      templateName: 'gym_invoice_document',
+      templateLanguage: 'en_US',
+      templateMessageParams: {
+        headerMediaUrl: signedUrl,
+        body: ['Asha', 'INV-000042', '₹2,500.00', 'FitZone Gym'],
+      },
+      persistedMediaUrl,
+    });
+
+    expect(h.sendTemplateMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateName: 'gym_invoice_document',
+        messageParams: {
+          headerMediaUrl: signedUrl,
+          body: ['Asha', 'INV-000042', '₹2,500.00', 'FitZone Gym'],
+        },
+      })
+    );
+    expect(captured.inserted?.media_url).toBe(persistedMediaUrl);
   });
 });
 

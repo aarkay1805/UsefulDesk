@@ -39,7 +39,7 @@ const { TemplateManager } = await import('./template-manager');
 afterEach(cleanup);
 
 describe('TemplateManager gym preset library', () => {
-  it('groups all nine contracts and explains operational requirements', async () => {
+  it('groups all ten contracts and explains operational requirements', async () => {
     const user = userEvent.setup();
     render(<TemplateManager />);
 
@@ -59,6 +59,7 @@ describe('TemplateManager gym preset library', () => {
       'Service renewal',
       'Installment reminder',
       'Payment link',
+      'Invoice document',
       'Payment due',
       'Payment receipt',
       'Membership activation',
@@ -71,11 +72,37 @@ describe('TemplateManager gym preset library', () => {
     expect(
       screen.queryByText(/Requires recorded .* WhatsApp opt-in/)
     ).toBeNull();
-    expect(screen.getAllByText(/Trigger:/).length).toBe(9);
+    expect(screen.getAllByText(/Trigger:/).length).toBe(10);
     expect(
       screen.getAllByText(/approval and recipient delivery are not guaranteed/)
         .length
     ).toBeGreaterThan(0);
+  });
+
+  it('keeps invoice contract identity locked while requiring an editable document sample URL', async () => {
+    const user = userEvent.setup();
+    render(<TemplateManager />);
+    await user.click(
+      await screen.findByRole('button', { name: 'Use a preset' })
+    );
+
+    const card = screen
+      .getByRole('heading', { name: 'Invoice document' })
+      .closest('[data-slot="card"]');
+    expect(card).toBeTruthy();
+    await user.click(
+      within(card as HTMLElement).getByRole('button', { name: 'Use preset' })
+    );
+
+    expect(screen.getByLabelText('Template name')).toHaveProperty(
+      'disabled',
+      true
+    );
+    expect(screen.getByLabelText('Header')).toHaveProperty('disabled', true);
+    const sample = screen.getByLabelText('Public document URL');
+    expect(sample).toHaveProperty('disabled', false);
+    expect(sample).toHaveProperty('required', true);
+    expect(sample).toHaveProperty('value', '');
   });
 
   it('locks a feature contract while leaving language editable', async () => {

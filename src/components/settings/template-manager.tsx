@@ -1069,7 +1069,6 @@ export function TemplateManager() {
                       type="url"
                       placeholder="https://…"
                       value={form.header_media_url}
-                      disabled={contractLocked}
                       onChange={(e) =>
                         setForm({ ...form, header_media_url: e.target.value })
                       }

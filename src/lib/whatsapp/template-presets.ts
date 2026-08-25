@@ -20,7 +20,7 @@ export interface TemplatePreset {
   fields: {
     name: string;
     category: 'Utility' | 'Marketing';
-    header_format: 'none' | 'text';
+    header_format: 'none' | 'text' | 'image' | 'video' | 'document';
     header_content?: string;
     header_sample?: string;
     body_text: string;
@@ -47,7 +47,7 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = Object.values(
   fields: {
     name: contract.payload.name,
     category: contract.category,
-    header_format: contract.payload.header_type === 'text' ? 'text' : 'none',
+    header_format: contract.payload.header_type ?? 'none',
     header_content: contract.payload.header_content,
     header_sample: contract.payload.sample_values?.header?.[0],
     body_text: contract.payload.body_text,

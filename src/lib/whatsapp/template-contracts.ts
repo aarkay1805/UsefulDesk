@@ -5,6 +5,7 @@ export type TemplateContractId =
   | 'service_renewal'
   | 'installment_reminder'
   | 'payment_link'
+  | 'invoice_document'
   | 'payment_due'
   | 'payment_receipt'
   | 'membership_activation'
@@ -161,6 +162,36 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
           'Hi {{1}}, your payment of {{2}} for invoice {{3}} is due. Pay securely using this link: {{4}}. Please contact us if you need help.',
         sample_values: {
           body: ['Rahul', '₹2,700', 'INV-1024', 'https://rzp.io/rzp/abc123'],
+        },
+      },
+    },
+    invoice_document: {
+      id: 'invoice_document',
+      title: 'Invoice document',
+      blurb: 'Send the immutable PDF for an existing gym invoice.',
+      purpose:
+        'Delivers the stable non-tax document for a specific existing invoice.',
+      trigger:
+        'Explicit Send on WhatsApp action from an eligible persisted invoice.',
+      category: 'Utility',
+      galleryGroup: 'feature',
+      consentScope: 'whatsapp_account_updates',
+      wired: true,
+      parameterLabels: [
+        'Customer name',
+        'Invoice number',
+        'Invoice total',
+        'Business name',
+      ],
+      payload: {
+        name: 'gym_invoice_document',
+        category: 'Utility',
+        language: 'en_US',
+        header_type: 'document',
+        body_text:
+          'Hi {{1}}, here is invoice {{2}} for {{3}} from {{4}}. Please keep this document for your records and reply if any invoice detail looks incorrect.',
+        sample_values: {
+          body: ['Asha', 'INV-000042', '₹2,500.00', 'FitZone Gym'],
         },
       },
     },
