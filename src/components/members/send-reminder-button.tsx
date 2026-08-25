@@ -269,7 +269,7 @@ export function SendReminderButton({
           variant={variant}
           size={size}
           disabled={disabled}
-          title={blockedReason ?? 'Send a WhatsApp renewal reminder'}
+          title={blocker ? undefined : 'Send a WhatsApp renewal reminder'}
           loading={sending}
         >
           {sent ? (

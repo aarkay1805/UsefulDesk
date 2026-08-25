@@ -15,7 +15,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { GatedButton } from '@/components/ui/gated-button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -122,6 +121,7 @@ export function MessageComposer({
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Media attachment state. `draft` holds an uploaded-but-not-yet-sent
@@ -565,7 +565,7 @@ export function MessageComposer({
         <MediaDraftPreview
           draft={draft}
           busy={busy}
-          readOnly={readOnly}
+          blocker={sendBlocker}
           shellClasses={shellClasses}
           onCaptionChange={setCaption}
           onDiscard={discardDraft}
@@ -611,25 +611,45 @@ export function MessageComposer({
           )}
           <div className="flex items-end gap-0.5">
             {/* Attach menu — photo / video / document / voice. */}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="ghost" size="icon-lg" />}
-                disabled={inputsDisabled || busy}
-                aria-label="Attach media"
-                title={
-                  readOnly
-                    ? "Read-only — your role can't send messages"
-                    : inputsDisabled
-                      ? undefined
-                      : 'Attach media'
+            <DropdownMenu
+              open={attachMenuOpen}
+              onOpenChange={(nextOpen, eventDetails) => {
+                if (!nextOpen) {
+                  setAttachMenuOpen(false);
+                } else if (
+                  !sendBlocker &&
+                  eventDetails.event.type === 'keydown'
+                ) {
+                  setAttachMenuOpen(true);
                 }
-              >
-                {busy ? (
-                  <Loader2 className="size-5 animate-spin" />
-                ) : (
-                  <Paperclip className="size-5" />
-                )}
-              </DropdownMenuTrigger>
+              }}
+            >
+              <ResolvableAction
+                trigger={
+                  <DropdownMenuTrigger
+                    nativeButton={false}
+                    render={
+                      <Button
+                        nativeButton={false}
+                        render={<div />}
+                        variant="ghost"
+                        size="icon-lg"
+                        aria-label="Attach media"
+                        title={sendBlocker ? undefined : 'Attach media'}
+                      />
+                    }
+                  >
+                    {busy ? (
+                      <Loader2 className="size-5 animate-spin" />
+                    ) : (
+                      <Paperclip className="size-5" />
+                    )}
+                  </DropdownMenuTrigger>
+                }
+                onAction={() => setAttachMenuOpen(true)}
+                blocker={sendBlocker}
+                disabled={busy}
+              />
               <DropdownMenuContent
                 align="start"
                 className="border-border bg-popover"
@@ -752,7 +772,7 @@ export function MessageComposer({
 function MediaDraftPreview({
   draft,
   busy,
-  readOnly,
+  blocker,
   shellClasses,
   onCaptionChange,
   onDiscard,
@@ -760,7 +780,7 @@ function MediaDraftPreview({
 }: {
   draft: MediaDraft;
   busy: boolean;
-  readOnly: boolean;
+  blocker: ActionBlocker | null;
   /** The composer shell recipe, so a staged attachment sits in exactly the
    *  same floating card the message field does. */
   shellClasses: string;
@@ -824,21 +844,24 @@ function MediaDraftPreview({
             className="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 border-0 bg-transparent px-2 py-2 text-sm outline-none"
           />
         )}
-        <GatedButton
-          size="icon-lg"
-          canAct={!readOnly}
-          gateReason="send messages"
-          disabled={busy}
-          onClick={onSend}
-          loading={busy}
-          aria-label="Send attachment"
-          className={cn(
-            'disabled:opacity-40',
-            draft.kind === 'audio' && 'ml-auto'
-          )}
-        >
-          <Send className="size-4" />
-        </GatedButton>
+        <ResolvableAction
+          trigger={
+            <Button
+              size="icon-lg"
+              disabled={busy}
+              loading={busy}
+              aria-label="Send attachment"
+              className={cn(
+                'disabled:opacity-40',
+                draft.kind === 'audio' && 'ml-auto'
+              )}
+            >
+              <Send className="size-4" />
+            </Button>
+          }
+          onAction={() => void onSend()}
+          blocker={blocker}
+        />
       </div>
     </div>
   );

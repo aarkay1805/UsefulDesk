@@ -39,13 +39,41 @@ interface ResolvableActionProps {
   onOpenChange?: (open: boolean) => void;
   side?: 'top' | 'right' | 'bottom' | 'left';
   align?: 'start' | 'center' | 'end';
+  /** Override for a custom trigger whose rendered element cannot be
+   * classified from its type or explicit nativeButton contract. */
+  triggerNativeButton?: boolean;
 }
 
 type TriggerProps = React.AriaAttributes & {
   disabled?: boolean;
+  nativeButton?: boolean;
+  render?: React.ReactElement;
   className?: string;
   onClick?: React.MouseEventHandler<HTMLElement>;
 };
+
+function triggerUsesNativeButton(
+  trigger: React.ReactElement,
+  override?: boolean
+): boolean {
+  if (override !== undefined) return override;
+
+  if (typeof trigger.type === 'string') {
+    return trigger.type === 'button';
+  }
+
+  const props = trigger.props as TriggerProps;
+  if (props.nativeButton !== undefined) return props.nativeButton;
+
+  if (trigger.type === Button && React.isValidElement(props.render)) {
+    return props.render.type === 'button';
+  }
+
+  // Match Base UI's safe default. A custom component that renders a
+  // non-button opts out through triggerNativeButton instead of a display-name
+  // heuristic or post-render DOM inspection.
+  return true;
+}
 
 export function ResolvableAction({
   trigger,
@@ -56,12 +84,14 @@ export function ResolvableAction({
   onOpenChange,
   side,
   align,
+  triggerNativeButton,
 }: ResolvableActionProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
   const { startNavigation, isPending } = usePendingNavigation();
   const resolvedOpen = open ?? uncontrolledOpen;
   const triggerProps = trigger.props as TriggerProps;
   const trulyDisabled = disabled || Boolean(triggerProps.disabled);
+  const nativeTrigger = triggerUsesNativeButton(trigger, triggerNativeButton);
 
   const setResolvedOpen = React.useCallback(
     (nextOpen: boolean) => {
@@ -123,7 +153,10 @@ export function ResolvableAction({
         <TooltipTrigger
           disabled={resolvedOpen}
           render={
-            <PopoverTrigger nativeButton={false} render={resolvedTrigger} />
+            <PopoverTrigger
+              nativeButton={nativeTrigger}
+              render={resolvedTrigger}
+            />
           }
         />
         <TooltipContent>{activeBlocker.title}</TooltipContent>

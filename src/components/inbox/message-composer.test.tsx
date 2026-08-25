@@ -13,6 +13,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MessageComposer } from './message-composer';
 
 const permissions = vi.hoisted(() => ({ canSendMessages: true }));
+const mediaStorage = vi.hoisted(() => ({
+  uploadAccountMedia: vi.fn(),
+  deleteAccountMedia: vi.fn(),
+}));
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/inbox',
@@ -29,8 +33,8 @@ vi.mock('@/lib/storage/upload-media', () => ({
     document: 16_000_000,
     audio: 16_000_000,
   },
-  uploadAccountMedia: vi.fn(),
-  deleteAccountMedia: vi.fn(),
+  uploadAccountMedia: mediaStorage.uploadAccountMedia,
+  deleteAccountMedia: mediaStorage.deleteAccountMedia,
 }));
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
@@ -39,6 +43,9 @@ vi.mock('sonner', () => ({
 afterEach(() => {
   cleanup();
   permissions.canSendMessages = true;
+  mediaStorage.uploadAccountMedia.mockReset();
+  mediaStorage.deleteAccountMedia.mockReset();
+  mediaStorage.deleteAccountMedia.mockResolvedValue(undefined);
 });
 
 describe('MessageComposer pending feedback', () => {
@@ -79,6 +86,195 @@ describe('MessageComposer pending feedback', () => {
 });
 
 describe('MessageComposer blocked actions', () => {
+  it('opens the allowed attachment menu by pointer and keyboard without a competing popover', async () => {
+    const user = userEvent.setup();
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={vi.fn()}
+        onOpenTemplates={vi.fn()}
+      />
+    );
+
+    const attach = screen.getByRole('button', { name: 'Attach media' });
+    await user.click(attach);
+    expect(screen.getByRole('menuitem', { name: 'Photo' })).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    await user.keyboard('{Escape}');
+    attach.focus();
+    await user.keyboard(' ');
+    expect(screen.getByRole('menuitem', { name: 'Photo' })).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(
+      consoleError.mock.calls.some((args) =>
+        args.some(
+          (value) => typeof value === 'string' && value.includes('nativeButton')
+        )
+      )
+    ).toBe(false);
+    consoleError.mockRestore();
+  });
+
+  it('keeps attachment permission blockers focusable and opens only the explanation', async () => {
+    permissions.canSendMessages = false;
+    const user = userEvent.setup();
+    render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={vi.fn()}
+        onOpenTemplates={vi.fn()}
+      />
+    );
+
+    const attach = screen.getByRole('button', { name: 'Attach media' });
+    expect(attach.getAttribute('disabled')).toBeNull();
+    expect(attach.getAttribute('tabindex')).toBe('0');
+    expect(attach.getAttribute('aria-disabled')).toBe('true');
+    attach.focus();
+    await user.keyboard(' ');
+
+    expect(
+      screen.getByRole('dialog', { name: 'Admin access required' })
+    ).toBeTruthy();
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.queryByRole('button', { name: /ask|request/i })).toBeNull();
+  });
+
+  it('resolves a closed-session attachment attempt through the template picker', async () => {
+    const onOpenTemplates = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired
+        onSend={vi.fn()}
+        onSendMedia={vi.fn()}
+        onOpenTemplates={onOpenTemplates}
+      />
+    );
+
+    const attach = screen.getByRole('button', { name: 'Attach media' });
+    expect(attach.getAttribute('disabled')).toBeNull();
+    expect(attach.getAttribute('tabindex')).toBe('0');
+    attach.focus();
+    await user.keyboard('{Enter}');
+
+    const blocker = screen.getByRole('dialog', {
+      name: 'WhatsApp session has closed',
+    });
+    expect(screen.queryByRole('menu')).toBeNull();
+    await user.click(
+      within(blocker).getByRole('button', { name: 'Send template' })
+    );
+    expect(onOpenTemplates).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a staged attachment send focusable and suppresses its callback when permission is lost', async () => {
+    mediaStorage.uploadAccountMedia.mockResolvedValue({
+      publicUrl: 'https://example.test/member.jpg',
+      path: 'account-1/member.jpg',
+    });
+    const onSendMedia = vi.fn();
+    const user = userEvent.setup();
+    const view = render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={vi.fn()}
+      />
+    );
+
+    const fileInput = view.container.querySelector<HTMLInputElement>(
+      'input[type="file"][accept^="image/"]'
+    );
+    if (!fileInput) throw new Error('Missing image input');
+    await user.upload(
+      fileInput,
+      new File(['image'], 'member.jpg', { type: 'image/jpeg' })
+    );
+    await screen.findByRole('img', { name: 'member.jpg' });
+
+    permissions.canSendMessages = false;
+    view.rerender(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={vi.fn()}
+      />
+    );
+
+    const sendAttachment = screen.getByRole('button', {
+      name: 'Send attachment',
+    });
+    expect((sendAttachment as HTMLButtonElement).disabled).toBe(false);
+    expect(sendAttachment.getAttribute('aria-disabled')).toBe('true');
+    await user.click(sendAttachment);
+
+    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(onSendMedia).not.toHaveBeenCalled();
+  });
+
+  it('resolves a staged attachment when the session closes before send', async () => {
+    mediaStorage.uploadAccountMedia.mockResolvedValue({
+      publicUrl: 'https://example.test/member.jpg',
+      path: 'account-1/member.jpg',
+    });
+    const onSendMedia = vi.fn();
+    const onOpenTemplates = vi.fn();
+    const user = userEvent.setup();
+    const view = render(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired={false}
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={onOpenTemplates}
+      />
+    );
+
+    const fileInput = view.container.querySelector<HTMLInputElement>(
+      'input[type="file"][accept^="image/"]'
+    );
+    if (!fileInput) throw new Error('Missing image input');
+    await user.upload(
+      fileInput,
+      new File(['image'], 'member.jpg', { type: 'image/jpeg' })
+    );
+    await screen.findByRole('img', { name: 'member.jpg' });
+
+    view.rerender(
+      <MessageComposer
+        conversationId="conversation-1"
+        sessionExpired
+        onSend={vi.fn()}
+        onSendMedia={onSendMedia}
+        onOpenTemplates={onOpenTemplates}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Send attachment' }));
+
+    const blocker = screen.getByRole('dialog', {
+      name: 'WhatsApp session has closed',
+    });
+    expect(onSendMedia).not.toHaveBeenCalled();
+    await user.click(
+      within(blocker).getByRole('button', { name: 'Send template' })
+    );
+    expect(onOpenTemplates).toHaveBeenCalledOnce();
+  });
+
   it('resolves a closed session through the template picker', async () => {
     const onOpenTemplates = vi.fn();
     const user = userEvent.setup();

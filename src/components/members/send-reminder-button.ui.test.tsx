@@ -98,6 +98,7 @@ describe('SendReminderButton blockers', () => {
     const remind = screen.getByRole('button', { name: 'Remind' });
     expect((remind as HTMLButtonElement).disabled).toBe(false);
     expect(remind.getAttribute('aria-disabled')).toBe('true');
+    expect(remind.getAttribute('title')).toBeNull();
 
     await user.click(remind);
 
@@ -127,6 +128,7 @@ describe('SendReminderButton blockers', () => {
     const remind = screen.getByRole('button', { name: 'Remind' });
     expect((remind as HTMLButtonElement).disabled).toBe(false);
     expect(remind.getAttribute('aria-disabled')).toBe('true');
+    expect(remind.getAttribute('title')).toBeNull();
 
     await user.click(remind);
 

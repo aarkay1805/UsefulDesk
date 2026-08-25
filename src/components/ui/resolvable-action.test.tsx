@@ -14,9 +14,19 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ResolvableAction } from '@/components/ui/resolvable-action';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe('ResolvableAction', () => {
   it('runs an unblocked action normally', async () => {
@@ -49,6 +59,62 @@ describe('ResolvableAction', () => {
     await userEvent.click(trigger);
     expect(onAction).not.toHaveBeenCalled();
     expect(screen.getByText("Invoice template isn't ready")).toBeTruthy();
+  });
+
+  it('keeps native Button semantics without Base UI nativeButton warnings', async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    render(
+      <ResolvableAction
+        trigger={<Button type="button">Send invoice</Button>}
+        onAction={onAction}
+        blocker={{
+          title: "Invoice template isn't ready",
+          description: 'Approve the invoice template before sending.',
+        }}
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Send invoice' });
+    expect(trigger.tagName).toBe('BUTTON');
+    expect(trigger.getAttribute('role')).toBeNull();
+    await user.tab();
+    expect(document.activeElement).toBe(trigger);
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await user.keyboard(' ');
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(onAction).not.toHaveBeenCalled();
+    expect(
+      consoleError.mock.calls.some((args) =>
+        args.some(
+          (value) => typeof value === 'string' && value.includes('nativeButton')
+        )
+      )
+    ).toBe(false);
+  });
+
+  it('keeps its positioned blocker narrower than a phone viewport', async () => {
+    vi.stubGlobal('innerWidth', 320);
+    const user = userEvent.setup();
+    render(
+      <ResolvableAction
+        trigger={<Button type="button">Send invoice</Button>}
+        blocker={{
+          title: "Invoice template isn't ready",
+          description: 'Approve the invoice template before sending.',
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Send invoice' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.className.split(' ')).toContain('w-72');
+    expect(dialog.parentElement?.getAttribute('role')).toBe('presentation');
   });
 
   it('suppresses action handlers attached to a blocked supplied trigger', async () => {
@@ -102,6 +168,53 @@ describe('ResolvableAction', () => {
 
     expect(onAction).not.toHaveBeenCalled();
     expect(screen.getByText("Invoice template isn't ready")).toBeTruthy();
+  });
+
+  it('supports an explicitly non-native composite trigger without warnings', async () => {
+    const user = userEvent.setup();
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    render(
+      <DropdownMenu open={false}>
+        <ResolvableAction
+          trigger={
+            <DropdownMenuTrigger
+              nativeButton={false}
+              render={
+                <Button
+                  nativeButton={false}
+                  render={<div />}
+                  aria-label="Invoice actions"
+                />
+              }
+            />
+          }
+          blocker={{
+            title: 'Admin access required',
+            description: 'Ask an admin or owner to send this invoice.',
+          }}
+        />
+        <DropdownMenuContent>
+          <DropdownMenuItem>Download</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Invoice actions' });
+    expect(trigger.tagName).toBe('DIV');
+    await user.click(trigger);
+    expect(
+      screen.getByRole('dialog', { name: 'Admin access required' })
+    ).toBeTruthy();
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(
+      consoleError.mock.calls.some((args) =>
+        args.some(
+          (value) => typeof value === 'string' && value.includes('nativeButton')
+        )
+      )
+    ).toBe(false);
   });
 
   it('opens from Enter and restores focus after Escape', async () => {
