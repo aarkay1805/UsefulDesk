@@ -138,6 +138,7 @@ describe('invoice detail presentation', () => {
 
 describe('invoice document action presentation', () => {
   const complete = {
+    is_projected: false,
     lifecycle: 'current' as const,
     state: 'open' as const,
     requires_refund_review: false,
@@ -195,11 +196,31 @@ describe('invoice document action presentation', () => {
     }
   });
 
-  it('keeps upcoming projections numberless and actionless', () => {
+  it('keeps a persisted numbered future invoice actionable', () => {
+    const presentation = invoiceDocumentActionPresentation({
+      ...complete,
+      lifecycle: 'upcoming',
+      is_projected: false,
+    });
+
+    expect(presentation.download).toEqual({
+      show: true,
+      enabled: true,
+      reason: null,
+    });
+    expect(presentation.share).toEqual({
+      show: true,
+      enabled: true,
+      reason: null,
+    });
+  });
+
+  it('keeps synthetic upcoming projections actionless', () => {
     expect(
       invoiceDocumentActionPresentation({
         ...complete,
         lifecycle: 'upcoming',
+        is_projected: true,
       })
     ).toEqual({
       download: { show: false, enabled: false, reason: null },

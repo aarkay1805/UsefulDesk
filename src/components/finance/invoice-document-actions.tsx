@@ -15,6 +15,7 @@ import {
   invoiceDocumentActionPresentation,
   type InvoiceDocumentStatus,
 } from '@/lib/finance/invoice-detail-presentation';
+import { isProjectedInvoice } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
 import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 import type { InvoicePartySnapshot } from '@/types';
@@ -78,9 +79,10 @@ export function InvoiceDocumentActions({
   const [templateReady, setTemplateReady] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const projected = isProjectedInvoice(invoice.id);
 
   useEffect(() => {
-    if (!accountId || invoice.lifecycle === 'upcoming') return;
+    if (!accountId || projected) return;
     let cancelled = false;
     void (async () => {
       const supabase = createClient();
@@ -127,9 +129,10 @@ export function InvoiceDocumentActions({
     return () => {
       cancelled = true;
     };
-  }, [accountId, invoice.id, invoice.lifecycle]);
+  }, [accountId, invoice.id, projected]);
 
   const presentation = invoiceDocumentActionPresentation({
+    is_projected: projected,
     lifecycle: invoice.lifecycle,
     state: invoice.state,
     requires_refund_review: invoice.requires_refund_review,

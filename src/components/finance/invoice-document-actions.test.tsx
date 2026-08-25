@@ -12,6 +12,7 @@ let accountRole: 'owner' | 'admin' | 'agent' | 'viewer' = 'agent';
 let documentStatus: 'generating' | 'ready' | 'failed' | null = null;
 let whatsappConnected = true;
 let templateReady = true;
+let queriedTables: string[] = [];
 
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@/hooks/use-auth', () => ({
@@ -20,6 +21,7 @@ vi.mock('@/hooks/use-auth', () => ({
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     from: (table: string) => {
+      queriedTables.push(table);
       const builder = {
         select: () => builder,
         eq: () => builder,
@@ -133,6 +135,7 @@ beforeEach(() => {
   documentStatus = null;
   whatsappConnected = true;
   templateReady = true;
+  queriedTables = [];
   toast.error.mockReset();
   toast.success.mockReset();
   vi.stubGlobal('fetch', vi.fn());
@@ -219,7 +222,7 @@ describe('InvoiceDocumentActions', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:invoice');
   });
 
-  it('hides document actions for upcoming projections', () => {
+  it('loads and shows actions for a persisted numbered future invoice', async () => {
     render(
       <InvoiceDocumentActions
         invoice={invoice({ lifecycle: 'upcoming' })}
@@ -227,12 +230,39 @@ describe('InvoiceDocumentActions', () => {
       />
     );
 
+    const download = screen.getByRole('button', { name: 'Download invoice' });
+    const share = screen.getByRole('button', { name: 'Send on WhatsApp' });
+    await waitFor(() => expect(share.hasAttribute('disabled')).toBe(false));
+    expect(download.hasAttribute('disabled')).toBe(false);
+    expect(queriedTables).toEqual([
+      'invoice_documents',
+      'whatsapp_config',
+      'message_templates',
+    ]);
+  });
+
+  it('keeps a synthetic upcoming projection numberless and actionless', async () => {
+    render(
+      <InvoiceDocumentActions
+        invoice={invoice({
+          id: 'upcoming:membership-1',
+          reference: 'Upcoming renewal',
+          invoice_number: null,
+          lifecycle: 'upcoming',
+        })}
+        customerPhone="+919999999999"
+      />
+    );
+
+    await act(async () => undefined);
+
     expect(
       screen.queryByRole('button', { name: 'Download invoice' })
     ).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Send on WhatsApp' })
     ).toBeNull();
+    expect(queriedTables).toEqual([]);
   });
 
   it.each([

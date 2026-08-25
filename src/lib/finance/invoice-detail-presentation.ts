@@ -53,6 +53,7 @@ export interface InvoiceSummaryRow {
 export type InvoiceDocumentStatus = 'generating' | 'ready' | 'failed' | null;
 
 export interface InvoiceDocumentActionFacts {
+  is_projected: boolean;
   lifecycle?: 'current' | 'past' | 'upcoming' | 'void' | null;
   state: 'open' | 'void';
   requires_refund_review?: boolean | null;
@@ -95,7 +96,7 @@ const TEMPLATE_RECOVERY =
 export function invoiceDocumentActionPresentation(
   facts: InvoiceDocumentActionFacts
 ): InvoiceDocumentActionPresentation {
-  if (facts.lifecycle === 'upcoming') {
+  if (facts.is_projected) {
     const hidden = { show: false, enabled: false, reason: null } as const;
     return { download: hidden, share: hidden };
   }
