@@ -21,7 +21,7 @@ import { InvoiceDocumentConflictError } from '@/lib/finance/invoice-document-ser
 import { GET, runtime } from './route';
 
 const accountId = '11111111-1111-4111-8111-111111111111';
-const invoiceId = '22222222-2222-4222-8222-222222222222';
+const invoiceId = '2a222222-2b22-4c22-8d22-222222222222';
 const userId = '33333333-3333-4333-8333-333333333333';
 const bytes = Uint8Array.from([0x25, 0x50, 0x44, 0x46, 1, 2, 3]);
 
@@ -76,6 +76,27 @@ describe('GET /api/invoices/[invoiceId]/document', () => {
     expect([...new Uint8Array(await response.arrayBuffer())]).toEqual([
       ...bytes,
     ]);
+    expect(ensureInvoiceDocument).toHaveBeenCalledWith({
+      accountId,
+      invoiceId,
+      userId,
+    });
+  });
+
+  it('normalizes a valid uppercase UUID before account lookup and service-role work', async () => {
+    const query = makeInvoiceQuery();
+    getCurrentAccount.mockResolvedValue({
+      accountId,
+      userId,
+      role: 'viewer',
+      supabase: { from: vi.fn(() => query) },
+    });
+
+    const response = await GET(request(), context(invoiceId.toUpperCase()));
+
+    expect(response.status).toBe(200);
+    expect(query.eq).toHaveBeenNthCalledWith(1, 'id', invoiceId);
+    expect(query.eq).toHaveBeenNthCalledWith(2, 'account_id', accountId);
     expect(ensureInvoiceDocument).toHaveBeenCalledWith({
       accountId,
       invoiceId,

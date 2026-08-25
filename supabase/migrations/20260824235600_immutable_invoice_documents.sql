@@ -135,7 +135,12 @@ REVOKE ALL ON public.invoice_documents FROM authenticated;
 REVOKE ALL ON public.invoice_documents FROM service_role;
 GRANT SELECT ON public.invoice_documents TO authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.reserve_invoice_document(p_invoice_id UUID)
+DROP FUNCTION IF EXISTS public.reserve_invoice_document(UUID);
+
+CREATE OR REPLACE FUNCTION public.reserve_invoice_document(
+  p_invoice_id UUID,
+  p_generated_by UUID
+)
 RETURNS TABLE (
   outcome TEXT,
   document_id UUID,
@@ -173,6 +178,21 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Invoice is unavailable'
       USING ERRCODE = '22023';
+  END IF;
+
+  -- The trusted server supplies the authenticated actor because a
+  -- service-role JWT has no end-user auth.uid(). Require both a real profile
+  -- and membership in the invoice account before storing that attribution.
+  IF p_generated_by IS NULL OR NOT EXISTS (
+    SELECT 1
+    FROM public.profiles profile
+    JOIN public.account_memberships membership
+      ON membership.user_id = profile.user_id
+    WHERE profile.user_id = p_generated_by
+      AND membership.account_id = v_invoice.account_id
+  ) THEN
+    RAISE EXCEPTION 'Document generator is unavailable for this account'
+      USING ERRCODE = '42501';
   END IF;
 
   -- The RPC is granted only to service_role. Retaining the membership check
@@ -361,7 +381,7 @@ BEGIN
       v_storage_path,
       gen_random_uuid(),
       NOW() + INTERVAL '5 minutes',
-      auth.uid()
+      p_generated_by
     )
     RETURNING * INTO v_document;
   ELSE
@@ -375,7 +395,7 @@ BEGIN
       generation_token = gen_random_uuid(),
       generation_expires_at = NOW() + INTERVAL '5 minutes',
       generated_at = NULL,
-      generated_by = auth.uid(),
+      generated_by = p_generated_by,
       last_error = NULL,
       updated_at = NOW()
     WHERE document.id = v_document.id
@@ -480,19 +500,19 @@ BEGIN
 END;
 $$;
 
-ALTER FUNCTION public.reserve_invoice_document(UUID) OWNER TO postgres;
+ALTER FUNCTION public.reserve_invoice_document(UUID, UUID) OWNER TO postgres;
 ALTER FUNCTION public.finalize_invoice_document(UUID, UUID, TEXT, BIGINT)
   OWNER TO postgres;
 ALTER FUNCTION public.fail_invoice_document(UUID, UUID, TEXT) OWNER TO postgres;
 
-REVOKE ALL ON FUNCTION public.reserve_invoice_document(UUID)
+REVOKE ALL ON FUNCTION public.reserve_invoice_document(UUID, UUID)
   FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.finalize_invoice_document(UUID, UUID, TEXT, BIGINT)
   FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.fail_invoice_document(UUID, UUID, TEXT)
   FROM PUBLIC, anon, authenticated, service_role;
 
-GRANT EXECUTE ON FUNCTION public.reserve_invoice_document(UUID)
+GRANT EXECUTE ON FUNCTION public.reserve_invoice_document(UUID, UUID)
   TO service_role;
 GRANT EXECUTE ON FUNCTION public.finalize_invoice_document(UUID, UUID, TEXT, BIGINT)
   TO service_role;

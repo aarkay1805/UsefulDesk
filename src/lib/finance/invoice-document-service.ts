@@ -41,10 +41,15 @@ interface FailInput {
   error: string;
 }
 
+interface ReserveInput {
+  invoiceId: string;
+  generatedBy: string;
+}
+
 type StoredBytes = Blob | ArrayBuffer | Uint8Array;
 
 export interface InvoiceDocumentServiceDependencies {
-  reserve(invoiceId: string): Promise<DependencyResult<unknown>>;
+  reserve(input: ReserveInput): Promise<DependencyResult<unknown>>;
   finalize(input: FinalizeInput): Promise<DependencyResult<unknown>>;
   fail(input: FailInput): Promise<DependencyResult<unknown>>;
   download(path: string): Promise<DependencyResult<StoredBytes>>;
@@ -313,16 +318,28 @@ export function createInvoiceDocumentService(
     async ensure(
       input: EnsureInvoiceDocumentInput
     ): Promise<ReadyInvoiceDocument> {
+      if (!UUID_PATTERN.test(input.invoiceId)) {
+        throw new InvoiceDocumentOrchestrationError(
+          'Invoice document service received an invalid invoice identifier.'
+        );
+      }
+      const normalizedInput = {
+        ...input,
+        invoiceId: input.invoiceId.toLowerCase(),
+      };
       const reservation = parseReservation(
-        await dependencies.reserve(input.invoiceId)
+        await dependencies.reserve({
+          invoiceId: normalizedInput.invoiceId,
+          generatedBy: normalizedInput.userId,
+        })
       );
-      validateReservationAccountScope(reservation, input);
+      validateReservationAccountScope(reservation, normalizedInput);
 
       if (reservation.outcome === 'generating') {
         assertInvoiceDocumentPayload(reservation.payload_snapshot);
         validateReservationScope(
           reservation,
-          input,
+          normalizedInput,
           reservation.payload_snapshot
         );
         throw new InvoiceDocumentPreparingError();
@@ -331,7 +348,11 @@ export function createInvoiceDocumentService(
       if (reservation.outcome === 'ready') {
         assertInvoiceDocumentPayload(reservation.payload_snapshot);
         const payload = reservation.payload_snapshot;
-        const metadata = parseReadyMetadata(reservation, input, payload);
+        const metadata = parseReadyMetadata(
+          reservation,
+          normalizedInput,
+          payload
+        );
         const downloaded = await dependencies.download(
           reservation.storage_path
         );
@@ -352,7 +373,7 @@ export function createInvoiceDocumentService(
         }
         return {
           documentId: reservation.document_id,
-          invoiceId: input.invoiceId,
+          invoiceId: normalizedInput.invoiceId,
           invoiceNumber: payload.invoice_number,
           storagePath: reservation.storage_path,
           sha256: metadata.sha256,
@@ -366,7 +387,7 @@ export function createInvoiceDocumentService(
       try {
         assertInvoiceDocumentPayload(reservation.payload_snapshot);
         const payload = reservation.payload_snapshot;
-        validateReservationScope(reservation, input, payload);
+        validateReservationScope(reservation, normalizedInput, payload);
         const rendered = Uint8Array.from(await dependencies.render(payload));
         if (rendered.byteLength === 0) {
           throw new Error('Invoice PDF renderer returned an empty document.');
@@ -384,14 +405,14 @@ export function createInvoiceDocumentService(
         uploaded = true;
 
         const finalized = await dependencies.finalize({
-          invoiceId: input.invoiceId,
+          invoiceId: normalizedInput.invoiceId,
           generationToken,
           sha256,
           byteCount: rendered.byteLength,
         });
         validateFinalizedRow(
           finalized,
-          input,
+          normalizedInput,
           reservation,
           generationToken,
           sha256,
@@ -400,7 +421,7 @@ export function createInvoiceDocumentService(
 
         return {
           documentId: reservation.document_id,
-          invoiceId: input.invoiceId,
+          invoiceId: normalizedInput.invoiceId,
           invoiceNumber: payload.invoice_number,
           storagePath: reservation.storage_path,
           sha256,
@@ -411,11 +432,11 @@ export function createInvoiceDocumentService(
         try {
           validateFailedRow(
             await dependencies.fail({
-              invoiceId: input.invoiceId,
+              invoiceId: normalizedInput.invoiceId,
               generationToken,
               error: boundedOperatorError(error),
             }),
-            input,
+            normalizedInput,
             reservation,
             generationToken
           );
@@ -465,9 +486,10 @@ function getAdminClient(): SupabaseClient {
 
 function defaultDependencies(): InvoiceDocumentServiceDependencies {
   return {
-    async reserve(invoiceId) {
+    async reserve(input) {
       return getAdminClient().rpc('reserve_invoice_document', {
-        p_invoice_id: invoiceId,
+        p_invoice_id: input.invoiceId,
+        p_generated_by: input.generatedBy,
       });
     },
     async finalize(input) {

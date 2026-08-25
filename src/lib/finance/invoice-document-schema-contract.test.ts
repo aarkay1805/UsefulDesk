@@ -158,6 +158,33 @@ describe('immutable invoice document migration contract', () => {
     );
   });
 
+  it('attributes new generation leases only to an actor in the invoice account', () => {
+    const reserve = sql.match(
+      /CREATE OR REPLACE FUNCTION public\.reserve_invoice_document\([\s\S]*?\n\$\$;/i
+    )?.[0];
+
+    expect(reserve).toBeDefined();
+    expect(reserve).toMatch(
+      /reserve_invoice_document\(\s*p_invoice_id UUID,\s*p_generated_by UUID\s*\)/i
+    );
+    expect(reserve).toMatch(
+      /FROM public\.profiles profile[\s\S]*JOIN public\.account_memberships membership[\s\S]*profile\.user_id = p_generated_by[\s\S]*membership\.account_id = v_invoice\.account_id/i
+    );
+    expect(reserve).toMatch(
+      /RAISE EXCEPTION 'Document generator is unavailable for this account'[\s\S]*ERRCODE = '42501'/i
+    );
+    expect(reserve).toMatch(
+      /INSERT INTO public\.invoice_documents[\s\S]*generated_by[\s\S]*VALUES[\s\S]*p_generated_by/i
+    );
+    expect(reserve).toMatch(/generated_by = p_generated_by/i);
+    expect(sql).toContain(
+      'ALTER FUNCTION public.reserve_invoice_document(UUID, UUID) OWNER TO postgres'
+    );
+    expect(sql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.reserve_invoice_document\(UUID, UUID\)\s+TO service_role/i
+    );
+  });
+
   it('binds finalize and retryable failure transitions to the active token', () => {
     const finalize = sql.match(
       /CREATE OR REPLACE FUNCTION public\.finalize_invoice_document\([\s\S]*?\n\$\$;/i

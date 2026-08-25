@@ -9,7 +9,7 @@ import {
 } from './invoice-document-service';
 
 const accountId = '11111111-1111-4111-8111-111111111111';
-const invoiceId = '22222222-2222-4222-8222-222222222222';
+const invoiceId = '2a222222-2b22-4c22-8d22-222222222222';
 const userId = '33333333-3333-4333-8333-333333333333';
 const documentId = '44444444-4444-4444-8444-444444444444';
 const generationToken = '55555555-5555-4555-8555-555555555555';
@@ -179,6 +179,10 @@ describe('invoice document service', () => {
 
     expect(result.sha256).toBe(checksum);
     expect(result.byteCount).toBe(bytes.byteLength);
+    expect(dependencies.reserve).toHaveBeenCalledWith({
+      invoiceId,
+      generatedBy: userId,
+    });
     expect(dependencies.render).toHaveBeenCalledOnce();
     expect(dependencies.upload).toHaveBeenCalledWith(storagePath, bytes, {
       contentType: 'application/pdf',
@@ -192,6 +196,25 @@ describe('invoice document service', () => {
     });
     expect(dependencies.remove).not.toHaveBeenCalled();
     expect(dependencies.fail).not.toHaveBeenCalled();
+  });
+
+  it('normalizes an uppercase invoice UUID before reserve and storage-scope validation', async () => {
+    const result = await createInvoiceDocumentService(dependencies).ensure({
+      accountId,
+      invoiceId: invoiceId.toUpperCase(),
+      userId,
+    });
+
+    expect(result.invoiceId).toBe(invoiceId);
+    expect(dependencies.reserve).toHaveBeenCalledWith({
+      invoiceId,
+      generatedBy: userId,
+    });
+    expect(dependencies.upload).toHaveBeenCalledWith(
+      storagePath,
+      bytes,
+      expect.objectContaining({ upsert: false })
+    );
   });
 
   it('returns a retryable preparation error for a live generating lease', async () => {

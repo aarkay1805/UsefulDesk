@@ -26,8 +26,9 @@ export async function GET(
   { params }: { params: Promise<{ invoiceId: string }> }
 ) {
   try {
-    const { invoiceId } = await params;
-    if (!UUID_PATTERN.test(invoiceId)) return notFound();
+    const { invoiceId: requestedInvoiceId } = await params;
+    if (!UUID_PATTERN.test(requestedInvoiceId)) return notFound();
+    const invoiceId = requestedInvoiceId.toLowerCase();
 
     const ctx = await getCurrentAccount();
     if (!canDownloadInvoiceDocuments(ctx.role)) {
