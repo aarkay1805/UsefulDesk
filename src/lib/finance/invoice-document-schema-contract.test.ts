@@ -33,13 +33,17 @@ describe('immutable invoice document migration contract', () => {
     const table = sql.match(
       /CREATE TABLE IF NOT EXISTS public\.invoice_documents \([\s\S]*?\n\);/i
     )?.[0];
+    const payloadV1Check = table?.match(
+      /CONSTRAINT invoice_documents_payload_v1[\s\S]*?\n    \),\n  CONSTRAINT invoice_documents_storage_path_present/i
+    )?.[0];
 
     expect(table).toBeDefined();
+    expect(payloadV1Check).toBeDefined();
     expect(table).toMatch(
       /COALESCE\(\s*jsonb_typeof\(payload_snapshot->'lines'\) = 'array',\s*FALSE\s*\)/i
     );
-    expect(table).toMatch(
-      /COALESCE\(\s*jsonb_array_length\(payload_snapshot->'lines'\),\s*0\s*\) > 0/i
+    expect(payloadV1Check).toMatch(
+      /AND CASE\s+WHEN jsonb_typeof\(payload_snapshot->'lines'\) = 'array'\s+THEN COALESCE\(\s*jsonb_array_length\(payload_snapshot->'lines'\),\s*0\s*\) > 0\s+ELSE FALSE\s+END/i
     );
     expect(table).toMatch(
       /COALESCE\(\s*jsonb_typeof\(payload_snapshot->'invoice_number'\) = 'string',\s*FALSE\s*\)/i
