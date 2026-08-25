@@ -20,7 +20,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ResolvableAction } from '@/components/ui/resolvable-action';
+import {
+  ResolvableAction,
+  type ResolvableActionOpenChangeDetails,
+} from '@/components/ui/resolvable-action';
 
 afterEach(() => {
   cleanup();
@@ -263,6 +266,72 @@ describe('ResolvableAction', () => {
       false,
       expect.objectContaining({ reason: 'outside-press' })
     );
+  });
+
+  it('honors cancellation before opening its uncontrolled popover', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn(
+      (open: boolean, eventDetails?: ResolvableActionOpenChangeDetails) => {
+        if (open) eventDetails?.cancel();
+      }
+    );
+    render(
+      <ResolvableAction
+        trigger={<Button type="button">Send invoice</Button>}
+        blocker={{
+          title: "Invoice template isn't ready",
+          description: 'Approve the invoice template before sending.',
+        }}
+        onOpenChange={onOpenChange}
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Send invoice' });
+    await user.click(trigger);
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(onOpenChange).toHaveBeenLastCalledWith(
+      true,
+      expect.objectContaining({ reason: 'trigger-press' })
+    );
+    expect(onOpenChange.mock.lastCall?.[1]?.isCanceled).toBe(true);
+  });
+
+  it('honors cancellation before closing its uncontrolled popover', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn(
+      (open: boolean, eventDetails?: ResolvableActionOpenChangeDetails) => {
+        if (!open) eventDetails?.cancel();
+      }
+    );
+    render(
+      <>
+        <ResolvableAction
+          trigger={<Button type="button">Send invoice</Button>}
+          blocker={{
+            title: "Invoice template isn't ready",
+            description: 'Approve the invoice template before sending.',
+          }}
+          onOpenChange={onOpenChange}
+        />
+        <input aria-label="Invoice caption" />
+      </>
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Send invoice' });
+    await user.click(trigger);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+
+    await user.click(screen.getByRole('textbox', { name: 'Invoice caption' }));
+
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(onOpenChange).toHaveBeenLastCalledWith(
+      false,
+      expect.objectContaining({ reason: 'outside-press' })
+    );
+    expect(onOpenChange.mock.lastCall?.[1]?.isCanceled).toBe(true);
   });
 
   it('runs a callback resolution but not the original action', async () => {

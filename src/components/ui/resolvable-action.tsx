@@ -101,10 +101,10 @@ export function ResolvableAction({
 
   const setResolvedOpen = React.useCallback(
     (nextOpen: boolean, eventDetails?: ResolvableActionOpenChangeDetails) => {
-      if (open === undefined) {
+      onOpenChange?.(nextOpen, eventDetails);
+      if (open === undefined && !eventDetails?.isCanceled) {
         setUncontrolledOpen(nextOpen);
       }
-      onOpenChange?.(nextOpen, eventDetails);
     },
     [onOpenChange, open]
   );
