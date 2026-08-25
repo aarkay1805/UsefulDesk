@@ -170,6 +170,30 @@ describe('invoice document service', () => {
     expect(dependencies.finalize).not.toHaveBeenCalled();
   });
 
+  it('reuses the same ready path, bytes, byte count, and checksum on repeat access', async () => {
+    vi.mocked(dependencies.reserve).mockResolvedValue({
+      data: [reservation('ready')],
+      error: null,
+    });
+    const service = createInvoiceDocumentService(dependencies);
+
+    const first = await service.ensure({ accountId, invoiceId, userId });
+    const second = await service.ensure({ accountId, invoiceId, userId });
+
+    expect(first).toEqual(second);
+    expect(first).toMatchObject({
+      documentId,
+      storagePath,
+      sha256: checksum,
+      byteCount: bytes.byteLength,
+    });
+    expect(dependencies.reserve).toHaveBeenCalledTimes(2);
+    expect(dependencies.download).toHaveBeenCalledTimes(2);
+    expect(dependencies.render).not.toHaveBeenCalled();
+    expect(dependencies.upload).not.toHaveBeenCalled();
+    expect(dependencies.finalize).not.toHaveBeenCalled();
+  });
+
   it('validates, renders, hashes, uploads once, and finalizes a claimed lease with the same token', async () => {
     const result = await createInvoiceDocumentService(dependencies).ensure({
       accountId,

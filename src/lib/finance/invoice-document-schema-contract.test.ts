@@ -7,9 +7,14 @@ const migrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20260824235600_immutable_invoice_documents.sql'
 );
+const advisorFixMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20260825093752_index_invoice_document_foreign_keys.sql'
+);
 
 describe('immutable invoice document migration contract', () => {
   const sql = readFileSync(migrationPath, 'utf8');
+  const advisorFixSql = readFileSync(advisorFixMigrationPath, 'utf8');
 
   it('stores one constrained lease-backed document per invoice', () => {
     expect(sql).toContain("'generating'");
@@ -253,5 +258,14 @@ describe('immutable invoice document migration contract', () => {
         )
       );
     }
+  });
+
+  it('covers invoice document foreign keys flagged by advisors', () => {
+    expect(advisorFixSql).toContain(
+      'ON public.invoice_documents(account_id, invoice_id)'
+    );
+    expect(advisorFixSql).toContain(
+      'ON public.invoice_documents(generated_by)'
+    );
   });
 });

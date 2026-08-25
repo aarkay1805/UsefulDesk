@@ -7,9 +7,19 @@ const migrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20260824235500_immutable_invoice_identity.sql'
 );
+const profileSaveFixMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20260825093309_fix_invoice_profile_save_guard_conflict.sql'
+);
+const advisorFixMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20260825093752_index_invoice_document_foreign_keys.sql'
+);
 
 describe('immutable invoice identity migration contract', () => {
   const sql = readFileSync(migrationPath, 'utf8');
+  const profileSaveFixSql = readFileSync(profileSaveFixMigrationPath, 'utf8');
+  const advisorFixSql = readFileSync(advisorFixMigrationPath, 'utf8');
 
   it('owns account-scoped profile and counter writes in the database', () => {
     expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.invoice_profiles');
@@ -123,6 +133,31 @@ describe('immutable invoice identity migration contract', () => {
       'DELETE FROM private.invoice_profile_save_guards'
     );
     expect(sql).not.toContain('app.invoice_profile_save');
+  });
+
+  it('uses the guard primary-key constraint to avoid RPC argument ambiguity', () => {
+    expect(profileSaveFixSql).toContain(
+      'CREATE OR REPLACE FUNCTION public.save_invoice_profile('
+    );
+    expect(profileSaveFixSql).toContain(
+      'ON CONFLICT ON CONSTRAINT invoice_profile_save_guards_pkey DO UPDATE'
+    );
+    expect(profileSaveFixSql).not.toContain(
+      'ON CONFLICT (transaction_id, account_id) DO UPDATE'
+    );
+    expect(profileSaveFixSql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.save_invoice_profile\([\s\S]*?FROM PUBLIC, anon, service_role;/i
+    );
+    expect(profileSaveFixSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.save_invoice_profile\([\s\S]*?TO authenticated;/i
+    );
+  });
+
+  it('covers invoice profile and guard foreign keys flagged by advisors', () => {
+    expect(advisorFixSql).toContain(
+      'ON private.invoice_profile_save_guards(account_id)'
+    );
+    expect(advisorFixSql).toContain('ON public.invoice_profiles(updated_by)');
   });
 
   it('preserves the complete refund-aware invoice balance view', () => {
