@@ -86,15 +86,22 @@ export function MembershipActionsMenu({
   return (
     <DropdownMenu
       open={menuOpen}
-      onOpenChange={(nextOpen) => {
-        if (!blocker) setMenuOpen(nextOpen);
+      onOpenChange={(nextOpen, eventDetails) => {
+        if (!nextOpen) {
+          setMenuOpen(false);
+        } else if (eventDetails.event.type === 'keydown') {
+          setMenuOpen(true);
+        }
       }}
     >
       <ResolvableAction
         trigger={
           <DropdownMenuTrigger
+            nativeButton={false}
             render={
               <Button
+                nativeButton={false}
+                render={<div />}
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Membership actions"

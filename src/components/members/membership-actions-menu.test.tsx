@@ -304,6 +304,26 @@ describe('MembershipActionsMenu', () => {
     );
   });
 
+  it('closes the menu after an allowed keyboard selection', async () => {
+    const user = userEvent.setup();
+    const actions = renderMenu();
+    const trigger = screen.getByRole('button', { name: 'Membership actions' });
+
+    trigger.focus();
+    await user.keyboard('{ArrowDown}');
+    const activeMenu = screen.getByRole('menu');
+    const freeze = screen.getByRole('menuitem', {
+      name: 'Freeze membership',
+    });
+    freeze.focus();
+    await user.keyboard('{Enter}');
+
+    expect(actions.onFreeze).toHaveBeenCalledOnce();
+    await waitFor(() =>
+      expect(document.getElementById(activeMenu.id)).toBeNull()
+    );
+  });
+
   it('keeps busy lifecycle items genuinely disabled without disabling unrelated menu actions', async () => {
     const actions = renderMenu({ busy: true });
 
