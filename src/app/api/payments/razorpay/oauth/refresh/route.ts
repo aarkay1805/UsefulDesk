@@ -37,8 +37,9 @@ export async function POST(request: Request) {
       );
     }
     authorizeRazorpayLiveRolloutMerchant(scope.externalAccountId, rollout);
+    const status = await getRazorpayConnectionStatus(admin, ctx.accountId);
     const connection = await getRazorpayConnection(admin, ctx.accountId, {
-      forceRefresh: true,
+      forceRefresh: status.connectionStatus === 'ready',
       allowStaleReadinessForRecovery: true,
     });
     if (!connection || connection.authenticationMode !== 'oauth') {

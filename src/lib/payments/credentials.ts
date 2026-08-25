@@ -215,8 +215,11 @@ export async function getRazorpayConnection(
   if (!isRazorpayOAuthEnabled()) {
     throw new Error('Razorpay OAuth is disabled in this environment');
   }
+  const recoveringBlockedConnection =
+    options.allowStaleReadinessForRecovery &&
+    row.connection_status === 'blocked';
   if (
-    row.connection_status !== 'ready' ||
+    (row.connection_status !== 'ready' && !recoveringBlockedConnection) ||
     (!options.allowStaleReadinessForRecovery && !readinessIsUsable(row))
   ) {
     throw new Error(
@@ -244,8 +247,9 @@ export async function getRazorpayConnection(
     throw new Error('Razorpay OAuth credential expiry is invalid');
   }
   if (
-    options.forceRefresh ||
-    expiresAt.getTime() - Date.now() <= RAZORPAY_OAUTH_REFRESH_WINDOW_MS
+    row.connection_status === 'ready' &&
+    (options.forceRefresh ||
+      expiresAt.getTime() - Date.now() <= RAZORPAY_OAUTH_REFRESH_WINDOW_MS)
   ) {
     const refreshed = await refreshStoredRazorpayOAuthConnection({
       admin,

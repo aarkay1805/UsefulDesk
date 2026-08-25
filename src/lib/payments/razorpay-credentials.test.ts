@@ -139,6 +139,31 @@ describe('Razorpay OAuth credential resolver', () => {
     ).rejects.toThrow(/blocked or needs reconnecting/);
   });
 
+  it('exposes a blocked OAuth grant only to the explicit readiness recovery path', async () => {
+    vi.stubEnv('RAZORPAY_MODE', 'test');
+    vi.stubEnv('RAZORPAY_OAUTH_ENABLED', 'true');
+    const blocked = credentialDb(
+      baseRow({
+        connection_status: 'blocked',
+        activation_verified_at: null,
+        last_error: 'Razorpay merchant activation is not yet verified',
+      })
+    );
+
+    await expect(getRazorpayConnection(blocked, 'account')).rejects.toThrow(
+      /blocked or needs reconnecting/
+    );
+    await expect(
+      getRazorpayConnection(blocked, 'account', {
+        allowStaleReadinessForRecovery: true,
+      })
+    ).resolves.toMatchObject({
+      accountId: 'account',
+      authenticationMode: 'oauth',
+      authentication: { mode: 'oauth', accessToken: 'access' },
+    });
+  });
+
   it('keeps stale readiness blocked outside the explicit recovery path', async () => {
     vi.stubEnv('RAZORPAY_MODE', 'test');
     vi.stubEnv('RAZORPAY_OAUTH_ENABLED', 'true');

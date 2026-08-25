@@ -6,6 +6,10 @@
 
 ---
 
+## Razorpay reconnect recovery now handles a blocked fresh grant
+
+Rajat Kashyap's pinned Live merchant was reconnected after its prior OAuth row had been explicitly disconnected. Razorpay's Accounts readiness endpoint rejected the imported merchant even though authenticated customer, plan, subscription, payment-link, and payment probes all succeeded; the callback therefore stored a fresh grant as `blocked`, while the Verify route could only resolve `ready` rows and returned an internal error. The recovery path in `src/lib/payments/credentials.ts` and `src/app/api/payments/razorpay/oauth/refresh/route.ts` now admits a blocked grant only for explicit read-only readiness verification, without weakening ordinary payment access; ready rows still force token refresh. `src/components/settings/razorpay-settings-card.tsx` also renders a truly disconnected OAuth row as one reconnect task instead of contradictory ready/live badges and stale Verify/Disconnect actions. Regression tests cover both boundaries. Production was restored to OAuth/Live/ready for exact merchant `acc_TCJwBqanN9LTrK` after all five capability probes returned 200, with zero failed webhooks, missing ledger rows, open payment exceptions, or stuck links. No payment, link, refund, message, or other money movement was created.
+
 ## Blocked high-value actions now explain the way forward
 
 `src/components/ui/resolvable-action.tsx` now owns one focusable, tappable blocker popover across WhatsApp messaging, renewals, invoice delivery and collection, payments, membership lifecycle actions, and follow-ups. Gotcha: `disabled`/`loading` is only for pending work, explained validation, empty input, and obvious boundaries; a resolvable business prerequisite stays interactive, suppresses the original action, and offers at most one resolution CTA.

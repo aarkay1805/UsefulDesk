@@ -10,6 +10,8 @@ Membership plans, including responsive label-free billing-option comparison card
 
 Shipped addition: **one canonical Resolvable action across WhatsApp messaging, renewals, invoice delivery and collection, payments, membership lifecycle actions, and follow-ups. High-value actions blocked by a changeable prerequisite remain focusable and tappable, explain the highest-priority reason in place, and offer the nearest resolution CTA when one exists; pending work, explained validation, empty input, and obvious boundaries remain truly disabled.**
 
+Engineering maintenance: **Razorpay reconnect recovery now admits a fresh `blocked` OAuth grant only inside the authenticated read-only Verify path, allowing the existing capability probes to restore readiness when Razorpay's Accounts endpoint rejects an imported merchant; ordinary payment access remains ready-only and ready connections still force token refresh. Disconnected OAuth rows present one honest Reconnect task instead of stale readiness badges and Verify/Disconnect actions. Rajat Kashyap's exact pinned Live merchant `acc_TCJwBqanN9LTrK` was restored to OAuth/Live/ready after customer, plan, subscription, payment-link, and payment probes all returned 200, and its exact operational queues remained zero. No payment, link, refund, message, or money movement was created.**
+
 Engineering maintenance: **a Cloudflare R2 backup foundation now exports and
 client-side encrypts nightly Supabase database dumps plus weekly complete
 Storage snapshots, supports manual pre/post-operation recovery points, verifies

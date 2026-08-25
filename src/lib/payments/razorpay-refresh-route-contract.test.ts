@@ -20,7 +20,10 @@ describe('Razorpay OAuth refresh route contract', () => {
     expect(route).toMatch(
       /authorizeRazorpayLiveRolloutMerchant\(\s*scope\.externalAccountId,\s*rollout\s*\)/
     );
-    expect(route).toContain('forceRefresh: true');
+    expect(route).toContain('getRazorpayConnectionStatus(');
+    expect(route).toContain(
+      "forceRefresh: status.connectionStatus === 'ready'"
+    );
     expect(route).toContain('allowStaleReadinessForRecovery: true');
     expect(route).toContain('verifyRazorpayOAuthReadiness({');
     expect(route).toContain('finalizeRazorpayOAuthConnection(');

@@ -238,6 +238,8 @@ export function RazorpaySettingsCard() {
     : 0;
   const attentionDetails = health ? attentionSummary(health) : '';
   const oauthConnection = connection?.authenticationMode === 'oauth';
+  const activeOAuthConnection =
+    oauthConnection && connection?.connectionStatus !== 'disconnected';
 
   async function beginConnect() {
     setConnecting(true);
@@ -415,7 +417,7 @@ export function RazorpaySettingsCard() {
               </Alert>
             ) : null}
 
-            {oauthConnection ? (
+            {activeOAuthConnection ? (
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={connectionBadge(connection.connectionStatus)}>
@@ -537,7 +539,11 @@ export function RazorpaySettingsCard() {
             ) : (
               <div className="space-y-3">
                 <div>
-                  <p className="text-sm font-medium">Connect with Razorpay</p>
+                  <p className="text-sm font-medium">
+                    {oauthConnection
+                      ? 'Reconnect Razorpay'
+                      : 'Connect with Razorpay'}
+                  </p>
                   <p className="text-muted-foreground mt-1 text-sm">
                     Authorize UsefulDesk without sharing API keys. You can
                     disconnect at any time.
@@ -550,7 +556,9 @@ export function RazorpaySettingsCard() {
                     ) : (
                       <ExternalLink className="size-4" />
                     )}
-                    Connect Razorpay
+                    {oauthConnection
+                      ? 'Reconnect Razorpay'
+                      : 'Connect Razorpay'}
                   </Button>
                 ) : (
                   <p className="text-muted-foreground text-xs">
