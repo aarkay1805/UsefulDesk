@@ -1083,9 +1083,6 @@ export interface PaymentMandate {
   last_applied_paid_count?: number;
   last_applied_period_end?: string | null;
   setup_error?: string | null;
-  cancelled_at?: string | null;
-  cancelled_by?: string | null;
-  cancellation_reason?: string | null;
   status: MandateStatus;
   authed_at?: string | null;
   next_charge_at?: string | null;

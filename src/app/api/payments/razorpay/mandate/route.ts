@@ -139,11 +139,15 @@ export async function POST(request: Request) {
     }
     const membership = data as unknown as MembershipRow;
 
-    if (membership.is_trial || membership.status !== 'active') {
+    if (
+      membership.is_trial ||
+      membership.status === 'frozen' ||
+      membership.status === 'cancelled'
+    ) {
       return NextResponse.json(
         {
           error:
-            'Auto-pay can be set up only for an active, non-trial membership',
+            "Auto-pay can't be set up for a trial, frozen, or cancelled membership",
         },
         { status: 400 }
       );
