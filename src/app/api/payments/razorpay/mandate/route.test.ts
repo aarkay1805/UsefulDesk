@@ -121,9 +121,19 @@ describe('Razorpay mandate route safeguards', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error:
-        "Auto-pay can't be set up for a trial, frozen, or cancelled membership",
+      error: 'Auto-pay can be set up only for an active, non-trial membership',
     });
+    expect(mocks.getConnection).not.toHaveBeenCalled();
+  });
+
+  it('rejects an expired membership before any provider access', async () => {
+    mocks.requireRole.mockResolvedValue(
+      context({ membership: { ...activeMembership, status: 'expired' } })
+    );
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(400);
     expect(mocks.getConnection).not.toHaveBeenCalled();
   });
 
