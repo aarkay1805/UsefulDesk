@@ -1334,3 +1334,49 @@ first bind with no merchant, credential, active OAuth state, Payment Link,
 refund, open payment/refund exception, or webhook delivery. G12 now waits only
 on VBF-owner OAuth and the post-consent no-money readiness/isolation/zero-queue
 closeout.
+
+### Historical account-mismatch webhook closeout
+
+On 2026-08-26, the four preserved failed pre-OAuth events were reviewed again
+before any Production mutation. Their stored receipt account was Rajat Kashyap
+`50a9e8f9-d7e5-44d2-ba04-c367509b981e`; every subscription note named VBF
+`9c50dcd9-ed4a-427c-a2fc-07d452f0aec7`; and every top-level provider account
+was `acc_TCJwBqanN9LTrK`. The earlier provider-dashboard preflight had proven
+the retired manual credential was not Live, and all four events predate the
+first Live application-webhook activation, so their reviewed mode is Test.
+
+| Event            | Type                         | Subscription         | Payment fact                                |
+| ---------------- | ---------------------------- | -------------------- | ------------------------------------------- |
+| `TCt7UUYDn05NlZ` | `subscription.charged`       | `sub_TCt1agzf55iHXa` | Test-captured `pay_TCt4xkHAaIcr33`, ₹11,999 |
+| `TDFwepp30TMPfc` | `subscription.authenticated` | `sub_TDFuTfNHuOk5uG` | none                                        |
+| `TDFweqCmNNCByJ` | `subscription.activated`     | `sub_TDFuTfNHuOk5uG` | Test-captured `pay_TDFwJdoHeiUe60`, ₹11,999 |
+| `TDFweqJIKJY9kM` | `subscription.charged`       | `sub_TDFuTfNHuOk5uG` | the same Test payment; no second charge     |
+
+Read-only queries found no surviving referenced contact, membership, or
+mandate. For both exact provider payment ids, local payment, allocation,
+refund, refund-allocation, charge-exception, payment-exception, and delivery
+counts were all zero. The rows therefore represent Test provider evidence from
+a historical cross-tenant setup defect, not unapplied Live money.
+
+Migration
+`20260826070646_reconcile_legacy_razorpay_identity_mismatches.sql` was applied
+to Production through the approved connector as `20260826071158`. It creates
+the RLS-on, browser-denied, SELECT-only-for-service-role
+`razorpay_webhook_reconciliations` audit and a service-role-only RPC. The RPC
+admits only an identity-null, account-mismatch, pre-Live Test event; compares
+the exact reviewed tenant/merchant/subscription/payment/amount facts; refuses
+any surviving domain or financial row; and atomically records the audit before
+terminal completion. It never calls `record_gateway_charge` or any provider
+API. The isolated Test connector denied migration authority, so no `db push`
+or alternate mutation path was substituted.
+
+All four Production calls returned `reconciled`; an exact retry returned
+`already_reconciled`. Receipt `account_id`, raw payload, `attempt_count`, null
+legacy `event_identity_source`, and null legacy `payload_sha256` remain
+unchanged. Only the proven `provider_mode='test'`, external merchant, terminal
+status/context, and immutable audit were added. Post-closeout counts are zero
+failed and zero unprocessed Razorpay events globally, zero exact Live failed or
+missing-ledger rows, and zero local financial effects for the two Test payment
+ids. The pinned OAuth/Live/application connection remains ready, lease-free,
+and error-free. Supabase reported only the existing advisor baseline plus the
+intentional RLS/no-policy notice for the new service-only table.
