@@ -53,7 +53,7 @@ export async function GET() {
       admin
         .from('gateway_charge_exceptions')
         .select(
-          'id, gateway_payment_id, gateway_subscription_id, provider_paid_count, amount, currency, reason_code, reason_message, first_seen_at, last_seen_at, attempt_count',
+          'id, gateway_payment_id, provider_paid_count, amount, currency, reason_code, reason_message, gateway_paid_at, first_seen_at, last_seen_at, attempt_count, membership:memberships(member_number, contact:contacts(name))',
           { count: 'exact' }
         )
         .eq('account_id', ctx.accountId)
@@ -120,7 +120,29 @@ export async function GET() {
         missingLedgerCount: missingLedger.count ?? 0,
         missingLedgerEvents: missingLedger.data ?? [],
         unappliedChargeCount: unappliedCharges.count ?? 0,
-        unappliedCharges: unappliedCharges.data ?? [],
+        unappliedCharges: (unappliedCharges.data ?? []).map((row) => {
+          const membership = Array.isArray(row.membership)
+            ? row.membership[0]
+            : row.membership;
+          const contact = Array.isArray(membership?.contact)
+            ? membership.contact[0]
+            : membership?.contact;
+          return {
+            id: row.id,
+            amount: Number(row.amount),
+            currency: row.currency,
+            provider_paid_count: row.provider_paid_count,
+            reason_code: row.reason_code,
+            reason_message: row.reason_message,
+            gateway_payment_suffix: row.gateway_payment_id.slice(-4),
+            gateway_paid_at: row.gateway_paid_at,
+            first_seen_at: row.first_seen_at,
+            last_seen_at: row.last_seen_at,
+            attempt_count: row.attempt_count,
+            member_name: contact?.name ?? null,
+            member_number: membership?.member_number ?? null,
+          };
+        }),
         setupExceptionCount: setupExceptions.count ?? 0,
         paymentLinkExceptionCount: paymentLinkExceptions.count ?? 0,
         paymentLinkSetupExceptionCount: paymentLinkSetupExceptions.count ?? 0,

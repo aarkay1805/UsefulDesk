@@ -371,6 +371,26 @@ service-role key, and every other acceptance credential before the first live
 merchant authorisation. Do not rotate or touch a live credential as part of the
 isolated Test exercise without separate authority.
 
+## Provider-discovered charge resolution
+
+Settings → Payments shows a review card only for an open
+`provider_charge_missing_webhook`. **Apply to membership** is admin-only and
+does not debit Razorpay: it performs fresh read-only subscription, paid-invoice,
+payment, and refund-state checks, then calls the service-only atomic ledger
+resolution. Only `last_applied_paid_count + 1` can enter the ledger, and the
+payment retains Razorpay's captured time. If a membership, balance, period, or
+sequence invariant changed, the item stays open under the canonical blocker
+instead of being forced through.
+
+**Mark handled externally** creates no UsefulDesk payment or membership credit.
+It is for money already accounted for outside UsefulDesk and requires an
+admin-authored reason. Both actions retain the exception, actor, timestamp, and
+note as audit history. Other charge-exception reasons remain support/manual
+review only. Migration
+`20260826043822_resolve_razorpay_provider_charge_exceptions.sql` owns the two
+service-only RPCs; browser code must never call them directly or bypass the
+same-origin admin route.
+
 ## Stage 3 Payment Link acceptance
 
 Stage 3 was implemented and accepted on 2026-08-09 only in **UsefulDesk

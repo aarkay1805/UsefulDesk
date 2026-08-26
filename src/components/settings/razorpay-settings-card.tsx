@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 type ConnectionStatus =
   | 'connecting'
@@ -74,6 +75,20 @@ interface ConnectionHealth {
   paymentLinkExceptionCount: number;
   paymentLinkSetupExceptionCount: number;
   latestUnappliedReason: string | null;
+  unappliedCharges: UnappliedCharge[];
+}
+
+interface UnappliedCharge {
+  id: string;
+  amount: number;
+  currency: string | null;
+  provider_paid_count: number | null;
+  reason_code: string;
+  reason_message: string;
+  gateway_payment_suffix: string;
+  member_name: string | null;
+  member_number: number | null;
+  gateway_paid_at: string | null;
 }
 
 const CONNECTION_LABELS: Record<ConnectionStatus, string> = {
@@ -152,6 +167,12 @@ export function RazorpaySettingsCard() {
   const [recovering, setRecovering] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const [selectedResolution, setSelectedResolution] = useState<{
+    charge: UnappliedCharge;
+    action: 'apply' | 'ignore';
+  } | null>(null);
+  const [resolutionReason, setResolutionReason] = useState('');
+  const [resolvingCharge, setResolvingCharge] = useState(false);
   const notifiedResult = useRef<string | null>(null);
 
   useEffect(() => {
@@ -188,6 +209,7 @@ export function RazorpaySettingsCard() {
             body.health.latestPaymentLinkReason ??
             body.health.unappliedCharges?.[0]?.reason_message ??
             null,
+          unappliedCharges: body.health.unappliedCharges ?? [],
         });
       } catch (error) {
         if (!cancelled) {
@@ -343,6 +365,52 @@ export function RazorpaySettingsCard() {
     }
   }
 
+  function openChargeResolution(
+    charge: UnappliedCharge,
+    action: 'apply' | 'ignore'
+  ) {
+    setSelectedResolution({ charge, action });
+    setResolutionReason(
+      action === 'apply'
+        ? 'Revalidated against Razorpay and applied to the membership ledger.'
+        : ''
+    );
+  }
+
+  async function resolveCharge() {
+    if (!selectedResolution) return;
+    setResolvingCharge(true);
+    try {
+      const response = await fetch(
+        `/api/payments/razorpay/charge-exceptions/${selectedResolution.charge.id}`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            action: selectedResolution.action,
+            reason: resolutionReason.trim(),
+          }),
+        }
+      );
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not resolve Razorpay charge');
+      }
+      toast.success(
+        selectedResolution.action === 'apply'
+          ? 'Razorpay charge applied to the membership'
+          : 'Razorpay charge marked as handled externally'
+      );
+      setSelectedResolution(null);
+      setResolutionReason('');
+      setReloadNonce((nonce) => nonce + 1);
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not resolve Razorpay charge'));
+    } finally {
+      setResolvingCharge(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -415,6 +483,83 @@ export function RazorpaySettingsCard() {
                   ) : null}
                 </AlertDescription>
               </Alert>
+            ) : null}
+
+            {health?.unappliedCharges.some(
+              (charge) =>
+                charge.reason_code === 'provider_charge_missing_webhook'
+            ) ? (
+              <div className="space-y-3 border-t pt-4">
+                <div>
+                  <p className="font-medium">Captured charges to review</p>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    Razorpay reports these charges as captured, but UsefulDesk
+                    did not receive the webhook. Applying rechecks Razorpay and
+                    does not charge the member again.
+                  </p>
+                </div>
+                <div className="divide-y">
+                  {(health?.unappliedCharges ?? [])
+                    .filter(
+                      (charge) =>
+                        charge.reason_code === 'provider_charge_missing_webhook'
+                    )
+                    .map((charge) => (
+                      <div
+                        key={charge.id}
+                        className="space-y-2 py-3 first:pt-0 last:pb-0"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium">
+                              {charge.member_name ?? 'Unknown member'}
+                              {charge.member_number !== null
+                                ? ` · Member #${charge.member_number}`
+                                : ''}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              Payment ending {charge.gateway_payment_suffix}
+                              {charge.provider_paid_count !== null
+                                ? ` · Charge #${charge.provider_paid_count}`
+                                : ''}
+                            </p>
+                          </div>
+                          <p className="font-medium tabular-nums">
+                            {fmt.money(charge.amount)}
+                          </p>
+                        </div>
+                        <p className="text-muted-foreground text-xs">
+                          {charge.gateway_paid_at
+                            ? `Captured ${fmt.dateTime(charge.gateway_paid_at)}`
+                            : 'Provider payment time unavailable'}
+                          {charge.currency ? ` · ${charge.currency}` : ''}
+                        </p>
+                        <p className="text-sm">{charge.reason_message}</p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() =>
+                              openChargeResolution(charge, 'apply')
+                            }
+                          >
+                            Apply to membership
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              openChargeResolution(charge, 'ignore')
+                            }
+                          >
+                            Mark handled externally
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
             ) : null}
 
             {activeOAuthConnection ? (
@@ -605,6 +750,77 @@ export function RazorpaySettingsCard() {
                 <Unplug className="size-4" />
               )}
               Disconnect
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={selectedResolution !== null}
+        onOpenChange={(open) => {
+          if (!open && !resolvingCharge) {
+            setSelectedResolution(null);
+            setResolutionReason('');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {selectedResolution?.action === 'apply'
+                ? 'Apply captured charge?'
+                : 'Mark charge handled externally?'}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedResolution?.action === 'apply'
+                ? 'UsefulDesk will recheck the subscription, invoice, payment, and refund state in Razorpay before atomically posting this charge. This does not debit the member again.'
+                : 'No payment or membership credit will be created. Use this only when the captured money has been accounted for outside UsefulDesk.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label
+              className="text-sm font-medium"
+              htmlFor="charge-resolution-note"
+            >
+              Resolution note
+            </label>
+            <Textarea
+              id="charge-resolution-note"
+              value={resolutionReason}
+              onChange={(event) => setResolutionReason(event.target.value)}
+              maxLength={500}
+              placeholder="Explain how this charge should be handled"
+              disabled={resolvingCharge}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setSelectedResolution(null);
+                setResolutionReason('');
+              }}
+              disabled={resolvingCharge}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant={
+                selectedResolution?.action === 'ignore'
+                  ? 'destructive'
+                  : 'default'
+              }
+              onClick={resolveCharge}
+              disabled={resolutionReason.trim().length < 3 || resolvingCharge}
+            >
+              {resolvingCharge ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : null}
+              {selectedResolution?.action === 'apply'
+                ? 'Recheck and apply'
+                : 'Mark handled externally'}
             </Button>
           </DialogFooter>
         </DialogContent>
