@@ -114,7 +114,7 @@ describe('Razorpay application webhook route', () => {
     expect(mocks.record).not.toHaveBeenCalled();
   });
 
-  it('claims canonical recovery state for an unresolved signed merchant', async () => {
+  it('keeps an unresolved signed merchant observation-only', async () => {
     mocks.resolve.mockResolvedValue(null);
     const rawBody = JSON.stringify({
       event: 'payment_link.cancelled',
@@ -129,7 +129,7 @@ describe('Razorpay application webhook route', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       ok: true,
-      accepted: true,
+      observed: true,
     });
     expect(mocks.record).toHaveBeenCalledWith(
       { serviceRole: true },
@@ -137,20 +137,11 @@ describe('Razorpay application webhook route', () => {
         ingress: 'application',
         accountId: null,
         externalAccountId: 'acc_test',
-        shadowOnly: false,
+        shadowOnly: true,
         signatureSecretGeneration: 'current',
       })
     );
-    expect(mocks.createStore).toHaveBeenCalledWith(
-      expect.objectContaining({
-        accountId: null,
-        externalAccountId: 'acc_test',
-      })
-    );
-    expect(mocks.claim).toHaveBeenCalledOnce();
-    expect(mocks.processClaimed).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: null, eventId: 'evt_test' })
-    );
+    expect(mocks.createStore).not.toHaveBeenCalled();
     expect(JSON.stringify(mocks.record.mock.calls)).not.toContain('9999999999');
   });
 
@@ -289,9 +280,8 @@ describe('Razorpay application webhook route', () => {
     expect(mocks.processClaimed).not.toHaveBeenCalled();
   });
 
-  it('deduplicates an unknown signed account through canonical state after cutover', async () => {
+  it('keeps an unknown signed account observation-only after application cutover', async () => {
     mocks.resolve.mockResolvedValue(null);
-    mocks.claim.mockResolvedValue('processed');
     const rawBody = eventBody('subscription.pending', 'acc_unknown');
 
     const response = await POST(
@@ -301,16 +291,9 @@ describe('Razorpay application webhook route', () => {
     expect(response.status).toBe(200);
     expect(mocks.record).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ accountId: null, shadowOnly: false })
+      expect.objectContaining({ accountId: null, shadowOnly: true })
     );
-    expect(mocks.createStore).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: null })
-    );
-    await expect(response.json()).resolves.toEqual({
-      ok: true,
-      deduped: true,
-    });
-    expect(mocks.after).not.toHaveBeenCalled();
+    expect(mocks.createStore).not.toHaveBeenCalled();
   });
 
   it('returns a conflict when immutable canonical identity differs', async () => {

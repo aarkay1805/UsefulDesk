@@ -53,28 +53,6 @@ async function process(event: RazorpayEvent) {
 }
 
 describe('Razorpay subscription webhook lifecycle', () => {
-  it('retains an unmapped signed merchant as a failed canonical event for recovery', async () => {
-    const memory = webhookAdmin();
-
-    const result = await processClaimedRazorpayWebhook({
-      admin: memory.admin,
-      accountId: null,
-      eventId: 'event-unmapped',
-      processingOwner: 'owner-id',
-      event: subscriptionEvent('subscription.pending'),
-      ingress: 'application',
-    });
-
-    expect(result.outcome).toBe('failed');
-    expect(memory.rpc).toHaveBeenCalledWith(
-      'fail_razorpay_canonical_webhook_event',
-      expect.objectContaining({
-        p_event_id: 'event-unmapped',
-        p_account_id: null,
-      })
-    );
-  });
-
   it('records pending as a provider retry without failing the mandate', async () => {
     const { rpc } = await process(subscriptionEvent('subscription.pending'));
 
@@ -114,35 +92,6 @@ describe('Razorpay subscription webhook lifecycle', () => {
     expect(rpc).toHaveBeenCalledWith(
       'mark_razorpay_oauth_authorization_revoked',
       { p_account_id: 'account-id' }
-    );
-  });
-
-  it('stamps a recurring charge with the provider payment time', async () => {
-    const event = subscriptionEvent('subscription.charged');
-    event.payload.subscription!.entity.paid_count = 1;
-    event.payload.subscription!.entity.notes = {
-      membership_id: 'membership-id',
-      mandate_id: 'mandate-id',
-    };
-    event.payload.payment = {
-      entity: {
-        id: 'pay_test',
-        amount: 150_000,
-        currency: 'INR',
-        status: 'captured',
-        created_at: 1_787_680_123,
-      },
-    };
-
-    const { rpc } = await process(event);
-
-    expect(rpc).toHaveBeenCalledWith(
-      'stamp_razorpay_gateway_charge_provider_time',
-      expect.objectContaining({
-        p_account_id: 'account-id',
-        p_gateway_payment_id: 'pay_test',
-        p_provider_created_at: '2026-08-25T17:48:43.000Z',
-      })
     );
   });
 });

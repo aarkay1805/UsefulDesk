@@ -365,7 +365,6 @@ export async function settleVerifiedPaymentLink(input: {
   const providerContractValid =
     remoteMatchesIntent(local, remoteLink) &&
     paymentBelongsToLink(remoteLink, payment);
-  const providerCreatedAt = providerPaymentTime(payment);
   const { data, error } = await input.admin.rpc(
     'record_gateway_invoice_payment',
     {
@@ -387,44 +386,16 @@ export async function settleVerifiedPaymentLink(input: {
         link_amount_paid: remoteLink.amount_paid,
         payment_captured: payment.captured ?? null,
         payment_link_id: payment.payment_link_id ?? null,
-        payment_created_at: providerCreatedAt,
         provider_contract_valid: providerContractValid,
       },
     }
   );
   if (error)
     throw new Error(`record Payment Link settlement: ${error.message}`);
-  const result = data as {
+  return data as {
     outcome: 'recorded' | 'duplicate' | 'exception';
     payment_id?: string;
-    exception_id?: string;
   };
-  const { data: stamped, error: stampError } = await input.admin.rpc(
-    'stamp_razorpay_payment_link_provider_time',
-    {
-      p_account_id: input.accountId,
-      p_payment_link_id: local.id,
-      p_gateway_payment_id: payment.id,
-      p_payment_id: result.payment_id ?? null,
-      p_exception_id: result.exception_id ?? null,
-      p_provider_created_at: providerCreatedAt,
-    }
-  );
-  if (stampError || stamped !== true) {
-    throw new Error(
-      `stamp Payment Link provider time: ${stampError?.message ?? 'payment or exception was not updated'}`
-    );
-  }
-  return result;
-}
-
-function providerPaymentTime(payment: RazorpayPayment): string {
-  if (!Number.isInteger(payment.created_at) || (payment.created_at ?? 0) <= 0) {
-    throw new Error(
-      `Razorpay payment ${payment.id || 'unknown'} has no valid provider timestamp`
-    );
-  }
-  return new Date(payment.created_at! * 1000).toISOString();
 }
 
 export async function verifyPaymentLinkTerminal(input: {
