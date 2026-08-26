@@ -10,7 +10,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Membership, MessageTemplate } from '@/types';
+import type { Membership, MessageTemplate, PaymentMandate } from '@/types';
 
 const fetchMock = vi.hoisted(() => vi.fn());
 const localeMock = vi.hoisted(() => ({
@@ -88,8 +88,22 @@ const template: MessageTemplate = {
   created_at: '2026-08-22T00:00:00.000Z',
 };
 
+const mandate: PaymentMandate = {
+  id: 'mandate-1',
+  account_id: 'account-1',
+  membership_id: 'membership-1',
+  contact_id: 'contact-1',
+  gateway: 'razorpay',
+  gateway_subscription_id: 'sub-1',
+  method: 'upi',
+  status: 'active',
+  created_at: '2026-08-01T00:00:00.000Z',
+  updated_at: '2026-08-01T00:00:00.000Z',
+};
+
 function resultFor(table: string) {
   if (table === 'memberships') return { data: membership, error: null };
+  if (table === 'payment_mandates') return { data: mandate, error: null };
   if (table === 'message_templates') return { data: [template], error: null };
   return { data: [], error: null };
 }
@@ -103,7 +117,9 @@ function makeQuery(table: string) {
     order: () => query,
     limit: () => query,
     maybeSingle: async () =>
-      table === 'memberships' ? resultFor(table) : { data: null, error: null },
+      table === 'memberships' || table === 'payment_mandates'
+        ? resultFor(table)
+        : { data: null, error: null },
     single: async () => ({ data: null, error: null }),
     then(
       onFulfilled: (value: ReturnType<typeof resultFor>) => unknown,
@@ -239,5 +255,44 @@ describe('member profile template action', () => {
       template_name: 'custom_notice',
       template_language: 'en_US',
     });
+  });
+
+  it('lets an admin cancel a live mandate with an audited reason', async () => {
+    const user = userEvent.setup();
+    const onChanged = vi.fn();
+    render(
+      <MemberDetailView
+        membershipId="membership-1"
+        open
+        onOpenChange={vi.fn()}
+        readiness={{
+          loading: false,
+          ready: true,
+          reason: null,
+          resolution: null,
+          templateName: 'gym_membership_renewal',
+          templateLanguage: 'en_US',
+        }}
+        onChanged={onChanged}
+        onEdit={vi.fn()}
+      />
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Cancel auto-pay' })
+    );
+    await user.type(
+      screen.getByLabelText('Reason'),
+      'Member requested cancellation'
+    );
+    await user.click(screen.getByRole('button', { name: 'Cancel auto-pay' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/payments/razorpay/mandates/mandate-1/cancel');
+    expect(JSON.parse(String(init.body))).toEqual({
+      reason: 'Member requested cancellation',
+    });
+    await waitFor(() => expect(onChanged).toHaveBeenCalledOnce());
   });
 });
