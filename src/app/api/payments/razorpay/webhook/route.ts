@@ -108,33 +108,34 @@ export async function POST(request: Request) {
       externalAccountId,
       accountId: resolved?.accountId ?? null,
       signatureSecretGeneration: signatureGeneration,
-      shadowOnly: !resolved,
+      shadowOnly: false,
     });
 
-    if (!resolved) {
-      return NextResponse.json({ ok: true, observed: true });
-    }
-
-    const retryAcceptance = await consumeRazorpayRetryAcceptance({
-      admin,
-      accountId: resolved.accountId,
-      providerEventId: identity.providerEventId,
-      eventIdentitySource: identity.eventIdentitySource,
-      payloadSha256: identity.observation.payloadSha256,
-      signatureGeneration,
-      event,
-    });
-    if (retryAcceptance.action === 'conflict') {
-      return NextResponse.json(
-        { error: 'Retry acceptance identity conflict' },
-        { status: 409 }
-      );
-    }
-    if (retryAcceptance.action === 'retry') {
-      return NextResponse.json(
-        { error: 'Retry requested' },
-        { status: 503, headers: { 'retry-after': '60' } }
-      );
+    let retryAcceptance: Awaited<
+      ReturnType<typeof consumeRazorpayRetryAcceptance>
+    > | null = null;
+    if (resolved) {
+      retryAcceptance = await consumeRazorpayRetryAcceptance({
+        admin,
+        accountId: resolved.accountId,
+        providerEventId: identity.providerEventId,
+        eventIdentitySource: identity.eventIdentitySource,
+        payloadSha256: identity.observation.payloadSha256,
+        signatureGeneration,
+        event,
+      });
+      if (retryAcceptance.action === 'conflict') {
+        return NextResponse.json(
+          { error: 'Retry acceptance identity conflict' },
+          { status: 409 }
+        );
+      }
+      if (retryAcceptance.action === 'retry') {
+        return NextResponse.json(
+          { error: 'Retry requested' },
+          { status: 503, headers: { 'retry-after': '60' } }
+        );
+      }
     }
 
     const { store, processingOwner } = createRazorpayWebhookEventStore({
@@ -153,13 +154,13 @@ export async function POST(request: Request) {
       );
     }
     if (
-      retryAcceptance.action === 'redelivery' &&
+      retryAcceptance?.action === 'redelivery' &&
       retryAcceptance.acceptanceId
     ) {
       await acknowledgeRazorpayRetryAcceptance({
         admin,
         acceptanceId: retryAcceptance.acceptanceId,
-        accountId: resolved.accountId,
+        accountId: resolved!.accountId,
         providerEventId: identity.providerEventId,
         payloadSha256: identity.observation.payloadSha256,
         claimResult: claim,

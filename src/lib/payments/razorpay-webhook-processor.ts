@@ -62,6 +62,7 @@ interface RazorpayPaymentEntity {
   status?: string;
   currency?: string;
   invoice_id?: string;
+  created_at?: number;
 }
 
 export function parseRazorpayEvent(rawBody: string): RazorpayEvent {
@@ -230,10 +231,9 @@ async function handleRazorpayEvent(
   ingress: RazorpayWebhookIngress
 ) {
   if (!accountId) {
-    console.error(
+    throw new Error(
       `[razorpay webhook] signed ${ingress} event ${webhookEventId} has no UsefulDesk account mapping`
     );
-    return;
   }
 
   const sub = event.payload.subscription?.entity;
@@ -325,6 +325,12 @@ async function handleRazorpayEvent(
 
     case 'subscription.charged': {
       if (!sub || !payment) return;
+      const providerCreatedAt = epochSecondsToIso(payment.created_at);
+      if (!providerCreatedAt) {
+        throw new Error(
+          `Razorpay payment ${payment.id || 'unknown'} has no valid provider timestamp`
+        );
+      }
       const membershipId = sub.notes?.membership_id ?? null;
       const mandateId =
         (await mandateIdForSubscription(admin, accountId, sub.id)) ??
@@ -348,6 +354,21 @@ async function handleRazorpayEvent(
       });
       if (error) throw new Error(`record_gateway_charge: ${error.message}`);
       const result = Array.isArray(data) ? data[0] : data;
+      const { data: stamped, error: stampError } = await admin.rpc(
+        'stamp_razorpay_gateway_charge_provider_time',
+        {
+          p_account_id: accountId,
+          p_gateway_payment_id: payment.id,
+          p_payment_id: result?.payment_id ?? null,
+          p_exception_id: result?.exception_id ?? null,
+          p_provider_created_at: providerCreatedAt,
+        }
+      );
+      if (stampError || stamped !== true) {
+        throw new Error(
+          `stamp recurring charge provider time: ${stampError?.message ?? 'payment or exception was not updated'}`
+        );
+      }
       if (result?.outcome === 'exception') {
         console.warn(
           `[razorpay webhook] charge ${payment.id} preserved as exception ${result.exception_id}`

@@ -42,6 +42,7 @@ describe('Razorpay Payment Link webhook processing', () => {
               amount: 100,
               currency: 'INR',
               status: 'captured',
+              created_at: 1_787_680_123,
             },
           },
         },

@@ -35,6 +35,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import {
   canCorrectPayments,
+  canConfigurePaymentGateway,
   canDeleteMember,
   canManageMandates,
   canRecordPayments,
@@ -346,6 +347,9 @@ function MembershipDetailView({
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [sendingTemplate, setSendingTemplate] = useState(false);
   const [autoPayOpen, setAutoPayOpen] = useState(false);
+  const [cancelAutoPayOpen, setCancelAutoPayOpen] = useState(false);
+  const [cancelAutoPayReason, setCancelAutoPayReason] = useState('');
+  const [cancellingAutoPay, setCancellingAutoPay] = useState(false);
   const [mandate, setMandate] = useState<PaymentMandate | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
@@ -609,6 +613,37 @@ function MembershipDetailView({
     onChanged();
   }, [onChanged]);
 
+  async function cancelAutoPay() {
+    if (!mandate || !cancelAutoPayReason.trim()) return;
+    setCancellingAutoPay(true);
+    try {
+      const response = await fetch(
+        `/api/payments/razorpay/mandates/${encodeURIComponent(mandate.id)}/cancel`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: cancelAutoPayReason.trim() }),
+        }
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to cancel auto-pay');
+      }
+      toast.success(
+        'Auto-pay cancelled; this membership is back on manual collection'
+      );
+      setCancelAutoPayOpen(false);
+      setCancelAutoPayReason('');
+      refreshAll();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to cancel auto-pay'));
+    } finally {
+      setCancellingAutoPay(false);
+    }
+  }
+
   async function freeze(): Promise<boolean> {
     if (!membership) return false;
     setBusy(true);
@@ -782,6 +817,10 @@ function MembershipDetailView({
     !membership.is_trial &&
     isRenewalChaseable(membership.plan) &&
     !mandate;
+  const canCancelAutoPay =
+    !!mandate?.gateway_subscription_id &&
+    !!accountRole &&
+    canConfigurePaymentGateway(accountRole);
   const membershipLifecycleBlockReason = mandate
     ? "Resolve this member's AutoPay mandate before changing this membership."
     : null;
@@ -1510,32 +1549,44 @@ function MembershipDetailView({
                               )}
 
                               {mandate && (
-                                <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                                  <Repeat className="size-3.5" />
-                                  {mandate.status === 'active' ? (
-                                    <>
-                                      Auto-pay on
-                                      {mandate.vpa
-                                        ? ` · ${mandate.vpa}`
-                                        : ' · UPI AutoPay'}
-                                      {' — renewals collect automatically.'}
-                                    </>
-                                  ) : mandate.status === 'orphaned' ? (
-                                    <>
-                                      Auto-pay setup needs payment
-                                      reconciliation review before retrying.
-                                    </>
-                                  ) : mandate.status === 'creating' ? (
-                                    <>Auto-pay setup is in progress.</>
-                                  ) : mandate.status === 'paused' ? (
-                                    <>Auto-pay is paused and needs review.</>
-                                  ) : (
-                                    <>
-                                      Auto-pay mandate pending the member&apos;s
-                                      approval.
-                                    </>
-                                  )}
-                                </p>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                  <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                                    <Repeat className="size-3.5" />
+                                    {mandate.status === 'active' ? (
+                                      <>
+                                        Auto-pay on
+                                        {mandate.vpa
+                                          ? ` · ${mandate.vpa}`
+                                          : ' · UPI AutoPay'}
+                                        {' — renewals collect automatically.'}
+                                      </>
+                                    ) : mandate.status === 'orphaned' ? (
+                                      <>
+                                        Auto-pay setup needs payment
+                                        reconciliation review before retrying.
+                                      </>
+                                    ) : mandate.status === 'creating' ? (
+                                      <>Auto-pay setup is in progress.</>
+                                    ) : mandate.status === 'paused' ? (
+                                      <>Auto-pay is paused and needs review.</>
+                                    ) : (
+                                      <>
+                                        Auto-pay mandate pending the
+                                        member&apos;s approval.
+                                      </>
+                                    )}
+                                  </p>
+                                  {canCancelAutoPay ? (
+                                    <Button
+                                      type="button"
+                                      variant="link"
+                                      size="xs"
+                                      onClick={() => setCancelAutoPayOpen(true)}
+                                    >
+                                      Cancel auto-pay
+                                    </Button>
+                                  ) : null}
+                                </div>
                               )}
 
                               <div className="space-y-2">
@@ -1816,6 +1867,57 @@ function MembershipDetailView({
               membership={membership}
               onStarted={refreshAll}
             />
+            <Dialog
+              open={cancelAutoPayOpen}
+              onOpenChange={(next) => {
+                if (cancellingAutoPay) return;
+                setCancelAutoPayOpen(next);
+                if (!next) setCancelAutoPayReason('');
+              }}
+            >
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Cancel auto-pay?</DialogTitle>
+                  <DialogDescription>
+                    Razorpay will stop future automatic collections. This does
+                    not refund past payments; the membership returns to manual
+                    collection after Razorpay confirms cancellation.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cancel-auto-pay-reason">Reason</Label>
+                  <Input
+                    id="cancel-auto-pay-reason"
+                    value={cancelAutoPayReason}
+                    onChange={(event) =>
+                      setCancelAutoPayReason(event.target.value)
+                    }
+                    placeholder="Member requested cancellation"
+                    disabled={cancellingAutoPay}
+                    autoFocus
+                  />
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCancelAutoPayOpen(false)}
+                    disabled={cancellingAutoPay}
+                  >
+                    Keep auto-pay
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={cancelAutoPay}
+                    loading={cancellingAutoPay}
+                    disabled={cancellingAutoPay || !cancelAutoPayReason.trim()}
+                  >
+                    Cancel auto-pay
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <InvoiceDetailDialog
               open={invoiceOpen}
               onOpenChange={setInvoiceOpen}
