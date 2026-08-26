@@ -139,6 +139,29 @@ export interface RazorpaySubscription {
   token_id?: string;
   current_start?: number;
   current_end?: number;
+  paid_count?: number;
+  remaining_count?: number;
+  total_count?: number;
+}
+
+export interface RazorpaySubscriptionInvoice {
+  id: string;
+  entity: 'invoice';
+  subscription_id: string;
+  payment_id?: string | null;
+  status: string;
+  amount: number;
+  amount_paid: number;
+  currency: string;
+  paid_at?: number | null;
+  billing_start?: number | null;
+  billing_end?: number | null;
+}
+
+export interface RazorpaySubscriptionInvoiceCollection {
+  entity: 'collection';
+  count: number;
+  items: RazorpaySubscriptionInvoice[];
 }
 
 export interface RazorpayPaymentLink {
@@ -273,6 +296,16 @@ export async function fetchSubscription(
   return razorpayFetch<RazorpaySubscription>(
     creds,
     `/subscriptions/${subscriptionId}`
+  );
+}
+
+export async function fetchSubscriptionInvoices(
+  creds: RazorpayAuthentication,
+  subscriptionId: string
+): Promise<RazorpaySubscriptionInvoiceCollection> {
+  return razorpayFetch<RazorpaySubscriptionInvoiceCollection>(
+    creds,
+    `/invoices?subscription_id=${encodeURIComponent(subscriptionId)}`
   );
 }
 

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { encryptPaymentSecret } from './payment-secrets';
 import {
   beginRazorpayOAuthConnection,
+  disconnectRazorpayOAuthConnection,
   getRazorpayConnection,
   getRazorpayDiagnosticScope,
 } from './credentials';
@@ -46,9 +47,43 @@ function baseRow(patch: Record<string, unknown> = {}) {
   };
 }
 
+function disconnectDb(row: Record<string, unknown>, preflight: string) {
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    update: vi.fn(() => query),
+    maybeSingle: vi.fn(async () => ({ data: row, error: null })),
+    then: (
+      resolve: (value: { data: { account_id: string }[]; error: null }) => void
+    ) => resolve({ data: [{ account_id: 'account' }], error: null }),
+  };
+  return {
+    from: vi.fn(() => query),
+    rpc: vi.fn(async () => ({ data: preflight, error: null })),
+  } as unknown as SupabaseClient;
+}
+
 afterEach(() => vi.unstubAllEnvs());
 
 describe('Razorpay OAuth credential resolver', () => {
+  it('refuses disconnect before token revocation when provider work is active', async () => {
+    vi.stubEnv('RAZORPAY_MODE', 'test');
+    vi.stubEnv('RAZORPAY_OAUTH_CLIENT_ID', 'client-id');
+    vi.stubEnv('RAZORPAY_OAUTH_CLIENT_SECRET', 'client-secret');
+    vi.stubEnv(
+      'RAZORPAY_OAUTH_REDIRECT_URI',
+      'https://desk.example/api/payments/razorpay/oauth/callback'
+    );
+    const admin = disconnectDb(
+      baseRow({ oauth_access_token: null, oauth_refresh_token: null }),
+      'active_mandate'
+    );
+
+    await expect(
+      disconnectRazorpayOAuthConnection(admin, 'account')
+    ).rejects.toThrow(/active auto-pay mandate/i);
+  });
+
   it('does not let co-branded enrollment replace a bound merchant', async () => {
     vi.stubEnv('RAZORPAY_MODE', 'live');
     await expect(

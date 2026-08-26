@@ -6,9 +6,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   isRazorpayOAuthEnabled,
   RAZORPAY_OAUTH_REFRESH_WINDOW_MS,
+  RAZORPAY_READINESS_FRESHNESS_MS,
   type RazorpayProviderMode,
 } from './razorpay-config';
 import { boundedRazorpayError } from './razorpay-oauth';
+import { verifyStoredRazorpayOAuthReadiness } from './credentials';
 import { refreshStoredRazorpayOAuthConnection } from './razorpay-refresh';
 import {
   parseRazorpayEvent,
@@ -25,8 +27,13 @@ import {
   recoverClaimedGatewayRefund,
   type LocalGatewayRefund,
 } from './razorpay-refunds';
+import {
+  reconcileClaimedSubscriptionSource,
+  type LocalMandateReconciliationRow,
+} from './razorpay-subscription-reconciliation';
 
 const RECOVERY_BATCH_LIMIT = 100;
+const SUBSCRIPTION_RECONCILIATION_BATCH_LIMIT = 20;
 const RECOVERY_LEASE_SECONDS = 300;
 
 interface RecoveryEventRow {
@@ -39,6 +46,13 @@ interface RecoveryEventRow {
 interface RefreshScanRow {
   account_id: string;
   oauth_access_expires_at: string;
+  merchant_status?: string;
+  activation_verified_at?: string | null;
+}
+
+interface GatewayChargeExceptionRecoveryRow {
+  id: string;
+  first_seen_at: string;
 }
 
 interface RecoveryDependencies {
@@ -55,6 +69,10 @@ interface RecoveryDependencies {
     ingress: 'application';
   }): Promise<{ outcome: string }>;
   refreshConnection(input: {
+    admin: SupabaseClient;
+    accountId: string;
+  }): Promise<unknown>;
+  verifyReadiness(input: {
     admin: SupabaseClient;
     accountId: string;
   }): Promise<unknown>;
@@ -77,6 +95,14 @@ interface RecoveryDependencies {
     providerMode: RazorpayProviderMode;
     recoveryOwner: string;
   }): Promise<{ claimed: number; scanned: number; unrelated: number }>;
+  reconcileSubscriptionSource(input: {
+    admin: SupabaseClient;
+    mandate: LocalMandateReconciliationRow;
+  }): Promise<{
+    providerPaidCount: number;
+    localPaidCount: number;
+    observed: number;
+  }>;
 }
 
 export interface RazorpayRecoveryResult {
@@ -86,10 +112,25 @@ export interface RazorpayRecoveryResult {
     failed: number;
     oldestAgeSeconds: number | null;
   };
+  chargeExceptions: {
+    claimed: number;
+    applied: number;
+    deferred: number;
+    failed: number;
+    oldestAgeSeconds: number | null;
+  };
+  subscriptionReconciliation: {
+    claimed: number;
+    scanned: number;
+    observations: number;
+    failed: number;
+    oldestAgeSeconds: number | null;
+  };
   tokens: {
     disabled: boolean;
     claimed: number;
     refreshed: number;
+    readinessVerified: number;
     skippedNotDue: number;
     failed: number;
   };
@@ -129,18 +170,35 @@ export async function runRazorpayRecovery(input: {
     refundsEnabled: () => isRazorpayOAuthEnabled(),
     processClaimed: processClaimedRazorpayWebhook,
     refreshConnection: refreshStoredRazorpayOAuthConnection,
+    verifyReadiness: verifyStoredRazorpayOAuthReadiness,
     recoverPaymentLink: recoverClaimedPaymentLink,
     initializeRefunds: initializeRefundReconciliation,
     recoverRefund: recoverClaimedGatewayRefund,
     reconcileRefunds: reconcileClaimedRefundWindow,
+    reconcileSubscriptionSource: reconcileClaimedSubscriptionSource,
     ...input.dependencies,
   };
   const result: RazorpayRecoveryResult = {
     webhooks: { claimed: 0, processed: 0, failed: 0, oldestAgeSeconds: null },
+    chargeExceptions: {
+      claimed: 0,
+      applied: 0,
+      deferred: 0,
+      failed: 0,
+      oldestAgeSeconds: null,
+    },
+    subscriptionReconciliation: {
+      claimed: 0,
+      scanned: 0,
+      observations: 0,
+      failed: 0,
+      oldestAgeSeconds: null,
+    },
     tokens: {
       disabled: !dependencies.oauthEnabled(),
       claimed: 0,
       refreshed: 0,
+      readinessVerified: 0,
       skippedNotDue: 0,
       failed: 0,
     },
@@ -225,6 +283,132 @@ export async function runRazorpayRecovery(input: {
       if (failError) {
         result.notes.push(`webhook:${row.event_id}:fail:${failError.message}`);
       }
+    }
+  }
+
+  const chargeExceptionOwner = dependencies.owner();
+  const { data: chargeExceptionRows, error: chargeExceptionError } =
+    await input.admin.rpc('claim_gateway_charge_exception_recovery_batch', {
+      p_provider_mode: input.providerMode,
+      p_recovery_owner: chargeExceptionOwner,
+      p_limit: RECOVERY_BATCH_LIMIT,
+      p_lease_seconds: RECOVERY_LEASE_SECONDS,
+    });
+  if (chargeExceptionError) {
+    throw new Error(
+      `claim Razorpay charge exception recovery: ${chargeExceptionError.message}`
+    );
+  }
+  const chargeExceptions = (
+    Array.isArray(chargeExceptionRows) ? chargeExceptionRows : []
+  ) as GatewayChargeExceptionRecoveryRow[];
+  result.chargeExceptions.claimed = chargeExceptions.length;
+  if (chargeExceptions.length) {
+    const oldest = Math.min(
+      ...chargeExceptions.map((row) => new Date(row.first_seen_at).getTime())
+    );
+    result.chargeExceptions.oldestAgeSeconds = Math.max(
+      0,
+      Math.floor((dependencies.now().getTime() - oldest) / 1000)
+    );
+  }
+  for (const exception of chargeExceptions) {
+    try {
+      const { data: outcome, error } = await input.admin.rpc(
+        'recover_gateway_charge_exception',
+        {
+          p_exception_id: exception.id,
+          p_recovery_owner: chargeExceptionOwner,
+        }
+      );
+      if (error) throw new Error(error.message);
+      if (outcome === 'applied') result.chargeExceptions.applied += 1;
+      else result.chargeExceptions.deferred += 1;
+    } catch (error) {
+      result.chargeExceptions.failed += 1;
+      const errorText = boundedRazorpayError(error);
+      result.notes.push(`charge-exception:${exception.id}:${errorText}`);
+      const { error: failError } = await input.admin.rpc(
+        'fail_gateway_charge_exception_recovery',
+        {
+          p_exception_id: exception.id,
+          p_recovery_owner: chargeExceptionOwner,
+          p_error: errorText,
+        }
+      );
+      if (failError) {
+        result.notes.push(
+          `charge-exception:${exception.id}:fail:${failError.message}`
+        );
+      }
+    }
+  }
+
+  const subscriptionReconciliationOwner = dependencies.owner();
+  const {
+    data: subscriptionReconciliationRows,
+    error: subscriptionReconciliationError,
+  } = await input.admin.rpc(
+    'claim_razorpay_subscription_reconciliation_batch',
+    {
+      p_provider_mode: input.providerMode,
+      p_recovery_owner: subscriptionReconciliationOwner,
+      p_limit: SUBSCRIPTION_RECONCILIATION_BATCH_LIMIT,
+      p_lease_seconds: RECOVERY_LEASE_SECONDS,
+    }
+  );
+  if (subscriptionReconciliationError) {
+    throw new Error(
+      `claim Razorpay subscription reconciliation: ${subscriptionReconciliationError.message}`
+    );
+  }
+  const mandates = (
+    Array.isArray(subscriptionReconciliationRows)
+      ? subscriptionReconciliationRows
+      : []
+  ) as LocalMandateReconciliationRow[];
+  result.subscriptionReconciliation.claimed = mandates.length;
+  if (mandates.length) {
+    const oldest = Math.min(
+      ...mandates.map((mandate) =>
+        new Date(mandate.provider_reconcile_at ?? new Date()).getTime()
+      )
+    );
+    result.subscriptionReconciliation.oldestAgeSeconds = Math.max(
+      0,
+      Math.floor((dependencies.now().getTime() - oldest) / 1000)
+    );
+  }
+  for (const mandate of mandates) {
+    let errorText: string | null = null;
+    try {
+      const scan = await dependencies.reconcileSubscriptionSource({
+        admin: input.admin,
+        mandate,
+      });
+      result.subscriptionReconciliation.scanned += 1;
+      result.subscriptionReconciliation.observations += scan.observed;
+    } catch (error) {
+      errorText = boundedRazorpayError(error);
+      result.subscriptionReconciliation.failed += 1;
+      result.notes.push(
+        `subscription-reconciliation:${mandate.id}:${errorText}`
+      );
+    }
+
+    const { data: finished, error: finishError } = await input.admin.rpc(
+      'finish_razorpay_subscription_reconciliation',
+      {
+        p_mandate_id: mandate.id,
+        p_recovery_owner: subscriptionReconciliationOwner,
+        p_error: errorText,
+      }
+    );
+    if (finishError || finished !== true) {
+      result.subscriptionReconciliation.failed += errorText ? 0 : 1;
+      result.notes.push(
+        `subscription-reconciliation:${mandate.id}:finish:${finishError?.message ?? 'lease was not updated'}`
+      );
     }
   }
 
@@ -380,6 +564,13 @@ export async function runRazorpayRecovery(input: {
       } else {
         result.tokens.skippedNotDue += 1;
       }
+      if (readinessNeedsVerification(row, dependencies.now())) {
+        await dependencies.verifyReadiness({
+          admin: input.admin,
+          accountId: row.account_id,
+        });
+        result.tokens.readinessVerified += 1;
+      }
     } catch (error) {
       errorText = boundedRazorpayError(error);
       result.tokens.failed += 1;
@@ -403,6 +594,16 @@ export async function runRazorpayRecovery(input: {
   }
 
   return result;
+}
+
+function readinessNeedsVerification(row: RefreshScanRow, now: Date): boolean {
+  if (row.merchant_status !== 'unknown') return false;
+  if (!row.activation_verified_at) return true;
+  const verifiedAt = new Date(row.activation_verified_at).getTime();
+  return (
+    !Number.isFinite(verifiedAt) ||
+    now.getTime() - verifiedAt > RAZORPAY_READINESS_FRESHNESS_MS
+  );
 }
 
 function parseStoredEvent(payload: unknown): RazorpayEvent {

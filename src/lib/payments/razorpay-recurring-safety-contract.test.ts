@@ -8,6 +8,12 @@ const read = (path: string) =>
 const migration = read(
   'supabase/migrations/20260804233201_harden_razorpay_recurring_charges.sql'
 );
+const recoveryMigration = read(
+  'supabase/migrations/20260826033801_razorpay_recurring_charge_recovery.sql'
+);
+const sourceReconciliationMigration = read(
+  'supabase/migrations/20260826034807_razorpay_subscription_source_reconciliation.sql'
+);
 const effectiveAllocatorMigration = readdirSync(
   resolve(process.cwd(), 'supabase/migrations')
 )
@@ -96,6 +102,54 @@ describe('Razorpay recurring payment hardening contract', () => {
     );
     expect(connectionRoute).toMatch(
       /from\('gateway_charge_exceptions'\)[\s\S]*unappliedChargeCount/
+    );
+  });
+
+  it('replays only the next recoverable recurring charge and resolves it atomically', () => {
+    expect(recoveryMigration).toMatch(
+      /ADD COLUMN IF NOT EXISTS next_retry_at TIMESTAMPTZ/
+    );
+    expect(recoveryMigration).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.claim_gateway_charge_exception_recovery_batch/
+    );
+    expect(recoveryMigration).toMatch(
+      /reason_code = 'charge_sequence_mismatch'[\s\S]*provider_paid_count = mandate\.last_applied_paid_count \+ 1/
+    );
+    expect(recoveryMigration).toMatch(
+      /ORDER BY exception\.account_id, exception\.mandate_id,[\s\S]*exception\.provider_paid_count[\s\S]*FOR UPDATE OF exception SKIP LOCKED/
+    );
+    expect(recoveryMigration).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.recover_gateway_charge_exception[\s\S]*FOR UPDATE[\s\S]*public\.record_gateway_charge/
+    );
+    expect(recoveryMigration).toMatch(
+      /IF v_outcome = 'applied' THEN[\s\S]*status = 'resolved'[\s\S]*resolved_at = now\(\)/
+    );
+    expect(recoveryMigration).toMatch(
+      /REVOKE ALL ON FUNCTION public\.recover_gateway_charge_exception[\s\S]*FROM PUBLIC, anon, authenticated[\s\S]*GRANT EXECUTE[\s\S]*TO service_role/
+    );
+  });
+
+  it('polls bounded provider sources and preserves missed-webhook charges for review', () => {
+    expect(sourceReconciliationMigration).toMatch(
+      /ADD COLUMN IF NOT EXISTS provider_reconcile_at TIMESTAMPTZ/
+    );
+    expect(sourceReconciliationMigration).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.claim_razorpay_subscription_reconciliation_batch/
+    );
+    expect(sourceReconciliationMigration).toMatch(
+      /mandate\.status IN \('pending', 'active'\)[\s\S]*credential\.provider_mode = p_provider_mode[\s\S]*FOR UPDATE OF mandate SKIP LOCKED/
+    );
+    expect(sourceReconciliationMigration).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.preserve_razorpay_provider_charge_observation[\s\S]*gateway_subscription_id IS DISTINCT FROM p_gateway_subscription_id[\s\S]*provider_charge_missing_webhook/
+    );
+    expect(sourceReconciliationMigration).toMatch(
+      /status = 'open'[\s\S]*next_retry_at = NULL/
+    );
+    expect(sourceReconciliationMigration).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.finish_razorpay_subscription_reconciliation[\s\S]*interval '24 hours'[\s\S]*provider_recovery_owner = p_recovery_owner/
+    );
+    expect(sourceReconciliationMigration).toMatch(
+      /REVOKE ALL ON FUNCTION public\.preserve_razorpay_provider_charge_observation[\s\S]*FROM PUBLIC, anon, authenticated[\s\S]*GRANT EXECUTE[\s\S]*TO service_role/
     );
   });
 

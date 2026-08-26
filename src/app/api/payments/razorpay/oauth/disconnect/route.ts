@@ -9,6 +9,7 @@ import { requireSameOriginRequest } from '@/lib/auth/csrf';
 import {
   disconnectRazorpayOAuthConnection,
   getRazorpayConnectionStatus,
+  RazorpayDisconnectBlockedError,
 } from '@/lib/payments/credentials';
 
 export const runtime = 'nodejs';
@@ -23,6 +24,9 @@ export async function POST(request: Request) {
       connection: await getRazorpayConnectionStatus(admin, ctx.accountId),
     });
   } catch (error) {
+    if (error instanceof RazorpayDisconnectBlockedError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     return toErrorResponse(error);
   }
 }

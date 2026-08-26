@@ -16,6 +16,7 @@ import {
 import {
   boundedRazorpayError,
   revokeRazorpayOAuthToken,
+  verifyRazorpayOAuthReadiness,
   type RazorpayOAuthTokenSet,
   type RazorpayReadiness,
 } from './razorpay-oauth';
@@ -58,6 +59,13 @@ export interface RazorpayConnection {
 export interface RazorpayDiagnosticScope {
   providerMode: RazorpayProviderMode;
   externalAccountId: string;
+}
+
+export class RazorpayDisconnectBlockedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RazorpayDisconnectBlockedError';
+  }
 }
 
 interface CredentialRow {
@@ -357,6 +365,29 @@ export async function finalizeRazorpayOAuthConnection(
   if (!data?.length) throw new Error('Razorpay OAuth connection was not found');
 }
 
+export async function verifyStoredRazorpayOAuthReadiness(input: {
+  admin: SupabaseClient;
+  accountId: string;
+}): Promise<RazorpayReadiness> {
+  const scope = await getRazorpayDiagnosticScope(input.admin, input.accountId);
+  if (!scope) throw new Error('Razorpay OAuth merchant identity is missing');
+  const connection = await getRazorpayConnection(input.admin, input.accountId, {
+    allowStaleReadinessForRecovery: true,
+  });
+  if (!connection) throw new Error('Razorpay OAuth connection is missing');
+  const readiness = await verifyRazorpayOAuthReadiness({
+    accessToken: connection.authentication.accessToken,
+    accountId: scope.externalAccountId,
+    allowCapabilityFallback: true,
+  });
+  await finalizeRazorpayOAuthConnection(
+    input.admin,
+    input.accountId,
+    readiness
+  );
+  return readiness;
+}
+
 export async function disconnectRazorpayOAuthConnection(
   admin: SupabaseClient,
   accountId: string
@@ -370,16 +401,38 @@ export async function disconnectRazorpayOAuthConnection(
       'Razorpay OAuth credentials have an invalid storage version'
     );
   }
-  const { data: blocked, error: blockError } = await admin
-    .from('account_payment_credentials')
-    .update({ connection_status: 'disconnecting', last_error: null })
-    .eq('account_id', accountId)
-    .eq('authentication_mode', 'oauth')
-    .select('account_id');
-  if (blockError || !blocked?.length) {
-    throw new Error(
-      `block Razorpay connection: ${blockError?.message ?? 'not found'}`
-    );
+  const { data: preflight, error: blockError } = await admin.rpc(
+    'begin_razorpay_oauth_disconnect',
+    {
+      p_account_id: accountId,
+      p_provider_mode: config.mode,
+    }
+  );
+  if (blockError) {
+    throw new Error(`block Razorpay connection: ${blockError.message}`);
+  }
+  const disconnectBlocks: Record<string, string> = {
+    active_mandate:
+      'Disconnect is blocked while an active auto-pay mandate needs Razorpay',
+    active_payment_link:
+      'Disconnect is blocked while an active payment link needs Razorpay',
+    active_refund:
+      'Disconnect is blocked while a refund needs Razorpay reconciliation',
+    pending_webhook:
+      'Disconnect is blocked while Razorpay webhook recovery is pending',
+    open_charge_exception:
+      'Disconnect is blocked while an auto-pay charge needs reconciliation',
+    open_payment_exception:
+      'Disconnect is blocked while a payment needs reconciliation',
+    open_refund_exception:
+      'Disconnect is blocked while a refund exception needs reconciliation',
+  };
+  if (typeof preflight === 'string' && disconnectBlocks[preflight]) {
+    throw new RazorpayDisconnectBlockedError(disconnectBlocks[preflight]);
+  }
+  if (preflight === 'already_disconnected') return;
+  if (preflight !== 'started') {
+    throw new Error('Razorpay disconnect preflight returned an invalid state');
   }
 
   const revocations: Promise<void>[] = [];

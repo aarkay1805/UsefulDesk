@@ -546,7 +546,7 @@ export function RazorpaySettingsCard() {
                   </p>
                   <p className="text-muted-foreground mt-1 text-sm">
                     Authorize UsefulDesk without sharing API keys. You can
-                    disconnect at any time.
+                    disconnect after active payment work is resolved.
                   </p>
                 </div>
                 {connection.oauthEnabled ? (
@@ -581,8 +581,9 @@ export function RazorpaySettingsCard() {
           <DialogHeader>
             <DialogTitle>Disconnect Razorpay?</DialogTitle>
             <DialogDescription>
-              New Razorpay operations stop immediately. Existing payment facts
-              remain in UsefulDesk, and you can reconnect later.
+              Disconnect is refused while an auto-pay mandate, payment link,
+              refund, or recovery item still needs Razorpay. Existing payment
+              facts remain in UsefulDesk, and you can reconnect later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

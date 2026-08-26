@@ -309,6 +309,11 @@ async function handleRazorpayEvent(
       );
       if (!mandateId)
         throw new Error(`no mandate found for subscription ${sub.id}`);
+      await recordMandateProviderStatus(
+        admin,
+        mandateId,
+        sub.status || event.event.slice('subscription.'.length)
+      );
       const { error } = await admin.rpc('activate_mandate', {
         p_mandate_id: mandateId,
         p_token_id: sub.token_id ?? null,
@@ -360,6 +365,10 @@ async function handleRazorpayEvent(
         sub.id
       );
       if (!mandateId) return;
+      const providerStatus =
+        event.event === 'subscription.pending' ? 'pending' : 'halted';
+      await recordMandateProviderStatus(admin, mandateId, providerStatus);
+      if (event.event === 'subscription.pending') return;
       const { error } = await admin.rpc('revoke_mandate', {
         p_mandate_id: mandateId,
         p_status: 'failed',
@@ -378,6 +387,11 @@ async function handleRazorpayEvent(
         sub.id
       );
       if (!mandateId) return;
+      await recordMandateProviderStatus(
+        admin,
+        mandateId,
+        event.event.slice('subscription.'.length)
+      );
       const status =
         event.event === 'subscription.cancelled' ? 'revoked' : 'expired';
       const { error } = await admin.rpc('revoke_mandate', {
@@ -388,8 +402,40 @@ async function handleRazorpayEvent(
       return;
     }
 
+    case 'account.app.authorization_revoked': {
+      const { data, error } = await admin.rpc(
+        'mark_razorpay_oauth_authorization_revoked',
+        { p_account_id: accountId }
+      );
+      if (error || data !== true) {
+        throw new Error(
+          `mark Razorpay OAuth authorization revoked: ${error?.message ?? 'connection was not updated'}`
+        );
+      }
+      return;
+    }
+
     default:
       return;
+  }
+}
+
+async function recordMandateProviderStatus(
+  admin: SupabaseClient,
+  mandateId: string,
+  providerStatus: string
+): Promise<void> {
+  const { data, error } = await admin.rpc(
+    'record_razorpay_mandate_provider_status',
+    {
+      p_mandate_id: mandateId,
+      p_provider_status: providerStatus,
+    }
+  );
+  if (error || data !== true) {
+    throw new Error(
+      `record Razorpay mandate provider status: ${error?.message ?? 'mandate was not updated'}`
+    );
   }
 }
 

@@ -19,6 +19,7 @@
 import { NextResponse } from 'next/server';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { requireSameOriginRequest } from '@/lib/auth/csrf';
 import { canManageMandates } from '@/lib/auth/roles';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import {
@@ -106,6 +107,7 @@ interface MembershipRow {
 
 export async function POST(request: Request) {
   try {
+    requireSameOriginRequest(request);
     const ctx = await requireRole('agent');
     if (!canManageMandates(ctx.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -137,10 +139,15 @@ export async function POST(request: Request) {
     }
     const membership = data as unknown as MembershipRow;
 
-    if (membership.is_trial || membership.status === 'cancelled') {
+    if (
+      membership.is_trial ||
+      membership.status === 'frozen' ||
+      membership.status === 'cancelled'
+    ) {
       return NextResponse.json(
         {
-          error: "Auto-pay can't be set up for a trial or cancelled membership",
+          error:
+            "Auto-pay can't be set up for a trial, frozen, or cancelled membership",
         },
         { status: 400 }
       );
@@ -156,12 +163,19 @@ export async function POST(request: Request) {
     }
 
     // INR-only rail (a currency condition, not a geo one).
-    const { data: account } = await ctx.supabase
+    const { data: account, error: accountError } = await ctx.supabase
       .from('accounts')
       .select('default_currency')
       .eq('id', ctx.accountId)
       .maybeSingle();
-    const currency = (account?.default_currency as string) ?? 'INR';
+    if (
+      accountError ||
+      typeof account?.default_currency !== 'string' ||
+      !account.default_currency
+    ) {
+      throw new Error('Account currency could not be loaded');
+    }
+    const currency = account.default_currency;
     if (!upiAvailableFor(currency)) {
       return NextResponse.json(
         { error: 'UPI AutoPay is available only for INR accounts' },
