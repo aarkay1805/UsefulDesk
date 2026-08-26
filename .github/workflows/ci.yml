@@ -16,6 +16,9 @@ jobs:
   check:
     name: Format, lint, typecheck, test, build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
     # Dummy env vars so `next build` doesn't fail when it reads the
     # public Supabase config at build time. These never leave CI and
     # never hit a real service — they just satisfy the `!` non-null
@@ -35,6 +38,7 @@ jobs:
       # Vercel's native Deployment Check consumes this status and keeps a
       # successful build unaliased from Production until this full job passes.
       - name: Notify Vercel
+        if: github.event_name == 'push'
         uses: vercel/repository-dispatch/actions/status@v1
         with:
           name: 'Vercel - useful-desk: ci'
