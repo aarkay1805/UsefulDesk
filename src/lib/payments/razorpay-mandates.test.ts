@@ -33,7 +33,14 @@ function subscription(status: string) {
   };
 }
 
-function admin(status = 'active') {
+function admin(
+  status = 'active',
+  audit: {
+    cancelled_at?: string | null;
+    cancelled_by?: string | null;
+    cancellation_reason?: string | null;
+  } = {}
+) {
   const query = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
@@ -44,6 +51,9 @@ function admin(status = 'active') {
         gateway: 'razorpay',
         status,
         gateway_subscription_id: 'sub_1',
+        cancelled_at: audit.cancelled_at ?? null,
+        cancelled_by: audit.cancelled_by ?? null,
+        cancellation_reason: audit.cancellation_reason ?? null,
       },
       error: null,
     })),
@@ -106,6 +116,28 @@ describe('Razorpay mandate cancellation convergence', () => {
 
     expect(mocks.fetchSubscription).toHaveBeenCalledTimes(2);
     expect(memory.rpc).toHaveBeenCalledOnce();
+  });
+
+  it('backfills the owner audit when a cancellation webhook wins the race', async () => {
+    const memory = admin('revoked');
+    mocks.fetchSubscription.mockResolvedValue(subscription('cancelled'));
+
+    await expect(
+      cancelRazorpayMandate({ admin: memory.client as never, ...input })
+    ).resolves.toMatchObject({
+      status: 'revoked',
+      providerStatus: 'cancelled',
+    });
+
+    expect(mocks.cancelSubscription).not.toHaveBeenCalled();
+    expect(mocks.fetchSubscription).toHaveBeenCalledOnce();
+    expect(memory.rpc).toHaveBeenCalledWith(
+      'finalize_razorpay_mandate_cancellation',
+      expect.objectContaining({
+        p_actor: 'user_1',
+        p_reason: 'Member requested cancellation',
+      })
+    );
   });
 
   it('does not change local state when Razorpay remains non-terminal', async () => {

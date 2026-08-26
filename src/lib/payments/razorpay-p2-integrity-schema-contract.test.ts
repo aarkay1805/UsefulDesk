@@ -8,6 +8,9 @@ const read = (path: string) =>
 const migration = read(
   'supabase/migrations/20260826210000_resolve_razorpay_p2_integrity_gaps.sql'
 );
+const branchAuthorizationFix = read(
+  'supabase/migrations/20260826220000_fix_razorpay_mandate_cancellation_branch_authorization.sql'
+);
 const webhook = read('src/lib/payments/razorpay-webhook-processor.ts');
 const links = read('src/lib/payments/razorpay-payment-links.ts');
 const cancellation = read('src/lib/payments/razorpay-mandates.ts');
@@ -77,7 +80,12 @@ describe('Razorpay P2 integrity migration', () => {
   });
 
   it('audits an admin cancellation only after exact provider terminal confirmation', () => {
-    expect(migration).toMatch(/profile\.account_role IN \('owner', 'admin'\)/);
+    for (const source of [migration, branchAuthorizationFix]) {
+      expect(source).toMatch(
+        /public\.account_memberships AS membership[\s\S]*membership\.user_id = p_actor[\s\S]*membership\.account_id = p_account_id[\s\S]*membership\.role IN \('owner', 'admin'\)/
+      );
+      expect(source).not.toMatch(/public\.profiles AS profile/);
+    }
     expect(migration).toMatch(
       /account_id = p_account_id[\s\S]*gateway_subscription_id = p_gateway_subscription_id[\s\S]*FOR UPDATE/
     );

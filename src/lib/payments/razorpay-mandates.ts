@@ -15,6 +15,9 @@ interface LocalMandate {
   gateway: string;
   status: string;
   gateway_subscription_id: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancellation_reason: string | null;
 }
 
 export class MandateCancellationConflictError extends Error {
@@ -100,7 +103,9 @@ export async function cancelRazorpayMandate(input: {
 }) {
   const { data, error } = await input.admin
     .from('payment_mandates')
-    .select('id, account_id, gateway, status, gateway_subscription_id')
+    .select(
+      'id, account_id, gateway, status, gateway_subscription_id, cancelled_at, cancelled_by, cancellation_reason'
+    )
     .eq('id', input.mandateId)
     .eq('account_id', input.accountId)
     .maybeSingle();
@@ -112,7 +117,16 @@ export async function cancelRazorpayMandate(input: {
   }
 
   const mandate = data as LocalMandate;
-  if (['revoked', 'expired', 'failed'].includes(mandate.status)) {
+  const cancellationAuditComplete = Boolean(
+    mandate.cancelled_at &&
+      mandate.cancelled_by &&
+      mandate.cancellation_reason?.trim()
+  );
+  if (
+    mandate.status === 'failed' ||
+    (['revoked', 'expired'].includes(mandate.status) &&
+      cancellationAuditComplete)
+  ) {
     return {
       outcome: 'already_terminal' as const,
       mandateId: mandate.id,

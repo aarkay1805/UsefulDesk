@@ -248,10 +248,10 @@ DECLARE
 BEGIN
   IF p_actor IS NULL OR NOT EXISTS (
     SELECT 1
-    FROM public.profiles AS profile
-    WHERE profile.user_id = p_actor
-      AND profile.account_id = p_account_id
-      AND profile.account_role IN ('owner', 'admin')
+    FROM public.account_memberships AS membership
+    WHERE membership.user_id = p_actor
+      AND membership.account_id = p_account_id
+      AND membership.role IN ('owner', 'admin')
   ) THEN
     RAISE EXCEPTION 'An account admin is required';
   END IF;
