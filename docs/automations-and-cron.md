@@ -98,6 +98,13 @@ Only an existing `charge_sequence_mismatch` whose `paid_count` is now exactly
 next is replayed automatically, inside the same database transaction as its
 ledger write.
 
+The Razorpay recovery route keeps phase failures isolated so later phases can
+still run, but returns `503` with the complete aggregate JSON when any phase's
+`failed` counter is nonzero. The GitHub workflow uses `curl --fail`, so that
+response makes the run red while preserving the body for diagnosis. A `200`
+means every phase completed without an isolated failure; it does not mean work
+was necessarily claimed.
+
 Why not native Vercel Cron: the Hobby plan allows only 2 cron jobs at
 once-per-day granularity — useless for the 15-minute jobs. GitHub
 Actions is free, plan-independent, and can send the custom header. The one
@@ -134,8 +141,10 @@ curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/meta/leads
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/members/import-draft/cleanup
 ```
 
-`401` → secret mismatch (Vercel env vs repo secret). `503` → env var
-not set in Vercel or not redeployed since.
+`401` → secret mismatch (Vercel env vs repo secret). `503` with
+`cron not configured` → env var not set in Vercel or not redeployed since.
+`503` with a Razorpay aggregate result → inspect its nonzero `failed` counter
+and matching `notes` entry.
 
 ## If the project moves to Vercel Pro
 

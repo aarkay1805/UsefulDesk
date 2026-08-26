@@ -800,7 +800,9 @@ export async function reconcileClaimedRefundWindow(input: {
   );
   if (error) throw new Error(`claim refund reconciliation: ${error.message}`);
   const state = data as ReconciliationState | null;
-  if (!state) return { claimed: 0, scanned: 0, unrelated: 0 };
+  // PostgREST serializes a NULL composite return as an object whose fields are
+  // all null. That is the RPC's no-work result, not a claimed account.
+  if (!state?.account_id) return { claimed: 0, scanned: 0, unrelated: 0 };
   try {
     const connection = await getRazorpayConnection(
       input.admin,

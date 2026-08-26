@@ -11,6 +11,7 @@ import {
 } from './razorpay';
 import {
   isUsefulDeskRefundId,
+  reconcileClaimedRefundWindow,
   shouldArmRefundWebhookRetryAcceptance,
   shouldSimulateAmbiguousRefundCreate,
 } from './razorpay-refunds';
@@ -26,6 +27,29 @@ afterEach(() => {
 });
 
 describe('Razorpay refund REST contract', () => {
+  it('treats an all-null reconciliation composite as no claimed work', async () => {
+    vi.stubEnv('RAZORPAY_MODE', 'live');
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        account_id: null,
+        provider_mode: null,
+        refund_window_from: null,
+        refund_window_to: null,
+        refund_skip: null,
+      },
+      error: null,
+    });
+
+    await expect(
+      reconcileClaimedRefundWindow({
+        admin: { rpc } as never,
+        providerMode: 'live',
+        recoveryOwner: '00000000-0000-4000-8000-000000000001',
+      })
+    ).resolves.toEqual({ claimed: 0, scanned: 0, unrelated: 0 });
+    expect(rpc).toHaveBeenCalledOnce();
+  });
+
   it('only treats UUID receipts as UsefulDesk refund identities', () => {
     expect(isUsefulDeskRefundId('550e8400-e29b-41d4-a716-446655440000')).toBe(
       true
