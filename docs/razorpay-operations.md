@@ -1380,3 +1380,32 @@ missing-ledger rows, and zero local financial effects for the two Test payment
 ids. The pinned OAuth/Live/application connection remains ready, lease-free,
 and error-free. Supabase reported only the existing advisor baseline plus the
 intentional RLS/no-policy notice for the new service-only table.
+
+### P2 provider acceptance and schema-first production release
+
+On 2026-08-26 the isolated Razorpay Test account completed the P2 acceptance
+path with disposable subscription `sub_TUUNYZcSaJlDsr` and local mandate
+`2fa5c887-2890-47f5-8a9d-14c0320018a3`. The subscription was never approved
+and no money moved. Cancelling it exposed two real defects before Live use:
+the finalization RPC still authorized through the default `profiles.account_id`
+instead of branch membership, and a webhook-first revocation could make the
+route return before storing the actor, reason, and cancellation time. The RPC
+now authorizes through `account_memberships`; the route re-reads and finalizes
+an already-terminal provider subscription whenever its local audit is
+incomplete. Test ended provider-cancelled, locally revoked, fully audited, in
+manual collection mode, with zero active mandates, unfinished links/refunds,
+or open charge/payment exceptions.
+
+Fresh encrypted pre-release backup run `32997711909` completed and verified its
+R2 upload. Production then received
+`20260826210000_resolve_razorpay_p2_integrity_gaps.sql` and
+`20260826220000_fix_razorpay_mandate_cancellation_branch_authorization.sql`
+through the approved connector as versions `20260826181015` and
+`20260826181016`, before the dependent application release. Post-migration
+checks proved the new columns and branch-aware, service-role-only cancellation
+RPC; the ready Live credential, one existing active mandate, one existing
+unfinished Payment Link, and zero refund/exception/webhook failure queues all
+matched preflight. No production financial or provider row was changed. The
+Vercel project additionally requires the repository's full GitHub CI status
+before assigning future production aliases, preserving schema-first releases
+without allowing a failing build onto the canonical domain.

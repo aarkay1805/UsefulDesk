@@ -119,8 +119,8 @@ export async function cancelRazorpayMandate(input: {
   const mandate = data as LocalMandate;
   const cancellationAuditComplete = Boolean(
     mandate.cancelled_at &&
-      mandate.cancelled_by &&
-      mandate.cancellation_reason?.trim()
+    mandate.cancelled_by &&
+    mandate.cancellation_reason?.trim()
   );
   if (
     mandate.status === 'failed' ||

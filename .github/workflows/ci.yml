@@ -32,6 +32,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Vercel's native Deployment Check consumes this status and keeps a
+      # successful build unaliased from Production until this full job passes.
+      - name: Notify Vercel
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          name: 'Vercel - useful-desk: ci'
+
       - uses: actions/setup-node@v6
         with:
           node-version: 20
