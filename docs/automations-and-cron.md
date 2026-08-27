@@ -58,8 +58,11 @@ secret configured → routes answer `503 cron not configured`.
 
 ## Current schedulers: Supabase Cron + GitHub Actions
 
-Supabase Cron is the database-owned execution path. Migration
-`20260827064004_database_owned_cron_scheduler.sql` creates two jobs:
+Supabase Cron is the database-owned execution path. Migrations
+`20260827064004_database_owned_cron_scheduler.sql`,
+`20260827070010_harden_database_cron_verifier.sql`, and
+`20260827070201_activate_database_owned_cron_scheduler.sql` create, harden,
+and activate two jobs:
 
 - `usefuldesk-ops-cron` calls the seven high-frequency routes through
   `/api/database-cron?group=ops` at :08, :23, :38, and :53 each hour.
@@ -67,7 +70,7 @@ Supabase Cron is the database-owned execution path. Migration
   `/api/database-cron?group=renewals` hourly at :41.
 
 The database generates a 256-bit secret internally, stores it only in Vault,
-and retains only its slow hash in a private RLS-on/no-policy table. The
+and retains only its SHA-256 digest in a private RLS-on/no-policy table. The
 aggregator verifies it through a service-role-only RPC, then delegates to the
 unchanged route-specific `AUTOMATION_CRON_SECRET` boundary. Never print, export,
 or copy the Vault value into source or an operator command.
