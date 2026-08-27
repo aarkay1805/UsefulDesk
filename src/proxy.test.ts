@@ -3,9 +3,9 @@ import { NextRequest } from 'next/server';
 import { DASHBOARD_PATH_PREFIXES } from '@/lib/auth/dashboard-routes';
 
 // --- Scenario knobs the mock reads -----------------------------------------
-// `mockUser`         — what getUser() resolves to (a refreshed session ⇒ user,
-//                      or null for the logged-out path).
-// `refreshedCookies` — cookies Supabase writes via setAll() during getUser(),
+// `mockUser`         — whether getClaims() resolves a securely signed subject,
+//                      or null for the logged-out path.
+// `refreshedCookies` — cookies Supabase writes via setAll() during getClaims(),
 //                      i.e. the freshly *rotated* auth token. The whole point
 //                      of the test is that these must survive onto whatever
 //                      response the middleware returns — including redirects.
@@ -26,11 +26,13 @@ vi.mock('@supabase/ssr', () => ({
   ) => ({
     auth: {
       // Mirrors real auth-js: an expired access token is transparently
-      // refreshed inside getUser(), which rotates the refresh token and
+      // refreshed while getClaims() loads the session, which rotates the token and
       // pushes the new cookies through setAll() before resolving.
-      getUser: async () => {
+      getClaims: async () => {
         if (refreshedCookies.length) opts.cookies.setAll(refreshedCookies);
-        return { data: { user: mockUser } };
+        return {
+          data: { claims: mockUser ? { sub: mockUser.id } : null },
+        };
       },
     },
   }),
@@ -73,7 +75,7 @@ describe('proxy authentication', () => {
 
   it('carries the rotated token when redirecting an unauth user to /login', async () => {
     mockUser = null;
-    // Even on the logged-out path getUser() may emit cookie writes (e.g.
+    // Even on the logged-out path getClaims() may emit cookie writes (e.g.
     // clearing a dead session); those must not be dropped on the redirect.
     refreshedCookies = [{ ...ROTATED, value: 'cleared' }];
 
@@ -127,6 +129,35 @@ describe('proxy authentication', () => {
     // No redirect — the normal NextResponse.next() already carries cookies.
     expect(res.headers.get('location')).toBeNull();
     expect(res.cookies.get(ROTATED.name)?.value).toBe(ROTATED.value);
+  });
+
+  it('forwards only the URL-derived dashboard branch upstream', async () => {
+    mockUser = { id: 'user-1' };
+    const branch = '00000000-0000-4000-8000-000000000001';
+
+    const res = await proxy(
+      new NextRequest(`https://app.test/dashboard?branch=${branch}`, {
+        headers: { 'x-usefuldesk-account-id': 'forged' },
+      })
+    );
+
+    expect(
+      res.headers.get('x-middleware-request-x-usefuldesk-account-id')
+    ).toBe(branch);
+  });
+
+  it('removes a caller-authored tenant header from non-dashboard requests', async () => {
+    mockUser = { id: 'user-1' };
+
+    const res = await proxy(
+      new NextRequest('https://app.test/api/onboarding/status', {
+        headers: { 'x-usefuldesk-account-id': 'forged' },
+      })
+    );
+
+    expect(
+      res.headers.get('x-middleware-request-x-usefuldesk-account-id')
+    ).toBeNull();
   });
 
   it.each(DASHBOARD_PATH_PREFIXES)(

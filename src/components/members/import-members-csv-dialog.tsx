@@ -1327,6 +1327,9 @@ export function ImportMembersCsvDialog({
         ? `${candidateSummary.needsResolution} member${candidateSummary.needsResolution === 1 ? '' : 's'} need attention before you can continue.`
         : 'All included members are ready to review.'
       : descriptions[step];
+  /* The two-pane resolve workspace, as opposed to a single scrolling step.
+     The result panel replaces the step content, so it is not one. */
+  const resolveWorkspace = !result && step === 3;
   const draftStatusLabel =
     draftManager.saveState === 'saving'
       ? 'Saving…'
@@ -1343,7 +1346,7 @@ export function ImportMembersCsvDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="border-border/80 bg-popover text-popover-foreground flex max-h-[min(92vh,760px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1200px]">
+        <DialogContent className="border-border/80 bg-popover text-popover-foreground flex max-h-[min(92vh,760px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1200px,calc(100%-2rem))]">
           <div className="border-border/80 shrink-0 space-y-4 border-b px-6 pt-6 pb-5">
             <DialogHeader className="gap-1.5">
               <DialogTitle size="lg">Import Members</DialogTitle>
@@ -1383,11 +1386,23 @@ export function ImportMembersCsvDialog({
           </div>
 
           <div
-            role={!result && step === 3 ? 'region' : undefined}
-            aria-label={
-              !result && step === 3 ? 'Resolve issues content' : undefined
-            }
-            className="min-h-0 flex-1 overflow-y-auto px-5 py-3"
+            role={resolveWorkspace ? 'region' : undefined}
+            aria-label={resolveWorkspace ? 'Resolve issues content' : undefined}
+            /* Every other step is one scrolling column, so the body owns the
+               scrollport and the step's gutters. Step 3 is a two-pane
+               workspace that owns its own scrollports, so the body stops
+               scrolling and becomes the flex frame that hands them a height.
+               It has to be flex, not `h-full`: the dialog is max-height
+               clamped rather than height-set, so a percentage height here
+               resolves against an indefinite parent, collapses to `auto`,
+               and drops the tab strip, the queue rail, and the focused issue
+               into one shared column scroll. */
+            className={cn(
+              'min-h-0 flex-1',
+              resolveWorkspace
+                ? 'flex flex-col overflow-hidden'
+                : 'overflow-y-auto px-5 py-3'
+            )}
           >
             {result ? (
               <ResultPanel result={result} />
@@ -1399,7 +1414,10 @@ export function ImportMembersCsvDialog({
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.13, ease: 'easeOut' }}
-                  className={cn('min-h-0', step === 3 && 'h-full')}
+                  className={cn(
+                    'min-h-0',
+                    resolveWorkspace ? 'flex flex-1 flex-col' : 'shrink-0'
+                  )}
                 >
                   {step === 1 && (
                     <div className="space-y-3">

@@ -2,26 +2,29 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { createClient } from '@/lib/supabase/client';
-import {
-  loadActivity,
-  loadConversationsSeries,
-  loadLeadFunnel,
-} from '@/lib/dashboard/queries';
-import { loadLeadSourceRatings } from '@/lib/dashboard/lead-conversion-rating';
 import type {
   ActivityItem,
   ConversationsSeriesPoint,
+  DashboardInsightsRangeDays,
+  DashboardInsightsSnapshot,
   LeadFunnelData,
   LeadSourceRatingData,
 } from '@/lib/dashboard/types';
-import { useLocale } from '@/hooks/use-locale';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { ConversationsChart } from '@/components/dashboard/conversations-chart';
 import { LeadConversionRating } from '@/components/dashboard/lead-conversion-rating';
 import { LeadFunnel } from '@/components/dashboard/lead-funnel';
 
-type RangeDays = 7 | 30 | 90;
+type RangeDays = DashboardInsightsRangeDays;
+
+async function loadInsightsResponse<T>(url: string): Promise<T> {
+  const response = await fetch(url, { cache: 'no-store' });
+  const body = (await response.json()) as T & { error?: string };
+  if (!response.ok) {
+    throw new Error(body.error ?? 'Could not load dashboard insights');
+  }
+  return body;
+}
 
 /**
  * Historical reading, not today's work — the action queues all live above
@@ -30,7 +33,6 @@ type RangeDays = 7 | 30 | 90;
  * so the ring only restated counts the bars already carried.
  */
 export function DashboardInsights() {
-  const { fmt, locale } = useLocale();
   const [conversationRange, setConversationRange] = useState<RangeDays>(30);
   const [ratingRange, setRatingRange] = useState<RangeDays>(30);
   const [series, setSeries] = useState<
@@ -54,59 +56,48 @@ export function DashboardInsights() {
 
   useEffect(() => {
     let cancelled = false;
-    const db = createClient();
 
-    void loadConversationsSeries(db, 30)
-      .then((next) => {
-        if (!cancelled) {
-          setSeries((current) => ({ ...current, 30: next }));
+    void loadInsightsResponse<DashboardInsightsSnapshot>(
+      '/api/dashboard/insights?view=initial'
+    )
+      .then((snapshot) => {
+        if (cancelled) return;
+        if (snapshot.series) {
+          setSeries((current) => ({ ...current, 30: snapshot.series }));
+        }
+        if (snapshot.rating) {
+          setRatings((current) => ({ ...current, 30: snapshot.rating }));
+        }
+        if (snapshot.leadFunnel) setLeadFunnel(snapshot.leadFunnel);
+        if (snapshot.activity) setActivity(snapshot.activity);
+        for (const section of snapshot.errors) {
+          console.error(`[dashboard] ${section} insights failed`);
         }
       })
       .catch((error) =>
-        console.error('[dashboard] conversation insights failed:', error)
+        console.error('[dashboard] insight snapshot failed:', error)
       )
       .finally(() => {
-        if (!cancelled) setSeriesLoading(false);
-      });
-    void loadLeadSourceRatings(db, 30, locale.timeZone, fmt.today())
-      .then((next) => {
         if (!cancelled) {
-          setRatings((current) => ({ ...current, 30: next }));
+          setSeriesLoading(false);
+          setRatingLoading(false);
         }
-      })
-      .catch((error) =>
-        console.error('[dashboard] lead rating insights failed:', error)
-      )
-      .finally(() => {
-        if (!cancelled) setRatingLoading(false);
       });
-    void loadLeadFunnel(db)
-      .then((next) => {
-        if (!cancelled) setLeadFunnel(next);
-      })
-      .catch((error) =>
-        console.error('[dashboard] funnel insights failed:', error)
-      );
-    void loadActivity(db, 50)
-      .then((next) => {
-        if (!cancelled) setActivity(next);
-      })
-      .catch((error) =>
-        console.error('[dashboard] activity insights failed:', error)
-      );
 
     return () => {
       cancelled = true;
     };
-  }, [fmt, locale.timeZone]);
+  }, []);
 
   const handleConversationRangeChange = useCallback(
     (nextRange: RangeDays) => {
       setConversationRange(nextRange);
       if (series[nextRange] !== null) return;
       setSeriesLoading(true);
-      loadConversationsSeries(createClient(), nextRange)
-        .then((next) =>
+      loadInsightsResponse<{ series: ConversationsSeriesPoint[] }>(
+        `/api/dashboard/insights?view=conversations&range=${nextRange}`
+      )
+        .then(({ series: next }) =>
           setSeries((current) => ({ ...current, [nextRange]: next }))
         )
         .catch((error) =>
@@ -122,13 +113,10 @@ export function DashboardInsights() {
       setRatingRange(nextRange);
       if (ratings[nextRange] === null) {
         setRatingLoading(true);
-        loadLeadSourceRatings(
-          createClient(),
-          nextRange,
-          locale.timeZone,
-          fmt.today()
+        loadInsightsResponse<{ rating: LeadSourceRatingData }>(
+          `/api/dashboard/insights?view=lead-rating&range=${nextRange}`
         )
-          .then((next) =>
+          .then(({ rating: next }) =>
             setRatings((current) => ({ ...current, [nextRange]: next }))
           )
           .catch((error) =>
@@ -137,7 +125,7 @@ export function DashboardInsights() {
           .finally(() => setRatingLoading(false));
       }
     },
-    [fmt, locale.timeZone, ratings]
+    [ratings]
   );
 
   // No wrapper heading: each card below already names itself, so a grouping

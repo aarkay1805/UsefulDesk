@@ -2,11 +2,11 @@
 
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { MessageTemplate } from '@/types';
-import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
+import type { OnboardingRawStatus } from '@/lib/onboarding/steps';
 
 const onboardingState = vi.hoisted(() => ({
-  templates: [] as Partial<MessageTemplate>[],
+  templateApproved: false,
+  failRequest: false,
 }));
 
 vi.mock('next/navigation', () => ({
@@ -23,70 +23,8 @@ vi.mock('@/hooks/use-auth', () => ({
   }),
 }));
 
-function createQuery(table: string) {
-  const filters: Array<{
-    column: string;
-    values: unknown[];
-  }> = [];
-  let head = false;
-
-  const result = () => {
-    if (table === 'message_templates') {
-      const data = onboardingState.templates.filter((row) =>
-        filters.every(({ column, values }) =>
-          values.includes(row[column as keyof typeof row])
-        )
-      );
-      return head
-        ? { data: null, count: data.length, error: null }
-        : { data, count: null, error: null };
-    }
-    if (table === 'membership_plans') {
-      return {
-        data: [{ is_active: true, pricing_options: [{ is_active: true }] }],
-        error: null,
-      };
-    }
-    if (table === 'memberships' || table === 'payments') {
-      return { data: null, count: 1, error: null };
-    }
-    return { data: null, count: 0, error: null };
-  };
-
-  const query = {
-    select(_columns: string, options?: { head?: boolean }) {
-      head = options?.head === true;
-      return query;
-    },
-    eq(column: string, value: unknown) {
-      filters.push({ column, values: [value] });
-      return query;
-    },
-    in(column: string, values: unknown[]) {
-      filters.push({ column, values });
-      return query;
-    },
-    maybeSingle() {
-      if (table === 'whatsapp_config') {
-        return Promise.resolve({ data: { status: 'connected' }, error: null });
-      }
-      return Promise.resolve(result());
-    },
-    then<TResult1 = unknown, TResult2 = never>(
-      onfulfilled?: ((value: ReturnType<typeof result>) => TResult1) | null,
-      onrejected?: ((reason: unknown) => TResult2) | null
-    ) {
-      return Promise.resolve(result()).then(onfulfilled, onrejected);
-    },
-  };
-
-  return query;
-}
-
 vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({
-    from: (table: string) => createQuery(table),
-  }),
+  createClient: vi.fn(),
 }));
 
 const { OnboardingProvider, useOnboardingStatus } =
@@ -102,29 +40,32 @@ function TemplateStepProbe() {
   );
 }
 
-describe('OnboardingProvider renewal template readiness', () => {
+const baseStatus = (): OnboardingRawStatus => ({
+  whatsappConnected: false,
+  templateApproved: onboardingState.templateApproved,
+  hasActivePlanPricing: false,
+  membershipCount: 0,
+  razorpayConnected: false,
+  paidPaymentCount: 0,
+  teamSize: 1,
+  pendingInvites: 0,
+});
+
+describe('OnboardingProvider consolidated status request', () => {
   beforeEach(() => {
+    onboardingState.templateApproved = false;
+    onboardingState.failRequest = false;
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url === '/api/payments/razorpay/connection') {
-          return new Response(
-            JSON.stringify({ connection: { configured: true } }),
-            { status: 200 }
-          );
+        if (url !== '/api/onboarding/status') {
+          throw new Error(`Unexpected fetch: ${url}`);
         }
-        if (url === '/api/account/members') {
-          return new Response(JSON.stringify({ members: [{ id: 'owner' }] }), {
-            status: 200,
-          });
+        if (onboardingState.failRequest) {
+          return Response.json({ error: 'unavailable' }, { status: 503 });
         }
-        if (url === '/api/account/invitations') {
-          return new Response(JSON.stringify({ invitations: [] }), {
-            status: 200,
-          });
-        }
-        throw new Error(`Unexpected fetch: ${url}`);
+        return Response.json({ status: baseStatus() });
       })
     );
   });
@@ -132,19 +73,10 @@ describe('OnboardingProvider renewal template readiness', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
-  it('keeps an approved but component-drifted Marketing template incomplete', async () => {
-    onboardingState.templates = [
-      {
-        account_id: '00000000-0000-4000-8000-000000000001',
-        ...TEMPLATE_CONTRACTS.membership_renewal.payload,
-        status: 'APPROVED',
-        parameter_format: 'POSITIONAL',
-        body_text: 'Changed copy {{1}} {{2}} {{3}} {{4}}',
-      },
-    ];
-
+  it('keeps an incomplete server signal incomplete', async () => {
     render(
       <OnboardingProvider>
         <TemplateStepProbe />
@@ -156,15 +88,8 @@ describe('OnboardingProvider renewal template readiness', () => {
     });
   });
 
-  it('completes only from the exact approved Marketing contract', async () => {
-    onboardingState.templates = [
-      {
-        account_id: '00000000-0000-4000-8000-000000000001',
-        ...TEMPLATE_CONTRACTS.membership_renewal.payload,
-        status: 'APPROVED',
-        parameter_format: 'POSITIONAL',
-      },
-    ];
+  it('uses the approved template signal returned by the consolidated endpoint', async () => {
+    onboardingState.templateApproved = true;
 
     render(
       <OnboardingProvider>
@@ -174,6 +99,26 @@ describe('OnboardingProvider renewal template readiness', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('template-step').textContent).toBe('true');
+    });
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledWith('/api/onboarding/status', {
+      cache: 'no-store',
+    });
+  });
+
+  it('fails closed when the consolidated endpoint is unavailable', async () => {
+    onboardingState.templateApproved = true;
+    onboardingState.failRequest = true;
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    render(
+      <OnboardingProvider>
+        <TemplateStepProbe />
+      </OnboardingProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('template-step').textContent).toBe('false');
     });
   });
 });

@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { BRANCH_HEADER } from '@/lib/auth/branch-context';
+import { loadDashboardAuthBootstrap } from '@/lib/auth/dashboard-bootstrap';
 import { DashboardShell } from './dashboard-shell';
 
 // Server layout for the authenticated app. The proxy provides the fast redirect,
@@ -31,5 +34,16 @@ export default async function DashboardLayout({
 
   if (!user) redirect('/login');
 
-  return <DashboardShell>{children}</DashboardShell>;
+  const requestHeaders = await headers();
+  const bootstrap = await loadDashboardAuthBootstrap(
+    supabase,
+    user.id,
+    requestHeaders.get(BRANCH_HEADER)
+  );
+
+  return (
+    <DashboardShell initialUser={user} initialBootstrap={bootstrap}>
+      {children}
+    </DashboardShell>
+  );
 }

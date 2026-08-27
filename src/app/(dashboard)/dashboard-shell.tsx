@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { usePathname, useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
+import type { DashboardAuthBootstrap } from '@/lib/auth/dashboard-bootstrap';
 import { OnboardingProvider } from '@/hooks/use-onboarding-status';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
@@ -178,9 +180,17 @@ function BuildingBranchError() {
   );
 }
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function DashboardShell({
+  children,
+  initialUser,
+  initialBootstrap,
+}: {
+  children: React.ReactNode;
+  initialUser: User;
+  initialBootstrap: DashboardAuthBootstrap;
+}) {
   return (
-    <AuthProvider>
+    <AuthProvider initialUser={initialUser} initialBootstrap={initialBootstrap}>
       {/* Needs useAuth, so it sits inside AuthProvider. Shares the Get
           Started completion state between the sidebar and the page. */}
       <OnboardingProvider>

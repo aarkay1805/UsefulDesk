@@ -57,6 +57,17 @@ vi.mock('@/hooks/use-follow-up-reminder-ringtone', () => ({
 
 const { DashboardShell } = await import('./dashboard-shell');
 
+const SERVER_PROPS = {
+  initialUser: { id: 'user-1' } as never,
+  initialBootstrap: {
+    profile: null,
+    account: null,
+    branches: [],
+    branchAccessError: null,
+    accountStatusDetail: null,
+  },
+};
+
 describe('DashboardShell account boundary', () => {
   beforeEach(() => {
     authState.user = { id: 'user-1' };
@@ -69,7 +80,7 @@ describe('DashboardShell account boundary', () => {
 
   it('keeps account-dependent children unmounted after hydration fails', () => {
     const markup = renderToStaticMarkup(
-      <DashboardShell>
+      <DashboardShell {...SERVER_PROPS}>
         <div>Business content</div>
       </DashboardShell>
     );
@@ -84,7 +95,7 @@ describe('DashboardShell account boundary', () => {
     authState.accountStatus = 'loading';
 
     const markup = renderToStaticMarkup(
-      <DashboardShell>
+      <DashboardShell {...SERVER_PROPS}>
         <div>Business content</div>
       </DashboardShell>
     );
@@ -97,7 +108,7 @@ describe('DashboardShell account boundary', () => {
     authState.accountStatus = 'ready';
 
     const markup = renderToStaticMarkup(
-      <DashboardShell>
+      <DashboardShell {...SERVER_PROPS}>
         <div>Business content</div>
       </DashboardShell>
     );

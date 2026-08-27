@@ -8,6 +8,8 @@ import { AccountAccessAlert } from '@/components/layout/account-access-alert';
 const ACCOUNT_ID = '00000000-0000-4000-8000-000000000001';
 
 const supabaseState = vi.hoisted(() => ({
+  getSession: vi.fn(),
+  authCallback: null as null | ((event: string, session: unknown) => void),
   accountResult: {
     data: null as Record<string, unknown> | null,
     error: null as {
@@ -22,13 +24,15 @@ const supabaseState = vi.hoisted(() => ({
 function createMockClient() {
   return {
     auth: {
-      getSession: vi.fn().mockResolvedValue({
-        data: { session: { user: { id: 'user-1' } } },
-        error: null,
-      }),
-      onAuthStateChange: vi.fn().mockReturnValue({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      }),
+      getSession: supabaseState.getSession,
+      onAuthStateChange: vi.fn(
+        (callback: (event: string, session: unknown) => void) => {
+          supabaseState.authCallback = callback;
+          return {
+            data: { subscription: { unsubscribe: vi.fn() } },
+          };
+        }
+      ),
       signOut: vi.fn().mockResolvedValue({ error: null }),
     },
     rpc: vi.fn().mockImplementation((name: string) => {
@@ -108,6 +112,7 @@ function AuthProbe() {
   return (
     <>
       <output data-testid="status">{auth.accountStatus}</output>
+      <output data-testid="user-id">{auth.user?.id ?? 'none'}</output>
       <output data-testid="profile-role">
         {auth.profile?.account_role ?? 'none'}
       </output>
@@ -127,6 +132,11 @@ function AuthProbe() {
 describe('AuthProvider account hydration', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/dashboard');
+    supabaseState.getSession.mockReset().mockResolvedValue({
+      data: { session: { user: { id: 'user-1' } } },
+      error: null,
+    });
+    supabaseState.authCallback = null;
     supabaseState.accountResult = {
       data: null,
       error: {
@@ -218,5 +228,154 @@ describe('AuthProvider account hydration', () => {
     expect(
       screen.getByText(/selected account row is missing or unreadable/)
     ).toBeTruthy();
+  });
+
+  it('renders an authoritative server bootstrap without a browser session probe', async () => {
+    render(
+      <AuthProvider
+        initialUser={{ id: 'user-1' } as never}
+        initialBootstrap={{
+          profile: {
+            id: 'profile-1',
+            full_name: 'Gym Owner',
+            email: 'owner@example.com',
+            avatar_url: null,
+            role: null,
+            beta_features: [],
+            account_id: ACCOUNT_ID,
+            account_role: 'owner',
+            appearance_theme: null,
+            appearance_mode: null,
+          },
+          account: {
+            id: ACCOUNT_ID,
+            name: 'Dubai Gym',
+            created_at: '2026-01-01T00:00:00.000Z',
+            default_currency: 'AED',
+            country_code: 'AE',
+            locale: 'en-AE',
+            timezone: 'Asia/Dubai',
+            date_order: 'DMY',
+            time_format: '12h',
+            week_start: 1,
+            phone_country_code: '+971',
+            measurement_system: 'metric',
+            onboarding_dismissed_at: null,
+            organization_id: 'org-1',
+            legal_entity_id: 'legal-1',
+            branch_status: 'active',
+            readiness_state: 'ready',
+            setup_reviewed_at: null,
+            setup_reviewed_by: null,
+          },
+          branches: [
+            {
+              account_id: ACCOUNT_ID,
+              account_name: 'Dubai Gym',
+              organization_id: 'org-1',
+              organization_name: 'Dubai Fitness',
+              legal_entity_id: 'legal-1',
+              legal_entity_name: 'Dubai Fitness LLC',
+              role: 'owner',
+              branch_status: 'active',
+              readiness_state: 'ready',
+              default_currency: 'AED',
+              timezone: 'Asia/Dubai',
+              is_organization_owner: true,
+              setup_reviewed_at: null,
+              setup_reviewed_by: null,
+            },
+          ],
+          branchAccessError: null,
+          accountStatusDetail: null,
+        }}
+      >
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    expect(screen.getByTestId('status').textContent).toBe('ready');
+    expect(screen.getByTestId('account-id').textContent).toBe(ACCOUNT_ID);
+    expect(screen.getByTestId('organization-owner').textContent).toBe('true');
+    expect(supabaseState.getSession).not.toHaveBeenCalled();
+  });
+
+  it('keeps the browser auth listener active for refresh and sign-out after server hydration', async () => {
+    const bootstrap = {
+      profile: {
+        id: 'profile-1',
+        full_name: 'Gym Owner',
+        email: 'owner@example.com',
+        avatar_url: null,
+        role: null,
+        beta_features: [],
+        account_id: ACCOUNT_ID,
+        account_role: 'owner' as const,
+        appearance_theme: null,
+        appearance_mode: null,
+      },
+      account: {
+        id: ACCOUNT_ID,
+        name: 'Dubai Gym',
+        created_at: '2026-01-01T00:00:00.000Z',
+        default_currency: 'AED',
+        country_code: 'AE',
+        locale: 'en-AE',
+        timezone: 'Asia/Dubai',
+        date_order: 'DMY',
+        time_format: '12h',
+        week_start: 1,
+        phone_country_code: '+971',
+        measurement_system: 'metric',
+        onboarding_dismissed_at: null,
+        organization_id: 'org-1',
+        legal_entity_id: 'legal-1',
+        branch_status: 'active' as const,
+        readiness_state: 'ready' as const,
+        setup_reviewed_at: null,
+        setup_reviewed_by: null,
+      },
+      branches: [
+        {
+          account_id: ACCOUNT_ID,
+          account_name: 'Dubai Gym',
+          organization_id: 'org-1',
+          organization_name: 'Dubai Fitness',
+          legal_entity_id: 'legal-1',
+          legal_entity_name: 'Dubai Fitness LLC',
+          role: 'owner' as const,
+          branch_status: 'active' as const,
+          readiness_state: 'ready' as const,
+          default_currency: 'AED',
+          timezone: 'Asia/Dubai',
+          is_organization_owner: true,
+          setup_reviewed_at: null,
+          setup_reviewed_by: null,
+        },
+      ],
+      branchAccessError: null,
+      accountStatusDetail: null,
+    };
+
+    render(
+      <AuthProvider
+        initialUser={{ id: 'user-1' } as never}
+        initialBootstrap={bootstrap}
+      >
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    expect(supabaseState.authCallback).not.toBeNull();
+    supabaseState.authCallback?.('TOKEN_REFRESHED', {
+      user: { id: 'user-1' },
+    });
+    expect(screen.getByTestId('status').textContent).toBe('ready');
+    expect(supabaseState.getSession).not.toHaveBeenCalled();
+
+    supabaseState.authCallback?.('SIGNED_OUT', null);
+    await waitFor(() => {
+      expect(screen.getByTestId('user-id').textContent).toBe('none');
+    });
   });
 });

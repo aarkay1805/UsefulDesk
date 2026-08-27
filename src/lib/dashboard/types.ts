@@ -2,6 +2,11 @@
 // here so each component stays thin and the page-level loader wires
 // them up without type gymnastics.
 
+export type DashboardInsightsRangeDays = 7 | 30 | 90;
+
+export type DashboardInsightsSection =
+  'conversations' | 'leadRating' | 'leadFunnel' | 'activity';
+
 export interface ConversationsSeriesPoint {
   day: string; // YYYY-MM-DD local
   incoming: number;
@@ -113,4 +118,18 @@ export interface ActivityItem {
   at: string;
   /** Optional deep-link for the whole row (not all items have a target). */
   href?: string;
+}
+
+/**
+ * Bounded initial payload returned by the dashboard insights API. Raw message,
+ * contact, membership, and follow-up histories never cross into browser code.
+ * A null section is independently unavailable and does not discard successful
+ * siblings, matching the dashboard's former per-card loading posture.
+ */
+export interface DashboardInsightsSnapshot {
+  series: ConversationsSeriesPoint[] | null;
+  rating: LeadSourceRatingData | null;
+  leadFunnel: LeadFunnelData | null;
+  activity: ActivityItem[] | null;
+  errors: DashboardInsightsSection[];
 }

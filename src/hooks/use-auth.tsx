@@ -27,102 +27,27 @@ import {
   canEditSettings as canEditSettingsFor,
   canManageMembers as canManageMembersFor,
   canSendMessages as canSendMessagesFor,
-  isAccountRole,
   type AccountRole,
 } from '@/lib/auth/roles';
-import { isMode, isThemeId, type Mode, type ThemeId } from '@/lib/themes';
 import {
   BRANCH_QUERY_PARAM,
-  branchIdFromUrl,
   isBranchAccountId,
 } from '@/lib/auth/branch-context';
 import {
   resolveAccountStatus,
-  retryProfileLookup,
   type AccountStatus,
 } from '@/lib/auth/account-recovery';
+import {
+  loadDashboardAuthBootstrap,
+  type AccountSummary,
+  type BranchAccount,
+  type DashboardAuthBootstrap,
+  type Profile,
+} from '@/lib/auth/dashboard-bootstrap';
 
 export type { AccountStatus } from '@/lib/auth/account-recovery';
 
-interface Profile {
-  id: string;
-  full_name: string | null;
-  email: string;
-  avatar_url: string | null;
-  role: string | null;
-  /**
-   * Opted-in beta feature keys for this account. No current feature
-   * reads this — Flows was the last user and went to soft-GA in PR
-   * #134 — but the column survives for future beta gates.
-   */
-  beta_features: string[];
-  account_id: string | null;
-  account_role: AccountRole | null;
-  /** Personal appearance preferences. NULL means this profile has not
-   *  saved a server-side choice yet, so the existing browser cache is
-   *  retained for backwards compatibility. */
-  appearance_theme: ThemeId | null;
-  appearance_mode: Mode | null;
-}
-
-export interface AccountSummary {
-  id: string;
-  name: string;
-  /** Account creation bounds historical period pickers without a fixed year list. */
-  created_at: string;
-  /** Default deal currency (ISO-4217). NOT NULL DEFAULT 'INR' in the
-   *  DB (021, default flipped in 055); narrowed to DEFAULT_CURRENCY
-   *  when absent. */
-  default_currency: string;
-  // Raw localization columns (migration 055) — consumed via the
-  // resolved `locale` / `fmt` context values, kept here so
-  // refreshProfile() round-trips them after a Settings save.
-  country_code: string | null;
-  locale: string | null;
-  timezone: string | null;
-  date_order: string | null;
-  time_format: string | null;
-  week_start: number | null;
-  phone_country_code: string | null;
-  measurement_system: string | null;
-  /** When the Get Started onboarding was hidden (explicit dismiss or
-   *  auto-set once every step completed). Null = still show it. */
-  onboarding_dismissed_at: string | null;
-  organization_id: string;
-  legal_entity_id: string;
-  branch_status: 'active' | 'read_only' | 'archived';
-  readiness_state: 'setup' | 'ready' | 'attention';
-  setup_reviewed_at: string | null;
-  setup_reviewed_by: string | null;
-}
-
-export interface BranchAccount {
-  account_id: string;
-  account_name: string;
-  organization_id: string;
-  organization_name: string;
-  legal_entity_id: string;
-  legal_entity_name: string;
-  role: AccountRole;
-  branch_status: 'active' | 'read_only' | 'archived';
-  readiness_state: 'setup' | 'ready' | 'attention';
-  default_currency: string;
-  timezone: string;
-  is_organization_owner: boolean;
-  setup_reviewed_at: string | null;
-  setup_reviewed_by: string | null;
-}
-
-interface ProfileRow {
-  id: string;
-  full_name: string | null;
-  email: string;
-  avatar_url: string | null;
-  role: string | null;
-  beta_features: string[] | null;
-  account_id: string | null;
-  account_role: string | null;
-}
+export type { AccountSummary, BranchAccount, Profile };
 
 interface AuthContextValue {
   user: User | null;
@@ -206,31 +131,49 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 /**
  * AuthProvider — wrap this around the dashboard layout.
- * Makes ONE getSession() call for the whole tree instead of one per
- * component, avoiding internal lock contention in the Supabase client.
+ * A normal dashboard request starts from the server-validated user and
+ * account bootstrap. The browser listener remains authoritative for later
+ * refresh, sign-in, and sign-out events without repeating cold-start reads.
  */
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [account, setAccount] = useState<AccountSummary | null>(null);
-  const [branches, setBranches] = useState<BranchAccount[]>([]);
+export function AuthProvider({
+  children,
+  initialUser = null,
+  initialBootstrap = null,
+}: {
+  children: ReactNode;
+  initialUser?: User | null;
+  initialBootstrap?: DashboardAuthBootstrap | null;
+}) {
+  const [user, setUser] = useState<User | null>(initialUser);
+  const [profile, setProfile] = useState<Profile | null>(
+    initialBootstrap?.profile ?? null
+  );
+  const [account, setAccount] = useState<AccountSummary | null>(
+    initialBootstrap?.account ?? null
+  );
+  const [branches, setBranches] = useState<BranchAccount[]>(
+    initialBootstrap?.branches ?? []
+  );
   const [branchAccessError, setBranchAccessError] = useState<string | null>(
-    null
+    initialBootstrap?.branchAccessError ?? null
   );
   const [accountStatusDetail, setAccountStatusDetail] = useState<string | null>(
-    null
+    initialBootstrap?.accountStatusDetail ?? null
   );
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialUser);
   // Tracked separately from `loading`. The session settles fast (one
   // local cookie read); the profile fetch crosses the network and
   // settles later. Callers that gate on `profile.*` need to know which
   // window they're in — see the type doc above.
-  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(!initialBootstrap);
+  const hasServerBootstrap = Boolean(initialUser && initialBootstrap);
 
   // Tracks the user ID we've successfully initiated/completed fetching
   // a profile for. This prevents redundant re-fetches and toggling
   // profileLoading back to true on window focus events/token refresh.
-  const lastFetchedUserIdRef = useRef<string | null>(null);
+  const lastFetchedUserIdRef = useRef<string | null>(
+    initialUser && initialBootstrap ? initialUser.id : null
+  );
 
   // Shared across init, auth-state-change listener, and the exposed
   // refreshProfile() callback. Reads the current session's user id and
@@ -241,251 +184,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccountStatusDetail(null);
     lastFetchedUserIdRef.current = userId;
     try {
-      const { data, error } = await retryProfileLookup<ProfileRow, Error>(
-        async () => {
-          const result = await supabase
-            .from('profiles')
-            .select(
-              'id, full_name, email, avatar_url, role, beta_features, account_id, account_role'
-            )
-            .eq('user_id', userId)
-            .maybeSingle();
-
-          return {
-            data: result.data as ProfileRow | null,
-            error: result.error,
-          };
-        },
-        {
-          onError: (lookupError) => {
-            console.error('[AuthProvider] fetchProfile error:', {
-              message: lookupError.message,
-              details: 'details' in lookupError ? lookupError.details : null,
-              hint: 'hint' in lookupError ? lookupError.hint : null,
-              code: 'code' in lookupError ? lookupError.code : null,
-            });
-          },
-        }
+      const currentUrl = new URL(window.location.href);
+      const requestedBranchHeader = currentUrl.searchParams.has(
+        BRANCH_QUERY_PARAM
+      )
+        ? (currentUrl.searchParams.get(BRANCH_QUERY_PARAM) ?? 'invalid')
+        : null;
+      const next = await loadDashboardAuthBootstrap(
+        supabase,
+        userId,
+        requestedBranchHeader
       );
 
-      if (error) {
+      setProfile(next.profile);
+      setAccount(next.account);
+      setBranches(next.branches);
+      setBranchAccessError(next.branchAccessError);
+      setAccountStatusDetail(next.accountStatusDetail);
+      if (!next.profile || (!next.account && !next.branchAccessError)) {
         lastFetchedUserIdRef.current = null;
-        setAccountStatusDetail(error.message);
-        return;
-      }
-
-      if (data) {
-        const { data: branchRows, error: branchesError } =
-          await supabase.rpc('my_branch_accounts');
-        if (branchesError) {
-          console.error('[AuthProvider] fetchBranches error:', branchesError);
-          lastFetchedUserIdRef.current = null;
-          setAccountStatusDetail(branchesError.message);
-          setBranchAccessError('Could not load your branch access.');
-          return;
-        }
-
-        const availableBranches = (
-          (branchRows ?? []) as BranchAccount[]
-        ).filter(
-          (branch) =>
-            isBranchAccountId(branch.account_id) && isAccountRole(branch.role)
-        );
-        setBranches(availableBranches);
-
-        const currentUrl =
-          typeof window === 'undefined' ? null : new URL(window.location.href);
-        const hasExplicitBranch =
-          currentUrl?.searchParams.has(BRANCH_QUERY_PARAM) ?? false;
-        const requestedBranch = currentUrl ? branchIdFromUrl(currentUrl) : null;
-        const selectedBranchId = hasExplicitBranch
-          ? requestedBranch
-          : data.account_id;
-        const selectedBranch = availableBranches.find(
-          (branch) => branch.account_id === selectedBranchId
-        );
-
-        if (hasExplicitBranch && (!requestedBranch || !selectedBranch)) {
-          setAccount(null);
-          setAccountStatusDetail(
-            requestedBranch
-              ? "the requested branch is not in this login's memberships"
-              : 'the branch link does not contain a valid branch id'
-          );
-          setBranchAccessError(
-            requestedBranch
-              ? 'You do not have access to this branch.'
-              : 'This branch link is invalid.'
-          );
-          setProfile({
-            id: data.id,
-            full_name: data.full_name,
-            email: data.email,
-            avatar_url: data.avatar_url,
-            role: data.role,
-            beta_features: data.beta_features ?? [],
-            account_id: null,
-            account_role: null,
-            appearance_theme: null,
-            appearance_mode: null,
-          });
-          return;
-        }
-
-        if (selectedBranch?.branch_status === 'archived') {
-          setAccount(null);
-          setAccountStatusDetail('the selected branch is archived');
-          setBranchAccessError(
-            'This branch is archived. Its retained history is available in organization reporting.'
-          );
-          return;
-        }
-
-        if (!selectedBranch) {
-          setAccount(null);
-          setAccountStatusDetail(
-            'no available branch membership for the signed-in user'
-          );
-          setBranchAccessError(
-            'Your login is not linked to an available branch.'
-          );
-          return;
-        }
-        setBranchAccessError(null);
-
-        // Keep the newly-added appearance columns out of the essential
-        // profile query above. During a rolling deploy, application code
-        // can arrive before migration 070; an unknown column would make
-        // PostgREST reject the entire select and blank account context.
-        // A separate optional read lets the rest of the profile continue
-        // to work until the migration is applied.
-        let appearanceTheme: ThemeId | null = null;
-        let appearanceMode: Mode | null = null;
-        const { data: appearance, error: appearanceError } = await supabase
-          .from('profiles')
-          .select('appearance_theme, appearance_mode')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (appearanceError) {
-          console.warn('[AuthProvider] appearance preferences unavailable:', {
-            message: appearanceError.message,
-            code: appearanceError.code,
-          });
-        } else if (appearance) {
-          appearanceTheme = isThemeId(appearance.appearance_theme)
-            ? appearance.appearance_theme
-            : null;
-          appearanceMode = isMode(appearance.appearance_mode)
-            ? appearance.appearance_mode
-            : null;
-        }
-
-        // Load the account with a plain lookup by id instead of an
-        // embedded FK join. The embed (`account:accounts!inner(...)`)
-        // forces PostgREST to resolve the profiles.account_id →
-        // accounts.id relationship from its schema cache; a stale cache
-        // (common right after a migration adds the FK) makes it fail
-        // hard with PGRST200 and blanks the whole profile — the user
-        // then loses account context everywhere (issue #294). A point
-        // lookup by id needs no relationship inference, so the profile
-        // lookup still works without publishing a partially-hydrated
-        // account context when the point lookup itself fails.
-        let accountRow: AccountSummary | null = null;
-        if (selectedBranch.account_id) {
-          const { data: account, error: accountErr } = await supabase
-            .from('accounts')
-            // default_currency added in 021, localization columns in
-            // 055; every field is narrowed below / by
-            // resolveAccountLocale for older schemas where it reads null.
-            .select(
-              'id, name, created_at, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system, onboarding_dismissed_at, organization_id, legal_entity_id, branch_status, readiness_state, setup_reviewed_at, setup_reviewed_by'
-            )
-            .eq('id', selectedBranch.account_id)
-            .maybeSingle();
-          if (accountErr) {
-            console.error('[AuthProvider] fetchAccount error:', {
-              message: accountErr.message,
-              details: accountErr.details,
-              hint: accountErr.hint,
-              code: accountErr.code,
-            });
-            // A valid membership is not enough to publish tenant context:
-            // locale, currency, timezone, and capabilities all come from the
-            // selected account row. Clear any previous snapshot so refresh
-            // failures also fail closed, then leave Retry able to fetch again.
-            lastFetchedUserIdRef.current = null;
-            setProfile(null);
-            setAccount(null);
-            setAccountStatusDetail(
-              `account lookup failed: ${accountErr.message}`
-            );
-            return;
-          } else if (account) {
-            accountRow = {
-              id: account.id,
-              name: account.name,
-              created_at: account.created_at,
-              default_currency: account.default_currency ?? DEFAULT_CURRENCY,
-              country_code: account.country_code ?? null,
-              locale: account.locale ?? null,
-              timezone: account.timezone ?? null,
-              date_order: account.date_order ?? null,
-              time_format: account.time_format ?? null,
-              week_start: account.week_start ?? null,
-              phone_country_code: account.phone_country_code ?? null,
-              measurement_system: account.measurement_system ?? null,
-              onboarding_dismissed_at: account.onboarding_dismissed_at ?? null,
-              organization_id: account.organization_id,
-              legal_entity_id: account.legal_entity_id,
-              branch_status: account.branch_status,
-              readiness_state: account.readiness_state,
-              setup_reviewed_at: account.setup_reviewed_at ?? null,
-              setup_reviewed_by: account.setup_reviewed_by ?? null,
-            };
-          }
-        }
-
-        if (!accountRow) {
-          // `maybeSingle()` can return no row when the account was removed or
-          // RLS made it unreadable. Do not claim which one happened client-side;
-          // both mean the tenant context is not authoritative.
-          lastFetchedUserIdRef.current = null;
-          setProfile(null);
-          setAccount(null);
-          setAccountStatusDetail(
-            'the selected account row is missing or unreadable'
-          );
-          return;
-        }
-
-        // Narrow the DB enum into our AccountRole union. The DB
-        // constraint should make this unconditional, but a future
-        // migration that broadens the enum without updating TS would
-        // otherwise crash here — fall back to null and let UI gates
-        // treat the caller as least-privileged.
-        const accountRole = selectedBranch.role;
-
-        setProfile({
-          id: data.id,
-          full_name: data.full_name,
-          email: data.email,
-          avatar_url: data.avatar_url,
-          role: data.role,
-          // `beta_features` is `NOT NULL DEFAULT ARRAY[]` in the DB, but
-          // narrow defensively in case the column hasn't been migrated yet
-          // (older deployments running 011 lazily) — `null` reads as no
-          // opt-ins, which is the safe default for any future beta gate.
-          beta_features: data.beta_features ?? [],
-          account_id: selectedBranch.account_id,
-          account_role: accountRole,
-          appearance_theme: appearanceTheme,
-          appearance_mode: appearanceMode,
-        });
-        setAccount(accountRow);
-      } else {
-        lastFetchedUserIdRef.current = null;
-        setAccountStatusDetail('no profiles row for the signed-in user');
       }
     } catch (err) {
       console.error('[AuthProvider] fetchProfile threw:', err);
@@ -501,14 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
     let mounted = true;
-
-    const safetyTimer = setTimeout(() => {
-      if (mounted) {
-        console.warn('[AuthProvider] getSession() timed out after 3s');
-        setLoading(false);
-        setProfileLoading(false);
-      }
-    }, 3000);
+    let safetyTimer: ReturnType<typeof setTimeout> | null = null;
 
     const init = async () => {
       try {
@@ -540,11 +250,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('[AuthProvider] init threw:', err);
       } finally {
         if (mounted) setLoading(false);
-        clearTimeout(safetyTimer);
+        if (safetyTimer) clearTimeout(safetyTimer);
       }
     };
 
-    init();
+    // Dashboard cold loads already carry the validated server snapshot. Keep
+    // getSession only as a fallback for isolated/tests or a future provider
+    // mount that does not pass that snapshot.
+    if (!hasServerBootstrap) {
+      safetyTimer = setTimeout(() => {
+        if (mounted) {
+          console.warn('[AuthProvider] getSession() timed out after 3s');
+          setLoading(false);
+          setProfileLoading(false);
+        }
+      }, 3000);
+      void init();
+    }
 
     const {
       data: { subscription },
@@ -572,10 +294,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
-      clearTimeout(safetyTimer);
+      if (safetyTimer) clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [fetchProfile, hasServerBootstrap]);
 
   const signOut = useCallback(async () => {
     const supabase = createClient();

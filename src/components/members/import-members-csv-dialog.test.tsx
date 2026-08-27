@@ -320,7 +320,7 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     ).toBeTruthy();
   });
 
-  it('allows the Resolve issues content to scroll vertically', async () => {
+  it('gives the queue rail and the focused issue their own scrollports', async () => {
     const user = userEvent.setup();
     render(
       <ImportMembersCsvDialog open onOpenChange={vi.fn()} onSaved={vi.fn()} />
@@ -344,10 +344,24 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Preview 1 row' }));
 
-    const resolveContent = await screen.findByRole('region', {
-      name: 'Resolve issues content',
+    // The queue rail only exists once the step-3 panel has swapped in.
+    const queue = await screen.findByRole('navigation', {
+      name: 'Issue queue',
     });
-    expect(resolveContent.className.split(/\s+/)).toContain('overflow-y-auto');
+    expect(queue.className.split(/\s+/)).toContain('overflow-y-auto');
+
+    const focused = screen.getByRole('region', { name: 'Focused issue' });
+    expect(focused.parentElement?.className.split(/\s+/)).toContain(
+      'overflow-y-auto'
+    );
+
+    // Step 3 is a two-pane workspace: the step frame itself must not scroll,
+    // or the tab strip and both panes ride one shared column scroll.
+    const frameClasses = screen
+      .getByRole('region', { name: 'Resolve issues content' })
+      .className.split(/\s+/);
+    expect(frameClasses).toContain('overflow-hidden');
+    expect(frameClasses).not.toContain('overflow-y-auto');
   });
 
   it('keeps a grouped resolution when navigating from Confirm back to Resolve issues', async () => {

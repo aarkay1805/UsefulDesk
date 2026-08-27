@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isDashboardPath } from '@/lib/auth/dashboard-routes';
 import {
+  BRANCH_HEADER,
   BRANCH_QUERY_PARAM,
   isBranchAccountId,
 } from '@/lib/auth/branch-context';
@@ -11,7 +12,24 @@ import {
 } from '@/lib/auth/invitation-continuation';
 
 export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const requestHeaders = new Headers(request.headers);
+  // Never trust a caller-authored tenant header. Dashboard page requests get
+  // their branch only from the URL; API requests continue resolving the
+  // tab-local branch from their same-origin Referer in the server client.
+  requestHeaders.delete(BRANCH_HEADER);
+  if (
+    isDashboardPath(request.nextUrl.pathname) &&
+    request.nextUrl.searchParams.has(BRANCH_QUERY_PARAM)
+  ) {
+    const branch = request.nextUrl.searchParams.get(BRANCH_QUERY_PARAM);
+    requestHeaders.set(
+      BRANCH_HEADER,
+      isBranchAccountId(branch) ? branch : 'invalid'
+    );
+  }
+  const nextResponse = () =>
+    NextResponse.next({ request: { headers: requestHeaders } });
+  let supabaseResponse = nextResponse();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,7 +43,7 @@ export async function proxy(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = nextResponse();
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
@@ -34,12 +52,12 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const authenticated = Boolean(claimsData?.claims?.sub);
 
-  // getUser() transparently refreshes an expired access token, which
-  // ROTATES the refresh token and writes the new cookies onto
+  // getClaims() securely verifies the signed access token locally when the
+  // project uses asymmetric keys. It still loads/refreshes an expired session,
+  // which can rotate the refresh token and write new cookies onto
   // `supabaseResponse` via setAll() above. Any response we return in
   // place of `supabaseResponse` (every redirect / JSON branch below)
   // is a fresh object that does NOT carry those Set-Cookie headers, so
@@ -62,7 +80,7 @@ export async function proxy(request: NextRequest) {
   // a forwarded invite link to someone who's already signed in
   // would silently drop them on /dashboard.
   if (
-    user &&
+    authenticated &&
     (request.nextUrl.pathname === '/login' ||
       request.nextUrl.pathname === '/signup' ||
       request.nextUrl.pathname === '/forgot-password')
@@ -85,7 +103,7 @@ export async function proxy(request: NextRequest) {
   // Authenticated dashboard pages get an early redirect here. The dashboard
   // server layout independently verifies the user before rendering so this
   // proxy check is not the sole authentication boundary.
-  if (!user && isDashboardPath(request.nextUrl.pathname)) {
+  if (!authenticated && isDashboardPath(request.nextUrl.pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return withRefreshedCookies(NextResponse.redirect(url));
@@ -97,7 +115,7 @@ export async function proxy(request: NextRequest) {
   // or device. The redirect also forces a clean route render before any
   // branch-scoped request can start.
   if (
-    user &&
+    authenticated &&
     isDashboardPath(request.nextUrl.pathname) &&
     !request.nextUrl.searchParams.has(BRANCH_QUERY_PARAM)
   ) {
@@ -123,7 +141,7 @@ export async function proxy(request: NextRequest) {
 
   // API routes that need auth (not webhooks)
   if (
-    !user &&
+    !authenticated &&
     request.nextUrl.pathname.startsWith('/api/whatsapp/') &&
     !request.nextUrl.pathname.includes('/webhook')
   ) {

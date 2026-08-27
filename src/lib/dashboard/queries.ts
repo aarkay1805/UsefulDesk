@@ -1,11 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  daysAgoStart,
-  DOW_SHORT_MON_FIRST,
-  lastNDayKeys,
-  localDayKey,
-  mondayIndex,
-} from './date-utils';
+import { daysAgoStart, DOW_SHORT_MON_FIRST, mondayIndex } from './date-utils';
+import { dayStartInTz, todayInTz } from '@/lib/locale/format';
 import {
   humaniseKey,
   optionLabel,
@@ -23,11 +18,11 @@ import type {
 } from './types';
 
 // ------------------------------------------------------------
-// All client-side aggregation. RLS scopes every query to the
-// signed-in user automatically, so we never pass user_id explicitly
-// here. Perf is acceptable for the current scale (low thousands of
-// messages) — if a tenant's dataset outgrows this, we'd migrate the
-// heavy aggregations to SQL RPCs. Noted in the PR.
+// Shared dashboard aggregation. Initial insights and range changes run behind
+// the dashboard API, whose SSR Supabase client remains RLS-scoped to the
+// signed-in branch, so we never pass user_id explicitly. The browser receives
+// only the bounded result shapes; if server-side history scans outgrow current
+// tenant scale, the next step is to migrate those aggregations to SQL RPCs.
 // ------------------------------------------------------------
 
 type DB = SupabaseClient;
@@ -36,17 +31,23 @@ type DB = SupabaseClient;
 
 export async function loadConversationsSeries(
   db: DB,
-  rangeDays: number
+  rangeDays: number,
+  timeZone: string,
+  today: string
 ): Promise<ConversationsSeriesPoint[]> {
-  const start = daysAgoStart(rangeDays - 1).toISOString();
+  const firstDay = shiftDate(today, -(rangeDays - 1));
+  const start = dayStartInTz(firstDay, timeZone);
+  if (!start) throw new Error('Could not resolve conversation insight dates');
   const { data, error } = await db
     .from('messages')
     .select('created_at, sender_type')
-    .gte('created_at', start)
+    .gte('created_at', start.toISOString())
     .order('created_at', { ascending: true });
   if (error) throw error;
 
-  const keys = lastNDayKeys(rangeDays);
+  const keys = Array.from({ length: rangeDays }, (_, index) =>
+    shiftDate(firstDay, index)
+  );
   const buckets = new Map<string, { incoming: number; outgoing: number }>();
   for (const k of keys) buckets.set(k, { incoming: 0, outgoing: 0 });
 
@@ -54,7 +55,7 @@ export async function loadConversationsSeries(
     created_at: string;
     sender_type: string;
   }[]) {
-    const key = localDayKey(row.created_at);
+    const key = todayInTz(timeZone, new Date(row.created_at));
     const bucket = buckets.get(key);
     if (!bucket) continue;
     if (row.sender_type === 'customer') bucket.incoming += 1;
@@ -69,10 +70,13 @@ export async function loadConversationsSeries(
 
 // --- 3b. Lead funnel + conversion --------------------------------------
 
-export async function loadLeadFunnel(db: DB): Promise<LeadFunnelData> {
-  const monthStart = new Date();
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
+export async function loadLeadFunnel(
+  db: DB,
+  timeZone: string,
+  today: string
+): Promise<LeadFunnelData> {
+  const monthStart = dayStartInTz(`${today.slice(0, 7)}-01`, timeZone);
+  if (!monthStart) throw new Error('Could not resolve lead funnel dates');
 
   const [statusRows, sourceRows, funnelRes, sourceConvRes, convertedRes] =
     await Promise.all([
@@ -411,4 +415,10 @@ export async function loadActivity(
   return items
     .sort((a, b) => (a.at > b.at ? -1 : a.at < b.at ? 1 : 0))
     .slice(0, limit);
+}
+
+function shiftDate(day: string, days: number): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }

@@ -257,10 +257,19 @@ export function ImportMembersPreview({
     <Tabs
       value={activeView}
       onValueChange={(value) => value && setView(value as PreviewView)}
-      className="h-full min-h-0 gap-0"
+      /* `flex-1` is what actually gives this a height: the dialog body is a
+         flex column whose own height comes from a max-height clamp, so a
+         percentage height would resolve against an indefinite parent.
+         `h-full` stays as the fallback for any non-flex host. */
+      className="h-full min-h-0 flex-1 gap-0"
     >
-      <div className="border-border flex shrink-0 items-end gap-4 border-b px-1">
-        <TabsList variant="line">
+      {/* The strip carries the dialog's gutter now that the body no longer
+          pads this step, so the tab labels line up with the title above and
+          the footer buttons below. Geometry matches the app's other line
+          tabs (members, leads, finance): flat list, roomy gap, underline
+          pinned to the divider it sits on. */}
+      <div className="border-border flex shrink-0 items-end gap-4 border-b px-6 pt-3">
+        <TabsList variant="line" className="h-auto gap-5 p-0">
           {/* Counts the queue this tab opens. The affected-member count is
               already stated in the dialog description, and each issue states
               its own row count, so the badge adds a number instead of
@@ -269,6 +278,7 @@ export function ImportMembersPreview({
             value="issues"
             disabled={groups.length === 0}
             aria-label={`Issues, ${groups.length} to resolve`}
+            className="flex-none px-0.5 pb-2 group-data-horizontal/tabs:after:bottom-0"
           >
             Issues
             <Badge variant="warning" size="count">
@@ -278,6 +288,7 @@ export function ImportMembersPreview({
           <TabsTrigger
             value="rows"
             aria-label={`Review rows, ${summary.source} in total`}
+            className="flex-none px-0.5 pb-2 group-data-horizontal/tabs:after:bottom-0"
           >
             Review rows
             <Badge variant="neutral" size="count">
@@ -294,12 +305,15 @@ export function ImportMembersPreview({
       </div>
 
       {activeView === 'issues' && activeGroup ? (
-        <TabsContent value="issues" className="min-h-0 overflow-hidden">
-          <div className="grid h-full min-h-0 md:grid-cols-[18rem_minmax(0,1fr)]">
+        <TabsContent
+          value="issues"
+          className="flex min-h-0 flex-col overflow-hidden"
+        >
+          <div className="grid min-h-0 flex-1 md:grid-cols-[16rem_minmax(0,1fr)] lg:grid-cols-[18rem_minmax(0,1fr)]">
             <aside className="border-border hidden min-h-0 border-r md:flex md:flex-col">
               <nav
                 aria-label="Issue queue"
-                className="divide-border min-h-0 flex-1 divide-y overflow-y-auto px-2 pb-2"
+                className="divide-border min-h-0 flex-1 divide-y overflow-y-auto px-4 pb-3"
               >
                 {sections.map((section, index) => (
                   <div
@@ -368,7 +382,7 @@ export function ImportMembersPreview({
             <div className="flex min-h-0 min-w-0 flex-col">
               {/* Without the queue rail, the picker and the pager are the same
                   navigation and belong on one row above the work. */}
-              <div className="border-border flex shrink-0 items-center gap-2 border-b p-3 md:hidden">
+              <div className="border-border flex shrink-0 items-center gap-2 border-b px-6 py-3 md:hidden">
                 <div className="min-w-0 flex-1">
                   <Select
                     value={activeGroup.key}
@@ -417,7 +431,7 @@ export function ImportMembersPreview({
               <div className="min-h-0 flex-1 overflow-y-auto">
                 <section
                   aria-label="Focused issue"
-                  className="max-w-3xl px-4 pt-5 pb-6 sm:px-6"
+                  className="@container max-w-3xl px-6 pt-5 pb-6"
                 >
                   <h3 className="text-base font-semibold">
                     {activeGroup.title}
@@ -449,8 +463,11 @@ export function ImportMembersPreview({
       ) : null}
 
       {activeView === 'rows' ? (
-        <TabsContent value="rows" className="min-h-0 overflow-hidden">
-          <div className="flex h-full min-h-0 flex-col gap-3 pt-3">
+        <TabsContent
+          value="rows"
+          className="flex min-h-0 flex-col overflow-hidden"
+        >
+          <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 pt-4 pb-4">
             <div className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center">
               <SearchInput
                 value={search}
@@ -835,9 +852,11 @@ function CandidateIdentity({
 function ExcludeAction({
   candidate,
   onSetDisposition,
+  className,
 }: {
   candidate: MemberImportCandidate;
   onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+  className?: string;
 }) {
   const name = candidateName(candidate);
   return (
@@ -845,6 +864,7 @@ function ExcludeAction({
       type="button"
       variant="link"
       size="sm"
+      className={className}
       aria-label={`Exclude ${name}, source row ${candidate.sourceRow}`}
       onClick={() => onSetDisposition(candidate.sourceKey, 'excluded')}
     >
@@ -924,18 +944,27 @@ function IssueRows({
             </>
           ) : (
             <div
+              /* Container query, not a viewport one: the queue rail takes
+                 a fixed slice of the dialog, so at the dialog's own medium
+                 width the viewport is past `sm` while this column is not
+                 wide enough for name, control, and action side by side —
+                 which crushed the name to a few characters. */
               className={cn(
-                'grid gap-3 sm:items-center',
+                'grid gap-3 @xl:items-center',
                 renderControl
-                  ? 'sm:grid-cols-[minmax(0,1fr)_minmax(14rem,0.8fr)_auto]'
-                  : 'sm:grid-cols-[minmax(0,1fr)_auto]'
+                  ? '@xl:grid-cols-[minmax(0,1fr)_minmax(14rem,0.8fr)_auto]'
+                  : '@xl:grid-cols-[minmax(0,1fr)_auto]'
               )}
             >
               <CandidateIdentity candidate={candidate} />
               {renderControl?.(candidate)}
+              {/* Once the row stacks, this is a full-width grid cell and a
+                  centred `Exclude` reads as the row's main action rather
+                  than its escape hatch. */}
               <ExcludeAction
                 candidate={candidate}
                 onSetDisposition={onSetDisposition}
+                className="justify-self-start"
               />
             </div>
           )}

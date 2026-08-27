@@ -15,15 +15,12 @@ import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { getErrorMessage } from '@/lib/errors';
-import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
-import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 import {
   deriveOnboardingSteps,
   ONBOARDING_STEP_COUNT,
   type OnboardingRawStatus,
   type OnboardingStep,
 } from '@/lib/onboarding/steps';
-import { hasBranchSetupPrerequisite } from '@/lib/branches/setup';
 
 interface OnboardingStatusValue {
   /**
@@ -88,91 +85,41 @@ export function OnboardingProvider({
   useEffect(() => {
     if (!active || !accountId) return;
     let cancelled = false;
-    const supabase = createClient();
 
     (async () => {
       setLoading(true);
-      // allSettled: one failed signal must not blank the checklist. A
-      // failed fetch derives as "not done" (steps.ts treats nulls as
-      // incomplete), so we can never auto-dismiss off missing data.
-      const [
-        config,
-        template,
-        plans,
-        memberships,
-        paymentCredentials,
-        payments,
-        team,
-        invites,
-      ] = await Promise.allSettled([
-        supabase.from('whatsapp_config').select('status').maybeSingle(),
-        supabase
-          .from('message_templates')
-          .select('*')
-          .eq('account_id', accountId)
-          .eq('name', TEMPLATE_CONTRACTS.membership_renewal.payload.name),
-        supabase
-          .from('membership_plans')
-          .select('is_active, pricing_options:plan_pricing_options(is_active)')
-          .eq('is_active', true),
-        supabase
-          .from('memberships')
-          .select('id', { count: 'exact', head: true }),
-        fetch('/api/payments/razorpay/connection', {
+      try {
+        const response = await fetch('/api/onboarding/status', {
           cache: 'no-store',
-        }).then(async (response) => {
-          const body = await response.json();
-          if (!response.ok) throw new Error(body.error);
-          return body.connection as { configured: boolean };
-        }),
-        supabase
-          .from('payments')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'paid'),
-        fetch('/api/account/members', { cache: 'no-store' }).then((r) =>
-          r.json()
-        ),
-        fetch('/api/account/invitations', { cache: 'no-store' }).then((r) =>
-          r.json()
-        ),
-      ]);
-      if (cancelled) return;
-
-      const count = (res: PromiseSettledResult<{ count: number | null }>) =>
-        res.status === 'fulfilled' ? (res.value.count ?? 0) : 0;
-
-      setRaw({
-        whatsappConnected:
-          config.status === 'fulfilled' &&
-          config.value.data?.status === 'connected',
-        templateApproved:
-          template.status === 'fulfilled' &&
-          !template.value.error &&
-          evaluateTemplateReadiness(
-            template.value.data ?? [],
-            'membership_renewal',
-            'en_US'
-          ).ready,
-        hasActivePlanPricing:
-          plans.status === 'fulfilled' &&
-          !plans.value.error &&
-          hasBranchSetupPrerequisite(plans.value.data ?? []),
-        membershipCount: count(memberships),
-        razorpayConnected:
-          paymentCredentials.status === 'fulfilled' &&
-          paymentCredentials.value.configured,
-        paidPaymentCount: count(payments),
-        teamSize:
-          team.status === 'fulfilled' && Array.isArray(team.value?.members)
-            ? team.value.members.length
-            : null,
-        pendingInvites:
-          invites.status === 'fulfilled' &&
-          Array.isArray(invites.value?.invitations)
-            ? invites.value.invitations.length
-            : null,
-      });
-      setLoading(false);
+        });
+        const body = (await response.json()) as {
+          status?: OnboardingRawStatus;
+          error?: string;
+        };
+        if (!response.ok || !body.status) {
+          throw new Error(body.error ?? 'Could not load onboarding status');
+        }
+        if (!cancelled) setRaw(body.status);
+      } catch (error) {
+        console.error('[onboarding] status load failed:', error);
+        // Preserve the former allSettled posture: a failed signal must never
+        // complete or auto-dismiss a step. A whole-endpoint failure therefore
+        // resolves to an affirmatively incomplete snapshot.
+        if (!cancelled) {
+          setRaw({
+            whatsappConnected: false,
+            templateApproved: false,
+            hasActivePlanPricing: false,
+            membershipCount: 0,
+            razorpayConnected: false,
+            paidPaymentCount: 0,
+            teamSize: null,
+            pendingInvites: null,
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
 
     return () => {
