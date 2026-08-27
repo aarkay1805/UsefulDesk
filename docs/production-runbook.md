@@ -28,14 +28,14 @@ explicitly delegated owner takes responsibility.
 
 ## Observability
 
-| Signal                | Source                                       | Healthy state                                                                    | Retention / limitation                                                          |
-| --------------------- | -------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Public availability   | `production-health` GitHub workflow          | `/login` returns successfully and contains the UsefulDesk title                  | GitHub schedules are best-effort; this is not a hard ten-minute SLA             |
-| Critical workers      | `ops-crons` workflow                         | every step succeeds and a successful run is no more than 75 minutes old          | The nominal 15-minute schedule has stretched under GitHub load                  |
-| Renewal workers       | `renewals-cron` workflow                     | both steps succeed and a successful run is no more than 2 hours old              | A delayed run can delay account-local reminders                                 |
-| Backup recovery point | `Production backup` workflow                 | latest nightly database job succeeds; weekly/full run also verifies Storage      | See `docs/backups.md`; old pre-rotation archives are not considered recoverable |
-| Server errors         | Vercel Runtime Logs, Production, Error level | no unexplained burst of errors after a release or alert                          | Hobby runtime logs retain only the latest hour; capture evidence promptly       |
-| Database/Auth         | Supabase Logs and Advisors                   | no correlated 5xx/Auth/database errors and no new error-severity advisor finding | Dashboard access is required                                                    |
+| Signal                | Source                                       | Healthy state                                                                     | Retention / limitation                                                          |
+| --------------------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Public availability   | `production-health` GitHub workflow          | `/login` returns successfully and contains the UsefulDesk title                   | GitHub schedules are best-effort; this is not a hard ten-minute SLA             |
+| Critical workers      | Supabase Cron + `ops-crons` workflow         | latest database aggregate is HTTP 200/`failed: 0`; GitHub succeeds within 75 min  | Either scheduler may mask failure of the other, so inspect both                 |
+| Renewal workers       | Supabase Cron + `renewals-cron` workflow     | latest database aggregate is HTTP 200/`failed: 0`; GitHub succeeds within 2 hours | A delayed run can delay account-local reminders                                 |
+| Backup recovery point | `Production backup` workflow                 | latest nightly database job succeeds; weekly/full run also verifies Storage       | See `docs/backups.md`; old pre-rotation archives are not considered recoverable |
+| Server errors         | Vercel Runtime Logs, Production, Error level | no unexplained burst of errors after a release or alert                           | Hobby runtime logs retain only the latest hour; capture evidence promptly       |
+| Database/Auth         | Supabase Logs and Advisors                   | no correlated 5xx/Auth/database errors and no new error-severity advisor finding  | Dashboard access is required                                                    |
 
 Quick read-only triage:
 
@@ -53,6 +53,19 @@ gh run view <failed-run-id> --log-failed
 vercel logs --environment production --level error --since 1h --expand
 ```
 
+Supabase SQL Editor or the approved read-only connector:
+
+```sql
+SELECT jobname, schedule, active
+FROM cron.job
+WHERE jobname IN ('usefuldesk-ops-cron', 'usefuldesk-renewals-cron');
+
+SELECT status_code, timed_out, error_msg, created
+FROM net._http_response
+ORDER BY created DESC
+LIMIT 20;
+```
+
 The cron routes and their expected response shapes are documented in
 `docs/automations-and-cron.md`. Never put `AUTOMATION_CRON_SECRET` on a command
 line or in an incident note; read it into the environment or use an approved
@@ -65,10 +78,12 @@ Treat a signal as actionable when any threshold below is met:
 - **SEV-1:** login is unavailable on two checks ten minutes apart; confirmed
   cross-tenant/security exposure; destructive data loss; or inbound/outbound
   provider processing is corrupting records. Owner response target: 10 minutes.
-- **SEV-2:** any critical-worker step fails; the last successful `ops-crons`
-  run is older than 75 minutes; the last successful `renewals-cron` run is
-  older than 2 hours; the nightly database backup is missed; or a new release
-  produces repeated server errors. Owner response target: 30 minutes.
+- **SEV-2:** both execution paths miss a worker window; either database job is
+  inactive; a database aggregate or GitHub critical-worker step fails; the
+  last successful GitHub `ops-crons` run is older than 75 minutes; the last
+  successful GitHub `renewals-cron` run is older than 2 hours; the nightly
+  database backup is missed; or a new release produces repeated server errors.
+  Owner response target: 30 minutes.
 - **SEV-3:** one transient probe fails and its retry succeeds, or a noncritical
   degradation has a safe workaround. Review during the same working day.
 
@@ -90,8 +105,8 @@ does not have a verified paging channel.
 ## Triage and containment
 
 1. Declare severity, owner, and the next update time. Note the current UTC time.
-2. Check public availability and the three GitHub workflows above. Open the
-   failed step; do not rerun it yet.
+2. Check public availability, both Supabase Cron jobs/responses, and the three
+   GitHub workflows above. Open the failed step; do not rerun it yet.
 3. Capture the active Vercel deployment id/URL and Git commit. Query the latest
    hour of Production error logs before Hobby retention expires.
 4. Correlate with Supabase Logs and provider health. Redact all customer data.

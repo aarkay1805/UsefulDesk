@@ -41,13 +41,13 @@ ABANDON: G2 owner chose the no-cost fallback instead of upgrading Supabase to Pr
       EXPECT: service renewal contract verification passed
       EVIDENCE: 2026-08-24 the dedicated payload regression passed and proves gym_service_renewal is MARKETING/en_US/POSITIONAL with the exact four body parameters, approved body, footer, Renew service button, Unsubscribe button, and provider sample values.
 
-- [ ] G8: gym_service_renewal is approved and synced in the production WhatsApp account with the exact repository contract
-      EVIDENCE: 2026-08-24 Meta accepted the exact gym_service_renewal contract on the owner-approved Rajat Kashyap production account and returned Pending. Production stores the provider ID, Marketing/en_US/POSITIONAL contract, exact four examples, body, footer, and both quick replies with no submission or rejection error. No WhatsApp message was sent. This gate remains unmet until Meta approves it and an authenticated sync records Approved.
+- [x] G8: gym_service_renewal is approved and synced in the production WhatsApp account with the exact repository contract
+      EVIDENCE: 2026-08-27 a service-role read-only production check found gym_service_renewal Approved on the owner-approved Rajat Kashyap account with exact Marketing/en_US/POSITIONAL body, footer, ordered quick replies, no provider component sync marker, and no provider-missing marker. The same check proved gym_membership_renewal and gym_payment_link ready. No WhatsApp message was sent.
 
-- [ ] G9: the exact gym_installment_reminder repository contract produces the approved positional Meta payload
+- [x] G9: the exact gym_installment_reminder repository contract produces the approved positional Meta payload
       CHECK: npm test -- --run src/lib/whatsapp/template-contracts.test.ts && node -e "const fs=require('node:fs');const s=fs.readFileSync('src/lib/whatsapp/template-contracts.test.ts','utf8');if(!s.includes('builds the exact Meta payload for installment reminder'))process.exit(1);console.log('installment reminder contract verification passed')"
       EXPECT: installment reminder contract verification passed
-      EVIDENCE: pending
+      EVIDENCE: 2026-08-27 the focused five-contract regression passed, including the exact Utility/en_US/POSITIONAL installment payload and its member, amount, plan, and due-date parameter order.
 
 - [ ] G10: gym_installment_reminder is approved and synced in the production WhatsApp account with the exact repository contract
       EVIDENCE: pending
@@ -63,4 +63,9 @@ ABANDON: G2 owner chose the no-cost fallback instead of upgrading Supabase to Pr
 - [x] G13: all shipped changes are documented and the full typecheck, lint, test, and production build suite passes
       CHECK: npm run typecheck && npm run lint && npm test && npm run build && node -e "console.log('full go-live regression verification passed')"
       EXPECT: full go-live regression verification passed
-      EVIDENCE: 2026-08-24 `npm run format:check`, `npm run lint`, `npm test`, and `npm run build` exited 0 after the Razorpay rollout work; Vitest passed 2,222 tests across 311 files and Next 16.3.0 completed the 94-route production build. Lint reported zero errors and 152 pre-existing vendored-skill warnings.
+      EVIDENCE: 2026-08-27 `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` exited 0 with the database-owned scheduler; Vitest passed 2,631 tests across 349 files and Next 16.3.0 completed the 95-route production build. Lint reported zero errors and 152 pre-existing vendored-skill warnings.
+
+- [ ] G14: production operational and reminder workers have an independent database-owned scheduler with verified live execution
+      CHECK: npm test -- --run src/app/api/database-cron/route.test.ts src/lib/cron/database-scheduler-contract.test.ts
+      EXPECT: eight focused scheduler tests pass
+      EVIDENCE: 2026-08-27 the inactive foundation migration passed on the isolated Test project with pg_cron 1.6.4, pg_net 0.20.4, one private auth row, both intended schedules, a rejecting unknown-secret check, and no anon/authenticated verifier grant. Production activation and one observed scheduled ops plus renewal response remain before closure.

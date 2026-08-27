@@ -6,6 +6,10 @@
 
 ---
 
+## Production workers now have an independent database-owned scheduler
+
+Supabase Cron now calls one Vault-authenticated application aggregator for the seven operational workers every 15 minutes and the two reminder workers hourly. The database generates and retains its own 256-bit secret in Vault; only a service-role RPC can verify it, and the aggregator delegates to the unchanged `AUTOMATION_CRON_SECRET` boundaries so every existing claim, dedupe, failure response, and GitHub diagnostic remains authoritative. GitHub Actions stays enabled on staggered off-boundary minutes as the redundant pinger and alert path after its scheduled events exceeded the runbook freshness limits on 2026-08-27. Manual recovery runs `33046275176`, `33046277318`, and `33046279868` were green: no reminders were due or sent, every recovery queue was empty/healthy, one Razorpay source scan produced zero observations, Meta Page health was healthy, and login passed. Key code: `src/app/api/database-cron/route.ts`, migration `20260827064004_database_owned_cron_scheduler.sql`, the three production workflows, and `docs/automations-and-cron.md`. Gotcha: never expose the Vault secret or replace the aggregator with direct database access to provider logic.
+
 ## Razorpay P2 integrity gaps are closed and production-schema ready
 
 Application-canonical webhooks now retain signed unknown merchants for exact OAuth merchant/mode recovery; AutoPay and Payment Link settlement uses Razorpay's provider-authored payment time; and owner/admin users can cancel a mandate from Billing only after provider-terminal convergence. Razorpay Test acceptance created and cancelled disposable subscription `sub_TUUNYZcSaJlDsr` without approval or money movement. It exposed and closed two branch-safety races: cancellation authorization now uses `account_memberships`, and a provider webhook that revokes first no longer prevents the route from completing the actor/reason audit. Key code lives in the mandate and application-webhook routes, `src/lib/payments/razorpay-{webhook-processor,payment-links,mandates}.ts`, the member Billing UI, and migrations `20260826210000_resolve_razorpay_p2_integrity_gaps.sql` plus `20260826220000_fix_razorpay_mandate_cancellation_branch_authorization.sql`. Test ended with the mandate revoked/audited and every acceptance queue at zero. After encrypted backup run `32997711909` succeeded, Production recorded connector versions `20260826181015` and `20260826181016`; schema, service-role-only grants, the ready Live credential, and all preflight queue counts were reverified without changing any production payment, mandate, link, refund, or exception row. Vercel's production alias is now gated by the repository's full CI check for future releases.
@@ -68,11 +72,11 @@ payload: `MARKETING`, `en_US`, POSITIONAL body parameters in member/service/end
 date/current-price order, the approved body and footer, both quick replies, and
 provider examples. The shared contract itself was already correct; this closes
 the feature-specific payload oracle without changing send behavior. Key code:
-`src/lib/whatsapp/template-contracts.test.ts`. Gotcha: the production template
-was submitted with the exact locked payload on the owner-approved Rajat Kashyap
-account and is stored with Meta's provider ID and Pending status; it must still
-be approved and synced before service reminders are ready. No WhatsApp message
-was sent.
+`src/lib/whatsapp/template-contracts.test.ts`. A read-only 2026-08-27 production
+check proved the owner-approved Rajat Kashyap account now stores the exact
+Marketing/en_US/POSITIONAL contract as Approved with no provider sync or
+missing marker, so membership and service reminder readiness is live. No
+WhatsApp message was sent during that check.
 
 ## Stale Meta leads no longer make a healthy Page look disconnected
 

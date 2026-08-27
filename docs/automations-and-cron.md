@@ -4,18 +4,18 @@ Ten scheduled jobs keep the time-based features alive. None of them
 run by themselves: each is a plain GET route that something external
 must ping on a schedule. This page is the map.
 
-| Endpoint                               | Does                                                                                                                                                                                             | Needed by                         | Schedule                                                              |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | --------------------------------------------------------------------- |
-| `/api/follow-ups/cron`                 | Sends in-app bell notifications for follow-up tasks whose `remind_at` slot has arrived; an active dashboard rings while those notifications remain unread                                        | Follow-up reminders (Leads)       | every 15 min                                                          |
-| `/api/automations/cron`                | Reclaims owner-leased automation runs parked on a **Wait** step, including expired `running` work                                                                                                | Automations with delays           | every 15 min                                                          |
-| `/api/flows/cron`                      | CAS-times out the exact active snapshot abandoned mid-conversation (frees the one-active-run-per-contact lock)                                                                                   | WhatsApp flows                    | every 15 min                                                          |
-| `/api/whatsapp/webhook`                | Recovers leased, failed, or pending durable WhatsApp webhook receipts; ordinary unauthenticated GETs remain Meta verification requests                                                           | Inbound WhatsApp durability       | every 15 min                                                          |
-| `/api/v1/broadcasts/cron`              | Reclaims owner-leased public API broadcast recipients left pending by an interrupted `after()` drain                                                                                             | Public API broadcast durability   | every 15 min                                                          |
-| `/api/renewals/cron`                   | Sends exact Marketing `gym_membership_renewal` / `gym_service_renewal` contracts after provider readiness; service sends require a current rate                                                  | Auto renewal reminders            | hourly at :30 (sends after 09:00 account-local)                       |
-| `/api/payment-installments/cron`       | Sends exact Utility `gym_installment_reminder` while the second 40% remains due                                                                                                                  | Joining payment installments      | hourly at :30 (7, 3, 1, and 0 days before the account-local deadline) |
-| `/api/payments/razorpay/recovery/cron` | Recovers owner-leased events, links, refunds, and ordered recurring-charge exceptions; scans up to 20 due subscriptions against provider invoices; performs the daily OAuth token/readiness scan | Razorpay payment/OAuth durability | every 15 min                                                          |
-| `/api/meta/leads/recovery/cron`        | Recovers up to 25 owned Meta lead events, then checks up to 10 due Pages and restores a missing `leadgen` subscription after lead access is verified; provider concurrency is capped at three    | Meta Lead Ads durability          | every 15 min                                                          |
-| `/api/members/import-draft/cleanup`    | Claims expired author-private import drafts, deletes their private source objects, and removes their metadata idempotently                                                                       | Cross-device member import drafts | daily at 02:17 UTC                                                    |
+| Endpoint                               | Does                                                                                                                                                                                             | Needed by                         | Schedule                                                             |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | -------------------------------------------------------------------- |
+| `/api/follow-ups/cron`                 | Sends in-app bell notifications for follow-up tasks whose `remind_at` slot has arrived; an active dashboard rings while those notifications remain unread                                        | Follow-up reminders (Leads)       | every 15 min                                                         |
+| `/api/automations/cron`                | Reclaims owner-leased automation runs parked on a **Wait** step, including expired `running` work                                                                                                | Automations with delays           | every 15 min                                                         |
+| `/api/flows/cron`                      | CAS-times out the exact active snapshot abandoned mid-conversation (frees the one-active-run-per-contact lock)                                                                                   | WhatsApp flows                    | every 15 min                                                         |
+| `/api/whatsapp/webhook`                | Recovers leased, failed, or pending durable WhatsApp webhook receipts; ordinary unauthenticated GETs remain Meta verification requests                                                           | Inbound WhatsApp durability       | every 15 min                                                         |
+| `/api/v1/broadcasts/cron`              | Reclaims owner-leased public API broadcast recipients left pending by an interrupted `after()` drain                                                                                             | Public API broadcast durability   | every 15 min                                                         |
+| `/api/renewals/cron`                   | Sends exact Marketing `gym_membership_renewal` / `gym_service_renewal` contracts after provider readiness; service sends require a current rate                                                  | Auto renewal reminders            | hourly at :41 database / :47 GitHub (after 09:00 account-local)      |
+| `/api/payment-installments/cron`       | Sends exact Utility `gym_installment_reminder` while the second 40% remains due                                                                                                                  | Joining payment installments      | hourly at :41 database / :47 GitHub (7, 3, 1, and 0 days before due) |
+| `/api/payments/razorpay/recovery/cron` | Recovers owner-leased events, links, refunds, and ordered recurring-charge exceptions; scans up to 20 due subscriptions against provider invoices; performs the daily OAuth token/readiness scan | Razorpay payment/OAuth durability | every 15 min                                                         |
+| `/api/meta/leads/recovery/cron`        | Recovers up to 25 owned Meta lead events, then checks up to 10 due Pages and restores a missing `leadgen` subscription after lead access is verified; provider concurrency is capped at three    | Meta Lead Ads durability          | every 15 min                                                         |
+| `/api/members/import-draft/cleanup`    | Claims expired author-private import drafts, deletes their private source objects, and removes their metadata idempotently                                                                       | Cross-device member import drafts | daily at 02:17 UTC                                                   |
 
 All ten use claim or compare-and-set gates so overlapping schedulers do not
 overwrite newer state. Delayed automations and public broadcasts remain
@@ -56,17 +56,31 @@ The secret is `AUTOMATION_CRON_SECRET`; `CRON_SECRET` is accepted as an
 equivalent so a native-Vercel setup needs no extra provisioning. No
 secret configured → routes answer `503 cron not configured`.
 
-## Current scheduler: GitHub Actions
+## Current schedulers: Supabase Cron + GitHub Actions
 
-Two workflows ping production (`desk.usefulmade.com`):
+Supabase Cron is the database-owned execution path. Migration
+`20260827064004_database_owned_cron_scheduler.sql` creates two jobs:
+
+- `usefuldesk-ops-cron` calls the seven high-frequency routes through
+  `/api/database-cron?group=ops` at :08, :23, :38, and :53 each hour.
+- `usefuldesk-renewals-cron` calls renewal and installment reminders through
+  `/api/database-cron?group=renewals` hourly at :41.
+
+The database generates a 256-bit secret internally, stores it only in Vault,
+and retains only its slow hash in a private RLS-on/no-policy table. The
+aggregator verifies it through a service-role-only RPC, then delegates to the
+unchanged route-specific `AUTOMATION_CRON_SECRET` boundary. Never print, export,
+or copy the Vault value into source or an operator command.
+
+Two GitHub workflows independently ping the same production workers. They are
+kept as a redundant execution path and the existing alert surface:
 
 - [`.github/workflows/ops-crons.yml`](../.github/workflows/ops-crons.yml)
   — follow-ups + automations + flows + WhatsApp receipt recovery + public
-  broadcast recovery + Razorpay recovery + Meta Lead Ads recovery, every 15 min (best-effort; GitHub
-  may stretch this to ~25 min under load, which is fine — reminder
-  slots are hourly).
+  broadcast recovery + Razorpay recovery + Meta Lead Ads recovery at :11, :26,
+  :41, and :56.
 - [`.github/workflows/renewals-cron.yml`](../.github/workflows/renewals-cron.yml)
-  — renewal and payment-installment reminders, hourly at :30. Accounts
+  — renewal and payment-installment reminders, hourly at :47. Accounts
   live in different timezones (migration 055); each route sends only
   after 09:00 local, and its sent ledger prevents duplicate messages.
 
@@ -77,9 +91,10 @@ result, and copies it to Cloudflare R2. Its credentials, activation checks, and
 restore drill live in the [backup runbook](backups.md).
 
 Production availability, alert thresholds, escalation ownership, and rollback
-live in the [production runbook](production-runbook.md). GitHub schedules are
-best-effort, so operators must monitor the freshness thresholds there rather
-than treating a historically green run as proof that the scheduler is current.
+live in the [production runbook](production-runbook.md). GitHub documents that
+scheduled events can be delayed or dropped, so neither a historically green
+GitHub run nor a successful database dispatch proves the other scheduler is
+current. Monitor both paths.
 
 Refund review is a hard reminder hold. Refund-aware balance views expose
 `collectible_balance=0` while a provider-confirmed refund lacks a safe complete
@@ -105,21 +120,24 @@ response makes the run red while preserving the body for diagnosis. A `200`
 means every phase completed without an isolated failure; it does not mean work
 was necessarily claimed.
 
-Why not native Vercel Cron: the Hobby plan allows only 2 cron jobs at
-once-per-day granularity — useless for the 15-minute jobs. GitHub
-Actions is free, plan-independent, and can send the custom header. The one
-daily member-import draft cleanup is the deliberate exception and is declared
-in `vercel.json`; it uses Vercel's bearer `CRON_SECRET` authentication.
+Why not native Vercel Cron: the Hobby plan allows only two cron jobs at
+once-per-day granularity, which cannot sustain the worker cadence. The one
+daily member-import draft cleanup remains the deliberate exception declared in
+`vercel.json`; it uses Vercel's bearer `CRON_SECRET` authentication.
 
 ### Setup (one-time)
 
-1. Generate a secret: `openssl rand -hex 32`.
-2. Vercel → Project → Settings → Environment Variables →
-   `AUTOMATION_CRON_SECRET` = that value → **redeploy**.
-3. GitHub repo → Settings → Secrets and variables → Actions →
+1. Vercel → Project → Settings → Environment Variables → set one strong
+   64-hex `AUTOMATION_CRON_SECRET` → **redeploy**.
+2. GitHub repo → Settings → Secrets and variables → Actions →
    `AUTOMATION_CRON_SECRET` = the same value.
+3. Apply the database-owned scheduler migrations through the approved Supabase
+   migration connector. The database creates its separate secret itself.
 4. Test from the Actions tab: run **ops-crons** and **renewals-cron**
    manually (workflow_dispatch) — every step must be green.
+5. Inspect Supabase Cron history and `net._http_response`; both database jobs
+   must be active and their latest aggregator response must have HTTP 200 with
+   `failed: 0`.
 
 ### Verify by hand
 
@@ -145,6 +163,19 @@ curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/members/im
 `cron not configured` → env var not set in Vercel or not redeployed since.
 `503` with a Razorpay aggregate result → inspect its nonzero `failed` counter
 and matching `notes` entry.
+
+Database-owned scheduler diagnostics are read-only:
+
+```sql
+SELECT jobname, schedule, active
+FROM cron.job
+WHERE jobname IN ('usefuldesk-ops-cron', 'usefuldesk-renewals-cron');
+
+SELECT status_code, timed_out, error_msg, created
+FROM net._http_response
+ORDER BY created DESC
+LIMIT 20;
+```
 
 ## If the project moves to Vercel Pro
 

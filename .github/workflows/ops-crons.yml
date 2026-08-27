@@ -16,13 +16,14 @@ name: ops-crons
 # two jobs at daily granularity — so, as with renewals, this GitHub
 # Action is the pinger. Uses the same repo secret AUTOMATION_CRON_SECRET.
 #
-# GitHub schedules are best-effort: a "*/15" job typically fires every
-# 15–25 minutes under load. Fine here — follow-up reminder slots are
-# hourly, and the remaining jobs only need to drain within the hour.
+# GitHub schedules are best-effort and can be dropped. Supabase Cron is the
+# independent database-owned scheduler; this workflow remains a redundant
+# pinger and the alert surface. Use off-boundary minutes to reduce GitHub load
+# delays while keeping a separate cadence from the database jobs.
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '11,26,41,56 * * * *'
   # Lets you trigger a run by hand from the Actions tab (for testing).
   workflow_dispatch:
 

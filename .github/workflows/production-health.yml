@@ -6,7 +6,8 @@ name: production-health
 # exercised separately by ops-crons.yml and renewals-cron.yml.
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    # GitHub recommends off-boundary minutes to reduce delayed/dropped runs.
+    - cron: '4,14,24,34,44,54 * * * *'
   workflow_dispatch:
 
 permissions:

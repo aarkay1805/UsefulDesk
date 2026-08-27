@@ -16,9 +16,9 @@ name: renewals-cron
 
 on:
   schedule:
-    # :30 keeps the original 03:30 UTC = 09:00 IST slot for the home
-    # market; half-hour zones (IST +5:30) land exactly on their 9am.
-    - cron: '30 * * * *'
+    # Supabase Cron runs the independent database-owned trigger at :41.
+    # This off-boundary :47 run remains the redundant pinger and alert path.
+    - cron: '47 * * * *'
   # Lets you trigger a run by hand from the Actions tab (for testing).
   workflow_dispatch:
 

@@ -8,6 +8,8 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **production workers now have two independent schedulers. Supabase Cron owns Vault-authenticated 15-minute ops and hourly renewal aggregator calls, while GitHub Actions remains the staggered redundant pinger and alert surface. This closes the dropped GitHub schedule failure mode without changing any worker's claim, dedupe, provider, or failure semantics. The authorized manual recovery and post-09:00 reminder runs were green with no due or sent reminders, zero failed recovery work, one zero-observation Razorpay source scan, healthy Meta Page state, and a passing login probe.**
+
 Engineering maintenance: **the remaining Razorpay P2 integrity fixes passed Test Mode provider acceptance and their production schema is installed. Signed unknown-merchant events retain canonical recovery state, settlements preserve provider payment time, mandate setup stays same-origin/exact-active/currency-safe, and owner/admin cancellation converges provider state before an audited local terminal transition. Disposable Test subscription `sub_TUUNYZcSaJlDsr` was cancelled without approval or money movement; the exercise fixed branch authorization through `account_memberships` and a webhook-first cancellation audit race, then ended with zero Test acceptance queues. After encrypted backup run `32997711909`, migrations `20260826210000_resolve_razorpay_p2_integrity_gaps.sql` and `20260826220000_fix_razorpay_mandate_cancellation_branch_authorization.sql` were connector-applied to Production as `20260826181015` and `20260826181016`; grants, Live credential health, and preflight queue counts were unchanged. Future Vercel production aliasing is held on the repository's full CI check.**
 
 Shipped addition: **one canonical Resolvable action across WhatsApp messaging, renewals, invoice delivery and collection, payments, membership lifecycle actions, and follow-ups. High-value actions blocked by a changeable prerequisite remain focusable and tappable, explain the highest-priority reason in place, and offer the nearest resolution CTA when one exists; pending work, explained validation, empty input, and obvious boundaries remain truly disabled.**
@@ -63,9 +65,10 @@ Engineering maintenance: **the exact `gym_service_renewal` Meta payload now has
 a dedicated regression lock covering Marketing classification, `en_US`,
 POSITIONAL parameter order, body, footer, buttons, and provider examples. The
 owner-approved Rajat Kashyap production account has submitted that exact
-contract and stores Meta's provider ID with Pending status; provider approval
-and an authenticated Approved sync remain the next manual gate before service
-reminders can send. No WhatsApp message was sent.**
+contract and stores Meta's provider ID. A read-only 2026-08-27 production check
+proved the exact Marketing/en_US/POSITIONAL body, footer, ordered buttons, and
+sync markers are Approved and ready alongside membership renewal; no WhatsApp
+message was sent.**
 
 Engineering maintenance: **the Inbox conversation view no longer traps the contact panel or hijacks the reader — the panel carries a Close button of its own, the thread-header identity block and the active row's avatar toggle it open and closed with matching `aria-expanded` labels, the thread pins to the newest message only while the reader is already at the bottom and offers a Jump to latest control otherwise, delivery receipts from other conversations no longer re-render or re-scroll the open thread, opening the panel keeps a bottom-parked reader parked, and hitting Reply focuses the composer**.
 
