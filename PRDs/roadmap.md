@@ -8,6 +8,21 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **P1-5 Leads now returns the active table or board
+rows, exact total, four quick-filter facets, rendered tags/custom values, and
+PostgreSQL-evaluated detailed filters plus direct/person/tag/custom ordering
+through one bounded selected-branch `SECURITY INVOKER` snapshot. Explicit
+id/export modes retain select-all and CSV semantics; same-key lifecycle loads
+coalesce, superseded work aborts, and preference/custom-field readiness plus a
+render-derived page reset remove initial and old-page duplicate requests.
+Migration `20260829010000_consolidate_leads_listing.sql` is live on Production
+as connector versions `20260828150302` and corrected `20260828150747`. On a
+rollback-only 5,000-contact/1,000-membership fixture, five warm ordinary loads
+moved from seven calls / 2,609.779 ms / 1,523,659 shared hits to one call /
+89.073 ms / 46,032 hits, with non-empty semantic, identity, role, tenant, ACL,
+bound, sort, filter, and empty-result probes passing. All meaningful P1 audit
+findings are now fixed; re-running the P0/P1 performance audit is next.**
+
 Engineering maintenance: **Finance Performance now returns its complete
 selected-branch report, configurable source labels/revenue, plan billing-option
 breakdown, average sale price, ad performance, and expense totals from one
@@ -20,8 +35,8 @@ All-staff and staff-filter JSONB hashes matched their legacy equivalents, as did
 zero/empty data, and the cache now suppresses an exact branch/timezone/month/
 staff revisit while retaining explicit Retry. Post-P1-3 five-run warm means
 moved from 633.857 to 559.005 ms all-staff and 612.745 to 562.726 ms staff-filter,
-with shared hits also lower; database calls fell from seven to one. P1-5 Leads
-request/count/client-sort fan-out is next.**
+with shared hits also lower; database calls fell from seven to one. The P1-5
+Leads fan-out is closed by the entry above.**
 
 Engineering maintenance: **the measured All-members SELECT-policy path now
 caches row-independent selected-account access through PostgreSQL initPlans

@@ -221,14 +221,24 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  applyLeadQuickFilter,
   LEAD_QUICK_FILTERS,
   leadQuickFilterFromUrl,
   leadQuickFilterToUrl,
-  selectForLeadQuickFilter,
   type LeadQuickFilter,
-  type LeadQuickFilterContext,
 } from '@/lib/leads/quick-filters';
+import {
+  LEAD_BOARD_LIMIT,
+  LeadListingRequestCoordinator,
+  asLeadListingRpcClient,
+  idsFromLeadListing,
+  leadListingRequestKey,
+  leadListingScopeKey,
+  loadLeadListingSnapshot,
+  pageForLeadListingScope,
+  type LeadListingContact,
+  type LeadListingInput,
+  type LeadListingSort,
+} from '@/lib/leads/listing';
 
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 20, 25, 30, 40, 50];
@@ -238,7 +248,6 @@ const PREFS_VIEW_KEY = 'leads';
 // The board loads every column at once, so it is capped to the most
 // recent leads rather than paginated. Past this size the owner should
 // be working the table/action lists, not a 500-card wall.
-const BOARD_LIMIT = 500;
 
 // Fixed utility columns flank the managed columns and aren't user-editable.
 const CHECKBOX_COL_WIDTH = 44;
@@ -321,10 +330,7 @@ const DEFAULT_PREFS: TablePrefs = {
   board: { density: 'comfortable', sortWithin: 'newest', collapseEmpty: false },
 };
 
-interface ContactWithData extends Contact {
-  tags?: Tag[];
-  customValues?: Record<string, string>;
-}
+type ContactWithData = LeadListingContact;
 
 // How a cell edits inline. `column` writes a contacts row column;
 // 'status' writes lead_status; 'select' picks a preset for a free-text
@@ -358,11 +364,8 @@ interface ColumnDef {
   // without one (custom fields — values live in a join table) can't
   // be sorted and hide their sort controls.
   sortColumn?: string;
-  // Columns whose values can't be server-`.order()`d — person uuids that
-  // only mean something once resolved to a name, or tags in a join table.
-  // These sort client-side over the full filtered id set (like custom
-  // fields). See fetchContacts' clientSort branch.
-  clientSort?:
+  // Columns whose PostgreSQL sort key comes from a related person/tag row.
+  relatedSort?:
     { kind: 'person'; column: 'assigned_to' | 'created_by' } | { kind: 'tags' };
   // For custom columns: the field's stored data type (see CUSTOM_FIELD_TYPES).
   customType?: string;
@@ -377,15 +380,6 @@ interface SortState {
   key: string;
   dir: SortDir;
 }
-
-// A resolved client-side sort — the active sort maps to a column with no
-// server-orderable `contacts` column, so fetchContacts orders the full
-// filtered id set in JS. `custom` reads contact_custom_values; `person`
-// resolves a uuid column to a teammate name; `tags` reads the join table.
-type ClientSort =
-  | { kind: 'custom'; fieldId: string; type: string; dir: SortDir }
-  | { kind: 'person'; column: 'assigned_to' | 'created_by'; dir: SortDir }
-  | { kind: 'tags'; dir: SortDir };
 
 // Per-column Excel-style value filter, threaded from the page into each
 // header's overflow menu. `selected` mirrors the shared LeadFilters state
@@ -519,9 +513,9 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     label: 'Assigned to',
     defaultWidth: 170,
     minWidth: 130,
-    // assigned_to is a uuid — ordering by it raw is noise, so sort
-    // client-side by the resolved teammate name instead.
-    clientSort: { kind: 'person', column: 'assigned_to' },
+    // assigned_to is a uuid — ordering by it raw is noise, so the listing
+    // RPC sorts by the resolved teammate name instead.
+    relatedSort: { kind: 'person', column: 'assigned_to' },
     // Static fallback; liveColumns overrides with the staff roster
     // (names + avatars) once useAccountStaff resolves.
     render: (c) =>
@@ -558,10 +552,10 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     defaultWidth: 160,
     minWidth: 120,
     // Immutable original creator (migration 051) — audit; never changes on
-    // transfer. No edit. created_by is a uuid, so sort client-side by the
-    // resolved teammate name. Static fallback; liveColumns overrides to
+    // transfer. No edit. created_by is a uuid, so the listing RPC sorts by
+    // the resolved teammate name. Static fallback; liveColumns overrides to
     // show the teammate once the staff roster resolves.
-    clientSort: { kind: 'person', column: 'created_by' },
+    relatedSort: { kind: 'person', column: 'created_by' },
     render: (c) =>
       c.created_by ? (
         <span className="text-muted-foreground text-sm">Created</span>
@@ -574,9 +568,9 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     label: 'Tags',
     defaultWidth: 180,
     minWidth: 120,
-    // Tags live in a join table — sort client-side by each lead's
+    // Tags live in a join table — PostgreSQL sorts by each lead's
     // alphabetically-first tag name.
-    clientSort: { kind: 'tags' },
+    relatedSort: { kind: 'tags' },
     render: renderTags,
     edit: { kind: 'tags' },
     optionsField: 'tags',
@@ -661,7 +655,9 @@ function HeaderCell({
   dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>;
 }) {
   const sortable =
-    Boolean(col.sortColumn) || Boolean(col.isCustom) || Boolean(col.clientSort);
+    Boolean(col.sortColumn) ||
+    Boolean(col.isCustom) ||
+    Boolean(col.relatedSort);
   return (
     <ColumnHeader
       label={col.label}
@@ -812,146 +808,10 @@ function createdRangeSince(range: LeadFilters['createdRange']): string | null {
   }
 }
 
-// Resolve the Tags filter to the contact ids carrying any of the selected
-// tags (null = no tag filter, [] = filter active but nothing matches).
-async function resolveTagContactIds(
-  supabase: ReturnType<typeof createClient>,
-  tagIds: string[]
-): Promise<string[] | null> {
-  if (tagIds.length === 0) return null;
-  const { data } = await supabase
-    .from('contact_tags')
-    .select('contact_id')
-    .in('tag_id', tagIds);
-  return [...new Set((data ?? []).map((r) => r.contact_id))];
-}
-
 // Custom-field types that get a value filter — enumerable/scannable ones.
 // Excludes email/phone/url/date (a distinct-value checkbox list is noise
 // there; email/phone/url aren't bucketed, dates want a range).
 const CUSTOM_FILTER_TYPES = new Set(['text', 'number', 'currency']);
-
-// Resolve a custom-field value filter to the contact ids whose stored value
-// for that field is one of `values`.
-async function resolveCustomValueContactIds(
-  supabase: ReturnType<typeof createClient>,
-  fieldId: string,
-  values: string[]
-): Promise<string[]> {
-  const { data } = await supabase
-    .from('contact_custom_values')
-    .select('contact_id')
-    .eq('custom_field_id', fieldId)
-    .in('value', values);
-  return [...new Set((data ?? []).map((r) => r.contact_id))];
-}
-
-// Combine every contact-id-restricting filter (tags + custom-field values)
-// into one id list — AND across dimensions (a lead must satisfy them all),
-// so the sets are intersected. Returns null when no id-based filter is
-// active, or [] when one is active but matches nothing (caller
-// short-circuits to an empty result).
-async function resolveContactIdFilter(
-  supabase: ReturnType<typeof createClient>,
-  filters: LeadFilters
-): Promise<string[] | null> {
-  const sets: string[][] = [];
-  const tagIds = await resolveTagContactIds(supabase, filters.tags);
-  if (tagIds) sets.push(tagIds);
-  for (const [fieldId, vals] of Object.entries(filters.customValues)) {
-    if (!vals.length) continue;
-    sets.push(await resolveCustomValueContactIds(supabase, fieldId, vals));
-  }
-  if (sets.length === 0) return null;
-  let acc = sets[0];
-  for (let i = 1; i < sets.length; i++) {
-    const s = new Set(sets[i]);
-    acc = acc.filter((id) => s.has(id));
-  }
-  return acc;
-}
-
-// Minimal chainable shape shared by the PostgREST filter builders we
-// use — lets one helper apply the lead filters to any of them.
-interface FilterableQuery<Q> {
-  in(column: string, values: readonly string[]): Q;
-  or(filters: string): Q;
-  is(column: string, value: null): Q;
-  gte(column: string, value: string): Q;
-}
-
-// Apply the Filters panel selections to a contacts query. `idFilter` is the
-// pre-resolved tag + custom-value → contact-id constraint (intersection;
-// see resolveContactIdFilter).
-function applyLeadFilters<Q extends FilterableQuery<Q>>(
-  query: Q,
-  filters: LeadFilters,
-  idFilter: string[] | null
-): Q {
-  let q = query;
-  if (idFilter) q = q.in('id', idFilter);
-
-  if (filters.leadStatus.length) {
-    const hasNew = filters.leadStatus.includes('new');
-    const statuses = filters.leadStatus.filter((k) => k !== 'new');
-    if (hasNew && statuses.length) {
-      q = q.or(`lead_status.is.null,lead_status.in.(${statuses.join(',')})`);
-    } else if (hasNew) {
-      q = q.is('lead_status', null);
-    } else {
-      q = q.in('lead_status', statuses);
-    }
-  }
-  if (filters.source.length) q = q.in('source', filters.source);
-  if (filters.gender.length) q = q.in('gender', filters.gender);
-  if (filters.owner.length) q = q.in('user_id', filters.owner);
-  if (filters.createdBy.length) q = q.in('created_by', filters.createdBy);
-
-  if (filters.assigned.length) {
-    // The "Assigned to" filter mixes three buckets, OR'd together:
-    // Unassigned, real staff (assigned_to), and pending invites
-    // (pending_invitation_id, values prefixed `pending:`).
-    const parts: string[] = [];
-    if (filters.assigned.includes(UNASSIGNED))
-      parts.push('assigned_to.is.null');
-    const realIds = filters.assigned.filter(
-      (a) => a !== UNASSIGNED && !a.startsWith(PENDING_FILTER_PREFIX)
-    );
-    if (realIds.length) parts.push(`assigned_to.in.(${realIds.join(',')})`);
-    const pendingIds = filters.assigned
-      .filter((a) => a.startsWith(PENDING_FILTER_PREFIX))
-      .map((a) => a.slice(PENDING_FILTER_PREFIX.length));
-    if (pendingIds.length)
-      parts.push(`pending_invitation_id.in.(${pendingIds.join(',')})`);
-    if (parts.length) q = q.or(parts.join(','));
-  }
-
-  const since = createdRangeSince(filters.createdRange);
-  if (since) q = q.gte('created_at', since);
-  return q;
-}
-
-// Order two stored custom-field values. Numeric types compare numerically;
-// everything else lexically — imported dates are stored ISO (YYYY-MM-DD), so
-// text order is chronological. Empty/missing always sorts last, both
-// directions (a blank cell is never "the smallest date").
-function compareCustomValues(
-  a: string | undefined,
-  b: string | undefined,
-  type: string,
-  dir: SortDir
-): number {
-  const aEmpty = a == null || a === '';
-  const bEmpty = b == null || b === '';
-  if (aEmpty && bEmpty) return 0;
-  if (aEmpty) return 1;
-  if (bEmpty) return -1;
-  const numeric = type === 'number' || type === 'currency';
-  const r = numeric
-    ? (Number.parseFloat(a) || 0) - (Number.parseFloat(b) || 0)
-    : a.localeCompare(b);
-  return dir === 'asc' ? r : -r;
-}
 
 function buildLeadColumnLayout(
   liveColumns: ColumnDef[],
@@ -1000,7 +860,7 @@ function buildLeadColumnLayout(
 export default function LeadsPage() {
   const supabase = createClient();
   const router = useRouter();
-  const { defaultCurrency, user, profile } = useAuth();
+  const { accountId, defaultCurrency, user, profile } = useAuth();
   const { locale, fmt } = useLocale();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
@@ -1071,7 +931,7 @@ export default function LeadsPage() {
   const { staff, nameById, avatarById } = useAccountStaff();
 
   const today = fmt.today();
-  const quickFilterContext = useMemo<LeadQuickFilterContext>(
+  const quickFilterContext = useMemo(
     () => ({
       userId: user?.id ?? null,
       todayStart:
@@ -1088,6 +948,7 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [listingDataKey, setListingDataKey] = useState<string | null>(null);
 
   // All tags (for the tags column render + Filters panel).
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
@@ -1121,13 +982,17 @@ export default function LeadsPage() {
   // Starts true so the first board visit shows the skeleton, not a
   // one-frame "No leads yet" flash before the fetch effect fires.
   const [boardLoading, setBoardLoading] = useState(true);
-  const [boardNonce, setBoardNonce] = useState(0);
   // Follow-ups owns a separate lead/task snapshot. Keep it on the same
   // mutation invalidation path as the table and board.
   const [accountabilityNonce, setAccountabilityNonce] = useState(0);
 
   // Custom-field definitions — drive the dynamic columns.
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [customFieldsScope, setCustomFieldsScope] = useState<string | null>(
+    null
+  );
+  const customFieldsReady =
+    accountId !== null && customFieldsScope === accountId;
   // Distinct values present for each filterable custom field (custom_field_id
   // → sorted values), feeding that column's value-filter checkbox list.
   const [customFilterOptions, setCustomFilterOptions] = useState<
@@ -1136,7 +1001,7 @@ export default function LeadsPage() {
 
   // Table preferences (visibility, order, widths, page size),
   // persisted per-browser in localStorage.
-  const [prefs, setPrefs] = useTablePrefs<TablePrefs>(
+  const [prefs, setPrefs, prefsReady] = useTablePrefs<TablePrefs>(
     PREFS_VIEW_KEY,
     DEFAULT_PREFS
   );
@@ -1217,7 +1082,8 @@ export default function LeadsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Bulk selection (page-scoped — only the loaded rows are selectable)
+  // Bulk selection starts page-scoped; the explicit "All in Leads" action
+  // expands it through the id-only listing mode using the same filters.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
@@ -1239,20 +1105,19 @@ export default function LeadsPage() {
   } | null>(null);
   const [savingCell, setSavingCell] = useState(false);
 
-  // Guards against out-of-order fetch responses: each fetchContacts run
-  // claims a sequence number and only the latest is allowed to commit its
-  // results. Without this, rapidly changing the search/page could let a
-  // slower earlier request resolve last and render stale rows.
-  const fetchSeq = useRef(0);
-  // Same guard for the board's independent fetch.
-  const boardFetchSeq = useRef(0);
-  // Counts run independently from the paginated table fetch.
-  const quickCountFetchSeq = useRef(0);
+  // One coordinator owns the active table OR board request. It shares exact
+  // Strict-effect replays and aborts a superseded search/filter/page key.
+  const listingCoordinatorRef = useRef<LeadListingRequestCoordinator | null>(
+    null
+  );
+  if (listingCoordinatorRef.current === null) {
+    listingCoordinatorRef.current = new LeadListingRequestCoordinator();
+  }
 
-  // Latest fetchContacts held in a ref so the transfers realtime channel can
-  // trigger an owner-flip refetch without re-subscribing on every filter/sort
-  // change (fetchContacts' identity churns; fetchTransfers is stable).
-  const fetchContactsRef = useRef<() => void>(() => {});
+  // Latest listing refresh held in a ref so transfer realtime does not
+  // resubscribe on every search/filter/page key.
+  const fetchListingRef = useRef<() => void>(() => {});
+  const listingEffectRun = useRef(0);
 
   // Transfer-cell actions are defined far below (after refreshAll); the
   // assignee column's render closure reaches them through this ref so the
@@ -1667,38 +1532,52 @@ export default function LeadsPage() {
     [visibleColumns, frozenCount]
   );
 
-  // The DB column the current sort maps to (null when the sorted column
-  // isn't server-sortable, e.g. tags — falls back to created_at desc).
-  const sortColumn = useMemo(
-    () => (sort ? (colByKey[sort.key]?.sortColumn ?? null) : null),
-    [sort, colByKey]
-  );
-
-  // Active sort on a column that can't be server-`.order()`d — a custom
-  // field (values in contact_custom_values), a person uuid resolved to a
-  // name, or tags (join table). fetchContacts sorts the full filtered id
-  // set client-side instead. Mutually exclusive with sortColumn (these
-  // columns have no sortColumn).
-  const clientSort = useMemo((): ClientSort | null => {
-    if (!sort) return null;
-    const col = colByKey[sort.key];
-    if (!col) return null;
+  // Resolve every visible sort to the RPC's explicit allowlist. Person, tag,
+  // and custom keys are evaluated inside PostgreSQL, so pagination never
+  // requires downloading the full matching id set into the browser.
+  const listingSort = useMemo<LeadListingSort>(() => {
+    if (!sort) return { key: 'created_at', direction: 'desc' };
+    const col = sort.key.startsWith('cf:')
+      ? customFields.some((field) => `cf:${field.id}` === sort.key)
+        ? ({ key: sort.key, isCustom: true } as ColumnDef)
+        : undefined
+      : BUILTIN_COLUMNS.find((column) => column.key === sort.key);
+    if (!col) return { key: 'created_at', direction: 'desc' };
     if (col.isCustom) {
       return {
-        kind: 'custom',
-        fieldId: col.key.slice(3), // strip "cf:"
-        type: col.customType ?? 'text',
-        dir: sort.dir,
+        key: 'custom',
+        direction: sort.dir,
+        customFieldId: col.key.slice(3),
       };
     }
-    if (col.clientSort?.kind === 'person') {
-      return { kind: 'person', column: col.clientSort.column, dir: sort.dir };
+    if (col.relatedSort?.kind === 'person') {
+      return {
+        key:
+          col.relatedSort.column === 'assigned_to'
+            ? 'assigned_name'
+            : 'created_by_name',
+        direction: sort.dir,
+      };
     }
-    if (col.clientSort?.kind === 'tags') {
-      return { kind: 'tags', dir: sort.dir };
+    if (col.relatedSort?.kind === 'tags') {
+      return { key: 'tag_name', direction: sort.dir };
     }
-    return null;
-  }, [sort, colByKey]);
+    const serverKey = col.sortColumn;
+    if (
+      serverKey === 'name' ||
+      serverKey === 'lead_status' ||
+      serverKey === 'phone' ||
+      serverKey === 'email' ||
+      serverKey === 'company' ||
+      serverKey === 'source' ||
+      serverKey === 'gender' ||
+      serverKey === 'received_via' ||
+      serverKey === 'created_at'
+    ) {
+      return { key: serverKey, direction: sort.dir };
+    }
+    return { key: 'created_at', direction: 'desc' };
+  }, [sort, customFields]);
 
   // Custom field ids whose column is currently shown — only these need their
   // per-contact values fetched. Joined to a stable string for fetch deps.
@@ -1737,12 +1616,14 @@ export default function LeadsPage() {
   }
 
   const fetchCustomFields = useCallback(async () => {
+    if (!accountId) return;
     const { data } = await supabase
       .from('custom_fields')
       .select('*')
       .order('field_name');
     if (data) setCustomFields(data);
-  }, [supabase]);
+    setCustomFieldsScope(accountId);
+  }, [supabase, accountId]);
 
   const fetchTags = useCallback(async () => {
     const { data } = await supabase.from('tags').select('*');
@@ -1782,353 +1663,115 @@ export default function LeadsPage() {
     setAssignmentRequests(pendingTransferMap(rows, 'assignment'));
   }, [supabase]);
 
-  const fetchContacts = useCallback(async () => {
-    const seq = ++fetchSeq.current;
-    setLoading(true);
-    // The visible rows are about to change — drop any selection that
-    // referred to the old page/search results so the bulk bar can't
-    // act on rows the user can no longer see.
-    setSelected(new Set());
+  const createdSince = useMemo(
+    () => createdRangeSince(filters.createdRange),
+    [filters.createdRange]
+  );
+  const listingScope = leadListingScopeKey({ search, filters, quickFilter });
+  const [pageScope, setPageScope] = useState(listingScope);
+  const requestPage = pageForLeadListingScope(pageScope, listingScope, page);
+  if (pageScope !== listingScope) {
+    setPageScope(listingScope);
+    if (page !== 0) setPage(0);
+  }
 
-    const from = page * pageSize;
-    const to = from + pageSize - 1;
-    const term = search.trim();
+  const listingInput = useMemo<LeadListingInput | null>(() => {
+    if (!accountId) return null;
+    const mode = view === 'board' ? 'board' : 'table';
+    return {
+      accountId,
+      mode,
+      search,
+      filters: {
+        owner: filters.owner,
+        assigned: filters.assigned,
+        createdBy: filters.createdBy,
+        leadStatus: filters.leadStatus,
+        source: filters.source,
+        tags: filters.tags,
+        gender: filters.gender,
+        customValues: filters.customValues,
+        createdSince,
+      },
+      quickFilter,
+      todayStart: quickFilterContext.todayStart,
+      tomorrowStart: quickFilterContext.tomorrowStart,
+      sort:
+        mode === 'board'
+          ? { key: 'created_at', direction: 'desc' }
+          : listingSort,
+      page: mode === 'board' ? 0 : requestPage,
+      pageSize: mode === 'board' ? LEAD_BOARD_LIMIT : pageSize,
+      activeCustomFieldIds:
+        mode === 'board'
+          ? []
+          : activeCustomKey
+            ? activeCustomKey.split(',')
+            : [],
+    };
+  }, [
+    accountId,
+    view,
+    search,
+    filters,
+    createdSince,
+    quickFilter,
+    quickFilterContext,
+    listingSort,
+    requestPage,
+    pageSize,
+    activeCustomKey,
+  ]);
+  const activeListingKey = listingInput
+    ? leadListingRequestKey(listingInput)
+    : null;
 
-    // Tag + custom-value filters → contact ids. An active id filter that
-    // matches nothing short-circuits to an empty result (skips the query).
-    const idFilter = await resolveContactIdFilter(supabase, filters);
-    if (seq !== fetchSeq.current) return;
-    if (idFilter && idFilter.length === 0) {
-      setTotalCount(0);
-      setContacts([]);
-      setLoading(false);
-      return;
+  const listingFetchSeq = useRef(0);
+  const fetchListing = useCallback(async () => {
+    if (!listingInput || !prefsReady || !customFieldsReady) return;
+    const seq = ++listingFetchSeq.current;
+    const mode = listingInput.mode;
+    if (mode === 'board') setBoardLoading(true);
+    else {
+      setLoading(true);
+      setSelected(new Set());
     }
 
-    // Leads = contacts without a membership: PostgREST anti-join via a left
-    // embed filtered to null. Shared by the server-sorted path and the
-    // custom-field-sort path so their filters can't drift. Filters apply
-    // before order/range (transform stage drops the filter methods).
-    const buildFiltered = (select: string, opts?: { count: 'exact' }) => {
-      let q = supabase
-        .from('contacts')
-        .select(selectForLeadQuickFilter(select, quickFilter), opts)
-        .is('memberships', null);
-      if (term) {
-        const like = `%${term}%`;
-        q = q.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
-      }
-      q = applyLeadFilters(q, filters, idFilter);
-      return applyLeadQuickFilter(q, quickFilter, quickFilterContext);
-    };
-
-    let contactRows: Contact[] = [];
-
-    if (clientSort) {
-      // The sort column has no server-orderable `contacts` column (custom
-      // field, person uuid → name, or tags). Pull ALL filtered lead ids,
-      // build a per-lead sort key, order the whole set client-side (so
-      // paging is correct across pages), then fetch only the current page's
-      // full rows. created_at desc is the stable tiebreak for equal/missing
-      // keys. For the person kind we select the uuid column alongside the id.
-      const idSelect =
-        clientSort.kind === 'person'
-          ? `id, ${clientSort.column}, memberships!left(id)`
-          : 'id, memberships!left(id)';
-      const { data: idData, error: idErr } = await buildFiltered(
-        idSelect
-      ).order('created_at', { ascending: false });
-      if (seq !== fetchSeq.current) return;
-      if (idErr) {
-        toast.error('Failed to load leads');
-        setLoading(false);
-        return;
-      }
-      const idRows = (idData ?? []) as unknown as Record<
-        string,
-        string | null
-      >[];
-      const allIds = idRows.map((r) => r.id as string);
-
-      // Sort key per lead + the compare type. Blank/missing keys always
-      // sort last (see compareCustomValues), both directions.
-      const keyById = new Map<string, string>();
-      let cmpType = 'text';
-      if (clientSort.kind === 'custom') {
-        cmpType = clientSort.type;
-        // All stored values for the sort field (RLS scopes to this account —
-        // no id list in the URL, so this stays a single light request).
-        const { data: valData } = await supabase
-          .from('contact_custom_values')
-          .select('contact_id, value')
-          .eq('custom_field_id', clientSort.fieldId);
-        if (seq !== fetchSeq.current) return;
-        for (const v of (valData ?? []) as {
-          contact_id: string;
-          value: string | null;
-        }[]) {
-          if (v.value != null) keyById.set(v.contact_id, v.value);
-        }
-      } else if (clientSort.kind === 'person') {
-        // Resolve the uuid column to the teammate's name (sorted alpha).
-        for (const r of idRows) {
-          const uid = r[clientSort.column];
-          const name = uid ? nameById.get(uid) : undefined;
-          if (name) keyById.set(r.id as string, name);
-        }
-      } else {
-        // Tags — key on each lead's alphabetically-first tag name. One
-        // account-scoped read (no id list in the URL), like the custom path.
-        const { data: tagLinks } = await supabase
-          .from('contact_tags')
-          .select('contact_id, tag_id');
-        if (seq !== fetchSeq.current) return;
-        const firstTag = new Map<string, string>();
-        for (const l of (tagLinks ?? []) as {
-          contact_id: string;
-          tag_id: string;
-        }[]) {
-          const name = tagsMap[l.tag_id]?.name;
-          if (!name) continue;
-          const cur = firstTag.get(l.contact_id);
-          if (cur == null || name.localeCompare(cur) < 0)
-            firstTag.set(l.contact_id, name);
-        }
-        for (const [cid, name] of firstTag) keyById.set(cid, name);
-      }
-
-      const sortedIds = [...allIds].sort((a, b) =>
-        compareCustomValues(
-          keyById.get(a),
-          keyById.get(b),
-          cmpType,
-          clientSort.dir
-        )
+    try {
+      const snapshot = await listingCoordinatorRef.current!.load(
+        asLeadListingRpcClient(supabase),
+        listingInput
       );
-      setTotalCount(allIds.length);
-
-      const pageIds = sortedIds.slice(from, from + pageSize);
-      if (pageIds.length === 0) {
+      if (seq !== listingFetchSeq.current) return;
+      setTotalCount(snapshot.totalCount);
+      setQuickFilterCounts({
+        all: 0,
+        ...snapshot.quickFilterCounts,
+      });
+      setListingDataKey(leadListingRequestKey(listingInput));
+      if (mode === 'board') {
+        setBoardLeads(snapshot.rows);
+        setBoardLoading(false);
+      } else {
+        setContacts(snapshot.rows);
+        setLoading(false);
+      }
+    } catch (error) {
+      if (seq !== listingFetchSeq.current) return;
+      const message = error instanceof Error ? error.message : '';
+      if (!/abort/i.test(message)) toast.error('Failed to load leads');
+      setListingDataKey(leadListingRequestKey(listingInput));
+      setTotalCount(0);
+      setQuickFilterCounts(EMPTY_QUICK_FILTER_COUNTS);
+      if (mode === 'board') {
+        setBoardLeads([]);
+        setBoardLoading(false);
+      } else {
         setContacts([]);
         setLoading(false);
-        return;
       }
-      const { data: rowData, error: rowErr } = await supabase
-        .from('contacts')
-        .select('*')
-        .in('id', pageIds);
-      if (seq !== fetchSeq.current) return;
-      if (rowErr) {
-        toast.error('Failed to load leads');
-        setLoading(false);
-        return;
-      }
-      const byId = new Map(
-        ((rowData ?? []) as unknown as Contact[]).map((r) => [r.id, r])
-      );
-      contactRows = pageIds
-        .map((id) => byId.get(id))
-        .filter((r): r is Contact => Boolean(r));
-    } else {
-      const {
-        data,
-        count: exactCount,
-        error,
-      } = await buildFiltered('*, memberships!left(id)', { count: 'exact' })
-        // Sorted column when set + server-sortable, else newest first.
-        .order(sortColumn ?? 'created_at', {
-          ascending: sortColumn ? sort!.dir === 'asc' : false,
-        })
-        .range(from, to);
-      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
-      if (error) {
-        toast.error('Failed to load leads');
-        setLoading(false);
-        return;
-      }
-      contactRows = (data ?? []) as unknown as Contact[];
-      setTotalCount(exactCount ?? 0);
     }
-
-    if (contactRows.length === 0) {
-      setContacts([]);
-      setLoading(false);
-      return;
-    }
-
-    const contactIds = contactRows.map((c) => c.id);
-
-    // Tags + (optionally) custom-field values for the loaded rows, in
-    // parallel. Custom values are only fetched when a custom column shows.
-    const activeIds = activeCustomKey ? activeCustomKey.split(',') : [];
-    const [contactTagsRes, customValuesRes] = await Promise.all([
-      supabase
-        .from('contact_tags')
-        .select('contact_id, tag_id')
-        .in('contact_id', contactIds),
-      activeIds.length > 0
-        ? supabase
-            .from('contact_custom_values')
-            .select('contact_id, custom_field_id, value')
-            .in('contact_id', contactIds)
-            .in('custom_field_id', activeIds)
-        : Promise.resolve({
-            data: [] as {
-              contact_id: string;
-              custom_field_id: string;
-              value: string | null;
-            }[],
-          }),
-    ]);
-    if (seq !== fetchSeq.current) return; // superseded by a newer fetch
-
-    const tagsByContact: Record<string, string[]> = {};
-    contactTagsRes.data?.forEach((ct) => {
-      (tagsByContact[ct.contact_id] ??= []).push(ct.tag_id);
-    });
-
-    const valuesByContact: Record<string, Record<string, string>> = {};
-    customValuesRes.data?.forEach((v) => {
-      (valuesByContact[v.contact_id] ??= {})[v.custom_field_id] = v.value ?? '';
-    });
-
-    const enriched: ContactWithData[] = contactRows.map((c) => ({
-      ...c,
-      tags: (tagsByContact[c.id] ?? [])
-        .map((tid) => tagsMap[tid])
-        .filter(Boolean),
-      customValues: valuesByContact[c.id] ?? {},
-    }));
-
-    setContacts(enriched);
-    setLoading(false);
-  }, [
-    supabase,
-    page,
-    pageSize,
-    search,
-    filters,
-    quickFilter,
-    quickFilterContext,
-    tagsMap,
-    nameById,
-    activeCustomKey,
-    sortColumn,
-    clientSort,
-    sort,
-  ]);
-
-  // Board data — all statuses at once, capped at BOARD_LIMIT most
-  // recent. Respects search, detailed filters, and the quick view (the same
-  // builders the table and CSV export use, so they cannot disagree).
-  // Sequence-guarded like fetchContacts: only the latest run commits.
-  const fetchBoard = useCallback(async () => {
-    void boardNonce; // manual refetch trigger — bump to reload
-    const seq = ++boardFetchSeq.current;
-    setBoardLoading(true);
-    const term = search.trim();
-
-    const idFilter = await resolveContactIdFilter(supabase, filters);
-    if (seq !== boardFetchSeq.current) return;
-    if (idFilter && idFilter.length === 0) {
-      setBoardLeads([]);
-      setBoardLoading(false);
-      return;
-    }
-
-    let query = supabase
-      .from('contacts')
-      .select(selectForLeadQuickFilter('*, memberships!left(id)', quickFilter))
-      .is('memberships', null);
-    if (term) {
-      const like = `%${term}%`;
-      query = query.or(
-        `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
-      );
-    }
-    query = applyLeadFilters(query, filters, idFilter);
-    query = applyLeadQuickFilter(query, quickFilter, quickFilterContext);
-
-    const { data, error } = await query
-      .order('created_at', { ascending: false })
-      .limit(BOARD_LIMIT);
-    if (seq !== boardFetchSeq.current) return; // superseded by a newer fetch
-    if (error) {
-      toast.error('Failed to load leads');
-      setBoardLoading(false);
-      return;
-    }
-    const rows = (data ?? []) as unknown as Contact[];
-
-    // Tags for the card chips — one account-scoped read (RLS bounds it;
-    // no 500-id list in the URL), same pattern as the tags client-sort.
-    const { data: tagLinks } = await supabase
-      .from('contact_tags')
-      .select('contact_id, tag_id');
-    if (seq !== boardFetchSeq.current) return;
-    const tagsByContact: Record<string, Tag[]> = {};
-    for (const l of (tagLinks ?? []) as {
-      contact_id: string;
-      tag_id: string;
-    }[]) {
-      const t = tagsMap[l.tag_id];
-      if (t) (tagsByContact[l.contact_id] ??= []).push(t);
-    }
-
-    setBoardLeads(rows.map((c) => ({ ...c, tags: tagsByContact[c.id] ?? [] })));
-    setBoardLoading(false);
-  }, [
-    supabase,
-    search,
-    filters,
-    quickFilter,
-    quickFilterContext,
-    tagsMap,
-    boardNonce,
-  ]);
-
-  const fetchQuickFilterCounts = useCallback(async () => {
-    const seq = ++quickCountFetchSeq.current;
-    const term = search.trim();
-    const idFilter = await resolveContactIdFilter(supabase, filters);
-    if (seq !== quickCountFetchSeq.current) return;
-    if (idFilter && idFilter.length === 0) {
-      setQuickFilterCounts(EMPTY_QUICK_FILTER_COUNTS);
-      return;
-    }
-
-    const results = await Promise.all(
-      LEAD_QUICK_FILTERS.map(async (filter) => {
-        let query = supabase
-          .from('contacts')
-          .select(
-            selectForLeadQuickFilter('id, memberships!left(id)', filter),
-            { count: 'exact', head: true }
-          )
-          .is('memberships', null);
-        if (term) {
-          const like = `%${term}%`;
-          query = query.or(
-            `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
-          );
-        }
-        query = applyLeadFilters(query, filters, idFilter);
-        query = applyLeadQuickFilter(query, filter, quickFilterContext);
-        const { count, error } = await query;
-        return { filter, count: error ? 0 : (count ?? 0), error };
-      })
-    );
-    if (seq !== quickCountFetchSeq.current) return;
-    const failed = results.find((result) => result.error);
-    if (failed) {
-      console.error('Failed to load lead quick-filter counts', failed.error);
-    }
-    setQuickFilterCounts(
-      Object.fromEntries(
-        results.map((result) => [result.filter, result.count])
-      ) as Record<LeadQuickFilter, number>
-    );
-  }, [supabase, search, filters, quickFilterContext]);
+  }, [listingInput, prefsReady, customFieldsReady, supabase]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (Supabase await), not
@@ -2179,12 +1822,12 @@ export default function LeadsPage() {
   }, [fetchTransfers]);
 
   useEffect(() => {
-    fetchContactsRef.current = fetchContacts;
-  }, [fetchContacts]);
+    fetchListingRef.current = fetchListing;
+  }, [fetchListing]);
 
   // Realtime: a transfer created/resolved anywhere refreshes the overlay
   // map and (for owner flips on accept) the rows. Subscribes once —
-  // fetchTransfers is stable and fetchContacts rides the ref.
+  // fetchTransfers is stable and the active listing rides the ref.
   useEffect(() => {
     const channel = supabase
       .channel('lead-transfers')
@@ -2193,10 +1836,8 @@ export default function LeadsPage() {
         { event: '*', schema: 'public', table: 'lead_transfers' },
         () => {
           fetchTransfers();
-          fetchContactsRef.current();
-          // Board cards render owner/pending chips too — refetch when
-          // it's the live view (the effect below gates on view).
-          setBoardNonce((n) => n + 1);
+          listingCoordinatorRef.current?.abort();
+          fetchListingRef.current();
         }
       )
       .subscribe();
@@ -2206,66 +1847,33 @@ export default function LeadsPage() {
   }, [supabase, fetchTransfers]);
 
   useEffect(() => {
+    const run = ++listingEffectRun.current;
     let cancelled = false;
     void (async () => {
       await Promise.resolve();
-      if (!cancelled) await fetchContacts();
+      if (!cancelled) await fetchListing();
     })();
     return () => {
       cancelled = true;
+      // A microtask lets React Strict Mode's immediate setup-cleanup-setup
+      // replay claim the same in-flight key. A real unmount has no next run,
+      // so its database work is cancelled instead of merely suppressing UI.
+      queueMicrotask(() => {
+        if (listingEffectRun.current === run) {
+          listingCoordinatorRef.current?.abort();
+        }
+      });
     };
-  }, [fetchContacts]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      await Promise.resolve();
-      if (!cancelled) await fetchQuickFilterCounts();
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchQuickFilterCounts]);
-
-  useEffect(() => {
-    if (view !== 'board') return;
-    let cancelled = false;
-    void (async () => {
-      await Promise.resolve();
-      if (!cancelled) await fetchBoard();
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [view, fetchBoard]);
-
-  // A new search term / filter set shrinks/grows the result set, so page N
-  // may no longer be valid — reset to the first page whenever they change.
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      await Promise.resolve();
-      if (!cancelled) setPage(0);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [search, filters, quickFilter]);
+  }, [fetchListing]);
 
   /** Refresh whichever views hold data after any mutation. */
   const refreshAll = useCallback(() => {
-    fetchContacts();
+    listingCoordinatorRef.current?.abort();
+    fetchListing();
     fetchPendingAssignees();
     fetchTransfers();
-    fetchQuickFilterCounts();
-    setBoardNonce((n) => n + 1);
     setAccountabilityNonce((n) => n + 1);
-  }, [
-    fetchContacts,
-    fetchPendingAssignees,
-    fetchQuickFilterCounts,
-    fetchTransfers,
-  ]);
+  }, [fetchListing, fetchPendingAssignees, fetchTransfers]);
 
   // Agent peer-handoff confirm → send the pending request (migration 050).
   const submitTransferRequest = useCallback(
@@ -2721,89 +2329,69 @@ export default function LeadsPage() {
     });
   }
 
+  function actionListingInput(mode: 'ids' | 'export'): LeadListingInput | null {
+    if (!accountId) return null;
+    return {
+      accountId,
+      mode,
+      search,
+      filters: {
+        owner: filters.owner,
+        assigned: filters.assigned,
+        createdBy: filters.createdBy,
+        leadStatus: filters.leadStatus,
+        source: filters.source,
+        tags: filters.tags,
+        gender: filters.gender,
+        customValues: filters.customValues,
+        createdSince,
+      },
+      quickFilter,
+      todayStart: quickFilterContext.todayStart,
+      tomorrowStart: quickFilterContext.tomorrowStart,
+      sort: { key: 'created_at', direction: 'desc' },
+      page: 0,
+      pageSize: null,
+      activeCustomFieldIds: [],
+    };
+  }
+
   // Select every lead matching the current search + filters + quick view —
-  // including rows on other pages that aren't loaded. Mirrors
-  // fetchContacts' filter logic but pulls only ids (no pagination window).
+  // including rows on other pages. This explicit action uses the same SQL
+  // filter contract in id-only mode; ordinary list interactions stay bounded.
   async function selectAllMatching() {
-    const term = search.trim();
-    const idFilter = await resolveContactIdFilter(supabase, filters);
-    if (idFilter && idFilter.length === 0) {
-      setSelected(new Set());
-      return;
-    }
-    let query = supabase
-      .from('contacts')
-      .select(selectForLeadQuickFilter('id, memberships!left(id)', quickFilter))
-      .is('memberships', null);
-    if (term) {
-      const like = `%${term}%`;
-      query = query.or(
-        `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
+    const input = actionListingInput('ids');
+    if (!input) return;
+    try {
+      const snapshot = await loadLeadListingSnapshot(
+        asLeadListingRpcClient(supabase),
+        input,
+        new AbortController().signal
       );
-    }
-    query = applyLeadFilters(query, filters, idFilter);
-    query = applyLeadQuickFilter(query, quickFilter, quickFilterContext);
-    const { data, error } = await query;
-    if (error) {
+      setSelected(new Set(idsFromLeadListing(snapshot)));
+    } catch {
       toast.error('Failed to select all leads');
-      return;
     }
-    const rows = (data ?? []) as unknown as { id: string }[];
-    setSelected(new Set(rows.map((c) => c.id)));
   }
 
   // Export every lead matching the current search + filters + quick view to
   // CSV (not just the loaded page). Reuses the exact same query the table
-  // builds, then resolves each cell through the same display helpers the
-  // table renders with (status/source/gender labels, assignee + creator
-  // names, received-via pill). Tags are pulled in a second query.
+  // builds, with tag hydration returned in the same database call. Display
+  // labels remain the exact table helpers used before this consolidation.
   async function handleExport() {
     setExporting(true);
     try {
-      const term = search.trim();
-      const idFilter = await resolveContactIdFilter(supabase, filters);
-      if (idFilter && idFilter.length === 0) {
-        toast.error('No leads to export');
-        return;
-      }
-      let query = supabase
-        .from('contacts')
-        .select(
-          selectForLeadQuickFilter('*, memberships!left(id)', quickFilter)
-        )
-        .is('memberships', null);
-      if (term) {
-        const like = `%${term}%`;
-        query = query.or(
-          `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
-        );
-      }
-      query = applyLeadFilters(query, filters, idFilter);
-      query = applyLeadQuickFilter(query, quickFilter, quickFilterContext);
-      const { data, error } = await query.order('created_at', {
-        ascending: false,
-      });
-      if (error) {
-        toast.error('Failed to export leads');
-        return;
-      }
-      const rows = (data ?? []) as unknown as Contact[];
+      const input = actionListingInput('export');
+      if (!input) return;
+      const { rows } = await loadLeadListingSnapshot(
+        asLeadListingRpcClient(supabase),
+        input,
+        new AbortController().signal
+      );
       if (rows.length === 0) {
         toast.error('No leads to export');
         return;
       }
-
-      // Tag names per contact (second pass, mirrors the table's fetch).
-      const ids = rows.map((r) => r.id);
-      const { data: ctRows } = await supabase
-        .from('contact_tags')
-        .select('contact_id, tag_id')
-        .in('contact_id', ids);
-      const tagNamesByContact: Record<string, string[]> = {};
-      ctRows?.forEach((r) => {
-        const t = tagsMap[r.tag_id];
-        if (t) (tagNamesByContact[r.contact_id] ??= []).push(t.name);
-      });
 
       const headers = [
         'Name',
@@ -2831,7 +2419,7 @@ export default function LeadsPage() {
           c.gender ? fieldOptions.genderLabel(c.gender) : '',
           c.assigned_to ? (nameById.get(c.assigned_to) ?? 'Teammate') : '',
           receivedBy,
-          (tagNamesByContact[c.id] ?? []).join(', '),
+          c.tags.map((tag) => tag.name).join(', '),
           fmt.date(c.created_at),
         ];
       });
@@ -2841,6 +2429,8 @@ export default function LeadsPage() {
       toast.success(
         `Exported ${rows.length} lead${rows.length === 1 ? '' : 's'}`
       );
+    } catch {
+      toast.error('Failed to export leads');
     } finally {
       setExporting(false);
     }
@@ -3111,7 +2701,13 @@ export default function LeadsPage() {
     return true;
   }
 
-  const totalPages = Math.ceil(totalCount / pageSize);
+  const listingDataReady =
+    activeListingKey !== null && listingDataKey === activeListingKey;
+  const visibleTotalCount = listingDataReady ? totalCount : 0;
+  const visibleQuickFilterCounts = listingDataReady
+    ? quickFilterCounts
+    : EMPTY_QUICK_FILTER_COUNTS;
+  const totalPages = Math.ceil(visibleTotalCount / pageSize);
   const hasNext = page < totalPages - 1;
   const hasPrev = page > 0;
 
@@ -3185,7 +2781,8 @@ export default function LeadsPage() {
   }, [fieldOptions, allTags, staff, pendingAssignees]);
 
   // Toggle one value of a column's value filter — writes into the shared
-  // LeadFilters state (page resets to 0 via the search/filters effect).
+  // LeadFilters state. The render-derived request page is already zero for
+  // that new scope, so no request can escape with the old page number.
   function toggleColumnFilter(dim: keyof LeadFilters, value: string) {
     setFilters((f) => {
       const cur = f[dim];
@@ -3211,7 +2808,7 @@ export default function LeadsPage() {
 
   // Load the distinct stored values for each filterable custom column, so its
   // header menu can offer them as checkboxes. One account-scoped read (RLS),
-  // deduped client-side — mirrors the customSort value fetch.
+  // deduped client-side; this is option metadata, not listing pagination.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -3258,13 +2855,12 @@ export default function LeadsPage() {
     });
   }
 
-  // Sortable columns for the Sort panel, in display order. Real contacts
-  // columns sort server-side (sortColumn); custom fields sort client-side
-  // over the full filtered id set (see fetchContacts' customSort branch).
+  // Sortable columns for the Sort panel, in display order. Every key is
+  // resolved by the bounded PostgreSQL listing contract.
   const sortableColumns = useMemo(
     () =>
       visibleColumns
-        .filter((c) => c.sortColumn || c.isCustom || c.clientSort)
+        .filter((c) => c.sortColumn || c.isCustom || c.relatedSort)
         .map((c) => ({ key: c.key, label: c.label })),
     [visibleColumns]
   );
@@ -3555,7 +3151,7 @@ export default function LeadsPage() {
                           render={<Chip value={filter} />}
                         >
                           {meta.label}
-                          <ChipCount count={quickFilterCounts[filter]} />
+                          <ChipCount count={visibleQuickFilterCounts[filter]} />
                         </TooltipTrigger>
                         <TooltipContent className="max-w-64 text-pretty">
                           {meta.helpText}
@@ -3613,7 +3209,7 @@ export default function LeadsPage() {
           {/* Selection actions belong to the same surface and appear as a
             second header row only while records are selected. */}
           {view === 'table' && (
-            <Collapse open={selected.size > 0}>
+            <Collapse open={listingDataReady && selected.size > 0}>
               <div className="border-border bg-muted/20 flex flex-wrap items-center gap-0.5 border-b px-1.5 py-1">
                 {/* Selection count + scope menu (None / All in Leads) */}
                 <DropdownMenu>
@@ -3636,7 +3232,7 @@ export default function LeadsPage() {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={selectAllMatching}>
                       <ListChecks className="size-4" />
-                      All {totalCount} in Leads
+                      All {visibleTotalCount} in Leads
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -3702,7 +3298,8 @@ export default function LeadsPage() {
 
           {view === 'board' ? (
             <div className="min-h-0 flex-1 overflow-auto p-3">
-              {boardLoading && boardLeads.length === 0 ? (
+              {!listingDataReady ||
+              (boardLoading && boardLeads.length === 0) ? (
                 <div className="flex gap-3">
                   {[1, 2, 3, 4, 5].map((i) => (
                     <div
@@ -3900,7 +3497,7 @@ export default function LeadsPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {loading ? (
+                        {!listingDataReady || loading ? (
                           <TableSkeletonRows
                             label="Loading leads"
                             rows={9}
@@ -4172,8 +3769,8 @@ export default function LeadsPage() {
               page-size control and pager right. Always visible. */}
               <div className="border-border flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-3 py-2">
                 <p className="text-muted-foreground text-xs">
-                  {totalCount > 0
-                    ? `Showing ${page * pageSize + 1}-${Math.min((page + 1) * pageSize, totalCount)} of ${totalCount}`
+                  {visibleTotalCount > 0
+                    ? `Showing ${page * pageSize + 1}-${Math.min((page + 1) * pageSize, visibleTotalCount)} of ${visibleTotalCount}`
                     : 'No records'}
                 </p>
                 <div className="flex items-center gap-3">
@@ -4245,7 +3842,7 @@ export default function LeadsPage() {
         onSortWithinChange={setBoardSortWithin}
         collapseEmpty={boardCollapseEmpty}
         onCollapseEmptyChange={setBoardCollapseEmpty}
-        boardLimit={BOARD_LIMIT}
+        boardLimit={LEAD_BOARD_LIMIT}
       />
 
       {/* Edit columns — split-view picker (catalogue + custom fields on the

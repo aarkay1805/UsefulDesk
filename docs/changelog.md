@@ -6,6 +6,30 @@
 
 ---
 
+## Leads table and board share one bounded listing snapshot
+
+P1-5 replaces the Leads page's exact-count fan-out, sequential tag/custom-id
+resolution, whole-cohort browser sorts, and tag/custom hydration waterfalls
+with `lead_listing_snapshot`, a stable `SECURITY INVOKER` selected-branch RPC in
+`20260829010000_consolidate_leads_listing.sql`. Table and board now share that
+contract for detailed/search/quick filtering, all direct/person/tag/custom
+sorts, exact total and four facets, and bounded rendered-row hydration;
+explicit id/export modes preserve select-all and CSV scope. Request coordination
+in `src/lib/leads/listing.ts` shares identical in-flight loads and aborts
+superseded database work, while account-scoped table-preference/custom-field
+readiness and render-derived page reset prevent duplicate initial and old-page
+requests. Production connector versions are `20260828150302` and the idempotent
+numeric-null-order correction `20260828150747`.
+
+The rollback-only 5,000-contact/1,000-membership fixture reduced an ordinary
+warm interaction from seven database calls, 2,609.779 ms, and 1,523,659 shared
+hits to one call, 89.073 ms, and 46,032 hits (five-run means); fixture rows never
+persisted. Authenticated owner/viewer, wrong-selected-account/non-member, ACL,
+limits, empty results, quick-filter NULL semantics, intersections, every sort
+family/direction, pagination, board/table identities, ownership/pending fields,
+and export/select-all identities were verified. The next step is to re-run the
+P0/P1 performance audit now that all meaningful P1 findings are fixed.
+
 ## Finance Performance shares one branch snapshot
 
 Finance → Performance now crosses one database boundary instead of dispatching

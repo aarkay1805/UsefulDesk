@@ -6,8 +6,8 @@ import { useAuth } from '@/hooks/use-auth';
 
 /**
  * Per-user, per-account persisted table view (column order / visibility /
- * widths / page size / sort / …). Drop-in replacement for `useLocalStorage`
- * with the same `[value, setValue]` tuple and updater semantics, but the
+ * widths / page size / sort / …). It keeps `useLocalStorage` updater
+ * semantics and adds a third readiness value, while the
  * source of truth is the `table_preferences` row (account_id, user_id,
  * view_key) — so a teammate's layout follows them across devices and never
  * bleeds into another account (see migration 053).
@@ -28,11 +28,15 @@ const SAVE_DEBOUNCE_MS = 500;
 export function useTablePrefs<T extends object>(
   viewKey: string,
   initial: T
-): [T, (value: T | ((prev: T) => T)) => void] {
+): [T, (value: T | ((prev: T) => T)) => void, boolean] {
   const { user, accountId } = useAuth();
   const userId = user?.id ?? null;
 
   const [value, setValue] = useState<T>(initial);
+  // Store the exact account/user/view scope whose cache + authoritative DB
+  // read completed. Comparing keys makes readiness fail closed immediately
+  // on a scope change without a synchronous setState in the effect body.
+  const [readyScope, setReadyScope] = useState<string | null>(null);
 
   // One Supabase browser client for the hook's lifetime.
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -122,6 +126,7 @@ export function useTablePrefs<T extends object>(
           }
         }
       }
+      setReadyScope(cacheKey);
     })();
 
     return () => {
@@ -176,5 +181,5 @@ export function useTablePrefs<T extends object>(
     [accountId, userId, viewKey, cacheKey, sendUpsert]
   );
 
-  return [value, set];
+  return [value, set, cacheKey !== null && readyScope === cacheKey];
 }
