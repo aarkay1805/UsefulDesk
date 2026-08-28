@@ -8,6 +8,23 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **P2-7 replaces the Members page's single broad
+Realtime reload nonce with per-listing dependency tokens. One selected-account
+channel and the existing 400 ms trailing debounce now accumulate changes from
+15 already-published base/indirect tables, then refresh only listings whose
+displayed rows or facets can change; separate data/timeline tokens preserve open
+member sheet freshness. The original membership/payment/attendance/follow-up
+matrix moved from 28 of 28 event/view pairs and 36 database requests to 13
+relevant refetches and 15 requests, suppressing 15 unrelated view refreshes and
+21 requests. Complete focused coverage exercises all 105 published
+table/view pairs (43 relevant, 62 unrelated), rapid bursts, tab switches before
+flush, immediate write refresh, selected-account rejection, primary-key-only
+deletes, one channel, and cleanup. URL/history, branch-aware RLS reads,
+readiness/provider fetches, loading/error/stale-response behavior, permissions,
+and UI are unchanged; no database, publication, RLS, cache, or compute change
+was required. The next evidenced residual is the Performance report cache that
+retains display data but still refetches a previously loaded key.**
+
 Engineering maintenance: **P2-6 makes the Members `view` search param the
 render-time listing source of truth. Attendance, Payments, Follow-ups, All
 members, and Renewals deep links now mount and fetch only the requested child;

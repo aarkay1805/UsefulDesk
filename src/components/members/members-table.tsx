@@ -357,7 +357,7 @@ export function MembersTable({
     return () => {
       cancelled = true;
     };
-  }, [fetchAssignmentRequests, reloadKey]);
+  }, [fetchAssignmentRequests]);
 
   useEffect(() => {
     const channel = supabase

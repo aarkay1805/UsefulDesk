@@ -6,6 +6,46 @@
 
 ---
 
+## Member Realtime refreshes only dependent listings
+
+P2-7 replaces the Members page's single broad reload nonce with per-listing
+tokens driven by an explicit displayed-data dependency matrix. Membership,
+contact, and plan changes refresh every listing; attendance refreshes only At
+risk and Attendance; follow-ups refresh only Follow-ups and All members;
+service changes refresh only Renewals and All members; and payment, refund,
+allocation, invoice-line, invoice, and membership-period changes refresh only
+the Payments/All members outputs that actually derive from them. The matrix
+covers all 15 already-published base and indirect source tables without a
+database or publication change.
+
+The page still owns one channel and one 400 ms trailing debounce. A burst
+accumulates affected views and bumps each token once, so a tab selected before
+the timer fires mounts with the fresh token without a duplicate request.
+Handlers reject rows carrying another account id; primary-key-only DELETE
+events remain eligible because these tables do not use `REPLICA IDENTITY FULL`,
+then the selected-branch RLS read remains authoritative. Independent member
+sheet data and follow-up-timeline tokens preserve freshness without turning a
+follow-up event into the sheet's multi-request billing/attendance waterfall or
+forcing the active listing to reload. All members also stops coupling its
+pending-transfer read to listing reloads; that read retains its own existing
+Realtime channel and mutation refresh.
+
+Deterministic pre-fix instrumentation showed all four original event tables
+refetching all seven active views (28 of 28 pairs), dispatching 36 database
+requests because At risk and All members each had a second reload-key-bound
+read. The same pairs now issue 13 relevant view refreshes / 15 database
+requests and suppress 15 unrelated view refreshes / 21 requests. Across the
+complete published dependency matrix, focused lifecycle coverage exercises all
+105 table/view pairs: 43 relevant pairs refetch exactly once and 62 unrelated
+pairs make no request (47 database requests versus 135 under an equivalent
+global 15-table nonce), with rapid bursts, tab switches, selected-account
+rejection, DELETE delivery, immediate write refresh, one subscription, sheet
+isolation, and final cleanup covered. Key code:
+`src/app/(dashboard)/members/page.tsx` and
+`src/app/(dashboard)/members/page.lifecycle.test.tsx`. The next evidenced
+residual is the Performance report cache that retains display data but still
+refetches a previously loaded key.
+
 ## Member Attendance loads one bounded roster snapshot
 
 P2-5 replaces the Members -> Attendance tab's full membership roster download,

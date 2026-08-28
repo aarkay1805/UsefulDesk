@@ -237,6 +237,8 @@ interface MemberDetailViewProps {
   open: boolean;
   /** Parent-level refetch signal (for example, a saved edit dialog). */
   reloadKey?: number;
+  /** Realtime-only refresh signal for the independent notes/follow-up thread. */
+  followUpReloadKey?: number;
   onOpenChange: (open: boolean) => void;
   readiness: ReminderReadiness;
   /** Refetch the list after any mutation here. */
@@ -308,6 +310,7 @@ function MembershipDetailView({
   membershipId,
   open,
   reloadKey = 0,
+  followUpReloadKey = 0,
   onOpenChange,
   readiness,
   onChanged,
@@ -1714,6 +1717,7 @@ function MembershipDetailView({
                             contactId={membership.contact_id}
                             membershipId={membership.id}
                             active={open}
+                            reloadKey={followUpReloadKey}
                             followUpReason={defaultReason(
                               membership,
                               fmt.today()

@@ -105,6 +105,8 @@ interface ContactNotesThreadProps {
   /** Fires after any follow-up-affecting write so the host can re-sync
    *  surfaces that show the contact's open task (member detail's bar). */
   onFollowUpChanged?: () => void;
+  /** Optional host-owned signal for an external notes/follow-up change. */
+  reloadKey?: number;
 }
 
 export function ContactNotesThread({
@@ -114,6 +116,7 @@ export function ContactNotesThread({
   followUpReason,
   textareaRef,
   onFollowUpChanged,
+  reloadKey = 0,
 }: ContactNotesThreadProps) {
   const supabase = createClient();
   const { accountId, accountRole, user, profile } = useAuth();
@@ -235,7 +238,7 @@ export function ContactNotesThread({
     (async () => {
       await fetchNotes();
     })();
-  }, [active, contactId, fetchNotes]);
+  }, [active, contactId, fetchNotes, reloadKey]);
 
   async function addNote() {
     if (!contactId || !newNote.trim()) return;

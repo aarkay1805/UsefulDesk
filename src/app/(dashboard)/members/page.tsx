@@ -120,6 +120,63 @@ type View =
   | 'all'
   | 'attendance';
 
+const INITIAL_RELOAD_KEYS: Record<View, number> = {
+  renewals: 0,
+  followups: 0,
+  trials: 0,
+  payments: 0,
+  retention: 0,
+  all: 0,
+  attendance: 0,
+};
+
+// Display-data dependencies for every published table consumed by a Members
+// listing. Indirect billing sources are included because membership_dues and
+// member_customer_directory derive balances through invoice line allocations.
+const MEMBER_REALTIME_DEPENDENCIES = {
+  memberships: [
+    'renewals',
+    'followups',
+    'trials',
+    'payments',
+    'retention',
+    'all',
+    'attendance',
+  ],
+  contacts: [
+    'renewals',
+    'followups',
+    'trials',
+    'payments',
+    'retention',
+    'all',
+    'attendance',
+  ],
+  membership_plans: [
+    'renewals',
+    'followups',
+    'trials',
+    'payments',
+    'retention',
+    'all',
+    'attendance',
+  ],
+  member_services: ['renewals', 'all'],
+  payments: ['payments', 'all'],
+  payment_allocations: ['payments', 'all'],
+  payment_refunds: ['payments', 'all'],
+  payment_refund_allocations: ['payments', 'all'],
+  invoice_lines: ['payments', 'all'],
+  invoice_credit_allocations: ['payments', 'all'],
+  invoice_adjustment_allocations: ['payments', 'all'],
+  membership_periods: ['payments'],
+  invoices: ['all'],
+  attendance: ['retention', 'attendance'],
+  follow_ups: ['followups', 'all'],
+} as const satisfies Record<string, readonly View[]>;
+
+type MemberRealtimeTable = keyof typeof MEMBER_REALTIME_DEPENDENCIES;
+
 const VIEW_LABEL: Record<View, string> = {
   renewals: 'Renewals',
   followups: 'Follow-ups',
@@ -154,13 +211,17 @@ function isUuid(value: string | null): value is string {
 }
 
 export default function MembersPage() {
-  const { canSendMessages } = useAuth();
+  const { accountId, canSendMessages } = useAuth();
   const readiness = useReminderReadiness();
   const searchParams = useSearchParams();
 
   const requestedView = searchParams.get('view');
   const view: View = isMemberView(requestedView) ? requestedView : 'renewals';
-  const [reloadKey, setReloadKey] = useState(0);
+  const [reloadKeys, setReloadKeys] =
+    useState<Record<View, number>>(INITIAL_RELOAD_KEYS);
+  const [detailReloadKey, setDetailReloadKey] = useState(0);
+  const [detailFollowUpReloadKey, setDetailFollowUpReloadKey] = useState(0);
+  const pendingRealtimeViewsRef = useRef(new Set<View>());
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Membership | null>(null);
@@ -203,7 +264,13 @@ export default function MembersPage() {
     setFormOpen(true);
   }, [canSendMessages]);
 
-  const reload = () => setReloadKey((k) => k + 1);
+  const reload = () => {
+    setReloadKeys((current) => ({
+      ...current,
+      [view]: current[view] + 1,
+    }));
+    setDetailReloadKey((key) => key + 1);
+  };
 
   // The All-members table owns the filter-aware CSV export; it registers
   // its caller here so the header Export button (shown only on that view)
@@ -213,48 +280,95 @@ export default function MembersPage() {
     exportFnRef.current = fn;
   }, []);
 
-  // Realtime: any membership / payment / attendance / follow-up change
-  // (another device's check-in, a teammate recording a payment or closing
-  // assigned work) bumps reloadKey,
-  // which every list child already refetches on. The bump is trailing-
-  // debounced so a bulk write's event burst coalesces into one refetch
-  // (migration 054 publishes these tables; RLS scopes events to the
-  // account). Subscribes once — the handler only touches stable setState.
+  // A newly selected child always performs its own fresh mount request. If it
+  // was waiting in the Realtime debounce set, that mount satisfies the event;
+  // removing it prevents a second request when the timer later flushes.
   useEffect(() => {
+    pendingRealtimeViewsRef.current.delete(view);
+  }, [view]);
+
+  // One selected-account channel covers the base and indirect tables that can
+  // change a Members listing. A burst accumulates affected view tokens and
+  // bumps each once after the existing trailing debounce. Inactive children
+  // remain unmounted; a tab selected before the timer fires refreshes only if
+  // its displayed data depends on at least one event in the burst.
+  useEffect(() => {
+    if (!accountId) return;
     const supabase = createClient();
     let timer: number | null = null;
-    const bump = () => {
-      if (timer) window.clearTimeout(timer);
-      timer = window.setTimeout(() => setReloadKey((k) => k + 1), 400);
+    const pendingViews = pendingRealtimeViewsRef.current;
+    let detailPending = false;
+    let detailFollowUpPending = false;
+    const flush = () => {
+      const affectedViews = [...pendingViews];
+      const shouldReloadDetail = detailPending;
+      const shouldReloadDetailFollowUps = detailFollowUpPending;
+      pendingViews.clear();
+      detailPending = false;
+      detailFollowUpPending = false;
+      timer = null;
+      if (affectedViews.length > 0) {
+        setReloadKeys((current) => {
+          const next = { ...current };
+          for (const pendingView of affectedViews) {
+            next[pendingView] += 1;
+          }
+          return next;
+        });
+      }
+      if (shouldReloadDetail) setDetailReloadKey((key) => key + 1);
+      if (shouldReloadDetailFollowUps) {
+        setDetailFollowUpReloadKey((key) => key + 1);
+      }
     };
-    const channel = supabase
-      .channel('member-lists')
-      .on(
+    const schedule = (table: MemberRealtimeTable) => {
+      for (const affectedView of MEMBER_REALTIME_DEPENDENCIES[table]) {
+        pendingViews.add(affectedView);
+      }
+      // The sheet's notes timeline has its own two-read boundary; do not turn a
+      // follow-up event into the detail pane's billing/attendance waterfall.
+      if (table === 'follow_ups') detailFollowUpPending = true;
+      else detailPending = true;
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(flush, 400);
+    };
+    let channel = supabase.channel('member-lists');
+    for (const table of Object.keys(
+      MEMBER_REALTIME_DEPENDENCIES
+    ) as MemberRealtimeTable[]) {
+      channel = channel.on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'memberships' },
-        bump
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'payments' },
-        bump
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'attendance' },
-        bump
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'follow_ups' },
-        bump
-      )
-      .subscribe();
+        {
+          event: '*',
+          schema: 'public',
+          table,
+        },
+        (payload) => {
+          // DELETE payloads contain only the primary key unless a table uses
+          // REPLICA IDENTITY FULL, so a server-side account_id filter would
+          // silently drop deletes. Reject a different selected account when
+          // the row carries one; otherwise let the RLS-scoped delete refresh
+          // the selected branch.
+          const newRow = payload.new as Record<string, unknown>;
+          const oldRow = payload.old as Record<string, unknown>;
+          const changedAccountId =
+            typeof newRow.account_id === 'string'
+              ? newRow.account_id
+              : typeof oldRow.account_id === 'string'
+                ? oldRow.account_id
+                : null;
+          if (changedAccountId && changedAccountId !== accountId) return;
+          schedule(table);
+        }
+      );
+    }
+    channel.subscribe();
     return () => {
-      if (timer) window.clearTimeout(timer);
+      if (timer !== null) window.clearTimeout(timer);
+      pendingViews.clear();
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [accountId]);
 
   function openAdd() {
     setEditing(null);
@@ -367,13 +481,13 @@ export default function MembersPage() {
           <RenewalActionLists
             readiness={readiness}
             onSelect={openDetail}
-            reloadKey={reloadKey}
+            reloadKey={reloadKeys.renewals}
           />
         ) : view === 'followups' ? (
           <FollowUpLists
             readiness={readiness}
             onSelect={openDetail}
-            reloadKey={reloadKey}
+            reloadKey={reloadKeys.followups}
             onChanged={reload}
             canEdit={canSendMessages}
           />
@@ -381,20 +495,20 @@ export default function MembersPage() {
           <TrialActionLists
             readiness={readiness}
             onSelect={openDetail}
-            reloadKey={reloadKey}
+            reloadKey={reloadKeys.trials}
           />
         ) : view === 'payments' ? (
           <PaymentsTable
             readiness={readiness}
             onSelect={openDetail}
-            reloadKey={reloadKey}
+            reloadKey={reloadKeys.payments}
             onChanged={reload}
           />
         ) : view === 'retention' ? (
           <InactiveActionLists
             readiness={readiness}
             onSelect={openDetail}
-            reloadKey={reloadKey}
+            reloadKey={reloadKeys.retention}
           />
         ) : view === 'all' ? (
           <MembersTable
@@ -403,13 +517,13 @@ export default function MembersPage() {
             onEdit={editFromDetail}
             onChanged={reload}
             canEdit={canSendMessages}
-            reloadKey={reloadKey}
+            reloadKey={reloadKeys.all}
             onRegisterExport={registerExport}
           />
         ) : (
           <AttendanceView
             readiness={readiness}
-            reloadKey={reloadKey}
+            reloadKey={reloadKeys.attendance}
             onAttendanceChanged={reload}
             onSelect={openDetail}
           />
@@ -454,7 +568,8 @@ export default function MembersPage() {
           membershipId={detailId}
           contactId={detailContactId}
           open={detailOpen}
-          reloadKey={reloadKey}
+          reloadKey={detailReloadKey}
+          followUpReloadKey={detailFollowUpReloadKey}
           onOpenChange={changeDetailOpen}
           readiness={readiness}
           onChanged={reload}
