@@ -264,6 +264,10 @@ Profile follow-up cards read their task-type glyph from the `TASK_ICON` map expo
 
 Every table header label uses the muted neutral foreground owned by `TableHead` (`src/components/ui/table.tsx`). Do not restore foreground text or repeat `text-muted-foreground` at a call-site; consumers control only layout such as alignment, width, padding, and responsive visibility.
 
+### Table loading
+
+Async tables keep their real header, column widths, horizontal overflow, and sticky-column geometry visible while data loads. Use `TableSkeletonRows` when the table shell already renders, or `TableSkeleton` when the whole table is the loading boundary; both live in `src/components/table/table-skeleton.tsx`. Choose cell variants by the content being reserved (`identity`, `stacked`, `badge`, `checkbox`, `actions`, or plain `text`) and keep responsive visibility classes in the column config. Do not replace a table with a centred spinner or a single grey rectangle: both hide the destination structure and create a larger layout shift when rows arrive. Skeleton rows are presentation-only; the table exposes one concise loading status and never announces each placeholder cell.
+
 ### Product terminology and column labels
 
 Visible product vocabulary is a shared interface contract. The same data concept keeps the exact same label across pages, tabs, tables, sort menus, column menus, filters, exports, and empty states. Never rename a familiar column to make one section sound more contextual.

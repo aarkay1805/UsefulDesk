@@ -6,7 +6,10 @@ import { GymMetrics } from '@/components/dashboard/gym-metrics';
 import { NeedsAttentionCard } from '@/components/dashboard/needs-attention-card';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { UncontactedLeads } from '@/components/dashboard/uncontacted-leads';
-import { DashboardActionSectionStream } from '@/components/dashboard/dashboard-streaming';
+import {
+  DashboardActionSectionStream,
+  loadDashboardActionSnapshotForRequest,
+} from '@/components/dashboard/dashboard-streaming';
 
 // One heading level for the page. Each block owns its own section and heading,
 // so the page reads as a flat list of work rather than through grouping
@@ -18,9 +21,14 @@ import { DashboardActionSectionStream } from '@/components/dashboard/dashboard-s
 // chip), then the two queues that have no follow-up yet, then the exceptions
 // no queue owns.
 export default function DashboardPage() {
+  const actionSnapshot = loadDashboardActionSnapshotForRequest();
+
   return (
     <div className="space-y-8">
-      <DashboardActionSectionStream section="gymMetrics">
+      <DashboardActionSectionStream
+        snapshot={actionSnapshot}
+        section="gymMetrics"
+      >
         <GymMetrics />
       </DashboardActionSectionStream>
 
@@ -28,22 +36,34 @@ export default function DashboardPage() {
         <QuickActions />
       </DashboardSection>
 
-      <DashboardActionSectionStream section="followUps">
+      <DashboardActionSectionStream
+        snapshot={actionSnapshot}
+        section="followUps"
+      >
         <FollowUpQueue />
       </DashboardActionSectionStream>
 
       {/* Two peer sections sharing a row — each keeps its own heading and card
           rather than being clubbed under a wrapper heading. */}
       <div className="grid grid-cols-1 gap-x-4 gap-y-8 lg:grid-cols-2">
-        <DashboardActionSectionStream section="expiringMemberships">
+        <DashboardActionSectionStream
+          snapshot={actionSnapshot}
+          section="expiringMemberships"
+        >
           <ExpiringMemberships />
         </DashboardActionSectionStream>
-        <DashboardActionSectionStream section="uncontactedLeads">
+        <DashboardActionSectionStream
+          snapshot={actionSnapshot}
+          section="uncontactedLeads"
+        >
           <UncontactedLeads />
         </DashboardActionSectionStream>
       </div>
 
-      <DashboardActionSectionStream section="attention">
+      <DashboardActionSectionStream
+        snapshot={actionSnapshot}
+        section="attention"
+      >
         <NeedsAttentionCard />
       </DashboardActionSectionStream>
 

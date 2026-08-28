@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Plus, ShoppingBag } from 'lucide-react';
+import { Plus, ShoppingBag } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useLocale } from '@/hooks/use-locale';
@@ -29,6 +29,7 @@ import { financeInvoiceReference } from '@/lib/finance/invoices';
 import { MemberServiceStatusBadge } from './membership-status-badge';
 import { MemberForm } from './member-form';
 import { ProductServiceSaleDialog } from './product-service-sale-dialog';
+import { TableSkeleton } from '@/components/table/table-skeleton';
 
 export const SERVICE_CUSTOMER_SECTIONS = [
   'products',
@@ -147,8 +148,44 @@ export function ServiceCustomerDetailView({
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
             {loading && !contact ? (
-              <div className="text-muted-foreground flex items-center gap-2 py-12 text-sm">
-                <Loader2 className="size-4 animate-spin" /> Loading customer…
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Products &amp; services</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <TableSkeleton
+                      label="Loading customer services"
+                      rows={4}
+                      columns={[
+                        { label: 'Service', variant: 'stacked' },
+                        { label: 'Dates' },
+                        { label: 'Status', variant: 'badge' },
+                        {
+                          label: 'Price',
+                          headClassName: 'text-right',
+                        },
+                      ]}
+                    />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Billing</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <TableSkeleton
+                      label="Loading customer billing"
+                      rows={4}
+                      columns={[
+                        { label: 'Invoice', variant: 'stacked' },
+                        { label: 'Issued' },
+                        { label: 'Total', headClassName: 'text-right' },
+                        { label: 'Due', headClassName: 'text-right' },
+                      ]}
+                    />
+                  </CardContent>
+                </Card>
               </div>
             ) : error ? (
               <p className="text-destructive py-12 text-sm">{error}</p>

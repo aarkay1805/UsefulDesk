@@ -10,7 +10,6 @@ import {
   CircleCheck,
   ClipboardCheck,
   ListChecks,
-  Loader2,
   Settings,
   X,
 } from 'lucide-react';
@@ -66,6 +65,10 @@ import {
   type ColumnFilterProp,
   type SortDir,
 } from '@/components/table/column-header';
+import {
+  TableSkeleton,
+  type TableSkeletonCellVariant,
+} from '@/components/table/table-skeleton';
 import { MemberIdentity } from './member-identity';
 import { buildMemberAvatarPreview } from './member-avatar-quick-view';
 import {
@@ -798,8 +801,35 @@ export function FollowUpLists({
         </Collapse>
 
         {loading && rows.length === 0 ? (
-          <div className="text-muted-foreground flex items-center gap-2 px-3 py-10 text-sm">
-            <Loader2 className="size-4 animate-spin" /> Loading follow-ups…
+          <div className="min-w-0">
+            <TableSkeleton
+              className="table-fixed"
+              style={{ minWidth: totalWidth }}
+              label="Loading follow-ups"
+              rows={8}
+              columns={[
+                {
+                  label: '',
+                  variant: 'checkbox',
+                  width: CHECKBOX_COL_WIDTH,
+                  headClassName: 'px-0',
+                  cellClassName: 'px-0',
+                },
+                ...visibleColumns.map((column) => ({
+                  label: column.label,
+                  variant: (column.key === 'customer'
+                    ? 'identity'
+                    : column.key === 'notes'
+                      ? 'stacked'
+                      : column.key === 'actions'
+                        ? 'actions'
+                        : 'text') as TableSkeletonCellVariant,
+                  width: widthOf(column),
+                  headClassName:
+                    column.key === 'actions' ? 'text-right' : 'relative',
+                })),
+              ]}
+            />
           </div>
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">

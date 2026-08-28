@@ -35,6 +35,7 @@ import { VoidExpenseDialog } from '@/components/finance/void-expense-dialog';
 import { LeadsSort, type SortState } from '@/components/leads/leads-sort';
 import { useAccountStaff } from '@/components/members/use-account-staff';
 import { ColumnHeader } from '@/components/table/column-header';
+import { TableSkeleton } from '@/components/table/table-skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -876,7 +877,28 @@ function FinanceExpensesSkeleton() {
         <Skeleton className="h-80 rounded-xl" />
       </div>
       <Skeleton className="h-10 w-full max-w-4xl" />
-      <Skeleton className="h-80 rounded-lg" />
+      <div className="border-border overflow-hidden rounded-lg border">
+        <TableSkeleton
+          className="min-w-[1320px] table-fixed"
+          label="Loading expenses"
+          rows={7}
+          columns={[
+            { label: 'Date' },
+            { label: 'Description', variant: 'stacked' },
+            { label: 'Category' },
+            { label: 'Payment method' },
+            { label: 'Amount' },
+            { label: 'Recorded by', variant: 'identity' },
+            { label: 'Receipt' },
+            { label: 'Status', variant: 'badge' },
+            {
+              label: 'Actions',
+              variant: 'actions',
+              headClassName: 'text-right',
+            },
+          ]}
+        />
+      </div>
     </div>
   );
 }

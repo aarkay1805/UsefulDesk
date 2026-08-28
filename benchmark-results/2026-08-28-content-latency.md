@@ -37,3 +37,53 @@ Dashboard server-stage timings on the slow streamed requests confirmed that the 
 - Dashboard first live section: 30.6, 752.0, 28.2, 1,110.5, 331.7, 777.5, 29.8, 33.1, 757.6, 38.5
 - Dashboard Today at a glance: 30.6, 1,657.7, 28.2, 2,098.6, 331.7, 1,697.1, 29.8, 33.1, 1,719.2, 38.5
 - Dashboard all five sections: 30.6, 2,584.7, 28.2, 3,072.5, 331.7, 2,854.7, 29.8, 33.1, 2,757.8, 38.5
+
+## Follow-up action-snapshot database evidence
+
+The next bounded slice replaces the maximum 12-request server action stage
+(gym metrics 4, follow-ups and preview staff 3, expiring memberships 2,
+uncontacted leads 2, attention 1) with one `dashboard_action_snapshot` RPC.
+The five former `section.*` timing labels become one identifier-free
+`actions.snapshot` stage. This is an 11-request / 91.67% reduction. Existing
+server hydration still makes zero initial browser action requests; mutation
+refresh still makes one private/no-store request and follow-up filter changes
+make none. The earlier historical 14-to-1 browser consolidation is preserved.
+
+The connector-applied function was probed under a real authenticated branch
+member with viewer authorization and the selected-branch request header on
+both databases. Each returned all five JSON sections with an empty error array;
+RLS exposed one contact account and it matched only the requested branch.
+Metadata confirmed stable `SECURITY INVOKER`, authenticated execute, and no
+anon, service-role, or public execute grant. `EXPLAIN (ANALYZE, BUFFERS, FORMAT
+JSON)` returned one `Result` row, zero reads, writes, or temporary blocks, and
+completed in 126.660 ms on Production (4,578 shared hits) and 122.191 ms on Test
+(4,597 shared hits). Supabase advisors reported zero findings whose metadata or
+detail referenced `dashboard_action_snapshot`; existing unrelated project
+advisories were not changed or claimed as clean.
+
+## Hosted preview region comparison
+
+Two dirty-working-tree Vercel previews were measured with the same authenticated
+account, selected branch, in-app Chromium tab, and ten warm Members-to-Dashboard
+sidebar transitions. The first used Vercel's default `iad1` function region;
+the second used the repository's explicit `sin1` region beside both Singapore
+Supabase projects. These hosted numbers are comparable with each other, not with
+the earlier locally served production build above.
+
+| Hosted marker             | `iad1` median | `sin1` median |           Change | `iad1` p90 | `sin1` p90 |
+| ------------------------- | ------------: | ------------: | ---------------: | ---------: | ---------: |
+| Quick-actions shell       |    3,204.5 ms |    3,203.5 ms | effectively flat |   3,208 ms |   3,212 ms |
+| All five action sections  |    4,487.5 ms |    3,203.5 ms |     28.6% faster |   4,824 ms |   3,212 ms |
+| Server `auth.user`        |      279.5 ms |         65 ms |     76.7% faster |     364 ms |     134 ms |
+| Server `auth.bootstrap`   |      1,404 ms |      127.5 ms |     90.9% faster |   1,680 ms |     181 ms |
+| Server `actions.snapshot` |    2,073.5 ms |    1,793.5 ms |     13.5% faster |   2,409 ms |   2,002 ms |
+
+The browser made zero `/api/dashboard/actions` requests during every initial
+transition and zero while switching the All/Leads filter in both previews. The
+Singapore run's all-action samples were 3,201, 3,211, 3,212, 3,216, 3,200,
+3,209, 3,204, 3,203, 3,195, and 3,197 ms. Region placement removed the action
+sections' median 1,283 ms catch-up behind the shell, but the snapshot remains
+the slowest measured server stage. Its remaining 1.79 s median versus the
+122–127 ms direct database plans identifies authenticated PostgREST/RLS RPC
+execution as the next bounded investigation; this change does not claim that
+work is solved.

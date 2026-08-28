@@ -32,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { TableSkeletonRows } from '@/components/table/table-skeleton';
 
 interface OrganizationBranchSummary {
   accountId: string;
@@ -231,36 +232,50 @@ export function OrganizationReportsView({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {report?.branches.map((branch) => (
-                <TableRow key={branch.accountId}>
-                  <TableCell>
-                    <Link
-                      href={branchHref(
-                        financeHref('performance', month),
-                        branch.accountId
+              {loading ? (
+                <TableSkeletonRows
+                  label="Loading branch breakdown"
+                  rows={6}
+                  columns={[
+                    { variant: 'identity' },
+                    { variant: 'text' },
+                    { variant: 'text' },
+                    { variant: 'text' },
+                    { variant: 'text' },
+                  ]}
+                />
+              ) : (
+                report?.branches.map((branch) => (
+                  <TableRow key={branch.accountId}>
+                    <TableCell>
+                      <Link
+                        href={branchHref(
+                          financeHref('performance', month),
+                          branch.accountId
+                        )}
+                        className="text-primary-text inline-flex items-center gap-2 font-medium"
+                      >
+                        <Building2 className="size-4" />
+                        {branch.branchName}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{branch.legalEntityName}</TableCell>
+                    <TableCell className="tabular-nums">
+                      {formatCurrency(
+                        branch.revenue,
+                        branch.currency,
+                        locale.locale
                       )}
-                      className="text-primary-text inline-flex items-center gap-2 font-medium"
-                    >
-                      <Building2 className="size-4" />
-                      {branch.branchName}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{branch.legalEntityName}</TableCell>
-                  <TableCell className="tabular-nums">
-                    {formatCurrency(
-                      branch.revenue,
-                      branch.currency,
-                      locale.locale
-                    )}
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {fmt.number(branch.newMembers)}
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {fmt.number(branch.visits)}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      {fmt.number(branch.newMembers)}
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      {fmt.number(branch.visits)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

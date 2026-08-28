@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   CalendarClock,
   CircleAlert,
-  Loader2,
   MessageCircle,
   RefreshCw,
 } from 'lucide-react';
@@ -41,6 +40,7 @@ import {
 } from '@/components/ui/toolbar';
 import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
 import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
+import { TableSkeleton } from '@/components/table/table-skeleton';
 import { ProductServiceSaleDialog } from './product-service-sale-dialog';
 
 type ServiceQueueRow = Omit<MemberService, 'contact_id'> & {
@@ -289,9 +289,25 @@ export function ServiceRenewalActionLists({
           </Select>
         </div>
         {loading ? (
-          <div className="text-muted-foreground flex items-center gap-2 px-3 py-10 text-sm">
-            <Loader2 className="size-4 animate-spin" />
-            Loading service renewals…
+          <div className="overflow-x-auto">
+            <TableSkeleton
+              className="min-w-[940px]"
+              label="Loading service renewals"
+              rows={7}
+              columns={[
+                { label: 'Name', variant: 'identity' },
+                { label: 'Service' },
+                { label: 'Trainer' },
+                { label: 'Expiry' },
+                { label: 'Status', variant: 'badge' },
+                { label: 'Price' },
+                {
+                  label: 'Actions',
+                  variant: 'actions',
+                  headClassName: 'text-right',
+                },
+              ]}
+            />
           </div>
         ) : filtered.length === 0 ? (
           <p className="text-muted-foreground py-12 text-center text-sm">

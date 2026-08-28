@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Loader2, Wallet } from 'lucide-react';
+import { CheckCircle2, Wallet } from 'lucide-react';
 
 import { LeadsSort, type SortState } from '@/components/leads/leads-sort';
 import {
@@ -35,6 +35,10 @@ import { isChargeableAmount } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
 import type { Membership } from '@/types';
 import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
+import {
+  TableSkeleton,
+  type TableSkeletonCellVariant,
+} from '@/components/table/table-skeleton';
 import { MemberIdentity } from './member-identity';
 import { buildMemberAvatarPreview } from './member-avatar-quick-view';
 import {
@@ -360,10 +364,24 @@ export function PaymentsTable({
         </div>
 
         {dueLoading && dueRows.length === 0 ? (
-          <div className="text-muted-foreground flex items-center gap-2 px-3 py-10 text-sm">
-            <Loader2 className="size-4 animate-spin" />
-            Loading payment dues…
-          </div>
+          <TableSkeleton
+            className="min-w-[1040px] table-fixed"
+            label="Loading payment dues"
+            rows={8}
+            columns={DUE_COLUMNS.map((column) => ({
+              label: column.label,
+              width: column.width,
+              variant: (column.key === 'name'
+                ? 'identity'
+                : column.key === 'status'
+                  ? 'badge'
+                  : column.key === 'actions'
+                    ? 'actions'
+                    : 'text') as TableSkeletonCellVariant,
+              headClassName:
+                column.align === 'right' ? 'text-right' : undefined,
+            }))}
+          />
         ) : dueError ? (
           <div
             className="border-destructive/30 bg-destructive/10 text-destructive m-3 rounded-lg border px-3 py-3 text-sm"

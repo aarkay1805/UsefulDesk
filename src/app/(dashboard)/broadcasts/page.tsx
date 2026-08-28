@@ -14,7 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Radio, Plus, Loader2 } from 'lucide-react';
+import { TableSkeleton } from '@/components/table/table-skeleton';
+import { Radio, Plus } from 'lucide-react';
 import { useCan } from '@/hooks/use-can';
 import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { GatedButton } from '@/components/ui/gated-button';
@@ -153,8 +154,40 @@ export default function BroadcastsPage() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="text-primary-text h-6 w-6 animate-spin" />
+      <div className="border-border bg-card overflow-hidden rounded-xl border">
+        <TableSkeleton
+          label="Loading broadcasts"
+          rows={7}
+          columns={[
+            { label: 'Name', variant: 'stacked' },
+            {
+              label: 'Template',
+              headClassName: 'hidden md:table-cell',
+              cellClassName: 'hidden md:table-cell',
+            },
+            {
+              label: 'Recipients',
+              headClassName: 'hidden text-right sm:table-cell',
+              cellClassName: 'hidden sm:table-cell',
+            },
+            {
+              label: 'Delivery',
+              headClassName: 'hidden lg:table-cell',
+              cellClassName: 'hidden lg:table-cell',
+            },
+            {
+              label: 'Read',
+              headClassName: 'hidden lg:table-cell',
+              cellClassName: 'hidden lg:table-cell',
+            },
+            { label: 'Status', variant: 'badge' },
+            {
+              label: 'Date',
+              headClassName: 'hidden sm:table-cell',
+              cellClassName: 'hidden sm:table-cell',
+            },
+          ]}
+        />
       </div>
     );
   }

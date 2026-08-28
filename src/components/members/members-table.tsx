@@ -95,6 +95,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { LeadsSort, type SortState } from '@/components/leads/leads-sort';
+import {
+  TableSkeleton,
+  type TableSkeletonCellVariant,
+} from '@/components/table/table-skeleton';
 import { EditableCell } from '@/components/leads/editable-cell';
 import {
   AssigneeDisplay,
@@ -1627,8 +1631,65 @@ export function MembersTable({
         </Collapse>
 
         {loading && rows.length === 0 ? (
-          <div className="text-muted-foreground flex items-center gap-2 py-10 text-sm">
-            <Loader2 className="size-4 animate-spin" /> Loading members…
+          <div className="min-w-0">
+            <TableSkeleton
+              className="table-fixed"
+              style={{ minWidth: totalWidth }}
+              label="Loading members"
+              rows={9}
+              columns={[
+                {
+                  label: '',
+                  variant: 'checkbox',
+                  width: CHECKBOX_COL_WIDTH,
+                  headClassName: cn(
+                    'px-0',
+                    prefs.nameFrozen && 'bg-card sticky left-0 z-20'
+                  ),
+                  cellClassName: cn(
+                    'px-0',
+                    prefs.nameFrozen && 'bg-card-2 sticky left-0 z-10'
+                  ),
+                },
+                ...visibleColumns.map((col) => ({
+                  label: col.label,
+                  variant: (col.key === 'name'
+                    ? 'identity'
+                    : col.key === 'status'
+                      ? 'badge'
+                      : col.key === 'fee'
+                        ? 'stacked'
+                        : col.key === 'reminder'
+                          ? 'actions'
+                          : 'text') as TableSkeletonCellVariant,
+                  width: widthOf(col),
+                  headClassName: cn(
+                    col.align === 'right' && 'text-right',
+                    col.key === 'name' && prefs.nameFrozen
+                      ? 'bg-card sticky z-20'
+                      : 'relative'
+                  ),
+                  headStyle:
+                    col.key === 'name' && prefs.nameFrozen
+                      ? {
+                          position: 'sticky' as const,
+                          left: CHECKBOX_COL_WIDTH,
+                        }
+                      : undefined,
+                  cellClassName:
+                    col.key === 'name' && prefs.nameFrozen
+                      ? 'bg-card-2 sticky z-10'
+                      : undefined,
+                  cellStyle:
+                    col.key === 'name' && prefs.nameFrozen
+                      ? {
+                          position: 'sticky' as const,
+                          left: CHECKBOX_COL_WIDTH,
+                        }
+                      : undefined,
+                })),
+              ]}
+            />
           </div>
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">

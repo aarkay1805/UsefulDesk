@@ -1,11 +1,5 @@
 export type DashboardTimingStage =
-  | 'auth.user'
-  | 'auth.bootstrap'
-  | 'section.gymMetrics'
-  | 'section.followUps'
-  | 'section.expiringMemberships'
-  | 'section.uncontactedLeads'
-  | 'section.attention';
+  'auth.user' | 'auth.bootstrap' | 'actions.snapshot';
 
 /**
  * Record fixed-label server timing without tenant ids, user ids, query text,

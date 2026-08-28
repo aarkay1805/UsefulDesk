@@ -4,19 +4,25 @@ import { describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
   streamedSections: [] as string[],
+  snapshots: [] as Promise<unknown>[],
+  loadSnapshot: vi.fn(() => Promise.resolve({ errors: [] })),
 }));
 
 vi.mock('@/components/dashboard/dashboard-streaming', () => ({
   DashboardActionSectionStream: ({
+    snapshot,
     section,
     children,
   }: {
+    snapshot: Promise<unknown>;
     section: string;
     children: ReactNode;
   }) => {
     h.streamedSections.push(section);
+    h.snapshots.push(snapshot);
     return <div data-stream={section}>{children}</div>;
   },
+  loadDashboardActionSnapshotForRequest: h.loadSnapshot,
 }));
 
 vi.mock('@/components/dashboard/deferred-dashboard-insights', () => ({
@@ -49,6 +55,8 @@ const { default: DashboardPage } = await import('./page');
 describe('DashboardPage first response', () => {
   it('returns the page shell synchronously and gives every data group an independent stream', () => {
     h.streamedSections.length = 0;
+    h.snapshots.length = 0;
+    h.loadSnapshot.mockClear();
     const result = DashboardPage();
 
     expect(result).not.toBeInstanceOf(Promise);
@@ -62,5 +70,7 @@ describe('DashboardPage first response', () => {
     ]);
     expect(markup).toContain('data-stream="gymMetrics"');
     expect(markup).toContain('data-stream="attention"');
+    expect(h.loadSnapshot).toHaveBeenCalledOnce();
+    expect(new Set(h.snapshots).size).toBe(1);
   });
 });

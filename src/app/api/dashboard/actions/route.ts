@@ -28,7 +28,6 @@ export async function GET() {
     );
     const snapshot = await loadDashboardActionSnapshot(
       ctx.supabase,
-      ctx.accountId,
       dateContext
     );
     return json(snapshot);

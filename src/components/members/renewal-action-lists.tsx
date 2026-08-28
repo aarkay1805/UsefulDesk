@@ -55,6 +55,7 @@ import {
 } from './send-reminder-button';
 import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
 import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
+import { TableSkeleton } from '@/components/table/table-skeleton';
 import { RenewMembershipDialog } from './renew-membership-dialog';
 import { ServiceRenewalActionLists } from './service-renewal-action-lists';
 
@@ -465,8 +466,25 @@ function RenewalTable({
       </div>
 
       {loading ? (
-        <div className="text-muted-foreground flex items-center gap-2 px-3 py-10 text-sm">
-          <Loader2 className="size-4 animate-spin" /> Loading renewals…
+        <div className="min-w-0">
+          <TableSkeleton
+            className="min-w-[900px] table-fixed"
+            label="Loading renewals"
+            rows={7}
+            columns={[
+              { label: 'Name', variant: 'identity', width: 190 },
+              { label: 'Plan', width: 105 },
+              { label: 'Expiry', width: 110 },
+              { label: 'Status', variant: 'badge', width: 125 },
+              { label: 'Fee', variant: 'stacked', width: 120 },
+              {
+                label: 'Actions',
+                variant: 'actions',
+                width: 250,
+                headClassName: 'text-right',
+              },
+            ]}
+          />
         </div>
       ) : loadError && rows.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-12 text-center">

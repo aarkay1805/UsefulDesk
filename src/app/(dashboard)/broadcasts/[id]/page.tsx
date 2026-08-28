@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { TableSkeleton } from '@/components/table/table-skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +23,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   ArrowLeft,
-  Loader2,
   Users,
   Send,
   CheckCheck,
@@ -252,8 +252,20 @@ export default function BroadcastDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="text-primary-text h-6 w-6 animate-spin" />
+      <div className="border-border bg-card overflow-hidden rounded-xl border">
+        <TableSkeleton
+          label="Loading broadcast recipients"
+          rows={7}
+          columns={[
+            { label: 'Contact', variant: 'identity' },
+            { label: 'Phone' },
+            { label: 'Status', variant: 'badge' },
+            { label: 'Sent' },
+            { label: 'Delivered' },
+            { label: 'Read' },
+            { label: 'Error' },
+          ]}
+        />
       </div>
     );
   }

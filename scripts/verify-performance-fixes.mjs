@@ -154,7 +154,12 @@ function verifySource() {
   requireText(dashboardStreaming, '<Suspense', 'dashboard streaming');
   requireText(
     dashboardStreaming,
-    'loadDashboardActionSection',
+    'loadDashboardActionSnapshotForRequest',
+    'dashboard streaming'
+  );
+  requireText(
+    dashboardStreaming,
+    'selectDashboardActionSection',
     'dashboard streaming'
   );
   requireText(dashboardStreaming, 'autoLoad={false}', 'dashboard streaming');
@@ -167,12 +172,17 @@ function verifySource() {
   );
   requireText(
     dashboardSnapshot,
-    'loadDashboardActionAttention',
+    "db.rpc('dashboard_action_snapshot'",
     'dashboard action snapshot'
   );
   forbidText(
     dashboardSnapshot,
     'loadOwnerAttention',
+    'dashboard action snapshot'
+  );
+  forbidText(
+    dashboardSnapshot,
+    'loadDashboardActionSection',
     'dashboard action snapshot'
   );
 

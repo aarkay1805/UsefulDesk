@@ -5,38 +5,44 @@ import {
   requireDashboardAccountContext,
 } from '@/lib/auth/dashboard-request-context';
 import {
-  loadDashboardActionSection,
+  loadDashboardActionSnapshot,
+  selectDashboardActionSection,
   type DashboardActionSection,
+  type DashboardActionSnapshot,
 } from '@/lib/dashboard/action-snapshot';
 import { DashboardActionsProvider } from './dashboard-actions';
 
+/** Start the selected-branch action read once per dashboard request. */
+export async function loadDashboardActionSnapshotForRequest() {
+  const requestContext = await getDashboardRequestContext();
+  const account = requireDashboardAccountContext(requestContext);
+  return loadDashboardActionSnapshot(account.supabase, account.dateContext);
+}
+
 export async function DashboardActionSectionData({
+  snapshot,
   section,
   children,
 }: {
+  snapshot: Promise<DashboardActionSnapshot>;
   section: DashboardActionSection;
   children: ReactNode;
 }) {
-  const requestContext = await getDashboardRequestContext();
-  const account = requireDashboardAccountContext(requestContext);
-  const snapshot = await loadDashboardActionSection(
-    account.supabase,
-    account.accountId,
-    account.dateContext,
-    section
-  );
+  const sectionSnapshot = selectDashboardActionSection(await snapshot, section);
 
   return (
-    <DashboardActionsProvider initialSnapshot={snapshot}>
+    <DashboardActionsProvider initialSnapshot={sectionSnapshot}>
       {children}
     </DashboardActionsProvider>
   );
 }
 
 export function DashboardActionSectionStream({
+  snapshot,
   section,
   children,
 }: {
+  snapshot: Promise<DashboardActionSnapshot>;
   section: DashboardActionSection;
   children: ReactNode;
 }) {
@@ -48,7 +54,7 @@ export function DashboardActionSectionStream({
         </DashboardActionsProvider>
       }
     >
-      <DashboardActionSectionData section={section}>
+      <DashboardActionSectionData snapshot={snapshot} section={section}>
         {children}
       </DashboardActionSectionData>
     </Suspense>

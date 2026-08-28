@@ -17,6 +17,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RenewalActionLists } from '@/components/members/renewal-action-lists';
 import { useReminderReadiness } from '@/components/members/send-reminder-button';
+import { TableSkeleton } from '@/components/table/table-skeleton';
 
 function MembersViewLoading() {
   return (
@@ -29,12 +30,36 @@ function MembersViewLoading() {
   );
 }
 
+function MembersTableViewLoading() {
+  return (
+    <TableSkeleton
+      className="min-w-[900px] table-fixed"
+      label="Loading member table"
+      rows={8}
+      columns={[
+        { label: '', variant: 'checkbox', width: 40 },
+        { label: 'Name', variant: 'identity', width: 220 },
+        { label: 'Member ID', width: 120 },
+        { label: 'Plan', width: 150 },
+        { label: 'Expiry', width: 130 },
+        { label: 'Status', variant: 'badge', width: 140 },
+        {
+          label: 'Actions',
+          variant: 'actions',
+          width: 240,
+          headClassName: 'text-right',
+        },
+      ]}
+    />
+  );
+}
+
 const FollowUpLists = dynamic(
   () =>
     import('@/components/members/follow-up-lists').then(
       (module) => module.FollowUpLists
     ),
-  { loading: MembersViewLoading }
+  { loading: MembersTableViewLoading }
 );
 const TrialActionLists = dynamic(
   () =>
@@ -55,7 +80,7 @@ const MembersTable = dynamic(
     import('@/components/members/members-table').then(
       (module) => module.MembersTable
     ),
-  { loading: MembersViewLoading }
+  { loading: MembersTableViewLoading }
 );
 const MemberForm = dynamic(() =>
   import('@/components/members/member-form').then((module) => module.MemberForm)
@@ -75,7 +100,7 @@ const AttendanceView = dynamic(
     import('@/components/members/attendance-view').then(
       (module) => module.AttendanceView
     ),
-  { loading: MembersViewLoading }
+  { loading: MembersTableViewLoading }
 );
 const PaymentSummaryTiles = dynamic(
   () =>
@@ -89,7 +114,7 @@ const PaymentsTable = dynamic(
     import('@/components/members/payments-table').then(
       (module) => module.PaymentsTable
     ),
-  { loading: MembersViewLoading }
+  { loading: MembersTableViewLoading }
 );
 
 type View =

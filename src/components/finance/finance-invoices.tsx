@@ -25,6 +25,7 @@ import {
 import { RecordInvoicePaymentDialog } from '@/components/finance/record-invoice-payment-dialog';
 import { VoidInvoicePaymentDialog } from '@/components/finance/void-invoice-payment-dialog';
 import { ColumnHeader } from '@/components/table/column-header';
+import { TableSkeleton } from '@/components/table/table-skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -816,7 +817,26 @@ function FinanceInvoicesSkeleton() {
         ))}
       </div>
       <Skeleton className="h-8 w-full max-w-4xl" />
-      <Skeleton className="h-[28rem] w-full" />
+      <div className="border-border overflow-hidden rounded-lg border">
+        <TableSkeleton
+          className="table-fixed"
+          label="Loading invoices"
+          rows={8}
+          columns={[
+            { label: 'Invoice', variant: 'stacked' },
+            { label: 'Name', variant: 'identity' },
+            { label: 'Membership', variant: 'stacked' },
+            { label: 'Status', variant: 'badge' },
+            { label: 'Total' },
+            { label: 'Balance' },
+            {
+              label: 'Actions',
+              variant: 'actions',
+              headClassName: 'text-right',
+            },
+          ]}
+        />
+      </div>
     </div>
   );
 }

@@ -21,7 +21,8 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, ArrowUpRight, Loader2 } from 'lucide-react';
+import { TableSkeleton } from '@/components/table/table-skeleton';
+import { MessageSquare, ArrowUpRight } from 'lucide-react';
 
 interface MemberCommunicationProps {
   /** The member's contact id — the join key to their conversation. */
@@ -188,8 +189,22 @@ export function MemberCommunication({
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="text-muted-foreground flex items-center justify-center py-10">
-            <Loader2 className="size-5 animate-spin" />
+          <div className="border-border overflow-hidden rounded-lg border">
+            <TableSkeleton
+              label="Loading communication history"
+              rows={5}
+              columns={[
+                { label: 'Type', variant: 'stacked' },
+                { label: 'Channel', variant: 'badge' },
+                { label: 'Subject' },
+                {
+                  label: 'Status',
+                  variant: 'badge',
+                  headClassName: 'text-right',
+                  cellClassName: '[&>div]:ml-auto',
+                },
+              ]}
+            />
           </div>
         ) : rows.length === 0 ? (
           <div className="text-muted-foreground flex flex-col items-center gap-2 py-10 text-center">

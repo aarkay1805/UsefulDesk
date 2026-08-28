@@ -56,7 +56,7 @@ describe('GET /api/dashboard/actions', () => {
     );
     expect(h.getCurrentAccount).toHaveBeenCalledOnce();
     expect(h.loadDateContext).toHaveBeenCalledWith(db, 'account-1');
-    expect(h.loadSnapshot).toHaveBeenCalledWith(db, 'account-1', dateContext);
+    expect(h.loadSnapshot).toHaveBeenCalledWith(db, dateContext);
     expect(h.getCurrentAccount.mock.invocationCallOrder[0]).toBeLessThan(
       h.loadDateContext.mock.invocationCallOrder[0]
     );

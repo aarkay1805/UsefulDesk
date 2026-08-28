@@ -27,6 +27,7 @@ import { SourceIcon } from '@/components/leads/source-icon';
 import { useAccountStaff } from '@/components/members/use-account-staff';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { Skeleton, SkeletonCard } from '@/components/dashboard/skeleton';
+import { TableSkeleton } from '@/components/table/table-skeleton';
 import { EmptyState } from '@/components/dashboard/empty-state';
 import { FinanceAdPerformanceCard } from '@/components/finance/finance-ad-performance';
 import { BusinessMonthNavigator } from '@/components/finance/finance-month-actions';
@@ -622,7 +623,24 @@ function ReportBodySkeleton() {
       <Skeleton className="h-96" />
       <div className="grid gap-4 xl:grid-cols-5">
         <Skeleton className="h-96 xl:col-span-3" />
-        <Skeleton className="h-96 xl:col-span-2" />
+        <div className="border-border bg-card overflow-hidden rounded-xl border xl:col-span-2">
+          <div className="border-border border-b px-4 py-4">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="mt-2 h-3 w-56 max-w-full" />
+          </div>
+          <TableSkeleton
+            className="min-w-[30rem] table-fixed"
+            label="Loading lead source performance"
+            rows={6}
+            columns={[
+              { label: 'Source', variant: 'identity' },
+              { label: 'Leads', headClassName: 'text-right' },
+              { label: 'Members', headClassName: 'text-right' },
+              { label: 'Revenue', headClassName: 'text-right' },
+              { label: 'Conversion', headClassName: 'text-right' },
+            ]}
+          />
+        </div>
       </div>
     </>
   );

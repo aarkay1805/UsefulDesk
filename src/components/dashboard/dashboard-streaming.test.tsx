@@ -9,7 +9,7 @@ const h = vi.hoisted(() => ({
       dateContext: { timeZone: 'Asia/Kolkata', today: '2026-08-28' },
     },
   },
-  loadSection: vi.fn(),
+  loadSnapshot: vi.fn(),
 }));
 
 vi.mock('@/lib/auth/dashboard-request-context', () => ({
@@ -18,9 +18,11 @@ vi.mock('@/lib/auth/dashboard-request-context', () => ({
     context.account,
 }));
 
-vi.mock('@/lib/dashboard/action-snapshot', () => ({
-  loadDashboardActionSection: h.loadSection,
-}));
+vi.mock('@/lib/dashboard/action-snapshot', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('@/lib/dashboard/action-snapshot')>();
+  return { ...original, loadDashboardActionSnapshot: h.loadSnapshot };
+});
 
 vi.mock('./dashboard-actions', () => ({
   DashboardActionsProvider: ({
@@ -36,27 +38,47 @@ vi.mock('./dashboard-actions', () => ({
   ),
 }));
 
-const { DashboardActionSectionData } = await import('./dashboard-streaming');
+const { DashboardActionSectionData, loadDashboardActionSnapshotForRequest } =
+  await import('./dashboard-streaming');
 
-describe('DashboardActionSectionData', () => {
-  it('loads only its own section through the selected-branch RLS client', async () => {
-    h.loadSection.mockResolvedValue({ errors: [] });
+const snapshot = {
+  today: '2026-08-28',
+  gymMetrics: null,
+  followUps: null,
+  expiringMemberships: { rows: [], total: 2 },
+  uncontactedLeads: null,
+  attention: null,
+  errors: ['expiringMemberships' as const],
+};
+
+describe('dashboard action streaming', () => {
+  it('starts one snapshot through the selected-branch RLS client', async () => {
+    h.loadSnapshot.mockResolvedValue(snapshot);
+
+    await expect(loadDashboardActionSnapshotForRequest()).resolves.toBe(
+      snapshot
+    );
+
+    expect(h.loadSnapshot).toHaveBeenCalledOnce();
+    expect(h.loadSnapshot).toHaveBeenCalledWith(
+      h.requestContext.account.supabase,
+      h.requestContext.account.dateContext
+    );
+  });
+
+  it('projects one shared promise into section-local provider state', async () => {
+    const shared = Promise.resolve(snapshot);
 
     const markup = renderToStaticMarkup(
       await DashboardActionSectionData({
-        section: 'followUps',
-        children: <div>Follow-up rows</div>,
+        snapshot: shared,
+        section: 'expiringMemberships',
+        children: <div>Expiring rows</div>,
       })
     );
 
-    expect(h.loadSection).toHaveBeenCalledOnce();
-    expect(h.loadSection).toHaveBeenCalledWith(
-      h.requestContext.account.supabase,
-      'account-1',
-      h.requestContext.account.dateContext,
-      'followUps'
-    );
-    expect(markup).toContain('Follow-up rows');
-    expect(markup).toContain('data-errors=""');
+    expect(h.loadSnapshot).not.toHaveBeenCalled();
+    expect(markup).toContain('Expiring rows');
+    expect(markup).toContain('data-errors="expiringMemberships"');
   });
 });

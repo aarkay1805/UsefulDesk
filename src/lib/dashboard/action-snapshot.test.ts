@@ -1,157 +1,93 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const h = vi.hoisted(() => ({
-  loadGymStats: vi.fn(),
-  loadFollowUps: vi.fn(),
-  loadActionAttention: vi.fn(),
-}));
-
-vi.mock('@/lib/memberships/stats', () => ({
-  loadGymStats: h.loadGymStats,
-}));
-vi.mock('./follow-ups', () => ({
-  loadDashboardFollowUpSnapshot: h.loadFollowUps,
-}));
-vi.mock('./action-attention', () => ({
-  loadDashboardActionAttention: h.loadActionAttention,
-}));
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   DASHBOARD_ACTION_LIST_LIMIT,
-  DASHBOARD_MESSAGE_PREVIEW_LIMIT,
   loadDashboardActionDateContext,
-  loadDashboardActionSection,
   loadDashboardActionSnapshot,
+  parseDashboardActionSnapshot,
+  selectDashboardActionSection,
 } from './action-snapshot';
-
-type QueryResult = {
-  data: unknown;
-  count?: number | null;
-  error: unknown;
-};
-
-type RecordedCall = [method: string, ...args: unknown[]];
-
-class RecordingQuery implements PromiseLike<QueryResult> {
-  calls: RecordedCall[] = [];
-
-  constructor(private readonly result: QueryResult) {}
-
-  private record(method: string, args: unknown[]) {
-    this.calls.push([method, ...args]);
-    return this;
-  }
-
-  select(...args: unknown[]) {
-    return this.record('select', args);
-  }
-
-  eq(...args: unknown[]) {
-    return this.record('eq', args);
-  }
-
-  is(...args: unknown[]) {
-    return this.record('is', args);
-  }
-
-  gte(...args: unknown[]) {
-    return this.record('gte', args);
-  }
-
-  lte(...args: unknown[]) {
-    return this.record('lte', args);
-  }
-
-  lt(...args: unknown[]) {
-    return this.record('lt', args);
-  }
-
-  in(...args: unknown[]) {
-    return this.record('in', args);
-  }
-
-  order(...args: unknown[]) {
-    return this.record('order', args);
-  }
-
-  limit(...args: unknown[]) {
-    return this.record('limit', args);
-  }
-
-  maybeSingle() {
-    this.calls.push(['maybeSingle']);
-    return Promise.resolve(this.result);
-  }
-
-  then<Resolved = QueryResult, Rejected = never>(
-    onFulfilled?:
-      ((value: QueryResult) => Resolved | PromiseLike<Resolved>) | null,
-    onRejected?: ((reason: unknown) => Rejected | PromiseLike<Rejected>) | null
-  ): PromiseLike<Resolved | Rejected> {
-    return Promise.resolve(this.result).then(onFulfilled, onRejected);
-  }
-}
-
-function actionDb(results: Record<string, QueryResult[]>) {
-  const queries: Record<string, RecordingQuery[]> = {};
-  const db = {
-    from(table: string) {
-      const tableQueries = (queries[table] ??= []);
-      const result = results[table]?.[tableQueries.length];
-      if (!result) throw new Error(`Unexpected ${table} query`);
-      const query = new RecordingQuery(result);
-      tableQueries.push(query);
-      return query;
-    },
-  } as unknown as SupabaseClient;
-  return { db, queries };
-}
-
-function membership(id: string, endDate: string) {
-  return {
-    id,
-    end_date: endDate,
-    contact: { name: id, phone: null, avatar_url: null },
-    plan: { name: 'Monthly', plan_type: 'recurring' },
-  };
-}
-
-function staleLead(index: number) {
-  return {
-    id: `lead-${index}`,
-    name: `Lead ${index}`,
-    avatar_url: null,
-    created_at: '2026-08-20T00:00:00.000Z',
-  };
-}
 
 const context = { timeZone: 'Asia/Kolkata', today: '2026-08-27' };
 
-describe('dashboard action snapshot', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    h.loadGymStats.mockResolvedValue({ expiring7: 2 });
-    h.loadFollowUps.mockResolvedValue({
-      counts: { all: 2, lead: 1, member: 1 },
-      rows: { all: [], lead: [], member: [] },
-      staff: [],
-    });
-    h.loadActionAttention.mockResolvedValue({
-      churnRisk: 3,
-      trialFollowups: 2,
-      failedMandates: 1,
-    });
-  });
+function validPayload() {
+  const lead = {
+    id: 'follow-up-1',
+    contact_id: 'contact-1',
+    membership_id: null,
+    task_type: 'call',
+    reason: 'other',
+    due_date: '2026-08-27',
+    remind_at: null,
+    assigned_to: 'user-1',
+    note: null,
+    contact: { name: 'Lead One', phone: null, avatar_url: null },
+  };
+  return {
+    today: context.today,
+    gymMetrics: {
+      expiring7: 2,
+      feesDueCount: 3,
+      feesDueAmount: 4000,
+      collectedToday: 5000,
+      collectionDailyAverage7d: 4500,
+      missedVisitRisk: 1,
+      neverVisitedRisk: 1,
+    },
+    followUps: {
+      counts: { all: 1, lead: 1, member: 0 },
+      rows: { all: [lead], lead: [lead], member: [] },
+      staff: [{ user_id: 'user-1', full_name: 'Owner', avatar_url: null }],
+    },
+    expiringMemberships: {
+      total: 1,
+      rows: [
+        {
+          id: 'membership-1',
+          end_date: '2026-08-29',
+          contact: { name: 'Member One', phone: null, avatar_url: null },
+          plan: { name: 'Monthly', plan_type: 'recurring' },
+        },
+      ],
+    },
+    uncontactedLeads: {
+      total: 1,
+      rows: [
+        {
+          id: 'contact-2',
+          name: 'Lead Two',
+          avatarUrl: null,
+          messagePreview: 'No message yet',
+          waitingDays: 2,
+        },
+      ],
+    },
+    attention: { churnRisk: 3, trialFollowups: 2, failedMandates: 1 },
+    errors: [],
+  };
+}
 
-  it('derives today from the selected branch timezone', async () => {
-    const { db, queries } = actionDb({
-      accounts: [{ data: { timezone: 'America/New_York' }, error: null }],
+function rpcDb(result: { data: unknown; error: unknown }) {
+  const rpc = vi.fn().mockResolvedValue(result);
+  return { db: { rpc } as unknown as SupabaseClient, rpc };
+}
+
+afterEach(() => vi.restoreAllMocks());
+
+describe('dashboard action snapshot', () => {
+  it('derives today from the authorized selected branch timezone', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { timezone: 'America/New_York' },
+      error: null,
     });
+    const eq = vi.fn(() => ({ maybeSingle }));
+    const select = vi.fn(() => ({ eq }));
+    const from = vi.fn(() => ({ select }));
 
     await expect(
       loadDashboardActionDateContext(
-        db,
+        { from } as unknown as SupabaseClient,
         'account-1',
         new Date('2026-08-27T01:00:00.000Z')
       )
@@ -159,157 +95,76 @@ describe('dashboard action snapshot', () => {
       timeZone: 'America/New_York',
       today: '2026-08-26',
     });
-    expect(queries.accounts[0].calls).toContainEqual(['eq', 'id', 'account-1']);
+    expect(from).toHaveBeenCalledWith('accounts');
+    expect(eq).toHaveBeenCalledWith('id', 'account-1');
   });
 
-  it('bounds every row queue and preloads both follow-up scopes', async () => {
-    const legacy = Array.from({ length: 6 }, (_, index) =>
-      membership(`legacy-${index}`, `2026-08-${27 + (index % 2)}`)
-    );
-    const recurring = Array.from({ length: 6 }, (_, index) =>
-      membership(`recurring-${index}`, `2026-08-${27 + (index % 2)}`)
-    );
-    const contacts = Array.from({ length: 12 }, (_, index) => staleLead(index));
-    const conversations = contacts.slice(0, 8).map((lead) => ({
-      contact_id: lead.id,
-      last_message_text: 'x'.repeat(DASHBOARD_MESSAGE_PREVIEW_LIMIT + 40),
-    }));
-    const { db, queries } = actionDb({
-      memberships: [
-        { data: legacy, count: 6, error: null },
-        { data: recurring, count: 6, error: null },
-      ],
-      contacts: [{ data: contacts, count: 12, error: null }],
-      conversations: [{ data: conversations, error: null }],
-    });
-
-    const snapshot = await loadDashboardActionSnapshot(
-      db,
-      'account-1',
-      context,
-      new Date('2026-08-27T12:00:00.000Z')
-    );
-
-    expect(snapshot.expiringMemberships).toMatchObject({ total: 12 });
-    expect(snapshot.expiringMemberships?.rows).toHaveLength(
-      DASHBOARD_ACTION_LIST_LIMIT
-    );
-    expect(snapshot.uncontactedLeads).toMatchObject({ total: 12 });
-    expect(snapshot.uncontactedLeads?.rows).toHaveLength(
-      DASHBOARD_ACTION_LIST_LIMIT
-    );
-    expect(snapshot.uncontactedLeads?.rows[0]?.messagePreview.length).toBe(
-      DASHBOARD_MESSAGE_PREVIEW_LIMIT
-    );
-    expect(h.loadFollowUps).toHaveBeenCalledWith(
-      db,
-      'account-1',
-      DASHBOARD_ACTION_LIST_LIMIT
-    );
-    expect(queries.memberships).toHaveLength(2);
-    expect(queries.memberships[0].calls).toContainEqual([
-      'limit',
-      DASHBOARD_ACTION_LIST_LIMIT,
-    ]);
-    expect(queries.memberships[0].calls).toContainEqual([
-      'is',
-      'plan_id',
-      null,
-    ]);
-    expect(queries.memberships[1].calls).toContainEqual([
-      'limit',
-      DASHBOARD_ACTION_LIST_LIMIT,
-    ]);
-    expect(queries.memberships[1].calls).toContainEqual([
-      'eq',
-      'membership_plans.plan_type',
-      'recurring',
-    ]);
-    expect(queries.contacts[0].calls).toContainEqual([
-      'limit',
-      DASHBOARD_ACTION_LIST_LIMIT,
-    ]);
-    expect(queries.conversations[0].calls).toContainEqual([
-      'limit',
-      DASHBOARD_ACTION_LIST_LIMIT,
-    ]);
-  });
-
-  it('keeps successful sections when the expiring queue fails', async () => {
-    const expiringError = new Error('expiring unavailable');
-    const { db } = actionDb({
-      memberships: [
-        { data: null, count: null, error: expiringError },
-        { data: [], count: 0, error: null },
-      ],
-      contacts: [{ data: [], count: 0, error: null }],
-    });
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    const snapshot = await loadDashboardActionSnapshot(
-      db,
-      'account-1',
-      context,
-      new Date('2026-08-27T12:00:00.000Z')
-    );
-
-    expect(snapshot.gymMetrics).toEqual({ expiring7: 2 });
-    expect(snapshot.followUps).not.toBeNull();
-    expect(snapshot.expiringMemberships).toBeNull();
-    expect(snapshot.uncontactedLeads).toEqual({ rows: [], total: 0 });
-    expect(snapshot.attention).toEqual({
-      churnRisk: 3,
-      trialFollowups: 2,
-      failedMandates: 1,
-    });
-    expect(snapshot.errors).toEqual(['expiringMemberships']);
-    expect(errorSpy).toHaveBeenCalledOnce();
-  });
-
-  it('returns a section-local failure snapshot with fixed-label timing evidence', async () => {
-    h.loadGymStats.mockRejectedValue(new Error('private query detail'));
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('loads and validates all five bounded sections through exactly one RPC', async () => {
+    const { db, rpc } = rpcDb({ data: validPayload(), error: null });
+    const now = new Date('2026-08-27T12:00:00.000Z');
     const timingSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 
-    const snapshot = await loadDashboardActionSection(
-      {} as SupabaseClient,
-      'account-1',
-      context,
-      'gymMetrics'
+    const snapshot = await loadDashboardActionSnapshot(db, context, now);
+
+    expect(snapshot).toEqual(validPayload());
+    expect(rpc).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledWith('dashboard_action_snapshot', {
+      p_today: context.today,
+      p_time_zone: context.timeZone,
+      p_now: now.toISOString(),
+      p_limit: DASHBOARD_ACTION_LIST_LIMIT,
+    });
+    expect(timingSpy).toHaveBeenCalledWith('[dashboard timing]', {
+      stage: 'actions.snapshot',
+      status: 'ok',
+      durationMs: expect.any(Number),
+    });
+  });
+
+  it('turns malformed or unbounded section data into a section-local error', () => {
+    const payload = validPayload();
+    payload.expiringMemberships.rows = Array.from(
+      { length: DASHBOARD_ACTION_LIST_LIMIT + 1 },
+      () => payload.expiringMemberships.rows[0]
     );
 
-    expect(snapshot.gymMetrics).toBeNull();
-    expect(snapshot.errors).toEqual(['gymMetrics']);
+    const snapshot = parseDashboardActionSnapshot(payload);
+    const followUps = selectDashboardActionSection(snapshot, 'followUps');
+    const expiring = selectDashboardActionSection(
+      snapshot,
+      'expiringMemberships'
+    );
+
+    expect(snapshot.followUps).not.toBeNull();
+    expect(snapshot.expiringMemberships).toBeNull();
+    expect(snapshot.errors).toEqual(['expiringMemberships']);
+    expect(followUps.followUps?.staff[0]?.full_name).toBe('Owner');
+    expect(followUps.errors).toEqual([]);
+    expect(expiring.expiringMemberships).toBeNull();
+    expect(expiring.errors).toEqual(['expiringMemberships']);
+  });
+
+  it('returns fixed-label failures for all sections when the one RPC fails', async () => {
+    const { db } = rpcDb({ data: null, error: new Error('private detail') });
+    const timingSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const snapshot = await loadDashboardActionSnapshot(db, context);
+
+    expect(snapshot.errors).toEqual([
+      'gymMetrics',
+      'followUps',
+      'expiringMemberships',
+      'uncontactedLeads',
+      'attention',
+    ]);
     expect(timingSpy).toHaveBeenCalledWith('[dashboard timing]', {
-      stage: 'section.gymMetrics',
+      stage: 'actions.snapshot',
       status: 'error',
       durationMs: expect.any(Number),
     });
-    expect(JSON.stringify(timingSpy.mock.calls)).not.toContain('account-1');
     expect(JSON.stringify(timingSpy.mock.calls)).not.toContain(
-      'private query detail'
+      'private detail'
     );
-    expect(errorSpy).toHaveBeenCalledOnce();
-  });
-
-  it('passes the selected branch day to the narrow attention aggregate', async () => {
-    const snapshot = await loadDashboardActionSection(
-      {} as SupabaseClient,
-      'account-1',
-      context,
-      'attention'
-    );
-
-    expect(h.loadActionAttention).toHaveBeenCalledOnce();
-    expect(h.loadActionAttention).toHaveBeenCalledWith(
-      expect.anything(),
-      context.today
-    );
-    expect(snapshot.attention).toEqual({
-      churnRisk: 3,
-      trialFollowups: 2,
-      failedMandates: 1,
-    });
-    expect(snapshot.errors).toEqual([]);
   });
 });

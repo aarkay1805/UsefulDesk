@@ -6,6 +6,49 @@
 
 ---
 
+## Vercel functions now run beside Supabase
+
+Vercel functions are pinned to Singapore (`sin1`), matching both Supabase
+projects instead of using the Virginia default. In identical ten-run
+authenticated preview benchmarks, median all-action Dashboard readiness fell
+from 4,487.5 ms to 3,203.5 ms (28.6%) while the quick-actions shell stayed flat;
+median `auth.bootstrap` fell 90.9% and `actions.snapshot` fell 13.5%. Initial and
+follow-up-filter action API requests remained zero. Key code: `vercel.json` and
+`src/lib/deployment-region.test.ts`. Gotcha: the snapshot remains the slowest
+server stage at a 1,793.5 ms median, so region matching reduces network distance
+but does not replace the next RLS/PostgREST workload investigation.
+
+## Dashboard action data now crosses one database boundary
+
+The five server-hydrated action widgets now share one selected-branch
+`dashboard_action_snapshot` promise and one stable `SECURITY INVOKER` RPC,
+while retaining their existing Suspense/provider islands and section-local
+empty/error states. The maximum action data stage falls from 12 Supabase
+requests to one (11 fewer, 91.67%), and fixed server timing stages fall from
+five to `actions.snapshot`; the browser remains at zero initial requests, one
+private/no-store mutation refresh, and zero filter-change requests. Previews,
+assignee metadata, messages, account-timezone inputs, and payload parsing are
+bounded. Live authenticated selected-branch probes returned all five sections
+without errors, and one-row/no-temp-spill plans completed in 126.660 ms on
+Production and 122.191 ms on Test. Key code: `src/lib/dashboard/action-snapshot.ts`,
+`src/components/dashboard/dashboard-streaming.tsx`, and migration
+`20260828160000_dashboard_action_snapshot.sql`. Gotcha: PostgreSQL's `GREATEST`
+expression cannot be schema-qualified; the live pre-release probe caught and
+corrected that without weakening section failure isolation.
+
+## Tables now keep their structure while data loads
+
+Async data tables now share row-shaped skeletons that preserve real headers,
+column widths, responsive visibility, horizontal overflow, and sticky-column
+geometry instead of disappearing behind centred spinners or whole-table grey
+blocks. The pattern covers Leads, every Members data view, renewal and payment
+queues, Finance ledgers, broadcasts, organization/source reports, member
+communication, and service-customer billing. Key code:
+`src/components/table/table-skeleton.tsx`. Gotcha: use `TableSkeletonRows` inside
+an existing table shell and `TableSkeleton` only when the whole table is the
+loading boundary; do not announce individual placeholder cells to assistive
+technology.
+
 ## Needs attention no longer computes a full owner report
 
 The dashboard attention section now reads exactly its three rendered counts

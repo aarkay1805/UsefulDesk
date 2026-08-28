@@ -62,6 +62,10 @@ import {
 } from '@/lib/leads/field-options';
 import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
 import { EditFieldOptionsDialog } from '@/components/leads/edit-field-options-dialog';
+import {
+  TableSkeletonRows,
+  type TableSkeletonCellVariant,
+} from '@/components/table/table-skeleton';
 import { formatCustomFieldValue } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
 import { accountQualifiedPhoneDisplayValue } from '@/lib/phone-input';
@@ -3897,19 +3901,32 @@ export default function LeadsPage() {
                       </TableHeader>
                       <TableBody>
                         {loading ? (
-                          <TableRow className="border-border">
-                            <TableCell
-                              colSpan={totalCols}
-                              className="py-12 text-center"
-                            >
-                              <div className="flex flex-col items-center gap-2">
-                                <Loader2 className="text-primary-text size-6 animate-spin" />
-                                <p className="text-muted-foreground text-sm">
-                                  Loading leads...
-                                </p>
-                              </div>
-                            </TableCell>
-                          </TableRow>
+                          <TableSkeletonRows
+                            label="Loading leads"
+                            rows={9}
+                            columns={[
+                              {
+                                variant: 'checkbox',
+                                cellClassName: cn(
+                                  'px-0',
+                                  hasFrozen && 'bg-card sticky left-0 z-10'
+                                ),
+                              },
+                              ...arrangedColumns.map((col) => ({
+                                variant: (col.key === 'name'
+                                  ? 'identity'
+                                  : col.key === 'status' || col.key === 'tags'
+                                    ? 'badge'
+                                    : 'text') as TableSkeletonCellVariant,
+                                cellClassName: frozenKeySet.has(col.key)
+                                  ? 'bg-card-2 sticky z-10'
+                                  : undefined,
+                                cellStyle: frozenCellStyle(col.key),
+                              })),
+                              { variant: 'actions' },
+                              { variant: 'text' },
+                            ]}
+                          />
                         ) : contacts.length === 0 ? (
                           <TableRow className="border-border">
                             <TableCell

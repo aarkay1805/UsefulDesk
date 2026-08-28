@@ -30,6 +30,7 @@ import { memberMatchesSearch } from '@/lib/memberships/search';
 import { createClient } from '@/lib/supabase/client';
 import type { Attendance, AttendanceMethod, Membership } from '@/types';
 import { ColumnHeader, type SortDir } from '@/components/table/column-header';
+import { TableSkeletonRows } from '@/components/table/table-skeleton';
 import { AttendanceOverrideDialog } from './attendance-override-dialog';
 import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
 import { MemberIdentity } from './member-identity';
@@ -502,14 +503,17 @@ export function AttendanceView({
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={5} className="h-32 px-4 text-center">
-                  <span className="text-muted-foreground inline-flex items-center gap-2 text-sm">
-                    <Loader2 className="size-4 animate-spin" /> Loading
-                    attendance…
-                  </span>
-                </TableCell>
-              </TableRow>
+              <TableSkeletonRows
+                label="Loading attendance"
+                rows={7}
+                columns={[
+                  { variant: 'identity' },
+                  { variant: 'text' },
+                  { variant: 'text' },
+                  { variant: 'text' },
+                  { variant: 'actions' },
+                ]}
+              />
             ) : loadError ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={5} className="h-32 px-4 text-center">

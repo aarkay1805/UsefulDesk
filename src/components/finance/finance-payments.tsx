@@ -24,6 +24,7 @@ import { PaymentStatusBadge } from '@/components/members/membership-status-badge
 import { PaymentProofLink } from '@/components/members/payment-proof-link';
 import { useAccountStaff } from '@/components/members/use-account-staff';
 import { ColumnHeader } from '@/components/table/column-header';
+import { TableSkeleton } from '@/components/table/table-skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -683,7 +684,25 @@ function FinancePaymentsSkeleton() {
       </div>
       <Skeleton className="h-64 rounded-xl" />
       <Skeleton className="h-10 w-full max-w-4xl" />
-      <Skeleton className="h-80 rounded-lg" />
+      <div className="border-border overflow-hidden rounded-lg border">
+        <TableSkeleton
+          className="min-w-[1430px] table-fixed"
+          label="Loading payments"
+          rows={7}
+          columns={[
+            { label: 'Payment ID', variant: 'stacked' },
+            { label: 'Name', variant: 'identity' },
+            { label: 'Plan' },
+            { label: 'Paid on', variant: 'stacked' },
+            { label: 'Method' },
+            { label: 'Source' },
+            { label: 'Amount' },
+            { label: 'Status', variant: 'badge' },
+            { label: 'Recorded by', variant: 'identity' },
+            { label: 'Receipt' },
+          ]}
+        />
+      </div>
     </div>
   );
 }
